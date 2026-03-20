@@ -328,6 +328,7 @@ class ChatRequest(BaseModel):
     use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
     mode: Optional[str] = "text"  # Output mode: "text" or "json"
     files: Optional[List[FileInput]] = None
+    rhesis: Optional[dict] = None
 
     @field_validator("files", mode="before")
     @classmethod
@@ -368,6 +369,11 @@ def extract_file_content(file_input: FileInput) -> dict:
         "mode": "{{ mode | default('text') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
         "file_contents": "{{ file_contents | default(none) }}",
+        "rhesis": {
+            "test_id": "{{ test_id | default(none) }}",
+            "test_configuration_id": "{{ test_configuration_id | default(none) }}",
+            "test_run_id": "{{ test_run_id | default(none) }}",
+        },
     },
     response_mapping={
         "output": "{{ message }}",
@@ -384,6 +390,7 @@ async def chat(
     mode: str = "text",
     conversation_history: Optional[List[dict]] = None,
     file_contents: Optional[List[dict]] = None,
+    rhesis: Optional[dict] = None,
 ) -> ChatResponse:
     """
     Process a chat message and return structured response.
@@ -400,6 +407,8 @@ async def chat(
             the history is looked up from the in-memory session store.
         file_contents: Extracted file contents as list of dicts with
             'filename' and 'content' keys.
+        rhesis: Optional dict with test execution context
+            (test_id, test_run_id, test_configuration_id).
 
     Returns:
         ChatResponse with message, session_id, context, and metadata
@@ -422,6 +431,9 @@ async def chat(
     # the string "None" rather than Python None when no files are present.
     if not isinstance(file_contents, list):
         file_contents = None
+
+    if not isinstance(rhesis, dict):
+        rhesis = None
 
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
@@ -486,7 +498,12 @@ async def chat(
         message=response_message,
         session_id=session_id,
         context=context_fragments,
-        metadata={"use_case": use_case, "mode": mode, "intent": intent_result},
+        metadata={
+            "use_case": use_case,
+            "mode": mode,
+            "intent": intent_result,
+            "rhesis": rhesis,
+        },
         tool_calls=tool_calls,
     )
 
@@ -554,6 +571,7 @@ async def chat_endpoint(
             use_case=use_case,
             mode=chat_request.mode or "text",
             file_contents=file_contents,
+            rhesis=chat_request.rhesis,
         )
 
         logger.info(f"Response generated successfully - Length: {len(result.message)} chars")

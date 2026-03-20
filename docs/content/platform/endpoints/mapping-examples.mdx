@@ -339,6 +339,65 @@ from the request body before sending. See
 [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations) for
 details.
 
+## Test Execution Context
+
+Forward Rhesis test execution metadata to your target endpoint so it can store
+or log which test, test run, and test configuration triggered the request. The
+three variables `test_id`, `test_run_id`, and `test_configuration_id` are
+populated automatically during test runs. Outside of test execution (e.g., from
+the playground) they render as empty strings.
+
+These are standard template variables -- place them wherever your API expects
+them. There is no required structure; the examples below show a few common
+patterns.
+
+### Nested object
+
+Group the identifiers under a dedicated key:
+
+<CodeBlock filename="test-context-nested.json" language="json">
+  {`{
+  "message": "{{ input }}",
+  "tracking": {
+    "test_id": "{{ test_id }}",
+    "test_configuration_id": "{{ test_configuration_id }}",
+    "test_run_id": "{{ test_run_id }}"
+  }
+}`}
+</CodeBlock>
+
+### Flat fields
+
+Place them at the top level alongside other request fields:
+
+<CodeBlock filename="test-context-flat.json" language="json">
+  {`{
+  "prompt": "{{ input }}",
+  "test_id": "{{ test_id }}",
+  "test_run_id": "{{ test_run_id }}",
+  "test_configuration_id": "{{ test_configuration_id }}"
+}`}
+</CodeBlock>
+
+### Inside metadata
+
+Embed them in a metadata object your API already expects:
+
+<CodeBlock filename="test-context-metadata.json" language="json">
+  {`{
+  "message": "{{ input }}",
+  "metadata": {
+    "source": "rhesis",
+    "test_id": "{{ test_id }}",
+    "run_id": "{{ test_run_id }}"
+  }
+}`}
+</CodeBlock>
+
+The field names in your request body do not need to match the variable names.
+For example, you can map `test_run_id` to a field called `run_id` as shown
+above.
+
 ## Custom Business Fields
 
 For APIs that require domain-specific fields beyond the standard platform
