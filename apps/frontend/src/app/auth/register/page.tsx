@@ -1,181 +1,297 @@
 'use client';
 
-import {
-  Box,
-  Grid,
-  Paper,
-  AppBar,
-  Toolbar,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import Image from 'next/image';
 import LoginSection from '@/components/auth/LoginSection';
-import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
-import GroupAddIcon from '@mui/icons-material/GroupAddOutlined';
-import ControlCameraIcon from '@mui/icons-material/ControlCameraOutlined';
-import TuneIcon from '@mui/icons-material/TuneOutlined';
+import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 
 export default function RegisterPage() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-
   return (
-    <Grid container component="main" sx={{ height: '100vh' }}>
-      {/* Left side - Branding */}
-      <Grid
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: '#FFFFFF',
+        position: 'relative',
+        overflowX: 'hidden',
+      }}
+    >
+      <BackgroundDecoration />
+
+      {/* Top navigation */}
+      <Box
+        component="nav"
         sx={{
-          backgroundColor: 'primary.dark',
           position: 'relative',
+          zIndex: 10,
           display: 'flex',
-          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: { xs: 2.5, md: 5 },
+          py: 2.5,
         }}
-        size={{ xs: false, sm: 4, md: 7 }}
       >
-        <AppBar
-          position="relative"
-          color="transparent"
-          elevation={0}
-          sx={{ background: 'transparent', boxShadow: 'none' }}
-        >
-          <Toolbar>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Image
-                src="/logos/rhesis-logo-platypus.png"
-                alt="Rhesis AI Logo"
-                width={200}
-                height={0}
-                style={{ height: 'auto' }}
-                priority
-              />
-            </Box>
-          </Toolbar>
-        </AppBar>
         <Box
+          component="a"
+          href="/"
           sx={{
-            position: 'relative',
-            p: { xs: 3, md: 8 },
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            flex: 1,
+            alignItems: 'center',
+            gap: 1.5,
+            textDecoration: 'none',
           }}
         >
-          <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Box>
-              <Typography
-                variant="h6"
-                color="common.white"
-                fontWeight="bold"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '12px',
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}
+          >
+            <Image
+              src="/logos/rhesis-logo-favicon.svg"
+              alt="Rhesis AI"
+              width={44}
+              height={44}
+              priority
+            />
+          </Box>
+          <Typography
+            sx={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: '#1A1A1A',
+              letterSpacing: '-0.03em',
+              fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
+            }}
+          >
+            Rhesis AI
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'center',
+            gap: 3,
+          }}
+        >
+          {[
+            { label: 'Documentation', href: 'https://docs.rhesis.ai' },
+            { label: 'Blog', href: 'https://rhesis.ai/blog' },
+          ].map(link => (
+            <Typography
+              key={link.label}
+              component="a"
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: '#6B7280',
+                textDecoration: 'none',
+                transition: 'color 0.15s',
+                '&:hover': { color: '#1A1A1A' },
+              }}
+            >
+              {link.label}
+            </Typography>
+          ))}
+        </Box>
+      </Box>
+
+      {/* Main content */}
+      <Box
+        component="main"
+        sx={{
+          position: 'relative',
+          zIndex: 10,
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: { xs: 2, md: 3 },
+          py: { xs: 3, md: 2 },
+          pb: { xs: 5, md: 7.5 },
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: { xs: 6, md: 10 },
+            maxWidth: 1100,
+            width: '100%',
+            flexDirection: { xs: 'column', md: 'row' },
+          }}
+        >
+          {/* Left — hero copy */}
+          <Box
+            sx={{
+              flex: '1 1 50%',
+              maxWidth: 480,
+              textAlign: { xs: 'center', md: 'left' },
+            }}
+          >
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1.75,
+                py: 0.75,
+                borderRadius: '100px',
+                bgcolor: '#EBF7FC',
+                color: '#50B9E0',
+                fontSize: 13,
+                fontWeight: 600,
+                mb: 3.5,
+                border: '1px solid rgba(80,185,224,0.15)',
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#50B9E0"
+                strokeWidth="2.5"
               >
-                <CheckCircleIcon sx={{ color: 'common.white' }} /> Your
-                expertise, in every test.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="common.white"
-                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-              >
-                Transform business knowledge and expert input directly into
-                powerful, actionable test cases.
-              </Typography>
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              Full Testing Lifecycle
             </Box>
-            <Box>
-              <Typography
-                variant="h6"
-                color="common.white"
-                fontWeight="bold"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+
+            <Typography
+              sx={{
+                fontSize: { xs: 30, sm: 38, md: 48 },
+                fontWeight: 800,
+                lineHeight: 1.1,
+                color: '#1A1A1A',
+                letterSpacing: '-0.04em',
+                mb: 2.5,
+                fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
+              }}
+            >
+              The testing platform{' '}
+              <Box
+                component="br"
+                sx={{ display: { xs: 'none', md: 'block' } }}
+              />
+              for{' '}
+              <Box
+                component="span"
+                sx={{
+                  background:
+                    'linear-gradient(135deg, #50B9E0 0%, #3a9ec5 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
               >
-                <GroupAddIcon sx={{ color: 'common.white' }} /> Collaboration
-                built in.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="common.white"
-                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-              >
-                Bring subject matter experts into the loop — seamlessly
-                contribute, review, and refine tests together.
-              </Typography>
-            </Box>
-            <Box>
-              <Typography
-                variant="h6"
-                color="common.white"
-                fontWeight="bold"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-              >
-                <ControlCameraIcon sx={{ color: 'common.white' }} /> End-to-end
-                control.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="common.white"
-                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-              >
-                From test generation to execution to results, manage the entire
-                validation process in one place.
-              </Typography>
-            </Box>
-            <Box>
-              <Typography
-                variant="h6"
-                color="common.white"
-                fontWeight="bold"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-              >
-                <TuneIcon sx={{ color: 'common.white' }} /> Scale your
-                validation power.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="common.white"
-                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-              >
-                Automate, adapt, and expand test coverage effortlessly — no
-                matter how fast your use cases evolve.
-              </Typography>
+                AI teams.
+              </Box>
+            </Typography>
+
+            <Typography
+              sx={{
+                fontSize: { xs: 16, md: 18 },
+                lineHeight: 1.6,
+                color: '#6B7280',
+                mb: 5.5,
+                maxWidth: 420,
+                mx: { xs: 'auto', md: 0 },
+              }}
+            >
+              Bring engineers, PMs, and domain experts together to generate
+              tests, simulate (adversarial) conversations, and trace every
+              failure to its root cause.
+            </Typography>
+
+            <Box
+              sx={{
+                display: { xs: 'none', sm: 'flex' },
+                flexDirection: 'column',
+                gap: 2,
+                alignItems: { xs: 'center', md: 'flex-start' },
+              }}
+            >
+              {[
+                {
+                  color: '#50B9E0',
+                  text: 'Conversation simulation & red-teaming',
+                },
+                { color: '#FDD803', text: 'Collaborative test curation' },
+                { color: '#FD6E12', text: 'Traces, reviews & monitoring' },
+              ].map(feature => (
+                <Box
+                  key={feature.text}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.75,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      bgcolor: feature.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Typography
+                    sx={{
+                      fontSize: 15,
+                      fontWeight: 500,
+                      color: '#374151',
+                    }}
+                  >
+                    {feature.text}
+                  </Typography>
+                </Box>
+              ))}
             </Box>
           </Box>
-        </Box>
-      </Grid>
-      {/* Right side - Registration form */}
-      <Grid
-        component={Paper}
-        elevation={6}
-        square
-        size={{ xs: 12, sm: 8, md: 5 }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            p: { xs: 3, sm: 6, md: 8 },
-          }}
-        >
-          {isMobile && (
-            <Box sx={{ mb: 4 }}>
-              <Image
-                src="/logos/rhesis-logo-platypus.png"
-                alt="Rhesis AI Logo"
-                width={160}
-                height={0}
-                style={{ height: 'auto' }}
-                priority
-              />
-            </Box>
-          )}
-          <Box sx={{ width: '100%', maxWidth: 400 }}>
+
+          {/* Right — auth card */}
+          <Box
+            sx={{
+              flex: '0 0 auto',
+              width: { xs: '100%', sm: 420 },
+              maxWidth: 420,
+              bgcolor: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderRadius: { xs: '16px', sm: '20px' },
+              p: { xs: '32px 24px', sm: '44px 40px' },
+              boxShadow:
+                '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06), 0 24px 48px rgba(0,0,0,0.04)',
+            }}
+          >
             <LoginSection isRegistration />
           </Box>
         </Box>
-      </Grid>
-    </Grid>
+      </Box>
+
+      {/* Footer */}
+      <Box
+        component="footer"
+        sx={{
+          position: 'relative',
+          zIndex: 10,
+          textAlign: 'center',
+          py: 2.5,
+          fontSize: 12,
+          color: '#9CA3AF',
+        }}
+      >
+        © 2026 Rhesis AI
+      </Box>
+    </Box>
   );
 }

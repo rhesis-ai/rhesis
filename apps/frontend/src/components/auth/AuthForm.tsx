@@ -3,7 +3,6 @@
 import {
   Box,
   Typography,
-  Paper,
   Button,
   Divider,
   Checkbox,
@@ -325,19 +324,36 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Paper
-        elevation={0}
+      <Box
         sx={{
-          p: 3,
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
         }}
       >
-        <Typography variant="h6" align="center">
+        <Typography
+          sx={{
+            fontSize: 24,
+            fontWeight: 700,
+            color: '#1A1A1A',
+            textAlign: 'center',
+            letterSpacing: '-0.02em',
+            mb: 0,
+          }}
+        >
+          {isRegistration ? 'Create your account' : 'Welcome'}
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: 14,
+            color: '#6B7280',
+            textAlign: 'center',
+            mb: 2,
+          }}
+        >
           {isRegistration
-            ? 'Create your account'
-            : 'All paws on deck for testing!'}
+            ? 'Get started with Rhesis AI'
+            : 'Sign in or create your account'}
         </Typography>
 
         {/* ── Initial view: "Continue with Email" button ── */}
@@ -348,6 +364,16 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             size="large"
             startIcon={<EmailIcon />}
             onClick={() => setShowEmailForm(true)}
+            sx={{
+              height: 46,
+              borderRadius: '10px',
+              bgcolor: '#50B9E0',
+              borderColor: '#50B9E0',
+              '&:hover': {
+                bgcolor: '#3aabcf',
+                boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+              },
+            }}
           >
             Continue with Email
           </Button>
@@ -479,6 +505,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 startIcon={
                   formLoading ? <CircularProgress size={20} /> : <EmailIcon />
                 }
+                sx={{
+                  height: 46,
+                  borderRadius: '10px',
+                  bgcolor: '#50B9E0',
+                  '&:hover': {
+                    bgcolor: '#3aabcf',
+                    boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+                  },
+                }}
               >
                 {isRegistration ? 'Create Account' : 'Sign in'}
               </Button>
@@ -573,6 +608,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   <AutoFixHighIcon />
                 )
               }
+              sx={{
+                height: 46,
+                borderRadius: '10px',
+                bgcolor: '#50B9E0',
+                '&:hover': {
+                  bgcolor: '#3aabcf',
+                  boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+                },
+              }}
             >
               Email me a link
             </Button>
@@ -651,7 +695,17 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   startIcon={getProviderIcon(provider.name)}
                   onClick={() => handleOAuthLogin(provider.name)}
                   sx={{
-                    color: theme => theme.palette.text.primary,
+                    height: 46,
+                    borderRadius: '10px',
+                    color: '#374151',
+                    borderColor: '#E5E7EB',
+                    borderWidth: '1.5px',
+                    '&:hover': {
+                      borderColor: '#D1D5DB',
+                      bgcolor: '#FAFBFC',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                      borderWidth: '1.5px',
+                    },
                   }}
                 >
                   Continue with {provider.display_name}
@@ -679,7 +733,16 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 size="large"
                 href="/auth/register"
                 sx={{
-                  color: theme => theme.palette.text.primary,
+                  height: 46,
+                  borderRadius: '10px',
+                  color: '#374151',
+                  borderColor: '#E5E7EB',
+                  borderWidth: '1.5px',
+                  '&:hover': {
+                    borderColor: '#D1D5DB',
+                    bgcolor: '#FAFBFC',
+                    borderWidth: '1.5px',
+                  },
                 }}
               >
                 Create an account
@@ -786,7 +849,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             )}
           </Box>
         )}
-      </Paper>
+      </Box>
     </Box>
   );
 }

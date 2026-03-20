@@ -1,35 +1,19 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Box,
-  AppBar,
-  Toolbar,
-  Typography,
-  CircularProgress,
-  Paper,
-  Grid,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import Image from 'next/image';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
+import BackgroundDecoration from '../components/auth/BackgroundDecoration';
 import { getClientApiBaseUrl } from '../utils/url-resolver';
-// Import Material UI icons - Using Outlined variants as default
-import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
-import GroupAddIcon from '@mui/icons-material/GroupAddOutlined';
-import ControlCameraIcon from '@mui/icons-material/ControlCameraOutlined';
-import TuneIcon from '@mui/icons-material/TuneOutlined';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [sessionExpired, setSessionExpired] = useState(false);
   const [backendSessionValid, setBackendSessionValid] = useState<
     boolean | null
@@ -38,46 +22,30 @@ export default function LandingPage() {
   const [mounted, setMounted] = useState(false);
   const [isQuickStartMode, setIsQuickStartMode] = useState(false);
 
-  // Set mounted state after client-side hydration
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Check Quick Start mode after mount (client-side only)
-  // SECURITY: Defer computation until after client-side mount to ensure hostname validation
-  // During SSR, window is undefined and hostname checks are skipped, which could allow
-  // Quick Start mode in cloud deployments if NEXT_PUBLIC_QUICK_START is misconfigured.
   useEffect(() => {
     if (!mounted) return;
-    // Dynamic import for client-side only code
     import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
       setIsQuickStartMode(isQuickStartEnabled());
     });
   }, [mounted]);
 
-  // Auto-login for Quick Start mode
   useEffect(() => {
     if (!mounted) return;
-    // Use robust multi-factor detection to determine if Quick Start mode is enabled
-    // Dynamic import for client-side only code
     import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
       const quickStartEnabled = isQuickStartEnabled();
 
-      // Only auto-login if:
-      // 1. Quick Start mode is enabled
-      // 2. User is not authenticated
-      // 3. Not already in the process of logging in
-      // 4. No session expiration flag
       if (quickStartEnabled && status === 'unauthenticated' && !autoLoggingIn) {
         const urlParams = new URLSearchParams(window.location.search);
         const isSessionExpired = urlParams.get('session_expired') === 'true';
         const isForcedLogout = urlParams.get('force_logout') === 'true';
 
-        // Don't auto-login if user was forcefully logged out
         if (!isSessionExpired && !isForcedLogout) {
           setAutoLoggingIn(true);
 
-          // Call the local-login endpoint
           fetch(`${getClientApiBaseUrl()}/auth/local-login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -85,7 +53,6 @@ export default function LandingPage() {
             .then(async response => {
               if (response.ok) {
                 const data = await response.json();
-                // Sign in with NextAuth using the tokens
                 const { signIn } = await import('next-auth/react');
                 await signIn('credentials', {
                   session_token: data.session_token,
@@ -108,7 +75,6 @@ export default function LandingPage() {
   }, [mounted, status, autoLoggingIn]);
 
   useEffect(() => {
-    // Check if user was redirected due to session expiration or forced logout
     const urlParams = new URLSearchParams(window.location.search);
     const isSessionExpired = urlParams.get('session_expired') === 'true';
     const isForcedLogout = urlParams.get('force_logout') === 'true';
@@ -116,7 +82,6 @@ export default function LandingPage() {
     if (isSessionExpired || isForcedLogout) {
       setSessionExpired(true);
       setBackendSessionValid(false);
-      // Clear the parameters from URL
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('session_expired');
       newUrl.searchParams.delete('force_logout');
@@ -128,7 +93,6 @@ export default function LandingPage() {
       return;
     }
 
-    // Validate backend session immediately when user appears authenticated
     if (
       status === 'authenticated' &&
       session &&
@@ -155,7 +119,6 @@ export default function LandingPage() {
             }
           }
 
-          // Backend session invalid - call backend logout to clean up, then frontend logout
           try {
             await fetch(`${getClientApiBaseUrl()}/auth/logout`, {
               method: 'GET',
@@ -177,7 +140,6 @@ export default function LandingPage() {
     }
   }, [session, status, router, sessionExpired, backendSessionValid]);
 
-  // Show loading state while NextAuth is loading or while auto-login is in progress
   if (status === 'loading' || autoLoggingIn) {
     return (
       <Box
@@ -207,404 +169,323 @@ export default function LandingPage() {
     backendSessionValid === true
   ) {
     return (
-      <Grid container component="main" sx={{ height: '100vh' }}>
-        {/* Left side - Background and content */}
-        <Grid
-          sx={{
-            backgroundColor: 'primary.dark',
-            position: 'relative',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-          size={{
-            xs: false,
-            sm: 4,
-            md: 7,
-          }}
-        >
-          <AppBar
-            position="relative"
-            color="transparent"
-            elevation={0}
-            sx={{
-              background: 'transparent',
-              boxShadow: 'none',
-            }}
-          >
-            <Toolbar>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Image
-                  src="/logos/rhesis-logo-platypus.png"
-                  alt="Rhesis AI Logo"
-                  width={200}
-                  height={0}
-                  style={{ height: 'auto' }}
-                  priority
-                />
-              </Box>
-            </Toolbar>
-          </AppBar>
-
-          {/* Content overlay on the background - same as unauthenticated view */}
-          <Box
-            sx={{
-              position: 'relative',
-              p: { xs: 3, md: 8 },
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              flex: 1,
-            }}
-          >
-            {/* Feature points - same as unauthenticated view */}
-            <Box
-              sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}
-            >
-              <Box>
-                <Typography
-                  variant="h6"
-                  color="common.white"
-                  fontWeight="bold"
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-                >
-                  <CheckCircleIcon sx={{ color: 'common.white' }} /> Your
-                  expertise, in every test.
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="common.white"
-                  sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-                >
-                  Transform business knowledge and expert input directly into
-                  powerful, actionable test cases.
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography
-                  variant="h6"
-                  color="common.white"
-                  fontWeight="bold"
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-                >
-                  <GroupAddIcon sx={{ color: 'common.white' }} /> Collaboration
-                  built in.
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="common.white"
-                  sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-                >
-                  Bring subject matter experts into the loop — seamlessly
-                  contribute, review, and refine tests together.
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography
-                  variant="h6"
-                  color="common.white"
-                  fontWeight="bold"
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-                >
-                  <ControlCameraIcon sx={{ color: 'common.white' }} />{' '}
-                  End-to-end control.
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="common.white"
-                  sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-                >
-                  From test generation to execution to results, manage the
-                  entire validation process in one place.
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography
-                  variant="h6"
-                  color="common.white"
-                  fontWeight="bold"
-                  sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-                >
-                  <TuneIcon sx={{ color: 'common.white' }} /> Scale your
-                  validation power.
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="common.white"
-                  sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-                >
-                  Automate, adapt, and expand test coverage effortlessly — no
-                  matter how fast your use cases evolve.
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        </Grid>
-        {/* Right side - Authentication message */}
-        <Grid
-          component={Paper}
-          elevation={6}
-          square
-          size={{
-            xs: 12,
-            sm: 8,
-            md: 5,
-          }}
-        >
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        {isQuickStartMode ? (
           <Box
             sx={{
               display: 'flex',
-              flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              p: { xs: 3, sm: 6, md: 8 },
+              gap: 1,
             }}
           >
-            {/* Show logo on mobile or smaller devices */}
-            {isMobile && (
-              <Box sx={{ mb: 4 }}>
-                <Image
-                  src="/logos/rhesis-logo-platypus.png"
-                  alt="Rhesis AI Logo"
-                  width={160}
-                  height={0}
-                  style={{ height: 'auto' }}
-                  priority
-                />
-              </Box>
-            )}
-
-            <Box
-              sx={{
-                width: '100%',
-                maxWidth: 400,
-                textAlign: 'center',
-                p: 3,
-                borderRadius: theme => theme.shape.borderRadius * 0.5,
-                boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-                background: theme =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(0, 0, 0, 0.8)'
-                    : 'rgba(255, 255, 255, 0.9)',
-              }}
-            >
-              {isQuickStartMode ? (
-                <>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 1,
-                      mb: 1,
-                    }}
-                  >
-                    <RocketLaunchIcon
-                      sx={{ fontSize: 28, color: 'primary.main' }}
-                    />
-                    <Typography variant="h5">QUICK START MODE</Typography>
-                  </Box>
-                  <Typography variant="body1" gutterBottom>
-                    Starting with zero configuration. Redirecting to
-                    dashboard...
-                  </Typography>
-                </>
-              ) : (
-                <>
-                  <Typography variant="h5" gutterBottom>
-                    Welcome back, {session.user?.name || 'User'}!
-                  </Typography>
-                  <Typography variant="body1" gutterBottom>
-                    You&apos;re already logged in. Redirecting you to the
-                    dashboard...
-                  </Typography>
-                </>
-              )}
-              <CircularProgress sx={{ mt: 2 }} />
-            </Box>
+            <RocketLaunchIcon sx={{ fontSize: 28, color: 'primary.main' }} />
+            <Typography variant="h6">Quick Start Mode</Typography>
           </Box>
-        </Grid>
-      </Grid>
+        ) : (
+          <Typography variant="body1" color="text.secondary">
+            Welcome back, {session.user?.name || 'User'}! Redirecting...
+          </Typography>
+        )}
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <Grid container component="main" sx={{ height: '100vh' }}>
-      {/* Left side - Background and content */}
-      <Grid
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: '#FFFFFF',
+        position: 'relative',
+        overflowX: 'hidden',
+      }}
+    >
+      <BackgroundDecoration />
+
+      {/* Top navigation */}
+      <Box
+        component="nav"
         sx={{
-          backgroundColor: 'primary.dark',
           position: 'relative',
+          zIndex: 10,
           display: 'flex',
-          flexDirection: 'column',
-        }}
-        size={{
-          xs: false,
-          sm: 4,
-          md: 7,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: { xs: 2.5, md: 5 },
+          py: 2.5,
         }}
       >
-        <AppBar
-          position="relative"
-          color="transparent"
-          elevation={0}
+        <Box
+          component="a"
+          href="https://www.rhesis.ai"
           sx={{
-            background: 'transparent',
-            boxShadow: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            textDecoration: 'none',
           }}
         >
-          <Toolbar>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Image
-                src="/logos/rhesis-logo-platypus.png"
-                alt="Rhesis AI Logo"
-                width={200}
-                height={0}
-                style={{ height: 'auto' }}
-                priority
-              />
-            </Box>
-          </Toolbar>
-        </AppBar>
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '12px',
+              overflow: 'hidden',
+              flexShrink: 0,
+            }}
+          >
+            <Image
+              src="/logos/rhesis-logo-favicon.svg"
+              alt="Rhesis AI"
+              width={44}
+              height={44}
+              priority
+            />
+          </Box>
+          <Typography
+            sx={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: '#1A1A1A',
+              letterSpacing: '-0.03em',
+              fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
+            }}
+          >
+            Rhesis AI
+          </Typography>
+        </Box>
 
-        {/* Content overlay on the background */}
         <Box
           sx={{
-            position: 'relative',
-            p: { xs: 3, md: 8 },
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            flex: 1,
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'center',
+            gap: 3,
           }}
         >
-          {/* Feature points */}
-          <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Box>
-              <Typography
-                variant="h6"
-                color="common.white"
-                fontWeight="bold"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+          {[
+            { label: 'Documentation', href: 'https://docs.rhesis.ai' },
+            { label: 'Blog', href: 'https://rhesis.ai/blog' },
+          ].map(link => (
+            <Typography
+              key={link.label}
+              component="a"
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: '#6B7280',
+                textDecoration: 'none',
+                transition: 'color 0.15s',
+                '&:hover': { color: '#1A1A1A' },
+              }}
+            >
+              {link.label}
+            </Typography>
+          ))}
+        </Box>
+      </Box>
+
+      {/* Main content */}
+      <Box
+        component="main"
+        sx={{
+          position: 'relative',
+          zIndex: 10,
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: { xs: 2, md: 3 },
+          py: { xs: 3, md: 2 },
+          pb: { xs: 5, md: 7.5 },
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: { xs: 6, md: 10 },
+            maxWidth: 1100,
+            width: '100%',
+            flexDirection: { xs: 'column', md: 'row' },
+          }}
+        >
+          {/* Left — hero copy */}
+          <Box
+            sx={{
+              flex: '1 1 50%',
+              maxWidth: 480,
+              textAlign: { xs: 'center', md: 'left' },
+            }}
+          >
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1.75,
+                py: 0.75,
+                borderRadius: '100px',
+                bgcolor: '#EBF7FC',
+                color: '#50B9E0',
+                fontSize: 13,
+                fontWeight: 600,
+                mb: 3.5,
+                border: '1px solid rgba(80,185,224,0.15)',
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#50B9E0"
+                strokeWidth="2.5"
               >
-                <CheckCircleIcon sx={{ color: 'common.white' }} /> Your
-                expertise, in every test.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="common.white"
-                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-              >
-                Transform business knowledge and expert input directly into
-                powerful, actionable test cases.
-              </Typography>
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              Full Testing Lifecycle
             </Box>
 
-            <Box>
-              <Typography
-                variant="h6"
-                color="common.white"
-                fontWeight="bold"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+            <Typography
+              sx={{
+                fontSize: { xs: 30, sm: 38, md: 48 },
+                fontWeight: 800,
+                lineHeight: 1.1,
+                color: '#1A1A1A',
+                letterSpacing: '-0.04em',
+                mb: 2.5,
+                fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
+              }}
+            >
+              The testing platform{' '}
+              <Box
+                component="br"
+                sx={{ display: { xs: 'none', md: 'block' } }}
+              />
+              for{' '}
+              <Box
+                component="span"
+                sx={{
+                  background:
+                    'linear-gradient(135deg, #50B9E0 0%, #3a9ec5 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
               >
-                <GroupAddIcon sx={{ color: 'common.white' }} /> Collaboration
-                built in.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="common.white"
-                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-              >
-                Bring subject matter experts into the loop — seamlessly
-                contribute, review, and refine tests together.
-              </Typography>
-            </Box>
+                AI teams.
+              </Box>
+            </Typography>
 
-            <Box>
-              <Typography
-                variant="h6"
-                color="common.white"
-                fontWeight="bold"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-              >
-                <ControlCameraIcon sx={{ color: 'common.white' }} /> End-to-end
-                control.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="common.white"
-                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-              >
-                From test generation to execution to results, manage the entire
-                validation process in one place.
-              </Typography>
-            </Box>
+            <Typography
+              sx={{
+                fontSize: { xs: 16, md: 18 },
+                lineHeight: 1.6,
+                color: '#6B7280',
+                mb: 5.5,
+                maxWidth: 420,
+                mx: { xs: 'auto', md: 0 },
+              }}
+            >
+              Bring engineers, PMs, and domain experts together to generate
+              tests, simulate (adversarial) conversations, and trace every
+              failure to its root cause.
+            </Typography>
 
-            <Box>
-              <Typography
-                variant="h6"
-                color="common.white"
-                fontWeight="bold"
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
-              >
-                <TuneIcon sx={{ color: 'common.white' }} /> Scale your
-                validation power.
-              </Typography>
-              <Typography
-                variant="body2"
-                color="common.white"
-                sx={{ maxWidth: '90%', opacity: 0.95, ml: 4 }}
-              >
-                Automate, adapt, and expand test coverage effortlessly — no
-                matter how fast your use cases evolve.
-              </Typography>
+            <Box
+              sx={{
+                display: { xs: 'none', sm: 'flex' },
+                flexDirection: 'column',
+                gap: 2,
+                alignItems: { xs: 'center', md: 'flex-start' },
+              }}
+            >
+              {[
+                {
+                  color: '#50B9E0',
+                  text: 'Conversation simulation & red-teaming',
+                },
+                { color: '#FDD803', text: 'Collaborative test curation' },
+                { color: '#FD6E12', text: 'Traces, reviews & monitoring' },
+              ].map(feature => (
+                <Box
+                  key={feature.text}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.75,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      bgcolor: feature.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Typography
+                    sx={{
+                      fontSize: 15,
+                      fontWeight: 500,
+                      color: '#374151',
+                    }}
+                  >
+                    {feature.text}
+                  </Typography>
+                </Box>
+              ))}
             </Box>
           </Box>
-        </Box>
-      </Grid>
-      {/* Right side - Login form */}
-      <Grid
-        component={Paper}
-        elevation={6}
-        square
-        size={{
-          xs: 12,
-          sm: 8,
-          md: 5,
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            p: { xs: 3, sm: 6, md: 8 },
-          }}
-        >
-          {/* Show logo on mobile or smaller devices */}
-          {isMobile && (
-            <Box sx={{ mb: 4 }}>
-              <Image
-                src="/logos/rhesis-logo-platypus.png"
-                alt="Rhesis AI Logo"
-                width={160}
-                height={0}
-                style={{ height: 'auto' }}
-                priority
-              />
-            </Box>
-          )}
 
-          <Box sx={{ width: '100%', maxWidth: 400 }}>
+          {/* Right — auth card */}
+          <Box
+            sx={{
+              flex: '0 0 auto',
+              width: { xs: '100%', sm: 420 },
+              maxWidth: 420,
+              bgcolor: '#FFFFFF',
+              border: '1px solid #E5E7EB',
+              borderRadius: { xs: '16px', sm: '20px' },
+              p: { xs: '32px 24px', sm: '44px 40px' },
+              boxShadow:
+                '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06), 0 24px 48px rgba(0,0,0,0.04)',
+            }}
+          >
             <LoginSection />
           </Box>
         </Box>
-      </Grid>
-    </Grid>
+      </Box>
+
+      {/* Footer */}
+      <Box
+        component="footer"
+        sx={{
+          position: 'relative',
+          zIndex: 10,
+          textAlign: 'center',
+          py: 2.5,
+          fontSize: 12,
+          color: '#9CA3AF',
+        }}
+      >
+        © 2026 Rhesis AI
+      </Box>
+    </Box>
   );
 }
