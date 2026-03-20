@@ -2,6 +2,11 @@
 
 import { Box } from '@mui/material';
 
+const PRIMARY_BLUE = '#50B9E0'; // Intentional: SVG decoration brand color
+const LIGHT_BLUE = '#97D5EE'; // Intentional: SVG decoration brand color
+const ACCENT_YELLOW = '#FDD803'; // Intentional: SVG decoration brand color
+const ACCENT_ORANGE = '#FD6E12'; // Intentional: SVG decoration brand color
+
 export default function BackgroundDecoration() {
   return (
     <Box
@@ -28,21 +33,21 @@ export default function BackgroundDecoration() {
         <path
           d="M-100 300 Q 200 200, 500 350 T 1000 280 T 1600 350"
           fill="none"
-          stroke="#50B9E0"
+          stroke={PRIMARY_BLUE}
           strokeWidth="1.5"
           opacity="0.14"
         />
         <path
           d="M-100 380 Q 300 280, 600 420 T 1100 340 T 1700 420"
           fill="none"
-          stroke="#97D5EE"
+          stroke={LIGHT_BLUE}
           strokeWidth="2"
           opacity="0.16"
         />
         <path
           d="M-100 460 Q 250 360, 550 500 T 1050 400 T 1650 480"
           fill="none"
-          stroke="#50B9E0"
+          stroke={PRIMARY_BLUE}
           strokeWidth="1.5"
           opacity="0.11"
         />
@@ -53,25 +58,25 @@ export default function BackgroundDecoration() {
 
         <defs>
           <radialGradient id="blob1">
-            <stop offset="0%" stopColor="#97D5EE" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#97D5EE" stopOpacity="0" />
+            <stop offset="0%" stopColor={LIGHT_BLUE} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={LIGHT_BLUE} stopOpacity="0" />
           </radialGradient>
           <radialGradient id="blob2">
-            <stop offset="0%" stopColor="#50B9E0" stopOpacity="0.14" />
-            <stop offset="100%" stopColor="#50B9E0" stopOpacity="0" />
+            <stop offset="0%" stopColor={PRIMARY_BLUE} stopOpacity="0.14" />
+            <stop offset="100%" stopColor={PRIMARY_BLUE} stopOpacity="0" />
           </radialGradient>
           <radialGradient id="blob3">
-            <stop offset="0%" stopColor="#FDD803" stopOpacity="0.12" />
-            <stop offset="100%" stopColor="#FDD803" stopOpacity="0" />
+            <stop offset="0%" stopColor={ACCENT_YELLOW} stopOpacity="0.12" />
+            <stop offset="100%" stopColor={ACCENT_YELLOW} stopOpacity="0" />
           </radialGradient>
         </defs>
 
-        <circle cx="200" cy="500" r="3" fill="#50B9E0" opacity="0.25" />
-        <circle cx="650" cy="150" r="4" fill="#97D5EE" opacity="0.3" />
-        <circle cx="1100" cy="300" r="3" fill="#50B9E0" opacity="0.2" />
-        <circle cx="900" cy="750" r="5" fill="#FDD803" opacity="0.25" />
-        <circle cx="400" cy="700" r="3" fill="#FD6E12" opacity="0.18" />
-        <circle cx="1250" cy="500" r="4" fill="#97D5EE" opacity="0.25" />
+        <circle cx="200" cy="500" r="3" fill={PRIMARY_BLUE} opacity="0.25" />
+        <circle cx="650" cy="150" r="4" fill={LIGHT_BLUE} opacity="0.3" />
+        <circle cx="1100" cy="300" r="3" fill={PRIMARY_BLUE} opacity="0.2" />
+        <circle cx="900" cy="750" r="5" fill={ACCENT_YELLOW} opacity="0.25" />
+        <circle cx="400" cy="700" r="3" fill={ACCENT_ORANGE} opacity="0.18" />
+        <circle cx="1250" cy="500" r="4" fill={LIGHT_BLUE} opacity="0.25" />
       </svg>
     </Box>
   );

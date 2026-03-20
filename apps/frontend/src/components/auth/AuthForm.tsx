@@ -29,6 +29,13 @@ import {
   validatePassword,
 } from '../../utils/validation';
 
+const SUBTLE_TEXT = '#6B7280'; // Intentional: auth form subtle text
+const FORM_TEXT = '#374151'; // Intentional: auth form text color
+const FORM_BORDER = '#E5E7EB'; // Intentional: auth form border color
+const HOVER_BORDER = '#D1D5DB'; // Intentional: auth form hover border
+const HOVER_BG = '#FAFBFC'; // Intentional: auth form hover background
+const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
+
 interface ProviderInfo {
   name: string;
   display_name: string;
@@ -335,7 +342,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           sx={{
             fontSize: 24,
             fontWeight: 700,
-            color: '#1A1A1A',
+            color: 'secondary.dark',
             textAlign: 'center',
             letterSpacing: '-0.02em',
             mb: 0,
@@ -346,7 +353,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         <Typography
           sx={{
             fontSize: 14,
-            color: '#6B7280',
+            color: SUBTLE_TEXT,
             textAlign: 'center',
             mb: 2,
           }}
@@ -366,12 +373,12 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             onClick={() => setShowEmailForm(true)}
             sx={{
               height: 46,
-              borderRadius: '10px',
-              bgcolor: '#50B9E0',
-              borderColor: '#50B9E0',
+              borderRadius: '10px', // Intentional: button border radius
+              bgcolor: 'primary.main',
+              borderColor: 'primary.main',
               '&:hover': {
-                bgcolor: '#3aabcf',
-                boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+                bgcolor: BUTTON_HOVER,
+                boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
               },
             }}
           >
@@ -507,11 +514,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 }
                 sx={{
                   height: 46,
-                  borderRadius: '10px',
-                  bgcolor: '#50B9E0',
+                  borderRadius: '10px', // Intentional: button border radius
+                  bgcolor: 'primary.main',
                   '&:hover': {
-                    bgcolor: '#3aabcf',
-                    boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+                    bgcolor: BUTTON_HOVER,
+                    boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
                   },
                 }}
               >
@@ -610,11 +617,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               }
               sx={{
                 height: 46,
-                borderRadius: '10px',
-                bgcolor: '#50B9E0',
+                borderRadius: '10px', // Intentional: button border radius
+                bgcolor: 'primary.main',
                 '&:hover': {
-                  bgcolor: '#3aabcf',
-                  boxShadow: '0 4px 12px rgba(80,185,224,0.3)',
+                  bgcolor: BUTTON_HOVER,
+                  boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
                 },
               }}
             >
@@ -696,13 +703,13 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   onClick={() => handleOAuthLogin(provider.name)}
                   sx={{
                     height: 46,
-                    borderRadius: '10px',
-                    color: '#374151',
-                    borderColor: '#E5E7EB',
+                    borderRadius: '10px', // Intentional: button border radius
+                    color: FORM_TEXT,
+                    borderColor: FORM_BORDER,
                     borderWidth: '1.5px',
                     '&:hover': {
-                      borderColor: '#D1D5DB',
-                      bgcolor: '#FAFBFC',
+                      borderColor: HOVER_BORDER,
+                      bgcolor: HOVER_BG,
                       boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
                       borderWidth: '1.5px',
                     },
@@ -734,13 +741,13 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 href="/auth/register"
                 sx={{
                   height: 46,
-                  borderRadius: '10px',
-                  color: '#374151',
-                  borderColor: '#E5E7EB',
+                  borderRadius: '10px', // Intentional: button border radius
+                  color: FORM_TEXT,
+                  borderColor: FORM_BORDER,
                   borderWidth: '1.5px',
                   '&:hover': {
-                    borderColor: '#D1D5DB',
-                    bgcolor: '#FAFBFC',
+                    borderColor: HOVER_BORDER,
+                    bgcolor: HOVER_BG,
                     borderWidth: '1.5px',
                   },
                 }}

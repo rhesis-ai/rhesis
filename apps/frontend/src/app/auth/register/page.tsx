@@ -5,6 +5,15 @@ import Image from 'next/image';
 import LoginSection from '@/components/auth/LoginSection';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 
+const MUTED_TEXT = '#6B7280'; // Intentional: landing page muted text
+const FEATURE_TEXT = '#374151'; // Intentional: landing page feature text
+const CARD_BORDER = '#E5E7EB'; // Intentional: landing page card border
+const FOOTER_TEXT = '#9CA3AF'; // Intentional: landing page footer text
+const BADGE_BG = '#EBF7FC'; // Intentional: landing page badge background
+const BADGE_BORDER = 'rgba(80,185,224,0.15)'; // Intentional: landing page badge border
+const GRADIENT_END = '#3a9ec5'; // Intentional: landing page gradient end color
+const BRAND_BLUE = '#50B9E0'; // Intentional: brand color for SVG elements
+
 export default function RegisterPage() {
   return (
     <Box
@@ -12,7 +21,7 @@ export default function RegisterPage() {
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: '#FFFFFF',
+        bgcolor: 'background.default',
         position: 'relative',
         overflowX: 'hidden',
       }}
@@ -46,7 +55,7 @@ export default function RegisterPage() {
             sx={{
               width: 44,
               height: 44,
-              borderRadius: '12px',
+              borderRadius: '12px', // Intentional: logo border radius
               overflow: 'hidden',
               flexShrink: 0,
             }}
@@ -63,7 +72,7 @@ export default function RegisterPage() {
             sx={{
               fontSize: 22,
               fontWeight: 700,
-              color: '#1A1A1A',
+              color: 'secondary.dark',
               letterSpacing: '-0.03em',
               fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
             }}
@@ -92,10 +101,10 @@ export default function RegisterPage() {
               sx={{
                 fontSize: 14,
                 fontWeight: 500,
-                color: '#6B7280',
+                color: MUTED_TEXT,
                 textDecoration: 'none',
                 transition: 'color 0.15s',
-                '&:hover': { color: '#1A1A1A' },
+                '&:hover': { color: 'secondary.dark' },
               }}
             >
               {link.label}
@@ -144,13 +153,13 @@ export default function RegisterPage() {
                 gap: 1,
                 px: 1.75,
                 py: 0.75,
-                borderRadius: '100px',
-                bgcolor: '#EBF7FC',
-                color: '#50B9E0',
+                borderRadius: '100px', // Intentional: pill badge shape
+                bgcolor: BADGE_BG,
+                color: 'primary.main',
                 fontSize: 13,
                 fontWeight: 600,
                 mb: 3.5,
-                border: '1px solid rgba(80,185,224,0.15)',
+                border: `1px solid ${BADGE_BORDER}`,
               }}
             >
               <svg
@@ -158,7 +167,7 @@ export default function RegisterPage() {
                 height="14"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#50B9E0"
+                stroke={BRAND_BLUE}
                 strokeWidth="2.5"
               >
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
@@ -171,7 +180,7 @@ export default function RegisterPage() {
                 fontSize: { xs: 30, sm: 38, md: 48 },
                 fontWeight: 800,
                 lineHeight: 1.1,
-                color: '#1A1A1A',
+                color: 'secondary.dark',
                 letterSpacing: '-0.04em',
                 mb: 2.5,
                 fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
@@ -186,8 +195,7 @@ export default function RegisterPage() {
               <Box
                 component="span"
                 sx={{
-                  background:
-                    'linear-gradient(135deg, #50B9E0 0%, #3a9ec5 100%)',
+                  background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, ${GRADIENT_END} 100%)`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
@@ -201,7 +209,7 @@ export default function RegisterPage() {
               sx={{
                 fontSize: { xs: 16, md: 18 },
                 lineHeight: 1.6,
-                color: '#6B7280',
+                color: MUTED_TEXT,
                 mb: 5.5,
                 maxWidth: 420,
                 mx: { xs: 'auto', md: 0 },
@@ -222,11 +230,17 @@ export default function RegisterPage() {
             >
               {[
                 {
-                  color: '#50B9E0',
+                  color: 'primary.main',
                   text: 'Conversation simulation & red-teaming',
                 },
-                { color: '#FDD803', text: 'Collaborative test curation' },
-                { color: '#FD6E12', text: 'Traces, reviews & monitoring' },
+                {
+                  color: 'secondary.light',
+                  text: 'Collaborative test curation',
+                },
+                {
+                  color: 'secondary.main',
+                  text: 'Traces, reviews & monitoring',
+                },
               ].map(feature => (
                 <Box
                   key={feature.text}
@@ -240,7 +254,7 @@ export default function RegisterPage() {
                     sx={{
                       width: 10,
                       height: 10,
-                      borderRadius: '50%',
+                      borderRadius: '50%', // Intentional: circular dot
                       bgcolor: feature.color,
                       flexShrink: 0,
                     }}
@@ -249,7 +263,7 @@ export default function RegisterPage() {
                     sx={{
                       fontSize: 15,
                       fontWeight: 500,
-                      color: '#374151',
+                      color: FEATURE_TEXT,
                     }}
                   >
                     {feature.text}
@@ -265,9 +279,9 @@ export default function RegisterPage() {
               flex: '0 0 auto',
               width: { xs: '100%', sm: 420 },
               maxWidth: 420,
-              bgcolor: '#FFFFFF',
-              border: '1px solid #E5E7EB',
-              borderRadius: { xs: '16px', sm: '20px' },
+              bgcolor: 'background.default',
+              border: `1px solid ${CARD_BORDER}`,
+              borderRadius: { xs: '16px', sm: '20px' }, // Intentional: auth card radius
               p: { xs: '32px 24px', sm: '44px 40px' },
               boxShadow:
                 '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06), 0 24px 48px rgba(0,0,0,0.04)',
@@ -287,7 +301,7 @@ export default function RegisterPage() {
           textAlign: 'center',
           py: 2.5,
           fontSize: 12,
-          color: '#9CA3AF',
+          color: FOOTER_TEXT,
         }}
       >
         © 2026 Rhesis AI
