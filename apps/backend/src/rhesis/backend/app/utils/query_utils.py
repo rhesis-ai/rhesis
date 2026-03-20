@@ -59,7 +59,7 @@ class QueryBuilder:
     def with_optimized_loads(
         self,
         skip_many_to_many: bool = True,
-        skip_one_to_many: bool = False,
+        skip_one_to_many: bool = True,
         nested_relationships: dict = None,
     ) -> "QueryBuilder":
         """Apply optimized loading strategy.
@@ -328,7 +328,7 @@ def get_model_relationships(
 
 
 def apply_joinedloads(
-    query: Query, model: Type, skip_many_to_many: bool = True, skip_one_to_many: bool = False
+    query: Query, model: Type, skip_many_to_many: bool = True, skip_one_to_many: bool = True
 ) -> Query:
     """
     Apply joinedload options to a query based on model relationships.
@@ -397,7 +397,7 @@ def apply_optimized_loads(
     query: Query,
     model: Type,
     skip_many_to_many: bool = True,
-    skip_one_to_many: bool = False,
+    skip_one_to_many: bool = True,
     nested_relationships: dict = None,
 ) -> Query:
     """

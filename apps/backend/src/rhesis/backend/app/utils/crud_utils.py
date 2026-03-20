@@ -318,7 +318,7 @@ def get_item_detail(
     item = (
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
-        .with_optimized_loads()
+        .with_optimized_loads(skip_one_to_many=True)
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
