@@ -27,6 +27,7 @@ from rhesis.backend.app.utils.uuid_utils import (
     validate_uuid_list,
     validate_uuid_parameters,
 )
+from rhesis.backend.tasks.enums import ResultStatus
 
 logger = logging.getLogger(__name__)
 
@@ -576,7 +577,7 @@ def get_last_completed_test_run(
 
     pass_count = 0
     if total_count > 0:
-        pass_status = db.query(Status).filter(Status.name == "Passed").first()
+        pass_status = db.query(Status).filter(Status.name == ResultStatus.PASS.value).first()
         if pass_status:
             pass_count = (
                 db.query(TestResult)

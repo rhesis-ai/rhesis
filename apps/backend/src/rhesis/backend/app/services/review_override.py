@@ -17,20 +17,19 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import TestResultStatus, categorize_test_result_status
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.test_result import (
     REVIEW_TARGET_METRIC,
     REVIEW_TARGET_TEST_RESULT,
     REVIEW_TARGET_TURN,
 )
-
-_PASSED_KEYWORDS = ("pass", "success", "completed")
+from rhesis.backend.tasks.enums import ResultStatus
 
 
 def is_passed_status(status_name: str) -> bool:
     """Determine if a status name represents a passed/successful outcome."""
-    name = status_name.lower()
-    return any(kw in name for kw in _PASSED_KEYWORDS)
+    return categorize_test_result_status(status_name) == TestResultStatus.PASSED
 
 
 def _parse_turn_number(reference: str) -> Optional[int]:
@@ -47,7 +46,7 @@ def _set_pass_fail_status(
     db = Session.object_session(db_test_result)
     if db is None:
         return
-    target_name = "Pass" if passed else "Fail"
+    target_name = ResultStatus.PASS.value if passed else ResultStatus.FAIL.value
     status = (
         db.query(models.Status)
         .filter(
