@@ -100,7 +100,7 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
 
   // Generate chart data from individual chart states
   const generateStatusData = () => {
-    if (!statusChart) return fallbackData;
+    if (!statusChart?.status_distribution) return fallbackData;
 
     return statusChart.status_distribution
       .slice(0, CHART_CONFIG.status.top)
@@ -112,7 +112,7 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   };
 
   const generateResultData = () => {
-    if (!resultChart) return fallbackData;
+    if (!resultChart?.result_distribution) return fallbackData;
 
     const { result_distribution } = resultChart;
     return [
@@ -123,11 +123,11 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
         value: result_distribution.pending,
         fullName: 'Pending',
       },
-    ].filter(item => item.value > 0); // Only show categories with data
+    ].filter(item => item.value > 0);
   };
 
   const generateTestData = () => {
-    if (!testChart) return fallbackData;
+    if (!testChart?.most_run_test_sets) return fallbackData;
 
     return testChart.most_run_test_sets
       .slice(0, CHART_CONFIG.test.top)
@@ -139,7 +139,7 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   };
 
   const generateExecutorData = () => {
-    if (!executorChart) return fallbackData;
+    if (!executorChart?.top_executors) return fallbackData;
 
     return executorChart.top_executors
       .slice(0, CHART_CONFIG.executor.top)
