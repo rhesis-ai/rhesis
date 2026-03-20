@@ -2,7 +2,7 @@ from typing import Sequence, Union
 
 from alembic import op
 
-from rhesis.backend.app.migrations.utils.template_loader import (
+from rhesis.backend.alembic.utils.template_loader import (
     load_cleanup_status_template,
     load_cleanup_type_lookup_template,
     load_status_template,
