@@ -252,6 +252,29 @@ body,
   color: #2aa1ce !important; /* CTA blue text on hover */
 }
 
+/* Intent-based section headers (non-clickable separators) */
+.rhesis-sidebar-section-header {
+  cursor: default !important;
+  font-weight: 700 !important;
+  font-size: 0.8125rem !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  margin-top: 1rem !important;
+  padding-top: 0.5rem !important;
+  color: var(--rhesis-text-dark, #1a1a1a) !important;
+  text-decoration: none !important;
+  pointer-events: none;
+}
+
+.rhesis-sidebar-section-header:hover {
+  text-decoration: none !important;
+}
+
+[data-theme='dark'] .rhesis-sidebar-section-header,
+.dark .rhesis-sidebar-section-header {
+  color: var(--rhesis-text-primary, #e6edf3) !important;
+}
+
 /* Remove/hide sidebar submenu borders */
 .nextra-sidebar ul[class*='before:bg-gray'],
 .nextra-sidebar ul.x\:before\:bg-gray-200,

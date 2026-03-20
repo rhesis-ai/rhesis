@@ -1,0 +1,192 @@
+# Metrics
+
+Define and manage evaluation criteria for testing AI responses with LLM-based grading.
+
+<Callout type="default">
+  **What are Metrics?** Metrics are quantifiable measurements that evaluate AI behavior and determine if requirements are met.
+</Callout>
+
+## Metrics at a glance
+
+Metrics are organized by [**Behaviors**](/docs/behaviors), which are atomic expectations you have for the output of your application.
+
+**In short:** Behaviors define what you expect, metrics measure how well you meet those expectations.
+
+You can add an existing metric to a behavior by clicking the "+" icon in the top-right corner of the chip on the Metrics Overview page.
+
+![Metrics Assign](/screenshots/rhesis-ai-metrics-assign.png)
+
+## Using Existing Metrics
+
+The platform includes pre-built metrics from multiple providers:
+
+- **[DeepEval](https://github.com/confident-ai/deepeval)** - The LLM Evaluation Framework by Confident AI
+- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Team-based evaluation framework by Confident AI
+- **[Ragas](https://github.com/explodinggradients/ragas)** - Supercharge Your LLM Application Evaluations by Exploding Gradients
+- **Rhesis** - Custom metrics developed by the Rhesis team
+
+Here are some examples:
+
+| Metric Name | Provider | Score Type | Scope | Description |
+|-------------|----------|------------|-------|-------------|
+| Role Adherence | DeepEval | Numeric | Multi-Turn | Evaluates whether the assistant maintains its assigned role throughout the conversation. |
+| Knowledge Retention | Rhesis | Numeric | Multi-Turn | Measures memory consistency and correct use of information introduced earlier in the conversation. |
+| Answer Accuracy | Ragas | Numeric | Single-Turn | Measures accuracy of the generated answer against ground truth. |
+
+## Creating Custom Metrics
+
+You can create custom metrics tailored to your specific evaluation needs.
+
+![Create Metrics](/screenshots/rhesis-ai-create-metrics.png)
+
+This section presents what needs to be configured to create a custom metric using a Judge-as-Model appraoch.
+
+### 1. Evaluation Process
+
+Define how the LLM evaluates responses by providing four key components:
+
+<details>
+<summary><strong>Evaluation Model</strong></summary>
+
+Select the [Model](https://app.rhesis.ai/models) you want to use for the evaluation. For more information on how to configure models, see the [Models documentation](/docs/models).
+</details>
+
+<details>
+<summary><strong>Evaluation Prompt</strong></summary>
+
+Write clear instructions specifying what to evaluate and the criteria to use.
+
+```
+Example: "Evaluate whether the response is accurate, complete, and relevant.
+Use the following criteria: accuracy of facts, coverage of required points,
+clarity of explanation."
+```
+</details>
+
+<details>
+<summary><strong>Evaluation Steps</strong></summary>
+
+Break down the evaluation into clear steps. These guide the LLM when producing a score and reasoning.
+
+```
+Example:
+1. Check Accuracy: Identify any factual errors or unsupported statements
+2. Check Coverage: Determine if all required elements are addressed
+3. Check Clarity: Assess whether the response is clear and well-structured
+```
+</details>
+
+<details>
+<summary><strong>Reasoning Instructions</strong></summary>
+
+Explain how to reason about the evaluation and weight different aspects.
+
+```
+Example: "Extract key claims, assess completeness and correctness,
+weigh issues by importance, then determine the final score."
+```
+</details>
+
+**Best Practices:**
+- Focus on one evaluation dimension (accuracy, tone, safety, etc.)
+- Use concrete, measurable criteria
+- Provide clear examples when possible
+
+---
+
+### Using Metadata in Evaluation
+
+Metrics can evaluate structured metadata returned by your endpoint alongside the text response. This is useful for evaluating aspects that go beyond the output text, such as token usage, latency, model version, confidence scores, or any custom data your API returns.
+
+**How it works:**
+
+1. Configure your endpoint's [response mapping](/docs/endpoints) to extract a `metadata` field from the API response (e.g., `"metadata": "$.usage"`)
+2. Reference the metadata in your metric's **Evaluation Prompt** -- the JSON object will be available to the evaluation model automatically
+
+**Example:** Evaluating token efficiency
+
+Endpoint response mapping:
+```
+\{
+  "output": "$.choices[0].message.content",
+  "metadata": "$.usage"
+\}
+```
+
+Evaluation Prompt:
+```
+Evaluate whether the response is efficient in token usage.
+Check the metadata for token counts. A response that uses more than
+500 tokens for a simple factual question should score lower.
+Consider the ratio of useful content to total tokens.
+```
+
+The evaluation model receives the metadata as a JSON object under "Response Metadata" and can reason about its contents when producing a score.
+
+**Common metadata use cases:**
+- **Token usage** -- evaluate cost efficiency by checking `prompt_tokens` and `completion_tokens`
+- **Confidence scores** -- verify the model's self-reported confidence aligns with response quality
+- **Source citations** -- check that retrieved sources are relevant and properly attributed
+- **Latency or timing** -- flag responses that took unusually long
+- **Model version** -- ensure the correct model was used
+
+---
+
+### 2. Score Configuration
+
+Choose your scoring approach:
+
+<details>
+<summary><strong>Numeric Scoring</strong></summary>
+
+Define a numeric scale with a pass/fail threshold:
+
+- **Min/Max Score**: e.g., 0-10
+- **Threshold**: Passing score (e.g., 7)
+- **Operator**: `>=`, `>`, `<=`, `<`, or `=`
+
+*Example: Min 0, Max 10, Threshold ≥7 means scores 7-10 pass, 0-6 fail.*
+
+</details>
+
+<details>
+<summary><strong>Categorical Scoring</strong></summary>
+
+Define custom categories for classification:
+
+- Add categories: "Excellent", "Good", "Fair", "Poor"
+- The LLM classifies responses into one category
+
+*Example: "Safe", "Borderline", "Unsafe" for safety evaluation.*
+
+</details>
+
+---
+
+### 3. Metric Scope
+
+Select applicable test types (at least one required):
+
+- **Single-Turn**: Individual question-answer pairs
+- **Multi-Turn**: Multi-exchange conversations
+
+You can find more information about test types in the [Tests Section](/docs/tests).
+
+---
+
+### 4. Result Explanation
+
+Provide instructions for how the LLM should explain its scoring rationale.
+
+```
+Example: "Explain which specific parts were accurate or inaccurate, citing evidence from the provided context."
+```
+
+## See Also
+-  Learn how to use metrics programmatically in the [SDK Metrics Documentation](/sdk/metrics)
+
+<Callout type="default">
+  **Next Steps** - Use metrics in [Tests](/docs/tests-generation) by
+  assigning them to behaviors - View metric performance in [Test
+  Results](/docs/test-results)
+</Callout>

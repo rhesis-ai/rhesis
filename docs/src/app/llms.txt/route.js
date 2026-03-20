@@ -16,25 +16,25 @@ Rhesis is a collaborative testing platform that brings together developers, doma
 ## Main Sections
 
 ### Getting Started
-- Installation and setup: https://docs.rhesis.ai/getting-started
-- Core concepts: https://docs.rhesis.ai/concepts
-- Running locally: https://docs.rhesis.ai/deployment/running-locally
-- Self-hosting: https://docs.rhesis.ai/deployment/self-hosting
+- Installation and setup: https://docs.rhesis.ai/docs/getting-started
+- Core concepts: https://docs.rhesis.ai/docs/concepts
+- Running locally: https://docs.rhesis.ai/docs/deployment/running-locally
+- Self-hosting: https://docs.rhesis.ai/docs/deployment/self-hosting
 
 ### Platform
-- Projects: https://docs.rhesis.ai/platform/projects
-- Endpoints: https://docs.rhesis.ai/platform/endpoints
-- Models: https://docs.rhesis.ai/platform/models
-- Knowledge: https://docs.rhesis.ai/platform/knowledge
-- Behaviors: https://docs.rhesis.ai/platform/behaviors
-- Metrics: https://docs.rhesis.ai/platform/metrics
-- Test Generation: https://docs.rhesis.ai/platform/tests-generation
-- Tests: https://docs.rhesis.ai/platform/tests
-- Test Sets: https://docs.rhesis.ai/platform/test-sets
-- Test Runs: https://docs.rhesis.ai/platform/test-runs
-- Tasks: https://docs.rhesis.ai/platform/tasks
-- API Tokens: https://docs.rhesis.ai/platform/api-tokens
-- MCP: https://docs.rhesis.ai/platform/mcp
+- Projects: https://docs.rhesis.ai/docs/projects
+- Endpoints: https://docs.rhesis.ai/docs/endpoints
+- Models: https://docs.rhesis.ai/docs/models
+- Knowledge: https://docs.rhesis.ai/docs/knowledge
+- Behaviors: https://docs.rhesis.ai/docs/behaviors
+- Metrics: https://docs.rhesis.ai/docs/metrics
+- Test Generation: https://docs.rhesis.ai/docs/tests-generation
+- Tests: https://docs.rhesis.ai/docs/tests
+- Test Sets: https://docs.rhesis.ai/docs/test-sets
+- Test Runs: https://docs.rhesis.ai/docs/test-runs
+- Tasks: https://docs.rhesis.ai/docs/tasks
+- API Tokens: https://docs.rhesis.ai/docs/api-tokens
+- MCP: https://docs.rhesis.ai/docs/mcp
 
 ### SDK
 - Installation: https://docs.rhesis.ai/sdk/installation
@@ -44,19 +44,20 @@ Rhesis is a collaborative testing platform that brings together developers, doma
 - Metrics: https://docs.rhesis.ai/sdk/metrics
 - Connector: https://docs.rhesis.ai/sdk/connector
 
-### Development
-- Backend: https://docs.rhesis.ai/development/backend
-- Frontend: https://docs.rhesis.ai/development/frontend
-- Worker: https://docs.rhesis.ai/development/worker
-- Connector: https://docs.rhesis.ai/development/connector
-- Environment Variables: https://docs.rhesis.ai/development/environment-variables
-- Contributing: https://docs.rhesis.ai/development/contributing
+### Contribute
+- Overview: https://docs.rhesis.ai/contribute
+- Backend: https://docs.rhesis.ai/contribute/backend
+- Frontend: https://docs.rhesis.ai/contribute/frontend
+- Worker: https://docs.rhesis.ai/contribute/worker
+- Connector: https://docs.rhesis.ai/contribute/connector
+- Environment Variables: https://docs.rhesis.ai/contribute/environment-variables
+- Development Setup: https://docs.rhesis.ai/contribute/development-setup
 
 ### Conversation Simulation
-- Overview: https://docs.rhesis.ai/conversation-simulation
-- Getting Started: https://docs.rhesis.ai/conversation-simulation/getting-started
-- Examples: https://docs.rhesis.ai/conversation-simulation/examples
-- Configuration: https://docs.rhesis.ai/conversation-simulation/configuration
+- Overview: https://docs.rhesis.ai/docs/conversation-simulation
+- Getting Started: https://docs.rhesis.ai/docs/conversation-simulation/getting-started
+- Examples: https://docs.rhesis.ai/docs/conversation-simulation/examples
+- Configuration: https://docs.rhesis.ai/docs/conversation-simulation/configuration
 
 ## Key Features
 
