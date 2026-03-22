@@ -157,8 +157,7 @@ def _to_dataframe(data: Any, section: str):
         import pandas as pd
     except ImportError:
         raise ImportError(
-            "pandas is required for to_dataframe(). "
-            "Install it with: pip install pandas"
+            "pandas is required for to_dataframe(). Install it with: pip install pandas"
         )
 
     if data is None:
