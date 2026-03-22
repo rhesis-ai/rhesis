@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
+from rhesis.sdk.agents.constants import Action, InternalTool, Role, ToolMeta
 from rhesis.sdk.agents.events import AgentEventHandler, _emit
 from rhesis.sdk.agents.schemas import AgentAction, ExecutionStep, ToolResult
 from rhesis.sdk.models.base import BaseLLM
@@ -92,6 +93,16 @@ class ArchitectAgent(BaseAgent):
         self._confirming_tools: FrozenSet[str] = frozenset()
         self._mutating_tools: Optional[FrozenSet[str]] = None
 
+        # ── discovery state ───────────────────────────────────────
+        self._discovery_state: Dict[str, Any] = {
+            "endpoint_id": None,
+            "endpoint_name": None,
+            "explored": False,
+            "observations": [],
+            "user_confirmed_areas": [],
+            "open_questions": [],
+        }
+
     # ── public API ──────────────────────────────────────────────────
 
     def chat(self, message: str) -> str:
@@ -112,7 +123,7 @@ class ArchitectAgent(BaseAgent):
     async def chat_async(self, message: str) -> str:
         """Async version of chat()."""
         async with self._turn_lock:
-            self._conversation_history.append({"role": "user", "content": message})
+            self._conversation_history.append({"role": Role.USER, "content": message})
 
             # If the previous turn asked for confirmation, unlock
             # only the specific tools that were blocked — not all
@@ -135,7 +146,7 @@ class ArchitectAgent(BaseAgent):
             try:
                 response = await self._run_loop(message)
 
-                self._conversation_history.append({"role": "assistant", "content": response})
+                self._conversation_history.append({"role": Role.ASSISTANT, "content": response})
 
                 # Reset approval after the turn completes — each
                 # creation batch requires its own confirmation.
@@ -184,6 +195,15 @@ class ArchitectAgent(BaseAgent):
                 new_mode=new_mode,
             )
 
+    @property
+    def discovery_state(self) -> Dict[str, Any]:
+        """Current discovery state (what the agent knows and needs to learn)."""
+        return self._discovery_state
+
+    @discovery_state.setter
+    def discovery_state(self, value: Dict[str, Any]) -> None:
+        self._discovery_state = value
+
     def reset(self) -> None:
         """Reset all state for a fresh conversation."""
         self._conversation_history.clear()
@@ -193,30 +213,42 @@ class ArchitectAgent(BaseAgent):
         self._creation_approved = False
         self._confirming_tools = frozenset()
         self._mutating_tools = None
+        self._discovery_state = {
+            "endpoint_id": None,
+            "endpoint_name": None,
+            "explored": False,
+            "observations": [],
+            "user_confirmed_areas": [],
+            "open_questions": [],
+        }
 
     # ── write-guard ────────────────────────────────────────────────
 
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Override to discover which tools require confirmation.
 
-        Uses explicit ``requires_confirmation`` metadata when present
-        in tool definitions (set in mcp_tools.yaml).  Falls back to
-        HTTP method heuristic for tools without the flag: GET/HEAD/
-        OPTIONS are read-only, everything else requires confirmation.
+        Classification priority:
+        1. Explicit ``requires_confirmation`` flag (from YAML / MCP annotations)
+        2. MCP ``readOnlyHint`` annotation — if True the tool is read-only
+        3. MCP ``destructiveHint`` annotation — if True the tool is mutating
+        4. ``http_method`` (set by LocalToolProvider) — GET/HEAD/OPTIONS are
+           read-only, everything else requires confirmation
         """
         tools = await super().get_available_tools()
 
         if self._mutating_tools is None:
             mutating: Set[str] = set()
             for t in tools:
-                rc = t.get("requires_confirmation")
+                rc = t.get(ToolMeta.REQUIRES_CONFIRMATION)
                 if rc is not None:
-                    # Explicit flag — honour it
                     if rc:
                         mutating.add(t["name"])
+                elif t.get(ToolMeta.READONLY_HINT) is True:
+                    pass
+                elif t.get(ToolMeta.DESTRUCTIVE_HINT) is True:
+                    mutating.add(t["name"])
                 else:
-                    # Fallback: infer from HTTP method
-                    method = t.get("http_method", "POST").upper()
+                    method = t.get(ToolMeta.HTTP_METHOD, "POST").upper()
                     if method not in _READONLY_HTTP_METHODS:
                         mutating.add(t["name"])
             self._mutating_tools = frozenset(mutating)
@@ -270,7 +302,7 @@ class ArchitectAgent(BaseAgent):
                     ExecutionStep(
                         iteration=iteration,
                         reasoning=action.reasoning,
-                        action="call_tool",
+                        action=Action.CALL_TOOL,
                         tool_calls=read_only,
                         tool_results=read_results,
                     )
@@ -284,7 +316,7 @@ class ArchitectAgent(BaseAgent):
                     f"confirmation: {blocked_names}. "
                     f"Present the plan and ask the user to confirm."
                 ),
-                action="finish",
+                action=Action.FINISH,
                 final_answer=action.final_answer or action.reasoning,
                 needs_confirmation=True,
             )
@@ -332,6 +364,7 @@ class ArchitectAgent(BaseAgent):
         tools_text = self._format_tools(available_tools)
         history_text = self._format_history()
         plan_text = self._plan.to_markdown() if self._plan else ""
+        discovery_state_text = self._format_discovery_state()
 
         template = self._jinja_env.get_template("iteration_prompt.j2")
         return template.render(
@@ -340,7 +373,35 @@ class ArchitectAgent(BaseAgent):
             tools_text=tools_text,
             history_text=history_text,
             plan_text=plan_text,
+            discovery_state_text=discovery_state_text,
         )
+
+    def _format_discovery_state(self) -> str:
+        """Format the discovery state for the iteration prompt."""
+        ds = self._discovery_state
+        if not ds.get("endpoint_id") and not ds.get("observations"):
+            return ""
+
+        parts: List[str] = []
+        if ds.get("endpoint_name"):
+            parts.append(f"Endpoint: {ds['endpoint_name']} (id: {ds['endpoint_id']})")
+        if ds.get("explored"):
+            parts.append("Explored: yes")
+        else:
+            parts.append("Explored: not yet")
+        if ds.get("observations"):
+            parts.append("Observations:")
+            for obs in ds["observations"]:
+                parts.append(f"  - {obs}")
+        if ds.get("user_confirmed_areas"):
+            parts.append("User-confirmed testing areas:")
+            for area in ds["user_confirmed_areas"]:
+                parts.append(f"  - {area}")
+        if ds.get("open_questions"):
+            parts.append("Open questions:")
+            for q in ds["open_questions"]:
+                parts.append(f"  - {q}")
+        return "\n".join(parts)
 
     # ── streaming finish (Phase 2 LLM call) ─────────────────────
 
@@ -372,11 +433,11 @@ class ArchitectAgent(BaseAgent):
             ExecutionStep(
                 iteration=iteration,
                 reasoning=action.reasoning,
-                action="finish",
+                action=Action.FINISH,
                 tool_calls=[],
                 tool_results=[
                     ToolResult(
-                        tool_name="finish",
+                        tool_name=InternalTool.FINISH,
                         success=True,
                         content=streamed_content,
                     )

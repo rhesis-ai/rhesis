@@ -11,6 +11,8 @@ from mcp.client.sse import sse_client  # type: ignore[import-untyped]
 from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
 from mcp.client.streamable_http import streamablehttp_client  # type: ignore[import-untyped]
 
+from rhesis.sdk.agents.constants import ToolMeta
+
 
 class MCPClient:
     """Client for connecting to and communicating with MCP servers.
@@ -166,14 +168,24 @@ class MCPClient:
         if not self.session:
             raise RuntimeError("Not connected to MCP server. Call connect() first.")
         result = await self.session.list_tools()
-        return [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "inputSchema": tool.inputSchema,
-            }
-            for tool in result.tools
-        ]
+        return [self._tool_dict(tool) for tool in result.tools]
+
+    @staticmethod
+    def _tool_dict(tool) -> Dict[str, Any]:
+        d: Dict[str, Any] = {
+            "name": tool.name,
+            "description": tool.description,
+            "inputSchema": tool.inputSchema,
+        }
+        if tool.annotations:
+            if tool.annotations.readOnlyHint is not None:
+                d[ToolMeta.READONLY_HINT] = tool.annotations.readOnlyHint
+            if tool.annotations.destructiveHint is not None:
+                d[ToolMeta.DESTRUCTIVE_HINT] = tool.annotations.destructiveHint
+            rc = getattr(tool.annotations, ToolMeta.REQUIRES_CONFIRMATION, None)
+            if rc is not None:
+                d[ToolMeta.REQUIRES_CONFIRMATION] = rc
+        return d
 
 
 class MCPClientFactory:

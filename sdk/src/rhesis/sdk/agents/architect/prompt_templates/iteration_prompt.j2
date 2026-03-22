@@ -5,6 +5,11 @@ User Message: {{ user_query }}
 Available Tools:
 {{ tools_text }}
 
+{% if discovery_state_text %}
+Discovery State (what you know so far):
+{{ discovery_state_text }}
+
+{% endif %}
 {% if plan_text %}
 Current Plan:
 {{ plan_text }}

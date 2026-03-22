@@ -5,6 +5,8 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
+from rhesis.sdk.agents.constants import Action
+
 
 def _parse_arguments(v: Any) -> Dict[str, Any]:
     """Coerce JSON strings and other values to ``dict``."""
@@ -49,7 +51,7 @@ class AgentAction(BaseModel):
     """LLM's structured response in the ReAct loop."""
 
     reasoning: str = Field(description="Your step-by-step reasoning about what to do next")
-    action: Literal["call_tool", "finish"] = Field(
+    action: Literal[Action.CALL_TOOL, Action.FINISH] = Field(
         description=(
             "Action to take: 'call_tool' to execute tools, 'finish' to return final answer"
         )

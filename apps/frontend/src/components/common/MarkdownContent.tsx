@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import NextLink from 'next/link';
 import Markdown from 'markdown-to-jsx';
 import { Box, Link, useTheme, type TypographyProps } from '@mui/material';
 
@@ -9,6 +10,35 @@ interface MarkdownContentProps {
   content: string;
   /** Typography variant to use for body text (default: 'body1') */
   variant?: TypographyProps['variant'];
+}
+
+function isInternalPath(href: string | undefined): boolean {
+  if (!href) return false;
+  return href.startsWith('/') && !href.startsWith('//');
+}
+
+function SmartLink({
+  href,
+  children,
+  ...props
+}: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  if (isInternalPath(href)) {
+    return (
+      <Link component={NextLink} href={href!} {...props}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      {...props}
+    >
+      {children}
+    </Link>
+  );
 }
 
 /**
@@ -132,11 +162,7 @@ export default function MarkdownContent({
         options={{
           overrides: {
             a: {
-              component: Link,
-              props: {
-                target: '_blank',
-                rel: 'noopener noreferrer',
-              },
+              component: SmartLink,
             },
           },
         }}

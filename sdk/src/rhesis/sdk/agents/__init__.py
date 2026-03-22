@@ -30,6 +30,7 @@ from rhesis.sdk.agents.schemas import (
     ToolCall,
     ToolResult,
 )
+from rhesis.sdk.agents.targets import LocalEndpointTarget
 from rhesis.sdk.agents.tools import ExploreEndpointTool
 
 
@@ -67,6 +68,8 @@ __all__ = [
     "MCPTool",
     # Tools
     "ExploreEndpointTool",
+    # Targets
+    "LocalEndpointTarget",
     # Events
     "AgentEventHandler",
     # MCP agent

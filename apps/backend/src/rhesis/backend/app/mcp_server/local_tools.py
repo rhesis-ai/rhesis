@@ -16,6 +16,7 @@ from typing import Any, Dict, List
 import httpx
 
 from rhesis.sdk.agents.base import MCPTool
+from rhesis.sdk.agents.constants import ToolMeta
 from rhesis.sdk.agents.schemas import ToolResult
 
 from .tools import build_tools_and_operations, load_tool_configs
@@ -45,23 +46,23 @@ class LocalToolProvider(MCPTool):
     def _confirmation_metadata(self, tool_name: str) -> Dict[str, Any]:
         """Return ``requires_confirmation`` metadata if set in YAML."""
         if tool_name in self._confirmation_map:
-            return {"requires_confirmation": self._confirmation_map[tool_name]}
+            return {ToolMeta.REQUIRES_CONFIRMATION: self._confirmation_map[tool_name]}
         return {}
 
     def _ensure_initialized(self) -> None:
         if not self._initialized:
             mcp_tools, self._operation_map = build_tools_and_operations(self._app)
             self._confirmation_map = {
-                tc["name"]: tc["requires_confirmation"]
+                tc["name"]: tc[ToolMeta.REQUIRES_CONFIRMATION]
                 for tc in load_tool_configs()
-                if "requires_confirmation" in tc
+                if ToolMeta.REQUIRES_CONFIRMATION in tc
             }
             self._tool_defs = [
                 {
                     "name": t.name,
                     "description": t.description or "",
                     "inputSchema": t.inputSchema,
-                    "http_method": self._operation_map.get(t.name, {}).get("method", "GET"),
+                    ToolMeta.HTTP_METHOD: self._operation_map.get(t.name, {}).get("method", "GET"),
                     **self._confirmation_metadata(t.name),
                 }
                 for t in mcp_tools

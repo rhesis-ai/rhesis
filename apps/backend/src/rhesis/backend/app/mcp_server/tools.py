@@ -11,6 +11,7 @@ from typing import Any, Dict, List
 
 import mcp.types as mcp_types
 import yaml
+from mcp.types import ToolAnnotations
 
 from .schema import build_input_schema
 
@@ -71,11 +72,21 @@ def build_tools_and_operations(
         input_schema = build_input_schema(operation, openapi_schema, yaml_param_overrides)
         description = tc.get("description", "").strip()
 
+        _readonly_methods = frozenset(("GET", "HEAD", "OPTIONS"))
+        annotations = ToolAnnotations(
+            readOnlyHint=(method in _readonly_methods),
+            destructiveHint=(method in ("DELETE", "PUT")),
+            idempotentHint=(method in (*_readonly_methods, "PUT", "DELETE")),
+        )
+        if "requires_confirmation" in tc:
+            annotations.requires_confirmation = tc["requires_confirmation"]
+
         tools.append(
             mcp_types.Tool(
                 name=name,
                 description=description,
                 inputSchema=input_schema,
+                annotations=annotations,
             )
         )
 

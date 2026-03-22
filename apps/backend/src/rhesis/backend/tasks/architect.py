@@ -209,9 +209,18 @@ def architect_chat_task(
         # transport, no MCP protocol or external HTTP needed.
         tool_provider = LocalToolProvider(fastapi_app, delegation_token)
 
+        # Endpoint exploration tool — uses a target factory that
+        # calls EndpointService directly, no HTTP round-trip.
+        from rhesis.sdk.agents.tools import ExploreEndpointTool
+
+        explore_tool = ExploreEndpointTool(
+            target_factory=_make_target_factory(org_id, user_id),
+            model=model,
+        )
+
         agent = ArchitectAgent(
             model=model,
-            tools=[tool_provider],
+            tools=[tool_provider, explore_tool],
             event_handlers=[ws_handler],
             max_iterations=saved_agent_state.get("max_iterations", 15),
             verbose=False,
@@ -220,6 +229,9 @@ def architect_chat_task(
         # Restore state
         agent._mode = saved_mode
         agent._conversation_history = conversation_history
+
+        if saved_agent_state.get("discovery_state"):
+            agent._discovery_state = saved_agent_state["discovery_state"]
 
         if saved_plan_data:
             from rhesis.sdk.agents.architect.plan import ArchitectPlan
@@ -256,6 +268,7 @@ def architect_chat_task(
 
             agent_state = {
                 "max_iterations": agent.max_iterations,
+                "discovery_state": agent.discovery_state,
             }
 
             # Auto-generate title from first message if not set
@@ -363,3 +376,54 @@ def _safe_preview(obj: Any, max_len: int = 200) -> Dict[str, Any]:
             for k, v in obj.items()
         }
     return {"value": str(obj)[:max_len]}
+
+
+def _make_target_factory(org_id: str, user_id: str):
+    """Build a target factory that invokes endpoints via EndpointService.
+
+    Returns a callable ``(endpoint_id) -> LocalEndpointTarget`` that
+    the ``ExploreEndpointTool`` uses to create targets at call time.
+    Each target calls the service layer directly — no HTTP, no SDK
+    client, no delegation token.
+    """
+    import asyncio as _asyncio
+
+    from rhesis.backend.app.services.endpoint.service import EndpointService
+    from rhesis.sdk.agents.targets import LocalEndpointTarget
+
+    svc = EndpointService()
+
+    def _invoke(endpoint_id: str, input_data: dict) -> dict:
+        with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+            return _asyncio.run(
+                svc.invoke_endpoint(
+                    db,
+                    endpoint_id,
+                    input_data,
+                    organization_id=org_id,
+                    user_id=str(user_id),
+                )
+            )
+
+    def factory(endpoint_id: str) -> LocalEndpointTarget:
+        name = endpoint_id
+        description = ""
+        try:
+            from rhesis.backend.app import crud
+
+            with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
+                ep = crud.get_endpoint(db, endpoint_id, organization_id=org_id, user_id=user_id)
+                if ep:
+                    name = ep.name or endpoint_id
+                    description = ep.description or ""
+        except Exception:
+            logger.debug("Could not load endpoint name for %s", endpoint_id)
+
+        return LocalEndpointTarget(
+            endpoint_id=endpoint_id,
+            invoke_fn=_invoke,
+            name=name,
+            endpoint_description=description,
+        )
+
+    return factory

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import jinja2
 
+from rhesis.sdk.agents.constants import Action, InternalTool
 from rhesis.sdk.agents.events import AgentEventHandler, _emit
 from rhesis.sdk.agents.schemas import (
     AgentAction,
@@ -506,12 +507,12 @@ class BaseAgent:
             if should_finish:
                 if self.verbose:
                     print(f"\nAgent finished after {iteration} iteration(s)")
-                if step.action == "finish" and step.tool_results:
+                if step.action == Action.FINISH and step.tool_results:
                     return step.tool_results[0].content
                 return ""
 
             # Track tool executions for the failsafe
-            if step.action == "call_tool" and step.tool_calls:
+            if step.action == Action.CALL_TOOL and step.tool_calls:
                 tool_exec_count += len(step.tool_calls)
                 if tool_exec_count > self._max_tool_executions:
                     logger.warning(
@@ -547,16 +548,16 @@ class BaseAgent:
             final_answer = await self._run_loop(user_query)
 
             max_reached = len(self._execution_history) >= self.max_iterations and not any(
-                s.action == "finish" for s in self._execution_history
+                s.action == Action.FINISH for s in self._execution_history
             )
-            finished_ok = any(s.action == "finish" for s in self._execution_history)
+            finished_ok = any(s.action == Action.FINISH for s in self._execution_history)
 
             # Check if the last finish step had an error
             success = finished_ok
             error = None
             if finished_ok:
                 last_finish = next(
-                    s for s in reversed(self._execution_history) if s.action == "finish"
+                    s for s in reversed(self._execution_history) if s.action == Action.FINISH
                 )
                 if last_finish.tool_results and not last_finish.tool_results[0].success:
                     success = False
@@ -615,9 +616,9 @@ class BaseAgent:
             print(f"\n   Reasoning: {action.reasoning}")
             print(f"   Action: {action.action}")
 
-        if action.action == "finish":
+        if action.action == Action.FINISH:
             result = await self._handle_finish_action(action, iteration)
-        elif action.action == "call_tool":
+        elif action.action == Action.CALL_TOOL:
             result = await self._handle_tool_calls(action, iteration)
         else:
             result = self._handle_unknown_action(action, iteration)
@@ -674,11 +675,11 @@ class BaseAgent:
             ExecutionStep(
                 iteration=iteration,
                 reasoning=action.reasoning,
-                action="finish",
+                action=Action.FINISH,
                 tool_calls=[],
                 tool_results=[
                     ToolResult(
-                        tool_name="finish",
+                        tool_name=InternalTool.FINISH,
                         success=True,
                         content=action.final_answer or "",
                     )
@@ -739,16 +740,16 @@ class BaseAgent:
         self, action: AgentAction, iteration: int
     ) -> Tuple[ExecutionStep, bool]:
         if not action.tool_calls:
-            logger.warning("Action is 'call_tool' but no tool_calls provided")
+            logger.warning("Action is '%s' but no tool_calls provided", Action.CALL_TOOL)
             return (
                 ExecutionStep(
                     iteration=iteration,
                     reasoning=action.reasoning,
-                    action="call_tool",
+                    action=Action.CALL_TOOL,
                     tool_calls=[],
                     tool_results=[
                         ToolResult(
-                            tool_name="error",
+                            tool_name=InternalTool.ERROR,
                             success=False,
                             error="No tool calls specified",
                         )
@@ -769,7 +770,7 @@ class BaseAgent:
             ExecutionStep(
                 iteration=iteration,
                 reasoning=action.reasoning,
-                action="call_tool",
+                action=Action.CALL_TOOL,
                 tool_calls=action.tool_calls,
                 tool_results=tool_results,
             ),
@@ -816,7 +817,7 @@ class BaseAgent:
                 tool_calls=[],
                 tool_results=[
                     ToolResult(
-                        tool_name="error",
+                        tool_name=InternalTool.ERROR,
                         success=False,
                         error=f"Unknown action: {action.action}",
                     )
@@ -829,11 +830,11 @@ class BaseAgent:
         return ExecutionStep(
             iteration=iteration,
             reasoning=f"Error: {error_msg}",
-            action="finish",
+            action=Action.FINISH,
             tool_calls=[],
             tool_results=[
                 ToolResult(
-                    tool_name="error",
+                    tool_name=InternalTool.ERROR,
                     success=False,
                     error=error_msg,
                 )
