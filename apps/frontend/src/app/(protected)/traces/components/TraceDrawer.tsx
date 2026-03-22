@@ -67,7 +67,8 @@ export default function TraceDrawer({
   // Tab index computation for optional conversation tab
   const showConversationTab = !!trace?.conversation_id;
   const isConversationTrace = showConversationTab;
-  const hasTraceMetrics = trace?.root_spans?.some(s => s.trace_metrics) ?? false;
+  const hasTraceMetrics =
+    trace?.root_spans?.some(s => s.trace_metrics) ?? false;
   const tabIndices = useMemo(() => {
     const offset = showConversationTab ? 1 : 0;
     return {

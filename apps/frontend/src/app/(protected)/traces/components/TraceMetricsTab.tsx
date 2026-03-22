@@ -86,10 +86,7 @@ function MetricsTable({
               <TableRow key={name}>
                 <TableCell>
                   {metric.is_successful ? (
-                    <CheckCircleOutlineIcon
-                      fontSize="small"
-                      color="success"
-                    />
+                    <CheckCircleOutlineIcon fontSize="small" color="success" />
                   ) : (
                     <CancelOutlinedIcon fontSize="small" color="error" />
                   )}
@@ -175,11 +172,7 @@ export default function TraceMetricsTab({
               <Typography variant="subtitle1" gutterBottom fontWeight={600}>
                 Turn Metrics
               </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mb: 2 }}
-              >
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Per-turn evaluation results for this span.
               </Typography>
               <MetricsTable
