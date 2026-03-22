@@ -19,7 +19,7 @@ const fallbackData = [{ name: 'Loading...', value: 100 }];
 // Configuration for each chart
 const CHART_CONFIG = {
   status: { top: 5, title: 'Test Runs by Status' },
-  result: { top: 5, title: 'Test Runs by Result' },
+  result: { top: 5, title: 'Test Results across Runs' },
   test: { top: 5, title: 'Most Run Test Sets' },
   executor: { top: 5, title: 'Top Test Executors' },
 };

@@ -6,7 +6,7 @@ from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.constants import OverallTestResult
-from rhesis.backend.app.models.stats_views import TestRunStatsView
+from rhesis.backend.app.models.stats_views import TestResultStatsView, TestRunStatsView
 
 from .common import (
     build_empty_stats_response,
@@ -78,23 +78,28 @@ def _get_stats(db: Session, filters: dict, mode: str, top: Optional[int]) -> Dic
         ]
 
     if mode in ("all", "results", "summary"):
-        q = base().with_entities(
+        VR = TestResultStatsView
+        matching_run_ids = base().with_entities(V.test_run_id)
+        q = db.query(
             func.count().label("total"),
-            func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
-            func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
-            func.count().filter(V.result == OverallTestResult.PENDING).label("pending"),
-        )
+            func.count().filter(VR.result == OverallTestResult.PASSED).label("passed"),
+            func.count().filter(VR.result == OverallTestResult.FAILED).label("failed"),
+            func.count().filter(VR.result == OverallTestResult.PENDING).label("pending"),
+        ).filter(VR.test_run_id.in_(matching_run_ids))
+        if filters.get("organization_id"):
+            q = q.filter(VR.organization_id == filters["organization_id"])
         r = q.one()
         total = r.total or 0
         passed = r.passed or 0
         failed = r.failed or 0
         pending = r.pending or 0
+        completed = passed + failed
         stats["result_distribution"] = {
             "total": total,
             "passed": passed,
             "failed": failed,
             "pending": pending,
-            "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0,
+            "pass_rate": round((passed / completed) * 100, 2) if completed > 0 else 0,
         }
 
     if mode in ("all", "test_sets"):
@@ -189,14 +194,12 @@ def get_test_run_stats(
 
     aggregated = _get_stats(db, filters, mode, top)
 
-    # Derive total_runs from whatever section was computed
+    # Derive total_runs from run-level sections (not result_distribution which counts test results)
     total_runs = 0
-    if "result_distribution" in aggregated:
-        total_runs = aggregated["result_distribution"]["total"]
+    if "status_distribution" in aggregated:
+        total_runs = sum(s["count"] for s in aggregated["status_distribution"])
     elif "timeline" in aggregated:
         total_runs = sum(m["total_runs"] for m in aggregated["timeline"])
-    elif "status_distribution" in aggregated:
-        total_runs = sum(s["count"] for s in aggregated["status_distribution"])
     else:
         total_runs = _apply_filters(db.query(func.count(V.test_run_id)), **filters).scalar() or 0
 
