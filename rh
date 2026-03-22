@@ -903,8 +903,7 @@ start_worker() {
     exec uv run celery -A rhesis.backend.worker.app worker \
         --loglevel=DEBUG \
         --queues=celery,execution,telemetry,architect \
-        --pool=solo \
-        --prefetch-multiplier=1 \
+        --concurrency=8 \
         --max-tasks-per-child=500 \
         --optimization=fair \
         -E 

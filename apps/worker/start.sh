@@ -261,11 +261,11 @@ echo "Worker context identifier: $CELERY_WORKER_NAME"
 # Build the complete command with memory optimizations
 # Uses prefork pool (default) with concurrency from CELERY_WORKER_CONCURRENCY.
 # -E enables events for worker discovery by backend enrichment service
-CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution,telemetry,architect --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --prefetch-multiplier=${CELERY_WORKER_PREFETCH_MULTIPLIER:-1} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500} --pool=solo --optimization=fair -E ${CELERY_WORKER_OPTS}"
+CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution,telemetry,architect --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-8} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500} --optimization=fair -E ${CELERY_WORKER_OPTS}"
 
 echo "Command: $CELERY_CMD"
 echo "Queues: celery,execution,telemetry,architect"
-echo "Pool: solo (sequential processing to avoid race conditions)"
+echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
 echo "Log level: ${CELERY_WORKER_LOGLEVEL}"
 echo "Max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500}"
 echo "Additional opts: ${CELERY_WORKER_OPTS:-none}"
