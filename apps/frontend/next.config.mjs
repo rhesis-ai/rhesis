@@ -10,8 +10,11 @@ import { execSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Function to get git information
+// Get git info from CI-injected env vars first, fall back to git commands (local dev)
 function getGitInfo() {
+  if (process.env.GIT_BRANCH || process.env.GIT_COMMIT) {
+    return { branch: process.env.GIT_BRANCH, commit: process.env.GIT_COMMIT };
+  }
   try {
     const branch = execSync('git rev-parse --abbrev-ref HEAD', {
       encoding: 'utf8',

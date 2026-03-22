@@ -10,18 +10,23 @@ from typing import Optional, Tuple
 def get_git_info() -> Tuple[Optional[str], Optional[str]]:
     """
     Get the current git branch and commit hash.
+    Checks CI-injected env vars first (GIT_BRANCH, GIT_COMMIT), then falls back
+    to running git commands (for local development).
 
     Returns:
         Tuple of (branch_name, commit_hash) or (None, None) if git info unavailable
     """
+    branch = os.getenv("GIT_BRANCH")
+    commit = os.getenv("GIT_COMMIT")
+    if branch or commit:
+        return branch, commit
+
     try:
-        # Get current branch
         branch_result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, timeout=5
         )
         branch = branch_result.stdout.strip() if branch_result.returncode == 0 else None
 
-        # Get current commit hash (short)
         commit_result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=5
         )
@@ -30,7 +35,6 @@ def get_git_info() -> Tuple[Optional[str], Optional[str]]:
         return branch, commit
 
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
-        # Git not available or repo not a git repository
         return None, None
 
 

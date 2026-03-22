@@ -33,6 +33,12 @@ RUN find . -name ".env*" -type f -delete
 # Define ARG for this stage. Default to production if not set.
 ARG FRONTEND_ENV=production
 
+# Git metadata injected by CI pipeline
+ARG GIT_BRANCH
+ARG GIT_COMMIT
+ENV GIT_BRANCH=${GIT_BRANCH}
+ENV GIT_COMMIT=${GIT_COMMIT}
+
 # Define build arguments only for NEXT_PUBLIC_ variables
 ARG NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
 ARG NEXT_PUBLIC_APP_URL=https://app.rhesis.ai
