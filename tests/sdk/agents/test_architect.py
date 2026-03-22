@@ -719,3 +719,86 @@ class TestArchitectWriteGuard:
         await agent.chat_async("Yes, go ahead.")
 
         assert agent._creation_approved is False
+
+
+# ── discovery state tests ────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectDiscoveryState:
+    """Test discovery state tracking and formatting."""
+
+    @pytest.fixture
+    def mock_model(self):
+        model = Mock(spec=BaseLLM)
+        model.generate = Mock(return_value={})
+        return model
+
+    def test_default_discovery_state(self, mock_model):
+        agent = _make_agent(mock_model)
+        ds = agent.discovery_state
+        assert ds["endpoint_id"] is None
+        assert ds["endpoint_name"] is None
+        assert ds["explored"] is False
+        assert ds["observations"] == []
+        assert ds["user_confirmed_areas"] == []
+        assert ds["open_questions"] == []
+
+    def test_discovery_state_setter(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent.discovery_state = {
+            "endpoint_id": "ep-1",
+            "endpoint_name": "Chatbot",
+            "explored": True,
+            "observations": ["Handles travel queries"],
+            "user_confirmed_areas": ["Safety"],
+            "open_questions": [],
+        }
+        assert agent.discovery_state["endpoint_name"] == "Chatbot"
+        assert agent.discovery_state["explored"] is True
+
+    def test_reset_clears_discovery_state(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._discovery_state["endpoint_id"] = "ep-1"
+        agent._discovery_state["explored"] = True
+        agent.reset()
+        assert agent.discovery_state["endpoint_id"] is None
+        assert agent.discovery_state["explored"] is False
+
+    def test_format_discovery_state_empty(self, mock_model):
+        agent = _make_agent(mock_model)
+        assert agent._format_discovery_state() == ""
+
+    def test_format_discovery_state_with_endpoint(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._discovery_state["endpoint_id"] = "ep-1"
+        agent._discovery_state["endpoint_name"] = "File Chatbot"
+        formatted = agent._format_discovery_state()
+        assert "File Chatbot" in formatted
+        assert "ep-1" in formatted
+        assert "not yet" in formatted
+
+    def test_format_discovery_state_explored(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._discovery_state["endpoint_id"] = "ep-1"
+        agent._discovery_state["endpoint_name"] = "Chatbot"
+        agent._discovery_state["explored"] = True
+        agent._discovery_state["observations"] = [
+            "Handles travel bookings",
+            "Refuses off-topic requests",
+        ]
+        formatted = agent._format_discovery_state()
+        assert "Explored: yes" in formatted
+        assert "Handles travel bookings" in formatted
+        assert "Refuses off-topic requests" in formatted
+
+    def test_format_discovery_state_with_areas_and_questions(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._discovery_state["endpoint_id"] = "ep-1"
+        agent._discovery_state["endpoint_name"] = "Bot"
+        agent._discovery_state["user_confirmed_areas"] = ["Safety", "Accuracy"]
+        agent._discovery_state["open_questions"] = ["Compliance requirements?"]
+        formatted = agent._format_discovery_state()
+        assert "Safety" in formatted
+        assert "Accuracy" in formatted
+        assert "Compliance requirements?" in formatted

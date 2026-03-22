@@ -259,7 +259,7 @@ class TestBaseAgentHistoryWindowing:
 
     def test_result_content_truncation(self, mock_model):
         agent = _make_agent(mock_model, history_window=10)
-        long_content = "x" * 500
+        long_content = "x" * 5000
         agent._execution_history.append(
             ExecutionStep(
                 iteration=1,
@@ -277,9 +277,8 @@ class TestBaseAgentHistoryWindowing:
         )
 
         formatted = agent._format_history()
-        # Content should be truncated to 300 chars
-        assert "x" * 300 in formatted
-        assert "x" * 301 not in formatted
+        assert "x" * 4000 in formatted
+        assert "x" * 4001 not in formatted
 
     def test_empty_history(self, mock_model):
         agent = _make_agent(mock_model)
