@@ -61,6 +61,7 @@ const nextConfig = {
     APP_VERSION: JSON.parse(
       readFileSync(path.join(__dirname, 'package.json'), 'utf8')
     ).version,
+    FRONTEND_ENV: process.env.FRONTEND_ENV,
     ...(() => {
       const gitInfo = getGitInfo();
       return {
