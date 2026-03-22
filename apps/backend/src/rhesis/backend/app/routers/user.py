@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -27,14 +28,14 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.rate_limit import INVITATION_RATE_LIMIT, user_limiter
 from rhesis.backend.app.utils.validation import validate_and_normalize_email
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications import email_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/users",
     tags=["users"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token_without_context)],
 )
 
 

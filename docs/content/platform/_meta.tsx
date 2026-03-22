@@ -16,6 +16,7 @@ const meta: MetaRecord = {
     title: "Testing",
   },
   "tests-generation": "Generation",
+  playground: "Playground",
   tests: "Tests",
   "test-sets": "Test Sets",
   "test-execution": "Test Execution",
@@ -25,6 +26,7 @@ const meta: MetaRecord = {
   },
   "results-overview": "Overview",
   "test-runs": "Test Runs",
+  "test-reviews": "Test Reviews",
   tasks: "Tasks",
   "---development": {
     type: "separator",

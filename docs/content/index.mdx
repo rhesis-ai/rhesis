@@ -1,136 +1,45 @@
+import { ButtonGroup } from '@/components/ButtonGroup'
+import { CommunitySupport } from '@/components/CommunitySupport'
+
 # Rhesis Documentation
 
-**Gen AI Testing. Collaborative. Adaptive.**
+**More than just evals. The testing platform for AI teams.**
 
-From "I hope this works" to "I know this works." Rhesis brings your whole team together—developers, domain experts, legal, and marketing—to create comprehensive testing that ensures your Gen AI applications work exactly as intended before users see them.
+Connect directly to your LLM apps and AI agents. Bring engineers, PMs, and domain experts together to generate tests, simulate (adversarial) conversations, and trace every failure to its root cause.
 
-<ThemeAwareImage
-  lightSrc="/screenshots/rhesis-ai-dashboard.png"
-  darkSrc="/screenshots/rhesis-ai-dashboard-dark.png"
-  alt="Rhesis AI Dashboard"
-/>
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', margin: '24px 0', borderRadius: '8px' }}>
+  <iframe
+    src="https://www.youtube.com/embed/txujgZ-CwIY"
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    title="Rhesis Product Tour"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    allowFullScreen
+  ></iframe>
+</div>
 
 <ButtonGroup
   primaryText="Get Started →"
   primaryHref="/getting-started"
   secondaryText="Learn Core Concepts →"
-  secondaryHref="/getting-started/concepts"
+  secondaryHref="/concepts"
 />
 
-## Why Rhesis?
+## Getting Started
 
-You spent weeks or months building something innovative. Don't let inadequate testing ruin the release. Traditional testing approaches fail with Gen AI because responses are non-deterministic, quality is subjective, and edge cases are infinite. Rhesis brings together technical and domain expertise to create testing that's as sophisticated as your Gen AI architecture.
+<Steps>
+### Setup Environment
+Choose how you want to run Rhesis: Cloud (fastest), Local, or Self-hosted.
+[Setup Environment Guide →](/getting-started/setup-environment)
 
-<FeatureOverview />
+### Connect Application
+Connect your Gen AI application to Rhesis via REST Endpoints or our Python SDK.
+[Connect Application Guide →](/getting-started/connecting-application)
 
-## See Rhesis in Action
-
-Watch this comprehensive platform demo to see how Rhesis brings collaborative Gen AI testing into your development workflow. This video covers the complete platform, from test generation to execution and results analysis.
-
-<div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden", marginBottom: "2rem" }}>
-  <iframe
-    src="https://www.youtube.com/embed/QmiUd7j4fL0"
-    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-    frameBorder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    allowFullScreen
-  />
-</div>
-
-**Key Topics Covered:**
-- **Dashboard** (00:18) - Overview of platform metrics and activity
-- **Projects & Endpoints** (00:37) - Setting up your testing environment
-- **Knowledge** (01:31) - Managing domain context for test generation
-- **Test Generation** (03:15) - Automatically creating comprehensive test scenarios
-- **Test Execution** (06:15) - Running evaluations and viewing detailed results
-- **Tasks & Metrics** (11:01) - Managing work items and defining evaluation criteria
-- **API Tokens** (13:14) - Integrating with your systems
-
-## Built for Teams, know what you ship!
-
-Advanced testing architecture, collaborative by design. Rhesis works with any Gen AI system and integrates seamlessly into your existing development workflow.
-
-<IndustryExamples />
-
-## Quick Start
-
-### Option 1: Use the cloud platform (fastest)
-
-Get started in minutes at [app.rhesis.ai](https://app.rhesis.ai):
-
-1. **Create a free account**
-2. **Start generating test scenarios collaboratively**
-3. **Invite your team to define requirements together**
-
-### Option 2: Use the SDK
-
-Install and configure the Python SDK:
-
-<CodeBlock filename="terminal" language="bash">
-  {`pip install rhesis-sdk`}
-</CodeBlock>
-
-<details>
-<summary>**Quick example**</summary>
-
-<CodeBlock filename="app.py" language="python">
-{`import rhesis
-from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
-
-# Configuration
-
-rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX" # Get from app.rhesis.ai settings
-rhesis.base_url = "https://api.rhesis.ai" # optional
-
-synthesizer = PromptSynthesizer(
-"Generate test cases for a doctor appointment scheduling chatbot"
-)
-
-test_set = synthesizer.generate(num_tests=4)
-
-for test in test_set.tests:
-print("-" \* 40)
-print(f"Prompt: {test['prompt']['content']}")
-print(f"Behavior: {test['behavior']}")
-print(f"Category: {test['category']}")
-print(f"Topic: {test['topic']}")
-
-# Example output:
-
-# ----------------------------------------
-
-# Prompt: Schedule an appointment for me next week with Dr. Smith.
-
-# Behavior: Reliability
-
-# Category: Harmless
-
-# Topic: Appointment Scheduling`}
-
-</CodeBlock>
-
-</details>
-
-### Option 3: Run locally with Docker (zero configuration)
-
-Get the full platform running locally with a single command - no configuration needed:
-
-<CodeBlock filename="terminal" language="bash">
-  {`git clone https://github.com/rhesis-ai/rhesis.git
-cd rhesis
-./rh start`}
-</CodeBlock>
-
-That's it! Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically logged in to the dashboard!
-
-**What happens automatically:**
-- ✅ Generates database encryption key
-- ✅ Creates `.env.docker.local` with local configuration
-- ✅ Enables auto-login (no external auth setup needed)
-- ✅ Starts all services (backend, frontend, database, worker)
-- ✅ Creates default admin user and example data
-
-> **Note:** This is a simplified setup for local testing only. For production deployments, see the [Self-hosting Documentation](/getting-started/self-hosting).
+### Run Evaluations
+Generate test sets interactively and run automated evaluations against your application.
+[Run Evaluations Guide →](/getting-started/run-evaluations)
+</Steps>
 
 ## Community & Support
 

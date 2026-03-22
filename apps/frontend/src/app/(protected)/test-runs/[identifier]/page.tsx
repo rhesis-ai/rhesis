@@ -119,15 +119,23 @@ export default async function TestRunPage({
     >
   );
 
-  // Fetch behaviors with metrics for this test run
+  // Fetch behaviors (with their associated metrics for behavior-level filtering)
+  // and the distinct metric names actually evaluated in this test run, in parallel
   let behaviors: Array<{
     id: string;
     name: string;
     description?: string;
     metrics: Array<{ name: string; description?: string }>;
   }> = [];
+  let availableMetrics: string[] = [];
   try {
-    const behaviorsData = await testRunsClient.getTestRunBehaviors(identifier);
+    const [behaviorsData, metricsData] = await Promise.all([
+      testRunsClient.getTestRunBehaviors(identifier),
+      testRunsClient.getTestRunMetrics(identifier),
+    ]);
+
+    availableMetrics = metricsData;
+
     const behaviorsWithMetrics = await Promise.all(
       behaviorsData.map(async behavior => {
         try {
@@ -154,11 +162,10 @@ export default async function TestRunPage({
       })
     );
 
-    behaviors = behaviorsWithMetrics.filter(
-      behavior => behavior.metrics.length > 0
-    );
+    behaviors = behaviorsWithMetrics;
   } catch (_error) {
     behaviors = [];
+    availableMetrics = [];
   }
 
   // Define title and breadcrumbs for PageContainer
@@ -191,6 +198,7 @@ export default async function TestRunPage({
           testResults={testResults}
           prompts={promptsMap}
           behaviors={behaviors}
+          availableMetrics={availableMetrics}
           currentUserId={session.user?.id || ''}
           currentUserName={session.user?.name || ''}
           currentUserPicture={session.user?.picture || undefined}

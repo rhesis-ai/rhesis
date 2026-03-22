@@ -49,15 +49,7 @@ def create_test_configuration(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create test configuration with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new test configuration."""
     organization_id, user_id = tenant_context
 
     # Set the user_id to the current user if not provided
@@ -140,15 +132,7 @@ def update_test_configuration(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update test_configuration with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing test configuration."""
     organization_id, user_id = tenant_context
     db_test_configuration = crud.get_test_configuration(
         db,

@@ -2,6 +2,7 @@
 SendGrid v3 API client for sending emails with dynamic templates.
 """
 
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
@@ -10,7 +11,7 @@ from typing import Optional, Tuple
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Email, Mail, To
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 class SendGridClient:
@@ -54,6 +55,7 @@ class SendGridClient:
         dynamic_template_data: dict,
         delay_hours: int,
         delay_minutes: int = 0,
+        simulate: bool = False,
     ) -> bool:
         """
         Send an email using a SendGrid Dynamic Template with scheduling.
@@ -67,13 +69,14 @@ class SendGridClient:
             dynamic_template_data: Dictionary of template variables (Handlebars format)
             delay_hours: Hours to delay sending
             delay_minutes: Additional minutes to delay sending
+            simulate: If True, log the payload but skip the actual SendGrid API call
 
         Returns:
-            bool: True if email was sent successfully, False otherwise
+            bool: True if email was sent successfully (or simulated), False otherwise
         """
         if not self.is_configured:
             logger.warning(
-                f"Cannot send scheduled email to {recipient_email}: SendGrid API key not configured"
+                "Cannot send scheduled email to [recipient]: SendGrid API key not configured"
             )
             return False
 
@@ -104,17 +107,33 @@ class SendGridClient:
             message.dynamic_template_data = dynamic_template_data
             message.send_at = send_at_timestamp
 
+            if simulate:
+                logger.info(
+                    "[SIMULATE] Would schedule email at %s via template %s",
+                    send_at_time.isoformat(),
+                    template_id,
+                )
+                return True
+
             sg = SendGridAPIClient(self.api_key)
             response = sg.send(message)
 
-            logger.info(
-                f"Scheduled email for {recipient_email} to be sent at "
-                f"{send_at_time.isoformat()} (timestamp: {send_at_timestamp}). "
-                f"SendGrid response: {response.status_code}"
-            )
+            if response.status_code in [200, 201, 202]:
+                logger.info(
+                    "Scheduled email to be sent at %s (timestamp: %s). SendGrid response: %s",
+                    send_at_time.isoformat(),
+                    send_at_timestamp,
+                    response.status_code,
+                )
+            else:
+                logger.error(
+                    "SendGrid returned unexpected status %s. Body: %s",
+                    response.status_code,
+                    response.body,
+                )
 
             return response.status_code in [200, 201, 202]
 
         except Exception:
-            logger.exception(f"Failed to send scheduled email to {recipient_email}")
+            logger.exception("Failed to send scheduled email")
             return False

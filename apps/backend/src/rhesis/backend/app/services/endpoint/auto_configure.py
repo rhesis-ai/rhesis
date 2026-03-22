@@ -70,7 +70,7 @@ class AutoConfigureService:
 
         # Step 1 — LLM analyses input and generates everything
         try:
-            result = self._analyse(request)
+            result = await self._analyse(request)
         except Exception as e:
             logger.error("Failed to analyse input: %s", e, exc_info=True)
             return AutoConfigureResult(
@@ -97,7 +97,7 @@ class AutoConfigureService:
     # LLM calls
     # ------------------------------------------------------------------
 
-    def _call_llm(
+    async def _call_llm(
         self,
         template_name: str,
         context: dict,
@@ -106,7 +106,7 @@ class AutoConfigureService:
         """Render a Jinja2 prompt, call the LLM, return a validated model."""
         template = self.jinja_env.get_template(template_name)
         prompt = template.render(context)
-        response = self.llm.generate(prompt, schema=schema)
+        response = await self.llm.a_generate(prompt, schema=schema)
 
         if isinstance(response, dict) and response.get("error"):
             raise RuntimeError(str(response["error"]))
@@ -178,12 +178,12 @@ class AutoConfigureService:
 
     # ------------------------------------------------------------------
 
-    def _analyse(self, request: AutoConfigureRequest) -> AutoConfigureResult:
+    async def _analyse(self, request: AutoConfigureRequest) -> AutoConfigureResult:
         """Single LLM call: analyse input and generate mappings + probe body."""
         sanitized_input = self._redact_secrets(request.input_text)
         if sanitized_input != request.input_text:
             logger.info("Redacted potential secrets from auto-configure input")
-        return self._call_llm(
+        return await self._call_llm(
             "auto_configure.jinja2",
             {
                 "input_text": sanitized_input,
@@ -229,7 +229,7 @@ class AutoConfigureService:
         except ValueError:
             raise
 
-    def _correct(
+    async def _correct(
         self,
         result: AutoConfigureResult,
         error_body: str,
@@ -237,7 +237,7 @@ class AutoConfigureService:
     ) -> AutoConfigureResult:
         """Single LLM call: fix the result based on a probe error."""
         try:
-            return self._call_llm(
+            return await self._call_llm(
                 "auto_configure_correct.jinja2",
                 {
                     "result": result,
@@ -342,7 +342,7 @@ class AutoConfigureService:
             # Ask LLM to correct if we have more attempts
             if attempt < self.MAX_PROBE_ATTEMPTS - 1:
                 error_str = json.dumps(probe.body) if probe.body else str(probe.error)
-                corrected = self._correct(result, error_str, probe.status_code)
+                corrected = await self._correct(result, error_str, probe.status_code)
                 # Preserve probe diagnostics on the corrected result
                 corrected.probe_attempts = result.probe_attempts
                 corrected.probe_error = result.probe_error
@@ -350,6 +350,14 @@ class AutoConfigureService:
                 # Keep the original URL/method (user-provided takes priority)
                 corrected.url = result.url
                 corrected.method = result.method
+                # Preserve mappings/headers from the previous result if the LLM
+                # correction omitted them (only returned the corrected probe_request)
+                if corrected.request_mapping is None:
+                    corrected.request_mapping = result.request_mapping
+                if corrected.response_mapping is None:
+                    corrected.response_mapping = result.response_mapping
+                if corrected.request_headers is None:
+                    corrected.request_headers = result.request_headers
                 result = corrected
 
         # Probe failed — cap confidence

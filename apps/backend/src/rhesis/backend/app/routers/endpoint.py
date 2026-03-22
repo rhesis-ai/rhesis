@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any, Dict
 
@@ -23,8 +24,8 @@ from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.app.utils.status import get_or_create_status
 
-# Use rhesis logger
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # Create the detailed schema for Endpoint
 EndpointDetailSchema = create_detailed_schema(schemas.Endpoint, models.Endpoint)
@@ -48,8 +49,7 @@ def create_endpoint(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create endpoint with optimized approach - no session variables needed.
+    """Create a new endpoint.
 
     If no status_id is provided, the endpoint is automatically assigned
     the "Active" status.

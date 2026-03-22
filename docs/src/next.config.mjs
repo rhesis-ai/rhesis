@@ -15,6 +15,20 @@ const withNextra = nextra({
 export default withNextra({
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../..'),
+  async redirects() {
+    return [
+      {
+        source: '/penelope',
+        destination: '/conversation-simulation',
+        permanent: true,
+      },
+      {
+        source: '/penelope/:path*',
+        destination: '/conversation-simulation/:path*',
+        permanent: true,
+      },
+    ]
+  },
   webpack: config => {
     config.resolve.alias['@'] = path.resolve(__dirname)
 

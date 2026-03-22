@@ -10,8 +10,11 @@ import { execSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Function to get git information
+// Get git info from CI-injected env vars first, fall back to git commands (local dev)
 function getGitInfo() {
+  if (process.env.GIT_BRANCH || process.env.GIT_COMMIT) {
+    return { branch: process.env.GIT_BRANCH, commit: process.env.GIT_COMMIT };
+  }
   try {
     const branch = execSync('git rev-parse --abbrev-ref HEAD', {
       encoding: 'utf8',
@@ -54,18 +57,18 @@ const nextConfig = {
   // date-fns, recharts, etc.) are already optimized by Next.js by default.
 
   // Environment variables available to the client
-  env: {
-    APP_VERSION: JSON.parse(
-      readFileSync(path.join(__dirname, 'package.json'), 'utf8')
-    ).version,
-    ...(() => {
-      const gitInfo = getGitInfo();
-      return {
-        GIT_BRANCH: gitInfo.branch,
-        GIT_COMMIT: gitInfo.commit,
-      };
-    })(),
-  },
+  // NEXT_PUBLIC_ prefix guarantees availability in client components
+  env: (() => {
+    const gitInfo = getGitInfo();
+    return {
+      APP_VERSION: JSON.parse(
+        readFileSync(path.join(__dirname, 'package.json'), 'utf8')
+      ).version,
+      NEXT_PUBLIC_FRONTEND_ENV: process.env.FRONTEND_ENV,
+      NEXT_PUBLIC_GIT_BRANCH: gitInfo.branch,
+      NEXT_PUBLIC_GIT_COMMIT: gitInfo.commit,
+    };
+  })(),
 
   // API rewrites for cross-container communication
   async rewrites() {

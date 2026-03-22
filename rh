@@ -723,6 +723,13 @@ start_backend() {
         exit 1
     }
 
+
+    source .venv/bin/activate || {
+        echo -e "${RED}❌ Error: Failed to activate virtual environment${NC}"
+        exit 1
+    }
+    echo -e "${GREEN}✅ Python environment activated${NC}"
+
     if [ -f "start.sh" ]; then
         ./start.sh
     else
@@ -891,7 +898,6 @@ start_worker() {
 
     # Run in foreground - using uv run handles the virtual environment automatically
     # Using --logfile parameter to write logs directly
-    # Using --pool=solo to avoid forking issues on macOS with ML libraries (DeepEval/PyTorch)
     # Using -E to enable events for worker discovery
     # Configuration matches apps/worker/start.sh for consistency
     exec uv run celery -A rhesis.backend.worker.app worker \
@@ -901,8 +907,7 @@ start_worker() {
         --prefetch-multiplier=1 \
         --max-tasks-per-child=500 \
         --optimization=fair \
-        -E \
-        --logfile="$LOG_FILE"
+        -E 
 }
 
 # Function to run frontend tests

@@ -1,4 +1,5 @@
 import csv
+import logging
 import uuid
 from io import StringIO
 from typing import Any, Dict, List, Optional
@@ -6,7 +7,8 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
-from rhesis.backend.logging.rhesis_logger import logger
+
+logger = logging.getLogger(__name__)
 
 
 def get_test_results_for_test_run(

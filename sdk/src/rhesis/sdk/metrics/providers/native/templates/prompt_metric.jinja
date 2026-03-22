@@ -1,6 +1,15 @@
-You will be given the LLM response to a prompt.
+You will be given an input and the content to evaluate. The content may be:
+- A single LLM response, optionally accompanied by separate Metadata and tool calls sections.
+- A multi-turn conversation transcript, where each turn may include the following inline fields:
+    - Assistant: the response text
+    - Context: retrieval sources used to generate the response (e.g. RAG documents)
+    - Metadata: structured data returned by the endpoint (e.g. confidence scores, citations)
+    - Tool calls: functions or APIs invoked during the response
 
-Your task is to rate the LLM response based on the following criteria.
+Use all available information — including context, metadata, and tool calls — when making
+your evaluation. Do not ignore these fields; they are part of the system's observable behavior.
+
+Your task is to rate the content based on the following criteria.
 
 Please make sure you read and understand these instructions carefully.
 
@@ -22,21 +31,35 @@ Examples:
 {{ evaluation_examples }}
 {% endif %}
 
-Input Query: 
+Input Query:
 {{ input if input|trim else "No input provided" }}
 
+{% if context_text|trim and context_text|trim != "No context provided." %}
 Context Information:
-{{ context_text if context_text|trim else "No context provided" }}
+{{ context_text }}
+Note: This context was retrieved and used to generate the response. Consider whether the
+response faithfully and accurately draws from it.
+{% endif %}
 
 {% if metadata_text %}
 Response Metadata:
 {{ metadata_text }}
+Note: This is structured data returned by the endpoint alongside the response (e.g. confidence
+scores, citations, intent labels). Use it to inform your evaluation where relevant.
 {% endif %}
+
+{% if tool_calls_text %}
+Tool Calls:
+{{ tool_calls_text }}
+Note: These are functions or APIs the endpoint invoked when generating the response. Consider
+whether the correct tools were used with appropriate arguments.
+{% endif %}
+
 Expected Response:
 {{ expected_output if expected_output|trim else "No expected response provided" }}
 
-LLM Response to Evaluate:
-{{ output if output|trim else "No response provided" }}
+Content to Evaluate:
+{{ output if output|trim else "No content provided" }}
 
 
 Evaluation Form:

@@ -42,6 +42,7 @@ export { default as ApiIcon } from '@mui/icons-material/ApiOutlined';
 export { default as ViewListIcon } from '@mui/icons-material/ViewListOutlined';
 
 // Common action icons
+export { default as AttachFileIcon } from '@mui/icons-material/AttachFileOutlined';
 export { default as AddIcon } from '@mui/icons-material/AddOutlined';
 export { default as DeleteIcon } from '@mui/icons-material/DeleteOutlined';
 export { default as CheckIcon } from '@mui/icons-material/CheckOutlined';

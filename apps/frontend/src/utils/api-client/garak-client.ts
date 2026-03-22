@@ -11,6 +11,7 @@ export interface GarakProbeClass {
   prompt_count: number;
   tags: string[];
   detector: string | null;
+  is_dynamic: boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ export interface GarakProbeModule {
   rhesis_category: string;
   rhesis_topic: string;
   rhesis_behavior: string;
+  has_dynamic_probes: boolean;
   probes: GarakProbeClass[];
 }
 
@@ -148,6 +150,26 @@ export interface GarakSyncResponse {
 }
 
 /**
+ * Request to generate a test set from a dynamic probe
+ */
+export interface GarakGenerateRequest {
+  module_name: string;
+  class_name: string;
+  name?: string;
+  num_tests?: number;
+}
+
+/**
+ * Response from dynamic probe generation (async task)
+ */
+export interface GarakGenerateResponse {
+  task_id: string;
+  probe_full_name: string;
+  num_tests: number;
+  message: string;
+}
+
+/**
  * Client for Garak integration API endpoints
  */
 export class GarakClient extends BaseApiClient {
@@ -206,6 +228,18 @@ export class GarakClient extends BaseApiClient {
   async syncTestSet(testSetId: string): Promise<GarakSyncResponse> {
     return this.fetch<GarakSyncResponse>(`/garak/sync/${testSetId}`, {
       method: 'POST',
+    });
+  }
+
+  /**
+   * Generate a test set from a dynamic probe via LLM synthesis
+   */
+  async generateDynamicProbe(
+    request: GarakGenerateRequest
+  ): Promise<GarakGenerateResponse> {
+    return this.fetch<GarakGenerateResponse>('/garak/generate', {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
   }
 }

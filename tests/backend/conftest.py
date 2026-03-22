@@ -11,49 +11,45 @@ import os
 DATABASE_PORT = 12001
 REDIS_PORT = 12002
 
-# Test mode
-os.environ["SQLALCHEMY_DB_MODE"] = "test"
-os.environ["ENVIRONMENT"] = "test"
-os.environ["LOG_LEVEL"] = "WARNING"
-
-# Reduce log noise during tests (default is INFO)
-os.environ["LOG_LEVEL"] = "WARNING"
-
-# Disable the Rhesis connector/SDK integration for tests
-os.environ["RHESIS_CONNECTOR_DISABLED"] = "true"
-os.environ["RHESIS_PROJECT_ID"] = "12340000-0000-4000-8000-000000001234"
-
-# Database configuration for docker-compose integration tests
-# These are set directly (not setdefault) to override any .env file values
-os.environ["SQLALCHEMY_DB_HOST"] = "localhost"
-os.environ["SQLALCHEMY_DB_PORT"] = str(DATABASE_PORT)
-os.environ["SQLALCHEMY_DB_NAME"] = "rhesis-test-db"
-os.environ["SQLALCHEMY_DB_USER"] = "rhesis-user"
-os.environ["SQLALCHEMY_DB_PASS"] = "your-secured-password"
-os.environ["SQLALCHEMY_DB_DRIVER"] = "postgresql"
-# Don't set SQLALCHEMY_DATABASE_URL - let the isolation check distinguish test from prod
-os.environ["SQLALCHEMY_DATABASE_TEST_URL"] = (
+_TEST_DB_URL = (
     f"postgresql://rhesis-user:your-secured-password@localhost:{DATABASE_PORT}/rhesis-test-db"
 )
 
-# Redis configuration
-os.environ["REDIS_URL"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0"
-os.environ["BROKER_URL"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0"
-os.environ["CELERY_RESULT_BACKEND"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1"
+_TEST_ENV_VARS = {
+    "SQLALCHEMY_DB_MODE": "test",
+    "ENVIRONMENT": "test",
+    "LOG_LEVEL": "WARNING",
+    "RHESIS_CONNECTOR_DISABLED": "true",
+    "RHESIS_PROJECT_ID": "12340000-0000-4000-8000-000000001234",
+    "SQLALCHEMY_DB_HOST": "localhost",
+    "SQLALCHEMY_DB_PORT": str(DATABASE_PORT),
+    "SQLALCHEMY_DB_NAME": "rhesis-test-db",
+    "SQLALCHEMY_DB_USER": "rhesis-user",
+    "SQLALCHEMY_DB_PASS": "your-secured-password",
+    "SQLALCHEMY_DB_DRIVER": "postgresql",
+    "SQLALCHEMY_DATABASE_TEST_URL": _TEST_DB_URL,
+    "REDIS_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
+    "BROKER_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
+    "CELERY_RESULT_BACKEND": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1",
+    "JWT_SECRET_KEY": "test-jwt-secret-key-for-backend-tests",
+    "SESSION_SECRET_KEY": "test-session-secret-key-for-backend-tests",
+    "JWT_ALGORITHM": "HS256",
+    "JWT_ACCESS_TOKEN_EXPIRE_MINUTES": "10080",
+    "DB_ENCRYPTION_KEY": "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=",
+    "AUTH0_DOMAIN": "test.auth0.com",
+}
 
-# JWT configuration
-os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-for-backend-tests"
-os.environ["JWT_ALGORITHM"] = "HS256"
-os.environ["JWT_ACCESS_TOKEN_EXPIRE_MINUTES"] = "10080"
 
-# Encryption key
-os.environ["DB_ENCRYPTION_KEY"] = "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
+def _apply_test_env():
+    """Apply (or re-apply) all test environment variables."""
+    os.environ.update(_TEST_ENV_VARS)
 
-# Auth0 configuration (required for auth endpoints to not return 500)
-os.environ["AUTH0_DOMAIN"] = "test.auth0.com"
+
+_apply_test_env()
 
 # =============================================================================
-# Database migrations (pytest fixture - runs before tests that need DB)
+# Fixture imports — these trigger backend app loading which may call
+# load_dotenv() and clobber our env vars.  We re-apply afterwards.
 # =============================================================================
 
 import subprocess  # noqa: E402
@@ -67,6 +63,10 @@ from tests.backend.fixtures import *  # noqa: E402, F403
 # Import all entity fixtures to make them available to tests
 from tests.backend.routes.fixtures.entities import *  # noqa: E402, F403
 
+# Re-apply test env vars — the import chain above may have called
+# load_dotenv(override=True) which overwrites our settings with .env values.
+_apply_test_env()
+
 # =============================================================================
 # Session-scoped database migrations
 # =============================================================================
@@ -75,28 +75,23 @@ from tests.backend.routes.fixtures.entities import *  # noqa: E402, F403
 @pytest.fixture(scope="session", autouse=True)
 def run_migrations_once():
     """
-    Run Alembic migrations once per test session. Fails hard if migrations fail.
+    Run Alembic migrations once per test session.
 
+    Idempotent: if the DB is already at head, this is a fast no-op.
     Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
     """
     if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
         yield
         return
 
-    print("🔄 Running database migrations...")
     backend_dir = (
         Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
     )
 
     env = os.environ.copy()
     env["SQLALCHEMY_DB_MODE"] = "test"
-    env["SQLALCHEMY_DATABASE_TEST_URL"] = os.environ.get(
-        "SQLALCHEMY_DATABASE_TEST_URL",
-        f"postgresql://rhesis-user:your-secured-password@localhost:{DATABASE_PORT}/rhesis-test-db",
-    )
-    env["DB_ENCRYPTION_KEY"] = os.environ.get(
-        "DB_ENCRYPTION_KEY", "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
-    )
+    env["SQLALCHEMY_DATABASE_TEST_URL"] = _TEST_DB_URL
+    env["DB_ENCRYPTION_KEY"] = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
 
     result = subprocess.run(
         ["uv", "run", "alembic", "upgrade", "head"],
@@ -113,7 +108,6 @@ def run_migrations_once():
             "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
         )
 
-    print("✅ Migrations completed")
     yield
 
 
@@ -122,13 +116,11 @@ def run_migrations_once():
 
 @pytest.fixture
 def sample_prompt():
-    """🧠 Sample AI prompt for testing"""
     return "Generate tests for a financial chatbot that helps with loans"
 
 
 @pytest.fixture
 def mock_test_data():
-    """📝 Mock test data structure"""
     return {
         "test_cases": [
             {"input": "What's my balance?", "expected": "account_inquiry"},
@@ -147,71 +139,35 @@ def mock_test_data():
 
 @pytest.fixture
 def disable_telemetry():
-    """
-    Fixture to disable telemetry for a test.
-
-    Usage:
-        def test_something(disable_telemetry):
-            # Telemetry is disabled for this test
-            ...
-    """
-    # Store original state
+    """Fixture to disable telemetry for a test."""
     from rhesis.backend.telemetry.instrumentation import (
         _TELEMETRY_GLOBALLY_ENABLED,
         _set_telemetry_enabled_for_testing,
     )
 
     original_state = _TELEMETRY_GLOBALLY_ENABLED
-
-    # Disable telemetry for test
     _set_telemetry_enabled_for_testing(False)
-
     yield
-
-    # Restore original state
     _set_telemetry_enabled_for_testing(original_state)
 
 
 @pytest.fixture
 def enable_telemetry():
-    """
-    Fixture to enable telemetry for a test.
-
-    Usage:
-        def test_telemetry_tracking(enable_telemetry):
-            # Telemetry is enabled for this test
-            ...
-    """
-    # Store original state
+    """Fixture to enable telemetry for a test."""
     from rhesis.backend.telemetry.instrumentation import (
         _TELEMETRY_GLOBALLY_ENABLED,
         _set_telemetry_enabled_for_testing,
     )
 
     original_state = _TELEMETRY_GLOBALLY_ENABLED
-
-    # Enable telemetry for test
     _set_telemetry_enabled_for_testing(True)
-
     yield
-
-    # Restore original state
     _set_telemetry_enabled_for_testing(original_state)
 
 
 @pytest.fixture
 def telemetry_context():
-    """
-    Fixture to provide telemetry context management for testing.
-
-    Usage:
-        def test_telemetry(telemetry_context):
-            telemetry_context.enable()
-            # Test with telemetry enabled
-
-            telemetry_context.disable()
-            # Test with telemetry disabled
-    """
+    """Fixture to provide telemetry context management for testing."""
     from rhesis.backend.telemetry.instrumentation import (
         _TELEMETRY_GLOBALLY_ENABLED,
         _set_telemetry_enabled_for_testing,
@@ -222,15 +178,12 @@ def telemetry_context():
             self.original_state = _TELEMETRY_GLOBALLY_ENABLED
 
         def enable(self):
-            """Enable telemetry for testing"""
             _set_telemetry_enabled_for_testing(True)
 
         def disable(self):
-            """Disable telemetry for testing"""
             _set_telemetry_enabled_for_testing(False)
 
         def restore(self):
-            """Restore original telemetry state"""
             _set_telemetry_enabled_for_testing(self.original_state)
 
     context = TelemetryContext()
@@ -250,14 +203,12 @@ def isolate_telemetry_context():
         _telemetry_user_id,
     )
 
-    # Reset context variables before each test
     _telemetry_enabled.set(False)
     _telemetry_user_id.set(None)
     _telemetry_org_id.set(None)
 
     yield
 
-    # Clean up after test
     _telemetry_enabled.set(False)
     _telemetry_user_id.set(None)
     _telemetry_org_id.set(None)
@@ -273,21 +224,16 @@ def disable_enrichment(request, monkeypatch):
 
     Tests in enrichment test modules are automatically excluded from this mock.
     """
-    # Skip mocking if test is in an enrichment test module
     test_module = request.node.fspath.basename
     if "test_enrichment" in test_module:
         yield
         return
 
-    # Mock enqueue_enrichment to return False (indicating sync fallback was used)
-    # but don't actually do any enrichment work
     def mock_enqueue_enrichment(
         self, trace_id, project_id, organization_id, workers_available=None
     ):
-        """Mock enqueue_enrichment to skip enrichment entirely."""
-        return False  # Indicate we "used" sync fallback but actually do nothing
+        return False
 
-    # Patch the method on EnrichmentService to skip enrichment
     monkeypatch.setattr(
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService.enqueue_enrichment",
         mock_enqueue_enrichment,

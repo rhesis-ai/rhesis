@@ -19,7 +19,10 @@ from rhesis.backend.app.schemas.endpoint import (
 
 @pytest.fixture
 def mock_llm():
-    return MagicMock()
+    """LLM mock; service uses a_generate (async), so we expose it as AsyncMock."""
+    m = MagicMock()
+    m.a_generate = AsyncMock()
+    return m
 
 
 @pytest.fixture
@@ -84,32 +87,39 @@ def sample_result():
 class TestAnalyse:
     """Tests for the single-LLM-call analysis."""
 
-    def test_analyse_returns_auto_configure_result(self, service, mock_llm, sample_result):
-        mock_llm.generate.return_value = sample_result
+    @pytest.mark.asyncio
+    async def test_analyse_returns_auto_configure_result(
+        self, service, mock_llm, sample_result
+    ):
+        mock_llm.a_generate.return_value = sample_result
         request = AutoConfigureRequest(input_text="openai.chat.completions.create(...)")
 
-        result = service._analyse(request)
+        result = await service._analyse(request)
 
         assert isinstance(result, AutoConfigureResult)
         assert result.request_mapping is not None
         assert result.probe_request is not None
-        mock_llm.generate.assert_called_once()
+        mock_llm.a_generate.assert_called_once()
 
-    def test_analyse_passes_url_to_template(self, service, mock_llm, sample_result):
-        mock_llm.generate.return_value = sample_result
+    @pytest.mark.asyncio
+    async def test_analyse_passes_url_to_template(
+        self, service, mock_llm, sample_result
+    ):
+        mock_llm.a_generate.return_value = sample_result
         request = AutoConfigureRequest(
             input_text="some code",
             url="https://custom.api.com/chat",
         )
 
-        service._analyse(request)
+        await service._analyse(request)
 
-        prompt = mock_llm.generate.call_args[0][0]
+        prompt = mock_llm.a_generate.call_args[0][0]
         assert "https://custom.api.com/chat" in prompt
 
-    def test_analyse_llm_dict_response(self, service, mock_llm):
+    @pytest.mark.asyncio
+    async def test_analyse_llm_dict_response(self, service, mock_llm):
         """LLM returning a raw dict should be coerced to the model."""
-        mock_llm.generate.return_value = {
+        mock_llm.a_generate.return_value = {
             "status": "success",
             "request_mapping": {"query": "{{ input }}"},
             "response_mapping": {"output": "$.result"},
@@ -120,24 +130,26 @@ class TestAnalyse:
         }
         request = AutoConfigureRequest(input_text="some code")
 
-        result = service._analyse(request)
+        result = await service._analyse(request)
 
         assert isinstance(result, AutoConfigureResult)
         assert result.url == "https://api.example.com"
 
-    def test_analyse_llm_error_raises(self, service, mock_llm):
-        mock_llm.generate.return_value = {"error": "Could not parse"}
+    @pytest.mark.asyncio
+    async def test_analyse_llm_error_raises(self, service, mock_llm):
+        mock_llm.a_generate.return_value = {"error": "Could not parse"}
         request = AutoConfigureRequest(input_text="garbled")
 
         with pytest.raises(RuntimeError, match="Could not parse"):
-            service._analyse(request)
+            await service._analyse(request)
 
-    def test_analyse_llm_exception_propagates(self, service, mock_llm):
-        mock_llm.generate.side_effect = Exception("LLM unavailable")
+    @pytest.mark.asyncio
+    async def test_analyse_llm_exception_propagates(self, service, mock_llm):
+        mock_llm.a_generate.side_effect = Exception("LLM unavailable")
         request = AutoConfigureRequest(input_text="some code")
 
         with pytest.raises(Exception, match="LLM unavailable"):
-            service._analyse(request)
+            await service._analyse(request)
 
 
 # ==================== Probe Tests ====================
@@ -197,7 +209,7 @@ class TestProbe:
 
         corrected = sample_result.model_copy()
         corrected.probe_request = {"query": "test", "model": "gpt-4"}
-        mock_llm.generate.return_value = corrected
+        mock_llm.a_generate.return_value = corrected
 
         with patch.object(service, "_probe_endpoint", probe_mock):
             request = AutoConfigureRequest(
@@ -220,7 +232,7 @@ class TestProbe:
         probe_mock = AsyncMock(
             return_value=ProbeOutcome(False, {"error": "always fails"}, 422, "HTTP 422")
         )
-        mock_llm.generate.return_value = sample_result
+        mock_llm.a_generate.return_value = sample_result
 
         with patch.object(service, "_probe_endpoint", probe_mock):
             request = AutoConfigureRequest(
@@ -292,7 +304,7 @@ class TestEndToEnd:
 
     @pytest.mark.asyncio
     async def test_pipeline_success_with_probe(self, service, mock_llm, sample_result):
-        mock_llm.generate.return_value = sample_result
+        mock_llm.a_generate.return_value = sample_result
 
         from rhesis.backend.app.services.endpoint.auto_configure import (
             ProbeOutcome,
@@ -323,7 +335,7 @@ class TestEndToEnd:
 
     @pytest.mark.asyncio
     async def test_pipeline_without_probe(self, service, mock_llm, sample_result):
-        mock_llm.generate.return_value = sample_result
+        mock_llm.a_generate.return_value = sample_result
 
         request = AutoConfigureRequest(
             input_text="some code",
@@ -338,7 +350,7 @@ class TestEndToEnd:
 
     @pytest.mark.asyncio
     async def test_pipeline_analyse_failure(self, service, mock_llm):
-        mock_llm.generate.side_effect = RuntimeError("Could not parse")
+        mock_llm.a_generate.side_effect = RuntimeError("Could not parse")
 
         request = AutoConfigureRequest(
             input_text="asdfghjkl",
@@ -356,7 +368,7 @@ class TestEndToEnd:
             ProbeOutcome,
         )
 
-        mock_llm.generate.side_effect = [
+        mock_llm.a_generate.side_effect = [
             sample_result,  # _analyse
             sample_result,  # _correct attempt 1
             sample_result,  # _correct attempt 2
@@ -384,7 +396,7 @@ class TestEndToEnd:
     @pytest.mark.asyncio
     async def test_pipeline_prefilled_url_overrides(self, service, mock_llm, sample_result):
         """Pre-filled URL/method should override LLM's values."""
-        mock_llm.generate.return_value = sample_result
+        mock_llm.a_generate.return_value = sample_result
 
         request = AutoConfigureRequest(
             input_text="some code",

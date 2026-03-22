@@ -46,15 +46,7 @@ def create_test(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create test with super optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new test."""
     organization_id, user_id = tenant_context
     test_data = resolve_test_entity_names(db, test.model_dump(), organization_id, user_id)
     return crud.create_test(db=db, test=test_data, organization_id=organization_id, user_id=user_id)
@@ -335,15 +327,7 @@ def update_test(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update test with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing test."""
     organization_id, user_id = tenant_context
     db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
     if db_test is None:

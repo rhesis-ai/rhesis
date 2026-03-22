@@ -1,14 +1,17 @@
 # apps/backend/src/rhesis/backend/app/utils/encryption.py
 
 import hashlib
+import logging
 import os
+from functools import lru_cache
 from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 from passlib.context import CryptContext
 from sqlalchemy import String, TypeDecorator
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # Password hashing context using bcrypt
 # bcrypt is intentionally separate from Fernet encryption:
@@ -120,6 +123,21 @@ def get_encryption_key() -> bytes:
     return key.encode()
 
 
+@lru_cache(maxsize=1)
+def _get_fernet() -> Fernet:
+    """Return a cached Fernet instance built from the encryption key.
+
+    Creating a Fernet object involves key validation and HMAC key derivation,
+    so constructing one per encrypt/decrypt call is wasteful. This cache
+    ensures a single instance is reused for the lifetime of the process.
+
+    Note: Dynamic key rotation via environment variable reloading without
+    restarting the process is not supported. If rotation is needed, the
+    backend service must be restarted to clear this cache.
+    """
+    return Fernet(get_encryption_key())
+
+
 def encrypt(plaintext: Optional[str]) -> Optional[str]:
     """
     Encrypt a plaintext string.
@@ -140,9 +158,7 @@ def encrypt(plaintext: Optional[str]) -> Optional[str]:
         return ""  # Empty string remains empty
 
     try:
-        key = get_encryption_key()
-        cipher = Fernet(key)
-        encrypted_bytes = cipher.encrypt(plaintext.encode())
+        encrypted_bytes = _get_fernet().encrypt(plaintext.encode())
         return encrypted_bytes.decode()
     except Exception as e:
         logger.error(f"Encryption failed: {str(e)}")
@@ -169,9 +185,7 @@ def decrypt(ciphertext: Optional[str]) -> Optional[str]:
         return ""  # Empty string remains empty
 
     try:
-        key = get_encryption_key()
-        cipher = Fernet(key)
-        decrypted_bytes = cipher.decrypt(ciphertext.encode())
+        decrypted_bytes = _get_fernet().decrypt(ciphertext.encode())
         return decrypted_bytes.decode()
     except InvalidToken:
         raise DecryptionError("Invalid encrypted data or wrong encryption key")

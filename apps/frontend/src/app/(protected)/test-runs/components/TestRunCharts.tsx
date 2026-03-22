@@ -18,7 +18,7 @@ const fallbackData = [{ name: 'Loading...', value: 100 }];
 // Configuration for each chart
 const CHART_CONFIG = {
   status: { top: 5, title: 'Test Runs by Status' },
-  result: { top: 5, title: 'Test Runs by Result' },
+  result: { top: 5, title: 'Test Results across Runs' },
   test: { top: 5, title: 'Most Run Test Sets' },
   executor: { top: 5, title: 'Top Test Executors' },
 };
@@ -33,13 +33,9 @@ const truncateName = (name: string): string => {
 
 interface TestRunChartsProps {
   sessionToken: string;
-  totalCount?: number;
 }
 
-export default function TestRunCharts({
-  sessionToken,
-  totalCount = 0,
-}: TestRunChartsProps) {
+export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   const isMounted = useRef(false);
 
   // Global loading state for all charts
@@ -72,36 +68,18 @@ export default function TestRunCharts({
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
 
-        // Fetch all chart data in parallel
-        const [statusStats, resultStats, testStats, executorStats] =
-          await Promise.all([
-            testRunsClient.getTestRunStats({
-              mode: 'status',
-              top: 5,
-              months: 6,
-            }),
-            testRunsClient.getTestRunStats({
-              mode: 'results',
-              top: 5,
-              months: 6,
-            }),
-            testRunsClient.getTestRunStats({
-              mode: 'test_sets',
-              top: 5,
-              months: 6,
-            }),
-            testRunsClient.getTestRunStats({
-              mode: 'executors',
-              top: 5,
-              months: 6,
-            }),
-          ]);
+        // Fetch all chart data in a single call
+        const allStats = await testRunsClient.getTestRunStats({
+          mode: 'all',
+          top: 5,
+          months: 6,
+        });
 
         if (isMounted.current) {
-          setStatusChart(statusStats as TestRunStatsStatus);
-          setResultChart(resultStats as TestRunStatsResults);
-          setTestChart(testStats as TestRunStatsTests);
-          setExecutorChart(executorStats as TestRunStatsExecutors);
+          setStatusChart(allStats as unknown as TestRunStatsStatus);
+          setResultChart(allStats as unknown as TestRunStatsResults);
+          setTestChart(allStats as unknown as TestRunStatsTests);
+          setExecutorChart(allStats as unknown as TestRunStatsExecutors);
           setIsLoading(false);
         }
       } catch (_err) {
@@ -122,7 +100,7 @@ export default function TestRunCharts({
 
   // Generate chart data from individual chart states
   const generateStatusData = () => {
-    if (!statusChart) return fallbackData;
+    if (!statusChart?.status_distribution) return fallbackData;
 
     return statusChart.status_distribution
       .slice(0, CHART_CONFIG.status.top)
@@ -134,7 +112,7 @@ export default function TestRunCharts({
   };
 
   const generateResultData = () => {
-    if (!resultChart) return fallbackData;
+    if (!resultChart?.result_distribution) return fallbackData;
 
     const { result_distribution } = resultChart;
     return [
@@ -145,11 +123,11 @@ export default function TestRunCharts({
         value: result_distribution.pending,
         fullName: 'Pending',
       },
-    ].filter(item => item.value > 0); // Only show categories with data
+    ].filter(item => item.value > 0);
   };
 
   const generateTestData = () => {
-    if (!testChart) return fallbackData;
+    if (!testChart?.most_run_test_sets) return fallbackData;
 
     return testChart.most_run_test_sets
       .slice(0, CHART_CONFIG.test.top)
@@ -161,7 +139,7 @@ export default function TestRunCharts({
   };
 
   const generateExecutorData = () => {
-    if (!executorChart) return fallbackData;
+    if (!executorChart?.top_executors) return fallbackData;
 
     return executorChart.top_executors
       .slice(0, CHART_CONFIG.executor.top)
@@ -192,8 +170,10 @@ export default function TestRunCharts({
     );
   }
 
-  // Show empty state when no test runs exist
-  if (totalCount === 0) {
+  // Show empty state only when metadata confirms zero runs
+  const totalRuns = statusChart?.metadata?.total_test_runs;
+  const hasNoRuns = totalRuns === 0;
+  if (hasNoRuns) {
     return (
       <Paper
         sx={{

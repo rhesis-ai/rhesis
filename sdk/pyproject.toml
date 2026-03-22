@@ -1,9 +1,9 @@
 [project]
 name = "rhesis-sdk"
-version = "0.6.8.post1"
+version = "0.6.9"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "Engineering Team", email = "engineering@rhesis.ai" },
     { name = "Harry Cruz", email = "harry@rhesis.ai" },
@@ -81,12 +81,11 @@ huggingface = [
     "transformers==4.57.1",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
-    "lm-format-enforcer>=0.10.0",
 ]
 
 # Garak LLM vulnerability scanner integration
 garak = [
-    "garak>=0.9.0",
+    "garak>=0.14.0",
 ]
 
 # Framework integrations for auto-instrumentation
@@ -119,7 +118,6 @@ all = [
     "transformers==4.57.1",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
-    "lm-format-enforcer>=0.10.0",
     "langchain>=0.1.0",
     "langchain-core>=1.2.11",
     "langgraph>=0.0.26",
@@ -145,7 +143,7 @@ dev = [
     "pyright>=1.1.407",
     "psycopg2-binary==2.9.9", # to match the version in the backend
     "pytest-cov>=7.0.0",
-    "garak>=0.9.0.4",
+    "garak>=0.14.0",
     "rhesis-penelope",
     "virtualenv>=20.36.1",
 ]
@@ -162,10 +160,19 @@ packages = [
 ]
 include = [
     "src/rhesis/py.typed",
+    "src/rhesis/sdk/metrics/providers/garak/detectors.yaml",
 ]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.uv]
+constraint-dependencies = [
+    "tornado>=6.5.5",
+    "pyasn1>=0.6.3",
+    "orjson>=3.11.7",
+]
+override-dependencies = ["datasets>=4.0.0", "transformers>=5.0.0"]
 
 [tool.pyright]
 typeCheckingMode = "standard"

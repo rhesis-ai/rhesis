@@ -1,11 +1,14 @@
+import asyncio
 import logging
 import os
 import time
 from typing import Any, Dict, List, Optional, Type, Union
 
+import aiohttp
 import requests
 from pydantic import BaseModel
 
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.clients import APIClient
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.defaults import (
@@ -70,17 +73,19 @@ class RhesisLLM(BaseLLM):
         }
         return self
 
-    def generate(
+    async def a_generate(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
         schema: Optional[Union[Type[BaseModel], dict]] = None,
         **kwargs: Any,
     ) -> Any:
-        """Run a chat completion using the API, and return the response."""
+        """Run an async chat completion using the API, and return the response.
+
+        Called directly via ``await model.a_generate(...)`` or indirectly
+        through ``model.generate(...)`` which bridges via ``run_sync()``.
+        """
         try:
-            # Convert Pydantic models to OpenAI-wrapped format
-            # Dict schemas must already be in OpenAI-wrapped format
             if schema and not isinstance(schema, dict):
                 schema = {
                     "type": "json_schema",
@@ -91,25 +96,23 @@ class RhesisLLM(BaseLLM):
                     },
                 }
 
-            # Combine system_prompt and prompt into a single prompt (like other providers)
             combined_prompt = prompt
             if system_prompt:
                 combined_prompt = f"{system_prompt}\n\n{prompt}"
 
-            response = self.create_completion(
+            return await self.create_completion(
                 prompt=combined_prompt,
                 schema=schema,
                 **kwargs,
             )
 
-            return response
-
-        except (requests.exceptions.HTTPError, KeyError, IndexError) as e:
-            # Log the error and return an appropriate message
-            logger.error(f"Error occurred while running the prompt: {e}", exc_info=True)
+        except (aiohttp.ClientResponseError, KeyError, IndexError) as e:
+            logger.error(
+                f"Error occurred while running the prompt: {e}",
+                exc_info=True,
+            )
             if schema:
                 return {"error": "An error occurred while processing the request."}
-
             return "An error occurred while processing the request."
 
     def generate_batch(
@@ -119,10 +122,32 @@ class RhesisLLM(BaseLLM):
         schema: Optional[Union[Type[BaseModel], dict]] = None,
         **kwargs: Any,
     ) -> List[Any]:
-        """Batch processing is not implemented for RhesisLLM."""
-        raise NotImplementedError("generate_batch is not implemented for RhesisLLM")
+        """Run concurrent batch chat completions and return the responses.
 
-    def create_completion(
+        A single aiohttp.ClientSession is shared across all concurrent
+        requests so that connections are pooled instead of opening N
+        independent sessions.
+        """
+
+        async def _batch():
+            timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                return await asyncio.gather(
+                    *[
+                        self.a_generate(
+                            p,
+                            system_prompt=system_prompt,
+                            schema=schema,
+                            _session=session,
+                            **kwargs,
+                        )
+                        for p in prompts
+                    ]
+                )
+
+        return run_sync(_batch())
+
+    async def create_completion(
         self,
         prompt: str,
         temperature: float = 0.7,
@@ -130,23 +155,26 @@ class RhesisLLM(BaseLLM):
         schema: Optional[str] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        """
-        Create a chat completion using the API.
+        """Create a chat completion using the API.
 
         Args:
             prompt: Combined prompt text (system + user prompt)
             temperature: Sampling temperature (0-1)
-            max_tokens: Maximum tokens to generate (increased default for larger responses)
+            max_tokens: Maximum tokens to generate
             schema: Optional schema for structured output
-            **kwargs: Additional parameters to pass to the API
+            **kwargs: Additional parameters to pass to the API.
+                The private ``_session`` key, if present, supplies a
+                shared :class:`aiohttp.ClientSession` (used by
+                ``generate_batch`` for connection pooling).
 
         Returns:
             Dict[str, Any]: The raw response from the API
 
         Raises:
-            requests.exceptions.HTTPError: If the API request fails
-            ValueError: If the response cannot be parsed
+            aiohttp.ClientResponseError: If the API request fails
         """
+        _session: Optional[aiohttp.ClientSession] = kwargs.pop("_session", None)
+
         request_data = {
             "prompt": prompt,
             "temperature": temperature,
@@ -166,31 +194,35 @@ class RhesisLLM(BaseLLM):
         )
 
         request_start = time.time()
-        response = requests.post(
-            url,
-            headers=self.headers,
-            json=request_data,
-            timeout=DEFAULT_REQUEST_TIMEOUT,
-        )
-        request_elapsed = time.time() - request_start
 
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError:
-            logger.error(
-                "[RhesisLLM] HTTP %s after %.1fs",
-                getattr(response, "status_code", "?"),
-                request_elapsed,
-            )
-            raise
+        async def _do_request(
+            session: aiohttp.ClientSession,
+        ) -> Dict[str, Any]:
+            async with session.post(url, headers=self.headers, json=request_data) as response:
+                request_elapsed = time.time() - request_start
 
-        logger.debug(
-            "[RhesisLLM] HTTP 200 in %.1fs",
-            request_elapsed,
-        )
+                if response.status >= 400:
+                    logger.error(
+                        "[RhesisLLM] HTTP %s after %.1fs",
+                        response.status,
+                        request_elapsed,
+                    )
+                    response.raise_for_status()
 
-        result: Dict[str, Any] = response.json()
-        return result
+                logger.debug(
+                    "[RhesisLLM] HTTP 200 in %.1fs",
+                    request_elapsed,
+                )
+
+                result: Dict[str, Any] = await response.json()
+                return result
+
+        if _session is not None:
+            return await _do_request(_session)
+
+        timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            return await _do_request(session)
 
 
 class RhesisEmbedder(BaseEmbedder):

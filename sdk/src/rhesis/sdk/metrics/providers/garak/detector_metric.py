@@ -8,6 +8,7 @@ the Rhesis evaluation framework.
 
 import importlib
 import logging
+import math
 from typing import List, Optional, Union
 
 from rhesis.sdk.metrics.base import (
@@ -21,7 +22,15 @@ from rhesis.sdk.metrics.base import (
 )
 from rhesis.sdk.models.base import BaseLLM
 
+from .registry import CONTEXT_REQUIRED_NOTES
+
 logger = logging.getLogger(__name__)
+
+# Local-model detectors that cannot be run ad hoc. Each is mapped to an
+# API-based equivalent providing comparable coverage.
+_DETECTOR_OVERRIDES = {
+    "garak.detectors.unsafe_content.ToxicCommentModel": ("garak.detectors.perspective.Toxicity"),
+}
 
 
 class GarakDetectorMetric(BaseMetric):
@@ -113,6 +122,7 @@ class GarakDetectorMetric(BaseMetric):
             detector_path = self.detector_class_path
             if not detector_path.startswith("garak."):
                 detector_path = f"garak.detectors.{detector_path}"
+            detector_path = _DETECTOR_OVERRIDES.get(detector_path, detector_path)
 
             # Split the class path
             parts = detector_path.rsplit(".", 1)
@@ -148,6 +158,7 @@ class GarakDetectorMetric(BaseMetric):
         output: str = "",
         expected_output: str = "",
         context: Optional[List[str]] = None,
+        notes: Optional[dict] = None,
         **kwargs,
     ) -> MetricResult:
         """
@@ -158,24 +169,29 @@ class GarakDetectorMetric(BaseMetric):
             output: The model's response to evaluate
             expected_output: Not used by Garak detectors
             context: Not used by Garak detectors
+            notes: Optional probe metadata forwarded to ``attempt.notes``.
+                Certain detectors (Continuation, StartsWith, RepeatDiverges)
+                require keys like ``triggers`` or ``repeat_word`` to function.
+                Without them the detector returns no scores and the result is
+                marked **inconclusive** rather than falsely passing.
             **kwargs: Additional arguments
 
         Returns:
-            MetricResult with score ("pass" or "fail") and details
+            MetricResult with score and details
         """
         try:
-            # Create a Garak Attempt object
-            # Garak's Attempt takes no args in __init__, attributes are set after
-            from garak.attempt import Attempt
+            from garak.attempt import Attempt, Message
 
-            # Debug: Log evaluation inputs
             logger.debug(f"[GARAK] Evaluating with detector: {self.detector_class_path}")
             logger.debug(f"[GARAK] Input prompt (first 200 chars): {input[:200]}...")
             logger.debug(f"[GARAK] Model output (first 200 chars): {output[:200]}...")
 
             attempt = Attempt()
-            attempt.prompt = input
+            attempt.prompt = Message(text=input, lang="*")
             attempt.outputs = [output]
+
+            if notes:
+                attempt.notes.update(notes)
 
             logger.debug("[GARAK] Created Attempt with prompt and 1 output")
 
@@ -186,21 +202,42 @@ class GarakDetectorMetric(BaseMetric):
                 f"[GARAK] Raw detector results: {results} (type: {type(results).__name__})"
             )
 
-            # Garak detectors return probability scores (0.0 to 1.0)
-            # Higher scores = more likely attack/vulnerability detected
-            # Following DeepEval pattern: return raw score, include is_successful in details
-
             if isinstance(results, (list, tuple)):
                 raw_scores = list(results)
-                max_score = max(raw_scores) if raw_scores else 0.0
-                logger.debug(f"[GARAK] Results is list/tuple: {raw_scores}, max={max_score:.4f}")
             else:
                 raw_scores = [float(results)]
-                max_score = float(results)
-                logger.debug(f"[GARAK] Results is scalar: {results:.4f}")
 
-            # Determine is_successful using threshold (like DeepEval)
-            # For Garak: lower score = safer, so is_successful when score < threshold
+            # --- Handle empty results (probe-context missing) ---------------
+            if not raw_scores:
+                required_note = CONTEXT_REQUIRED_NOTES.get(self.detector_class_path)
+                if required_note:
+                    reason = (
+                        f"Detector '{self.detector_class_path.split('.')[-1]}' "
+                        f"returned no scores because "
+                        f"notes['{required_note}'] was not provided. "
+                        f"Pass probe metadata via the 'notes' parameter."
+                    )
+                else:
+                    reason = (
+                        f"Detector '{self.detector_class_path.split('.')[-1]}' returned no scores."
+                    )
+                logger.warning(f"[GARAK] Inconclusive: {reason}")
+                return MetricResult(
+                    score=math.nan,
+                    details={
+                        "detector": self.detector_class_path,
+                        "detector_class": self.detector_class_path.split(".")[-1],
+                        "raw_scores": [],
+                        "is_successful": None,
+                        "inconclusive": True,
+                        "threshold": self.threshold,
+                        "reason": reason,
+                    },
+                )
+
+            max_score = max(raw_scores)
+            logger.debug(f"[GARAK] Scores: {raw_scores}, max={max_score:.4f}")
+
             is_successful = max_score < self.threshold
 
             if is_successful:
@@ -219,7 +256,6 @@ class GarakDetectorMetric(BaseMetric):
                 f"threshold={self.threshold}, detector={self.detector_class_path.split('.')[-1]}"
             )
 
-            # Return raw score like DeepEval, with is_successful in details
             return MetricResult(
                 score=max_score,
                 details={
@@ -227,6 +263,7 @@ class GarakDetectorMetric(BaseMetric):
                     "detector_class": self.detector_class_path.split(".")[-1],
                     "raw_scores": raw_scores,
                     "is_successful": is_successful,
+                    "inconclusive": False,
                     "threshold": self.threshold,
                     "reason": reason,
                 },

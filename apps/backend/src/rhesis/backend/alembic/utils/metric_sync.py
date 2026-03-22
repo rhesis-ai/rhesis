@@ -51,11 +51,16 @@ def load_metrics_from_initial_data() -> List[Dict[str, Any]]:
 def sync_metrics_to_organizations(
     session: Session,
     metric_names: List[str] | None = None,
+    metric_definitions: List[Dict[str, Any]] | None = None,
     verbose: bool = True,
     commit: bool = False,
 ) -> Dict[str, int]:
     """
-    Sync metrics from initial_data.json to all existing organizations.
+    Sync metrics to all existing organizations.
+
+    By default loads metric definitions from initial_data.json. Pass
+    ``metric_definitions`` to supply definitions from another source (e.g. the
+    SDK registry) when metrics are no longer present in initial_data.json.
 
     This function is fully idempotent - it will only create metrics that don't
     already exist in each organization. It's safe to run multiple times.
@@ -63,6 +68,9 @@ def sync_metrics_to_organizations(
     Args:
         session: SQLAlchemy database session
         metric_names: Optional list of metric names to sync. If None, syncs all metrics.
+            Only applies when metric_definitions is not provided.
+        metric_definitions: Optional list of metric definition dicts to use instead of
+            loading from initial_data.json. When provided, metric_names is ignored.
         verbose: If True, print progress messages
         commit: If True, commit the session after syncing. If False, caller is responsible.
 
@@ -82,18 +90,24 @@ def sync_metrics_to_organizations(
     }
 
     try:
-        # Load metrics from initial_data.json (single source of truth)
-        if verbose:
-            print("\n📖 Loading metrics from initial_data.json...")
-
-        all_metrics = load_metrics_from_initial_data()
-
-        # Filter to specific metrics if requested
-        if metric_names is not None:
-            metric_names_set = set(metric_names)
-            all_metrics = [m for m in all_metrics if m["name"] in metric_names_set]
+        if metric_definitions is not None:
+            # Use caller-supplied definitions (e.g. from SDK registry)
+            all_metrics = metric_definitions
             if verbose:
-                print(f"   Filtered to {len(all_metrics)} metrics by name")
+                print(f"\n📖 Using {len(all_metrics)} caller-supplied metric definition(s)...")
+        else:
+            # Load metrics from initial_data.json (default source of truth)
+            if verbose:
+                print("\n📖 Loading metrics from initial_data.json...")
+
+            all_metrics = load_metrics_from_initial_data()
+
+            # Filter to specific metrics if requested
+            if metric_names is not None:
+                metric_names_set = set(metric_names)
+                all_metrics = [m for m in all_metrics if m["name"] in metric_names_set]
+                if verbose:
+                    print(f"   Filtered to {len(all_metrics)} metrics by name")
 
         if verbose:
             print(f"   Found {len(all_metrics)} metric definitions")

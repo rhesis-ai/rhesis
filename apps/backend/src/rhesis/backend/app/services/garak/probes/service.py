@@ -6,23 +6,31 @@ extracting Garak probes for import into Rhesis as test sets.
 """
 
 import importlib
+import logging
 import pkgutil
 from typing import Any, Dict, List, Optional
 
-from rhesis.backend.logging.rhesis_logger import logger
+from rhesis.backend.app.services.garak import compat
 
 from .extraction import PromptExtractor
 from .models import GarakModuleInfo, GarakProbeInfo
+
+logger = logging.getLogger(__name__)
 
 
 class GarakProbeService:
     """Service for enumerating and extracting Garak probes."""
 
-    # Modules to exclude from enumeration (internal/testing modules)
-    EXCLUDED_MODULES = {"base", "test"}
+    # Modules excluded from enumeration entirely.
+    # 'base' and 'test' are internal garak modules.
+    # 'audio' and 'fileformats' operate on binary payloads and cannot be synthesised
+    # as text prompts, so they have no meaningful representation in Rhesis.
+    # NOTE: These are also intentionally absent from GarakTaxonomy.MODULE_MAPPINGS.
+    EXCLUDED_MODULES = {"base", "test", "audio", "fileformats"}
 
     def __init__(self):
         self._probe_cache: Dict[str, GarakModuleInfo] = {}
+        self._probe_info_cache: Dict[str, List[GarakProbeInfo]] = {}
         self._garak_version: Optional[str] = None
         self._discovered_modules: Optional[List[str]] = None
         self._extractor = PromptExtractor()
@@ -121,6 +129,7 @@ class GarakProbeService:
             tags = set()
             total_prompts = 0
             default_detector = None
+            has_dynamic_probes = False
 
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
@@ -135,18 +144,16 @@ class GarakProbeService:
                             if isinstance(class_tags, (list, tuple, set)):
                                 tags.update(class_tags)
 
-                        # Get default detector
-                        if hasattr(attr, "recommended_detector") and not default_detector:
-                            detector_value = attr.recommended_detector
-                            # Handle both string and list types
-                            if isinstance(detector_value, (list, tuple)):
-                                default_detector = detector_value[0] if detector_value else None
-                            elif isinstance(detector_value, str):
-                                default_detector = detector_value
+                        # Get default detector (handles primary_detector / recommended_detector)
+                        if not default_detector:
+                            default_detector = compat.get_probe_detector(attr)
 
                         # Count prompts by extracting from probe method source
                         probe_prompts = self._extractor.extract_prompts(attr)
-                        total_prompts += len(probe_prompts)
+                        probe_prompt_count = len(probe_prompts)
+                        total_prompts += probe_prompt_count
+                        if probe_prompt_count == 0:
+                            has_dynamic_probes = True
                     except Exception:
                         pass
 
@@ -161,6 +168,7 @@ class GarakProbeService:
                 total_prompt_count=total_prompts,
                 tags=list(tags),
                 default_detector=default_detector,
+                has_dynamic_probes=has_dynamic_probes,
             )
 
             # Cache the result
@@ -185,8 +193,7 @@ class GarakProbeService:
 
         # Check if it inherits from a Garak probe base class
         try:
-            from garak.probes.base import Probe
-
+            Probe = compat.get_probe_base_class()
             return issubclass(obj, Probe) and obj is not Probe
         except ImportError:
             # Fallback: check for common probe attributes
@@ -218,6 +225,11 @@ class GarakProbeService:
         Returns:
             List of GarakProbeInfo with probe details and prompts
         """
+        # Return filtered view from cache when all probes for the module were
+        # previously extracted (probe_class_names=None path).
+        if probe_class_names is None and module_name in self._probe_info_cache:
+            return self._probe_info_cache[module_name]
+
         probes = []
 
         try:
@@ -241,6 +253,10 @@ class GarakProbeService:
         except Exception as e:
             logger.error(f"Error extracting probes from {module_name}: {e}")
 
+        # Cache the full-module extraction for reuse within the same service instance.
+        if probe_class_names is None:
+            self._probe_info_cache[module_name] = probes
+
         return probes
 
     def _extract_probe_info(
@@ -262,6 +278,11 @@ class GarakProbeService:
             description = probe_class.__doc__ or f"{class_name} probe"
             description = description.strip().split("\n")[0]
 
+            # Get the explicit goal attribute (separate from the docstring).
+            # Garak probes declare `goal = "..."` as a class attribute.
+            goal_attr = getattr(probe_class, "goal", None)
+            goal = str(goal_attr).strip() if goal_attr else None
+
             # Get tags
             tags = []
             if hasattr(probe_class, "tags"):
@@ -272,25 +293,25 @@ class GarakProbeService:
             # Get prompts using the extractor
             prompts = self._extractor.extract_prompts(probe_class)
 
-            # Get detector
-            detector = None
-            if hasattr(probe_class, "recommended_detector"):
-                detector_value = probe_class.recommended_detector
-                # Handle both string and list types
-                if isinstance(detector_value, (list, tuple)):
-                    detector = detector_value[0] if detector_value else None
-                elif isinstance(detector_value, str):
-                    detector = detector_value
+            # Get detector (handles primary_detector / recommended_detector)
+            detector = compat.get_probe_detector(probe_class)
 
+            prompt_count = len(prompts)
             return GarakProbeInfo(
                 module_name=module_name,
                 class_name=class_name,
                 full_name=f"{module_name}.{class_name}",
                 description=description,
+                goal=goal,
                 tags=tags,
                 prompts=prompts,
-                prompt_count=len(prompts),
+                prompt_count=prompt_count,
                 detector=detector,
+                # A probe is "dynamic" when it has no static prompts after all
+                # extraction strategies have been exhausted.  Such probes generate
+                # test inputs at runtime (e.g. via RL, NLTK, or an external model)
+                # and are offered to users for on-demand LLM synthesis.
+                is_dynamic=prompt_count == 0,
             )
 
         except Exception as e:
@@ -341,6 +362,10 @@ class GarakProbeService:
             deserialize_probe_data,
             serialize_probe_data,
         )
+
+        # Ensure Redis is connected — idempotent, safe to call outside app lifespan
+        # (e.g. tests, management commands, workers).
+        await GarakProbeCache.initialize()
 
         # Check cache first
         cached_data = await GarakProbeCache.get(self.garak_version)

@@ -2,6 +2,7 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: "Overview",
+  management: "Managing Endpoints",
   "auto-configure": "Auto-Configure",
   "single-turn": "Single-Turn Endpoints",
   "multi-turn-conversations": "Multi-Turn Conversations",

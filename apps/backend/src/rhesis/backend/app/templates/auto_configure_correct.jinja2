@@ -10,22 +10,22 @@ You are an API integration specialist. A previous attempt to probe an API endpoi
 
 ### Request Mapping
 ```json
-{{ result.request_mapping }}
+{{ result.request_mapping | tojson(indent=2) }}
 ```
 
 ### Response Mapping
 ```json
-{{ result.response_mapping }}
+{{ result.response_mapping | tojson(indent=2) }}
 ```
 
 ### Request Headers
 ```json
-{{ result.request_headers }}
+{{ result.request_headers | tojson(indent=2) }}
 ```
 
 ### Probe Request (what was sent)
 ```json
-{{ result.probe_request }}
+{{ result.probe_request | tojson(indent=2) }}
 ```
 
 # Error Response

@@ -76,8 +76,9 @@ The `invoke()` method returns a standardized response:
 {`{
     "output": "Response text from the endpoint",
     "session_id": "session-abc",
-    "metadata": {...},   # Optional endpoint metadata
-    "context": [...]     # Optional context items
+    "context": [...],       # Optional retrieval context (e.g. RAG sources)
+    "metadata": {...},      # Optional structured metadata (e.g. confidence scores)
+    "tool_calls": [...]     # Optional tool/function calls made by the endpoint
 }`}
 </CodeBlock>
 

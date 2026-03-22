@@ -226,9 +226,9 @@ tracking. Other fields are stored but not actively used by the platform.
 - Conversation tracking fields (`conversation_id`, `session_id`, etc.): Used for
   [multi-turn conversation](/platform/endpoints/multi-turn-conversations) management
 
-**Stored fields**:
+**Stored and available to metrics**:
 - `metadata`: Stored with the test result and available to [custom metrics](/platform/metrics#using-metadata-in-evaluation) during evaluation
-- `tool_calls`: Stored with the test result for reference
+- `tool_calls`: Stored with the test result and available to metrics that evaluate tool use (e.g. tool correctness, function call accuracy)
 - Any custom fields you define in the response mapping
 
 ## Testing Your Endpoint

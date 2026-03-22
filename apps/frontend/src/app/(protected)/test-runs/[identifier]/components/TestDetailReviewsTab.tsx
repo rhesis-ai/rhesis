@@ -12,7 +12,6 @@ import {
   Alert,
   useTheme,
   Button,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Collapse,
@@ -28,12 +27,24 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import {
   TestResultDetail,
   Review,
+  REVIEW_TARGET_TYPES,
+  REVIEW_TARGET_LABELS,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
+import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
-import { findStatusByCategory } from '@/utils/test-result-status';
+import {
+  findStatusByCategory,
+  isPassedStatusName,
+} from '@/utils/test-result-status';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
+import MentionTextInput, {
+  MentionOption,
+  renderMentionText,
+  inferReviewTarget,
+} from '@/components/common/MentionTextInput';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;
@@ -43,6 +54,8 @@ interface TestDetailReviewsTabProps {
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
   onCommentUsed?: () => void;
+  mentionableMetrics?: MentionOption[];
+  mentionableTurns?: MentionOption[];
 }
 
 export default function TestDetailReviewsTab({
@@ -53,6 +66,8 @@ export default function TestDetailReviewsTab({
   initialComment = '',
   initialStatus,
   onCommentUsed,
+  mentionableMetrics = [],
+  mentionableTurns = [],
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
 
@@ -127,11 +142,12 @@ export default function TestDetailReviewsTab({
       const clientFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = clientFactory.getTestResultsClient();
 
+      const reviewTarget = inferReviewTarget(reason);
       await testResultsClient.createReview(
         test.id,
         targetStatus.id,
         reason.trim(),
-        { type: 'test', reference: null }
+        reviewTarget
       );
 
       // Refresh the test result to get updated reviews
@@ -216,12 +232,7 @@ export default function TestDetailReviewsTab({
   // A conflict exists if the review decision differs from the automated decision
   let hasConflict = false;
   if (lastReview && lastReview.status?.name) {
-    const reviewStatusName = lastReview.status.name.toLowerCase();
-    const reviewPassed =
-      reviewStatusName.includes('pass') ||
-      reviewStatusName.includes('success') ||
-      reviewStatusName.includes('completed');
-
+    const reviewPassed = isPassedStatusName(lastReview.status.name);
     hasConflict = reviewPassed !== automatedStatus.passed;
   }
 
@@ -239,13 +250,9 @@ export default function TestDetailReviewsTab({
     passed: boolean;
     label: string;
   } => {
+    const isPassed = isPassedStatusName(statusName);
     const name = statusName.toLowerCase();
-    const isPassed =
-      name.includes('pass') ||
-      name.includes('success') ||
-      name.includes('completed');
 
-    // Normalize status labels for consistency
     let label = statusName;
     if (name === 'fail') {
       label = 'Failed';
@@ -264,7 +271,7 @@ export default function TestDetailReviewsTab({
       {/* Status Overview */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h6" fontWeight={600} gutterBottom>
-          Review Status
+          Test Result
         </Typography>
 
         {/* Automated vs Review Status Comparison */}
@@ -273,7 +280,10 @@ export default function TestDetailReviewsTab({
           sx={{
             p: 2,
             backgroundColor: hasConflict
-              ? `${theme.palette.warning.main}08`
+              ? alpha(
+                  theme.palette.warning.main,
+                  theme.palette.action.hoverOpacity
+                )
               : theme.palette.background.default,
             border: hasConflict
               ? `1px solid ${theme.palette.warning.light}`
@@ -325,7 +335,11 @@ export default function TestDetailReviewsTab({
                         />
                         {hasConflict && (
                           <Chip
-                            icon={<WarningAmberIcon sx={{ fontSize: 14 }} />}
+                            icon={
+                              <WarningAmberIcon
+                                sx={{ fontSize: 'caption.fontSize' }}
+                              />
+                            }
                             label="Conflict"
                             size="small"
                             color="warning"
@@ -388,7 +402,10 @@ export default function TestDetailReviewsTab({
                     sx={{
                       p: 2,
                       backgroundColor: isLatest
-                        ? `${theme.palette.primary.main}08`
+                        ? alpha(
+                            theme.palette.primary.main,
+                            theme.palette.action.hoverOpacity
+                          )
                         : theme.palette.background.default,
                       border: isLatest
                         ? `1px solid ${theme.palette.primary.light}`
@@ -407,7 +424,13 @@ export default function TestDetailReviewsTab({
                         <Box
                           sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
                         >
-                          <Avatar sx={{ width: 32, height: 32, fontSize: 14 }}>
+                          <Avatar
+                            sx={{
+                              width: theme.spacing(4),
+                              height: theme.spacing(4),
+                              fontSize: 'caption.fontSize',
+                            }}
+                          >
                             {review.user.name.charAt(0).toUpperCase()}
                           </Avatar>
                           <Box>
@@ -453,13 +476,17 @@ export default function TestDetailReviewsTab({
                                 sx={{
                                   ml: 0.5,
                                   '&:hover': {
-                                    backgroundColor:
-                                      theme.palette.error.main + '20',
+                                    backgroundColor: alpha(
+                                      theme.palette.error.main,
+                                      theme.palette.action.focusOpacity
+                                    ),
                                     color: theme.palette.error.main,
                                   },
                                 }}
                               >
-                                <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                                <DeleteOutlineIcon
+                                  sx={{ fontSize: 'body2.fontSize' }}
+                                />
                               </IconButton>
                             </Tooltip>
                           )}
@@ -485,21 +512,62 @@ export default function TestDetailReviewsTab({
                               wordBreak: 'break-word',
                             }}
                           >
-                            {review.comments}
+                            {renderMentionText(
+                              review.comments,
+                              {
+                                user: theme.palette.success.main,
+                                metric: theme.palette.secondary.main,
+                                turn: theme.palette.info.main,
+                              },
+                              {
+                                user: alpha(
+                                  theme.palette.success.main,
+                                  theme.palette.action.disabledOpacity
+                                ),
+                                metric: alpha(
+                                  theme.palette.secondary.main,
+                                  theme.palette.action.disabledOpacity
+                                ),
+                                turn: alpha(
+                                  theme.palette.info.main,
+                                  theme.palette.action.disabledOpacity
+                                ),
+                              }
+                            )}
                           </Typography>
                         </Paper>
                       </Box>
 
                       {/* Review Metadata */}
-                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                        {review.target.reference && (
-                          <Chip
-                            label={`Target: ${review.target.reference}`}
-                            size="small"
-                            variant="outlined"
-                            color="default"
-                          />
-                        )}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 2,
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Chip
+                          icon={<TrackChangesIcon />}
+                          label={
+                            REVIEW_TARGET_LABELS[
+                              review.target
+                                ?.type as keyof typeof REVIEW_TARGET_LABELS
+                            ] ??
+                            REVIEW_TARGET_LABELS[
+                              REVIEW_TARGET_TYPES.TEST_RESULT
+                            ]
+                          }
+                          size="small"
+                          variant="outlined"
+                          color={
+                            review.target?.type === REVIEW_TARGET_TYPES.METRIC
+                              ? 'secondary'
+                              : review.target?.type === REVIEW_TARGET_TYPES.TURN
+                                ? 'info'
+                                : 'default'
+                          }
+                        />
                         {review.created_at !== review.updated_at && (
                           <Chip
                             label="Edited"
@@ -525,7 +593,7 @@ export default function TestDetailReviewsTab({
           >
             <InfoOutlinedIcon
               sx={{
-                fontSize: 48,
+                fontSize: theme.typography.h3.fontSize,
                 color: theme.palette.text.disabled,
                 mb: 2,
               }}
@@ -568,7 +636,7 @@ export default function TestDetailReviewsTab({
                 {/* Status Toggle */}
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                    Review Status
+                    New Status
                   </Typography>
                   <ToggleButtonGroup
                     value={newStatus}
@@ -589,7 +657,9 @@ export default function TestDetailReviewsTab({
                         },
                       }}
                     >
-                      <CheckCircleOutlineIcon sx={{ mr: 1, fontSize: 18 }} />
+                      <CheckCircleOutlineIcon
+                        sx={{ mr: 1, fontSize: 'body2.fontSize' }}
+                      />
                       Pass
                     </ToggleButton>
                     <ToggleButton
@@ -604,7 +674,9 @@ export default function TestDetailReviewsTab({
                         },
                       }}
                     >
-                      <CancelOutlinedIcon sx={{ mr: 1, fontSize: 18 }} />
+                      <CancelOutlinedIcon
+                        sx={{ mr: 1, fontSize: 'body2.fontSize' }}
+                      />
                       Fail
                     </ToggleButton>
                   </ToggleButtonGroup>
@@ -612,18 +684,16 @@ export default function TestDetailReviewsTab({
 
                 {/* Comments */}
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                    Comments
-                  </Typography>
-                  <TextField
-                    multiline
-                    rows={4}
-                    fullWidth
-                    placeholder="Explain your review decision..."
+                  <MentionTextInput
+                    label="Comments"
                     value={reason}
-                    onChange={e => setReason(e.target.value)}
+                    onChange={setReason}
+                    placeholder="Explain your review decision... Type @ to mention"
+                    mentionableMetrics={mentionableMetrics}
+                    mentionableTurns={mentionableTurns}
                     error={!!error}
                     helperText={error}
+                    minRows={4}
                   />
                 </Box>
 

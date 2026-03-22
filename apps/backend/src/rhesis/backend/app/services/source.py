@@ -1,3 +1,4 @@
+import logging
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -7,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.services.handlers import get_source_handler
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 # not only document, but also other source types

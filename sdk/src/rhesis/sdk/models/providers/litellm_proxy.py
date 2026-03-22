@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -136,6 +137,10 @@ class LiteLLMProxy(BaseLLM):
             validate_llm_response(content, schema)
 
         return content
+
+    async def a_generate(self, *args, **kwargs) -> Union[str, dict]:
+        """Async version of generate. Runs sync generate() in a thread pool."""
+        return await asyncio.to_thread(self.generate, *args, **kwargs)
 
     def generate_batch(
         self,

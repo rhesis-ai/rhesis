@@ -153,6 +153,113 @@ describe('SearchAndFilterBar', () => {
     expect(screen.getByTestId('custom-filter')).toBeInTheDocument();
   });
 
+  describe('layout structure', () => {
+    /**
+     * Regression tests for the filter-overflow bug on the metrics page.
+     *
+     * When many backend filter chips are present (All, Custom, Garak, Rhesis,
+     * Deepeval, Ragas) the ButtonGroup exceeded the inline children area, causing
+     * the Filters badge button and the New Metric action button to collapse into a
+     * floating card that overlapped the metric cards below.
+     *
+     * The key invariant: filter children live in `data-testid="filter-row"` and
+     * action buttons live in `data-testid="actions-box"` — these two containers
+     * must never contain each other's elements.
+     */
+
+    it('renders filter children inside the dedicated filter-row container', () => {
+      render(
+        <SearchAndFilterBar {...defaultProps}>
+          <button data-testid="filter-chip">All</button>
+        </SearchAndFilterBar>
+      );
+
+      const filterRow = screen.getByTestId('filter-row');
+      expect(filterRow).toContainElement(screen.getByTestId('filter-chip'));
+    });
+
+    it('renders the action button inside actions-box, not filter-row', () => {
+      const onAddNew = jest.fn();
+      render(
+        <SearchAndFilterBar
+          {...defaultProps}
+          onAddNew={onAddNew}
+          addNewLabel="New Metric"
+        >
+          <button data-testid="filter-chip">All</button>
+        </SearchAndFilterBar>
+      );
+
+      const actionButton = screen.getByRole('button', { name: /new metric/i });
+      const actionsBox = screen.getByTestId('actions-box');
+      const filterRow = screen.getByTestId('filter-row');
+
+      expect(actionsBox).toContainElement(actionButton);
+      expect(filterRow).not.toContainElement(actionButton);
+    });
+
+    it('renders filter children in filter-row, not in actions-box', () => {
+      const onAddNew = jest.fn();
+      render(
+        <SearchAndFilterBar
+          {...defaultProps}
+          onAddNew={onAddNew}
+          addNewLabel="New Metric"
+        >
+          <button data-testid="filters-child">Filters</button>
+        </SearchAndFilterBar>
+      );
+
+      const filtersChild = screen.getByTestId('filters-child');
+      const actionsBox = screen.getByTestId('actions-box');
+      const filterRow = screen.getByTestId('filter-row');
+
+      expect(filterRow).toContainElement(filtersChild);
+      expect(actionsBox).not.toContainElement(filtersChild);
+    });
+
+    it('renders many filter chips in filter-row without leaking the action button into it', () => {
+      // Simulates the exact metrics-page scenario: All + 5 backend tabs + Filters button
+      const chips = ['All', 'Custom', 'Garak', 'Rhesis', 'Deepeval', 'Ragas'];
+      const onAddNew = jest.fn();
+
+      render(
+        <SearchAndFilterBar
+          {...defaultProps}
+          onAddNew={onAddNew}
+          addNewLabel="New Metric"
+        >
+          {chips.map(label => (
+            <button key={label} data-testid={`chip-${label.toLowerCase()}`}>
+              {label}
+            </button>
+          ))}
+          <button data-testid="filters-child">Filters</button>
+        </SearchAndFilterBar>
+      );
+
+      const filterRow = screen.getByTestId('filter-row');
+      const actionButton = screen.getByRole('button', { name: /new metric/i });
+
+      // Every chip and the Filters child must be inside filter-row
+      chips.forEach(label =>
+        expect(filterRow).toContainElement(
+          screen.getByTestId(`chip-${label.toLowerCase()}`)
+        )
+      );
+      expect(filterRow).toContainElement(screen.getByTestId('filters-child'));
+
+      // The action button must NOT be inside filter-row
+      expect(filterRow).not.toContainElement(actionButton);
+    });
+
+    it('does not render filter-row when no children are provided', () => {
+      render(<SearchAndFilterBar {...defaultProps} />);
+
+      expect(screen.queryByTestId('filter-row')).not.toBeInTheDocument();
+    });
+  });
+
   describe('focus retention while typing', () => {
     it('retains focus after each keystroke', async () => {
       render(<ControlledSearchBar />);

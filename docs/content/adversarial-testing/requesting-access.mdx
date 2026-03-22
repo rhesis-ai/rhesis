@@ -1,0 +1,39 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Requesting Access
+
+Polyphemus can generate sensitive content for evaluation purposes. For this reason, access is not automatic—each request is reviewed by the Rhesis team before approval.
+
+## How to Request Access
+
+1. Log in to the Rhesis platform and navigate to **Models** in the left sidebar.
+2. Locate Polyphemus and click **Request Access**.
+3. Fill out the access request form.
+
+![Polyphemus access request form](/screenshots/rhesis-ai-polyphemus-access.png)
+
+The form asks for:
+
+- **Expected Monthly Requests** — an estimate of how many requests you plan to make per month
+- **Justification & Use Case** — a description of why you need access, how you plan to use Polyphemus, the types of tests you'll be conducting, and how you'll ensure responsible use
+
+## After Submitting
+
+The Rhesis team will review your request. Once approved, you can use Polyphemus through the SDK with your existing `RHESIS_API_KEY`.
+
+Note: Approval is not instantaneous. The review process exists to ensure Polyphemus is used responsibly and in appropriate evaluation contexts.
+
+## Using Polyphemus After Approval
+
+Once approved, no additional configuration is needed beyond your existing Rhesis API key:
+
+<CodeBlock filename="polyphemus_after_approval.py" language="python">
+{`import os
+from rhesis.sdk.models import get_model
+
+# Uses RHESIS_API_KEY from environment
+model = get_model("polyphemus")
+response = model.generate("Generate an adversarial test for a customer support chatbot")`}
+</CodeBlock>
+
+See [Using Polyphemus with the SDK](/adversarial-testing/sdk-usage) for full integration examples.

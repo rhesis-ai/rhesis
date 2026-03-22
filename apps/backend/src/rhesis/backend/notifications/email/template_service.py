@@ -2,6 +2,7 @@
 Template service for email notifications using Jinja2.
 """
 
+import logging
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import Any, Dict
 
 import jinja2
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 class EmailTemplate(Enum):
@@ -25,6 +26,7 @@ class EmailTemplate(Enum):
     MAGIC_LINK = "magic_link.html.jinja2"
     MIGRATION_PASSWORD_SETUP = "migration_password_setup.html.jinja2"
     POLYPHEMUS_ACCESS_REQUEST = "polyphemus_access_request.html.jinja2"
+    FEEDBACK = "feedback.html.jinja2"
 
 
 class TemplateService:
@@ -44,6 +46,7 @@ class TemplateService:
 
         # Add custom filters
         self.jinja_env.filters["datetime_format"] = self._datetime_format
+        self.jinja_env.filters["format_number"] = lambda value: f"{int(value):,}"
 
         # Define required variables for each template
         self.template_variables = {
@@ -122,6 +125,12 @@ class TemplateService:
             EmailTemplate.MIGRATION_PASSWORD_SETUP: {
                 "recipient_name",
                 "reset_url",
+            },
+            EmailTemplate.FEEDBACK: {
+                "user_name",
+                "user_email",
+                "feedback",
+                "rating",
             },
         }
 

@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -41,6 +42,7 @@ from rhesis.backend.app.auth.used_token_store import (
     claim_token_jti,
 )
 from rhesis.backend.app.auth.user_utils import (
+    _send_welcome_email,
     find_or_create_user,
     find_or_create_user_from_auth,
 )
@@ -58,12 +60,13 @@ from rhesis.backend.app.utils.rate_limit import (
     limiter,
 )
 from rhesis.backend.app.utils.redact import redact_email
-from rhesis.backend.logging import logger
 from rhesis.backend.telemetry import (
     is_telemetry_enabled,
     set_telemetry_enabled,
     track_user_activity,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -99,10 +102,11 @@ class ProviderInfo(BaseModel):
 
 
 class PasswordPolicyResponse(BaseModel):
-    """Password policy exposed to frontend (min/max length)."""
+    """Password policy exposed to frontend for client-side validation."""
 
     min_length: int
     max_length: int
+    min_strength_score: int
 
 
 class ProvidersResponse(BaseModel):
@@ -175,7 +179,7 @@ class RefreshTokenRequest(BaseModel):
 _LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
-def _is_running_locally() -> bool:
+def is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
 
     Never uses any request-derived data. Uses three independent signals:
@@ -210,10 +214,10 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     accepted; any other value falls back to 'localhost'. For
     production, uses RHESIS_BASE_URL.
     """
-    if _is_running_locally():
+    if is_running_locally():
         # Local: use request hostname to match session cookie domain
         # (e.g., 127.0.0.1 vs localhost). Whitelist ensures that even
-        # if _is_running_locally() fires on a misconfigured server,
+        # if is_running_locally() fires on a misconfigured server,
         # the callback can only ever point to a local address.
         hostname = request.url.hostname or "localhost"
         if hostname not in _LOCAL_HOSTNAMES:
@@ -279,6 +283,7 @@ async def get_providers():
         password_policy=PasswordPolicyResponse(
             min_length=policy.min_length,
             max_length=policy.max_length,
+            min_strength_score=policy.min_strength_score,
         ),
     )
 
@@ -559,6 +564,9 @@ async def register_with_email(
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
 
+        # Send welcome email (best-effort)
+        _send_welcome_email(user)
+
         # Send verification email (best-effort)
         try:
             token = create_email_verification_token(str(user.id), user.email)
@@ -775,7 +783,10 @@ async def reset_password(
             detail="Invalid reset token",
         )
 
-    validate_password(body.new_password)
+    await validate_password(
+        body.new_password,
+        context={"email": user.email, "name": user.name or ""},
+    )
     user.password_hash = hash_password(body.new_password)
     # Preserve original provider_type — setting a password is additive,
     # not a provider migration. Users can log in via either method.
@@ -824,6 +835,8 @@ async def request_magic_link(
                 is_active=True,
             )
             user = crud.create_user(db, user_data)
+            db.commit()
+            db.refresh(user)
             is_new_user = True
             logger.info(
                 "New user created via magic link: %s",
@@ -854,6 +867,10 @@ async def request_magic_link(
         )
     except Exception as e:
         logger.warning(f"Failed to send magic link email: {e}")
+
+    # Send welcome email for newly created accounts (best-effort)
+    if is_new_user:
+        _send_welcome_email(user)
 
     return {
         "success": True,

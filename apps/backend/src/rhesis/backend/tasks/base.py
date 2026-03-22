@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import contextmanager
 from datetime import datetime
@@ -8,8 +9,9 @@ from celery import Task
 from rhesis.backend.app.database import (
     get_db_with_tenant_variables,
 )
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
+
+logger = logging.getLogger(__name__)
 
 # Task database sessions automatically set PostgreSQL session variables for RLS
 # Use self.get_db_session() for tenant-aware database operations

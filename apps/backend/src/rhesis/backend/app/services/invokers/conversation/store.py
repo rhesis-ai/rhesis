@@ -12,14 +12,15 @@ Note:
     replace with a Redis or database-backed implementation.
 """
 
+import logging
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from rhesis.backend.logging import logger
-
 from .history import MessageHistoryManager
+
+logger = logging.getLogger(__name__)
 
 # Default TTL: 1 hour
 _DEFAULT_TTL_SECONDS = 3600
@@ -105,7 +106,14 @@ class ConversationHistoryStore:
             history.add_user_message(content)
         return True
 
-    def add_assistant_message(self, conversation_id: str, content: str) -> bool:
+    def add_assistant_message(
+        self,
+        conversation_id: str,
+        content: str,
+        *,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
+        **extra: Any,
+    ) -> bool:
         """Append an assistant message.  Returns ``False`` if not found."""
         with self._lock:
             self._evict_expired()
@@ -113,10 +121,21 @@ class ConversationHistoryStore:
             if history is None:
                 return False
             self._timestamps[conversation_id] = time.monotonic()
-            history.add_assistant_message(content)
+            history.add_assistant_message(content, tool_calls=tool_calls, **extra)
         return True
 
-    def get_messages(self, conversation_id: str) -> Optional[List[Dict[str, str]]]:
+    def add_message(self, conversation_id: str, message: Dict[str, Any]) -> bool:
+        """Append an arbitrary message dict.  Returns ``False`` if not found."""
+        with self._lock:
+            self._evict_expired()
+            history = self._histories.get(conversation_id)
+            if history is None:
+                return False
+            self._timestamps[conversation_id] = time.monotonic()
+            history.add_message(message)
+        return True
+
+    def get_messages(self, conversation_id: str) -> Optional[List[Dict[str, Any]]]:
         """Return all messages for *conversation_id*, or ``None``."""
         with self._lock:
             self._evict_expired()

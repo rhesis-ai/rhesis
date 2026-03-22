@@ -1,12 +1,12 @@
 """Core test execution runners - shared by executors and in-place service."""
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import MetricScope
 from rhesis.backend.tasks.execution.evaluation import (
@@ -24,6 +24,8 @@ from rhesis.backend.tasks.execution.response_extractor import (
 
 from .data import get_test_metrics
 from .metrics import prepare_metric_configs
+
+logger = logging.getLogger(__name__)
 
 
 def _get_endpoint_routing(
@@ -45,14 +47,14 @@ def _get_endpoint_routing(
     return None, None
 
 
-def _build_sdk_metric_sender(
+def _build_connector_metric_sender(
     project_id: Optional[str],
     environment: Optional[str],
 ):
-    """Build an async callable that dispatches SDK metrics via RPC.
+    """Build an async callable that dispatches connector metrics via WebSocket RPC.
 
     Returns None when project/environment are unavailable, which tells
-    the evaluator to skip SDK metrics.
+    the evaluator to skip connector metrics.
     """
     if not project_id or not environment:
         return None
@@ -215,7 +217,9 @@ class SingleTurnRunner(BaseRunner):
                 model=model,
                 db=db,
                 organization_id=organization_id,
-                sdk_metric_sender=_build_sdk_metric_sender(ep_project_id, ep_environment),
+                connector_metric_sender=_build_connector_metric_sender(
+                    ep_project_id, ep_environment
+                ),
             )
 
             if model:

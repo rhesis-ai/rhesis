@@ -41,6 +41,7 @@ interface TraceDrawerProps {
   traceId: string | null;
   projectId: string;
   sessionToken: string;
+  initialTurnIndex?: number;
 }
 
 export default function TraceDrawer({
@@ -49,6 +50,7 @@ export default function TraceDrawer({
   traceId,
   projectId,
   sessionToken,
+  initialTurnIndex,
 }: TraceDrawerProps) {
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -91,9 +93,17 @@ export default function TraceDrawer({
       const data = await client.getTrace(traceId, projectId);
       setTrace(data);
 
-      // Auto-select root span
       if (data.root_spans.length > 0) {
-        setSelectedSpan(data.root_spans[0]);
+        const spanIndex =
+          initialTurnIndex !== undefined
+            ? Math.min(initialTurnIndex, data.root_spans.length - 1)
+            : 0;
+        setSelectedSpan(data.root_spans[spanIndex]);
+
+        if (initialTurnIndex !== undefined) {
+          const offset = data.conversation_id ? 1 : 0;
+          setViewTab(0 + offset);
+        }
       }
     } catch (err: unknown) {
       const errorMsg =
@@ -103,7 +113,7 @@ export default function TraceDrawer({
     } finally {
       setLoading(false);
     }
-  }, [traceId, projectId, sessionToken]);
+  }, [traceId, projectId, sessionToken, initialTurnIndex]);
 
   useEffect(() => {
     if (open && traceId && projectId) {
@@ -490,13 +500,20 @@ export default function TraceDrawer({
                 p: viewTab === tabIndices.tree ? theme => theme.spacing(2) : 0,
               }}
             >
-              {showConversationTab && viewTab === 0 && (
-                <ConversationTraceView
-                  trace={trace}
-                  sessionToken={sessionToken}
-                  onSpanSelect={handleSpanSelect}
-                  rootSpans={trace.root_spans}
-                />
+              {showConversationTab && (
+                <Box
+                  sx={{
+                    display: viewTab === 0 ? 'block' : 'none',
+                    height: '100%',
+                  }}
+                >
+                  <ConversationTraceView
+                    trace={trace}
+                    sessionToken={sessionToken}
+                    onSpanSelect={handleSpanSelect}
+                    rootSpans={trace.root_spans}
+                  />
+                </Box>
               )}
               {viewTab === tabIndices.tree && (
                 <SpanTreeView

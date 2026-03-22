@@ -42,7 +42,7 @@ class TestOpenRouterLLM:
         llm = OpenRouterLLM(model_name=custom_model, api_key="test_key")
         assert llm.model_name == OpenRouterLLM.PROVIDER + "/" + custom_model
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_without_schema(self, mock_completion):
         """Test generate method without schema returns string response"""
         # Mock the completion response
@@ -66,7 +66,7 @@ class TestOpenRouterLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema(self, mock_completion):
         """Test generate method with schema returns validated dict response"""
 
@@ -101,7 +101,7 @@ class TestOpenRouterLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema_invalid_response(self, mock_completion):
         """Test generate method with schema raises error for invalid response"""
 
@@ -122,7 +122,7 @@ class TestOpenRouterLLM:
         with pytest.raises(Exception):  # Should raise validation error
             llm.generate(prompt, schema=TestSchema)
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_additional_kwargs(self, mock_completion):
         """Test generate method passes additional kwargs to completion"""
         mock_response = Mock()
@@ -146,7 +146,7 @@ class TestOpenRouterLLM:
             max_tokens=100,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_custom_model(self, mock_completion):
         """Test generate method uses custom model name"""
         mock_response = Mock()
@@ -169,7 +169,7 @@ class TestOpenRouterLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_system_prompt(self, mock_completion):
         """Test generate method with system prompt"""
         mock_response = Mock()

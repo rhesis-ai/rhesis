@@ -56,4 +56,101 @@ export class BehaviorsPage extends BasePage {
       hasCards || hasEmptyNoFilter || hasEmptyFiltered || hasMain
     ).toBeTruthy();
   }
+
+  // ── CRUD helpers ──────────────────────────────────────────────────────────
+
+  /** Open the "New Behavior" drawer and wait for it to slide in. */
+  async openNewBehaviorDrawer() {
+    await this.newBehaviorButton.click();
+    // BehaviorMetricsViewer also renders a permanent right-anchored Drawer with
+    // keepMounted:true — it stays in the DOM hidden (aria-hidden="true") at all
+    // times. Use :not([aria-hidden="true"]) so we only match the drawer that is
+    // actually open (the BehaviorDrawer), not the permanently-hidden viewer portal.
+    await this.page
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
+      .waitFor({ state: 'visible', timeout: 10_000 });
+  }
+
+  /**
+   * Fill the Name field inside the currently open drawer.
+   * Scoped to the open (non-aria-hidden) right drawer to avoid matching
+   * hidden portals (e.g., BehaviorMetricsViewer) or page-level inputs.
+   */
+  async fillBehaviorName(name: string) {
+    await this.page
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
+      .getByRole('textbox', { name: /name/i })
+      .first()
+      .fill(name);
+  }
+
+  /** Fill the Description field inside the drawer. */
+  async fillBehaviorDescription(description: string) {
+    const descInput = this.page
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
+      .getByRole('textbox', { name: /description/i });
+    const visible = await descInput
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
+    if (visible) await descInput.fill(description);
+  }
+
+  /** Submit the drawer by clicking "Add Behavior" or equivalent save button. */
+  async submitNewBehavior() {
+    const addBtn = this.page
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
+      .getByRole('button', { name: /add behavior|save/i })
+      .first();
+    await addBtn.click();
+  }
+
+  /** Wait for the drawer to close after submission. */
+  async waitForDrawerClosed() {
+    // Wait until no right-anchored drawer is open. When MUI closes a Drawer it
+    // adds aria-hidden="true" back to the portal root, so
+    // :not([aria-hidden="true"]) stops matching → waitFor hidden succeeds.
+    await this.page
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
+      .waitFor({ state: 'hidden', timeout: 15_000 });
+  }
+
+  /** Find the card with the given name and click its edit (pencil) icon button. */
+  async clickEditOnCard(name: string) {
+    const card = this.page.locator('.MuiCard-root', { hasText: name });
+    await card.getByRole('button', { name: /edit/i }).first().click();
+  }
+
+  /** Find the card with the given name and click its delete (trash) icon button. */
+  async clickDeleteOnCard(name: string) {
+    const card = this.page.locator('.MuiCard-root', { hasText: name });
+    await card
+      .getByRole('button', { name: /delete/i })
+      .first()
+      .click();
+  }
+
+  /** Find the card with the given name and click its add metric (+) icon button. */
+  async clickAddMetricOnCard(name: string) {
+    const card = this.page.locator('.MuiCard-root', { hasText: name });
+    await card
+      .getByRole('button', { name: /add metric/i })
+      .first()
+      .click();
+  }
+
+  /** Returns true if a behavior card with the given name is visible. */
+  async cardIsVisible(name: string): Promise<boolean> {
+    return this.page
+      .locator('.MuiCard-root', { hasText: name })
+      .isVisible({ timeout: 15_000 })
+      .catch(() => false);
+  }
+
+  /** Returns true if no behavior card with the given name is visible. */
+  async cardIsGone(name: string): Promise<boolean> {
+    return this.page
+      .locator('.MuiCard-root', { hasText: name })
+      .isHidden({ timeout: 15_000 })
+      .catch(() => false);
+  }
 }

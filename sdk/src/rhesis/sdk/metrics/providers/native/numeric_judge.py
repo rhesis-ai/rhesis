@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
@@ -136,6 +137,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             context=context,
             min_score=self.min_score,
             max_score=self.max_score,
+            **additional_template_vars,
         )
 
     def evaluate(
@@ -145,6 +147,27 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         expected_output: Optional[str],
         context: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
+    ) -> MetricResult:
+        return run_sync(
+            self.a_evaluate(
+                input=input,
+                output=output,
+                expected_output=expected_output,
+                context=context,
+                metadata=metadata,
+                tool_calls=tool_calls,
+            )
+        )
+
+    async def a_evaluate(
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str],
+        context: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -199,6 +222,9 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             else None
         )
 
+        # Serialize tool_calls for template
+        tool_calls_text = json.dumps(tool_calls, indent=2) if tool_calls else None
+
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(
             input,
@@ -206,10 +232,10 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             expected_output or "",
             context or [],
             metadata_text=metadata_text,
+            tool_calls_text=tool_calls_text,
         )
 
-        # Use the shared numeric evaluation pattern
-        return self._execute_numeric_evaluation(
+        return await self._a_execute_numeric_evaluation(
             prompt=prompt,
             response_schema=NumericScoreResponse,
         )

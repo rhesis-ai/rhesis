@@ -34,27 +34,32 @@ class EntityType(Enum):
         return entity_type
 
 
-# Test Types Enum - Aligned with initial_data.json type_lookup values
-class TestType(Enum):
+# TestSetType Enum - DB-level test set classification aligned with initial_data.json type_lookup
+class TestSetType(Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
 
     @classmethod
-    def get_value(cls, test_type):
-        """Get the string value of a test type"""
-        if isinstance(test_type, cls):
-            return test_type.value
-        return test_type
+    def get_value(cls, test_set_type):
+        """Get the string value of a test set type"""
+        if isinstance(test_set_type, cls):
+            return test_set_type.value
+        return test_set_type
 
     @classmethod
     def from_string(cls, value: str):
-        """Get enum from string value (case-insensitive comparison)"""
+        """Get enum from string value (case-insensitive, accepts snake_case and hyphenated).
+
+        Maps both 'single_turn' and 'Single-Turn' to TestSetType.SINGLE_TURN, so API
+        clients that use snake_case conventions are handled transparently.
+        """
         if not value:
             return None
-        value_lower = value.lower()
-        for test_type in cls:
-            if test_type.value.lower() == value_lower:
-                return test_type
+        # Normalize underscores to hyphens so snake_case aliases work (single_turn → single-turn)
+        normalized = value.lower().replace("_", "-")
+        for test_set_type in cls:
+            if test_set_type.value.lower() == normalized:
+                return test_set_type
         return None
 
 
@@ -130,48 +135,68 @@ TEST_RESULT_STATUS_ERROR = frozenset(
     ]
 )
 
-# Status Category Constants
-# Use these constants instead of magic strings when checking status categories
-STATUS_CATEGORY_PASSED = "passed"
-STATUS_CATEGORY_FAILED = "failed"
-STATUS_CATEGORY_ERROR = "error"
+
+class TestResultStatus(str, Enum):
+    """Exact DB status names for test results (written to the status table)."""
+
+    PASS = "Pass"
+    FAIL = "Fail"
+    ERROR = "Error"
+
+
+class TestType(str, Enum):
+    """Reserved test type values in the TypeLookup table.
+
+    - SINGLE_TURN: Traditional single request-response tests
+    - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
+    """
+
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+
+
+class OverallTestResult(str, Enum):
+    """Aggregated result categories used in stats views and reporting.
+
+    Multiple DB status names collapse into each bucket via the frozensets
+    above and categorize_test_result_status(). A str enum so values work
+    directly in SQL f-strings, ORM filters, and dict keys.
+    """
+
+    PASSED = "passed"
+    FAILED = "failed"
+    PENDING = "pending"
+    ERROR = "error"
+
+
+# Test Run Status Mappings (execution-level: did the run finish?)
+# A "passed" run completed execution; "failed" means execution itself failed.
+TEST_RUN_STATUS_PASSED = frozenset(
+    ["completed", "complete", "finished", "done", "success", "successful"]
+)
+TEST_RUN_STATUS_FAILED = frozenset(["failed", "fail", "error", "aborted"])
 
 
 def categorize_test_result_status(status_name: str) -> str:
-    """
-    Categorize a test result status name into passed/failed/error.
-
-    This function provides a centralized way to categorize test result statuses
-    across the application, ensuring consistency in how test results are counted
-    and reported.
+    """Categorize a test result status name into an OverallTestResult bucket.
 
     Args:
         status_name: The status name (case-insensitive)
 
     Returns:
-        'passed', 'failed', or 'error'
-
-    Examples:
-        >>> categorize_test_result_status('Pass')
-        'passed'
-        >>> categorize_test_result_status('FAILED')
-        'failed'
-        >>> categorize_test_result_status('Review')
-        'error'
-        >>> categorize_test_result_status(None)
-        'error'
+        One of OverallTestResult.PASSED, .FAILED, or .ERROR
     """
     if not status_name:
-        return STATUS_CATEGORY_ERROR
+        return OverallTestResult.ERROR
 
     status_lower = status_name.lower()
 
     if status_lower in TEST_RESULT_STATUS_PASSED:
-        return STATUS_CATEGORY_PASSED
+        return OverallTestResult.PASSED
     elif status_lower in TEST_RESULT_STATUS_FAILED:
-        return STATUS_CATEGORY_FAILED
+        return OverallTestResult.FAILED
     else:
-        return STATUS_CATEGORY_ERROR
+        return OverallTestResult.ERROR
 
 
 # OpenTelemetry Semantic Convention attribute keys for AI/LLM spans.

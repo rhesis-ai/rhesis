@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any, Dict, Optional, Union
 
 import httpx
@@ -14,11 +15,10 @@ from tenacity import (
 
 from rhesis.backend.app.models.endpoint import Endpoint
 
-# Use rhesis logger
-from rhesis.backend.logging import logger
-
 from .base import BaseEndpointInvoker, ResponseMapper, TemplateRenderer
 from .common.schemas import ErrorResponse
+
+logger = logging.getLogger(__name__)
 
 
 class RestEndpointInvoker(BaseEndpointInvoker):

@@ -43,13 +43,6 @@ export default function DashboardPage() {
     [handleComponentLoad]
   );
 
-  // Trigger immediate sync to database when dashboard loads
-  React.useEffect(() => {
-    if (session?.session_token) {
-      forceSyncToDatabase();
-    }
-  }, [session?.session_token, forceSyncToDatabase]);
-
   return (
     <PageContainer breadcrumbs={[]}>
       {!allLoaded && (

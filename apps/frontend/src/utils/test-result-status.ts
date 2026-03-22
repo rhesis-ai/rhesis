@@ -108,6 +108,44 @@ export function findStatusByCategory(
 }
 
 /**
+ * Determines the effective test result status using, in order:
+ * 1. A test_result-level human review (last_review) when present
+ * 2. The backend's authoritative status_id (accounts for metric/turn overrides)
+ * 3. Metric-based calculation as a fallback
+ *
+ * @param test - The test result detail object
+ * @returns The test status: 'Pass', 'Fail', or 'Error'
+ */
+export function getEffectiveTestResultStatus(
+  test: TestResultDetail
+): TestResultStatus {
+  // Priority 1: explicit test_result-level review override
+  if (test.last_review && test.last_review.status?.name) {
+    const hasMetrics =
+      test.test_metrics?.metrics &&
+      Object.keys(test.test_metrics.metrics).length > 0;
+    const hasGoalEvaluation = !!test.test_output?.goal_evaluation;
+    if (!hasMetrics && !hasGoalEvaluation) {
+      return 'Error';
+    }
+    return isPassedStatusName(test.last_review.status.name) ? 'Pass' : 'Fail';
+  }
+
+  // Priority 2: backend status (updated by metric/turn override recalculation)
+  const backendStatus = test.status?.name;
+  if (
+    backendStatus === TEST_RESULT_STATUS_NAMES.PASSED ||
+    backendStatus === TEST_RESULT_STATUS_NAMES.FAILED ||
+    backendStatus === TEST_RESULT_STATUS_NAMES.ERROR
+  ) {
+    return backendStatus as TestResultStatus;
+  }
+
+  // Priority 3: metric-based calculation
+  return getTestResultStatus(test);
+}
+
+/**
  * Determines the test result status from a test result object
  * This function considers AUTOMATED metrics only. Use getTestResultStatusWithReview
  * to include human review overrides.
@@ -140,33 +178,14 @@ export function getTestResultStatus(test: TestResultDetail): TestResultStatus {
  * @param test - The test result detail object
  * @returns The test status: 'Pass', 'Fail', or 'Error'
  */
+/**
+ * @deprecated Use getEffectiveTestResultStatus instead, which also
+ * accounts for metric- and turn-level overrides via the backend status field.
+ */
 export function getTestResultStatusWithReview(
   test: TestResultDetail
 ): TestResultStatus {
-  // If there's a human review, prioritize it
-  if (test.last_review && test.last_review.status?.name) {
-    const reviewStatusName = String(test.last_review.status.name).toLowerCase();
-    const reviewPassed =
-      reviewStatusName.includes('pass') ||
-      reviewStatusName.includes('success') ||
-      reviewStatusName.includes('completed');
-
-    // Check if test has valid metrics (either single-turn metrics or multi-turn goal_evaluation)
-    const hasMetrics =
-      test.test_metrics?.metrics &&
-      Object.keys(test.test_metrics.metrics).length > 0;
-    const hasGoalEvaluation = test.test_output?.goal_evaluation;
-
-    // Return 'Error' only if there are no metrics AND no goal evaluation
-    if (!hasMetrics && !hasGoalEvaluation) {
-      return 'Error';
-    }
-
-    return reviewPassed ? 'Pass' : 'Fail';
-  }
-
-  // Fall back to automated metrics
-  return getTestResultStatus(test);
+  return getEffectiveTestResultStatus(test);
 }
 
 /**
@@ -232,4 +251,17 @@ export function hasConflictingReview(test: TestResultDetail): boolean {
 export function hasExecutionError(test: TestResultDetail): boolean {
   const metrics = test.test_metrics?.metrics || {};
   return Object.keys(metrics).length === 0;
+}
+
+/**
+ * Determines if a status name represents a "passed" outcome.
+ * Uses the same keyword matching as findStatusByCategory.
+ */
+export function isPassedStatusName(statusName: string): boolean {
+  const name = statusName.toLowerCase();
+  return (
+    name.includes('pass') ||
+    name.includes('success') ||
+    name.includes('completed')
+  );
 }

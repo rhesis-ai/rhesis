@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+} from 'react';
 import {
   Box,
   Paper,
@@ -49,6 +55,7 @@ interface TestRunMainViewProps {
     description?: string;
     metrics: Array<{ name: string; description?: string }>;
   }>;
+  availableMetrics: string[];
   loading?: boolean;
   currentUserId: string;
   currentUserName: string;
@@ -64,6 +71,7 @@ export default function TestRunMainView({
   testResults: initialTestResults,
   prompts,
   behaviors,
+  availableMetrics,
   loading = false,
   currentUserId,
   currentUserName,
@@ -91,6 +99,50 @@ export default function TestRunMainView({
       pass_rate?: number;
     }>
   >([]);
+
+  // Resizable split panel
+  const [listWidthPercent, setListWidthPercent] = useState(33.33);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current || !splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const offsetX = moveEvent.clientX - rect.left;
+      const percent = (offsetX / rect.width) * 100;
+      const clamped = Math.min(Math.max(percent, 20), 60);
+      setListWidthPercent(clamped);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  // Restore body styles if the component unmounts mid-drag (e.g. client-side navigation).
+  // We cannot remove the per-drag closure listeners without storing them in refs, but
+  // resetting the body styles prevents the stuck cursor / non-selectable text bug.
+  useEffect(() => {
+    return () => {
+      if (isDraggingRef.current) {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+  }, []);
 
   // Track only updates to test results (not all test results)
   const [testResultUpdates, setTestResultUpdates] = useState<
@@ -133,12 +185,19 @@ export default function TestRunMainView({
     if (filter.searchQuery) {
       const query = filter.searchQuery.toLowerCase();
       filtered = filtered.filter(test => {
-        const promptContent =
-          test.prompt_id && prompts[test.prompt_id]
-            ? prompts[test.prompt_id].content.toLowerCase()
-            : '';
+        const promptContent = (
+          (test.prompt_id && prompts[test.prompt_id]
+            ? prompts[test.prompt_id].content
+            : test.test?.prompt?.content) || ''
+        ).toLowerCase();
+        const goalContent =
+          test.test_output?.test_configuration?.goal?.toLowerCase() || '';
         const responseContent = test.test_output?.output?.toLowerCase() || '';
-        return promptContent.includes(query) || responseContent.includes(query);
+        return (
+          promptContent.includes(query) ||
+          goalContent.includes(query) ||
+          responseContent.includes(query)
+        );
       });
     }
 
@@ -248,6 +307,7 @@ export default function TestRunMainView({
   const handleFilterChange = useCallback(
     (newFilter: FilterState) => {
       setFilter(newFilter);
+      setPage(0);
       // If current selected test is not in filtered list, clear selection
       const testStillVisible = testResults.some(t => t.id === selectedTestId);
       if (!testStillVisible) {
@@ -633,15 +693,7 @@ export default function TestRunMainView({
             filter={filter}
             onFilterChange={handleFilterChange}
             availableBehaviors={behaviors}
-            availableMetrics={
-              behaviors
-                ? Array.from(
-                    new Map(
-                      behaviors.flatMap(b => b.metrics).map(m => [m.name, m])
-                    ).values()
-                  )
-                : []
-            }
+            availableMetrics={availableMetrics.map(name => ({ name }))}
             onDownload={handleDownload}
             onCompare={handleCompare}
             isDownloading={isDownloading}
@@ -666,21 +718,27 @@ export default function TestRunMainView({
                 overflow: 'hidden',
               }}
             >
-              {/* Content Area with Split View */}
+              {/* Content Area with Resizable Split View */}
               <Box
+                ref={splitContainerRef}
                 sx={{
                   flex: 1,
                   display: 'flex',
                   overflow: 'hidden',
+                  position: 'relative',
                 }}
               >
-                {/* Left: Tests List (33%) */}
+                {/* Left: Tests List */}
                 <Box
                   sx={{
-                    width: { xs: '100%', md: '33.33%' },
+                    width: {
+                      xs: '100%',
+                      md: `${listWidthPercent}%`,
+                    },
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
+                    flexShrink: 0,
                   }}
                 >
                   <TestsList
@@ -696,10 +754,41 @@ export default function TestRunMainView({
                   />
                 </Box>
 
-                {/* Right: Test Detail Panel (67%) */}
+                {/* Resize Handle */}
+                <Box
+                  onMouseDown={handleResizeStart}
+                  sx={{
+                    width: 6,
+                    flexShrink: 0,
+                    cursor: 'col-resize',
+                    display: { xs: 'none', md: 'flex' },
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: 'transparent',
+                    transition: 'background-color 0.15s',
+                    '&:hover, &:active': {
+                      bgcolor: 'action.hover',
+                    },
+                    '&::after': {
+                      content: '""',
+                      width: 2,
+                      height: 32,
+                      borderRadius: theme.shape.borderRadius,
+                      bgcolor: 'divider',
+                      transition: 'background-color 0.15s, height 0.15s',
+                    },
+                    '&:hover::after, &:active::after': {
+                      bgcolor: 'primary.main',
+                      height: 48,
+                    },
+                  }}
+                />
+
+                {/* Right: Test Detail Panel */}
                 <Box
                   sx={{
-                    width: { xs: '100%', md: '66.67%' },
+                    flex: 1,
+                    minWidth: 0,
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',

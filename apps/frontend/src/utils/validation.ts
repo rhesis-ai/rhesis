@@ -211,21 +211,23 @@ export const validatePhone = (
   };
 };
 
-/** Password policy from backend (min/max length, NIST-aligned). */
+/** Password policy from backend (NIST SP 800-63B-4 aligned). */
 export interface PasswordPolicy {
   min_length: number;
   max_length: number;
+  min_strength_score: number;
 }
 
 /** Default policy when backend policy is not yet loaded. */
 export const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
-  min_length: 8,
+  min_length: 12,
   max_length: 128,
+  min_strength_score: 2,
 };
 
 /**
- * Password validation (NIST-aligned: length only, no complexity rules).
- * Accepts policy from backend; uses default if not provided.
+ * Password validation (NIST-aligned: length + whitespace, no complexity rules).
+ * Strength scoring and breach checks happen server-side.
  */
 export const validatePassword = (
   password: string,
@@ -233,6 +235,13 @@ export const validatePassword = (
 ): ValidationResult => {
   if (!password) {
     return { isValid: false, message: 'Password is required' };
+  }
+
+  if (!password.trim()) {
+    return {
+      isValid: false,
+      message: 'Password must not be entirely whitespace',
+    };
   }
 
   if (password.length < policy.min_length) {

@@ -31,6 +31,9 @@ user_limiter = Limiter(key_func=get_user_identifier, default_limits=["1000/day",
 INVITATION_RATE_LIMIT = "10/hour"  # Max 10 invitations per hour per user
 BULK_INVITATION_RATE_LIMIT = "3/hour"  # Max 3 bulk invitations per hour per user
 
+# Feedback endpoint rate limits (per IP, public endpoint)
+FEEDBACK_RATE_LIMIT = "5/hour"  # Max 5 feedback submissions per hour per IP
+
 # Auth endpoint rate limits (per IP, no auth yet)
 AUTH_FORGOT_PASSWORD_LIMIT = "5/hour"
 AUTH_RESEND_VERIFICATION_LIMIT = "5/hour"

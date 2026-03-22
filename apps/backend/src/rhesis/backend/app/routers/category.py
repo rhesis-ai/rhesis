@@ -42,15 +42,7 @@ def create_category(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create category with optimized approach supporting both RLS and explicit parameters.
-
-    Performance improvements:
-    - Automatically sets PostgreSQL session variables for RLS policies
-    - Maintains explicit parameter passing for maximum compatibility
-    - Single database connection with optimized session variable caching
-    - Drop-in replacement requiring minimal code changes
-    """
+    """Create a new category."""
     organization_id, user_id = tenant_context
     return crud.create_category(
         db=db, category=category, organization_id=organization_id, user_id=user_id
@@ -103,15 +95,7 @@ def read_category(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get category with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a category by ID."""
     organization_id, user_id = tenant_context
     db_category = crud.get_category(
         db, category_id=category_id, organization_id=organization_id, user_id=user_id
@@ -134,15 +118,7 @@ def update_category(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update category with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a category by ID."""
     organization_id, user_id = tenant_context
     db_category = crud.update_category(
         db,
@@ -163,15 +139,7 @@ def delete_category(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete category with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete a category by ID."""
     organization_id, user_id = tenant_context
     db_category = crud.delete_category(
         db, category_id=category_id, organization_id=organization_id, user_id=user_id

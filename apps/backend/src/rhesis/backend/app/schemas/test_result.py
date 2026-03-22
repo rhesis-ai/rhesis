@@ -1,8 +1,14 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Literal, Optional, Union
 
-from pydantic import UUID4, ConfigDict, Field
+from pydantic import UUID4, ConfigDict, Field, field_validator
 
 from rhesis.backend.app.schemas import Base
+
+REVIEW_TARGET_TEST_RESULT = "test_result"
+REVIEW_TARGET_TURN = "turn"
+REVIEW_TARGET_METRIC = "metric"
+LEGACY_TARGET_TEST = "test"
+VALID_TARGET_TYPES = (REVIEW_TARGET_TEST_RESULT, REVIEW_TARGET_TURN, REVIEW_TARGET_METRIC)
 
 
 # TestResult schemas
@@ -30,16 +36,30 @@ class TestResultUpdate(TestResultBase):
 class TestResult(TestResultBase):
     last_review: Optional[Dict[str, Any]] = None
     matches_review: bool = False
+    review_summary: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 # Review schemas
 class ReviewTargetCreate(Base):
-    type: str = Field(..., description="Type of target: 'test' or 'metric'")
-    reference: Optional[str] = Field(
-        None, description="Reference name (metric name or null for test)"
+    type: Literal["test_result", "turn", "metric"] = Field(
+        ...,
+        description="Type of target: 'test_result', 'turn', or 'metric'",
     )
+    reference: Optional[str] = Field(
+        None,
+        description=(
+            "Reference name (metric name for 'metric', 'Turn N' for 'turn', null for 'test_result')"
+        ),
+    )
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_legacy_type(cls, v: str) -> str:
+        if v == LEGACY_TARGET_TEST:
+            return REVIEW_TARGET_TEST_RESULT
+        return v
 
 
 class ReviewCreate(Base):

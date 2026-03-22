@@ -10,6 +10,7 @@ import {
 import {
   TestResultDetail,
   MetricResult,
+  REVIEW_TARGET_TYPES,
 } from '../api-client/interfaces/test-results';
 
 // Helper to create valid metric result
@@ -40,7 +41,7 @@ const createReview = (statusName: string, comments: string = 'Test') => ({
   comments,
   updated_at: '2025-01-01T00:00:00Z',
   created_at: '2025-01-01T00:00:00Z',
-  target: { type: 'test' as const, reference: null },
+  target: { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null },
 });
 
 describe('testResultStatus', () => {
@@ -212,7 +213,7 @@ describe('testResultStatus', () => {
           comments: 'Test',
           updated_at: '2025-01-01T00:00:00Z',
           created_at: '2025-01-01T00:00:00Z',
-          target: { type: 'test', reference: null },
+          target: { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null },
         },
       };
       // Should fall back to automated when status.name is missing

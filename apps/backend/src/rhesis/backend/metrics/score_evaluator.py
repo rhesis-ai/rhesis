@@ -1,12 +1,13 @@
+import logging
 from typing import Optional, Union
 
-from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.metrics.constants import (
+from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.constants import (
     OPERATOR_MAP,
     VALID_OPERATORS_BY_SCORE_TYPE,
-    ScoreType,
-    ThresholdOperator,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ScoreEvaluator:

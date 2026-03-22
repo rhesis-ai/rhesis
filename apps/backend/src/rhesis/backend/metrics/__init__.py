@@ -23,13 +23,12 @@ from rhesis.sdk.metrics import (
     RagasContextRelevance,
     RagasFaithfulness,
 )
-
-from .constants import (
+from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
+from rhesis.sdk.metrics.constants import (
     OPERATOR_MAP,
     VALID_OPERATORS_BY_SCORE_TYPE,
-    ScoreType,
-    ThresholdOperator,
 )
+
 from .evaluator import MetricEvaluator as Evaluator
 from .score_evaluator import ScoreEvaluator
 from .utils import diagnose_invalid_metric, run_evaluation

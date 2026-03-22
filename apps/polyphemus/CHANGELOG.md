@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2026-03-12
+
+### Added
+- Added basic test cases for the Polyphemus service, including `generate_batch` tests.
+- Implemented `generate_batch` method to handle multiple requests.
+
+### Changed
+- Upgraded Dockerfile base images to Python 3.12.8-slim.
+- Updated `requires-python` to `>=3.12` in `pyproject.toml`.
+- Upgraded dependencies to address security vulnerabilities, including `authlib`, `google-cloud-aiplatform`, and `langgraph-checkpoint`.
+- Upgraded `langgraph` to version 1.0.10 in multiple components.
+- Added `[tool.uv] override-dependencies` to resolve `datasets` version conflict.
+- Replaced `POLYPHEMUS_REGION` environment variable with the shared `REGION` environment variable.
+- Implemented rolling model replacement for Vertex AI deployments to ensure zero-downtime updates.
+
+### Fixed
+- Fixed JSON schema format in the Vertex AI endpoint.
+- Resolved dependency conflicts related to the `datasets` package.
+- Addressed multiple security vulnerabilities reported by Dependabot.
+
+
 ## [0.2.7] - 2026-03-02
 
 ### Added

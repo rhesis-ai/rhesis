@@ -1,8 +1,8 @@
-from enum import Enum
-
 from sqlalchemy import Boolean, Column, Float, ForeignKey, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
+
+from rhesis.sdk.metrics.base import ThresholdOperator
 
 from .base import Base
 from .guid import GUID
@@ -25,20 +25,6 @@ behavior_metric_association = Table(
     Column("user_id", GUID(), ForeignKey("user.id"), nullable=False),
     Column("organization_id", GUID(), ForeignKey("organization.id"), nullable=False),
 )
-
-
-class ScoreType(str, Enum):
-    NUMERIC = "numeric"
-    CATEGORICAL = "categorical"
-
-
-class ThresholdOperator(str, Enum):
-    EQUAL = "="
-    LESS_THAN = "<"
-    GREATER_THAN = ">"
-    LESS_THAN_OR_EQUAL = "<="
-    GREATER_THAN_OR_EQUAL = ">="
-    NOT_EQUAL = "!="
 
 
 class Metric(

@@ -1,10 +1,12 @@
 """Metrics processing and evaluation utilities."""
 
+import logging
 from typing import Any, Dict, List, Optional
 
-from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.tasks.enums import ResultStatus
+from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.tasks.execution.constants import MetricScope
+
+logger = logging.getLogger(__name__)
 
 
 def filter_metrics_by_scope(metrics: List, scope: MetricScope, test_id: str) -> List:
@@ -163,7 +165,7 @@ def determine_status_from_metrics(metrics: Dict[str, Any]) -> str:
         "Error" if no valid metrics
     """
     if not metrics or not isinstance(metrics, dict):
-        return ResultStatus.ERROR.value
+        return TestResultStatus.ERROR.value
 
     # Check if all metrics passed
     all_passed = True
@@ -178,6 +180,6 @@ def determine_status_from_metrics(metrics: Dict[str, Any]) -> str:
                 break
 
     if not has_metrics:
-        return ResultStatus.ERROR.value
+        return TestResultStatus.ERROR.value
 
-    return ResultStatus.PASS.value if all_passed else ResultStatus.FAIL.value
+    return TestResultStatus.PASS.value if all_passed else TestResultStatus.FAIL.value

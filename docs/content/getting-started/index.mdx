@@ -1,97 +1,26 @@
-import { PathCard, PathCardGrid } from '@/components/PathCard'
 import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
 
-# Getting Started with Rhesis
+# Getting Started
 
-Welcome to Rhesis! This guide will help you get started with Gen AI testing, whether you're using the cloud platform, the SDK, or self-hosting.
+Welcome to Rhesis! This guide will help you get started with testing and evaluating your Generative AI applications.
 
-## Choose Your Path
+The Rhesis platform is designed to seamlessly integrate into your development lifecycle, enabling you to build, test, and deploy Gen AI applications with confidence. From setting up your first environment to running complex adversarial evaluations, this guide provides a step-by-step pathway.
 
-<PathCardGrid>
-  <PathCard
-    emoji="☁️"
-    title="Cloud Platform"
-    description="Start testing immediately with zero setup required."
-    link="https://app.rhesis.ai"
-    linkText="Go to app.rhesis.ai →"
-    external
-  />
-  <PathCard
-    emoji="🐍"
-    title="Python SDK"
-    description="Integrate testing into your Python applications."
-    link="/sdk/installation"
-    linkText="View SDK Docs →"
-  />
-  <PathCard
-    emoji="💻"
-    title="Run Locally"
-    description="Run Rhesis on your local machine with just a few commands."
-    link="/getting-started/running-locally"
-    linkText="Running Locally Guide →"
-  />
-  <PathCard
-    emoji="🏢"
-    title="Self-Hosting"
-    description="Deploy Rhesis on your own infrastructure with full control."
-    link="/getting-started/self-hosting"
-    linkText="Self-Hosting Guide →"
-  />
-</PathCardGrid>
+Getting started consists of three core steps:
 
-## Quick Start Options
+<Steps>
+### Setup Environment
+Choose how you want to run Rhesis: Cloud (fastest), Local, or Self-hosted.
+[Setup Environment Guide →](/getting-started/setup-environment)
 
-### Option 1: Cloud Platform (Fastest)
+### Connect Application
+Connect your Gen AI application to Rhesis via REST Endpoints or our Python SDK.
+[Connect Application Guide →](/getting-started/connecting-application)
 
-Get started in minutes at [app.rhesis.ai](https://app.rhesis.ai):
-
-1. Create a free account
-2. Create your first project
-3. Generate test scenarios collaboratively
-4. Invite your team to define requirements together
-
-### Option 2: Python SDK
-
-Install and integrate testing into your application:
-
-<CodeBlock filename="terminal" language="bash">
-{`pip install rhesis-sdk`}
-</CodeBlock>
-
-<CodeBlock filename="example.py" language="python">
-{`import rhesis
-from rhesis.sdk.synthesizers.prompt_synthesizer import PromptSynthesizer
-
-rhesis.api_key = "rh-XXXXXXXXXXXXXXXXXXXX"  # From app.rhesis.ai
-
-synthesizer = PromptSynthesizer(
-    "Generate test cases for a doctor appointment scheduling chatbot"
-)
-
-test_set = synthesizer.generate(num_tests=4)
-
-for test in test_set.tests:
-    print(f"Prompt: {test['prompt']['content']}")
-    print(f"Category: {test['category']}")`}
-</CodeBlock>
-
-[View full SDK documentation →](/sdk/installation)
-
-### Option 3: Run Locally
-
-Run the full platform on your local machine with Docker:
-
-<CodeBlock filename="terminal" language="bash">
-{`git clone https://github.com/rhesis-ai/rhesis.git
-cd rhesis
-./rh start`}
-</CodeBlock>
-
-Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically logged in!
-
-[View running locally guide →](/getting-started/running-locally)
-
-**Need production deployment?** See the [Self-Hosting Guide](/getting-started/self-hosting) for deploying to your own infrastructure with proper security and authentication.
+### Run Evaluations
+Generate test sets interactively and run automated evaluations against your application.
+[Run Evaluations Guide →](/getting-started/run-evaluations)
+</Steps>
 
 ## Next Steps
 
@@ -100,7 +29,7 @@ Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically l
     emoji="📚"
     title="Core Concepts"
     description="Understand the fundamental concepts of Gen AI testing with Rhesis."
-    link="/getting-started/concepts"
+    link="/concepts"
     linkText="Learn Core Concepts →"
   />
   <NextStepCard
@@ -111,11 +40,11 @@ Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically l
     linkText="View Platform Guide →"
   />
   <NextStepCard
-    emoji="🔧"
-    title="Development"
-    description="Contribute to Rhesis or customize your deployment."
-    link="/development"
-    linkText="Development Docs →"
+    emoji="💻"
+    title="Deployment"
+    description="Learn how to run Rhesis locally or self-host it on your infrastructure."
+    link="/deployment"
+    linkText="View Deployment Options →"
   />
   <NextStepCard
     emoji="📖"
@@ -133,6 +62,5 @@ Visit [http://localhost:3000](http://localhost:3000) - you'll be automatically l
 - **Community**: Join discussions and get support
 
 <Callout type="default">
-**Tip**: If you're new to Gen AI testing, start with [Core Concepts](/getting-started/concepts) to understand key principles before diving into implementation.
+**Tip**: If you're new to Gen AI testing, start with [Core Concepts](/concepts) to understand key principles before diving into implementation.
 </Callout>
-

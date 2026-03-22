@@ -1,5 +1,6 @@
-from sqlalchemy import Column, ForeignKey, Integer, Table
+from sqlalchemy import Column, ForeignKey, Integer, Table, and_, case, select
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -48,9 +49,9 @@ class Test(
     # Configuration for test execution
     test_configuration = Column(JSONB)
     parent_id = Column(GUID(), ForeignKey("test.id"))
-    topic_id = Column(GUID(), ForeignKey("topic.id"))
-    behavior_id = Column(GUID(), ForeignKey("behavior.id"))
-    category_id = Column(GUID(), ForeignKey("category.id"))
+    topic_id = Column(GUID(), ForeignKey("topic.id"), index=True)
+    behavior_id = Column(GUID(), ForeignKey("behavior.id"), index=True)
+    category_id = Column(GUID(), ForeignKey("category.id"), index=True)
     status_id = Column(GUID(), ForeignKey("status.id"))
     source_id = Column(GUID(), ForeignKey("source.id"))
     # Test source info (origin, inputs, context)
@@ -84,6 +85,29 @@ class Test(
         uselist=True,
     )
 
+    @hybrid_property
+    def content(self):
+        if self.test_configuration and self.test_configuration.get("goal"):
+            return self.test_configuration["goal"]
+        return self.prompt.content if self.prompt else None
+
+    @content.expression
+    def content(cls):
+        from .prompt import Prompt
+
+        # Mirror Python semantics: treat NULL and empty-string goal as absent
+        goal_is_present = and_(
+            cls.test_configuration["goal"].astext.isnot(None),
+            cls.test_configuration["goal"].astext != "",
+        )
+        return case(
+            (goal_is_present, cls.test_configuration["goal"].astext),
+            else_=select(Prompt.content)
+            .where(Prompt.id == cls.prompt_id)
+            .correlate(cls)
+            .scalar_subquery(),
+        )
+
     def to_searchable_text(self) -> str:
         """
         Generate searchable text from test fields for embeddings and full-text search.
@@ -92,7 +116,7 @@ class Test(
         - Single-turn: Uses prompt.content and expected_response
         - Multi-turn: Uses test_configuration (goal, instructions, scenario, etc.)
         """
-        from rhesis.backend.tasks.enums import TestType
+        from rhesis.backend.app.constants import TestType
         from rhesis.backend.tasks.execution.modes import get_test_type
 
         test_type = get_test_type(self)

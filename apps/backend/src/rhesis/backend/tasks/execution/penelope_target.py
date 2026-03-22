@@ -8,6 +8,7 @@ within the backend worker context.
 """
 
 import asyncio
+import logging
 from typing import Any, Coroutine, Dict, List, Optional, TypeVar
 from uuid import UUID
 
@@ -15,8 +16,9 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.penelope.targets.base import Target, TargetResponse
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -283,6 +285,9 @@ class BackendEndpointTarget(Target):
 
             if "context" in response_data and response_data["context"]:
                 response_metadata["context"] = response_data["context"]
+
+            if "tool_calls" in response_data and response_data["tool_calls"]:
+                response_metadata["tool_calls"] = response_data["tool_calls"]
 
             logger.debug(
                 "BackendEndpointTarget received response from %s, response_len=%d",

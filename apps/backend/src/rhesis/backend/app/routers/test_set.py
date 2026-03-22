@@ -1,3 +1,4 @@
+import logging
 import uuid
 from enum import Enum
 from typing import Optional
@@ -40,9 +41,10 @@ from rhesis.backend.app.utils.execution_validation import (
 )
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
+
+logger = logging.getLogger(__name__)
 
 # Create the detailed schema for TestSet and Test
 TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
@@ -206,10 +208,9 @@ async def create_test_set_bulk(
         # Extract test_set_type from request if provided
         test_set_type = None
         if test_set_data.test_set_type:
-            from rhesis.backend.app.constants import TestType
+            from rhesis.backend.app.constants import TestSetType
 
-            # Convert string to TestType enum using from_string helper
-            test_set_type = TestType.from_string(test_set_data.test_set_type)
+            test_set_type = TestSetType.from_string(test_set_data.test_set_type)
 
         test_set = bulk_create_test_set(
             db=db,
@@ -234,15 +235,7 @@ async def create_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create test set with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new test set."""
     organization_id, user_id = tenant_context
     return crud.create_test_set(
         db=db, test_set=test_set, organization_id=organization_id, user_id=user_id
@@ -286,7 +279,6 @@ async def read_test_sets(
         db: Database session
         current_user: Current user
     """
-    from rhesis.backend.logging import logger
 
     logger.info(f"test_sets endpoint called with has_runs={has_runs}")
 
@@ -380,15 +372,7 @@ async def update_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update test_set with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing test set."""
     organization_id, user_id = tenant_context
     db_test_set = crud.update_test_set(
         db,

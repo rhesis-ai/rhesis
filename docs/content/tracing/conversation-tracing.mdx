@@ -1,0 +1,62 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Conversation Tracing
+
+See every conversation turn, every agent handoff, in one place. Rhesis groups traces into full conversation threads and visualizes the full multi-agent interaction graph — so you can find problems in seconds, not hours.
+
+<YouTubeEmbed videoId="KWnFfA-K2YA" />
+
+## How It Works
+
+When your application runs a multi-turn test or a live chat session, Rhesis links all spans from that session using a shared `conversation_id`. The trace viewer then surfaces a dedicated **Conversation** tab that lets you navigate the full interaction thread — turn by turn, with the underlying span hierarchy always one click away.
+
+This works for two scenarios:
+
+- **Test-linked traces** — when a conversation is executed as a Rhesis test, the conversation summary and goal evaluation are loaded from the test result
+- **Direct invocations** — when you call an endpoint directly via the SDK, Rhesis reconstructs the conversation thread from the span attributes on each turn
+
+## Views
+
+The trace detail page has three views for navigating a conversation trace.
+
+### Conversation View
+
+Shows the full dialogue between the tester and your application, turn by turn. Each turn displays the input message, the response, any file attachments, and the pass/fail status for that turn. Click a response to jump directly to its span in the tree.
+
+### Tree View and Sequence View
+
+Standard OpenTelemetry views — span hierarchy with timing for Tree, chronological waterfall for Sequence. Both support turn-based navigation so you can jump between turns while staying in context.
+
+### Graph View
+
+Visualizes the full multi-agent interaction as a directed graph. Nodes represent agents and tools; edges represent invocation and handoff relationships. Graph playback controls let you replay execution over time, with turn markers (T1, T2, ...) showing when each conversation turn occurred.
+
+Use the Graph View when debugging complex agent interactions — it makes routing decisions and handoff sequences immediately visible. See [Multi-Agent Tracing](/tracing/multi-agent) for an example of what the graph looks like.
+
+## Enabling Conversation Grouping
+
+To group traces into a conversation thread, pass a consistent `conversation_id` across all turns of the session. The Rhesis SDK handles this automatically when running tests. For direct invocations, set it via the endpoint context:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import endpoint
+
+@endpoint()
+def chat(input: str, session_id: str = None) -> dict:
+    response = your_llm_call(input)
+    return {"output": response, "session_id": session_id}`}
+</CodeBlock>
+
+The `session_id` field in the response is mapped to `conversation_id` internally — they refer to the same concept. When the same `session_id` is returned across turns, Rhesis links all spans into a single conversation thread.
+
+## Filtering Traces
+
+In the Traces dashboard, use the **trace type filter** to focus on conversation traces. The filter separates single-turn and multi-turn traces so you can quickly find sessions with multiple turns or specific conversation IDs.
+
+---
+
+<Callout type="info">
+  **Related:**
+  - [Multi-Agent Tracing](/tracing/multi-agent) — instrument agent handoffs
+  - [Decorators](/tracing/decorators) — `@observe` and `@endpoint`
+  - [Auto-Instrumentation](/tracing/auto-instrumentation) — zero-config tracing for LangGraph
+</Callout>

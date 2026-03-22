@@ -13,6 +13,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-03-12
+
+### Added
+- Added per-turn retrieval context (RAG sources) separate from metadata in conversational metrics.
+- Added `tool_calls` as a Rhesis-controlled field to the evaluation pipeline, flowing from endpoint response mapping through Penelope conversation turns, backend evaluation, SDK metric judges, DeepEval adapter, and Jinja2 prompt templates.
+- Added batch processing capability to the RhesisLLM class by implementing the `generate_batch` method.
+- Added per-turn metadata to conversational metrics, allowing each turn of a Penelope conversation to carry endpoint metadata through the full evaluation pipeline.
+- Implemented batch size reduction and retry mechanism to synthesizer.
+- Added explicit `a_generate` to sync-only LLM providers.
+- Added `close_background_loop` for async_utils cleanup.
+- Added logging filter to suppress SSL transport errors in LiteLLM.
+
+### Changed
+- Converted LiteLLM provider from sync `completion()` to async `acompletion()`, making `a_generate()` the primary implementation.
+- Updated the RhesisLLM class to support asynchronous operations by replacing synchronous HTTP requests with aiohttp.
+- Refactored synthesizer batch generation with retry mechanism.
+- Made SDK model generation async-first.
+- Updated garak to v0.14 with dynamic probe generation and code quality fixes.
+- Centralized garak detectors in yaml registry.
+- Converted RhesisLLM to async-first model with aiohttp integration.
+- Converted VertexAILLM.generate to async a_generate.
+- Updated various services to use async methods for testing model connections and generating test configurations.
+- Renamed the docs/content/penelope directory to docs/content/conversation-simulation and updated the nav label to "Conversation Simulation".
+
+### Fixed
+- Fixed Bad Request Polyphemus Provider.
+- Fixed issue where `_build_prompt` was duplicating description.
+- Fixed env var clobbering that broke test migrations.
+- Fixed Alembic migration parameterized SQL.
+- Fixed no-op migration by sourcing garak v0.14 detector metrics directly from the SDK registry.
+- Fixed issue where Goal line was not omitted in `_build_prompt` when no dedicated goal exists.
+- Fixed hanging bug by updating litellm to 1.82.1.
+- Fixed mutable default argument in synthesizer init.
+- Fixed DeepEval test by using valid `tool_calls` data.
+- Fixed issue where `add_message()` was storing the caller's dict by reference in `MessageHistoryManager`.
+- Fixed null type in ProjectsQueryParams.$filter type.
+- Fixed 21 Dependabot security vulnerabilities.
+- Fixed disambiguation of duplicate project names and metric scope filter in frontend.
+
+### Removed
+- Removed unused auth0-lock dependency.
+
+
 ## [0.6.8] - 2026-03-05
 
 ### Added

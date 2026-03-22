@@ -78,6 +78,12 @@ export class TestRunsClient extends BaseApiClient {
     );
   }
 
+  async getTestRunMetrics(testRunId: string): Promise<string[]> {
+    return this.fetch<string[]>(
+      `${API_ENDPOINTS.testRuns}/${testRunId}/metrics`
+    );
+  }
+
   async createTestRun(testRun: TestRunCreate): Promise<TestRun> {
     return this.fetch<TestRun>(API_ENDPOINTS.testRuns, {
       method: 'POST',

@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 import uuid
 from pathlib import Path
@@ -13,7 +14,8 @@ from rhesis.backend.app.constants import (
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
     EntityType,
-    TestType,
+    TestResultStatus,
+    TestSetType,
 )
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
@@ -26,7 +28,8 @@ from rhesis.backend.app.utils.uuid_utils import (
     validate_uuid_list,
     validate_uuid_parameters,
 )
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):
@@ -143,7 +146,7 @@ def bulk_create_test_set(
     test_set_data: Dict[str, Any] | schemas.TestSetBulkCreate,
     organization_id: str,
     user_id: str,
-    test_set_type: TestType = None,
+    test_set_type: TestSetType = None,
 ) -> models.TestSet:
     """Create a test set with its associated tests in a single operation.
 
@@ -152,8 +155,8 @@ def bulk_create_test_set(
         test_set_data: Test set data (dict or schema)
         organization_id: Organization ID
         user_id: User ID
-        test_set_type: Test set type (TestType.SINGLE_TURN or TestType.MULTI_TURN).
-                      If not provided, defaults to TestType.SINGLE_TURN.
+        test_set_type: Test set type (TestSetType.SINGLE_TURN or TestSetType.MULTI_TURN).
+                      If not provided, defaults to TestSetType.SINGLE_TURN.
 
     Returns:
         Created TestSet model instance
@@ -190,7 +193,7 @@ def bulk_create_test_set(
 
         # Use provided test_set_type or fall back to default
         if test_set_type:
-            test_set_type_value = TestType.get_value(test_set_type)
+            test_set_type_value = TestSetType.get_value(test_set_type)
         else:
             test_set_type_value = defaults["test_set"]["test_set_type"]
 
@@ -495,6 +498,12 @@ def update_test_set_attributes(
         # Test set may have been soft-deleted; nothing to update.
         return
 
+    # Adaptive testing test sets manage their own attributes; skip regeneration.
+    existing_attrs = test_set.attributes or {}
+    existing_behaviors = existing_attrs.get("metadata", {}).get("behaviors", [])
+    if "Adaptive Testing" in existing_behaviors:
+        return
+
     # Get defaults and license type - use test_set's organization context
     defaults = load_defaults()
     license_type = get_or_create_type_lookup(
@@ -568,16 +577,15 @@ def get_last_completed_test_run(
 
     pass_count = 0
     if total_count > 0:
-        pass_status = db.query(Status).filter(Status.name == "Passed").first()
-        if pass_status:
-            pass_count = (
-                db.query(TestResult)
-                .filter(
-                    TestResult.test_run_id == test_run.id,
-                    TestResult.status_id == pass_status.id,
-                )
-                .count()
+        pass_count = (
+            db.query(TestResult)
+            .join(Status, TestResult.status_id == Status.id)
+            .filter(
+                TestResult.test_run_id == test_run.id,
+                Status.name == TestResultStatus.PASS.value,
             )
+            .count()
+        )
 
     pass_rate = round(pass_count / total_count * 100, 1) if total_count > 0 else 0.0
 

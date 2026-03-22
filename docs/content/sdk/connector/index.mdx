@@ -70,19 +70,56 @@ if __name__ == "__main__":
 
 If you already have a running event loop (e.g. in an async REPL or Jupyter), do not call `connect()`. Run the connector as a task in that loop instead.
 
+## SDK-side metrics with `@metric` (v0.6.9+)
+
+You can register custom metric functions through the same connector runtime used by `@endpoint`.
+These metric functions are executed from the backend during evaluation.
+
+<CodeBlock filename="custom_metric.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint, metric
+
+client = RhesisClient.from_environment()
+
+@endpoint()
+def chat(input: str, session_id: str | None = None) -> dict:
+    return {
+        "output": f"Echo: {input}",
+        "session_id": session_id or "default-session",
+    }
+
+@metric(name="groundedness_check", score_type="binary")
+def groundedness_check(input: str, output: str, context: list[str] | None = None) -> dict:
+    grounded = bool(context) and any(source in output for source in context)
+    return {
+        "score": 1.0 if grounded else 0.0,
+        "details": {"reason": "Checks whether output uses provided context"},
+    }
+
+if __name__ == "__main__":
+    client.connect()`}
+</CodeBlock>
+
+### Allowed metric function parameters
+
+`@metric` validates function signatures at registration time.
+
+| Parameter | Required | Description |
+|---|---|---|
+| `input` | Yes | Input prompt or user message |
+| `output` | Yes | Model output to evaluate |
+| `expected_output` | No | Ground truth reference output |
+| `context` | No | Retrieved context documents used for generation |
+
+<Callout type="info">
+  The metric function must return a dict containing at least a `score` key (or a `MetricResult` instance).
+  Any unsupported parameter names cause registration-time errors.
+</Callout>
+
 ### See It in Action
 
 Watch this video to see how the Rhesis SDK connector integrates an LLM application in under a minute using a single decorator:
 
-<div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden", marginBottom: "2rem" }}>
-  <iframe
-    src="https://www.youtube.com/embed/6hteHCpOxpM"
-    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-    frameBorder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-    allowFullScreen
-  />
-</div>
+<YouTubeEmbed videoId="6hteHCpOxpM" />
 
 **What You'll Learn:**
 - Integrating an LLM app with the `@endpoint` decorator

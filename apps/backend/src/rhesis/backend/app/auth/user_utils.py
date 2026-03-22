@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional, Tuple
 
@@ -12,6 +13,8 @@ from rhesis.backend.app.auth.token_validation import validate_token
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas import UserCreate
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from rhesis.backend.app.auth.providers.base import AuthUser
@@ -108,7 +111,6 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     """
     from rhesis.backend.app.auth.providers.base import AuthUser as AuthUserClass
     from rhesis.backend.app.utils.validation import validate_and_normalize_email
-    from rhesis.backend.logging.rhesis_logger import logger
 
     if not isinstance(auth_user, AuthUserClass):
         raise TypeError(f"Expected AuthUser, got {type(auth_user)}")
@@ -172,7 +174,6 @@ def _send_welcome_email(user: User) -> None:
         user: The newly created user
     """
     try:
-        from rhesis.backend.logging.rhesis_logger import logger
         from rhesis.backend.notifications.email.service import EmailService
 
         email_service = EmailService()
@@ -194,7 +195,6 @@ def _send_welcome_email(user: User) -> None:
 
     except Exception as e:
         # Log the error but don't fail user creation
-        from rhesis.backend.logging.rhesis_logger import logger
 
         logger.error(f"Error sending welcome email to {user.email}: {str(e)}")
         logger.error(f"Error type: {type(e).__name__}")

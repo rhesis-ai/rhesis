@@ -92,6 +92,11 @@ class EndpointService:
                 enriched_input_data["organization_id"] = organization_id
             if user_id:
                 enriched_input_data["user_id"] = user_id
+            if test_execution_context:
+                for key in ("test_id", "test_run_id", "test_configuration_id"):
+                    value = test_execution_context.get(key)
+                    if value is not None:
+                        enriched_input_data[key] = value
 
             # -------------------------------------------------------
             # Stateless conversation management
@@ -219,9 +224,11 @@ class EndpointService:
                         output_text = (
                             json.dumps(output) if isinstance(output, (dict, list)) else str(output)
                         )
+                        tool_calls = result_dict.get("tool_calls")
                         store.add_assistant_message(
                             stateless_conversation_id,
                             output_text,
+                            tool_calls=tool_calls,
                         )
                     # Surface conversation_id so callers can continue
                     # the conversation -- same field stateful endpoints

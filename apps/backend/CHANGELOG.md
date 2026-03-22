@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-03-12
+
+### Added
+- Added multi-target review annotations for test runs (turns, metrics, test results). Reviews can now override test metrics and turns, updating the test result status.
+- Added @mention support in review comments, allowing users to mention metrics and turns.
+- Added dynamic probe generation for garak LLM vulnerability scanner, enabling runtime prompt generation based on metadata.
+- Added per-turn metadata, context, and tool_calls to conversation evaluation, enhancing conversational metrics.
+- Added pagination, search, and filters to the projects list for improved project management.
+- Added scheduled Day 1, Day 2, and Day 3 onboarding emails to guide new users.
+- Added `@metric` decorator and connector protocol for SDK-side metric evaluation, enabling client-side metric execution.
+- Added JSON logging support with `python-json-logger` for structured log analysis.
+- Added configurable message size limit, idle timeout, and rate limiting to the WebSocket connector for enhanced security.
+
+### Changed
+- Renamed the default Penelope goal metric from `penelope_goal_evaluation` to `goal_achievement` for better alignment with the SDK.
+- Refactored review override logic into a dedicated service module for improved maintainability.
+- Refactored backend to use standard Python logging configuration instead of a custom logger.
+- Upgraded garak LLM vulnerability scanner to v0.14.0 with Python 3.12 support.
+- Made SDK model generation async-first for improved performance.
+- Improved metric selection dialog with auto-focus search, comprehensive metric fetching, and consistent chip display.
+- Converted RhesisLLM and VertexAILLM to async-first models with aiohttp integration.
+- Updated TestRunHeader, TestsList, and overview tab to use effective status reflecting review overrides.
+- Updated the WebSocket connector to decouple the endpoint from project/environment binding, enhancing flexibility.
+- Renamed the Penelope documentation section to "Conversation Simulation" for clarity.
+
+### Fixed
+- Fixed an issue where test set execute button was disabled for manually created test sets.
+- Fixed auto-configure to preserve mappings when LLM correction omits them.
+- Fixed an issue where turns without criteria were not displaying pass/fail labels.
+- Fixed a bug where the backend was not guarding against None in `_compute_review_state`.
+- Fixed an issue where body styles were not restored on unmount during resize drag.
+- Fixed an issue where the LLM correction call could overwrite valid mappings from the initial analysis.
+- Fixed an issue where tests env vars were overwritten with .env values during the import chain.
+- Fixed a bug in Python 3.12 where `str(Enum)` formatting produced unexpected output in tool descriptions.
+- Fixed a bug where `renderMentionText` could not access the theme.
+- Fixed an issue where the email scheduling was not working correctly.
+- Fixed a bug where `add_message()` was storing the caller's dict by reference.
+- Fixed an issue where duplicate project names were not disambiguated.
+- Fixed an issue where metric scope filter was not working correctly.
+- Fixed an issue where the logger configuration was being called multiple times.
+- Fixed an issue where the logger was not set during application lifespan.
+- Fixed an issue where the frontend was using null for ProjectsQueryParams.$filter type.
+- Fixed an issue where the frontend was using string-sliced keys for context list items.
+- Fixed an issue where the frontend was using invalid tool_calls data in deepeval test.
+- Fixed an issue where the frontend was using emoji linter violation for penelope icon.
+
+### Security
+- Resolved 21 Dependabot security vulnerabilities by upgrading dependencies and adding npm overrides.
+- Upgraded `langgraph-checkpoint` to 4.x to address CVE-2026-27794 (pickle deserialization RCE).
+
+
 ## [0.6.7] - 2026-03-05
 
 ### Added

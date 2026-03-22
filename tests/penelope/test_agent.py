@@ -112,7 +112,7 @@ class TestDetermineGoalMetric:
 
         # Verify GoalAchievementJudge was auto-created
         assert isinstance(goal_metric, GoalAchievementJudge)
-        assert goal_metric.name == "penelope_goal_evaluation"
+        assert goal_metric.name == "goal_achievement"
         assert goal_metric.config.threshold == 0.7
         assert len(result_metrics) == 1
         assert goal_metric in result_metrics
@@ -206,7 +206,7 @@ class TestPenelopeAgentInitialization:
 
         # Verify default GoalAchievementJudge was created
         assert isinstance(agent.goal_metric, GoalAchievementJudge)
-        assert agent.goal_metric.name == "penelope_goal_evaluation"
+        assert agent.goal_metric.name == "goal_achievement"
         assert len(agent.metrics) == 1
 
     def test_init_with_metrics_and_explicit_goal_metric(self, mock_model):

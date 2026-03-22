@@ -75,6 +75,10 @@ _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 _MAX_ATTEMPTS = 3
 _RETRY_BACKOFF_BASE = 1.0  # seconds; doubles each retry: 1s, 2s
 
+# Batch concurrency cap — limits how many Vertex AI calls fly in parallel at once.
+# Keeps the shared httpx connection pool and Vertex quota from being overwhelmed.
+MAX_BATCH_CONCURRENCY = int(os.getenv("POLYPHEMUS_BATCH_CONCURRENCY", "10"))
+
 
 def _get_vertex_access_token() -> str:
     """
@@ -142,7 +146,7 @@ def _build_vertex_request_body(
     messages: List[Message],
     *,
     max_tokens: Optional[int] = None,
-    temperature: float = 0.6,
+    temperature: float = 0.7,
     top_p: float = 1.0,
     top_k: Optional[int] = None,
     json_schema: Optional[Dict[str, Any]] = None,
@@ -158,7 +162,14 @@ def _build_vertex_request_body(
     if top_k is not None and top_k >= 0:
         body["top_k"] = top_k
     if json_schema is not None:
-        body["json_schema"] = json_schema
+        body["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "response",
+                "schema": json_schema,
+                "strict": True,
+            },
+        }
     return body
 
 
@@ -197,15 +208,16 @@ async def generate_text_via_vertex_endpoint(
     model_alias = resolve_model(request.model)  # normalize + validate
 
     # Get parameters with defaults (max_tokens is optional; only passed when provided)
-    temperature = request.temperature if request.temperature is not None else 0.6
+    # Align with GenerateRequest schema default (0.7)
+    temperature = request.temperature if request.temperature is not None else 0.7
     top_p = request.top_p if request.top_p is not None else 1.0
     top_k = request.top_k
 
     # Validate and clamp parameters to Vertex AI requirements
     # temperature must be > 0
     if temperature <= 0:
-        logger.warning(f"temperature={temperature} invalid, using 0.6")
-        temperature = 0.6
+        logger.warning(f"temperature={temperature} invalid, using 0.7")
+        temperature = 0.7
 
     # top_p must be in (0, 1] (greater than 0, up to and including 1)
     if top_p <= 0 or top_p > 1:
@@ -302,3 +314,53 @@ async def generate_text_via_vertex_endpoint(
             "total_tokens": prompt_tokens + completion_tokens,
         },
     }
+
+
+async def generate_text_batch_via_vertex_endpoint(
+    requests: List[GenerateRequest],
+    *,
+    endpoint_id: str,
+    project_id: str,
+    location: str = "us-central1",
+    timeout_seconds: float = 120.0,
+) -> List[Dict[str, Any]]:
+    """
+    Run multiple generation requests concurrently against the Vertex AI endpoint.
+
+    Each request is executed via generate_text_via_vertex_endpoint. Failures are
+    captured per-item as {"error": str(exc)} so one failure does not fail the batch.
+
+    Args:
+        requests: List of GenerateRequest items.
+        endpoint_id: Vertex AI endpoint ID.
+        project_id: Google Cloud project ID.
+        location: Vertex AI region (default us-central1).
+        timeout_seconds: HTTP timeout per attempt (default 120s).
+
+    Returns:
+        List of dicts: each element is either a Rhesis API response (choices, model,
+        usage) or {"error": "<message>"} on failure.
+    """
+    if not requests:
+        return []
+
+    semaphore = asyncio.Semaphore(MAX_BATCH_CONCURRENCY)
+
+    async def run_one(req: GenerateRequest) -> Dict[str, Any]:
+        async with semaphore:
+            try:
+                return await generate_text_via_vertex_endpoint(
+                    req,
+                    endpoint_id=endpoint_id,
+                    project_id=project_id,
+                    location=location,
+                    timeout_seconds=timeout_seconds,
+                )
+            except Exception as exc:
+                return {"error": str(exc)}
+
+    results = await asyncio.gather(
+        *[run_one(r) for r in requests],
+        return_exceptions=False,
+    )
+    return list(results)

@@ -508,7 +508,7 @@ def test_generate_metrics_dynamic_naming():
     # Verify Title Case conversion
     assert "My Custom Metric" in metrics
     assert "Another Test" in metrics
-    assert "Penelope Goal Evaluation" in metrics  # Fallback for missing name
+    assert "Goal Achievement" in metrics  # Fallback for missing name
 
 
 def test_generate_metrics_serialization():

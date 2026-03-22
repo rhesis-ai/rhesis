@@ -6,11 +6,13 @@ SQLAlchemy query level. It works in conjunction with the QueryBuilder
 to provide multiple levels of control over soft delete behavior.
 """
 
+import logging
+
 from sqlalchemy import event
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Query
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 def setup_soft_delete_listener():
@@ -57,9 +59,11 @@ def setup_soft_delete_listener():
             if entity is None:
                 continue
 
-            # Check if entity has deleted_at column (all Base models do)
-            if hasattr(entity, "deleted_at"):
-                filter_condition = entity.deleted_at.is_(None)
+            # Check if entity has a real deleted_at column
+            if hasattr(entity, "__table__") and hasattr(entity.__table__.c, "deleted_at"):
+                deleted_at = getattr(entity, "deleted_at", None)
+                if deleted_at is not None:
+                    filter_condition = deleted_at.is_(None)
 
                 # Try to use .filter() first (works for most queries)
                 try:
@@ -75,11 +79,13 @@ def setup_soft_delete_listener():
                                 )
                                 query._where_criteria = tuple(existing + [filter_condition])
                                 # logger.debug(
-                                #     "Applied soft delete filter via _where_criteria (query has LIMIT/OFFSET)"
+                                #     "Applied soft delete filter via _where_criteria "
+                                #     "(query has LIMIT/OFFSET)"
                                 # )
                         except Exception as inner_e:
                             logger.warning(
-                                f"Could not apply soft delete filter to query with LIMIT/OFFSET: {inner_e}"
+                                "Could not apply soft delete filter to query "
+                                f"with LIMIT/OFFSET: {inner_e}"
                             )
                     else:
                         logger.debug(f"Error applying soft delete filter: {e}")

@@ -1,5 +1,5 @@
 import streamlit as st
-from endpoint import stream_assistant_response
+from endpoint import stream_assistant_response_sync
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="Insurance Assistant", page_icon="👩‍💼", layout="centered")
@@ -103,7 +103,7 @@ def main():
                 try:
                     # Pass conversation history (excluding the current user message we just added)
                     conversation_history = st.session_state.messages[:-1]
-                    stream = stream_assistant_response(
+                    stream = stream_assistant_response_sync(
                         prompt, conversation_history=conversation_history
                     )
                     first_chunk = next(stream)
@@ -119,7 +119,7 @@ def main():
                 for chunk in stream:
                     full_response += chunk
                     message_placeholder.markdown(full_response + "▌")
-            except:
+            except Exception:
                 pass
 
             # Display final response without cursor

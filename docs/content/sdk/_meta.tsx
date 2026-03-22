@@ -5,6 +5,7 @@ const meta: MetaRecord = {
   client: "Rhesis Client",
   entities: "SDK Entities",
   execution: "Test Execution",
+  statistics: "Statistics",
   models: "SDK Models",
   synthesizers: "SDK Synthesizers",
   metrics: "SDK Metrics",

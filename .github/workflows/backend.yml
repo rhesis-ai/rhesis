@@ -98,6 +98,7 @@ jobs:
       service_name: ${{ steps.set_env.outputs.service_name }}
       environment: ${{ env.ENVIRONMENT }}
       commit_sha: ${{ steps.set_env.outputs.commit_sha }}
+      git_branch: ${{ steps.set_env.outputs.git_branch }}
       is_preview: ${{ steps.set_env.outputs.is_preview }}
       build_tag: ${{ steps.set_build_tag.outputs.build_tag }}
 
@@ -136,6 +137,11 @@ jobs:
           COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
           echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+          # Get branch name
+          GIT_BRANCH="${{ github.ref_name }}"
+          echo "GIT_BRANCH=$GIT_BRANCH" >> $GITHUB_ENV
+          echo "git_branch=$GIT_BRANCH" >> $GITHUB_OUTPUT
 
           # Check if this is a preview deployment
           if [ "${{ inputs.preview }}" = "true" ] || [ "${{ github.event.inputs.preview }}" = "true" ]; then
@@ -322,6 +328,7 @@ jobs:
     env:
       ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
       COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
+      GIT_BRANCH: ${{ needs.build.outputs.git_branch }}
       IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
       BUILD_TAG: ${{ needs.build.outputs.build_tag }}
 
@@ -445,6 +452,7 @@ jobs:
           LOG_LEVEL=${{ secrets.LOG_LEVEL }},
           DEMO_USER_EMAIL=${{ secrets.DEMO_USER_EMAIL }},
           JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
+          SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},
           JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }},
           JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }},
           FRONTEND_URL=${{ secrets.FRONTEND_URL }},
@@ -469,6 +477,10 @@ jobs:
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }},
+          SENDGRID_DAY_1_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_1_EMAIL_TEMPLATE_ID }},
+          SENDGRID_DAY_2_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_2_EMAIL_TEMPLATE_ID }},
+          SENDGRID_DAY_3_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_3_EMAIL_TEMPLATE_ID }},
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
           AGENT_EMAIL_BCC=${{ secrets.AGENT_EMAIL_BCC }},
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
@@ -484,6 +496,8 @@ jobs:
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           DEFAULT_POLYPHEMUS_URL=${{ secrets.DEFAULT_POLYPHEMUS_URL }},
+          GIT_BRANCH=${{ env.GIT_BRANCH }},
+          GIT_COMMIT=${{ env.COMMIT_SHA }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -518,6 +532,7 @@ jobs:
           LOG_LEVEL=${{ secrets.LOG_LEVEL }},
           DEMO_USER_EMAIL=${{ secrets.DEMO_USER_EMAIL }},
           JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
+          SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},
           JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }},
           JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }},
           FRONTEND_URL=${{ secrets.FRONTEND_URL }},
@@ -542,6 +557,10 @@ jobs:
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }},
+          SENDGRID_DAY_1_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_1_EMAIL_TEMPLATE_ID }},
+          SENDGRID_DAY_2_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_2_EMAIL_TEMPLATE_ID }},
+          SENDGRID_DAY_3_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_3_EMAIL_TEMPLATE_ID }},
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
           AGENT_EMAIL_BCC=${{ secrets.AGENT_EMAIL_BCC }},
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
@@ -557,6 +576,8 @@ jobs:
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           DEFAULT_POLYPHEMUS_URL=${{ secrets.DEFAULT_POLYPHEMUS_URL }},
+          GIT_BRANCH=${{ env.GIT_BRANCH }},
+          GIT_COMMIT=${{ env.COMMIT_SHA }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -711,6 +732,7 @@ jobs:
           DB_ENCRYPTION_KEY=${{ secrets.DB_ENCRYPTION_KEY }},
           LOG_LEVEL=${{ secrets.LOG_LEVEL }},
           JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
+          SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},
           JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }},
           JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }},
           FRONTEND_URL=${{ secrets.FRONTEND_URL }},
@@ -735,6 +757,10 @@ jobs:
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }},
+          SENDGRID_DAY_1_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_1_EMAIL_TEMPLATE_ID }},
+          SENDGRID_DAY_2_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_2_EMAIL_TEMPLATE_ID }},
+          SENDGRID_DAY_3_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_3_EMAIL_TEMPLATE_ID }},
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
           AGENT_EMAIL_BCC=${{ secrets.AGENT_EMAIL_BCC }},
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
@@ -750,6 +776,8 @@ jobs:
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           DEFAULT_POLYPHEMUS_URL=${{ secrets.DEFAULT_POLYPHEMUS_URL }},
+          GIT_BRANCH=${{ env.GIT_BRANCH }},
+          GIT_COMMIT=${{ env.COMMIT_SHA }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -791,6 +819,7 @@ jobs:
           LOG_LEVEL=${{ secrets.LOG_LEVEL }},
           DEMO_USER_EMAIL=${{ secrets.DEMO_USER_EMAIL }},
           JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
+          SESSION_SECRET_KEY=${{ secrets.SESSION_SECRET_KEY }},
           JWT_ALGORITHM=${{ secrets.JWT_ALGORITHM }},
           JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }},
           FRONTEND_URL=${{ secrets.FRONTEND_URL }},
@@ -815,6 +844,10 @@ jobs:
           SMTP_PORT=${{ secrets.SMTP_PORT }},
           SMTP_USER=${{ secrets.SMTP_USER }},
           SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},
+          SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }},
+          SENDGRID_DAY_1_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_1_EMAIL_TEMPLATE_ID }},
+          SENDGRID_DAY_2_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_2_EMAIL_TEMPLATE_ID }},
+          SENDGRID_DAY_3_EMAIL_TEMPLATE_ID=${{ secrets.SENDGRID_DAY_3_EMAIL_TEMPLATE_ID }},
           FROM_EMAIL=${{ secrets.FROM_EMAIL }},
           AGENT_EMAIL_BCC=${{ secrets.AGENT_EMAIL_BCC }},
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
@@ -830,6 +863,8 @@ jobs:
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           DEFAULT_POLYPHEMUS_URL=${{ secrets.DEFAULT_POLYPHEMUS_URL }},
+          GIT_BRANCH=${{ env.GIT_BRANCH }},
+          GIT_COMMIT=${{ env.COMMIT_SHA }},
           SKIP_MIGRATIONS=true
           EOF
           )"

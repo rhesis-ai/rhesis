@@ -1,8 +1,33 @@
+import asyncio
 from typing import List
 
 import pytest
 
 from rhesis.sdk.models.base import BaseLLM
+
+
+@pytest.mark.asyncio
+async def test_a_generate_works_when_subclass_explicitly_implements_it():
+    """Subclasses that implement sync generate() explicitly add a_generate()
+    that runs generate() in a thread pool. This is the recommended pattern.
+    """
+
+    class SyncOnlyLLM(BaseLLM):
+        def load_model(self, *args, **kwargs):
+            return None
+
+        def generate(self, *args, **kwargs) -> str:
+            return "sync-response"
+
+        async def a_generate(self, *args, **kwargs) -> str:
+            return await asyncio.to_thread(self.generate, *args, **kwargs)
+
+        def generate_batch(self, *args, **kwargs) -> List[str]:
+            return ["sync-response"]
+
+    model = SyncOnlyLLM("test-model")
+    result = await model.a_generate("prompt")
+    assert result == "sync-response"
 
 
 def test_base_llm_cannot_be_instantiated():
@@ -19,7 +44,6 @@ def test_base_llm_abstract_methods():
 
     # Check that abstract methods are actually abstract
     assert BaseLLM.load_model.__isabstractmethod__
-    assert BaseLLM.generate.__isabstractmethod__
 
 
 def test_base_llm_concrete_methods():
@@ -33,8 +57,11 @@ def test_base_llm_concrete_methods():
         def generate(self, *args, **kwargs) -> str:
             return "test-response"
 
+        async def a_generate(self, *args, **kwargs) -> str:
+            return await asyncio.to_thread(self.generate, *args, **kwargs)
+
         def generate_batch(self, *args, **kwargs) -> List[str]:
-            return "test-response"
+            return ["test-response"]
 
     model_name = "test-model"
     test_llm = TestLLM(model_name)

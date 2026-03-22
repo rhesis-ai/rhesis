@@ -2,16 +2,17 @@
 Main email service that orchestrates SMTP and template services.
 """
 
+import logging
 import os
 import re
 from email.mime.text import MIMEText
 from typing import Any, Dict, List, Optional
 
-from rhesis.backend.logging.rhesis_logger import logger
-
 from .sendgrid_client import SendGridClient
 from .smtp import SMTPService
 from .template_service import EmailTemplate, TemplateService
+
+logger = logging.getLogger(__name__)
 
 
 class EmailService:
@@ -238,6 +239,45 @@ class EmailService:
             bcc=bcc_email,
         )
 
+    def send_feedback_email(
+        self,
+        user_name: str,
+        user_email: str,
+        feedback: str,
+        rating: Optional[float] = None,
+    ) -> bool:
+        """
+        Send a feedback email to the Rhesis team.
+
+        Args:
+            user_name: Name of the user submitting feedback
+            user_email: Email of the user submitting feedback
+            feedback: The feedback content
+            rating: Optional star rating (1-5)
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        if not self.is_configured:
+            logger.warning("Cannot send feedback email: SMTP not configured")
+            return False
+
+        rating_label = f"Rating: {rating}/5" if rating else "New Feedback"
+        subject = f"Rhesis AI Feedback - {rating_label}"
+
+        return self.send_email(
+            template=EmailTemplate.FEEDBACK,
+            recipient_email="hello@rhesis.ai",
+            subject=subject,
+            template_variables={
+                "user_name": user_name,
+                "user_email": user_email,
+                "feedback": feedback,
+                "rating": rating,
+            },
+            task_id="feedback",
+        )
+
     def _send_scheduled_onboarding_email(
         self,
         day: int,
@@ -266,15 +306,21 @@ class EmailService:
             bool: True if email was sent successfully, False otherwise
         """
         if not self.sendgrid_client.is_configured:
-            logger.warning(
-                f"Cannot send Day {day} email to {recipient_email}: SendGrid API key not configured"
-            )
+            logger.warning("Cannot send Day %s email: SendGrid API key not configured", day)
             return False
 
         template_id = os.getenv(template_env_var)
         if not template_id:
-            logger.warning(f"Cannot send Day {day} email: {template_env_var} not configured")
+            logger.warning("Cannot send Day %s email: %s not configured", day, template_env_var)
             return False
+
+        logger.info(
+            "Scheduling Day %s email — delay: %sh %sm — template: %s",
+            day,
+            delay_hours,
+            delay_minutes,
+            template_id,
+        )
 
         if not frontend_url:
             frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")

@@ -29,7 +29,10 @@ Before using Auto-Configure, ensure you have:
 
 ## How to Use Auto-Configure
 
-### Step 1: Fill in Basic Information
+<img src="/screenshots/rhesis-ai-endpoints-auto-configure.png" alt="Auto-configure Endpoint" className="screenshot" />
+
+<Steps>
+### Fill in Basic Information
 
 In the **Create Endpoint** form, provide:
 
@@ -37,15 +40,15 @@ In the **Create Endpoint** form, provide:
 - **URL**: The full API endpoint URL
 - **API Token**: Your authentication credentials for the target API
 
-### Step 2: Click Auto-Configure
+### Click Auto-Configure
 
 Once the basic information is filled in, the **Auto-configure** button (magic wand icon) in the action bar becomes active. Click it to open the Auto-Configure modal.
 
-### Step 3: Paste Reference Material
+### Paste Reference Material
 
 In the modal, paste any reference material about your endpoint. See [What Can You Paste?](#what-can-you-paste) below for supported formats.
 
-### Step 4: Run Auto-Configure
+### Run Auto-Configure
 
 Click the **Auto-configure** button in the modal. The AI will:
 
@@ -53,13 +56,14 @@ Click the **Auto-configure** button in the modal. The AI will:
 2. Optionally send a test request to your endpoint (if probing is enabled)
 3. Generate Rhesis-compatible request and response mappings
 
-### Step 5: Review and Apply
+### Review and Apply
 
 Review the generated mappings, confidence level, and any warnings. Click **Apply to Endpoint** to populate the form with the generated configuration.
 
-### Step 6: Test the Connection
+### Test the Connection
 
 After applying, switch to the **Test Connection** tab to verify the mapping works correctly with a real request.
+</Steps>
 
 ## What Can You Paste?
 
@@ -69,53 +73,53 @@ Auto-Configure accepts a wide variety of input formats:
 
 The most reliable format. Paste a working curl command:
 
-```bash
-curl -X POST https://api.example.com/v1/chat/completions \
-  -H "Authorization: Bearer sk-..." \
-  -H "Content-Type: application/json" \
+<CodeBlock filename="curl" language="bash">
+{`curl -X POST https://api.example.com/v1/chat/completions \\
+  -H "Authorization: Bearer sk-..." \\
+  -H "Content-Type: application/json" \\
   -d '{
     "model": "gpt-4",
     "messages": [{"role": "user", "content": "Hello"}],
     "temperature": 0.7
-  }'
-```
+  }'`}
+</CodeBlock>
 
 ### Python Code
 
-Flask/FastAPI route handlers or `requests` library calls:
+Flask/FastAPI route handlers or \`requests\` library calls:
 
-```python
-import requests
+<CodeBlock filename="example.py" language="python">
+{`import requests
 
 response = requests.post(
     "https://api.example.com/chat",
     json={"query": "Hello", "model": "gpt-4"},
     headers={"Authorization": "Bearer sk-..."}
 )
-print(response.json()["response"]["text"])
-```
+print(response.json()["response"]["text"])`}
+</CodeBlock>
 
 ### Sample Request/Response JSON
 
 A pair showing the expected input and output:
 
-```json
-// Request
+<CodeBlock filename="example.json" language="json">
+{`// Request
 {"messages": [{"role": "user", "content": "What is AI?"}], "model": "gpt-4"}
 
 // Response
-{"choices": [{"message": {"content": "AI is..."}}]}
-```
+{"choices": [{"message": {"content": "AI is..."}}]}`}
+</CodeBlock>
 
 ### API Documentation or Plain Text
 
 Any description of your endpoint's interface:
 
-```
-My chat API accepts POST requests to /api/chat with a JSON body
+<CodeBlock filename="docs.txt" language="text">
+{`My chat API accepts POST requests to /api/chat with a JSON body
 containing "prompt" (the user message) and "settings" (optional config).
-It returns {"answer": "...", "sources": [...]}.
-```
+It returns {"answer": "...", "sources": [...]}.`}
+</CodeBlock>
 
 ## How It Works
 

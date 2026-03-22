@@ -144,6 +144,74 @@ class TestConversationHistoryStore:
         assert msgs[3] == {"role": "user", "content": "And 3+3?"}
 
 
+class TestConversationHistoryStoreToolCalls:
+    """Tests for tool_calls and add_message support in the store."""
+
+    def _store(self, **kwargs):
+        kwargs.setdefault("sweep_interval_seconds", 0)
+        return ConversationHistoryStore(**kwargs)
+
+    def test_add_assistant_message_with_tool_calls(self):
+        """tool_calls are forwarded to the underlying history manager."""
+        store = self._store()
+        sid = store.create()
+        tool_calls = [{"id": "call_1", "type": "function", "function": {"name": "f"}}]
+        store.add_assistant_message(sid, "Calling tool.", tool_calls=tool_calls)
+
+        messages = store.get_messages(sid)
+        assert len(messages) == 1
+        assert messages[0]["tool_calls"] == tool_calls
+
+    def test_add_assistant_message_without_tool_calls(self):
+        """When tool_calls is omitted, assistant message has no tool_calls key."""
+        store = self._store()
+        sid = store.create()
+        store.add_assistant_message(sid, "Hello!")
+
+        messages = store.get_messages(sid)
+        assert "tool_calls" not in messages[0]
+
+    def test_add_message_tool_role(self):
+        """add_message stores arbitrary message dicts."""
+        store = self._store()
+        sid = store.create()
+        ok = store.add_message(
+            sid,
+            {"role": "tool", "tool_call_id": "call_1", "content": "result"},
+        )
+        assert ok is True
+
+        messages = store.get_messages(sid)
+        assert len(messages) == 1
+        assert messages[0]["role"] == "tool"
+
+    def test_add_message_returns_false_for_unknown(self):
+        """add_message returns False for a missing session."""
+        store = self._store()
+        assert store.add_message("nope", {"role": "user", "content": "x"}) is False
+
+    def test_multi_turn_with_tool_calls_preserved(self):
+        """tool_calls survive across multi-turn accumulation."""
+        store = self._store()
+        sid = store.create(system_prompt="You can use tools.")
+        store.add_user_message(sid, "Weather?")
+
+        tool_calls = [{"id": "call_w", "type": "function", "function": {"name": "weather"}}]
+        store.add_assistant_message(sid, "Checking.", tool_calls=tool_calls)
+        store.add_message(
+            sid,
+            {"role": "tool", "tool_call_id": "call_w", "content": "sunny"},
+        )
+        store.add_assistant_message(sid, "It's sunny!")
+        store.add_user_message(sid, "Thanks!")
+
+        messages = store.get_messages(sid)
+        assert len(messages) == 6  # system + user + assistant(tc) + tool + assistant + user
+        assert messages[2]["tool_calls"] == tool_calls
+        assert messages[3]["role"] == "tool"
+        assert "tool_calls" not in messages[4]
+
+
 class TestConversationHistoryStoreSweeper:
     """Test background sweeper functionality."""
 

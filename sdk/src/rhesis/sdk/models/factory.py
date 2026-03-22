@@ -202,13 +202,6 @@ UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Union[_ProviderSpec, Callable]
             f"{_PROVIDERS_MODULE}.huggingface", "HuggingFaceLLM", pass_api_key=False
         ),
     },
-    "lmformatenforcer": {
-        ModelType.LANGUAGE: _ProviderSpec(
-            f"{_PROVIDERS_MODULE}.lmformatenforcer",
-            "LMFormatEnforcerLLM",
-            pass_api_key=False,
-        ),
-    },
     "meta_llama": {
         ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.meta_llama", "MetaLlamaLLM"),
     },

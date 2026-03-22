@@ -809,9 +809,9 @@ export default function EndpointForm() {
                 Request Body Template (Optional)
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Define request structure with <code>{'"{placeholder}"'}</code>{' '}
+                Define request structure with <code>{'{{ placeholder }}'}</code>{' '}
                 for dynamic values. Example:{' '}
-                <code>{`{ "messages": [{ "role": "user", "content": "{input}" }], "temperature": 0.7 }`}</code>
+                <code>{`{ "messages": [{ "role": "user", "content": "{{ input }}" }], "temperature": 0.7 }`}</code>
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
@@ -896,7 +896,7 @@ export default function EndpointForm() {
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Provide test data with required <code>"input"</code> field.
-                Values will replace <code>{'"{placeholders}"'}</code> in your
+                Values will replace <code>{'{{ placeholders }}'}</code> in your
                 request template.
               </Typography>
               <Box sx={editorWrapperStyle}>

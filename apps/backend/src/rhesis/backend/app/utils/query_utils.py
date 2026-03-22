@@ -1,3 +1,4 @@
+import logging
 from typing import Callable, Dict, List, Optional, Type, TypeVar
 from uuid import UUID
 
@@ -12,7 +13,8 @@ from rhesis.backend.app.utils.query_validation import (
     validate_sort_field,
     validate_sort_order,
 )
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 # Define a generic type variable
 T = TypeVar("T")
@@ -44,6 +46,8 @@ class QueryBuilder:
         self._limit = None
         self._sort_by = None
         self._sort_order = "asc"
+        self._secondary_sort_by = None
+        self._secondary_sort_order = "asc"
 
     def with_joinedloads(
         self, skip_many_to_many: bool = True, skip_one_to_many: bool = False
@@ -55,7 +59,7 @@ class QueryBuilder:
     def with_optimized_loads(
         self,
         skip_many_to_many: bool = True,
-        skip_one_to_many: bool = False,
+        skip_one_to_many: bool = True,
         nested_relationships: dict = None,
     ) -> "QueryBuilder":
         """Apply optimized loading strategy.
@@ -108,12 +112,7 @@ class QueryBuilder:
 
     def with_organization_filter(self, organization_id: str = None) -> "QueryBuilder":
         """
-        Apply organization filter with optimized approach - no session variables needed.
-
-        Performance improvements:
-        - Completely bypasses database session variables
-        - No SHOW queries for organization context
-        - Direct organization ID filtering
+        Filter query by organization_id for tenant isolation.
 
         Raises:
             ValueError: If organization_id is required but not provided
@@ -169,14 +168,33 @@ class QueryBuilder:
         return self
 
     def with_sorting(
-        self, sort_by: Optional[str] = None, sort_order: str = "asc"
+        self,
+        sort_by: Optional[str] = None,
+        sort_order: str = "asc",
+        secondary_sort_by: Optional[str] = None,
+        secondary_sort_order: str = "asc",
     ) -> "QueryBuilder":
-        """Add sorting parameters"""
+        """Add sorting parameters.
+
+        Args:
+            sort_by: Primary sort field name.
+            sort_order: Primary sort direction ('asc' or 'desc').
+            secondary_sort_by: Optional tiebreaker field applied after the
+                primary sort. Useful when many rows share the same primary
+                value (e.g. identical timestamps).
+            secondary_sort_order: Direction for the secondary sort ('asc' or
+                'desc'). Defaults to 'asc'.
+        """
         if sort_by:
             validate_sort_field(self.model, sort_by)
         validate_sort_order(sort_order)
+        if secondary_sort_by:
+            validate_sort_field(self.model, secondary_sort_by)
+            validate_sort_order(secondary_sort_order)
         self._sort_by = sort_by
         self._sort_order = sort_order.lower()
+        self._secondary_sort_by = secondary_sort_by
+        self._secondary_sort_order = secondary_sort_order.lower()
         return self
 
     def with_custom_filter(self, filter_func: Callable[[Query], Query]) -> "QueryBuilder":
@@ -210,6 +228,16 @@ class QueryBuilder:
                 self.query = self.query.order_by(desc(order_column))
             else:
                 self.query = self.query.order_by(order_column)
+        if self._secondary_sort_by:
+            secondary_column = getattr(self.model, self._secondary_sort_by)
+            if self._secondary_sort_order == "desc":
+                self.query = self.query.order_by(desc(secondary_column))
+            else:
+                self.query = self.query.order_by(secondary_column)
+        # Always append id ASC as a final unique tiebreaker so results are
+        # strictly deterministic even when all other sort keys are equal.
+        if self._sort_by and hasattr(self.model, "id"):
+            self.query = self.query.order_by(self.model.id)
 
     def _apply_pagination(self):
         """Apply pagination if configured"""
@@ -300,7 +328,7 @@ def get_model_relationships(
 
 
 def apply_joinedloads(
-    query: Query, model: Type, skip_many_to_many: bool = True, skip_one_to_many: bool = False
+    query: Query, model: Type, skip_many_to_many: bool = True, skip_one_to_many: bool = True
 ) -> Query:
     """
     Apply joinedload options to a query based on model relationships.
@@ -325,11 +353,51 @@ def apply_joinedloads(
     return query
 
 
+def _build_nested_load_options(
+    parent_load,
+    parent_rel_prop: RelationshipProperty,
+    nested_spec,
+) -> List:
+    """
+    Recursively build chained load options for nested relationships.
+
+    Args:
+        parent_load: The parent load option (e.g. joinedload(Model.rel))
+        parent_rel_prop: The SQLAlchemy RelationshipProperty for the parent
+        nested_spec: Either a list of relationship names or a dict for deeper nesting.
+                     List format:  ["endpoint", "test_set"]
+                     Dict format:  {"endpoint": ["project"], "test_set": ["test_set_type"]}
+
+    Returns:
+        List of chained load options to apply to the query.
+    """
+    target_model = parent_rel_prop.mapper.class_
+    options = []
+
+    if isinstance(nested_spec, list):
+        for nested_rel_name in nested_spec:
+            if hasattr(target_model, nested_rel_name):
+                nested_attr = getattr(target_model, nested_rel_name)
+                options.append(parent_load.joinedload(nested_attr))
+    elif isinstance(nested_spec, dict):
+        for nested_rel_name, deeper_spec in nested_spec.items():
+            if hasattr(target_model, nested_rel_name):
+                nested_attr = getattr(target_model, nested_rel_name)
+                nested_load = parent_load.joinedload(nested_attr)
+                options.append(nested_load)
+                nested_rel_prop = inspect(target_model).relationships[nested_rel_name]
+                options.extend(
+                    _build_nested_load_options(nested_load, nested_rel_prop, deeper_spec)
+                )
+
+    return options
+
+
 def apply_optimized_loads(
     query: Query,
     model: Type,
     skip_many_to_many: bool = True,
-    skip_one_to_many: bool = False,
+    skip_one_to_many: bool = True,
     nested_relationships: dict = None,
 ) -> Query:
     """
@@ -340,7 +408,10 @@ def apply_optimized_loads(
 
     Args:
         nested_relationships: Dict specifying nested relationships to load.
-                            Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
+            Supports both flat and deep nesting formats:
+            - Flat:  {"tags": ["status"]}
+            - Deep:  {"test_configuration": {"endpoint": ["project"],
+                                             "test_set": ["test_set_type"]}}
     """
     relationships = get_model_relationships(
         model, skip_many_to_many=False, skip_one_to_many=skip_one_to_many
@@ -348,23 +419,25 @@ def apply_optimized_loads(
 
     for rel_name, rel_prop in relationships.items():
         relationship_attr = getattr(model, rel_name)
+        has_nested = nested_relationships and rel_name in nested_relationships
 
-        # Use selectinload for many-to-many relationships to avoid cartesian products
         if rel_prop.direction.name in ["MANYTOMANY"]:
             if not skip_many_to_many:
-                if nested_relationships and rel_name in nested_relationships:
-                    # Load the main relationship with selectinload
-                    query = query.options(selectinload(relationship_attr))
-                    # Load each nested relationship separately
+                if has_nested:
+                    base_load = selectinload(relationship_attr)
+                    query = query.options(base_load)
                     for nested_rel in nested_relationships[rel_name]:
                         nested_attr = getattr(rel_prop.mapper.class_, nested_rel)
-                        query = query.options(
-                            selectinload(relationship_attr).selectinload(nested_attr)
-                        )
+                        query = query.options(base_load.selectinload(nested_attr))
                 else:
                     query = query.options(selectinload(relationship_attr))
-        # Use joinedload for one-to-many and many-to-one relationships
         else:
-            query = query.options(joinedload(relationship_attr))
+            base_load = joinedload(relationship_attr)
+            query = query.options(base_load)
+            if has_nested:
+                for opt in _build_nested_load_options(
+                    base_load, rel_prop, nested_relationships[rel_name]
+                ):
+                    query = query.options(opt)
 
     return query

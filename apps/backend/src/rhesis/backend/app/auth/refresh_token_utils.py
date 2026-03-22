@@ -8,6 +8,7 @@ in the family is revoked to protect against token theft.
 """
 
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -17,7 +18,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.constants import REFRESH_TOKEN_EXPIRE_DAYS
 from rhesis.backend.app.models.refresh_token import RefreshToken
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def _hash_token(raw_token: str) -> str:

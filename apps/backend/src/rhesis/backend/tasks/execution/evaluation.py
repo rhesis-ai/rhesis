@@ -10,18 +10,62 @@ Functions:
 - evaluate_prompt_response: Backward compatibility alias for evaluate_single_turn_metrics
 """
 
+import logging
 from typing import Any, Dict, List, Optional, Set, Union
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
-from rhesis.backend.tasks.execution.constants import MetricScope
+from rhesis.backend.tasks.execution.constants import (
+    CONVERSATION_SUMMARY_KEY,
+    PENELOPE_MESSAGE_KEY,
+    TARGET_RESPONSE_KEY,
+    TURN_CONTEXT_KEY,
+    TURN_METADATA_KEY,
+    TURN_TOOL_CALLS_KEY,
+    MetricScope,
+)
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 from .response_extractor import extract_response_with_fallback
+
+logger = logging.getLogger(__name__)
+
+
+def _build_conversation_history(
+    conversation_summary: List[Dict[str, Any]],
+) -> Optional[ConversationHistory]:
+    """
+    Build a ConversationHistory from a Penelope conversation_summary list.
+
+    Each entry in conversation_summary maps to one user+assistant exchange:
+    - ``penelope_message``  → user role
+    - ``target_response``   → assistant role
+    - ``context``           → per-turn retrieval context (optional)
+    - ``metadata``          → per-turn structured metadata (optional)
+    - ``tool_calls``        → per-turn tool calls by the endpoint (optional)
+    """
+    messages: List[Dict[str, Any]] = []
+    for turn in conversation_summary:
+        penelope_msg = turn.get(PENELOPE_MESSAGE_KEY, "")
+        target_resp = turn.get(TARGET_RESPONSE_KEY, "")
+        assistant_context = turn.get(TURN_CONTEXT_KEY)
+        assistant_metadata = turn.get(TURN_METADATA_KEY)
+        assistant_tool_calls = turn.get(TURN_TOOL_CALLS_KEY)
+        if penelope_msg:
+            messages.append({"role": "user", "content": penelope_msg})
+        if target_resp:
+            asst_msg: Dict[str, Any] = {"role": "assistant", "content": target_resp}
+            if assistant_context is not None:
+                asst_msg["context"] = assistant_context
+            if assistant_metadata is not None:
+                asst_msg["metadata"] = assistant_metadata
+            if assistant_tool_calls is not None:
+                asst_msg["tool_calls"] = assistant_tool_calls
+            messages.append(asst_msg)
+    return ConversationHistory.from_messages(messages) if messages else None
 
 
 def evaluate_single_turn_metrics(
@@ -54,6 +98,7 @@ def evaluate_single_turn_metrics(
     # Extract actual_response using the fallback hierarchy
     actual_response = extract_response_with_fallback(result)
     metadata = result.get("metadata") if isinstance(result, dict) else None
+    tool_calls = result.get("tool_calls") if isinstance(result, dict) else None
 
     try:
         metrics_results = metrics_evaluator.evaluate(
@@ -63,6 +108,7 @@ def evaluate_single_turn_metrics(
             context=context,
             metrics=metrics,
             metadata=metadata,
+            tool_calls=tool_calls,
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")
@@ -139,31 +185,24 @@ def evaluate_multi_turn_metrics(
         return {}
 
     from rhesis.backend.tasks.execution.executors.runners import (
-        _build_sdk_metric_sender,
+        _build_connector_metric_sender,
     )
 
     metrics_evaluator = MetricEvaluator(
         model=model,
         db=db,
         organization_id=organization_id,
-        sdk_metric_sender=_build_sdk_metric_sender(project_id, environment),
+        connector_metric_sender=_build_connector_metric_sender(project_id, environment),
     )
 
-    # Build ConversationHistory from conversation_summary for conversational metrics
-    conversation_summary = stored_output.get("conversation_summary", [])
-    messages = []
-    conversation_text = ""
-    for turn in conversation_summary:
-        penelope_msg = turn.get("penelope_message", "")
-        target_resp = turn.get("target_response", "")
-        if penelope_msg:
-            messages.append({"role": "user", "content": penelope_msg})
-            conversation_text += f"User: {penelope_msg}\n"
-        if target_resp:
-            messages.append({"role": "assistant", "content": target_resp})
-            conversation_text += f"Assistant: {target_resp}\n"
+    conversation_summary = stored_output.get(CONVERSATION_SUMMARY_KEY, [])
+    conversation_history = _build_conversation_history(conversation_summary)
 
-    conversation_history = ConversationHistory.from_messages(messages) if messages else None
+    # Use format_conversation() so that per-turn metadata, context, and tool calls
+    # are rendered inline within each turn. Both single-turn judges (NumericJudge,
+    # CategoricalJudge) and ConversationalJudge therefore see the same rich
+    # structured transcript as their output/conversation_text input.
+    conversation_text = conversation_history.format_conversation() if conversation_history else ""
 
     try:
         results = metrics_evaluator.evaluate(

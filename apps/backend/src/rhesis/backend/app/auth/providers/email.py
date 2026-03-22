@@ -5,6 +5,7 @@ This provider handles traditional email/password authentication,
 including user registration and login.
 """
 
+import logging
 import os
 from typing import Optional
 
@@ -16,7 +17,8 @@ from rhesis.backend.app.auth.password_policy import validate_password
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
 from rhesis.backend.app.utils.encryption import hash_password, verify_password
 from rhesis.backend.app.utils.redact import redact_email
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class EmailProvider(AuthProvider):
@@ -197,7 +199,10 @@ class EmailProvider(AuthProvider):
                 detail="Email and password are required",
             )
 
-        validate_password(password)
+        await validate_password(
+            password,
+            context={"email": email, "name": name or ""},
+        )
 
         if not db:
             raise HTTPException(

@@ -9,6 +9,7 @@ from .connector import router as connector_router
 from .demographic import router as demographic_router
 from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
+from .feedback import router as feedback_router
 from .file import router as file_router
 from .file_import import router as file_import_router
 from .garak import router as garak_router
@@ -129,6 +130,7 @@ routers = sorted(
         tools_router,
         recycle_router,
         garak_router,
+        feedback_router,
         file_router,
         file_import_router,
         websocket_router,

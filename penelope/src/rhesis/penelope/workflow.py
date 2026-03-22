@@ -6,7 +6,13 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Dict, List, Set, Tuple
 
-from rhesis.penelope.context import ToolExecution, ToolType
+from rhesis.penelope.context import (
+    TOOL_METADATA_KEY,
+    TOOL_OUTPUT_KEY,
+    TOOL_RESPONSE_KEY,
+    ToolExecution,
+    ToolType,
+)
 from rhesis.penelope.tools.analysis import AnalysisTool
 from rhesis.penelope.tools.base import Tool
 
@@ -49,11 +55,11 @@ class WorkflowState:
             # Store target response for analysis context
             tool_result = execution.tool_result
             if tool_result and isinstance(tool_result, dict):
-                output = tool_result.get("output", {})
+                output = tool_result.get(TOOL_OUTPUT_KEY, {})
                 response_data = {
                     "id": f"response_{len(self.recent_target_responses)}",
-                    "content": output.get("response", ""),
-                    "metadata": output.get("metadata", {}),
+                    "content": output.get(TOOL_RESPONSE_KEY, ""),
+                    "metadata": output.get(TOOL_METADATA_KEY, {}),
                     "timestamp": execution.timestamp.isoformat() if execution.timestamp else None,
                 }
                 self.recent_target_responses.append(response_data)

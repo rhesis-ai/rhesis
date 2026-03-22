@@ -1,0 +1,47 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Setup Environment
+
+Before you can start testing your Generative AI applications, you need to set up your Rhesis environment. Rhesis offers three flexible deployment options to suit your needs.
+
+## Option 1: Cloud Platform (Recommended)
+
+The fastest way to get started is to use the Rhesis Cloud Platform. This option requires zero infrastructure setup and gives you immediate access to all features.
+
+1. Go to [app.rhesis.ai](https://app.rhesis.ai)
+2. Create a free account or log in
+3. Create your first project
+4. Generate an API key from the platform settings
+
+<Callout type="info">
+The Cloud Platform is fully managed, secure, and always up-to-date with the latest Rhesis features.
+</Callout>
+
+## Option 2: Run Locally (Quick Start)
+
+If you prefer to run Rhesis on your local machine for development or evaluation purposes, you can use our Docker-based quick start script. This is ideal for trying out the platform without sending data to the cloud.
+
+<CodeBlock filename="terminal" language="bash">
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis
+./rh start`}
+</CodeBlock>
+
+Once the containers are running:
+1. Visit [http://localhost:3000](http://localhost:3000)
+2. You will be automatically logged in as a local user
+3. Your local environment is ready to use!
+
+For detailed instructions and troubleshooting, see the [Running Locally Guide](/deployment/running-locally).
+
+## Option 3: Self-Hosting
+
+For enterprise teams that need to run Rhesis within their own VPC or secure environment, we offer comprehensive self-hosting options. This gives you complete control over data privacy and security.
+
+Self-hosting Rhesis involves deploying the required components (Frontend, Backend, Database, Celery workers) using Docker Compose or Kubernetes.
+
+For complete instructions on production-ready deployments, including setting up authentication and securing your instance, please refer to our [Self-Hosting Guide](/deployment/self-hosting).
+
+---
+
+Once your environment is set up and you have access to the Rhesis platform, proceed to **[Connect Application](/getting-started/connecting-application)**.

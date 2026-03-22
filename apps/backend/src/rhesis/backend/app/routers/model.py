@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import List
 
@@ -22,6 +23,8 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
 
+logger = logging.getLogger(__name__)
+
 # Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
 ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
 
@@ -43,15 +46,7 @@ def create_model(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create model with super optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new model."""
     organization_id, user_id = tenant_context
     return crud.create_model(db=db, model=model, organization_id=organization_id, user_id=user_id)
 
@@ -97,7 +92,7 @@ async def test_model_connection_endpoint(
         if endpoint is None or (isinstance(endpoint, str) and not endpoint.strip()):
             endpoint = db_model.endpoint
 
-    result = ModelConnectionService.test_connection(
+    result = await ModelConnectionService.test_connection(
         provider=request.provider,
         model_name=request.model_name,
         api_key=api_key,
@@ -166,15 +161,7 @@ def update_model(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update model with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing model."""
     organization_id, user_id = tenant_context
     try:
         db_model = crud.update_model(
@@ -226,7 +213,6 @@ async def test_model_connection(
     embedding for embedding models).
     """
     from rhesis.backend.app.services.model_connection import ModelConnectionService
-    from rhesis.backend.logging import logger
 
     logger.info(f"[MODEL_TEST] Testing connection for model_id={model_id}")
 
@@ -248,7 +234,7 @@ async def test_model_connection(
 
     try:
         # Use ModelConnectionService which makes an actual test call
-        result = ModelConnectionService.test_connection(
+        result = await ModelConnectionService.test_connection(
             provider=provider,
             model_name=model_name,
             api_key=api_key,

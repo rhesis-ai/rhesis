@@ -1,6 +1,7 @@
 """MCP service for generic integration using MCPAgent."""
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -12,11 +13,10 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
+from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.app.utils.observability import get_test_context
-from rhesis.backend.logging import logger
 from rhesis.sdk.decorators import endpoint
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientFactory
 from rhesis.sdk.services.mcp.exceptions import (
@@ -25,6 +25,8 @@ from rhesis.sdk.services.mcp.exceptions import (
     MCPError,
 )
 from rhesis.sdk.services.mcp.observable_agent import ObservableMCPAgent
+
+logger = logging.getLogger(__name__)
 
 # Initialize Jinja2 environment for loading prompt templates
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
@@ -294,12 +296,6 @@ async def search_mcp(
     if not user_id:
         raise ValueError("user_id is required")
 
-    user = crud.get_user_by_id(db, user_id)
-    if not user:
-        raise ValueError(f"User not found: {user_id}")
-
-    model = get_user_generation_model(db, user)
-
     # Load MCP client from database tool configuration
     client, provider, repository_context = _get_mcp_tool_config(
         db, tool_id, organization_id, user_id
@@ -312,7 +308,7 @@ async def search_mcp(
     # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
-        model=model,
+        model=DEFAULT_GENERATION_MODEL,
         mcp_client=client,
         system_prompt=search_prompt,
         max_iterations=10,
@@ -394,12 +390,6 @@ async def extract_mcp(
     if not user_id:
         raise ValueError("user_id is required")
 
-    user = crud.get_user_by_id(db, user_id)
-    if not user:
-        raise ValueError(f"User not found: {user_id}")
-
-    model = get_user_generation_model(db, user)
-
     # Load MCP client and provider from database tool configuration
     client, provider, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
 
@@ -412,7 +402,7 @@ async def extract_mcp(
     # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
-        model=model,
+        model=DEFAULT_GENERATION_MODEL,
         mcp_client=client,
         system_prompt=extract_prompt,
         max_iterations=15,
@@ -482,12 +472,6 @@ async def query_mcp(
     if not user_id:
         raise ValueError("user_id is required")
 
-    user = crud.get_user_by_id(db, user_id)
-    if not user:
-        raise ValueError(f"User not found: {user_id}")
-
-    model = get_user_generation_model(db, user)
-
     # Load MCP client from database tool configuration
     client, provider, repository_context = _get_mcp_tool_config(
         db, tool_id, organization_id, user_id
@@ -501,7 +485,7 @@ async def query_mcp(
     # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
-        model=model,
+        model=DEFAULT_GENERATION_MODEL,
         mcp_client=client,
         system_prompt=system_prompt,
         max_iterations=max_iterations,
@@ -532,7 +516,7 @@ async def run_mcp_authentication_test(
 
     Args:
         db: Database session
-        user: Current user (for retrieving default generation model)
+        user: Current user (for authorization)
         organization_id: Organization ID for loading tools from database
         tool_id: Optional ID of the configured tool instance (for existing tools)
         provider_type_id: Optional UUID of the provider type (for non-existent tools)
@@ -550,8 +534,6 @@ async def run_mcp_authentication_test(
     Raises:
         ValueError: If authentication test fails due to connection issues
     """
-    model = get_user_generation_model(db, user)
-
     # Load MCP client from either tool_id or parameters and get provider name
     provider = None
     if tool_id is not None:
@@ -574,7 +556,7 @@ async def run_mcp_authentication_test(
     # Load the authentication test prompt with provider context
     auth_prompt = jinja_env.get_template("mcp_test_auth_prompt.jinja2").render(provider=provider)
     agent = MCPAgent(
-        model=model,
+        model=DEFAULT_GENERATION_MODEL,
         mcp_client=client,
         system_prompt=auth_prompt,
         max_iterations=5,  # Keep it short for authentication test
@@ -644,20 +626,16 @@ async def create_jira_ticket_from_task(
 
     space_key = tool.tool_metadata["space_key"]
 
-    # 4. Get user's generation model
-    user = crud.get_user_by_id(db, user_id)
-    model = get_user_generation_model(db, user)
-
-    # 5. Prepare prompt with task data
+    # 4. Prepare prompt with task data
     create_issue_prompt = jinja_env.get_template("mcp_jira_create_issue_prompt.jinja2").render(
         space_key=space_key,
         summary=task.title,
         description=task.description or "",
     )
 
-    # 6. Use agent to create issue
+    # 5. Use agent to create issue
     agent = MCPAgent(
-        model=model,
+        model=DEFAULT_GENERATION_MODEL,
         mcp_client=client,
         system_prompt=create_issue_prompt,
         max_iterations=5,
@@ -670,10 +648,10 @@ async def create_jira_ticket_from_task(
     if not result.success:
         raise ValueError(f"Failed to create Jira ticket: {result.error}")
 
-    # 7. Parse response
+    # 6. Parse response
     response_data = json.loads(result.final_answer)
 
-    # 8. Update task_metadata with Jira issue information
+    # 7. Update task_metadata with Jira issue information
     if not task.task_metadata:
         task.task_metadata = {}
 
@@ -693,5 +671,5 @@ async def create_jira_ticket_from_task(
         user_id=user_id,
     )
 
-    # 9. Return response
+    # 8. Return response
     return response_data

@@ -328,6 +328,7 @@ class ChatRequest(BaseModel):
     use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
     mode: Optional[str] = "text"  # Output mode: "text" or "json"
     files: Optional[List[FileInput]] = None
+    rhesis: Optional[dict] = None
 
     @field_validator("files", mode="before")
     @classmethod
@@ -343,6 +344,7 @@ class ChatResponse(BaseModel):
     session_id: str
     context: List[str]
     metadata: dict
+    tool_calls: Optional[List[dict]] = None
 
 
 def extract_file_content(file_input: FileInput) -> dict:
@@ -367,12 +369,18 @@ def extract_file_content(file_input: FileInput) -> dict:
         "mode": "{{ mode | default('text') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
         "file_contents": "{{ file_contents | default(none) }}",
+        "rhesis": {
+            "test_id": "{{ test_id | default(none) }}",
+            "test_configuration_id": "{{ test_configuration_id | default(none) }}",
+            "test_run_id": "{{ test_run_id | default(none) }}",
+        },
     },
     response_mapping={
         "output": "{{ message }}",
         "session_id": "{{ session_id }}",
         "context": "{{ context }}",
         "metadata": "{{ metadata }}",
+        "tool_calls": "{{ tool_calls }}",
     },
 )
 async def chat(
@@ -382,6 +390,7 @@ async def chat(
     mode: str = "text",
     conversation_history: Optional[List[dict]] = None,
     file_contents: Optional[List[dict]] = None,
+    rhesis: Optional[dict] = None,
 ) -> ChatResponse:
     """
     Process a chat message and return structured response.
@@ -398,6 +407,8 @@ async def chat(
             the history is looked up from the in-memory session store.
         file_contents: Extracted file contents as list of dicts with
             'filename' and 'content' keys.
+        rhesis: Optional dict with test execution context
+            (test_id, test_run_id, test_configuration_id).
 
     Returns:
         ChatResponse with message, session_id, context, and metadata
@@ -416,31 +427,78 @@ async def chat(
     if not isinstance(conversation_history, list):
         conversation_history = sessions[session_id].messages.copy()
 
+    # Same guard: Jinja2 renders ``{{ file_contents | default(none) }}`` as
+    # the string "None" rather than Python None when no files are present.
+    if not isinstance(file_contents, list):
+        file_contents = None
+
+    _RHESIS_ALLOWED_KEYS = {"test_id", "test_run_id", "test_configuration_id"}
+    if not isinstance(rhesis, dict):
+        rhesis = None
+    else:
+        rhesis = {
+            k: v
+            for k, v in rhesis.items()
+            if k in _RHESIS_ALLOWED_KEYS and v and v != "None"
+        }
+        if not rhesis:
+            rhesis = None
+
+    logger.info(f"Rhesis context received: {rhesis}")
+
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
     response_generator = endpoint_module.get_response_generator(use_case)
+    tool_calls = []
 
     # Generate context using the instance
-    context_fragments = response_generator.generate_context(message)
+    context_fragments = await response_generator.generate_context(message)
+    tool_calls.append(
+        {
+            "name": "generate_context",
+            "arguments": {"message": message},
+            "result": context_fragments,
+        }
+    )
 
     # Recognize intent from the current message
-    intent_result = response_generator.recognize_intent(message)
+    intent_result = await response_generator.recognize_intent(message)
+    tool_calls.append(
+        {
+            "name": "recognize_intent",
+            "arguments": {"message": message},
+            "result": intent_result,
+        }
+    )
 
     # Get assistant response using the same instance
-    chunks = list(
-        response_generator.stream_assistant_response(
-            message,
-            conversation_history=conversation_history,
-            file_contents=file_contents,
-            mode=mode,
-        )
-    )
+    chunks = []
+    async for chunk in response_generator.stream_assistant_response(
+        message,
+        conversation_history=conversation_history,
+        file_contents=file_contents,
+        mode=mode,
+    ):
+        chunks.append(chunk)
 
     if mode == "json":
         # In JSON mode, the generator yields dicts
         response_message = chunks[0] if chunks else {}
     else:
         response_message = "".join(chunks)
+
+    tool_calls.append(
+        {
+            "name": "generate_response",
+            "arguments": {
+                "message": message,
+                "mode": mode,
+                "has_file_contents": file_contents is not None,
+                "history_length": len(conversation_history),
+            },
+            "result": {"length": len(str(response_message))},
+        }
+    )
 
     # Persist the exchange in the session store
     sessions[session_id].messages.append({"role": "user", "content": message})
@@ -451,7 +509,13 @@ async def chat(
         message=response_message,
         session_id=session_id,
         context=context_fragments,
-        metadata={"use_case": use_case, "mode": mode, "intent": intent_result},
+        metadata={
+            "use_case": use_case,
+            "mode": mode,
+            "intent": intent_result,
+            "rhesis": rhesis,
+        },
+        tool_calls=tool_calls,
     )
 
 
@@ -518,6 +582,7 @@ async def chat_endpoint(
             use_case=use_case,
             mode=chat_request.mode or "text",
             file_contents=file_contents,
+            rhesis=chat_request.rhesis,
         )
 
         logger.info(f"Response generated successfully - Length: {len(result.message)} chars")

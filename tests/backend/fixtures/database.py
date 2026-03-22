@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from rhesis.backend.app.database import Base, get_database_url
+from rhesis.backend.app.database import get_database_url
 
 # Test database configuration - use the same logic as main database file
 # This ensures consistency between test and production database connections
@@ -51,13 +51,14 @@ TestingSessionLocal = sessionmaker(
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_database():
-    """Set up the test database before any tests run."""
-    # Create all tables in the test database
-    Base.metadata.create_all(bind=test_engine)
+def setup_test_database(run_migrations_once):
+    """Ensure DB schema is ready before tests.
+
+    Depends on ``run_migrations_once`` so Alembic migrations always run first.
+    No ``create_all`` / ``drop_all`` — Alembic is the single source of truth
+    for the test-DB schema.
+    """
     yield
-    # Clean up after all tests are done
-    Base.metadata.drop_all(bind=test_engine)
 
 
 @pytest.fixture

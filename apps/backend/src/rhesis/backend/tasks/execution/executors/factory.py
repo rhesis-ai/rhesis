@@ -4,11 +4,14 @@ Executor factory for routing tests to appropriate executors.
 Uses the Strategy Pattern to select the correct executor based on test type.
 """
 
+import logging
+
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import TestType
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 from rhesis.backend.tasks.execution.modes import get_test_type
+
+logger = logging.getLogger(__name__)
 
 
 def create_executor(test: Test) -> BaseTestExecutor:

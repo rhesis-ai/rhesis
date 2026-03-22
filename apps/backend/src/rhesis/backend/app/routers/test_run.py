@@ -62,15 +62,7 @@ def create_test_run(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create test run with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new test run."""
     organization_id, user_id = tenant_context
     # Set the user_id to the current user if not provided
     if not test_run.user_id:
@@ -350,6 +342,18 @@ def get_test_run_behaviors(
     return behaviors
 
 
+@router.get("/{test_run_id}/metrics", response_model=List[str])
+def get_test_run_metrics(
+    test_run_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get distinct metric names actually evaluated in this test run's results"""
+    organization_id, _user_id = tenant_context
+    return crud.get_test_run_metrics(db, test_run_id=test_run_id, organization_id=organization_id)
+
+
 @router.put("/{test_run_id}", response_model=schemas.TestRun)
 @handle_database_exceptions(
     entity_name="test run", custom_unique_message="Test run with this configuration already exists"
@@ -361,15 +365,7 @@ def update_test_run(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update test_run with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing test run."""
     organization_id, user_id = tenant_context
     db_test_run = crud.get_test_run(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id

@@ -2,6 +2,7 @@
 Parallel execution implementation for test cases using Celery chord.
 """
 
+import logging
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -10,11 +11,12 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.results import collect_results
 from rhesis.backend.tasks.execution.shared import create_execution_result, update_test_run_start
 from rhesis.backend.tasks.execution.test import execute_single_test
+
+logger = logging.getLogger(__name__)
 
 
 def execute_tests_in_parallel(
@@ -73,23 +75,22 @@ def execute_tests_in_parallel(
         }
     )
 
-    # Record start time before chord execution
     start_time = datetime.utcnow()
 
-    # Execute the chord
-    job = chord(tasks, callback).apply_async()
-    logger.info(f"Chord created with ID: {job.id} for {len(tasks)} tasks")
-
-    # Update test run with chord information using shared utility
+    # Commit critical metadata BEFORE dispatching so workers always see a consistent
+    # test_run record (total_tests, execution_mode, started_at) regardless of how
+    # quickly the first task finishes.
     update_test_run_start(
         session,
         test_run,
         ExecutionMode.PARALLEL,
         len(tasks),
         start_time,
-        chord_id=job.id,
-        chord_parent_id=job.parent.id if job.parent else None,
     )
+
+    # Dispatch after the write is committed — workers may start immediately.
+    job = chord(tasks, callback).apply_async()
+    logger.info(f"Chord created with ID: {job.id} for {len(tasks)} tasks")
 
     # Return standardized result using shared utility
     return create_execution_result(

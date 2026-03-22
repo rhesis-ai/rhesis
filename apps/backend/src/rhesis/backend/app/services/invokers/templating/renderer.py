@@ -1,13 +1,14 @@
 """Template rendering using Jinja2."""
 
 import json
+import logging
 from typing import Any, Dict
 
 from jinja2 import Environment
 
-from rhesis.backend.logging import logger
-
 from .filters import FILE_FILTERS
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateRenderer:

@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -8,6 +9,7 @@ from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
+from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.dependencies import (
     get_db_session,
     get_tenant_context,
@@ -21,8 +23,10 @@ from rhesis.backend.app.services.organization import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications import email_service
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter(
     prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}}
@@ -137,7 +141,6 @@ async def initialize_organization_data(
         if org.is_onboarding_complete:
             raise HTTPException(status_code=400, detail="Organization already initialized")
 
-        # Load initial data and get the default model IDs
         default_model_ids = load_initial_data(db, str(organization_id), str(current_user.id))
 
         # Update user settings with the default models for generation, evaluation, and embedding
@@ -157,16 +160,32 @@ async def initialize_organization_data(
                 )
                 db.flush()
 
-        # Execute initial test runs to validate the loaded data
-        # This is non-blocking - if it fails, onboarding still completes
+        # Mark onboarding as completed and commit while session variables are
+        # still valid on the original connection. execute_initial_test_runs must
+        # come AFTER this commit because it calls db.commit() internally, which
+        # causes SQLAlchemy to release the connection back to the pool. The new
+        # connection checked out afterwards would no longer have
+        # app.current_organization set, causing the RLS UPDATE to match 0 rows.
+        org.is_onboarding_complete = True
+
+        db.commit()
+
+        # Re-apply tenant session variables on the connection now held by the
+        # session. db.commit() releases the connection back to the pool in
+        # SQLAlchemy 2.x; the next operation checks out a fresh connection that
+        # has no app.current_organization set. Without this, any RLS-protected
+        # query inside execute_initial_test_runs would run without tenant context.
+        set_session_variables(db, str(organization_id), str(current_user.id))
+
+        # Execute initial test runs after the org is marked complete.
+        # This is non-blocking - if it fails, onboarding has already succeeded.
         test_execution_summary = None
         try:
             test_execution_summary = execute_initial_test_runs(
                 db=db, organization_id=str(organization_id), user_id=str(current_user.id)
             )
         except Exception as test_exec_error:
-            # Log the error but don't fail the entire onboarding
-            print(f"⚠ Warning: Initial test execution failed: {test_exec_error}")
+            logger.warning("Initial test execution failed: %s", test_exec_error)
             test_execution_summary = {
                 "status": "error",
                 "message": (
@@ -177,12 +196,6 @@ async def initialize_organization_data(
                 "test_set_count": 0,
                 "endpoint_count": 0,
             }
-
-        # Mark onboarding as completed
-        org.is_onboarding_complete = True
-
-        # Explicitly commit the transaction before scheduling emails
-        db.commit()
 
         # Prepare response after successful commit
         response = {
@@ -197,31 +210,42 @@ async def initialize_organization_data(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.exception("load-initial-data failed for org_id=%s", organization_id)
         raise HTTPException(
             status_code=500, detail=f"Failed to initialize organization data: {str(e)}"
         )
 
     # Schedule onboarding emails AFTER successful DB commit
-    # Using a loop to avoid repetitive try/except blocks
+    logger.info("Onboarding complete — scheduling Day 1/2/3 emails for org_id=%s", organization_id)
+
     email_schedule = [
         (1, email_service.send_day_1_email),
         (2, email_service.send_day_2_email),
         (3, email_service.send_day_3_email),
     ]
 
+    email_results = {}
     for day, send_method in email_schedule:
         try:
             success = send_method(
                 recipient_email=current_user.email,
                 recipient_name=current_user.name or current_user.given_name,
             )
+            email_results[f"day_{day}"] = "scheduled" if success else "skipped"
             if not success:
                 logger.warning(
-                    f"Day {day} email not sent for {current_user.email} (check configuration)"
+                    "Day %s email not scheduled for org_id=%s — check SENDGRID_API_KEY "
+                    "and SENDGRID_DAY_%s_EMAIL_TEMPLATE_ID env vars.",
+                    day,
+                    organization_id,
+                    day,
                 )
         except Exception:
-            logger.exception(f"Failed to schedule Day {day} email for {current_user.email}")
+            email_results[f"day_{day}"] = "error"
+            logger.exception("Failed to schedule Day %s email for org_id=%s", day, organization_id)
 
+    logger.info("Email scheduling results for org_id=%s: %s", organization_id, email_results)
+    response["email_schedule"] = email_results
     return response
 
 

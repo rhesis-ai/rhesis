@@ -5,9 +5,10 @@ This module provides functionality to test connections to various LLM and embedd
 model providers before saving them to the database.
 """
 
+import logging
 from typing import Literal
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 class ModelConnectionTestResult:
@@ -24,7 +25,7 @@ class ModelConnectionService:
     """Service for testing model connections."""
 
     @staticmethod
-    def test_connection(
+    async def test_connection(
         provider: str,
         model_name: str,
         api_key: str,
@@ -99,7 +100,7 @@ class ModelConnectionService:
                     )
 
             if model_type == "language":
-                return ModelConnectionService._test_llm_connection(
+                return await ModelConnectionService._test_llm_connection(
                     provider, model_name, api_key, endpoint
                 )
             elif model_type == "embedding":
@@ -124,7 +125,7 @@ class ModelConnectionService:
             )
 
     @staticmethod
-    def _test_llm_connection(
+    async def _test_llm_connection(
         provider: str, model_name: str, api_key: str, endpoint: str | None = None
     ) -> ModelConnectionTestResult:
         """Test a language model connection."""
@@ -160,7 +161,7 @@ class ModelConnectionService:
             # Try a simple generation to verify the connection works
             try:
                 test_prompt = "Say 'OK' if you can read this."
-                _ = model.generate(prompt=test_prompt)
+                _ = await model.a_generate(prompt=test_prompt)
 
                 logger.info(
                     f"Language model connection test successful for {provider}/{model_name}"

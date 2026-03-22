@@ -381,7 +381,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
             elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
                 del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
 
-    def generate(
+    async def a_generate(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
@@ -390,7 +390,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         **kwargs,
     ):
         with self._vertex_env(kwargs):
-            return super().generate(
+            return await super().a_generate(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 schema=schema,

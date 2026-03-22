@@ -4,12 +4,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
 import { Behavior } from '@/utils/api-client/interfaces/behavior';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import { UUID } from 'crypto';
-
-interface BehaviorWithMetrics extends Behavior {
-  metrics: MetricDetail[];
-}
 
 interface UseTestRunDataProps {
   testRunId: string;
@@ -21,7 +15,8 @@ interface UseTestRunDataProps {
 interface UseTestRunDataReturn {
   testResults: TestResultDetail[];
   prompts: Record<string, Prompt>;
-  behaviors: BehaviorWithMetrics[];
+  behaviors: Behavior[];
+  availableMetrics: string[];
   loading: boolean;
   totalCount: number;
   error: string | null;
@@ -35,12 +30,34 @@ export function useTestRunData({
 }: UseTestRunDataProps): UseTestRunDataReturn {
   const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
-  const [behaviors, setBehaviors] = useState<BehaviorWithMetrics[]>([]);
+  const [behaviors, setBehaviors] = useState<Behavior[]>([]);
+  const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTestRunData = useCallback(async () => {
+  // Fetch static data (behaviors + metrics) once per test run — not affected by pagination
+  const fetchStaticData = useCallback(async () => {
+    if (!enabled || !sessionToken || !testRunId) return;
+
+    const apiFactory = new ApiClientFactory(sessionToken);
+    const testRunsClient = apiFactory.getTestRunsClient();
+
+    try {
+      const [behaviorsData, metricsData] = await Promise.all([
+        testRunsClient.getTestRunBehaviors(testRunId),
+        testRunsClient.getTestRunMetrics(testRunId),
+      ]);
+      setBehaviors(behaviorsData);
+      setAvailableMetrics(metricsData);
+    } catch (_error) {
+      setBehaviors([]);
+      setAvailableMetrics([]);
+    }
+  }, [testRunId, sessionToken, enabled]);
+
+  // Fetch paginated test results — re-runs when pagination changes
+  const fetchTestResults = useCallback(async () => {
     if (!enabled || !sessionToken || !testRunId) return;
 
     try {
@@ -49,12 +66,8 @@ export function useTestRunData({
 
       const apiFactory = new ApiClientFactory(sessionToken);
       const testResultsClient = apiFactory.getTestResultsClient();
-      const testRunsClient = apiFactory.getTestRunsClient();
 
-      // Calculate skip based on pagination model
       const skip = paginationModel.page * paginationModel.pageSize;
-
-      // Fetch test results with pagination parameters (now includes nested prompt and behavior data)
       const response = await testResultsClient.getTestResults({
         filter: `test_run_id eq '${testRunId}'`,
         skip: skip,
@@ -69,7 +82,6 @@ export function useTestRunData({
       // Build prompts map from nested data in test results (optimized - no separate API calls needed!)
       const promptsMap = results.reduce(
         (acc, testResult: TestResultDetail) => {
-          // Use nested prompt data if available
           if (testResult.test?.prompt) {
             acc[testResult.test.prompt.id] = {
               id: testResult.test.prompt.id,
@@ -79,68 +91,37 @@ export function useTestRunData({
               counts: testResult.test.prompt.counts,
             } as Prompt;
           }
-          // Fallback: if prompt_id exists but nested data is not available (backward compatibility)
-          else if (testResult.prompt_id && !acc[testResult.prompt_id]) {
-          }
           return acc;
         },
         {} as Record<string, Prompt>
       );
 
-      // Fetch only behaviors that have test results for this test run
-      const behaviorsData = await testRunsClient.getTestRunBehaviors(testRunId);
-
-      // Fetch metrics for each behavior
-      const behaviorClient = apiFactory.getBehaviorClient();
-      const behaviorsWithMetrics = await Promise.all(
-        behaviorsData.map(async behavior => {
-          try {
-            const behaviorMetrics = await behaviorClient.getBehaviorMetrics(
-              behavior.id as UUID
-            );
-            return {
-              ...behavior,
-              metrics: behaviorMetrics,
-            };
-          } catch (_error) {
-            return {
-              ...behavior,
-              metrics: [],
-            };
-          }
-        })
-      );
-
-      // Filter out behaviors that have no metrics (though this should be rare now)
-      const behaviorsWithMetricsFiltered = behaviorsWithMetrics.filter(
-        behavior => behavior.metrics.length > 0
-      );
-
-      setBehaviors(behaviorsWithMetricsFiltered);
       setPrompts(promptsMap);
       setTestResults(results);
     } catch (_error) {
       setError('Failed to load test run data');
       setTestResults([]);
       setPrompts({});
-      setBehaviors([]);
     } finally {
       setLoading(false);
     }
   }, [testRunId, sessionToken, paginationModel, enabled]);
 
   useEffect(() => {
-    fetchTestRunData();
-  }, [fetchTestRunData]);
+    fetchStaticData();
+  }, [fetchStaticData]);
+
+  useEffect(() => {
+    fetchTestResults();
+  }, [fetchTestResults]);
 
   return {
     testResults,
     prompts,
     behaviors,
+    availableMetrics,
     loading,
     totalCount,
     error,
   };
 }
-
-export type { BehaviorWithMetrics };

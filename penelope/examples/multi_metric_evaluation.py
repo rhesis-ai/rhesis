@@ -74,7 +74,7 @@ def example_multiple_metrics():
         print(f"  Successful: {metric_data.get('is_successful', 'N/A')}")
 
         # For goal achievement metrics, show criteria summary from metrics
-        if metric_name in ["Goal Achievement", "Penelope Goal Evaluation"]:
+        if metric_name == "Goal Achievement":
             criteria_met = metric_data.get("criteria_met", 0)
             criteria_total = metric_data.get("criteria_total", 0)
             print(f"  Criteria: {criteria_met}/{criteria_total} met")

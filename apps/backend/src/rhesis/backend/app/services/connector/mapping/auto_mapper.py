@@ -1,10 +1,11 @@
 """Auto-mapper service for SDK function parameter detection."""
 
+import logging
 from typing import Any, Dict, List
 
-from rhesis.backend.logging import logger
-
 from .patterns import MappingPatterns
+
+logger = logging.getLogger(__name__)
 
 
 class AutoMapper:

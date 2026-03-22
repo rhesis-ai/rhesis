@@ -34,7 +34,7 @@ const footerData = {
   docs: {
     title: 'Docs',
     links: [
-      { name: 'Getting started', href: '/getting-started/self-hosting' },
+      { name: 'Getting started', href: '/deployment/self-hosting' },
       { name: 'Test Generation', href: '/platform/tests-generation' },
       { name: 'Metrics', href: '/platform/metrics' },
     ],

@@ -1,0 +1,269 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Configuration
+
+Configure Penelope's behavior through agent initialization, environment variables, or programmatic configuration.
+
+## Agent Configuration
+
+<CodeBlock filename="agent_config.py" language="python">
+{`from rhesis.sdk.models import AnthropicLLM
+from rhesis.penelope import PenelopeAgent
+
+agent = PenelopeAgent(
+    # Optional: Model (defaults to Vertex AI / gemini-2.0-flash)
+    model=AnthropicLLM(),
+    # Optional: Conversation depth
+    max_turns=20,  # Default is 10
+    timeout_seconds=300,  # No timeout by default
+    # Observability
+    enable_transparency=True,
+    verbose=True,
+    # Optional: Custom tools
+    tools=[],
+)`}
+
+</CodeBlock>
+
+## Default Model
+
+Penelope uses **Vertex AI with Gemini 2.0 Flash** by default. Configure globally:
+
+**Environment Variables:**
+
+<CodeBlock filename="Terminal" language="bash">
+  {`export PENELOPE_DEFAULT_MODEL=anthropic
+export PENELOPE_DEFAULT_MODEL_NAME=claude-4`}
+</CodeBlock>
+
+**Programmatic:**
+
+<CodeBlock filename="config.py" language="python">
+{`from rhesis.penelope import PenelopeConfig
+
+PenelopeConfig.set_default_model("anthropic", "claude-4")
+
+# Now all agents use this default
+agent = PenelopeAgent()  # Uses anthropic/claude-4`}
+
+</CodeBlock>
+
+### Supported Providers
+
+Penelope works with any Rhesis SDK model:
+
+- **vertex_ai** - Google Vertex AI (Gemini models)
+- **anthropic** - Anthropic (Claude models)
+- **openai** - OpenAI (GPT models)
+- **openai_compatible** - Any OpenAI-compatible API
+
+<CodeBlock filename="different_models.py" language="python">
+{`from rhesis.sdk.models import VertexAILLM, AnthropicLLM, OpenAILLM
+
+# Vertex AI
+agent = PenelopeAgent(model=VertexAILLM(model_name="gemini-pro"))
+
+# Anthropic
+agent = PenelopeAgent(model=AnthropicLLM(model_name="claude-4"))
+
+# OpenAI
+agent = PenelopeAgent(model=OpenAILLM(model_name="gpt-4"))`}
+
+</CodeBlock>
+
+## Conversation Turns
+
+A **turn** in Penelope is one complete user-assistant exchange: Penelope sends a message to the target and receives a response. Within a single turn, Penelope may also use internal analysis tools (e.g., `analyze_response`, `extract_information`), but these do not count as separate turns.
+
+The `max_turns` parameter controls how many of these exchanges Penelope will complete before stopping. Default: **10**.
+
+### Setting Max Turns
+
+**Environment Variable:**
+
+<CodeBlock filename="Terminal" language="bash">
+  {`export PENELOPE_DEFAULT_MAX_TURNS=20`}
+</CodeBlock>
+
+**Programmatic (global default):**
+
+<CodeBlock filename="config.py" language="python">
+{`from rhesis.penelope import PenelopeConfig
+
+PenelopeConfig.set_default_max_turns(20)
+agent = PenelopeAgent()  # Uses 20`}
+
+</CodeBlock>
+
+**Per Agent (default for all tests run by this agent):**
+
+<CodeBlock filename="agent.py" language="python">
+{`agent = PenelopeAgent(max_turns=30)`}
+</CodeBlock>
+
+**Per Test (overrides agent default for a specific test):**
+
+<CodeBlock filename="per_test.py" language="python">
+{`agent = PenelopeAgent(max_turns=30)  # Agent default
+
+# This test uses 20 turns instead of 30
+result = agent.execute_test(
+    target=target,
+    goal="Focused test",
+    max_turns=20,
+)`}
+</CodeBlock>
+
+### Early Stopping Behavior
+
+Penelope uses a goal achievement metric to evaluate progress after each turn. To ensure the agent exercises the conversation fully, early stopping is only allowed after completing **80%** of the configured `max_turns`:
+
+- With `max_turns=10`, the agent runs at least **8 turns** before it can stop early
+- With `max_turns=20`, the agent runs at least **16 turns**
+
+This prevents premature stopping when the goal appears achieved after only a few exchanges, which would miss important conversational dynamics.
+
+You can override the default 80% threshold with an explicit `min_turns` parameter:
+
+<CodeBlock filename="min_turns.py" language="python">
+{`result = agent.execute_test(
+    target=target,
+    goal="Test multi-turn context retention",
+    max_turns=10,
+    min_turns=5,  # Allow early stopping after 5 turns instead of 8
+)`}
+</CodeBlock>
+
+If `min_turns` exceeds `max_turns`, it is automatically capped to `max_turns`.
+
+<Callout type="info">
+  **Choosing Max Turns:** Start with 10 for simple tests. Use 15-20 for
+  social engineering or multi-turn attack scenarios. Use 25-30 for
+  comprehensive exploratory testing.
+</Callout>
+
+### Tool Execution Limit
+
+Separately from `max_turns`, Penelope enforces a **tool execution limit** to prevent infinite loops. This counts every tool call (both target interactions and internal analysis tools). It defaults to `max_turns * 5` and can be overridden:
+
+<CodeBlock filename="tool_limit.py" language="python">
+{`agent = PenelopeAgent(
+    max_turns=20,
+    max_tool_executions=200,  # Default would be 20 * 5 = 100
+)`}
+</CodeBlock>
+
+## Timeout
+
+Set execution timeout to prevent runaway tests:
+
+<CodeBlock filename="timeout.py" language="python">
+{`agent = PenelopeAgent(
+    timeout_seconds=300,  # 5 minutes
+    max_turns=50,
+)
+
+result = agent.execute_test(
+    target=target,
+    goal="Complex long-running test",
+)
+
+# result.status will be 'timeout' if time limit exceeded`}
+
+</CodeBlock>
+
+## Transparency & Verbosity
+
+Control output detail level:
+
+<CodeBlock filename="output_control.py" language="python">
+{`# Full transparency - see all reasoning
+agent = PenelopeAgent(
+    enable_transparency=True,  # Show reasoning boxes
+    verbose=True,  # Print all details
+)
+
+# Quiet mode - minimal output
+agent = PenelopeAgent(
+    enable_transparency=False,
+    verbose=False,
+)
+
+# Results only - no execution details
+agent = PenelopeAgent(verbose=False)`}
+
+</CodeBlock>
+
+## Test-Level Configuration
+
+Override `max_turns` per test:
+
+<CodeBlock filename="test_config.py" language="python">
+{`result = agent.execute_test(
+    target=target,
+    goal="Short simple test",
+    max_turns=5,  # Override agent default for this test
+)`}
+</CodeBlock>
+
+## Log Level
+
+Control logging verbosity:
+
+**Environment Variable:**
+
+<CodeBlock filename="Terminal" language="bash">
+  {`export PENELOPE_LOG_LEVEL=DEBUG  # DEBUG, INFO, WARNING, ERROR, CRITICAL`}
+</CodeBlock>
+
+**Programmatic:**
+
+<CodeBlock filename="logging.py" language="python">
+{`from rhesis.penelope import PenelopeConfig
+
+PenelopeConfig.set_log_level("DEBUG")  # Shows all logs including external libraries
+PenelopeConfig.set_log_level("INFO")  # Standard logging (default)
+PenelopeConfig.set_log_level("WARNING")  # Only warnings and errors`}
+
+</CodeBlock>
+
+## Complete Configuration Example
+
+<CodeBlock filename="complete_config.py" language="python">
+{`from rhesis.sdk.models import AnthropicLLM
+from rhesis.penelope import PenelopeAgent, PenelopeConfig
+
+# Global defaults
+PenelopeConfig.set_default_model("anthropic", "claude-4")
+PenelopeConfig.set_default_max_turns(20)
+PenelopeConfig.set_log_level("INFO")
+
+# Agent with custom config
+agent = PenelopeAgent(
+    model=AnthropicLLM(model_name="claude-4"),
+    max_turns=30,
+    timeout_seconds=600,
+    enable_transparency=True,
+    verbose=True,
+    tools=[],  # Add custom tools here
+)
+
+# Execute test
+result = agent.execute_test(
+    target=target,
+    goal="Comprehensive test",
+    instructions="Detailed instructions...",
+    context={"environment": "staging"},
+    max_turns=25,  # Test-specific override
+    min_turns=15,  # Early stop allowed after 15 turns
+)`}
+
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next:** Learn how to [Extend](/conversation-simulation/extending) Penelope with custom
+  tools and architecture details, or explore [Examples](/conversation-simulation/examples) for
+  practical use cases.
+</Callout>

@@ -1,50 +1,59 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
-  Alert,
   Stack,
+  Chip,
+  useTheme,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  REVIEW_TARGET_TYPES,
+  REVIEW_TARGET_LABELS,
+} from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import StatusChip from '@/components/common/StatusChip';
 import { findStatusByCategory } from '@/utils/test-result-status';
+import MentionTextInput, {
+  MentionOption,
+  inferReviewTarget,
+  InferredTarget,
+} from '@/components/common/MentionTextInput';
 
 interface ReviewJudgementDrawerProps {
   open: boolean;
   onClose: () => void;
   test: TestResultDetail | null;
-  currentUserName: string;
   sessionToken: string;
-  onSave: (testId: string, reviewData: ReviewData) => Promise<void>;
-}
-
-export interface ReviewData {
-  originalStatus: 'passed' | 'failed';
-  newStatus: 'passed' | 'failed';
-  reason: string;
-  overruledBy: string;
-  overruledAt: string;
+  onSave: (testId: string) => Promise<void>;
+  initialComment?: string;
+  initialStatus?: 'passed' | 'failed';
+  mentionableMetrics?: MentionOption[];
+  mentionableTurns?: MentionOption[];
 }
 
 export default function ReviewJudgementDrawer({
   open,
   onClose,
   test,
-  currentUserName,
   sessionToken,
   onSave,
+  initialComment,
+  initialStatus,
+  mentionableMetrics = [],
+  mentionableTurns = [],
 }: ReviewJudgementDrawerProps) {
+  const theme = useTheme();
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -52,9 +61,42 @@ export default function ReviewJudgementDrawer({
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Calculate original test status
+  // Infer target from comment text
+  const inferredTarget: InferredTarget = useMemo(
+    () => inferReviewTarget(reason),
+    [reason]
+  );
+
+  const targetLabel = useMemo(
+    () => REVIEW_TARGET_LABELS[inferredTarget.type] ?? inferredTarget.type,
+    [inferredTarget]
+  );
+
+  // Calculate automated status of the targeted item
   const getOriginalStatus = useCallback((): 'passed' | 'failed' => {
     if (!test) return 'failed';
+
+    if (
+      inferredTarget.type === REVIEW_TARGET_TYPES.METRIC &&
+      inferredTarget.reference
+    ) {
+      const metrics = test.test_metrics?.metrics || {};
+      const metric = Object.entries(metrics).find(
+        ([name]) => name === inferredTarget.reference
+      );
+      return metric?.[1]?.is_successful ? 'passed' : 'failed';
+    }
+
+    if (
+      inferredTarget.type === REVIEW_TARGET_TYPES.TURN &&
+      inferredTarget.reference
+    ) {
+      const turns = test.test_output?.conversation_summary || [];
+      const turnNum = parseInt(inferredTarget.reference.replace(/\D/g, ''), 10);
+      const turn = turns.find((t: { turn: number }) => t.turn === turnNum);
+      return turn?.success ? 'passed' : 'failed';
+    }
+
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
@@ -62,7 +104,7 @@ export default function ReviewJudgementDrawer({
     return totalMetrics > 0 && passedMetrics === totalMetrics
       ? 'passed'
       : 'failed';
-  }, [test]);
+  }, [test, inferredTarget]);
 
   const originalStatus = getOriginalStatus();
 
@@ -92,13 +134,18 @@ export default function ReviewJudgementDrawer({
   // Reset form when drawer opens or test changes
   useEffect(() => {
     if (open && test) {
-      const original = getOriginalStatus();
-      // Default to opposite of original status
-      setNewStatus(original === 'passed' ? 'failed' : 'passed');
-      setReason('');
+      const metrics = test.test_metrics?.metrics || {};
+      const metricValues = Object.values(metrics);
+      const allPassed =
+        metricValues.length > 0 && metricValues.every(m => m.is_successful);
+      const defaultOriginal = allPassed ? 'passed' : 'failed';
+      setNewStatus(
+        initialStatus ?? (defaultOriginal === 'passed' ? 'failed' : 'passed')
+      );
+      setReason(initialComment ?? '');
       setError('');
     }
-  }, [open, test, getOriginalStatus]);
+  }, [open, test, initialComment, initialStatus]);
 
   const handleStatusChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -124,14 +171,17 @@ export default function ReviewJudgementDrawer({
 
     if (!test || !sessionToken) return;
 
-    // Only prevent matching original status if there's NO existing review
-    // If there's already a review, allow changing back to original (updating the review)
-    const hasExistingReview = !!test.last_review;
-    if (newStatus === originalStatus && !hasExistingReview) {
-      setError(
-        'New status must be different from the automated result. Use "Confirm Review" to agree with the automated result.'
-      );
-      return;
+    // For test_result targets without an existing review, prevent matching original
+    // For metric/turn targets, always allow (they're specific overrides)
+    if (inferredTarget.type === REVIEW_TARGET_TYPES.TEST_RESULT) {
+      const hasExistingReview = !!test.last_review;
+      if (newStatus === originalStatus && !hasExistingReview) {
+        setError(
+          'New status must be different from the automated result. ' +
+            'Use "Confirm Review" to agree with the automated result.'
+        );
+        return;
+      }
     }
 
     // Find the status ID for the new status using centralized utility
@@ -157,19 +207,10 @@ export default function ReviewJudgementDrawer({
         test.id,
         targetStatus.id,
         reason.trim(),
-        { type: 'test', reference: null }
+        inferredTarget
       );
 
-      // Create review data for parent component
-      const reviewData: ReviewData = {
-        originalStatus,
-        newStatus,
-        reason: reason.trim(),
-        overruledBy: currentUserName,
-        overruledAt: new Date().toISOString(),
-      };
-
-      await onSave(test.id, reviewData);
+      await onSave(test.id);
       onClose();
     } catch (_err) {
       setError('Failed to save review. Please try again.');
@@ -198,31 +239,39 @@ export default function ReviewJudgementDrawer({
       title="Provide Test Review"
       titleIcon={<RateReviewOutlinedIcon />}
       onSave={handleSave}
+      anchor="right"
       saveButtonText={submitting ? 'Saving...' : 'Submit Review'}
       error={error}
-      width={600}
+      width={theme.spacing(75)}
       loading={submitting || loadingStatuses}
     >
       <Stack spacing={3}>
-        {/* Info Alert */}
-        <Alert
-          severity="info"
-          sx={{
-            bgcolor: theme => `${theme.palette.info.main}0A`,
-            border: 1,
-            borderColor: 'info.light',
-          }}
-        >
-          <Typography variant="body2">
-            You are about to provide a manual review for this test result. This
-            action will be recorded and attributed to you.
-          </Typography>
-        </Alert>
-
-        {/* Original Status Section */}
+        {/* Review Target Indicator */}
         <Box>
           <Typography variant="body2" fontWeight={600} gutterBottom>
-            Original Status
+            Review Target
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Chip
+              icon={<TrackChangesIcon />}
+              label={targetLabel}
+              size="small"
+              color={
+                inferredTarget.type === REVIEW_TARGET_TYPES.METRIC
+                  ? 'secondary'
+                  : inferredTarget.type === REVIEW_TARGET_TYPES.TURN
+                    ? 'info'
+                    : 'default'
+              }
+              variant="outlined"
+            />
+          </Box>
+        </Box>
+
+        {/* Automated Status of Target */}
+        <Box>
+          <Typography variant="body2" fontWeight={600} gutterBottom>
+            Current Automated Status
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
             <StatusChip
@@ -231,15 +280,23 @@ export default function ReviewJudgementDrawer({
               size="small"
               variant="filled"
             />
-            <Typography variant="body2" color="text.secondary">
-              {passedMetrics}/{totalMetrics} metrics passed
-            </Typography>
+            {inferredTarget.type === REVIEW_TARGET_TYPES.TEST_RESULT && (
+              <Typography variant="body2" color="text.secondary">
+                {passedMetrics}/{totalMetrics} metrics passed
+              </Typography>
+            )}
+            {inferredTarget.type === REVIEW_TARGET_TYPES.METRIC &&
+              inferredTarget.reference && (
+                <Typography variant="body2" color="text.secondary">
+                  Score: {metrics[inferredTarget.reference]?.score ?? 'N/A'}
+                </Typography>
+              )}
           </Box>
         </Box>
 
         {/* New Status Selection */}
         <Box>
-          <Typography variant="body2" fontWeight={600} gutterBottom>
+          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
             New Status *
           </Typography>
           <ToggleButtonGroup
@@ -247,23 +304,26 @@ export default function ReviewJudgementDrawer({
             exclusive
             onChange={handleStatusChange}
             aria-label="test status"
+            size="small"
             fullWidth
-            sx={{ mt: 1 }}
           >
             <ToggleButton
               value="passed"
               aria-label="passed"
               sx={{
                 '&.Mui-selected': {
-                  backgroundColor: 'success.main',
-                  color: 'success.contrastText',
+                  backgroundColor: theme.palette.success.main,
+                  color: theme.palette.success.contrastText,
+                  '& .MuiSvgIcon-root': { color: 'inherit' },
                   '&:hover': {
-                    backgroundColor: 'success.dark',
+                    backgroundColor: theme.palette.success.dark,
                   },
                 },
               }}
             >
-              <CheckCircleOutlineIcon sx={{ mr: 1, fontSize: 20 }} />
+              <CheckCircleOutlineIcon
+                sx={{ mr: 1, fontSize: 'body2.fontSize' }}
+              />
               Pass
             </ToggleButton>
             <ToggleButton
@@ -271,60 +331,38 @@ export default function ReviewJudgementDrawer({
               aria-label="failed"
               sx={{
                 '&.Mui-selected': {
-                  backgroundColor: 'error.main',
-                  color: 'error.contrastText',
+                  backgroundColor: theme.palette.error.main,
+                  color: theme.palette.error.contrastText,
+                  '& .MuiSvgIcon-root': { color: 'inherit' },
                   '&:hover': {
-                    backgroundColor: 'error.dark',
+                    backgroundColor: theme.palette.error.dark,
                   },
                 },
               }}
             >
-              <CancelOutlinedIcon sx={{ mr: 1, fontSize: 20 }} />
+              <CancelOutlinedIcon sx={{ mr: 1, fontSize: 'body2.fontSize' }} />
               Fail
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
 
-        {/* Reason Field */}
-        <Box>
-          <Typography variant="body2" fontWeight={600} gutterBottom>
-            Review Comments *
-          </Typography>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            placeholder="Provide your reasoning for this review..."
-            value={reason}
-            onChange={e => {
-              setReason(e.target.value);
-              setError('');
-            }}
-            helperText={`${reason.length} characters (minimum 10 required)`}
-            sx={{ mt: 1 }}
-          />
-        </Box>
-
-        {/* Attribution Info */}
-        <Box
-          sx={{
-            p: 2,
-            bgcolor: 'action.hover',
-            borderRadius: theme => theme.shape.borderRadius,
-            border: 1,
-            borderColor: 'divider',
+        {/* Review Comments */}
+        <MentionTextInput
+          label="Review Comments *"
+          value={reason}
+          onChange={val => {
+            setReason(val);
+            setError('');
           }}
-        >
-          <Typography variant="body2" fontWeight={600} gutterBottom>
-            Attribution
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Reviewed by: <strong>{currentUserName}</strong>
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Date: <strong>{new Date().toLocaleString()}</strong>
-          </Typography>
-        </Box>
+          placeholder="Explain your review decision... Type @ to mention"
+          mentionableMetrics={mentionableMetrics}
+          mentionableTurns={mentionableTurns}
+          error={!!error}
+          helperText={
+            error || `${reason.length} characters (minimum 10 required)`
+          }
+          minRows={4}
+        />
       </Stack>
     </BaseDrawer>
   );

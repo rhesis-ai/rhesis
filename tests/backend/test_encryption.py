@@ -8,6 +8,7 @@ from rhesis.backend.app.utils.encryption import (
     EncryptedString,
     EncryptionError,
     EncryptionKeyNotFoundError,
+    _get_fernet,
     decrypt,
     encrypt,
     get_encryption_key,
@@ -20,6 +21,7 @@ def encryption_key():
     """Provide a test encryption key."""
     # Preserve original value
     original_key = os.environ.get("DB_ENCRYPTION_KEY")
+    _get_fernet.cache_clear()
     key = Fernet.generate_key().decode()
     os.environ["DB_ENCRYPTION_KEY"] = key
     yield key
@@ -28,6 +30,7 @@ def encryption_key():
         os.environ["DB_ENCRYPTION_KEY"] = original_key
     elif "DB_ENCRYPTION_KEY" in os.environ:
         del os.environ["DB_ENCRYPTION_KEY"]
+    _get_fernet.cache_clear()
 
 
 class TestEncryptionUtilities:
@@ -96,8 +99,9 @@ class TestEncryptionUtilities:
         plaintext = "secret"
         encrypted = encrypt(plaintext)
 
-        # Change key
+        # Change key and invalidate cached Fernet instance
         os.environ["DB_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+        _get_fernet.cache_clear()
 
         with pytest.raises(DecryptionError):
             decrypt(encrypted)
@@ -146,6 +150,7 @@ class TestEncryptionUtilities:
         original_key = os.environ.get("DB_ENCRYPTION_KEY")
         if "DB_ENCRYPTION_KEY" in os.environ:
             del os.environ["DB_ENCRYPTION_KEY"]
+        _get_fernet.cache_clear()
 
         try:
             with pytest.raises(EncryptionError):
@@ -154,6 +159,7 @@ class TestEncryptionUtilities:
             # Restore original value
             if original_key is not None:
                 os.environ["DB_ENCRYPTION_KEY"] = original_key
+            _get_fernet.cache_clear()
 
     def test_decrypt_without_key_raises_error(self):
         """Test that decryption without key raises appropriate error."""
@@ -161,6 +167,7 @@ class TestEncryptionUtilities:
         original_key = os.environ.get("DB_ENCRYPTION_KEY")
         if "DB_ENCRYPTION_KEY" in os.environ:
             del os.environ["DB_ENCRYPTION_KEY"]
+        _get_fernet.cache_clear()
 
         try:
             with pytest.raises(DecryptionError):
@@ -169,6 +176,7 @@ class TestEncryptionUtilities:
             # Restore original value
             if original_key is not None:
                 os.environ["DB_ENCRYPTION_KEY"] = original_key
+            _get_fernet.cache_clear()
 
 
 class TestEncryptedStringType:
@@ -261,6 +269,7 @@ class TestEncryptedStringType:
         original_key = os.environ.get("DB_ENCRYPTION_KEY")
         # Remove encryption key to force failure
         del os.environ["DB_ENCRYPTION_KEY"]
+        _get_fernet.cache_clear()
 
         try:
             with pytest.raises(EncryptionError):
@@ -269,6 +278,7 @@ class TestEncryptedStringType:
             # Restore original value
             if original_key is not None:
                 os.environ["DB_ENCRYPTION_KEY"] = original_key
+            _get_fernet.cache_clear()
 
     def test_cache_ok_is_true(self, encryption_key):
         """Test that cache_ok is set to True for SQLAlchemy caching."""

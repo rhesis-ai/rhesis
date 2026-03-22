@@ -31,15 +31,7 @@ def create_risk(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create risk with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new risk."""
     organization_id, user_id = tenant_context
     return crud.create_risk(db=db, risk=risk, organization_id=organization_id, user_id=user_id)
 
@@ -109,15 +101,7 @@ def update_risk(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update risk with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing risk."""
     organization_id, user_id = tenant_context
     db_risk = crud.update_risk(
         db, risk_id=risk_id, risk=risk, organization_id=organization_id, user_id=user_id

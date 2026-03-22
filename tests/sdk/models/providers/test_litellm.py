@@ -28,7 +28,7 @@ class TestLiteLLM:
         with pytest.raises(ValueError):
             LiteLLM("")
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_without_schema_without_api_key(self, mock_completion):
         """Test generate method without schema returns string response"""
         # Mock the completion response
@@ -53,7 +53,7 @@ class TestLiteLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_without_schema_with_api_key(self, mock_completion):
         """Test generate method without schema returns string response"""
         # Mock the completion response
@@ -79,7 +79,7 @@ class TestLiteLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema_without_api_key(self, mock_completion):
         """Test generate method with schema returns validated dict response"""
 
@@ -115,7 +115,7 @@ class TestLiteLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema_with_api_key(self, mock_completion):
         """Test generate method with schema returns validated dict response"""
 
@@ -152,7 +152,7 @@ class TestLiteLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema_invalid_response(self, mock_completion):
         """Test generate method with schema raises error for invalid response"""
 
@@ -174,7 +174,7 @@ class TestLiteLLM:
         with pytest.raises(Exception):  # Should raise validation error
             llm.generate(prompt, schema=TestSchema)
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_additional_kwargs(self, mock_completion):
         """Test generate method passes additional kwargs to completion"""
         mock_response = Mock()

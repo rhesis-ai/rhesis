@@ -1,11 +1,13 @@
 import inspect
+import logging
 from functools import wraps
 from typing import Callable, Type, TypeVar
 
 from fastapi import Response
 
 from rhesis.backend.app.utils.crud_utils import count_items
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 

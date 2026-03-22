@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import create_model
 
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.configs import CategoricalJudgeConfig
@@ -125,6 +126,7 @@ class CategoricalJudge(JudgeBase):
             context=context,
             categories=self.categories,
             passing_categories=self.passing_categories,
+            **additional_template_vars,
         )
 
     def evaluate(
@@ -134,6 +136,27 @@ class CategoricalJudge(JudgeBase):
         expected_output: Optional[str],
         context: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
+    ) -> MetricResult:
+        return run_sync(
+            self.a_evaluate(
+                input=input,
+                output=output,
+                expected_output=expected_output,
+                context=context,
+                metadata=metadata,
+                tool_calls=tool_calls,
+            )
+        )
+
+    async def a_evaluate(
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str],
+        context: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -190,6 +213,9 @@ class CategoricalJudge(JudgeBase):
             else None
         )
 
+        # Serialize tool_calls for template
+        tool_calls_text = json.dumps(tool_calls, indent=2) if tool_calls else None
+
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(
             input,
@@ -197,6 +223,7 @@ class CategoricalJudge(JudgeBase):
             expected_output or "",
             context or [],
             metadata_text=metadata_text,
+            tool_calls_text=tool_calls_text,
         )
 
         # Initialize common details fields
@@ -220,7 +247,7 @@ class CategoricalJudge(JudgeBase):
             ScoreResponseCategorical = create_model(
                 "ScoreResponseCategorical", score=(score_literal, ...), reason=(str, ...)
             )
-            response = self.model.generate(prompt, schema=ScoreResponseCategorical)
+            response = await self.model.a_generate(prompt, schema=ScoreResponseCategorical)
             response = ScoreResponseCategorical(**response)  # type: ignore[arg-type]
 
             # Get the score directly from the response

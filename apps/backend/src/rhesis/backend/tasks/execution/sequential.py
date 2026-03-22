@@ -2,6 +2,7 @@
 Sequential execution implementation for test cases.
 """
 
+import logging
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -9,16 +10,16 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.shared import (
     create_execution_result,
     create_failure_result,
-    store_test_result,
     trigger_results_collection,
     update_test_run_start,
 )
 from rhesis.backend.tasks.execution.test_execution import execute_test
+
+logger = logging.getLogger(__name__)
 
 
 def execute_tests_sequentially(
@@ -72,18 +73,6 @@ def execute_tests_sequentially(
             )
             results.append(result)
 
-            # Store the test result in the database (updates test run progress)
-            store_test_result(
-                session,
-                str(test_run.id),
-                str(test.id),
-                result,
-                organization_id=str(test_config.organization_id)
-                if test_config.organization_id
-                else None,
-                user_id=str(test_config.user_id) if test_config.user_id else None,
-            )
-
             logger.info(f"Test {i}/{len(tests)} completed successfully")
 
         except Exception as e:
@@ -91,18 +80,6 @@ def execute_tests_sequentially(
             # Create failure result using shared utility
             failure_result = create_failure_result(str(test.id), e)
             results.append(failure_result)
-
-            # Store the failure result in the database
-            store_test_result(
-                session,
-                str(test_run.id),
-                str(test.id),
-                failure_result,
-                organization_id=str(test_config.organization_id)
-                if test_config.organization_id
-                else None,
-                user_id=str(test_config.user_id) if test_config.user_id else None,
-            )
 
     end_time = datetime.utcnow()
     execution_time = (end_time - start_time).total_seconds()

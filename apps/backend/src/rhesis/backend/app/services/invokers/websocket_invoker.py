@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 import unicodedata
 from typing import Any, Dict, Optional, Union
@@ -8,10 +9,11 @@ from websockets.asyncio.client import connect
 from websockets.exceptions import InvalidStatus
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.logging import logger
 
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
+
+logger = logging.getLogger(__name__)
 
 
 class WebSocketEndpointInvoker(BaseEndpointInvoker):

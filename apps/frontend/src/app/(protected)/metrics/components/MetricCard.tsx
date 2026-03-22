@@ -1,9 +1,7 @@
 import React from 'react';
+import type { Theme } from '@mui/material/styles';
 import { SvgIcon } from '@mui/material';
 import { AutoGraphIcon, PsychologyIcon } from '@/components/icons';
-import TurnedInIcon from '@mui/icons-material/TurnedIn';
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
-import MessageIcon from '@mui/icons-material/Message';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import FaceIcon from '@mui/icons-material/Face';
 import StorageIcon from '@mui/icons-material/Storage';
@@ -16,7 +14,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
-import { TEST_TYPES } from '@/constants/test-types';
+import { getMetricScopeIcon } from '@/constants/metric-scopes';
 
 // Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
@@ -125,21 +123,6 @@ const getScoreTypeIcon = (scoreType: string) => {
   }
 };
 
-const getMetricScopeDisplay = (scope: string): string => {
-  return scope;
-};
-
-const getMetricScopeIcon = (scope: string) => {
-  switch (scope) {
-    case TEST_TYPES.SINGLE_TURN:
-      return <ChatBubbleOutlineIcon fontSize="small" />;
-    case TEST_TYPES.MULTI_TURN:
-      return <MessageIcon fontSize="small" />;
-    default:
-      return <TurnedInIcon fontSize="small" />;
-  }
-};
-
 export default function MetricCard({
   title,
   description,
@@ -170,7 +153,7 @@ export default function MetricCard({
           key: `behavior-${index}`,
           icon: <PsychologyIcon fontSize="small" />,
           label: behaviorName,
-          maxWidth: '150px',
+          maxWidth: (theme: Theme) => theme.spacing(19),
         })),
         ...(usedIn.length > 3
           ? [
@@ -208,7 +191,7 @@ export default function MetricCard({
       metricPropertyChips.push({
         key: `scope-${index}`,
         icon: getMetricScopeIcon(scope),
-        label: getMetricScopeDisplay(scope),
+        label: scope,
       });
     });
   }

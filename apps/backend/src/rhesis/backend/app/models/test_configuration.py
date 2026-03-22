@@ -9,12 +9,12 @@ from .mixins import OrganizationMixin
 
 class TestConfiguration(Base, OrganizationMixin):
     __tablename__ = "test_configuration"
-    endpoint_id = Column(GUID(), ForeignKey("endpoint.id"), nullable=False)
+    endpoint_id = Column(GUID(), ForeignKey("endpoint.id"), nullable=False, index=True)
     category_id = Column(GUID(), ForeignKey("category.id"))
     topic_id = Column(GUID(), ForeignKey("topic.id"))
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))
     use_case_id = Column(GUID(), ForeignKey("use_case.id"))
-    test_set_id = Column(GUID(), ForeignKey("test_set.id"))
+    test_set_id = Column(GUID(), ForeignKey("test_set.id"), index=True)
     user_id = Column(GUID(), ForeignKey("user.id"))
     status_id = Column(GUID(), ForeignKey("status.id"))
     attributes = Column(JSONB, nullable=True)

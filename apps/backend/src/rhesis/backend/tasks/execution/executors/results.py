@@ -2,6 +2,7 @@
 
 import base64
 import copy
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -9,11 +10,12 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
+from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
-from rhesis.backend.logging.rhesis_logger import logger
-from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
+
+logger = logging.getLogger(__name__)
 
 
 def serialize_for_json(obj: Any) -> Any:
@@ -161,7 +163,7 @@ def create_test_result_record(
     # Determine status based on metrics evaluation
     if not metrics_results or len(metrics_results) == 0:
         # No metrics to evaluate - mark as ERROR
-        status_value = ResultStatus.ERROR.value
+        status_value = TestResultStatus.ERROR.value
     else:
         # Check if all metrics passed
         all_metrics_passed = all(
@@ -169,7 +171,9 @@ def create_test_result_record(
             for metric_data in metrics_results.values()
             if isinstance(metric_data, dict)
         )
-        status_value = ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+        status_value = (
+            TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
+        )
 
     test_result_status = get_or_create_status(
         db, status_value, "TestResult", organization_id=organization_id

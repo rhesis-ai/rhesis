@@ -1,10 +1,16 @@
 export default {
   index: "Home",
   "getting-started": "Getting Started",
+  "product-tour": "Product Tour",
+  concepts: "Core Concepts",
+  deployment: "Deployment",
   platform: "Platform",
   sdk: "SDK",
   tracing: "Tracing",
-  penelope: "Penelope",
+  "conversation-simulation": "Conversation Simulation",
+  "adversarial-testing": "Adversarial Testing",
+  "multimodal-testing": "Multi-modal Testing",
+  frameworks: "Frameworks",
   development: "Development",
   "---": {
     type: "separator",
