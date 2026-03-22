@@ -267,11 +267,12 @@ class TestMCPAgent:
         assert result.success is True
         assert result.final_answer == "Answer without tool"
 
-    def test_handle_finish_action(self, agent):
+    @pytest.mark.asyncio
+    async def test_handle_finish_action(self, agent):
         """Test handling finish action"""
         action = AgentAction(reasoning="Done", action="finish", final_answer="Answer")
 
-        step, should_finish = agent._handle_finish_action(action, iteration=1)
+        step, should_finish = await agent._handle_finish_action(action, iteration=1)
 
         assert should_finish is True
         assert step.action == "finish"

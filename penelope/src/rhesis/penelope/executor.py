@@ -7,7 +7,7 @@ including LLM interaction, tool invocation, and state updates.
 
 import json
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from rhesis.penelope.context import TestState
 from rhesis.penelope.prompts import FIRST_TURN_PROMPT, SUBSEQUENT_TURN_PROMPT
@@ -139,6 +139,8 @@ class TurnExecutor:
         state: TestState,
         tools: List[Tool],
         system_prompt: str,
+        on_tool_start: Optional[Any] = None,
+        on_tool_end: Optional[Any] = None,
     ) -> bool:
         """
         Execute one turn of the agent loop.
@@ -334,6 +336,12 @@ class TurnExecutor:
                         )
                         return False  # Stop the agent loop immediately
 
+                    if on_tool_start:
+                        try:
+                            on_tool_start(action_name, action_params, reasoning if i == 0 else "")
+                        except Exception as e:
+                            logger.error(f"Error in on_tool_start callback: {e}")
+
                     if self.verbose:
                         logger.info(f"Executing tool: {action_name} with params: {action_params}")
 
@@ -345,6 +353,13 @@ class TurnExecutor:
                         tool_result = tool.execute_with_validation(context, **filtered_params)
                     else:
                         tool_result = tool.execute(**action_params)
+
+                    if on_tool_end:
+                        try:
+                            on_tool_end(action_name, tool_result)
+                        except Exception as e:
+                            logger.error(f"Error in on_tool_end callback: {e}")
+
                     break
 
             if tool_result is None:

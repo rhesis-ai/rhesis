@@ -85,6 +85,7 @@ export interface ArchitectToolPayload {
   tool: string;
   description?: string;
   args?: Record<string, unknown>;
+  reasoning?: string;
   success?: boolean;
   preview?: string;
 }

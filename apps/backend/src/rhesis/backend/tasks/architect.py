@@ -46,14 +46,20 @@ class WebSocketEventHandler:
             {"iteration": iteration, "status": "thinking"},
         )
 
-    async def on_tool_start(self, *, tool_name: str, arguments: Dict[str, Any], **kw: Any) -> None:
+    async def on_tool_start(
+        self, *, tool_name: str, arguments: Dict[str, Any], reasoning: Optional[str] = None, **kw: Any
+    ) -> None:
+        payload = {
+            "tool": tool_name,
+            "description": _tool_description(tool_name, arguments),
+            "args": _safe_preview(arguments),
+        }
+        if reasoning:
+            payload["reasoning"] = reasoning
+
         self._publish(
             EventType.ARCHITECT_TOOL_START,
-            {
-                "tool": tool_name,
-                "description": _tool_description(tool_name, arguments),
-                "args": _safe_preview(arguments),
-            },
+            payload,
         )
 
     async def on_tool_end(self, *, tool_name: str, result: Any, **kw: Any) -> None:

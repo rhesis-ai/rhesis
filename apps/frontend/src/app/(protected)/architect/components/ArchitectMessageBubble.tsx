@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Button, Paper, Typography, IconButton, Tooltip } from '@mui/material';
+import {
+  Box,
+  Button,
+  Paper,
+  Typography,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -9,8 +16,10 @@ import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ErrorIcon from '@mui/icons-material/Error';
 import EditIcon from '@mui/icons-material/Edit';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import CircularProgress from '@mui/material/CircularProgress';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import Chip from '@mui/material/Chip';
 import { ArchitectChatMessage, StreamingState } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -116,7 +125,9 @@ export default function ArchitectMessageBubble({
         {streamingState && (
           <Box sx={{ mb: message.content ? 1 : 0 }}>
             {streamingState.isThinking && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
+              >
                 <CircularProgress size={14} />
                 <Typography variant="body2" color="text.secondary">
                   Thinking
@@ -126,33 +137,67 @@ export default function ArchitectMessageBubble({
                 </Typography>
               </Box>
             )}
-            {streamingState.activeTools.map((tool, i) => (
-              <Box
-                key={`active-${tool.tool}-${i}`}
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
-              >
-                <CircularProgress size={12} />
-                <Typography variant="body2" color="text.secondary">
-                  {tool.description || tool.tool}
-                </Typography>
+            {streamingState.activeTools.map((tool) => (
+              <Box key={`active-${tool.tool}-${Date.now()}-${Math.random()}`} sx={{ mb: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={12} />
+                  <Typography variant="body2" color="text.secondary">
+                    {tool.description || tool.tool}
+                  </Typography>
+                </Box>
+                {tool.reasoning && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      ml: 2.5,
+                      mt: 0.25,
+                      mb: 0.5,
+                      fontStyle: 'italic',
+                      borderLeft: 2,
+                      borderColor: 'divider',
+                      pl: 1,
+                    }}
+                  >
+                    {tool.reasoning}
+                  </Typography>
+                )}
               </Box>
             ))}
-            {streamingState.completedTools.map((tool, i) => (
-              <Box
-                key={`done-${tool.tool}-${i}`}
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
-              >
-                {tool.success ? (
-                  <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
-                ) : (
-                  <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
+            {streamingState.completedTools.map((tool) => (
+              <Box key={`done-${tool.tool}-${Date.now()}-${Math.random()}`} sx={{ mb: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {tool.success ? (
+                    <CheckCircleIcon
+                      sx={{ fontSize: 14, color: 'success.main' }}
+                    />
+                  ) : (
+                    <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
+                  )}
+                  <Typography
+                    variant="body2"
+                    color={tool.success ? 'text.secondary' : 'error.main'}
+                  >
+                    {tool.description || tool.tool}
+                  </Typography>
+                </Box>
+                {tool.reasoning && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      ml: 2.5,
+                      mt: 0.25,
+                      mb: 0.5,
+                      fontStyle: 'italic',
+                      borderLeft: 2,
+                      borderColor: 'divider',
+                      pl: 1,
+                    }}
+                  >
+                    {tool.reasoning}
+                  </Typography>
                 )}
-                <Typography
-                  variant="body2"
-                  color={tool.success ? 'text.secondary' : 'error.main'}
-                >
-                  {tool.description || tool.tool}
-                </Typography>
               </Box>
             ))}
           </Box>
@@ -160,6 +205,27 @@ export default function ArchitectMessageBubble({
 
         {/* Message content */}
         <MarkdownContent content={message.content} variant="body2" />
+
+        {/* File attachment chips (user messages) */}
+        {isUser && message.files && message.files.length > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+            {message.files.map((f) => (
+              <Chip
+                key={`${f.filename}-${f.size}`}
+                icon={<InsertDriveFileIcon />}
+                label={f.filename}
+                size="small"
+                variant="outlined"
+                sx={{
+                  borderColor: 'primary.contrastText',
+                  color: 'primary.contrastText',
+                  '& .MuiChip-icon': { color: 'primary.contrastText' },
+                  opacity: 0.85,
+                }}
+              />
+            ))}
+          </Box>
+        )}
 
         {/* Footer with time and copy */}
         <Box

@@ -8,9 +8,10 @@ eventually Penelope when it migrates to the agents framework).
 import asyncio
 import json
 import logging
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from rhesis.sdk.agents.base import BaseTool
+from rhesis.sdk.agents.events import _emit
 from rhesis.sdk.agents.schemas import ToolResult
 from rhesis.sdk.targets import Target
 
@@ -233,6 +234,46 @@ class ExploreEndpointTool(BaseTool):
                 error=f"Failed to resolve endpoint: {e}",
             )
 
+        handlers = kwargs.get("_event_handlers", [])
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        def _on_tool_start(tool_name: str, arguments: Dict[str, Any], reasoning: str) -> None:
+            if not handlers or not loop:
+                return
+            asyncio.run_coroutine_threadsafe(
+                _emit(
+                    handlers,
+                    "on_tool_start",
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    reasoning=reasoning,
+                ),
+                loop,
+            )
+
+        def _on_tool_end(tool_name: str, result: Any) -> None:
+            if not handlers or not loop:
+                return
+            # Convert penelope ToolResult to SDK ToolResult
+            sdk_result = ToolResult(
+                tool_name=tool_name,
+                success=getattr(result, "success", False) if result else False,
+                content=str(getattr(result, "output", "")) if result else "",
+                error=getattr(result, "error", None) if result else None,
+            )
+            asyncio.run_coroutine_threadsafe(
+                _emit(
+                    handlers,
+                    "on_tool_end",
+                    tool_name=tool_name,
+                    result=sdk_result,
+                ),
+                loop,
+            )
+
         try:
             result = await asyncio.to_thread(
                 self._run_exploration,
@@ -241,6 +282,8 @@ class ExploreEndpointTool(BaseTool):
                 instructions=instructions,
                 scenario=scenario,
                 restrictions=restrictions,
+                on_tool_start=_on_tool_start,
+                on_tool_end=_on_tool_end,
             )
         except Exception as e:
             logger.error(
@@ -288,6 +331,8 @@ class ExploreEndpointTool(BaseTool):
         instructions: Optional[str],
         scenario: Optional[str],
         restrictions: Optional[str],
+        on_tool_start: Optional[Any] = None,
+        on_tool_end: Optional[Any] = None,
     ) -> Any:
         """Create Penelope agent and run exploration.
 
@@ -305,6 +350,8 @@ class ExploreEndpointTool(BaseTool):
             instructions=instructions,
             scenario=scenario,
             restrictions=restrictions,
+            on_tool_start=on_tool_start,
+            on_tool_end=on_tool_end,
         )
 
     @staticmethod

@@ -426,6 +426,8 @@ class PenelopeAgent:
         max_turns: Optional[int] = None,
         min_turns: Optional[int] = None,
         files: Optional[List[Dict[str, str]]] = None,
+        on_tool_start: Optional[Any] = None,
+        on_tool_end: Optional[Any] = None,
     ) -> TestResult:
         """
         Execute a multi-turn test.
@@ -618,7 +620,9 @@ class PenelopeAgent:
                 return result
 
             # Execute one turn
-            success = self.executor.execute_turn(state, tools, system_prompt)
+            success = self.executor.execute_turn(
+                state, tools, system_prompt, on_tool_start=on_tool_start, on_tool_end=on_tool_end
+            )
 
             if not success:
                 # Turn execution failed

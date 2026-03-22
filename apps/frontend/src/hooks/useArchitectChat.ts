@@ -9,7 +9,6 @@ import {
   ArchitectPlanUpdatePayload,
   ArchitectModeChangePayload,
   ArchitectErrorPayload,
-  ArchitectStreamStartPayload,
   ArchitectTextChunkPayload,
   ArchitectStreamEndPayload,
 } from '@/utils/websocket';
@@ -22,22 +21,44 @@ export interface ArchitectChatMessage {
   isError?: boolean;
   needsConfirmation?: boolean;
   isStreaming?: boolean;
+  files?: Array<{
+    filename: string;
+    content_type: string;
+    data: string;
+    size: number;
+  }>;
 }
 
 export interface StreamingState {
   isThinking: boolean;
   currentIteration?: number;
-  activeTools: Array<{ tool: string; description?: string; args?: Record<string, unknown> }>;
+  activeTools: Array<{
+    tool: string;
+    description?: string;
+    args?: Record<string, unknown>;
+    reasoning?: string;
+  }>;
   completedTools: Array<{
     tool: string;
     description?: string;
     success: boolean;
     preview?: string;
+    reasoning?: string;
   }>;
 }
 
 interface UseArchitectChatOptions {
   sessionId: string | null;
+}
+
+export interface ChatAttachments {
+  mentions?: Array<{ type: string; id: string; display: string }>;
+  files?: Array<{
+    filename: string;
+    content_type: string;
+    data: string;
+    size: number;
+  }>;
 }
 
 interface UseArchitectChatResult {
@@ -48,7 +69,7 @@ interface UseArchitectChatResult {
   streamingState: StreamingState;
   currentMode: string;
   currentPlan: string | null;
-  sendMessage: (message: string) => void;
+  sendMessage: (message: string, attachments?: ChatAttachments) => void;
   setMessages: React.Dispatch<React.SetStateAction<ArchitectChatMessage[]>>;
 }
 
@@ -75,8 +96,9 @@ export function useArchitectChat(
   const [messages, setMessages] = useState<ArchitectChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [streamingState, setStreamingState] =
-    useState<StreamingState>(initialStreamingState);
+  const [streamingState, setStreamingState] = useState<StreamingState>(
+    initialStreamingState
+  );
   const [currentMode, setCurrentMode] = useState('discovery');
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
 
@@ -155,7 +177,9 @@ export function useArchitectChat(
               m.id === streamId
                 ? {
                     ...m,
-                    content: payload.error ? m.content || payload.content : m.content,
+                    content: payload.error
+                      ? m.content || payload.content
+                      : m.content,
                     isError: !!payload.error,
                   }
                 : m
@@ -216,7 +240,12 @@ export function useArchitectChat(
           ...prev,
           activeTools: [
             ...prev.activeTools,
-            { tool: payload.tool, description: payload.description, args: payload.args },
+            {
+              tool: payload.tool,
+              description: payload.description,
+              args: payload.args,
+              reasoning: payload.reasoning,
+            },
           ],
         }));
       })
@@ -226,34 +255,36 @@ export function useArchitectChat(
       subscribe(EventType.ARCHITECT_TOOL_END, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectToolPayload;
         if (!payload?.tool) return;
-        setStreamingState(prev => ({
-          ...prev,
-          activeTools: prev.activeTools.filter(t => t.tool !== payload.tool),
-          completedTools: [
-            ...prev.completedTools,
-            {
-              tool: payload.tool,
-              description: payload.description,
-              success: payload.success ?? true,
-              preview: payload.preview,
-            },
-          ],
-        }));
+        setStreamingState(prev => {
+          const activeTool = prev.activeTools.find(t => t.tool === payload.tool);
+          return {
+            ...prev,
+            activeTools: prev.activeTools.filter(t => t.tool !== payload.tool),
+            completedTools: [
+              ...prev.completedTools,
+              {
+                tool: payload.tool,
+                description: payload.description,
+                success: payload.success ?? true,
+                preview: payload.preview,
+                reasoning: activeTool?.reasoning || payload.reasoning,
+              },
+            ],
+          };
+        });
       })
     );
 
     unsubs.push(
       subscribe(EventType.ARCHITECT_PLAN_UPDATE, (msg: WebSocketMessage) => {
-        const payload =
-          msg.payload as unknown as ArchitectPlanUpdatePayload;
+        const payload = msg.payload as unknown as ArchitectPlanUpdatePayload;
         if (payload?.plan) setCurrentPlan(payload.plan);
       })
     );
 
     unsubs.push(
       subscribe(EventType.ARCHITECT_MODE_CHANGE, (msg: WebSocketMessage) => {
-        const payload =
-          msg.payload as unknown as ArchitectModeChangePayload;
+        const payload = msg.payload as unknown as ArchitectModeChangePayload;
         if (payload?.new_mode) setCurrentMode(payload.new_mode);
       })
     );
@@ -287,7 +318,7 @@ export function useArchitectChat(
   }, [subscribe, sessionId]);
 
   const sendMessage = useCallback(
-    (message: string) => {
+    (message: string, attachments?: ChatAttachments) => {
       if (!sessionId || !isConnected || isLoading) return;
 
       const trimmed = message.trim();
@@ -305,19 +336,25 @@ export function useArchitectChat(
           role: 'user',
           content: trimmed,
           timestamp: new Date(),
+          files: attachments?.files,
         },
       ]);
 
       setIsLoading(true);
       setStreamingState(initialStreamingState);
 
+      const payload: Record<string, unknown> = {
+        session_id: sessionId,
+        message: trimmed,
+      };
+      if (attachments) {
+        payload.attachments = attachments;
+      }
+
       const sent = send({
         type: EventType.ARCHITECT_MESSAGE,
         correlation_id: correlationId,
-        payload: {
-          session_id: sessionId,
-          message: trimmed,
-        },
+        payload,
       });
 
       if (!sent) {

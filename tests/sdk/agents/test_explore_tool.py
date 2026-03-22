@@ -68,9 +68,9 @@ class TestExploreEndpointToolInit:
         assert "endpoint_id" not in schema.get("properties", {})
         assert "endpoint_id" not in schema["required"]
 
-    def test_requires_confirmation_is_false(self):
+    def test_requires_confirmation_is_true(self):
         tool = ExploreEndpointTool(target_factory=lambda eid: FakeTarget(eid))
-        assert tool.requires_confirmation is False
+        assert tool.requires_confirmation is True
 
 
 @pytest.mark.unit

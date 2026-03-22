@@ -330,7 +330,7 @@ class BaseAgent:
             if isinstance(tool, BaseTool):
                 if tool.name == tool_name:
                     try:
-                        return await tool.execute(**arguments)
+                        return await tool.execute(**arguments, _event_handlers=self._event_handlers)
                     except Exception as e:
                         return ToolResult(
                             tool_name=tool_name,
@@ -765,7 +765,7 @@ class BaseAgent:
             for tc in action.tool_calls:
                 print(f"   - {tc.tool_name}")
 
-        tool_results = await self._execute_tools(action.tool_calls)
+        tool_results = await self._execute_tools(action.tool_calls, reasoning=action.reasoning)
         return (
             ExecutionStep(
                 iteration=iteration,
@@ -777,7 +777,7 @@ class BaseAgent:
             False,
         )
 
-    async def _execute_tools(self, tool_calls: List[ToolCall]) -> List[ToolResult]:
+    async def _execute_tools(self, tool_calls: List[ToolCall], reasoning: str = "") -> List[ToolResult]:
         results: List[ToolResult] = []
         for tc in tool_calls:
             arguments = tc.arguments
@@ -786,10 +786,18 @@ class BaseAgent:
                 "on_tool_start",
                 tool_name=tc.tool_name,
                 arguments=arguments,
+                reasoning=reasoning,
             )
 
             result = await self.execute_tool(tc)
             results.append(result)
+
+            if not result.success:
+                logger.warning(
+                    "[Agent] Tool %s failed: %s",
+                    tc.tool_name,
+                    result.error,
+                )
 
             await _emit(
                 self._event_handlers,
