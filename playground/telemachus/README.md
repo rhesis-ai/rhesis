@@ -21,6 +21,7 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 
 ### TODOs
 - [ ] Introduce a button for "accept all for this session" to allow users to bypass per-action confirmations.
+- [ ] Improve the test execution flow to be smoother and more robust. Currently, the agent struggles with "Test configuration not found" errors, gets confused about whether configurations exist, and attempts to re-create them manually instead of relying on the backend's automated execution process.
 
 ### Robustness & Safety Fixes
 - Fixed a context scope bug in `architect.py` that caused `DetachedInstanceError` when accessing DB session properties out of bounds.

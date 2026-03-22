@@ -60,6 +60,23 @@ tools:
           them automatically. Use list_behaviors, list_categories, and
           list_topics to discover existing values first.
 
+  - name: execute_test_set
+    label: Running test set
+    method: POST
+    path: /test_sets/{test_set_identifier}/execute/{endpoint_id}
+    requires_confirmation: true
+    description: >
+      Run a complete test set against a specified endpoint. This tool
+      automatically handles creating any necessary internal test configurations
+      and triggers the test run immediately.
+    parameters:
+      test_set_identifier:
+        description: "REQUIRED. The UUID or name of the test set to execute."
+      endpoint_id:
+        description: "REQUIRED. The UUID of the target endpoint to test."
+      attributes:
+        description: "Optional execution attributes (object)."
+
   # ── Tests ─────────────────────────────────────────────────
   - name: list_tests
     label: Listing tests
@@ -78,39 +95,6 @@ tools:
     description: >
       Execute tests against a configured endpoint. Sends prompts to
       the endpoint, collects responses, and evaluates results.
-
-  # ── Test Configurations ───────────────────────────────────
-  - name: list_test_configurations
-    label: Listing test configurations
-    method: GET
-    path: /test_configurations/
-    description: >
-      List test configurations. A test configuration links a test set
-      to an endpoint, defining how tests should be run. Use $select to
-      request only the fields you need.
-
-  - name: create_test_configuration
-    label: Setting up test configuration
-    method: POST
-    path: /test_configurations/
-    requires_confirmation: true
-    description: >
-      Create a test configuration that links a test set to an endpoint.
-      Required: endpoint_id (UUID string), test_set_id (UUID string).
-      Optional: category_id, topic_id, prompt_id (all UUID strings),
-      attributes (object). After creating a test configuration, call
-      execute_test_configuration to run the tests. Do NOT send
-      server-managed fields (id, user_id, organization_id, created_at,
-      updated_at).
-
-  - name: execute_test_configuration
-    label: Running tests
-    method: POST
-    path: /test_configurations/{test_configuration_id}/execute
-    requires_confirmation: true
-    description: >
-      Execute a test configuration — runs all tests in the linked test
-      set against the configured endpoint.
 
   # ── Test Runs ─────────────────────────────────────────────
   - name: list_test_runs
