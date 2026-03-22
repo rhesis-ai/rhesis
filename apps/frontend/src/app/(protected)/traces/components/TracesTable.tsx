@@ -158,6 +158,39 @@ export default function TracesTable({
         },
       },
       {
+        field: 'trace_metrics_status',
+        headerName: 'Evaluation',
+        width: 110,
+        renderCell: params => {
+          const evalStatus = params.value as string | undefined;
+          if (!evalStatus) {
+            return (
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.disabled', fontStyle: 'italic' }}
+              >
+                —
+              </Typography>
+            );
+          }
+          const color =
+            evalStatus === 'Pass'
+              ? 'success'
+              : evalStatus === 'Fail'
+                ? 'error'
+                : 'warning';
+          return (
+            <Chip
+              label={evalStatus}
+              color={color}
+              size="small"
+              variant="outlined"
+              sx={{ fontWeight: 500 }}
+            />
+          );
+        },
+      },
+      {
         field: 'environment',
         headerName: 'Environment',
         width: 120,

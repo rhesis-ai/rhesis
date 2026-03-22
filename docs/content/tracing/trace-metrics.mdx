@@ -1,0 +1,144 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Trace Metrics
+
+Trace Metrics let you run evaluation metrics against live production traces automatically. Every time your endpoint handles a request, Rhesis can evaluate the response for safety, relevance, coherence, or any custom criteria you define — giving you continuous quality signals without writing additional test cases.
+
+## When Evaluation Runs
+
+Trace metrics evaluate at two levels depending on the type of trace.
+
+**Per-turn evaluation** runs immediately after each request. This is where you catch issues in real time: safety violations, off-topic responses, hallucinations. Every trace gets per-turn evaluation.
+
+**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. Only multi-turn traces get conversation evaluation.
+
+For single-turn traces (no `conversation_id`), all configured metrics run in the per-turn pass since the trace represents a complete exchange.
+
+## Setting Up Trace Metrics
+
+### 1. Create metrics with the Trace scope
+
+Add `MetricScope.TRACE` to any metric you want to run on live traces. Combine it with `Single-Turn` or `Multi-Turn` to control when the metric runs:
+
+<CodeBlock filename="setup_trace_metrics.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge, MetricScope
+
+# Runs immediately after each turn — good for guardrails
+safety = NumericJudge(
+    name="trace_safety_check",
+    evaluation_prompt="Rate how safe and appropriate the response is.",
+    metric_scope=[MetricScope.TRACE, MetricScope.SINGLE_TURN],
+    min_score=0.0,
+    max_score=1.0,
+    threshold=0.7,
+)
+safety.push()
+
+# Runs after the conversation ends — good for overall quality
+coherence = NumericJudge(
+    name="trace_conversation_coherence",
+    evaluation_prompt="Rate the overall coherence of this conversation.",
+    metric_scope=[MetricScope.TRACE, MetricScope.MULTI_TURN],
+    min_score=0.0,
+    max_score=10.0,
+    threshold=6.0,
+)
+coherence.push()`}
+</CodeBlock>
+
+If you set the scope to just `["Trace"]` without specifying Single-Turn or Multi-Turn, the metric adapts automatically: it runs per-turn on single-turn traces and per-conversation on multi-turn traces.
+
+<CodeBlock filename="adaptive_metric.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge, MetricScope
+
+# Adapts to the trace type automatically
+relevance = NumericJudge(
+    name="trace_response_relevance",
+    evaluation_prompt="Rate how relevant the response is to the user's request.",
+    metric_scope=[MetricScope.TRACE],
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+)
+relevance.push()`}
+</CodeBlock>
+
+### Scope Quick Reference
+
+| Scope | Evaluates | Typical use |
+| --- | --- | --- |
+| `Trace` + `Single-Turn` | Each turn, immediately | Safety, toxicity, response relevance |
+| `Trace` + `Multi-Turn` | Full conversation, after inactivity | Coherence, goal achievement, knowledge retention |
+| `Trace` alone | Adapts to trace type | General-purpose quality checks |
+
+Metrics without `Trace` in their scope are never applied to live traces. They continue to work only during test execution.
+
+### 2. Configure your project (optional)
+
+By default, all Trace-scoped metrics run on every trace at a 100% sampling rate. You can customize this per project:
+
+<CodeBlock filename="project_attributes.json" language="json">
+{`{
+  "trace_metrics": {
+    "enabled": true,
+    "metric_ids": ["uuid-1", "uuid-2"],
+    "sampling_rate": 1.0
+  }
+}`}
+</CodeBlock>
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `enabled` | `true` | Set to `false` to disable trace evaluation for this project |
+| `metric_ids` | all Trace-scoped metrics | Restrict evaluation to specific metric IDs |
+| `sampling_rate` | `1.0` | Fraction of traces to evaluate (0.0 to 1.0) |
+
+### 3. Deploy your endpoint
+
+No changes needed in your application code. If your endpoint is already sending traces to Rhesis, evaluation starts automatically once Trace-scoped metrics exist.
+
+## Viewing Results
+
+### Traces Table
+
+The Traces dashboard includes an **Evaluation** column showing the overall status for each trace: **Pass**, **Fail**, or a dash when no evaluation has run yet.
+
+### Trace Drawer
+
+When you click on a trace that has evaluation results, a **Trace Metrics** tab appears in the detail drawer with two sections:
+
+- **Turn Metrics** — per-turn results for the selected span, showing each metric's score, pass/fail status, and the evaluator's reasoning
+- **Conversation Metrics** — full-conversation results shared across all spans, shown only for multi-turn traces
+
+## Using Trace Metrics with Test Metrics
+
+A metric can participate in both test execution and trace evaluation. Add all three scopes to make a metric universal:
+
+<CodeBlock filename="universal_metric.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge, MetricScope
+
+metric = NumericJudge(
+    name="response_quality",
+    evaluation_prompt="Rate the overall quality of the response.",
+    metric_scope=[
+        MetricScope.SINGLE_TURN,
+        MetricScope.MULTI_TURN,
+        MetricScope.TRACE,
+    ],
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+)
+metric.push()`}
+</CodeBlock>
+
+This metric runs during test execution (single-turn and multi-turn tests) and also evaluates every live trace automatically.
+
+---
+
+<Callout type="info">
+  **Related:**
+  - [SDK Metrics](/sdk/metrics) — create and configure evaluation metrics
+  - [Conversation Tracing](/tracing/conversation-tracing) — multi-turn trace grouping
+  - [Decorators](/tracing/decorators) — `@observe` and `@endpoint`
+</Callout>

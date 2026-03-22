@@ -4090,3 +4090,79 @@ def delete_file(
 ) -> Optional[models.File]:
     """Soft-delete a file."""
     return delete_item(db, models.File, file_id, organization_id, user_id)
+
+
+# ---------------------------------------------------------------
+# Trace metrics CRUD helpers
+# ---------------------------------------------------------------
+
+
+def update_trace_turn_metrics(
+    db: Session,
+    span_id: str,
+    turn_metrics: dict,
+    status_id: Optional[str] = None,
+    processed_at: Optional[datetime] = None,
+) -> int:
+    """Update turn-level trace metrics on a single span row.
+
+    Merges turn_metrics into trace_metrics.turn_metrics without
+    overwriting conversation_metrics if already present.
+    """
+    span = db.query(models.Trace).filter(models.Trace.id == span_id).first()
+    if not span:
+        return 0
+
+    existing = span.trace_metrics or {}
+    existing["turn_metrics"] = turn_metrics
+    now = processed_at or datetime.utcnow()
+
+    update_values: Dict[str, Any] = {
+        "trace_metrics": existing,
+        "trace_metrics_processed_at": now,
+        "updated_at": datetime.utcnow(),
+    }
+    if status_id is not None:
+        update_values["trace_metrics_status_id"] = status_id
+
+    result = (
+        db.query(models.Trace)
+        .filter(models.Trace.id == span_id)
+        .update(update_values)
+    )
+    db.commit()
+    return result
+
+
+def update_trace_conversation_metrics(
+    db: Session,
+    trace_id: str,
+    conversation_metrics: dict,
+    status_id: Optional[str] = None,
+    processed_at: Optional[datetime] = None,
+) -> int:
+    """Update conversation-level trace metrics on all spans sharing a trace_id.
+
+    Writes conversation_metrics into trace_metrics.conversation_metrics on
+    every span row, re-derives status from combined turn + conversation results.
+    """
+    spans = (
+        db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
+    )
+    if not spans:
+        return 0
+
+    now = processed_at or datetime.utcnow()
+    count = 0
+    for span in spans:
+        existing = span.trace_metrics or {}
+        existing["conversation_metrics"] = conversation_metrics
+        span.trace_metrics = existing
+        span.trace_metrics_processed_at = now
+        span.updated_at = datetime.utcnow()
+        if status_id is not None:
+            span.trace_metrics_status_id = status_id
+        count += 1
+
+    db.commit()
+    return count

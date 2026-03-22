@@ -43,6 +43,18 @@ def enrich_trace_async(self, trace_id: str, project_id: str, organization_id: st
             ]
             logger.info(f"Completed async enrichment for trace {trace_id}: {enriched_fields}")
 
+            # Trigger turn-level trace metrics evaluation
+            try:
+                from rhesis.backend.tasks.telemetry.evaluate import (
+                    evaluate_turn_trace_metrics,
+                )
+
+                evaluate_turn_trace_metrics.delay(trace_id, project_id, organization_id)
+            except Exception as eval_err:
+                logger.warning(
+                    f"Failed to schedule trace metrics evaluation for {trace_id}: {eval_err}"
+                )
+
             return {
                 "status": "success",
                 "trace_id": trace_id,

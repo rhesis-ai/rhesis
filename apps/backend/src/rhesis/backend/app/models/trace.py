@@ -73,11 +73,19 @@ class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
     processed_at = Column(DateTime, nullable=True)
     enriched_data = Column(JSONB, default=dict)
 
+    # Trace metrics evaluation
+    trace_metrics = Column(JSONB, nullable=True)
+    trace_metrics_status_id = Column(
+        GUID(), ForeignKey("status.id"), nullable=True, index=True
+    )
+    trace_metrics_processed_at = Column(DateTime, nullable=True)
+
     # Relationships
     project = relationship("Project", back_populates="traces")
     test_run = relationship("TestRun", foreign_keys=[test_run_id], backref="traces")
     test_result = relationship("TestResult", foreign_keys=[test_result_id], backref="traces")
     test = relationship("Test", foreign_keys=[test_id], backref="traces")
+    trace_metrics_status = relationship("Status", foreign_keys=[trace_metrics_status_id])
 
     # Composite indexes
     __table_args__ = (
@@ -101,6 +109,11 @@ class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
             "attributes",
             postgresql_using="gin",
             postgresql_ops={"attributes": "jsonb_path_ops"},
+        ),
+        Index(
+            "idx_trace_metrics_unprocessed",
+            "created_at",
+            postgresql_where=(trace_metrics_processed_at.is_(None)),
         ),
     )
 

@@ -22,11 +22,13 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import HubIcon from '@mui/icons-material/Hub';
 import ForumIcon from '@mui/icons-material/Forum';
 import Link from 'next/link';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import SpanTreeView from './SpanTreeView';
 import SpanSequenceView from './SpanSequenceView';
 import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
+import TraceMetricsTab from './TraceMetricsTab';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -65,12 +67,14 @@ export default function TraceDrawer({
   // Tab index computation for optional conversation tab
   const showConversationTab = !!trace?.conversation_id;
   const isConversationTrace = showConversationTab;
+  const hasTraceMetrics = trace?.root_spans?.some(s => s.trace_metrics) ?? false;
   const tabIndices = useMemo(() => {
     const offset = showConversationTab ? 1 : 0;
     return {
       tree: 0 + offset,
       sequence: 1 + offset,
       graph: 2 + offset,
+      metrics: 3 + offset,
     };
   }, [showConversationTab]);
 
@@ -485,6 +489,15 @@ export default function TraceDrawer({
                   id="span-hierarchy-tab-graph"
                   aria-controls="span-hierarchy-tabpanel-graph"
                 />
+                {hasTraceMetrics && (
+                  <Tab
+                    icon={<AssessmentIcon fontSize="small" />}
+                    iconPosition="start"
+                    label="Trace Metrics"
+                    id="span-hierarchy-tab-metrics"
+                    aria-controls="span-hierarchy-tabpanel-metrics"
+                  />
+                )}
               </Tabs>
             </Box>
 
@@ -539,6 +552,12 @@ export default function TraceDrawer({
                   onSpanSelect={handleSpanSelect}
                   isConversationTrace={isConversationTrace}
                   rootSpans={trace.root_spans}
+                />
+              )}
+              {hasTraceMetrics && viewTab === tabIndices.metrics && (
+                <TraceMetricsTab
+                  selectedSpan={selectedSpan}
+                  isConversationTrace={isConversationTrace}
                 />
               )}
             </Box>

@@ -38,3 +38,4 @@ class MetricScope(str, Enum):
 
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
+    TRACE = "Trace"

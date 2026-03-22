@@ -34,7 +34,15 @@ Conversational metrics (multi-turn metrics) evaluate the quality of interactions
 
 ## Metric Scopes
 
-Every metric has a `metric_scope` that controls which test types it can be used with. The scope can be `Single-Turn`, `Multi-Turn`, or both.
+Every metric has a `metric_scope` that controls where and when it runs. The three scope values are:
+
+- **`Single-Turn`** — runs during single-turn test evaluation and per-turn trace evaluation
+- **`Multi-Turn`** — runs during multi-turn test evaluation and conversation-level trace evaluation
+- **`Trace`** — enables automatic evaluation against live traces (see below)
+
+A metric can have any combination of these scopes. Scopes are additive: including more values makes the metric eligible in more contexts.
+
+### Default Scopes by Metric Class
 
 | Metric Class | Default Scope | Notes |
 | --- | --- | --- |
@@ -65,6 +73,60 @@ metric = NumericJudge(
     threshold=7.0,
 )`}
 </CodeBlock>
+
+### Trace Scope
+
+The `Trace` scope enables a metric for automatic evaluation against live production traces. Unlike `Single-Turn` and `Multi-Turn` (which apply during test execution), `Trace` activates the background evaluation pipeline that processes traces after ingestion.
+
+Combine `Trace` with `Single-Turn` or `Multi-Turn` to control which evaluation phase applies the metric:
+
+| Scope combination | When it runs | Use case |
+| --- | --- | --- |
+| `["Trace", "Single-Turn"]` | Immediately after each turn | Per-turn guardrails: safety, toxicity, response quality |
+| `["Trace", "Multi-Turn"]` | After conversation inactivity timeout | Full-conversation analysis: coherence, goal achievement |
+| `["Trace"]` alone | Per-turn on single-turn traces; per-conversation on multi-turn | General-purpose metrics that adapt to the trace type |
+
+Order within the list does not matter. Adding `Trace` to a metric that already has `Single-Turn` and `Multi-Turn` makes it eligible for both test execution and trace evaluation.
+
+<CodeBlock filename="trace_scoped_metrics.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge, MetricScope
+
+# Per-turn guardrail on live traces
+safety = NumericJudge(
+    name="trace_safety_check",
+    evaluation_prompt="Rate how safe the response is. 1 = unsafe, 0 = safe.",
+    metric_scope=[MetricScope.TRACE, MetricScope.SINGLE_TURN],
+    min_score=0.0,
+    max_score=1.0,
+    threshold=0.7,
+)
+
+# Conversation-level metric on live traces
+coherence = NumericJudge(
+    name="trace_conversation_coherence",
+    evaluation_prompt="Rate the overall coherence of this conversation.",
+    metric_scope=[MetricScope.TRACE, MetricScope.MULTI_TURN],
+    min_score=0.0,
+    max_score=10.0,
+    threshold=6.0,
+)
+
+# Works in both test execution AND trace evaluation
+all_contexts = NumericJudge(
+    name="universal_relevance",
+    evaluation_prompt="Rate how relevant the response is to the user's request.",
+    metric_scope=[MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN, MetricScope.TRACE],
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+)`}
+</CodeBlock>
+
+<Callout type="info">
+
+For full details on how trace metrics evaluation works — including the two-phase pipeline, debounce timing, project configuration, and first-turn handling — see the [Trace Metrics](/tracing/trace-metrics) documentation.
+
+</Callout>
 
 ## Framework Integration
 
@@ -195,6 +257,7 @@ metric = NumericJudge.pull(name="response_clarity")`}
 
 - [**Single-Turn Metrics**](./single-turn) - Learn about all available single-turn metrics
 - [**Conversational Metrics**](./conversational) - Learn about all available conversational metrics
+- [**Trace Metrics**](/tracing/trace-metrics) - Automatic evaluation on live production traces
 - [**Models Documentation**](../models) - Configure LLM models for evaluation
 - [**Installation & Setup**](../installation) - Setup instructions
 

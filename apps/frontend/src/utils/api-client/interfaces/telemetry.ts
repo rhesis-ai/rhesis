@@ -27,6 +27,7 @@ export interface SpanNode {
   attributes: Record<string, string | number | boolean>;
   events: SpanEvent[];
   children: SpanNode[];
+  trace_metrics?: Record<string, unknown>;
   tags?: Array<{ id: string; name: string }>;
   comments?: Array<{ id: string; content: string }>;
 }
@@ -58,6 +59,9 @@ export interface TraceSummary {
   endpoint_id?: string;
   endpoint_name?: string;
 
+  // Trace metrics evaluation
+  trace_metrics_status?: string;
+
   // Counts for UI
   tags_count?: number;
   comments_count?: number;
@@ -79,6 +83,9 @@ export interface TraceDetailResponse {
   total_tokens: number;
   total_cost_usd: number;
   root_spans: SpanNode[];
+
+  // Trace metrics evaluation
+  trace_metrics_status?: string;
 
   // Related entities (optional - populated via relationships)
   project?: {

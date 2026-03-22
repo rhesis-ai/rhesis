@@ -62,6 +62,7 @@ class MetricType(str, Enum):
 class MetricScope(str, Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
+    TRACE = "Trace"
 
 
 class ThresholdOperator(str, Enum):

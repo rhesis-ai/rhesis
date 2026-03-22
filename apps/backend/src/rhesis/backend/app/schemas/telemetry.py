@@ -100,6 +100,12 @@ class OTELSpanResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    # Trace metrics
+    trace_metrics: Optional[Dict[str, Any]] = None
+    trace_metrics_status: Optional[str] = Field(
+        default=None, description="Evaluation status name (Pass/Fail/Error)"
+    )
+
     # Tags and comments
     tags: Optional[List[TagRead]] = Field(
         default_factory=list, description="Tags associated with this trace"
@@ -166,6 +172,11 @@ class TraceSummary(BaseModel):
         default=None, description="Endpoint name if this trace is linked to an endpoint"
     )
 
+    # Trace metrics evaluation status
+    trace_metrics_status: Optional[str] = Field(
+        default=None, description="Evaluation status name (Pass/Fail/Error)"
+    )
+
     # Tags and comments count for summary view
     tags_count: Optional[int] = Field(
         default=0, description="Number of tags associated with this trace"
@@ -202,6 +213,9 @@ class SpanNode(BaseModel):
     events: List[Dict[str, Any]]
     children: List["SpanNode"] = Field(default_factory=list)
 
+    # Trace metrics
+    trace_metrics: Optional[Dict[str, Any]] = None
+
     # Tags and comments
     tags: Optional[List[TagRead]] = Field(
         default_factory=list, description="Tags associated with this span"
@@ -226,6 +240,11 @@ class TraceDetailResponse(BaseModel):
     total_tokens: int
     total_cost_usd: float
     root_spans: List[SpanNode]
+
+    # Trace metrics evaluation status
+    trace_metrics_status: Optional[str] = Field(
+        default=None, description="Evaluation status name (Pass/Fail/Error)"
+    )
 
     # Related entities (optional - populated via relationships)
     project: Optional[Project] = Field(default=None, description="Project this trace belongs to")

@@ -99,6 +99,7 @@ app.conf.update(
         "rhesis.backend.tasks.execution.results",
         "rhesis.backend.tasks.execution.test",
         "rhesis.backend.tasks.telemetry.enrich",
+        "rhesis.backend.tasks.telemetry.evaluate",
     ],
 )
 
