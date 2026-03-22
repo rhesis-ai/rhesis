@@ -67,6 +67,8 @@ jobs:
       image_name: ${{ steps.set_env.outputs.image_name }}
       service_name: ${{ steps.set_env.outputs.service_name }}
       environment: ${{ env.ENVIRONMENT }}
+      commit_sha: ${{ steps.set_env.outputs.commit_sha }}
+      git_branch: ${{ steps.set_env.outputs.git_branch }}
 
     steps:
       - uses: actions/checkout@v4
@@ -124,6 +126,13 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
           echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> "$GITHUB_ENV"
+
+          # Git metadata for worker startup logging
+          COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          {
+            echo "commit_sha=$COMMIT_SHA"
+            echo "git_branch=${{ github.ref_name }}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Configure Docker for GCR
         run: |
@@ -327,6 +336,8 @@ jobs:
           # Update deployment with actual values
           sed -i "s|gcr.io/PROJECT_ID/rhesis-worker|${{ env.IMAGE_NAME }}|g" deployment.yaml
           sed -i "s|PROJECT_ID:REGION:CLOUDSQL_INSTANCE|${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ secrets.CLOUDSQL_INSTANCE }}|g" deployment.yaml
+          sed -i "s|GIT_BRANCH_PLACEHOLDER|${{ needs.build.outputs.git_branch }}|g" deployment.yaml
+          sed -i "s|GIT_COMMIT_PLACEHOLDER|${{ needs.build.outputs.commit_sha }}|g" deployment.yaml
           sed -i "s|GCP_SERVICE_ACCOUNT_EMAIL|${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}|g" serviceaccount.yaml
 
           # Optimize resource settings for stability (ensure optimized values are applied)

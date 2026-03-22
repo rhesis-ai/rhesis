@@ -131,7 +131,8 @@ RUN adduser --disabled-password --gecos '' rhesis-user && \
 # Copy the virtual environment from builder
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/.venv /app/.venv
 
-# Copy source code and scripts with proper ownership and permissions
+# Copy source code, pyproject.toml (for runtime version reading), and scripts
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/pyproject.toml /app/pyproject.toml
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/src /app/src
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/penelope /app/penelope

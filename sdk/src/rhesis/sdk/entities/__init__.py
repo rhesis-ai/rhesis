@@ -16,6 +16,12 @@ from .file import File
 from .model import Model, Models
 from .project import Project, Projects
 from .prompt import Prompt, Prompts
+from .stats import (
+    TestResultStats,
+    TestResultStatsMode,
+    TestRunStats,
+    TestRunStatsMode,
+)
 from .status import Status, Statuses
 from .test import Test, Tests
 from .test_result import TestResult, TestResults
@@ -45,6 +51,10 @@ __all__ = [
     "Tests",
     "TestResult",
     "TestResults",
+    "TestResultStats",
+    "TestResultStatsMode",
+    "TestRunStats",
+    "TestRunStatsMode",
     "RunStatus",
     "TestRun",
     "TestRuns",
