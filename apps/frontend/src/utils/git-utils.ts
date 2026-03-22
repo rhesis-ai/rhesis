@@ -21,8 +21,7 @@ export function shouldShowGitInfo(): boolean {
   const frontendEnv = process.env.FRONTEND_ENV?.toLowerCase();
   const nodeEnv = process.env.NODE_ENV?.toLowerCase();
 
-  // Only show git info in development (not in staging or production)
-  return frontendEnv === 'development' || nodeEnv === 'development';
+  return frontendEnv !== 'production' || nodeEnv === 'development';
 }
 
 /**
