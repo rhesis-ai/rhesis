@@ -11,7 +11,7 @@ Rhesis backend - Penelope simply uses the SDK to invoke endpoints.
 import logging
 from typing import Any, Dict, List, Optional
 
-from rhesis.penelope.targets.base import Target, TargetResponse
+from rhesis.sdk.targets import Target, TargetResponse
 from rhesis.sdk.entities import Endpoint
 
 logger = logging.getLogger(__name__)

@@ -7,7 +7,7 @@ with Penelope's autonomous testing agent.
 
 from typing import Any, Dict, List, Optional
 
-from rhesis.penelope.targets.base import Target, TargetResponse
+from rhesis.sdk.targets import Target, TargetResponse
 
 
 class LangGraphTarget(Target):

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
-from rhesis.penelope.targets.base import Target, TargetResponse
+from rhesis.sdk.targets import Target, TargetResponse
 
 logger = logging.getLogger(__name__)
 

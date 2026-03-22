@@ -12,7 +12,7 @@ Future targets may include:
 - Custom targets: User-defined
 """
 
-from rhesis.penelope.targets.base import Target, TargetResponse
+from rhesis.sdk.targets import Target, TargetResponse
 from rhesis.penelope.targets.endpoint import EndpointTarget
 from rhesis.penelope.targets.langchain import LangChainTarget
 from rhesis.penelope.targets.langgraph import LangGraphTarget

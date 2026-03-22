@@ -2,7 +2,7 @@
 
 import pytest
 
-from rhesis.penelope.targets.base import Target, TargetResponse
+from rhesis.sdk.targets import Target, TargetResponse
 
 
 def test_target_response_creation():
