@@ -176,6 +176,7 @@ def architect_chat_task(
             saved_mode = db_session.mode or "discovery"
             saved_plan_data = db_session.plan_data
             saved_agent_state = db_session.agent_state or {}
+            session_has_title = bool(db_session.title)
 
         # 2. Construct agent with tools and event handler
         ws_handler = WebSocketEventHandler(session_id)
@@ -242,7 +243,8 @@ def architect_chat_task(
                 logger.warning("Failed to restore plan from saved data")
 
         # 3. Run the agent
-        response = asyncio.run(agent.chat_async(user_message))
+        processed_attachments = _process_attachments(attachments)
+        response = asyncio.run(agent.chat_async(user_message, attachments=processed_attachments))
 
         # 4. Persist response + state
         with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
@@ -273,7 +275,7 @@ def architect_chat_task(
 
             # Auto-generate title from first message if not set
             title_update = {}
-            if not db_session.title and user_message:
+            if not session_has_title and user_message:
                 title_update["title"] = user_message[:100].strip()
 
             crud.update_architect_session(
@@ -376,6 +378,53 @@ def _safe_preview(obj: Any, max_len: int = 200) -> Dict[str, Any]:
             for k, v in obj.items()
         }
     return {"value": str(obj)[:max_len]}
+
+
+def _process_attachments(
+    attachments: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Process raw attachments from the WebSocket payload.
+
+    - ``mentions`` are passed through as-is (already resolved by the frontend).
+    - ``files`` have their base64 ``data`` decoded and text extracted via
+      the SDK's ``DocumentExtractor`` (MarkItDown).  The binary ``data``
+      field is replaced with an extracted ``content`` string.
+    """
+    if not attachments:
+        return None
+
+    result: Dict[str, Any] = {}
+
+    mentions = attachments.get("mentions")
+    if mentions:
+        result["mentions"] = mentions
+
+    files = attachments.get("files")
+    if files:
+        from rhesis.sdk.services.extractor import DocumentExtractor
+
+        extractor = DocumentExtractor()
+        processed_files = []
+        for f in files:
+            filename = f.get("filename", "file")
+            try:
+                import base64
+
+                raw_bytes = base64.b64decode(f.get("data", ""))
+                content = extractor.extract_from_bytes(raw_bytes, filename)
+            except Exception as exc:
+                logger.warning("Failed to extract text from %s: %s", filename, exc)
+                content = f"[Could not extract text from {filename}: {exc}]"
+            processed_files.append(
+                {
+                    "filename": filename,
+                    "content_type": f.get("content_type", ""),
+                    "content": content,
+                }
+            )
+        result["files"] = processed_files
+
+    return result if result else None
 
 
 def _make_target_factory(org_id: str, user_id: str):
