@@ -18,7 +18,9 @@ export interface VersionInfo {
  * Returns true only for development environments.
  */
 export function shouldShowGitInfo(): boolean {
-  const frontendEnv = process.env.FRONTEND_ENV?.toLowerCase();
+  const frontendEnv = (
+    process.env.NEXT_PUBLIC_FRONTEND_ENV || process.env.FRONTEND_ENV
+  )?.toLowerCase();
   const nodeEnv = process.env.NODE_ENV?.toLowerCase();
 
   return frontendEnv !== 'production' || nodeEnv === 'development';
@@ -30,8 +32,8 @@ export function shouldShowGitInfo(): boolean {
  */
 export function getGitInfo(): GitInfo {
   return {
-    branch: process.env.GIT_BRANCH,
-    commit: process.env.GIT_COMMIT,
+    branch: process.env.NEXT_PUBLIC_GIT_BRANCH || process.env.GIT_BRANCH,
+    commit: process.env.NEXT_PUBLIC_GIT_COMMIT || process.env.GIT_COMMIT,
   };
 }
 

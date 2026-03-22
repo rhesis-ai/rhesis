@@ -57,19 +57,18 @@ const nextConfig = {
   // date-fns, recharts, etc.) are already optimized by Next.js by default.
 
   // Environment variables available to the client
-  env: {
-    APP_VERSION: JSON.parse(
-      readFileSync(path.join(__dirname, 'package.json'), 'utf8')
-    ).version,
-    FRONTEND_ENV: process.env.FRONTEND_ENV,
-    ...(() => {
-      const gitInfo = getGitInfo();
-      return {
-        GIT_BRANCH: gitInfo.branch,
-        GIT_COMMIT: gitInfo.commit,
-      };
-    })(),
-  },
+  // NEXT_PUBLIC_ prefix guarantees availability in client components
+  env: (() => {
+    const gitInfo = getGitInfo();
+    return {
+      APP_VERSION: JSON.parse(
+        readFileSync(path.join(__dirname, 'package.json'), 'utf8')
+      ).version,
+      NEXT_PUBLIC_FRONTEND_ENV: process.env.FRONTEND_ENV,
+      NEXT_PUBLIC_GIT_BRANCH: gitInfo.branch,
+      NEXT_PUBLIC_GIT_COMMIT: gitInfo.commit,
+    };
+  })(),
 
   // API rewrites for cross-container communication
   async rewrites() {
