@@ -16,6 +16,7 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 | 08 | `08-test-execution-and-analysis.md` | Planned |
 | 09 | `09-prompt-hardening.md` | Planned |
 | 10 | `10-permission-management.md` | Planned |
+| 11 | `11-advanced-exploration.md` | Planned |
 
 ## What was done (Phase 06 & 07 in progress)
 
@@ -193,6 +194,14 @@ mechanisms for controlling approval granularity:
   adversarial prompts that try to trick the agent into acting without approval
   (e.g., "just do it", "skip confirmation", "you already have my permission for
   everything").
+
+### Phase 11: Advanced Exploration (`11-advanced-exploration.md`)
+
+Fundamentally improve the `explore_endpoint` capability to make it more intelligent, stateful, and grounded in state-of-the-art research:
+
+- **True Multi-Turn Exploration**: Move away from firing multiple independent, single-turn interactions. The exploration must happen within the context of a coherent multi-turn conversation (or multiple parallel multi-turn conversations) to map out how the endpoint handles session context, anaphora resolution, and stateful tasks.
+- **Research-Driven Methodologies**: Introduce more intelligence into the probing process by incorporating insights from recent research papers on automated red-teaming, capability mapping, and LLM boundary discovery.
+- **Dynamic Adaptive Probing**: The exploration logic should adapt its strategy in real-time based on the endpoint's previous answers, diving deeper into specific areas when it detects hesitation, partial refusals, or complex capabilities.
 
 ## Quick start
 
