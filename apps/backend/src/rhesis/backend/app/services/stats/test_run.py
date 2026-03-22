@@ -93,13 +93,13 @@ def _get_stats(db: Session, filters: dict, mode: str, top: Optional[int]) -> Dic
         passed = r.passed or 0
         failed = r.failed or 0
         pending = r.pending or 0
-        completed = passed + failed
+        evaluated = passed + failed  # pending results excluded from pass_rate
         stats["result_distribution"] = {
             "total": total,
             "passed": passed,
             "failed": failed,
             "pending": pending,
-            "pass_rate": round((passed / completed) * 100, 2) if completed > 0 else 0,
+            "pass_rate": round((passed / evaluated) * 100, 2) if evaluated > 0 else 0,
         }
 
     if mode in ("all", "test_sets"):
