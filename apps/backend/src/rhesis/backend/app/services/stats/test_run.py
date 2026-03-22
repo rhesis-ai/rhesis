@@ -79,7 +79,7 @@ def _get_stats(db: Session, filters: dict, mode: str, top: Optional[int]) -> Dic
 
     if mode in ("all", "results", "summary"):
         VR = TestResultStatsView
-        matching_run_ids = base().with_entities(V.test_run_id)
+        matching_run_ids = base().with_entities(V.test_run_id).distinct()
         q = db.query(
             func.count().label("total"),
             func.count().filter(VR.result == OverallTestResult.PASSED).label("passed"),

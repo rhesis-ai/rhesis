@@ -15,7 +15,7 @@ export interface VersionInfo {
 
 /**
  * Determine if git information should be shown based on environment.
- * Returns true only for development environments.
+ * Returns true for all non-production environments (development, staging, etc.).
  */
 export function shouldShowGitInfo(): boolean {
   const frontendEnv = (

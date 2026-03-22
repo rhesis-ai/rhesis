@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
 # Mode enums (str subclass so they pass directly as query param strings)
@@ -83,7 +83,7 @@ class ExecutorRunCount(BaseModel):
 class TestRunTimelineData(BaseModel):
     date: str
     total_runs: int = 0
-    result_breakdown: Dict[str, int] = {}
+    result_breakdown: Dict[str, int] = Field(default_factory=dict)
 
 
 class TestRunOverallSummary(BaseModel):
@@ -102,9 +102,9 @@ class TestRunStatsMetadata(BaseModel):
     end_date: str = ""
     total_test_runs: int = 0
     mode: str = ""
-    available_statuses: List[str] = []
-    available_test_sets: List[str] = []
-    available_executors: List[str] = []
+    available_statuses: List[str] = Field(default_factory=list)
+    available_test_sets: List[str] = Field(default_factory=list)
+    available_executors: List[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -114,8 +114,8 @@ class TestRunStatsMetadata(BaseModel):
 
 class TimelineData(BaseModel):
     date: str
-    overall: OverallStats = OverallStats()
-    metrics: Dict[str, MetricStats] = {}
+    overall: OverallStats = Field(default_factory=OverallStats)
+    metrics: Dict[str, MetricStats] = Field(default_factory=dict)
 
 
 class TestRunSummary(BaseModel):
@@ -123,8 +123,8 @@ class TestRunSummary(BaseModel):
     name: str
     created_at: Optional[str] = None
     total_tests: int = 0
-    overall: OverallStats = OverallStats()
-    metrics: Dict[str, MetricStats] = {}
+    overall: OverallStats = Field(default_factory=OverallStats)
+    metrics: Dict[str, MetricStats] = Field(default_factory=dict)
 
 
 class TestResultStatsMetadata(BaseModel):
@@ -137,10 +137,10 @@ class TestResultStatsMetadata(BaseModel):
     total_test_runs: int = 0
     total_test_results: int = 0
     mode: str = ""
-    available_metrics: List[str] = []
-    available_behaviors: List[str] = []
-    available_categories: List[str] = []
-    available_topics: List[str] = []
+    available_metrics: List[str] = Field(default_factory=list)
+    available_behaviors: List[str] = Field(default_factory=list)
+    available_categories: List[str] = Field(default_factory=list)
+    available_topics: List[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

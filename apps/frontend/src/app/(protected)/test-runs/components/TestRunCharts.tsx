@@ -8,7 +8,6 @@ import {
   TestRunStatsResults,
   TestRunStatsTests,
   TestRunStatsExecutors,
-  TestRunStatsMetadata,
 } from '@/utils/api-client/interfaces/test-run-stats';
 import { Box, CircularProgress, Typography, Paper } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -172,8 +171,7 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   }
 
   // Show empty state only when metadata confirms zero runs
-  const totalRuns = (statusChart as unknown as { metadata?: TestRunStatsMetadata })
-    ?.metadata?.total_test_runs;
+  const totalRuns = statusChart?.metadata?.total_test_runs;
   const hasNoRuns = totalRuns === 0;
   if (hasNoRuns) {
     return (
