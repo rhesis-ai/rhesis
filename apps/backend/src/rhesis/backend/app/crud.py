@@ -4125,11 +4125,7 @@ def update_trace_turn_metrics(
     if status_id is not None:
         update_values["trace_metrics_status_id"] = status_id
 
-    result = (
-        db.query(models.Trace)
-        .filter(models.Trace.id == span_id)
-        .update(update_values)
-    )
+    result = db.query(models.Trace).filter(models.Trace.id == span_id).update(update_values)
     db.commit()
     return result
 
@@ -4146,9 +4142,7 @@ def update_trace_conversation_metrics(
     Writes conversation_metrics into trace_metrics.conversation_metrics on
     every span row, re-derives status from combined turn + conversation results.
     """
-    spans = (
-        db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
-    )
+    spans = db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
     if not spans:
         return 0
 

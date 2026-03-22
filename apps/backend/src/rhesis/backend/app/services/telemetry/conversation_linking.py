@@ -151,8 +151,7 @@ class ConversationLinkingCache(RedisBackedCache):
                 return
             except Exception as exc:
                 logger.warning(
-                    f"Redis write failed for register_link, "
-                    f"falling back to memory: {exc}"
+                    f"Redis write failed for register_link, falling back to memory: {exc}"
                 )
 
         with self._lock:
@@ -192,8 +191,7 @@ class ConversationLinkingCache(RedisBackedCache):
                 return self._pop_links_redis(trace_ids)
             except Exception as exc:
                 logger.warning(
-                    f"Redis read failed for pop_links_for_traces, "
-                    f"falling back to memory: {exc}"
+                    f"Redis read failed for pop_links_for_traces, falling back to memory: {exc}"
                 )
 
         matched = []
@@ -240,8 +238,7 @@ class ConversationLinkingCache(RedisBackedCache):
                 return
             except Exception as exc:
                 logger.warning(
-                    f"Redis write failed for register_output, "
-                    f"falling back to memory: {exc}"
+                    f"Redis write failed for register_output, falling back to memory: {exc}"
                 )
 
         with self._lock:
@@ -261,8 +258,7 @@ class ConversationLinkingCache(RedisBackedCache):
                 return self._pop_outputs_redis(trace_ids)
             except Exception as exc:
                 logger.warning(
-                    f"Redis read failed for pop_outputs_for_traces, "
-                    f"falling back to memory: {exc}"
+                    f"Redis read failed for pop_outputs_for_traces, falling back to memory: {exc}"
                 )
 
         matched = {}
@@ -317,8 +313,7 @@ class ConversationLinkingCache(RedisBackedCache):
                 return
             except Exception as exc:
                 logger.warning(
-                    f"Redis write failed for register_files, "
-                    f"falling back to memory: {exc}"
+                    f"Redis write failed for register_files, falling back to memory: {exc}"
                 )
 
         with self._lock:
@@ -339,8 +334,7 @@ class ConversationLinkingCache(RedisBackedCache):
                 return self._pop_files_redis(trace_ids)
             except Exception as exc:
                 logger.warning(
-                    f"Redis read failed for pop_files_for_traces, "
-                    f"falling back to memory: {exc}"
+                    f"Redis read failed for pop_files_for_traces, falling back to memory: {exc}"
                 )
 
         matched = {}

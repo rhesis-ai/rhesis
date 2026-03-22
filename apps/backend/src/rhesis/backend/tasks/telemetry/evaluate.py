@@ -64,13 +64,10 @@ def _load_trace_scoped_metrics(
     from sqlalchemy import cast, text
     from sqlalchemy.dialects.postgresql import JSONB
 
-    query = (
-        db.query(models.Metric)
-        .filter(
-            models.Metric.organization_id == organization_id,
-            models.Metric.deleted_at.is_(None),
-            models.Metric.metric_scope.contains([MetricScope.TRACE.value]),
-        )
+    query = db.query(models.Metric).filter(
+        models.Metric.organization_id == organization_id,
+        models.Metric.deleted_at.is_(None),
+        models.Metric.metric_scope.contains([MetricScope.TRACE.value]),
     )
 
     metric_ids = config.get("metric_ids")
@@ -79,9 +76,7 @@ def _load_trace_scoped_metrics(
 
     if scope_filter:
         for scope_val in scope_filter:
-            query = query.filter(
-                models.Metric.metric_scope.contains([scope_val])
-            )
+            query = query.filter(models.Metric.metric_scope.contains([scope_val]))
 
     return query.all()
 
@@ -128,9 +123,7 @@ def _derive_status_id(
     if not metrics:
         return _resolve_status_id(db, organization_id, TestResultStatus.ERROR.value)
 
-    all_pass = all(
-        m.get("is_successful", False) for m in metrics.values()
-    )
+    all_pass = all(m.get("is_successful", False) for m in metrics.values())
     status_name = TestResultStatus.PASS.value if all_pass else TestResultStatus.FAIL.value
     return _resolve_status_id(db, organization_id, status_name)
 
@@ -193,9 +186,7 @@ def evaluate_turn_trace_metrics(
     try:
         set_session_variables(db, organization_id, "")
 
-        project = db.query(models.Project).filter(
-            models.Project.id == project_id
-        ).first()
+        project = db.query(models.Project).filter(models.Project.id == project_id).first()
         if not project:
             logger.warning(f"Project {project_id} not found for trace {trace_id}")
             return {"status": "error", "trace_id": trace_id, "message": "project not found"}
@@ -227,7 +218,9 @@ def evaluate_turn_trace_metrics(
 
         if has_conversation:
             metrics = _load_trace_scoped_metrics(
-                db, organization_id, config,
+                db,
+                organization_id,
+                config,
                 scope_filter=[MetricScope.SINGLE_TURN.value],
             )
         else:
@@ -236,9 +229,7 @@ def evaluate_turn_trace_metrics(
         if not metrics:
             logger.info(f"No Trace-scoped metrics found for trace {trace_id}")
             if has_conversation:
-                _schedule_debounced_conversation_eval(
-                    trace_id, project_id, organization_id
-                )
+                _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "no_metrics", "trace_id": trace_id}
 
         metric_configs = [_metric_to_config(m) for m in metrics]
@@ -279,9 +270,7 @@ def evaluate_turn_trace_metrics(
         )
 
         if has_conversation:
-            _schedule_debounced_conversation_eval(
-                trace_id, project_id, organization_id
-            )
+            _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
 
         return {
             "status": "success",
@@ -321,9 +310,7 @@ def evaluate_conversation_trace_metrics(
     try:
         set_session_variables(db, organization_id, "")
 
-        project = db.query(models.Project).filter(
-            models.Project.id == project_id
-        ).first()
+        project = db.query(models.Project).filter(models.Project.id == project_id).first()
         if not project:
             return {"status": "error", "trace_id": trace_id, "message": "project not found"}
 
@@ -332,7 +319,9 @@ def evaluate_conversation_trace_metrics(
             return {"status": "skipped", "trace_id": trace_id}
 
         metrics = _load_trace_scoped_metrics(
-            db, organization_id, config,
+            db,
+            organization_id,
+            config,
             scope_filter=[MetricScope.MULTI_TURN.value],
         )
         if not metrics:
@@ -395,8 +384,11 @@ def evaluate_conversation_trace_metrics(
 
         first_span = root_spans[0]
         status_id = _derive_combined_status_id(
-            db, organization_id, first_span,
-            "conversation_metrics", conversation_metrics,
+            db,
+            organization_id,
+            first_span,
+            "conversation_metrics",
+            conversation_metrics,
         )
 
         crud.update_trace_conversation_metrics(
@@ -446,6 +438,4 @@ def _schedule_debounced_conversation_eval(
 
         schedule_conversation_eval(trace_id, project_id, organization_id)
     except Exception as e:
-        logger.warning(
-            f"Failed to schedule conversation eval for trace {trace_id}: {e}"
-        )
+        logger.warning(f"Failed to schedule conversation eval for trace {trace_id}: {e}")

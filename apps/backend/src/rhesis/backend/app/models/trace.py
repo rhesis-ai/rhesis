@@ -75,9 +75,7 @@ class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
 
     # Trace metrics evaluation
     trace_metrics = Column(JSONB, nullable=True)
-    trace_metrics_status_id = Column(
-        GUID(), ForeignKey("status.id"), nullable=True, index=True
-    )
+    trace_metrics_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True, index=True)
     trace_metrics_processed_at = Column(DateTime, nullable=True)
 
     # Relationships

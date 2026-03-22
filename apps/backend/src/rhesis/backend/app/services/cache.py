@@ -62,8 +62,7 @@ class RedisBackedCache:
             self._redis.ping()
             self._initialized = True
             logger.info(
-                f"{self._cache_name} cache: Redis connection established "
-                f"(db {self._redis_db})"
+                f"{self._cache_name} cache: Redis connection established (db {self._redis_db})"
             )
         except Exception as e:
             logger.debug(
@@ -121,8 +120,7 @@ class RedisBackedCache:
                 return self._redis.get(key)
             except Exception as exc:
                 logger.warning(
-                    f"{self._cache_name}: Redis read failed for _get, "
-                    f"falling back to memory: {exc}"
+                    f"{self._cache_name}: Redis read failed for _get, falling back to memory: {exc}"
                 )
 
         with self._lock:
@@ -140,8 +138,7 @@ class RedisBackedCache:
                 return
             except Exception as exc:
                 logger.warning(
-                    f"{self._cache_name}: Redis delete failed, "
-                    f"falling back to memory: {exc}"
+                    f"{self._cache_name}: Redis delete failed, falling back to memory: {exc}"
                 )
 
         with self._lock:
@@ -159,8 +156,7 @@ class RedisBackedCache:
                 return self._redis.mget(keys)
             except Exception as exc:
                 logger.warning(
-                    f"{self._cache_name}: Redis mget failed, "
-                    f"falling back to memory: {exc}"
+                    f"{self._cache_name}: Redis mget failed, falling back to memory: {exc}"
                 )
 
         with self._lock:
@@ -182,8 +178,7 @@ class RedisBackedCache:
                 return
             except Exception as exc:
                 logger.warning(
-                    f"{self._cache_name}: Redis pipeline_set failed, "
-                    f"falling back to memory: {exc}"
+                    f"{self._cache_name}: Redis pipeline_set failed, falling back to memory: {exc}"
                 )
 
         with self._lock:
@@ -204,8 +199,7 @@ class RedisBackedCache:
                 return results[0]
             except Exception as exc:
                 logger.warning(
-                    f"{self._cache_name}: Redis getdel failed, "
-                    f"falling back to memory: {exc}"
+                    f"{self._cache_name}: Redis getdel failed, falling back to memory: {exc}"
                 )
 
         with self._lock:

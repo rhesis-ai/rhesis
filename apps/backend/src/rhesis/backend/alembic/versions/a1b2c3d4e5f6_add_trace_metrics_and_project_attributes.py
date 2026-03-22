@@ -29,9 +29,7 @@ def upgrade() -> None:
             nullable=True,
         ),
     )
-    op.add_column(
-        "trace", sa.Column("trace_metrics_processed_at", sa.DateTime(), nullable=True)
-    )
+    op.add_column("trace", sa.Column("trace_metrics_processed_at", sa.DateTime(), nullable=True))
     op.create_foreign_key(
         "fk_trace_trace_metrics_status",
         "trace",
