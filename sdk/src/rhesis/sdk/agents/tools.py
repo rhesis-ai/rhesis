@@ -102,7 +102,7 @@ class ExploreEndpointTool(BaseTool):
 
     @property
     def requires_confirmation(self) -> bool:
-        return False
+        return True
 
     @property
     def description(self) -> str:
@@ -124,7 +124,9 @@ class ExploreEndpointTool(BaseTool):
         parts.append(
             "Provide a goal describing what you want to learn "
             "and optional instructions for how to probe. "
-            "Returns the full conversation and findings."
+            "Returns the full conversation and findings. "
+            "IMPORTANT: After running this tool, you MUST present a summary "
+            "of the findings to the user."
         )
         return " ".join(parts)
 
@@ -212,11 +214,14 @@ class ExploreEndpointTool(BaseTool):
             )
 
         resolved_id = endpoint_id or self._endpoint_id
-        if not resolved_id and self._target_factory is None:
+        if not resolved_id:
             return ToolResult(
                 tool_name=self.name,
                 success=False,
-                error="endpoint_id is required (resolve via list_endpoints first)",
+                error=(
+                    "endpoint_id is required — resolve it first "
+                    "via list_endpoints with $select=name,id"
+                ),
             )
 
         try:
