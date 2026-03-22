@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-
 # ---------------------------------------------------------------------------
 # Mode enums (str subclass so they pass directly as query param strings)
 # ---------------------------------------------------------------------------

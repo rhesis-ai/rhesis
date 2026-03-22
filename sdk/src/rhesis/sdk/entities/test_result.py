@@ -6,6 +6,7 @@ from rhesis.sdk.clients import APIClient, Endpoints, Methods
 
 if TYPE_CHECKING:
     from rhesis.sdk.entities.file import File
+    from rhesis.sdk.entities.stats import TestResultStats, TestResultStatsMode
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 from rhesis.sdk.entities.status import Status
