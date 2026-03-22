@@ -103,9 +103,16 @@ class ArchitectAgent(BaseAgent):
             "open_questions": [],
         }
 
+        # ── per-turn attachments (mentions + file text) ──────────
+        self._attachments: Optional[Dict[str, Any]] = None
+
     # ── public API ──────────────────────────────────────────────────
 
-    def chat(self, message: str) -> str:
+    def chat(
+        self,
+        message: str,
+        attachments: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """Send a message and get a response.
 
         This is the main conversational interface. Each call is
@@ -114,15 +121,23 @@ class ArchitectAgent(BaseAgent):
 
         Args:
             message: User's message text.
+            attachments: Optional dict with ``mentions`` (resolved
+                entity references) and/or ``files`` (extracted text
+                from user-uploaded files).
 
         Returns:
             The agent's response text.
         """
-        return asyncio.run(self.chat_async(message))
+        return asyncio.run(self.chat_async(message, attachments=attachments))
 
-    async def chat_async(self, message: str) -> str:
+    async def chat_async(
+        self,
+        message: str,
+        attachments: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """Async version of chat()."""
         async with self._turn_lock:
+            self._attachments = attachments
             self._conversation_history.append({"role": Role.USER, "content": message})
 
             # If the previous turn asked for confirmation, unlock
@@ -148,13 +163,10 @@ class ArchitectAgent(BaseAgent):
 
                 self._conversation_history.append({"role": Role.ASSISTANT, "content": response})
 
-                # Reset approval after the turn completes — each
-                # creation batch requires its own confirmation.
-                # _confirming_tools persists across turns so the next
-                # turn knows which tools were approved; it is only
-                # cleared when approval is consumed (not when a new
-                # block replaces it during the same turn).
+                # Reset per-turn state — approval and attachments
+                # are valid for a single turn only.
                 self._creation_approved = False
+                self._attachments = None
 
                 if self.verbose:
                     print(f"[Architect:{self._mode}] Response: {response[:200]}...")
@@ -204,6 +216,19 @@ class ArchitectAgent(BaseAgent):
     def discovery_state(self, value: Dict[str, Any]) -> None:
         self._discovery_state = value
 
+    @property
+    def guard_state(self) -> Dict[str, Any]:
+        """Current state of the write-guard (confirmation flow)."""
+        return {
+            "needs_confirmation": self._needs_confirmation,
+            "confirming_tools": list(self._confirming_tools),
+        }
+
+    @guard_state.setter
+    def guard_state(self, value: Dict[str, Any]) -> None:
+        self._needs_confirmation = value.get("needs_confirmation", False)
+        self._confirming_tools = frozenset(value.get("confirming_tools", []))
+
     def reset(self) -> None:
         """Reset all state for a fresh conversation."""
         self._conversation_history.clear()
@@ -213,6 +238,7 @@ class ArchitectAgent(BaseAgent):
         self._creation_approved = False
         self._confirming_tools = frozenset()
         self._mutating_tools = None
+        self._attachments = None
         self._discovery_state = {
             "endpoint_id": None,
             "endpoint_name": None,
@@ -365,6 +391,7 @@ class ArchitectAgent(BaseAgent):
         history_text = self._format_history()
         plan_text = self._plan.to_markdown() if self._plan else ""
         discovery_state_text = self._format_discovery_state()
+        attachments_text = self._format_attachments()
 
         template = self._jinja_env.get_template("iteration_prompt.j2")
         return template.render(
@@ -374,6 +401,7 @@ class ArchitectAgent(BaseAgent):
             history_text=history_text,
             plan_text=plan_text,
             discovery_state_text=discovery_state_text,
+            attachments_text=attachments_text,
         )
 
     def _format_discovery_state(self) -> str:
@@ -401,6 +429,32 @@ class ArchitectAgent(BaseAgent):
             parts.append("Open questions:")
             for q in ds["open_questions"]:
                 parts.append(f"  - {q}")
+        return "\n".join(parts)
+
+    # ── attachment formatting ────────────────────────────────────
+
+    def _format_attachments(self) -> str:
+        """Format per-turn attachments (mentions and files) for the prompt."""
+        if not self._attachments:
+            return ""
+
+        parts: List[str] = []
+
+        mentions = self._attachments.get("mentions")
+        if mentions:
+            parts.append("Resolved entity references:")
+            for m in mentions:
+                parts.append(f"  - @{m['type']}:{m['display']} (id: {m['id']})")
+
+        files = self._attachments.get("files")
+        if files:
+            for f in files:
+                filename = f.get("filename", "unknown")
+                content = f.get("content", "")
+                if len(content) > 20000:
+                    content = content[:20000] + "\n\n[... truncated ...]"
+                parts.append(f"Attached file: {filename}\n```\n{content}\n```")
+
         return "\n".join(parts)
 
     # ── streaming finish (Phase 2 LLM call) ─────────────────────

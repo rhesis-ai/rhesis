@@ -234,6 +234,9 @@ def architect_chat_task(
         if saved_agent_state.get("discovery_state"):
             agent._discovery_state = saved_agent_state["discovery_state"]
 
+        if saved_agent_state.get("guard_state"):
+            agent.guard_state = saved_agent_state["guard_state"]
+
         if saved_plan_data:
             from rhesis.sdk.agents.architect.plan import ArchitectPlan
 
@@ -271,6 +274,7 @@ def architect_chat_task(
             agent_state = {
                 "max_iterations": agent.max_iterations,
                 "discovery_state": agent.discovery_state,
+                "guard_state": agent.guard_state,
             }
 
             # Auto-generate title from first message if not set
