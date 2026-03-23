@@ -139,7 +139,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
           sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: { xs: 6, md: 10 },
+            gap: { xs: 6, md: 16, lg: 20, xl: 24 },
             maxWidth: 1100,
             width: '100%',
             flexDirection: { xs: 'column', md: 'row' },
