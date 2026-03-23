@@ -3582,6 +3582,7 @@ def query_traces(
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
+    trace_metrics_status: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> List[TraceRow]:
@@ -3758,6 +3759,13 @@ def query_traces(
         query = query.filter(models.Trace.conversation_id.isnot(None))
     elif trace_type == TraceType.SINGLE_TURN:
         query = query.filter(models.Trace.conversation_id.is_(None))
+
+    # Trace metrics evaluation status filter (Pass / Fail / Error)
+    if trace_metrics_status:
+        query = query.join(
+            models.Status,
+            models.Trace.trace_metrics_status_id == models.Status.id,
+        ).filter(models.Status.name == trace_metrics_status)
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
@@ -4142,6 +4150,8 @@ def update_trace_conversation_metrics(
     Writes conversation_metrics into trace_metrics.conversation_metrics on
     every span row, re-derives status from combined turn + conversation results.
     """
+    from sqlalchemy.orm.attributes import flag_modified
+
     spans = db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
     if not spans:
         return 0
@@ -4150,8 +4160,14 @@ def update_trace_conversation_metrics(
     count = 0
     for span in spans:
         existing = span.trace_metrics or {}
-        existing["conversation_metrics"] = conversation_metrics
-        span.trace_metrics = existing
+        # Important: copy the dict so SQLAlchemy detects the change, or use flag_modified
+        new_metrics = dict(existing)
+        new_metrics["conversation_metrics"] = conversation_metrics
+        span.trace_metrics = new_metrics
+
+        # Explicitly flag the JSON column as modified
+        flag_modified(span, "trace_metrics")
+
         span.trace_metrics_processed_at = now
         span.updated_at = datetime.utcnow()
         if status_id is not None:

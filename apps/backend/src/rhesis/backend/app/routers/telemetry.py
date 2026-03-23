@@ -219,6 +219,10 @@ async def list_traces(
             "'multi_turn' (has conversation_id)"
         ),
     ),
+    trace_metrics_status: Optional[str] = Query(
+        None,
+        description="Filter by trace metrics evaluation status (Pass, Fail, Error)",
+    ),
     root_spans_only: bool = Query(
         True,
         description=("Return only root spans (one per trace). Set to false to return all spans."),
@@ -282,6 +286,7 @@ async def list_traces(
             test_result_id=test_result_id,
             test_id=test_id,
             conversation_id=conversation_id,
+            trace_metrics_status=trace_metrics_status,
             limit=limit,
             offset=offset,
         )

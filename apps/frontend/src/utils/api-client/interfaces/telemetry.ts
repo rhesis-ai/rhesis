@@ -156,6 +156,7 @@ export interface TraceQueryParams {
   endpoint_id?: string; // Filter by endpoint ID
   trace_source?: TraceSource; // Filter by trace source (all/test/operation)
   trace_type?: TraceType; // Filter by trace type (all/single_turn/multi_turn)
+  trace_metrics_status?: string; // Filter by evaluation status (Pass/Fail/Error)
   root_spans_only?: boolean; // Return only root spans (defaults to true in backend)
   limit?: number;
   offset?: number;
