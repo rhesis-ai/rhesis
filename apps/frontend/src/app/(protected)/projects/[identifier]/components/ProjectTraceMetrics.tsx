@@ -84,7 +84,10 @@ export default function ProjectTraceMetrics({
       for (const id of metricIds) {
         try {
           const metric = await metricsClient.getMetric(id);
-          fetchedMetrics.push(metric);
+          // Only include metrics that actually have the Trace scope
+          if (metric.metric_scope?.includes('Trace')) {
+            fetchedMetrics.push(metric);
+          }
         } catch (err) {
           console.error(`Failed to fetch metric ${id}:`, err);
         }
@@ -180,8 +183,7 @@ export default function ProjectTraceMetrics({
       <Box
         sx={{
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          justifyContent: 'flex-end',
           mb: 2,
         }}
       >
@@ -189,9 +191,8 @@ export default function ProjectTraceMetrics({
           variant="outlined"
           startIcon={<AddIcon />}
           onClick={() => setMetricsDialogOpen(true)}
-          size="small"
         >
-          Add Trace Metric
+          Add Metric
         </Button>
       </Box>
 
@@ -208,7 +209,12 @@ export default function ProjectTraceMetrics({
           }}
         >
           <AutoGraphIcon
-            sx={{ fontSize: 40, color: 'text.disabled', mb: 1, opacity: 0.5 }}
+            sx={{
+              fontSize: '40px',
+              color: 'text.disabled',
+              mb: 1,
+              opacity: 0.5,
+            }}
           />
           <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
             No trace metrics configured. Add metrics to evaluate traces
@@ -233,7 +239,7 @@ export default function ProjectTraceMetrics({
                 transition: 'all 0.2s ease',
                 '&:hover': {
                   borderColor: 'primary.main',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+                  boxShadow: 1,
                   '& .remove-button': {
                     opacity: 1,
                   },
@@ -245,8 +251,8 @@ export default function ProjectTraceMetrics({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 36,
-                  height: 36,
+                  width: theme => theme.spacing(4.5),
+                  height: theme => theme.spacing(4.5),
                   borderRadius: 1,
                   bgcolor: 'primary.50',
                   color: 'primary.main',
@@ -284,7 +290,7 @@ export default function ProjectTraceMetrics({
                   {metric.description && (
                     <Tooltip title={metric.description} placement="top">
                       <InfoOutlinedIcon
-                        sx={{ fontSize: 16, color: 'text.secondary' }}
+                        sx={{ fontSize: '1rem', color: 'text.secondary' }}
                       />
                     </Tooltip>
                   )}
@@ -313,7 +319,7 @@ export default function ProjectTraceMetrics({
                     }
                     sx={{
                       height: 20,
-                      fontSize: '0.7rem',
+                      fontSize: 'caption.fontSize',
                       bgcolor: 'background.default',
                     }}
                   />
