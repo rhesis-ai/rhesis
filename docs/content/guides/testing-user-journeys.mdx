@@ -25,7 +25,7 @@ Summarized, this guide shows how to test one flow slice of your user journey sys
 To follow this guide you need:
 
 - A Rhesis account with a configured project
-- A connected endpoint, either via the [SDK Connector](/sdk/connector) (code-first, Python) or a [REST endpoint](/platform/endpoints) configured in the UI
+- A connected endpoint, either via the [SDK Connector](/sdk/connector) (code-first, Python) or a [REST endpoint](/docs/endpoints) configured in the UI
 - If you are starting from scratch, complete the [Quick Start Guide](/guides/quick-start-guide) first
 
 ## What does a user journey look like?
@@ -42,7 +42,7 @@ Let's quickly start with the basics. A user journey is a structured view of a us
 | `Actions / decisions` | What the user and assistant do each step | `Instructions` for how the test agent conducts the conversation; captured in the conversation history inside a `Test Run` |
 | `Phases / timeline` | Stages like onboarding → use → retention | Separate flow slices (multiple tests) grouped into a `Test Set` |
 | `Emotions / UX quality` | Clarity, trust, frustration, confidence | Journey-specific `Behavior` + `Metrics`; optional `Restrictions` defining what the system must not do |
-| `Opportunities for improvement` | Where the experience breaks down | Failed metrics and reasoning in `Test Runs`, aggregated patterns in [Results Overview](/platform/results-overview) |
+| `Opportunities for improvement` | Where the experience breaks down | Failed metrics and reasoning in `Test Runs`, aggregated patterns in [Results Overview](/docs/results-overview) |
 
 ## The Rhesis building blocks (from expectation to evidence)
 
@@ -134,7 +134,7 @@ When the run completes, each test gets a **pass/fail per metric**, together with
 - **Did the flow succeed?** Look at the journey completion and constraint satisfaction metrics first.
 - **Why did it fail?** Read the metric reasoning to understand what went wrong. Check whether the issue is in the behavior definition (expectation too strict or too loose), the metric prompt (evaluation criteria unclear), or the endpoint itself (the AI system genuinely underperformed).
 
-Iterate by adjusting the behavior, metric, or test scenario and re-running. See [Test Runs](/platform/test-runs) for how to compare runs and track improvements over time.
+Iterate by adjusting the behavior, metric, or test scenario and re-running. See [Test Runs](/docs/test-runs) for how to compare runs and track improvements over time.
 
 ## How to scale from one flow to a full journey suite
 
@@ -155,7 +155,7 @@ Not every check requires a full conversation. Use **single-turn tests** for poin
 - **Edge-case inputs**: a specific malformed or ambiguous input that should trigger a known response.
 - **Regression checks**: a previously failing prompt that you want to guard against.
 
-Single-turn tests complement multi-turn journey tests. Use them when you don’t need conversational context to trigger the behavior you want to evaluate. See [Tests](/platform/tests) for the full list of single-turn and multi-turn test fields.
+Single-turn tests complement multi-turn journey tests. Use them when you don’t need conversational context to trigger the behavior you want to evaluate. See [Tests](/docs/tests) for the full list of single-turn and multi-turn test fields.
 
 ## Going programmatic
 
@@ -163,14 +163,14 @@ Everything in this guide can also be done programmatically via the Rhesis SDK. Y
 
 ## Related pages
 
-- [Behaviors](/platform/behaviors)
-- [Metrics](/platform/metrics)
-- [Tests](/platform/tests)
-- [Test Sets](/platform/test-sets)
-- [Test Runs](/platform/test-runs)
-- [Test Execution](/platform/test-execution)
-- [Results Overview](/platform/results-overview)
-- [Endpoints](/platform/endpoints)
+- [Behaviors](/docs/behaviors)
+- [Metrics](/docs/metrics)
+- [Tests](/docs/tests)
+- [Test Sets](/docs/test-sets)
+- [Test Runs](/docs/test-runs)
+- [Test Execution](/docs/test-execution)
+- [Results Overview](/docs/results-overview)
+- [Endpoints](/docs/endpoints)
 - [SDK Connector](/sdk/connector)
 - [Quick Start Guide](/guides/quick-start-guide)
 - [CI/CD Integration](/guides/ci-cd-integration)

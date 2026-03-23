@@ -153,13 +153,13 @@ rhesis.base_url = "http://localhost:8080"`}
 
 ### Set up your REST endpoint
 
-Set up your REST endpoint in the UI, or use the [Rhesis connector](https://docs.rhesis.ai/development/connector). Then retrieve the endpoint by ID:
+Set up your REST endpoint in the UI, or use the [Rhesis connector](https://docs.rhesis.ai/contribute/connector). Then retrieve the endpoint by ID:
 
 <CodeBlock filename="endpoint.py" language="python">
 {`import os
 from rhesis.sdk.entities import Endpoint
 
-os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000 
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
 os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
 
 # Retrieve endpoint by ID
@@ -224,7 +224,7 @@ print(f"Test run started: {result}")`}
 
 </Steps>
 
-For complex conversations, use [Penelope](https://docs.rhesis.ai/conversation-simulation/getting-started) to simulate multi-turn interactions.
+For complex conversations, use [Penelope](https://docs.rhesis.ai/docs/conversation-simulation/getting-started) to simulate multi-turn interactions.
 
 ## What's Running
 
@@ -286,7 +286,7 @@ graph LR
 - **Read the docs**: https://docs.rhesis.ai
 - **Try examples**: Check the `examples/` directory in the repository
 - **Join Discord**: Get help and share feedback
-- **Explore Conversation Simulation**: Learn about multi-turn testing at https://docs.rhesis.ai/conversation-simulation
+- **Explore Conversation Simulation**: Learn about multi-turn testing at https://docs.rhesis.ai/docs/conversation-simulation
 
 ## Troubleshooting
 
