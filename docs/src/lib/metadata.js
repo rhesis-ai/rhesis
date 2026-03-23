@@ -90,7 +90,12 @@ export function generatePageMetadata(
   // Merge page-level keywords (from frontmatter) with sitewide defaults
   const pageKeywords = baseMetadata?.keywords
   const keywords = pageKeywords
-    ? [...new Set([...(Array.isArray(pageKeywords) ? pageKeywords : [pageKeywords]), ...config.keywords])]
+    ? [
+        ...new Set([
+          ...(Array.isArray(pageKeywords) ? pageKeywords : [pageKeywords]),
+          ...config.keywords,
+        ]),
+      ]
     : config.keywords
 
   const canonicalUrl = getCanonicalUrl(urlPath, config)
