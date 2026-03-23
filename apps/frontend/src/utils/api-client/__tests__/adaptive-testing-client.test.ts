@@ -66,6 +66,16 @@ describe('AdaptiveTestingClient', () => {
     expect(body.description).toBeNull();
   });
 
+  it('deletes an adaptive test set with DELETE', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: 'at-del', name: 'Gone' }));
+
+    await client.deleteAdaptiveTestSet('at-del');
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/adaptive_testing/at-del');
+    expect(opts.method).toBe('DELETE');
+  });
+
   // -------------------------------------------------------------------------
   // Tree
   // -------------------------------------------------------------------------
