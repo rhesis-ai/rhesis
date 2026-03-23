@@ -13,6 +13,8 @@ so that any worker can look up and revoke a previously scheduled task.
 import logging
 from typing import Optional
 
+from rhesis.backend.app.constants import DEFAULT_CONVERSATION_DEBOUNCE_SECONDS
+
 from rhesis.backend.app.services.cache import RedisBackedCache
 from rhesis.backend.app.services.redis_constants import RedisDatabase
 
@@ -62,7 +64,7 @@ def schedule_conversation_eval(
     trace_id: str,
     project_id: str,
     organization_id: str,
-    debounce_seconds: int = 300,
+    debounce_seconds: int = DEFAULT_CONVERSATION_DEBOUNCE_SECONDS,
 ) -> None:
     """Schedule or reset a debounced conversation-level evaluation.
 

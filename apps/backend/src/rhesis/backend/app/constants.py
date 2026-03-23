@@ -90,6 +90,10 @@ DEFAULT_EVALUATION_MODEL = os.getenv(
 )  # Default model for evaluation (language-model-as-a-judge)
 DEFAULT_EMBEDDING_MODEL = os.getenv(
     "DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005"
+)
+
+DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(
+    os.getenv("DEFAULT_CONVERSATION_DEBOUNCE_SECONDS", "300")
 )  # Default model for embedding generation
 
 # Rhesis API configuration
