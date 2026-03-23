@@ -369,6 +369,7 @@ export default function ProjectTraceMetrics({
         title="Add Trace Metric"
         subtitle="Select a trace metric to evaluate all traces in this project"
         scopeFilter="Trace"
+        strictScope={true}
       />
     </Box>
   );
