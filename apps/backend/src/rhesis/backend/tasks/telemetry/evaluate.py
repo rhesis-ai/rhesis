@@ -49,17 +49,21 @@ def _load_trace_scoped_metrics(
     db: Session,
     organization_id: str,
     config: Dict[str, Any],
-    scope_filter: Optional[List[str]] = None,
+    phase: str = "all",
 ) -> List[models.Metric]:
     """Load metrics that have 'Trace' in their metric_scope.
 
     Args:
-        scope_filter: If provided, only return metrics whose scope also
-            contains ALL of these additional values (e.g. ["Single-Turn"]).
-            If None, return all metrics with "Trace" in scope.
+        phase: Controls adaptive scoping based on documentation rules:
+            - "all": Return all Trace-scoped metrics (used for single-turn traces)
+            - "turn": Return only metrics explicitly scoped to Single-Turn
+            - "conversation": Return metrics scoped to Multi-Turn OR
+                              "adaptive" metrics (only scoped to Trace)
         config: Project trace_metrics config. If metric_ids is set,
             filter to those specific metrics only.
     """
+    from sqlalchemy import and_, not_, or_
+
     query = db.query(models.Metric).filter(
         models.Metric.organization_id == organization_id,
         models.Metric.deleted_at.is_(None),
@@ -70,9 +74,16 @@ def _load_trace_scoped_metrics(
     if metric_ids:
         query = query.filter(models.Metric.id.in_(metric_ids))
 
-    if scope_filter:
-        for scope_val in scope_filter:
-            query = query.filter(models.Metric.metric_scope.contains([scope_val]))
+    if phase == "turn":
+        query = query.filter(models.Metric.metric_scope.contains([MetricScope.SINGLE_TURN.value]))
+    elif phase == "conversation":
+        # Multi-Turn explicitly, OR Adaptive (Trace only, neither Single-Turn nor Multi-Turn)
+        is_multi = models.Metric.metric_scope.contains([MetricScope.MULTI_TURN.value])
+        is_adaptive = and_(
+            not_(models.Metric.metric_scope.contains([MetricScope.SINGLE_TURN.value])),
+            not_(models.Metric.metric_scope.contains([MetricScope.MULTI_TURN.value])),
+        )
+        query = query.filter(or_(is_multi, is_adaptive))
 
     return query.all()
 
@@ -189,10 +200,10 @@ def evaluate_turn_trace_metrics(
                 db,
                 organization_id,
                 config,
-                scope_filter=[MetricScope.SINGLE_TURN.value],
+                phase="turn",
             )
         else:
-            metrics = _load_trace_scoped_metrics(db, organization_id, config)
+            metrics = _load_trace_scoped_metrics(db, organization_id, config, phase="all")
 
         if not metrics:
             logger.info(f"No Trace-scoped metrics found for trace {trace_id}")
@@ -209,9 +220,7 @@ def evaluate_turn_trace_metrics(
             try:
                 default_model = get_user_evaluation_model(db, project_user)
             except Exception as e:
-                logger.warning(
-                    f"Failed to get default evaluation model for trace {trace_id}: {e}"
-                )
+                logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
 
         start_time = time.time()
         evaluator = MetricEvaluator(
@@ -300,7 +309,7 @@ def evaluate_conversation_trace_metrics(
             db,
             organization_id,
             config,
-            scope_filter=[MetricScope.MULTI_TURN.value],
+            phase="conversation",
         )
         if not metrics:
             logger.info(f"No Multi-Turn Trace metrics found for trace {trace_id}")
@@ -345,9 +354,7 @@ def evaluate_conversation_trace_metrics(
             try:
                 default_model = get_user_evaluation_model(db, project_user)
             except Exception as e:
-                logger.warning(
-                    f"Failed to get default evaluation model for trace {trace_id}: {e}"
-                )
+                logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
 
         start_time = time.time()
         evaluator = MetricEvaluator(
