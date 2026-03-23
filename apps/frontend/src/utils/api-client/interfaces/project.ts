@@ -20,6 +20,7 @@ export interface ProjectBase {
   user_id?: UUID | string; // Allow string for mock data compatibility
   owner_id?: UUID | string; // Allow string for mock data compatibility
   organization_id?: UUID | string; // Allow string for mock data compatibility
+  attributes?: Record<string, any>;
 }
 
 /**
