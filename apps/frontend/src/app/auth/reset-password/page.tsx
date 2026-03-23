@@ -16,10 +16,12 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSearchParams } from 'next/navigation';
+import { ThemeProvider } from '@mui/material/styles';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
+import { lightTheme } from '@/styles/theme';
 
 const SUBTLE_TEXT = '#6B7280'; // Intentional: auth form subtle text
 const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
@@ -134,26 +136,28 @@ export default function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          gap: 2,
-          bgcolor: '#FFFFFF', // Intentional: auth pages are light-only
-          position: 'relative',
-        }}
-      >
-        <BackgroundDecoration />
-        <Box sx={{ position: 'relative', zIndex: 10 }}>
-          <Alert severity="error">Invalid or missing reset token.</Alert>
-          <Button variant="text" href="/" sx={{ mt: 2 }}>
-            Back to sign in
-          </Button>
+      <ThemeProvider theme={lightTheme}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            gap: 2,
+            bgcolor: 'background.default',
+            position: 'relative',
+          }}
+        >
+          <BackgroundDecoration />
+          <Box sx={{ position: 'relative', zIndex: 10 }}>
+            <Alert severity="error">Invalid or missing reset token.</Alert>
+            <Button variant="text" href="/" sx={{ mt: 2 }}>
+              Back to sign in
+            </Button>
+          </Box>
         </Box>
-      </Box>
+      </ThemeProvider>
     );
   }
 
