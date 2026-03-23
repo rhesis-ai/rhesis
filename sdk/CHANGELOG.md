@@ -13,6 +13,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10] - 2026-03-23
+
+### Added
+- Added `TestRuns.stats()` and `TestResults.stats()` collection methods with typed Pydantic response models and optional pandas DataFrame conversion.
+- Added NIST-aligned password hardening with zxcvbn strength scoring, context-specific word blocking, and HaveIBeenPwned breach checks. Minimum password length raised to 12 characters.
+
+### Changed
+- Made SDK metrics evaluation async-first, enhancing performance and aligning with the async-first architecture of the SDK.
+- Refactored MetricEvaluator to use a strategy pattern for backend metric evaluation, improving flexibility and maintainability.
+- Exposed `format_conversation()` as a stable public API and improved handling of tool-call-only assistant messages.
+- Updated RhesisLLM to utilize a shared aiohttp.ClientSession for concurrent batch requests, enhancing performance through connection pooling.
+
+### Fixed
+- Fixed test run stats display by using `metadata.total_test_runs` for empty-state check.
+- Fixed backend issue where `status_breakdown` was incorrectly required in the `TestRunTimelineData` schema.
+- Fixed backend issue where `result_distribution` was classifying test runs by execution status instead of actual test outcomes.
+- Fixed frontend issue where `FRONTEND_ENV` was not exposed to client-side code.
+- Fixed backend issue where the package version was falling back to 0.1.0 due to missing `pyproject.toml` in the runtime image.
+- Fixed onboarding `StaleDataError` caused by RLS session variable loss after `db.commit()`.
+- Fixed test run advanced filters to only show metrics used in the current test run.
+- Fixed tests grid random reordering by adding a stable secondary sort.
+- Fixed counts including soft-deleted records.
+- Fixed MCP auth to use the system default model and fixed credential testing for HTTP providers.
+- Fixed Notion integration link to internal integrations page.
+- Fixed frontend issue where tasks created from the single-turn test result drawer did not store `test_run_id` in task_metadata.
+- Fixed frontend issue avoiding unsafe UUID cast for optional user_id.
+
+### Removed
+- Removed `lm-format-enforcer` dependency due to incompatibility with `transformers>=5.0.0`.
+- Removed ToxicCommentModel and replaced it with PerspectiveToxicity.
+
+
 ## [0.6.9] - 2026-03-12
 
 ### Added
