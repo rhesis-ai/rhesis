@@ -12,6 +12,8 @@ import {
   Tooltip,
   Button,
 } from '@mui/material';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import BaseDataGrid from '@/components/common/BaseDataGrid';
 import AutoGraphIcon from '@mui/icons-material/AutoGraph';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NumbersIcon from '@mui/icons-material/Numbers';
@@ -58,7 +60,6 @@ export default function ProjectTraceMetrics({
   const [error, setError] = useState<string | null>(null);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
   const notifications = useNotifications();
-  const apiFactory = new ApiClientFactory(sessionToken);
 
   const fetchMetrics = useCallback(async () => {
     if (!sessionToken || !project) {
@@ -161,6 +162,111 @@ export default function ProjectTraceMetrics({
 
   const excludeMetricIds = metrics.map(m => m.id as UUID);
 
+  const columns: GridColDef[] = [
+    {
+      field: 'name',
+      headerName: 'Name',
+      flex: 1.5,
+      renderCell: (params: GridRenderCellParams<MetricDetail>) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
+          <AutoGraphIcon color="primary" fontSize="small" />
+          <MuiLink
+            component={Link}
+            href={`/metrics/${params.row.id}`}
+            variant="body2"
+            underline="hover"
+            sx={{ fontWeight: 500, color: 'text.primary' }}
+          >
+            {params.row.name}
+          </MuiLink>
+          {params.row.description && (
+            <Tooltip title={params.row.description} placement="top">
+              <InfoOutlinedIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: 'score_type',
+      headerName: 'Score Type',
+      flex: 1,
+      renderCell: (params: GridRenderCellParams<MetricDetail>) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+          <Chip
+            size="small"
+            label={
+              params.row.score_type.charAt(0).toUpperCase() +
+              params.row.score_type.slice(1)
+            }
+            icon={
+              params.row.score_type === 'numeric' ? (
+                <NumbersIcon fontSize="small" />
+              ) : (
+                <CategoryIcon fontSize="small" />
+              )
+            }
+            sx={{
+              height: 24,
+              fontSize: 'caption.fontSize',
+            }}
+          />
+        </Box>
+      ),
+    },
+    {
+      field: 'backend_type',
+      headerName: 'Backend',
+      flex: 1,
+      renderCell: (params: GridRenderCellParams<MetricDetail>) => {
+        const typeValue = params.row.backend_type?.type_value;
+        if (!typeValue) return null;
+
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <Chip
+              size="small"
+              label={typeValue}
+              icon={getBackendIcon(typeValue)}
+              sx={{
+                height: 24,
+                fontSize: 'caption.fontSize',
+              }}
+            />
+          </Box>
+        );
+      },
+    },
+    {
+      field: 'actions',
+      headerName: '',
+      width: 60,
+      sortable: false,
+      filterable: false,
+      renderCell: (params: GridRenderCellParams<MetricDetail>) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRemoveMetric(params.row.id as string);
+            }}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                color: 'error.main',
+                bgcolor: 'error.50',
+              },
+            }}
+            aria-label={`Remove metric ${params.row.name}`}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      ),
+    },
+  ];
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', p: 3, gap: 2 }}>
@@ -222,141 +328,14 @@ export default function ProjectTraceMetrics({
           </Typography>
         </Box>
       ) : (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-          {metrics.map(metric => (
-            <Box
-              key={metric.id}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                p: 1.5,
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 1,
-                bgcolor: 'background.paper',
-                width: '100%',
-                position: 'relative',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  borderColor: 'primary.main',
-                  boxShadow: 1,
-                  '& .remove-button': {
-                    opacity: 1,
-                  },
-                },
-              }}
-            >
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: theme => theme.spacing(4.5),
-                  height: theme => theme.spacing(4.5),
-                  borderRadius: 1,
-                  bgcolor: 'primary.50',
-                  color: 'primary.main',
-                  mr: 2,
-                }}
-              >
-                <AutoGraphIcon fontSize="small" />
-              </Box>
-
-              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mb: 0.5,
-                  }}
-                >
-                  <MuiLink
-                    component={Link}
-                    href={`/metrics/${metric.id}`}
-                    variant="subtitle2"
-                    underline="hover"
-                    sx={{
-                      fontWeight: 600,
-                      color: 'text.primary',
-                      display: 'block',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {metric.name}
-                  </MuiLink>
-                  {metric.description && (
-                    <Tooltip title={metric.description} placement="top">
-                      <InfoOutlinedIcon
-                        sx={{ fontSize: '1rem', color: 'text.secondary' }}
-                      />
-                    </Tooltip>
-                  )}
-                </Box>
-
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <Chip
-                    size="small"
-                    label={
-                      metric.score_type.charAt(0).toUpperCase() +
-                      metric.score_type.slice(1)
-                    }
-                    icon={
-                      metric.score_type === 'numeric' ? (
-                        <NumbersIcon fontSize="small" />
-                      ) : (
-                        <CategoryIcon fontSize="small" />
-                      )
-                    }
-                    sx={{
-                      height: 20,
-                      fontSize: 'caption.fontSize',
-                      bgcolor: 'background.default',
-                    }}
-                  />
-                  {metric.backend_type && (
-                    <Chip
-                      size="small"
-                      label={metric.backend_type.type_value}
-                      icon={getBackendIcon(metric.backend_type.type_value)}
-                      sx={{
-                        height: 20,
-                        fontSize: '0.7rem',
-                        bgcolor: 'background.default',
-                      }}
-                    />
-                  )}
-                </Box>
-              </Box>
-
-              <IconButton
-                className="remove-button"
-                size="small"
-                onClick={() => handleRemoveMetric(metric.id as string)}
-                sx={{
-                  opacity: 0,
-                  transition: 'opacity 0.2s',
-                  color: 'text.secondary',
-                  '&:hover': {
-                    color: 'error.main',
-                    bgcolor: 'error.50',
-                  },
-                }}
-                aria-label={`Remove metric ${metric.name}`}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          ))}
+        <Box sx={{ height: 400, width: '100%' }}>
+          <BaseDataGrid
+            rows={metrics}
+            columns={columns}
+            getRowId={(row) => row.id}
+            disableRowSelectionOnClick
+            hideFooter
+          />
         </Box>
       )}
 
