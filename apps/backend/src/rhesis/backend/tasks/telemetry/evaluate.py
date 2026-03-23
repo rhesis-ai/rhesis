@@ -8,7 +8,6 @@ Two-phase evaluation:
 import logging
 import random
 import time
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from celery import shared_task
@@ -61,9 +60,6 @@ def _load_trace_scoped_metrics(
         config: Project trace_metrics config. If metric_ids is set,
             filter to those specific metrics only.
     """
-    from sqlalchemy import cast, text
-    from sqlalchemy.dialects.postgresql import JSONB
-
     query = db.query(models.Metric).filter(
         models.Metric.organization_id == organization_id,
         models.Metric.deleted_at.is_(None),
@@ -79,34 +75,6 @@ def _load_trace_scoped_metrics(
             query = query.filter(models.Metric.metric_scope.contains([scope_val]))
 
     return query.all()
-
-
-def _metric_to_config(metric: models.Metric) -> Dict[str, Any]:
-    """Convert a Metric model to a dict suitable for MetricEvaluator."""
-    return {
-        "id": str(metric.id),
-        "name": metric.name,
-        "class_name": metric.class_name if hasattr(metric, "class_name") else None,
-        "backend": (
-            metric.backend_type.name
-            if hasattr(metric, "backend_type") and metric.backend_type
-            else "rhesis"
-        ),
-        "score_type": metric.score_type,
-        "threshold": metric.threshold,
-        "threshold_operator": metric.threshold_operator,
-        "evaluation_prompt": metric.evaluation_prompt,
-        "evaluation_steps": metric.evaluation_steps,
-        "reasoning": metric.reasoning,
-        "description": metric.description,
-        "metric_scope": metric.metric_scope,
-        "min_score": metric.min_score,
-        "max_score": metric.max_score,
-        "categories": metric.categories,
-        "passing_categories": metric.passing_categories,
-        "ground_truth_required": metric.ground_truth_required,
-        "context_required": metric.context_required,
-    }
 
 
 def _derive_status_id(
@@ -232,8 +200,6 @@ def evaluate_turn_trace_metrics(
                 _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "no_metrics", "trace_id": trace_id}
 
-        metric_configs = [_metric_to_config(m) for m in metrics]
-
         from rhesis.backend.metrics.evaluator import MetricEvaluator
 
         start_time = time.time()
@@ -246,7 +212,7 @@ def evaluate_turn_trace_metrics(
             output_text=output_text,
             expected_output="",
             context=[],
-            metrics=metric_configs,
+            metrics=metrics,
         )
         execution_time = (time.time() - start_time) * 1000
 
@@ -358,8 +324,6 @@ def evaluate_conversation_trace_metrics(
         conversation_history = ConversationHistory.from_messages(messages)
         conversation_text = conversation_history.format_conversation()
 
-        metric_configs = [_metric_to_config(m) for m in metrics]
-
         from rhesis.backend.metrics.evaluator import MetricEvaluator
 
         start_time = time.time()
@@ -372,7 +336,7 @@ def evaluate_conversation_trace_metrics(
             output_text=conversation_text.strip(),
             expected_output="",
             context=[],
-            metrics=metric_configs,
+            metrics=metrics,
             conversation_history=conversation_history,
         )
         execution_time = (time.time() - start_time) * 1000
