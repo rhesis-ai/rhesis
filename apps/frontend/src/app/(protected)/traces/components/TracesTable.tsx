@@ -3,7 +3,10 @@
 import { useMemo } from 'react';
 import { GridColDef } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
+import {
+  TraceSummary,
+  TRACE_METRICS_STATUS,
+} from '@/utils/api-client/interfaces/telemetry';
 import { Box, Chip, Typography, Tooltip } from '@mui/material';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
@@ -19,7 +22,6 @@ interface TracesTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  filters: { project_id?: string };
 }
 
 export default function TracesTable({
@@ -31,7 +33,6 @@ export default function TracesTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  filters: _filters,
 }: TracesTableProps) {
   const columns: GridColDef[] = useMemo(
     () => [
@@ -174,9 +175,9 @@ export default function TracesTable({
             );
           }
           const color =
-            evalStatus === 'Pass'
+            evalStatus === TRACE_METRICS_STATUS.PASS
               ? 'success'
-              : evalStatus === 'Fail'
+              : evalStatus === TRACE_METRICS_STATUS.FAIL
                 ? 'error'
                 : 'warning';
           return (

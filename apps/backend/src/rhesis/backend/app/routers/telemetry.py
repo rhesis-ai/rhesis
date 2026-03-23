@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.constants import EnrichedDataKeys
+from rhesis.backend.app.constants import EnrichedDataKeys, TestResultStatus
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
@@ -219,7 +219,7 @@ async def list_traces(
             "'multi_turn' (has conversation_id)"
         ),
     ),
-    trace_metrics_status: Optional[str] = Query(
+    trace_metrics_status: Optional[TestResultStatus] = Query(
         None,
         description="Filter by trace metrics evaluation status (Pass, Fail, Error)",
     ),
@@ -249,12 +249,15 @@ async def list_traces(
     **Filters**:
     - `environment`: Filter by environment (development, staging, production)
     - `span_name`: Filter by span name (e.g., "ai.llm.invoke")
-    - `status_code`: Filter by status (OK, ERROR)
+    - `status_code`: Filter by span status (OK, ERROR)
+    - `trace_metrics_status`: Filter by evaluation status (Pass, Fail, Error)
     - `start_time_after`: Filter by start time >= timestamp
     - `start_time_before`: Filter by start time <= timestamp
+    - `duration_min_ms` / `duration_max_ms`: Filter by duration range
     - `test_run_id`: Filter by test run ID (for test execution traces)
     - `test_result_id`: Filter by test result ID (for test execution traces)
     - `test_id`: Filter by test ID (for test execution traces)
+    - `conversation_id`: Filter by conversation ID (for multi-turn traces)
 
     **Pagination**:
     - `limit`: Number of results per page (default: 100, max: 1000)
@@ -286,7 +289,7 @@ async def list_traces(
             test_result_id=test_result_id,
             test_id=test_id,
             conversation_id=conversation_id,
-            trace_metrics_status=trace_metrics_status,
+            trace_metrics_status=trace_metrics_status.value if trace_metrics_status else None,
             limit=limit,
             offset=offset,
         )

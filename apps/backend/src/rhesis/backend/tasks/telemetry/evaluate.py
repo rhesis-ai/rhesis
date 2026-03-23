@@ -145,7 +145,13 @@ def _resolve_status_id(
         )
         .first()
     )
-    return str(status.id) if status else None
+    if not status:
+        logger.warning(
+            f"Status '{status_name}' not found for org {organization_id}; "
+            f"trace_metrics_status will not be set"
+        )
+        return None
+    return str(status.id)
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)

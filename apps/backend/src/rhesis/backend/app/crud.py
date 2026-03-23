@@ -3761,11 +3761,18 @@ def query_traces(
         query = query.filter(models.Trace.conversation_id.is_(None))
 
     # Trace metrics evaluation status filter (Pass / Fail / Error)
+    # Uses a subquery instead of a join to avoid duplicates when combined
+    # with other joins (e.g. endpoint_id) and to scope by organization.
     if trace_metrics_status:
-        query = query.join(
-            models.Status,
-            models.Trace.trace_metrics_status_id == models.Status.id,
-        ).filter(models.Status.name == trace_metrics_status)
+        matching_status_ids = (
+            select(models.Status.id)
+            .where(
+                models.Status.name == trace_metrics_status,
+                models.Status.organization_id == org_uuid,
+            )
+            .scalar_subquery()
+        )
+        query = query.filter(models.Trace.trace_metrics_status_id == matching_status_ids)
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]

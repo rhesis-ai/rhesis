@@ -76,10 +76,10 @@ export default function SpanDetailsPanel({
   // Determine if Test Result tab should be shown
   const showTestResultTab = trace?.test_result != null;
 
-  // Reset activeTab to 0 when Test Result tab becomes unavailable
+  // Reset to details tab when Test Result tab becomes unavailable
   useEffect(() => {
-    if (!showTestResultTab && activeTab === 1) {
-      setActiveTab(0);
+    if (!showTestResultTab && activeTab === 'tests') {
+      setActiveTab('details');
     }
   }, [showTestResultTab, activeTab]);
 
@@ -290,7 +290,7 @@ export default function SpanDetailsPanel({
             iconPosition="start"
             label="Span Details"
             id="span-detail-tab-details"
-            aria-controls="span-detail-tabpanel-0"
+            aria-controls="span-detail-tabpanel-details"
           />
           {showTestResultTab && (
             <Tab
@@ -299,7 +299,7 @@ export default function SpanDetailsPanel({
               iconPosition="start"
               label="Test Results"
               id="span-detail-tab-tests"
-              aria-controls="span-detail-tabpanel-1"
+              aria-controls="span-detail-tabpanel-tests"
             />
           )}
           {hasTraceMetrics && (
@@ -309,7 +309,7 @@ export default function SpanDetailsPanel({
               iconPosition="start"
               label="Trace Metrics"
               id="span-detail-tab-metrics"
-              aria-controls="span-detail-tabpanel-2"
+              aria-controls="span-detail-tabpanel-metrics"
             />
           )}
         </Tabs>

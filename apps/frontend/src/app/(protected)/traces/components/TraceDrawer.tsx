@@ -22,7 +22,6 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import HubIcon from '@mui/icons-material/Hub';
 import ForumIcon from '@mui/icons-material/Forum';
 import Link from 'next/link';
-import AssessmentIcon from '@mui/icons-material/Assessment';
 import SpanTreeView from './SpanTreeView';
 import SpanSequenceView from './SpanSequenceView';
 import SpanGraphView from './SpanGraphView';
@@ -67,7 +66,9 @@ export default function TraceDrawer({
   const showConversationTab = !!trace?.conversation_id;
   const isConversationTrace = showConversationTab;
   const hasTraceMetrics =
-    trace?.root_spans?.some(s => s.trace_metrics) ?? false;
+    trace?.root_spans?.some(
+      s => s.trace_metrics && Object.keys(s.trace_metrics).length > 0
+    ) ?? false;
   const tabIndices = useMemo(() => {
     const offset = showConversationTab ? 1 : 0;
     return {

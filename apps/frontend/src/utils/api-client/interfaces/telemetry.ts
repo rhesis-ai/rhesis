@@ -60,7 +60,7 @@ export interface TraceSummary {
   endpoint_name?: string;
 
   // Trace metrics evaluation
-  trace_metrics_status?: string;
+  trace_metrics_status?: TraceMetricsStatus;
 
   // Counts for UI
   tags_count?: number;
@@ -85,7 +85,7 @@ export interface TraceDetailResponse {
   root_spans: SpanNode[];
 
   // Trace metrics evaluation
-  trace_metrics_status?: string;
+  trace_metrics_status?: TraceMetricsStatus;
 
   // Related entities (optional - populated via relationships)
   project?: {
@@ -139,6 +139,17 @@ export type TraceSource = 'all' | 'test' | 'operation';
 export type TraceType = 'all' | 'single_turn' | 'multi_turn';
 
 /**
+ * Evaluation status for trace metrics (Pass/Fail/Error)
+ */
+export type TraceMetricsStatus = 'Pass' | 'Fail' | 'Error';
+
+export const TRACE_METRICS_STATUS = {
+  PASS: 'Pass' as const,
+  FAIL: 'Fail' as const,
+  ERROR: 'Error' as const,
+};
+
+/**
  * Query parameters for list endpoint
  */
 export interface TraceQueryParams {
@@ -156,7 +167,7 @@ export interface TraceQueryParams {
   endpoint_id?: string; // Filter by endpoint ID
   trace_source?: TraceSource; // Filter by trace source (all/test/operation)
   trace_type?: TraceType; // Filter by trace type (all/single_turn/multi_turn)
-  trace_metrics_status?: string; // Filter by evaluation status (Pass/Fail/Error)
+  trace_metrics_status?: TraceMetricsStatus;
   root_spans_only?: boolean; // Return only root spans (defaults to true in backend)
   limit?: number;
   offset?: number;

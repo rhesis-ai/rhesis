@@ -80,7 +80,8 @@ export default function ProjectTraceMetrics({
       setLoading(true);
       setError(null);
 
-      const metricIds = project.attributes?.trace_metrics || [];
+      const rawIds = project.attributes?.trace_metrics;
+      const metricIds = Array.isArray(rawIds) ? rawIds : [];
       if (metricIds.length === 0) {
         setMetrics([]);
         return;
@@ -88,20 +89,18 @@ export default function ProjectTraceMetrics({
 
       const apiFactory = new ApiClientFactory(sessionToken);
       const metricsClient = apiFactory.getMetricsClient();
-      const fetchedMetrics: MetricDetail[] = [];
 
-      // Fetch each metric's details
-      for (const id of metricIds) {
-        try {
-          const metric = await metricsClient.getMetric(id);
-          // Only include metrics that actually have the Trace scope
-          if (metric.metric_scope?.includes('Trace')) {
-            fetchedMetrics.push(metric);
-          }
-        } catch (err) {
-          console.error(`Failed to fetch metric ${id}:`, err);
-        }
-      }
+      const results = await Promise.allSettled(
+        metricIds.map((id: string) => metricsClient.getMetric(id))
+      );
+
+      const fetchedMetrics = results
+        .filter(
+          (r): r is PromiseFulfilledResult<MetricDetail> =>
+            r.status === 'fulfilled'
+        )
+        .map(r => r.value)
+        .filter(m => m.metric_scope?.includes('Trace'));
 
       setMetrics(fetchedMetrics);
     } catch (err) {

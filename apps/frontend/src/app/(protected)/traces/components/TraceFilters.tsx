@@ -7,7 +7,6 @@ import {
   TextField,
   Button,
   ButtonGroup,
-  IconButton,
   InputAdornment,
   Badge,
   Popover,
@@ -18,12 +17,10 @@ import {
   Typography,
   Divider,
   Stack,
-  Tooltip,
   useTheme,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ListIcon from '@mui/icons-material/List';
 import ScienceIcon from '@mui/icons-material/Science';
@@ -38,7 +35,10 @@ import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import CancelIcon from '@mui/icons-material/Cancel';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Chip from '@mui/material/Chip';
-import { TraceQueryParams } from '@/utils/api-client/interfaces/telemetry';
+import {
+  TraceQueryParams,
+  TRACE_METRICS_STATUS,
+} from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 
@@ -618,15 +618,15 @@ export default function TraceFilters({
               All
             </Button>
             <Button
-              onClick={() => handleEvaluationStatusChange('Pass')}
+              onClick={() => handleEvaluationStatusChange(TRACE_METRICS_STATUS.PASS)}
               variant={
-                filters.trace_metrics_status === 'Pass'
+                filters.trace_metrics_status === TRACE_METRICS_STATUS.PASS
                   ? 'contained'
                   : 'outlined'
               }
               startIcon={<TaskAltIcon fontSize="small" />}
               sx={{
-                ...(filters.trace_metrics_status === 'Pass' && {
+                ...(filters.trace_metrics_status === TRACE_METRICS_STATUS.PASS && {
                   backgroundColor: theme.palette.success.main,
                   color: 'white',
                   '&:hover': {
@@ -638,15 +638,15 @@ export default function TraceFilters({
               Pass
             </Button>
             <Button
-              onClick={() => handleEvaluationStatusChange('Fail')}
+              onClick={() => handleEvaluationStatusChange(TRACE_METRICS_STATUS.FAIL)}
               variant={
-                filters.trace_metrics_status === 'Fail'
+                filters.trace_metrics_status === TRACE_METRICS_STATUS.FAIL
                   ? 'contained'
                   : 'outlined'
               }
               startIcon={<CancelIcon fontSize="small" />}
               sx={{
-                ...(filters.trace_metrics_status === 'Fail' && {
+                ...(filters.trace_metrics_status === TRACE_METRICS_STATUS.FAIL && {
                   backgroundColor: theme.palette.error.main,
                   color: 'white',
                   '&:hover': {
@@ -658,15 +658,15 @@ export default function TraceFilters({
               Fail
             </Button>
             <Button
-              onClick={() => handleEvaluationStatusChange('Error')}
+              onClick={() => handleEvaluationStatusChange(TRACE_METRICS_STATUS.ERROR)}
               variant={
-                filters.trace_metrics_status === 'Error'
+                filters.trace_metrics_status === TRACE_METRICS_STATUS.ERROR
                   ? 'contained'
                   : 'outlined'
               }
               startIcon={<WarningAmberIcon fontSize="small" />}
               sx={{
-                ...(filters.trace_metrics_status === 'Error' && {
+                ...(filters.trace_metrics_status === TRACE_METRICS_STATUS.ERROR && {
                   backgroundColor: theme.palette.warning.main,
                   color: 'white',
                   '&:hover': {

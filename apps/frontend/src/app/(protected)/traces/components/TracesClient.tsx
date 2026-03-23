@@ -127,7 +127,6 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
           pageSize={filters.limit || 50}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
-          filters={filters}
         />
       )}
 
