@@ -28,7 +28,6 @@ import SpanSequenceView from './SpanSequenceView';
 import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
-import TraceMetricsTab from './TraceMetricsTab';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -59,7 +58,6 @@ export default function TraceDrawer({
   const [error, setError] = useState<string | null>(null);
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
-  const [rightPanelTab, setRightPanelTab] = useState<number>(0);
 
   // Resizable drawer width state
   const [drawerWidth, setDrawerWidth] = useState(60); // viewport percentage
@@ -577,101 +575,21 @@ export default function TraceDrawer({
             }}
           />
 
-          {/* Right: Span Details / Metrics */}
+          {/* Right: Span Details */}
           <Box
             sx={{
               flex: 1,
-              overflow: 'hidden',
+              overflow: 'auto',
               minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column',
             }}
           >
-            {/* Tabs Header */}
-            <Box
-              sx={{
-                borderBottom: 1,
-                borderColor: 'divider',
-                px: theme => theme.spacing(2),
-                pt: theme => theme.spacing(2),
-                pb: theme => theme.spacing(2),
-                mb: theme => theme.spacing(1),
-              }}
-            >
-              <Tabs
-                value={rightPanelTab}
-                onChange={(_, newValue) => setRightPanelTab(newValue)}
-                aria-label="span details tabs"
-                variant="scrollable"
-                scrollButtons="auto"
-                sx={{
-                  minHeight: 'auto',
-                  '& .MuiTab-root': {
-                    minHeight: 'auto',
-                    fontSize: theme => theme.typography.subtitle2.fontSize,
-                    fontWeight: theme => theme.typography.subtitle2.fontWeight,
-                    textTransform: 'none',
-                    py: theme => theme.spacing(1.25),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-start',
-                    backgroundColor: 'transparent !important',
-                    color: theme => theme.palette.text.secondary,
-                    '& .MuiSvgIcon-root': {
-                      color: 'inherit',
-                    },
-                    '&.Mui-selected': {
-                      backgroundColor: 'transparent !important',
-                      color: theme => theme.palette.text.primary,
-                      '& .MuiSvgIcon-root': {
-                        color: theme => theme.palette.text.primary,
-                      },
-                    },
-                    '&:hover': {
-                      backgroundColor: 'transparent !important',
-                    },
-                  },
-                  '& .MuiTabs-indicator': {
-                    display: 'none',
-                  },
-                  '& .MuiTabs-flexContainer': {
-                    backgroundColor: 'transparent',
-                  },
-                }}
-              >
-                <Tab
-                  label="Span Details"
-                  id="span-details-tab"
-                  aria-controls="span-details-tabpanel"
-                />
-                {hasTraceMetrics && (
-                  <Tab
-                    icon={<AssessmentIcon fontSize="small" />}
-                    iconPosition="start"
-                    label="Trace Metrics"
-                    id="span-metrics-tab"
-                    aria-controls="span-metrics-tabpanel"
-                  />
-                )}
-              </Tabs>
-            </Box>
-
-            {/* Tab Content */}
-            <Box sx={{ flex: 1, overflow: 'auto' }}>
-              {rightPanelTab === 0 && (
-                <SpanDetailsPanel
-                  span={selectedSpan}
-                  trace={trace}
-                  sessionToken={sessionToken}
-                />
-              )}
-              {hasTraceMetrics && rightPanelTab === 1 && (
-                <TraceMetricsTab
-                  selectedSpan={selectedSpan}
-                  isConversationTrace={isConversationTrace}
-                />
-              )}
-            </Box>
+            <SpanDetailsPanel
+              span={selectedSpan}
+              trace={trace}
+              sessionToken={sessionToken}
+              hasTraceMetrics={hasTraceMetrics}
+              isConversationTrace={isConversationTrace}
+            />
           </Box>
         </Box>
       </Box>

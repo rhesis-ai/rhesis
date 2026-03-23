@@ -32,11 +32,14 @@ import FileAttachmentList from '@/components/common/FileAttachmentList';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 import TestResultTab from './TestResultTab';
+import TraceMetricsTab from './TraceMetricsTab';
 
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
   trace: TraceDetailResponse | null;
   sessionToken: string;
+  hasTraceMetrics?: boolean;
+  isConversationTrace?: boolean;
 }
 
 interface TabPanelProps {
@@ -63,6 +66,8 @@ export default function SpanDetailsPanel({
   span,
   trace,
   sessionToken,
+  hasTraceMetrics = false,
+  isConversationTrace = false,
 }: SpanDetailsPanelProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
@@ -293,6 +298,15 @@ export default function SpanDetailsPanel({
               label="Test Results"
               id="span-detail-tab-1"
               aria-controls="span-detail-tabpanel-1"
+            />
+          )}
+          {hasTraceMetrics && (
+            <Tab
+              icon={<AssessmentOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+              label="Trace Metrics"
+              id="span-detail-tab-2"
+              aria-controls="span-detail-tabpanel-2"
             />
           )}
         </Tabs>
@@ -1042,6 +1056,15 @@ export default function SpanDetailsPanel({
         {showTestResultTab && (
           <TabPanel value={activeTab} index={1}>
             <TestResultTab trace={trace} sessionToken={sessionToken} />
+          </TabPanel>
+        )}
+
+        {hasTraceMetrics && (
+          <TabPanel value={activeTab} index={showTestResultTab ? 2 : 1}>
+            <TraceMetricsTab
+              selectedSpan={span}
+              isConversationTrace={isConversationTrace}
+            />
           </TabPanel>
         )}
       </Box>
