@@ -21,6 +21,7 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 ## What was done (Phase 06 & 07 in progress)
 
 ### TODOs
+- [ ] Adjust the `c4d8e2f1a3b5_add_architect_tables.py` migration's `down_revision` to point to the current latest migration in `main` before merging or doing further work.
 - [ ] Introduce a button for "accept all for this session" to allow users to bypass per-action confirmations.
 - [ ] Improve the test execution flow to be smoother and more robust. Currently, the agent struggles with "Test configuration not found" errors, gets confused about whether configurations exist, and attempts to re-create them manually instead of relying on the backend's automated execution process.
 
