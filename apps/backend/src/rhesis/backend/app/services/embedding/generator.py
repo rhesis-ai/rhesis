@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -10,7 +11,8 @@ from rhesis.backend.app import models
 from rhesis.backend.app.models.embedding import EmbeddingStatus
 from rhesis.backend.app.models.model import Model
 from rhesis.backend.app.utils.crud_utils import get_item
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingGenerator:
