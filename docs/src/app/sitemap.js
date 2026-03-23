@@ -160,9 +160,16 @@ export default async function sitemap() {
       const url = urlPath ? `${baseUrl}/${urlPath}` : baseUrl
       if (urlSet.has(url)) continue
       urlSet.add(url)
+      const fullPath = path.join(contentDir, filePath)
+      let lastModified
+      try {
+        lastModified = fs.statSync(fullPath).mtime
+      } catch {
+        lastModified = new Date()
+      }
       sitemapEntries.push({
         url,
-        lastModified: new Date(),
+        lastModified,
         changeFrequency: 'weekly',
         priority: getPriority(urlPath),
       })
