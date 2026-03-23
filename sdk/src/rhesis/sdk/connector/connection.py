@@ -4,8 +4,8 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, Awaitable, Callable, Dict, Optional
 from collections.abc import Coroutine
+from typing import Any, Callable, Dict, Optional
 
 import websockets
 from tenacity import (
