@@ -22,7 +22,7 @@ spec:
                 name: cloudflare-api-token
                 key: cf-api-token
         domainFilters:
-          - internal-example.com
+          - example.com # need to change to the actual domain
         policy: upsert-only
         txtOwnerId: PLACEHOLDER
         sources:

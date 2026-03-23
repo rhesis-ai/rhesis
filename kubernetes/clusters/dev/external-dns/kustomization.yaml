@@ -8,7 +8,7 @@ configMapGenerator:
   - name: external-dns-config
     literals:
       - cloudflare-api-token-gcp-secret=cloudflare-api-token-dev
-      - domain-filter=internal-example.com # need to change to the actual domain
+      - domain-filter=example.com # need to change to the actual domain
       - txt-owner-id=dev-external-dns # need to change to the actual owner id
     options:
       annotations:
