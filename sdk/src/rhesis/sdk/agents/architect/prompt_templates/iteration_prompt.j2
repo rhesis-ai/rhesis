@@ -2,6 +2,11 @@ Current Mode: {{ mode }}
 
 User Message: {{ user_query }}
 
+{% if attachments_text %}
+User Context (resolved references and attached files):
+{{ attachments_text }}
+
+{% endif %}
 Available Tools:
 {{ tools_text }}
 

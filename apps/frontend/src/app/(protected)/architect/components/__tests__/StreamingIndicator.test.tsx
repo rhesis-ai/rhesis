@@ -4,9 +4,7 @@ import '@testing-library/jest-dom';
 import StreamingIndicator from '../StreamingIndicator';
 import { StreamingState } from '@/hooks/useArchitectChat';
 
-function createState(
-  overrides: Partial<StreamingState> = {}
-): StreamingState {
+function createState(overrides: Partial<StreamingState> = {}): StreamingState {
   return {
     isThinking: false,
     activeTools: [],
@@ -135,12 +133,12 @@ describe('StreamingIndicator', () => {
   });
 
   it('renders nothing meaningful when state is empty', () => {
-    const { container } = render(
-      <StreamingIndicator state={createState()} />
-    );
+    const { container } = render(<StreamingIndicator state={createState()} />);
 
     // Should still render the container but no tool or thinking text
     expect(screen.queryByText(/thinking/i)).not.toBeInTheDocument();
-    expect(container.querySelector('[role="progressbar"]')).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[role="progressbar"]')
+    ).not.toBeInTheDocument();
   });
 });

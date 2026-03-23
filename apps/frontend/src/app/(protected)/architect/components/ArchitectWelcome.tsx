@@ -36,9 +36,7 @@ interface ArchitectWelcomeProps {
   onSubmit: (message: string) => void;
 }
 
-export default function ArchitectWelcome({
-  onSubmit,
-}: ArchitectWelcomeProps) {
+export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

@@ -86,9 +86,7 @@ describe('ArchitectMessageBubble', () => {
 
   it('does not show copy button for user messages', () => {
     render(
-      <ArchitectMessageBubble
-        message={createMessage({ role: 'user' })}
-      />
+      <ArchitectMessageBubble message={createMessage({ role: 'user' })} />
     );
 
     expect(screen.queryByTestId('ContentCopyIcon')).not.toBeInTheDocument();
@@ -115,10 +113,7 @@ describe('ArchitectMessageBubble', () => {
 
     it('does not show action buttons when showActions is false', () => {
       render(
-        <ArchitectMessageBubble
-          message={createMessage()}
-          showActions={false}
-        />
+        <ArchitectMessageBubble message={createMessage()} showActions={false} />
       );
 
       expect(
@@ -182,9 +177,7 @@ describe('ArchitectMessageBubble', () => {
         />
       );
 
-      expect(
-        screen.getByTestId('CheckCircleOutlineIcon')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('CheckCircleOutlineIcon')).toBeInTheDocument();
       expect(screen.getByTestId('EditIcon')).toBeInTheDocument();
     });
   });
@@ -307,9 +300,9 @@ describe('ArchitectMessageBubble', () => {
 
       render(<ArchitectMessageBubble message={createMessage()} />);
 
-      const copyButton = screen.getByTestId('ContentCopyIcon').closest(
-        'button'
-      ) as HTMLButtonElement;
+      const copyButton = screen
+        .getByTestId('ContentCopyIcon')
+        .closest('button') as HTMLButtonElement;
       fireEvent.click(copyButton);
 
       await waitFor(() => {

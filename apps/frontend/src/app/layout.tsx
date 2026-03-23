@@ -154,7 +154,9 @@ async function getNavigationItems(
       segment: 'architect',
       title: 'Architect',
       icon: <EngineeringIcon key="architect-icon" />,
-      action: <Chip label="beta" size="small" variant="outlined" color="warning" />,
+      action: (
+        <Chip label="beta" size="small" variant="outlined" color="warning" />
+      ),
     },
     {
       kind: 'page',

@@ -87,11 +87,7 @@ class LocalToolProvider(MCPTool):
 
         op = self._operation_map.get(tool_name)
         if op is None:
-            return ToolResult(
-                tool_name=tool_name,
-                success=False,
-                error=f"Unknown tool: {tool_name}",
-            )
+            raise ValueError(f"Tool not found: {tool_name}")
 
         arguments = dict(kwargs)
         headers = {"Authorization": self._auth_header}
@@ -111,8 +107,12 @@ class LocalToolProvider(MCPTool):
             if param.get("in") == "query" and param["name"] in arguments:
                 query[param["name"]] = arguments.pop(param["name"])
 
-        # Remaining arguments = request body
+        # Remaining arguments = request body.
+        # If the operation expects a body (POST/PUT) but no arguments
+        # remain, send an empty dict so FastAPI doesn't reject a missing body.
         body = arguments if arguments else None
+        if body is None and op.get("has_body"):
+            body = {}
 
         try:
             transport = httpx.ASGITransport(app=self._app)

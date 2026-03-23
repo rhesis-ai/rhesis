@@ -35,10 +35,7 @@ export interface ArchitectSessionCreateRequest {
 export class ArchitectClient extends BaseApiClient {
   private basePath = '/architect/sessions';
 
-  async getSessions(
-    skip = 0,
-    limit = 20
-  ): Promise<ArchitectSession[]> {
+  async getSessions(skip = 0, limit = 20): Promise<ArchitectSession[]> {
     return this.fetch<ArchitectSession[]>(
       `${this.basePath}?skip=${skip}&limit=${limit}&sort_by=updated_at&sort_order=desc`
     );

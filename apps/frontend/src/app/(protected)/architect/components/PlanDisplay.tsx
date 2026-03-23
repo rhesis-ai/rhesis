@@ -1,12 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Box,
-  Collapse,
-  IconButton,
-  Typography,
-} from '@mui/material';
+import { Box, Collapse, IconButton, Typography } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import MarkdownContent from '@/components/common/MarkdownContent';

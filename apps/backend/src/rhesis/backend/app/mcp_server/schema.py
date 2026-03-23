@@ -107,6 +107,17 @@ def build_input_schema(
             if field_name in body_required:
                 required.append(field_name)
 
+    # YAML-only parameters not matched by OpenAPI path/query/body fields.
+    # Useful for generic body types like Dict[str, Any] where OpenAPI
+    # produces no explicit properties.
+    for param_name, param_override in yaml_param_overrides.items():
+        if param_name not in properties:
+            prop = {"type": "string"}
+            desc = param_override.get("description")
+            if desc:
+                prop["description"] = desc
+            properties[param_name] = prop
+
     input_schema: Dict[str, Any] = {
         "type": "object",
         "properties": properties,

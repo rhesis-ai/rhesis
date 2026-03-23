@@ -157,9 +157,7 @@ describe('useArchitectChat', () => {
   });
 
   it('does not send when sessionId is null', () => {
-    const { result } = renderHook(() =>
-      useArchitectChat({ sessionId: null })
-    );
+    const { result } = renderHook(() => useArchitectChat({ sessionId: null }));
 
     act(() => {
       result.current.sendMessage('Hello');
@@ -348,9 +346,7 @@ describe('useArchitectChat', () => {
         });
       });
 
-      expect(result.current.currentPlan).toBe(
-        '## Test Plan\n- Safety tests'
-      );
+      expect(result.current.currentPlan).toBe('## Test Plan\n- Safety tests');
     });
 
     it('ignores responses for a different session', () => {
@@ -440,9 +436,9 @@ describe('useArchitectChat', () => {
 
       expect(result.current.streamingState.activeTools).toHaveLength(0);
       expect(result.current.streamingState.completedTools).toHaveLength(1);
-      expect(
-        result.current.streamingState.completedTools[0].success
-      ).toBe(true);
+      expect(result.current.streamingState.completedTools[0].success).toBe(
+        true
+      );
     });
 
     it('ignores tool start with no tool name', () => {

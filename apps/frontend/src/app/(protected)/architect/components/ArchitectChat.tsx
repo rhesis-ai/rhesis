@@ -1,23 +1,17 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  Box,
-  Paper,
-  TextField,
-  IconButton,
-  Typography,
-  Alert,
-  CircularProgress,
-  Chip,
-} from '@mui/material';
-import SendIcon from '@mui/icons-material/Send';
-import Tooltip from '@mui/material/Tooltip';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { Box, Paper, Typography, Alert, Chip } from '@mui/material';
 import { useSession } from 'next-auth/react';
-import { useArchitectChat, ArchitectChatMessage } from '@/hooks/useArchitectChat';
+import {
+  useArchitectChat,
+  ArchitectChatMessage,
+  ChatAttachments,
+} from '@/hooks/useArchitectChat';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ArchitectMessageBubble from './ArchitectMessageBubble';
 import PlanDisplay from './PlanDisplay';
+import ArchitectChatInput from './ArchitectChatInput';
 
 interface ArchitectChatProps {
   sessionId: string | null;
@@ -42,7 +36,6 @@ export default function ArchitectChat({
 }: ArchitectChatProps) {
   const { data: authSession } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const {
     messages,
@@ -55,8 +48,6 @@ export default function ArchitectChat({
     sendMessage,
     setMessages,
   } = useArchitectChat({ sessionId });
-
-  const [inputValue, setInputValue] = useState('');
 
   // Track sessions that were created with an initial message so we never
   // run loadMessages for them (the async fetch would wipe the messages
@@ -74,9 +65,7 @@ export default function ArchitectChat({
 
     const loadMessages = async () => {
       try {
-        const client = new ApiClientFactory(
-          sessionToken
-        ).getArchitectClient();
+        const client = new ApiClientFactory(sessionToken).getArchitectClient();
         const session = await client.getSession(sessionId);
 
         if (session.messages?.length) {
@@ -118,26 +107,20 @@ export default function ArchitectChat({
       sendMessage(initialMessage);
       onInitialMessageSent?.();
     }
-  }, [initialMessage, isConnected, sessionId, sendMessage, onInitialMessageSent]);
+  }, [
+    initialMessage,
+    isConnected,
+    sessionId,
+    sendMessage,
+    onInitialMessageSent,
+  ]);
 
-  // Focus input when not loading
-  useEffect(() => {
-    if (!isLoading) inputRef.current?.focus();
-  }, [isLoading]);
-
-  const handleSend = useCallback(() => {
-    if (inputValue.trim() && !isLoading) {
-      sendMessage(inputValue);
-      setInputValue('');
-    }
-  }, [inputValue, isLoading, sendMessage]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  const handleSend = useCallback(
+    (message: string, attachments?: ChatAttachments) => {
+      sendMessage(message, attachments);
+    },
+    [sendMessage]
+  );
 
   const handleSuggestedPrompt = (prompt: string) => {
     if (!isLoading) {
@@ -255,12 +238,11 @@ export default function ArchitectChat({
                   userName={authSession?.user?.name || undefined}
                   userPicture={authSession?.user?.picture || undefined}
                   showActions={showActions}
-                  streamingState={message.isStreaming ? streamingState : undefined}
+                  streamingState={
+                    message.isStreaming ? streamingState : undefined
+                  }
                   onAccept={() => sendMessage('Yes, go ahead.')}
-                  onReject={() => {
-                    setInputValue('');
-                    inputRef.current?.focus();
-                  }}
+                  onReject={() => {}}
                 />
               );
             })}
@@ -282,60 +264,13 @@ export default function ArchitectChat({
       )}
 
       {/* Input area */}
-      <Box
-        sx={{
-          p: 2,
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-          <TextField
-            inputRef={inputRef}
-            fullWidth
-            multiline
-            maxRows={4}
-            placeholder={
-              isConnected
-                ? 'Describe what you want to test...'
-                : 'Waiting for connection...'
-            }
-            value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={!isConnected || isLoading}
-            size="small"
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: theme => theme.shape.borderRadius,
-              },
-            }}
-          />
-          <IconButton
-            color="primary"
-            onClick={handleSend}
-            disabled={!inputValue.trim() || !isConnected || isLoading}
-            sx={{
-              width: theme => theme.spacing(5),
-              height: theme => theme.spacing(5),
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
-              '&:hover': { bgcolor: 'primary.dark' },
-              '&:disabled': {
-                bgcolor: 'action.disabledBackground',
-                color: 'action.disabled',
-              },
-            }}
-          >
-            {isLoading ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : (
-              <SendIcon />
-            )}
-          </IconButton>
-        </Box>
-      </Box>
+      <ArchitectChatInput
+        onSend={handleSend}
+        disabled={isLoading}
+        isLoading={isLoading}
+        isConnected={isConnected}
+        sessionToken={sessionToken}
+      />
     </Paper>
   );
 }

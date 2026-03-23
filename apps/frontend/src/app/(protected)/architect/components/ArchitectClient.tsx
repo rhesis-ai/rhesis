@@ -67,12 +67,9 @@ export default function ArchitectClient() {
     [getClient]
   );
 
-  const handleSelectSession = useCallback(
-    async (id: string) => {
-      setActiveSessionId(id);
-    },
-    []
-  );
+  const handleSelectSession = useCallback(async (id: string) => {
+    setActiveSessionId(id);
+  }, []);
 
   const handleDeleteSession = useCallback(
     async (id: string) => {
@@ -126,9 +123,7 @@ export default function ArchitectClient() {
             onInitialMessageSent={handleInitialMessageSent}
           />
         ) : (
-          <ArchitectWelcome
-            onSubmit={handleNewSessionWithMessage}
-          />
+          <ArchitectWelcome onSubmit={handleNewSessionWithMessage} />
         )}
       </Box>
     </Box>
