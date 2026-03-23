@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 function applySidebarState() {
   const headers = document.querySelectorAll('.rhesis-sidebar-section-header')
 
-  headers.forEach((headerEl) => {
+  headers.forEach(headerEl => {
     const li = headerEl.closest('li')
     if (!li) return
 
