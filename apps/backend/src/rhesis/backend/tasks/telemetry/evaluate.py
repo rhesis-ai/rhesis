@@ -200,10 +200,22 @@ def evaluate_turn_trace_metrics(
                 _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "no_metrics", "trace_id": trace_id}
 
+        from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
         from rhesis.backend.metrics.evaluator import MetricEvaluator
+
+        default_model = None
+        project_user = project.owner or project.user
+        if project_user:
+            try:
+                default_model = get_user_evaluation_model(db, project_user)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get default evaluation model for trace {trace_id}: {e}"
+                )
 
         start_time = time.time()
         evaluator = MetricEvaluator(
+            model=default_model,
             db=db,
             organization_id=organization_id,
         )
@@ -324,10 +336,22 @@ def evaluate_conversation_trace_metrics(
         conversation_history = ConversationHistory.from_messages(messages)
         conversation_text = conversation_history.format_conversation()
 
+        from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
         from rhesis.backend.metrics.evaluator import MetricEvaluator
+
+        default_model = None
+        project_user = project.owner or project.user
+        if project_user:
+            try:
+                default_model = get_user_evaluation_model(db, project_user)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get default evaluation model for trace {trace_id}: {e}"
+                )
 
         start_time = time.time()
         evaluator = MetricEvaluator(
+            model=default_model,
             db=db,
             organization_id=organization_id,
         )
