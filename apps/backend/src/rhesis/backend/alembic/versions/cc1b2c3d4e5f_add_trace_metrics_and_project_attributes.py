@@ -1,7 +1,7 @@
 """Add trace metrics columns and project attributes
 
-Revision ID: a1b2c3d4e5f6
-Revises: fe5d9ca98fca
+Revision ID: cc1b2c3d4e5f
+Revises: 5b3d40e898ff
 Create Date: 2026-03-22
 """
 
@@ -13,8 +13,8 @@ from sqlalchemy.dialects import postgresql
 
 import rhesis.backend.app.models.guid
 
-revision: str = "a1b2c3d4e5f6"
-down_revision: Union[str, None] = "fe5d9ca98fca"
+revision: str = "cc1b2c3d4e5f"
+down_revision: Union[str, None] = "5b3d40e898ff"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
