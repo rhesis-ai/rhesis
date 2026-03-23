@@ -14,8 +14,8 @@ if alembic_dir not in sys.path:
 from utils.template_loader import load_type_lookup_template, load_cleanup_type_lookup_template
 
 # revision identifiers, used by Alembic.
-revision: str = 'c05814d9a399'
-down_revision: Union[str, None] = 'cc1b2c3d4e5f'
+revision: str = "c05814d9a399"
+down_revision: Union[str, None] = "cc1b2c3d4e5f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -29,5 +29,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Remove the 'Trace' types
-    sql = load_cleanup_type_lookup_template('MetricScope', "'Trace'")
+    sql = load_cleanup_type_lookup_template("MetricScope", "'Trace'")
     op.execute(sa.text(sql))
