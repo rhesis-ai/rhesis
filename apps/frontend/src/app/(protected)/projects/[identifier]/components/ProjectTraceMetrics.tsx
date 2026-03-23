@@ -12,7 +12,11 @@ import {
   Tooltip,
   Button,
 } from '@mui/material';
-import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridRenderCellParams,
+  GridRowSelectionModel,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import AutoGraphIcon from '@mui/icons-material/AutoGraph';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -23,12 +27,14 @@ import HandymanIcon from '@mui/icons-material/Handyman';
 import StorageIcon from '@mui/icons-material/Storage';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import Link from 'next/link';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import type { UUID } from 'crypto';
 
 interface ProjectTraceMetricsProps {
@@ -59,6 +65,9 @@ export default function ProjectTraceMetrics({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const notifications = useNotifications();
 
   const fetchMetrics = useCallback(async () => {
@@ -160,7 +169,88 @@ export default function ProjectTraceMetrics({
     }
   };
 
+  const handleBulkRemoveMetrics = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      setDeleting(true);
+      const currentMetricIds = project.attributes?.trace_metrics || [];
+      const newMetricIds = currentMetricIds.filter(
+        (id: string) => !selectedRows.includes(id)
+      );
+
+      const updatedAttributes = {
+        ...(project.attributes || {}),
+        trace_metrics: newMetricIds,
+      };
+
+      await onProjectUpdate({ attributes: updatedAttributes });
+      notifications.show(
+        `Successfully removed ${selectedRows.length} metric${selectedRows.length > 1 ? 's' : ''}`,
+        { severity: 'success' }
+      );
+      setSelectedRows([]);
+      setDeleteDialogOpen(false);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'An error occurred';
+      notifications.show(`Failed to remove metrics: ${errorMessage}`, {
+        severity: 'error',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleRowSelectionModelChange = (
+    newSelection: GridRowSelectionModel
+  ) => {
+    setSelectedRows(newSelection);
+  };
+
   const excludeMetricIds = metrics.map(m => m.id as UUID);
+
+  const customToolbar = (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        width: '100%',
+        gap: 2,
+      }}
+    >
+      {/* Action buttons - shown when rows are selected */}
+      {selectedRows.length > 0 ? (
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteDialogOpen(true)}
+            disabled={deleting}
+          >
+            Remove {selectedRows.length} metric
+            {selectedRows.length > 1 ? 's' : ''}
+          </Button>
+        </Box>
+      ) : (
+        <Box /> // Placeholder when no rows are selected
+      )}
+
+      {/* Spacer to push buttons to the right */}
+      <Box sx={{ flexGrow: 1 }} />
+
+      <Box sx={{ display: 'flex', gap: 2 }}>
+        <Button
+          variant="outlined"
+          startIcon={<AddIcon />}
+          onClick={() => setMetricsDialogOpen(true)}
+        >
+          Add Metric
+        </Button>
+      </Box>
+    </Box>
+  );
 
   const columns: GridColDef[] = [
     {
@@ -168,7 +258,9 @@ export default function ProjectTraceMetrics({
       headerName: 'Name',
       flex: 1.5,
       renderCell: (params: GridRenderCellParams<MetricDetail>) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}>
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, height: '100%' }}
+        >
           <AutoGraphIcon color="primary" fontSize="small" />
           <MuiLink
             component={Link}
@@ -181,7 +273,9 @@ export default function ProjectTraceMetrics({
           </MuiLink>
           {params.row.description && (
             <Tooltip title={params.row.description} placement="top">
-              <InfoOutlinedIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+              <InfoOutlinedIcon
+                sx={{ fontSize: '1rem', color: 'text.secondary' }}
+              />
             </Tooltip>
           )}
         </Box>
@@ -244,10 +338,17 @@ export default function ProjectTraceMetrics({
       sortable: false,
       filterable: false,
       renderCell: (params: GridRenderCellParams<MetricDetail>) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+          }}
+        >
           <IconButton
             size="small"
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               handleRemoveMetric(params.row.id as string);
             }}
@@ -286,54 +387,59 @@ export default function ProjectTraceMetrics({
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          mb: 2,
-        }}
-      >
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => setMetricsDialogOpen(true)}
-        >
-          Add Metric
-        </Button>
-      </Box>
-
       {metrics.length === 0 ? (
-        <Box
-          sx={{
-            py: 4,
-            px: 2,
-            border: '1px dashed',
-            borderColor: 'divider',
-            borderRadius: 1,
-            textAlign: 'center',
-            bgcolor: 'background.default',
-          }}
-        >
-          <AutoGraphIcon
+        <Box>
+          <Box
             sx={{
-              fontSize: '40px',
-              color: 'text.disabled',
-              mb: 1,
-              opacity: 0.5,
+              display: 'flex',
+              justifyContent: 'flex-end',
+              mb: 2,
             }}
-          />
-          <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-            No trace metrics configured. Add metrics to evaluate traces
-            automatically.
-          </Typography>
+          >
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setMetricsDialogOpen(true)}
+            >
+              Add Metric
+            </Button>
+          </Box>
+          <Box
+            sx={{
+              py: 4,
+              px: 2,
+              border: '1px dashed',
+              borderColor: 'divider',
+              borderRadius: 1,
+              textAlign: 'center',
+              bgcolor: 'background.default',
+            }}
+          >
+            <AutoGraphIcon
+              sx={{
+                fontSize: '40px',
+                color: 'text.disabled',
+                mb: 1,
+                opacity: 0.5,
+              }}
+            />
+            <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
+              No trace metrics configured. Add metrics to evaluate traces
+              automatically.
+            </Typography>
+          </Box>
         </Box>
       ) : (
         <Box sx={{ height: 400, width: '100%' }}>
           <BaseDataGrid
             rows={metrics}
             columns={columns}
-            getRowId={(row) => row.id}
+            getRowId={row => row.id}
+            checkboxSelection
             disableRowSelectionOnClick
+            rowSelectionModel={selectedRows}
+            onRowSelectionModelChange={handleRowSelectionModelChange}
+            customToolbarContent={customToolbar}
             hideFooter
           />
         </Box>
@@ -349,6 +455,16 @@ export default function ProjectTraceMetrics({
         subtitle="Select a trace metric to evaluate all traces in this project"
         scopeFilter="Trace"
         strictScope={true}
+      />
+
+      <DeleteModal
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleBulkRemoveMetrics}
+        isLoading={deleting}
+        title={`Remove Metric${selectedRows.length > 1 ? 's' : ''}`}
+        message={`Are you sure you want to remove ${selectedRows.length} metric${selectedRows.length > 1 ? 's' : ''} from this project? The metrics themselves will not be deleted, they will just be removed from this project's trace evaluation.`}
+        itemType="metrics"
       />
     </Box>
   );
