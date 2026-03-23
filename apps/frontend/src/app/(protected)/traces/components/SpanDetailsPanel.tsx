@@ -44,8 +44,8 @@ interface SpanDetailsPanelProps {
 
 interface TabPanelProps {
   children?: React.ReactNode;
-  index: number;
-  value: number;
+  index: number | string;
+  value: number | string;
 }
 
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -69,7 +69,7 @@ export default function SpanDetailsPanel({
   hasTraceMetrics = false,
   isConversationTrace = false,
 }: SpanDetailsPanelProps) {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState<number | string>('details');
   const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
   const [spanFilesLoading, setSpanFilesLoading] = useState(false);
 
@@ -285,27 +285,30 @@ export default function SpanDetailsPanel({
           }}
         >
           <Tab
+            value="details"
             icon={<InfoOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Span Details"
-            id="span-detail-tab-0"
+            id="span-detail-tab-details"
             aria-controls="span-detail-tabpanel-0"
           />
           {showTestResultTab && (
             <Tab
+              value="tests"
               icon={<AssessmentOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Test Results"
-              id="span-detail-tab-1"
+              id="span-detail-tab-tests"
               aria-controls="span-detail-tabpanel-1"
             />
           )}
           {hasTraceMetrics && (
             <Tab
+              value="metrics"
               icon={<AssessmentOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Trace Metrics"
-              id="span-detail-tab-2"
+              id="span-detail-tab-metrics"
               aria-controls="span-detail-tabpanel-2"
             />
           )}
@@ -315,7 +318,7 @@ export default function SpanDetailsPanel({
       {/* Tab Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {/* Span Details Tab */}
-        <TabPanel value={activeTab} index={0}>
+        <TabPanel value={activeTab} index="details">
           <Box sx={{ p: theme => theme.spacing(2) }}>
             {/* Overview Card */}
             <Card
@@ -1054,13 +1057,13 @@ export default function SpanDetailsPanel({
 
         {/* Test Result Tab */}
         {showTestResultTab && (
-          <TabPanel value={activeTab} index={1}>
+          <TabPanel value={activeTab} index="tests">
             <TestResultTab trace={trace} sessionToken={sessionToken} />
           </TabPanel>
         )}
 
         {hasTraceMetrics && (
-          <TabPanel value={activeTab} index={showTestResultTab ? 2 : 1}>
+          <TabPanel value={activeTab} index="metrics">
             <TraceMetricsTab
               selectedSpan={span}
               isConversationTrace={isConversationTrace}
