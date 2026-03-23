@@ -41,7 +41,7 @@ class EmbeddingGenerator:
         else:
             data_str = data
 
-        return hashlib.sha256(data_str.encode('utf-8')).hexdigest()
+        return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
 
     def _generate_embedding_vector(
         self,
@@ -50,7 +50,7 @@ class EmbeddingGenerator:
         model_name: str,
         api_key: str,
         dimension: int,
-        ) -> List[float]:
+    ) -> List[float]:
         """Generate embedding for a searchable text."""
         from rhesis.sdk.models.factory import EmbeddingModelConfig, get_embedding_model
 
@@ -128,14 +128,18 @@ class EmbeddingGenerator:
         text_hash = self._compute_hash(searchable_text)
 
         # Check if embedding already exists (same text/config)
-        existing_embedding = self.db.query(models.Embedding).filter(
-            models.Embedding.entity_id == entity_id,
-            models.Embedding.entity_type == entity_type,
-            models.Embedding.organization_id == organization_id,
-            models.Embedding.config_hash == config_hash,
-            models.Embedding.text_hash == text_hash,
-            models.Embedding.status == EmbeddingStatus.ACTIVE.value,
-        ).first()
+        existing_embedding = (
+            self.db.query(models.Embedding)
+            .filter(
+                models.Embedding.entity_id == entity_id,
+                models.Embedding.entity_type == entity_type,
+                models.Embedding.organization_id == organization_id,
+                models.Embedding.config_hash == config_hash,
+                models.Embedding.text_hash == text_hash,
+                models.Embedding.status == EmbeddingStatus.ACTIVE.value,
+            )
+            .first()
+        )
 
         if existing_embedding:
             logger.info(f"Embedding already exists for {entity_type}:{entity_id}")
@@ -183,8 +187,7 @@ class EmbeddingGenerator:
         self.db.refresh(new_embedding)
 
         logger.info(
-            f"Successfully generated embedding for {entity_type}:{entity_id}, "
-            f"dimension={dimension}"
+            f"Successfully generated embedding for {entity_type}:{entity_id}, dimension={dimension}"
         )
 
         return {"status": "success", "embedding_id": str(new_embedding.id)}
