@@ -47,6 +47,7 @@ def upgrade() -> None:
         "trace",
         ["created_at"],
         postgresql_where=sa.text("trace_metrics_processed_at IS NULL"),
+        if_not_exists=True,
     )
 
     op.add_column("project", sa.Column("attributes", postgresql.JSONB(), nullable=True))

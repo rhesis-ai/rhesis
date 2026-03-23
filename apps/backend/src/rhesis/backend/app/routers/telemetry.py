@@ -312,6 +312,11 @@ async def list_traces(
                 trace_endpoint_id = str(endpoint.id)
                 trace_endpoint_name = endpoint.name
 
+            # Get trace metrics status if available
+            trace_metrics_status_name = None
+            if hasattr(trace, "trace_metrics_status") and trace.trace_metrics_status:
+                trace_metrics_status_name = trace.trace_metrics_status.name
+
             summary = TraceSummary(
                 trace_id=trace.trace_id,
                 project_id=str(trace.project_id),
@@ -331,6 +336,7 @@ async def list_traces(
                 total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
                 total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
                 has_errors=has_errors,
+                trace_metrics_status=trace_metrics_status_name,
             )
             summaries.append(summary)
 
@@ -507,6 +513,11 @@ async def get_trace(
 
         logger.info(f"Retrieved trace {trace_id} with {len(spans)} span(s)")
 
+        # Get trace metrics status if available
+        trace_metrics_status_name = None
+        if hasattr(first_span, "trace_metrics_status") and first_span.trace_metrics_status:
+            trace_metrics_status_name = first_span.trace_metrics_status.name
+
         return TraceDetailResponse(
             trace_id=first_span.trace_id,
             project_id=str(first_span.project_id),  # Convert UUID to string
@@ -520,6 +531,7 @@ async def get_trace(
             total_tokens=total_tokens,
             total_cost_usd=total_cost,
             root_spans=root_spans,
+            trace_metrics_status=trace_metrics_status_name,
             # Add relationship objects
             project=project_obj,
             endpoint=endpoint_obj,

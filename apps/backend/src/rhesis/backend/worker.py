@@ -106,6 +106,12 @@ app.conf.update(
 # Auto-discover tasks
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
 
+# Initialize caches in worker
+from rhesis.backend.app.services.telemetry.conversation_linking import initialize_cache as init_conv_cache
+from rhesis.backend.app.services.telemetry.trace_metrics_cache import initialize_cache as init_metrics_cache
+init_conv_cache()
+init_metrics_cache()
+
 # Configure logging to reduce verbosity
 # Suppress verbose Celery task result logging
 logging.getLogger("celery.task").setLevel(logging.WARNING)
