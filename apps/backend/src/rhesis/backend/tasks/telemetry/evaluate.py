@@ -230,7 +230,7 @@ def evaluate_turn_trace_metrics(
 
         turn_metrics = {
             "execution_time": round(execution_time, 1),
-            "metrics": results.get("metrics", {}),
+            "metrics": results,
         }
 
         status_id = _derive_status_id(db, organization_id, turn_metrics)
@@ -367,7 +367,7 @@ def evaluate_conversation_trace_metrics(
 
         conversation_metrics = {
             "execution_time": round(execution_time, 1),
-            "metrics": results.get("metrics", {}),
+            "metrics": results,
         }
 
         first_span = root_spans[0]
