@@ -102,41 +102,49 @@ weigh issues by importance, then determine the final score."
 
 ---
 
-### Using Metadata in Evaluation
+### Evaluating Context, Metadata, and Tool Calls
 
-Metrics can evaluate structured metadata returned by your endpoint alongside the text response. This is useful for evaluating aspects that go beyond the output text, such as token usage, latency, model version, confidence scores, or any custom data your API returns.
+Metrics can also take into account `context`, `metadata`, and `tool_calls`. These are Rhesis-managed keys providing additional information for a given interaction alongside the standard text response.
+
+- **`context`**: Background information, retrieved documents, or system prompts provided to the model.
+- **`metadata`**: Structured data returned by your endpoint (e.g., token usage, latency, model version, confidence scores, or custom fields).
+- **`tool_calls`**: External functions or tools invoked by the AI during the interaction.
 
 **How it works:**
 
-1. Configure your endpoint's [response mapping](/platform/endpoints) to extract a `metadata` field from the API response (e.g., `"metadata": "$.usage"`)
-2. Reference the metadata in your metric's **Evaluation Prompt** -- the JSON object will be available to the evaluation model automatically
+To use these fields, the metric only needs to make this explicit in its configuration (e.g., in the **Evaluation Prompt**). The evaluation model will automatically receive these objects if they are present in the interaction and reason about them when producing a score.
 
-**Example:** Evaluating token efficiency
+**Example 1: Evaluating Context Groundedness**
+
+Evaluation Prompt:
+```
+Evaluate whether the response is fully grounded in the provided context.
+Check the `context` array. Any claim in the output that is not supported
+by the `context` should result in a lower score.
+```
+
+**Example 2: Evaluating Token Efficiency (Metadata)**
 
 Endpoint response mapping:
-```
-\{
+```json
+{
   "output": "$.choices[0].message.content",
   "metadata": "$.usage"
-\}
+}
 ```
 
 Evaluation Prompt:
 ```
 Evaluate whether the response is efficient in token usage.
-Check the metadata for token counts. A response that uses more than
+Check the `metadata` for token counts. A response that uses more than
 500 tokens for a simple factual question should score lower.
-Consider the ratio of useful content to total tokens.
 ```
 
-The evaluation model receives the metadata as a JSON object under "Response Metadata" and can reason about its contents when producing a score.
-
-**Common metadata use cases:**
-- **Token usage** -- evaluate cost efficiency by checking `prompt_tokens` and `completion_tokens`
-- **Confidence scores** -- verify the model's self-reported confidence aligns with response quality
-- **Source citations** -- check that retrieved sources are relevant and properly attributed
-- **Latency or timing** -- flag responses that took unusually long
-- **Model version** -- ensure the correct model was used
+**Common use cases:**
+- **RAG Groundedness (`context`)** -- check that the model's answer relies only on retrieved knowledge
+- **Tool Correctness (`tool_calls`)** -- verify the AI chose the right tool and passed the correct arguments
+- **Token usage (`metadata`)** -- evaluate cost efficiency by checking `prompt_tokens` and `completion_tokens`
+- **Confidence scores (`metadata`)** -- verify the model's self-reported confidence aligns with response quality
 
 ---
 
@@ -173,10 +181,11 @@ Define custom categories for classification:
 
 ### 3. Metric Scope
 
-Select applicable test types (at least one required):
+Select applicable scopes (at least one required):
 
 - **Single-Turn**: Individual question-answer pairs
 - **Multi-Turn**: Multi-exchange conversations
+- **Trace**: Live production traffic evaluated in real-time (see [Trace Metrics](/platform/metrics/trace-metrics))
 
 You can find more information about test types in the [Tests Section](/platform/tests).
 
