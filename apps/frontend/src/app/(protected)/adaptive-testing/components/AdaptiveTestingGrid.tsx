@@ -219,6 +219,7 @@ export default function AdaptiveTestingGrid({
         | 'info'
         | 'warning';
       onClick: () => void;
+      disabled?: boolean;
     }[] = [
       {
         label: 'Add test set',
