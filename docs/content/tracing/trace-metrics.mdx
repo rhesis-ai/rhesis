@@ -10,9 +10,16 @@ Trace metrics evaluate at two levels depending on the type of trace.
 
 **Per-turn evaluation** runs immediately after each request. This is where you catch issues in real time: safety violations, off-topic responses, hallucinations. Every trace gets per-turn evaluation.
 
-**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. Only multi-turn traces get conversation evaluation.
+**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. Only multi-turn traces get conversation evaluation. 
 
-For single-turn traces (no `conversation_id`), all configured metrics run in the per-turn pass since the trace represents a complete exchange.
+*Note: The inactivity timeout is centrally configurable in the backend via the `DEFAULT_CONVERSATION_DEBOUNCE_SECONDS` environment variable.*
+
+### The "First Turn" Edge Case
+
+Often, the very first message in a chat does not yet have a `conversation_id` attached to it. When this happens:
+1. The backend treats it as a single-turn trace and runs all applicable metrics immediately.
+2. When the user replies (Turn 2) and a `conversation_id` is established, the backend recognizes it as a multi-turn conversation.
+3. It stops running "Conversation" metrics on individual turns and starts the debounce timer to wait for the conversation to finish.
 
 ## Setting Up Trace Metrics
 
@@ -46,7 +53,9 @@ coherence = NumericJudge(
 coherence.push()`}
 </CodeBlock>
 
-If you set the scope to just `["Trace"]` without specifying Single-Turn or Multi-Turn, the metric adapts automatically: it runs per-turn on single-turn traces and per-conversation on multi-turn traces.
+If you set the scope to just `["Trace"]` without specifying Single-Turn or Multi-Turn, the metric adapts automatically based on the presence of a `conversation_id`: 
+* **If there is no conversation ID:** It runs immediately (per-turn).
+* **If there is a conversation ID:** It skips the immediate evaluation and waits to run per-conversation once the timeout expires.
 
 <CodeBlock filename="adaptive_metric.py" language="python">
 {`from rhesis.sdk.metrics import NumericJudge, MetricScope
