@@ -14,6 +14,7 @@ from .suggestions import (
 from .tests import (
     create_adaptive_test_set,
     create_test_node,
+    delete_adaptive_test_set,
     delete_test_node,
     get_adaptive_test_sets,
     get_tree_nodes,
@@ -31,6 +32,7 @@ __all__ = [
     "create_adaptive_test_set",
     "create_test_node",
     "create_topic_node",
+    "delete_adaptive_test_set",
     "delete_test_node",
     "evaluate_suggestions",
     "evaluate_tests_for_adaptive_set",

@@ -43,6 +43,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
     create_test_node,
     create_topic_node,
+    delete_adaptive_test_set,
     delete_test_node,
     evaluate_suggestions,
     evaluate_tests_for_adaptive_set,
@@ -128,6 +129,33 @@ def list_adaptive_test_sets(
         sort_by=sort_by,
         sort_order=sort_order,
     )
+
+
+@router.delete(
+    "/{test_set_identifier}",
+    response_model=schemas.TestSet,
+)
+def delete_adaptive_test_set_endpoint(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete a test set configured for adaptive testing.
+
+    Only test sets that include the Adaptive Testing behavior can be removed
+    through this endpoint.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        return delete_adaptive_test_set(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get(
