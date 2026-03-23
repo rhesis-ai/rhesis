@@ -231,10 +231,7 @@ export default function AdaptiveTestingGrid({
 
     if (selectedRows.length > 0) {
       buttons.push({
-        label:
-          selectedRows.length > 1
-            ? 'Delete test sets'
-            : 'Delete test set',
+        label: selectedRows.length > 1 ? 'Delete test sets' : 'Delete test set',
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
