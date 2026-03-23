@@ -9,7 +9,6 @@ const meta: MetaRecord = {
   "auto-instrumentation": "Auto-Instrumentation",
   "multi-agent": "Multi-Agent Tracing",
   "conversation-tracing": "Conversation Tracing",
-  "trace-metrics": "Trace Metrics",
 };
 
 export default meta;
