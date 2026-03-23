@@ -23,7 +23,8 @@ def generate_embedding_task(self, entity_id: str, entity_type: str, model_id: st
     organization_id, user_id = self.get_tenant_context()
 
     self.log_with_context(
-        "info", "Starting embedding generation",
+        "info",
+        "Starting embedding generation",
         entity_type=entity_type,
         entity_id=entity_id,
     )
