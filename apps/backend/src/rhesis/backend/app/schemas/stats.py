@@ -182,7 +182,6 @@ class ExecutorRunCount(BaseModel):
 class TestRunTimelineData(BaseModel):
     date: str
     total_runs: int
-    status_breakdown: Dict[str, int]
     result_breakdown: Dict[str, int]
 
 

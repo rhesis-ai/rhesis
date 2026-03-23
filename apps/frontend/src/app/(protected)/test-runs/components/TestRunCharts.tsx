@@ -18,7 +18,7 @@ const fallbackData = [{ name: 'Loading...', value: 100 }];
 // Configuration for each chart
 const CHART_CONFIG = {
   status: { top: 5, title: 'Test Runs by Status' },
-  result: { top: 5, title: 'Test Runs by Result' },
+  result: { top: 5, title: 'Test Results across Runs' },
   test: { top: 5, title: 'Most Run Test Sets' },
   executor: { top: 5, title: 'Top Test Executors' },
 };
@@ -170,8 +170,9 @@ export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
     );
   }
 
-  // Show empty state only when stats confirm there are no runs
-  const hasNoRuns = !statusChart?.status_distribution?.length;
+  // Show empty state only when metadata confirms zero runs
+  const totalRuns = statusChart?.metadata?.total_test_runs;
+  const hasNoRuns = totalRuns === 0;
   if (hasNoRuns) {
     return (
       <Paper

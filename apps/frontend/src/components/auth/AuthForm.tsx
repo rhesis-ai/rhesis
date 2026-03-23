@@ -3,7 +3,6 @@
 import {
   Box,
   Typography,
-  Paper,
   Button,
   Divider,
   Checkbox,
@@ -22,6 +21,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
@@ -29,6 +29,13 @@ import {
   DEFAULT_PASSWORD_POLICY,
   validatePassword,
 } from '../../utils/validation';
+
+const SUBTLE_TEXT = '#6B7280'; // Intentional: auth form subtle text
+const FORM_TEXT = '#374151'; // Intentional: auth form text color
+const FORM_BORDER = '#E5E7EB'; // Intentional: auth form border color
+const HOVER_BORDER = '#D1D5DB'; // Intentional: auth form hover border
+const HOVER_BG = '#FAFBFC'; // Intentional: auth form hover background
+const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
 
 interface ProviderInfo {
   name: string;
@@ -325,19 +332,36 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Paper
-        elevation={0}
+      <Box
         sx={{
-          p: 3,
           display: 'flex',
           flexDirection: 'column',
           gap: 2,
         }}
       >
-        <Typography variant="h6" align="center">
+        <Typography
+          sx={{
+            fontSize: 24,
+            fontWeight: 700,
+            color: 'secondary.dark',
+            textAlign: 'center',
+            letterSpacing: '-0.02em',
+            mb: 0,
+          }}
+        >
+          {isRegistration ? 'Create your account' : 'Welcome'}
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: 14,
+            color: SUBTLE_TEXT,
+            textAlign: 'center',
+            mb: 2,
+          }}
+        >
           {isRegistration
-            ? 'Create your account'
-            : 'All paws on deck for testing!'}
+            ? 'Get started with Rhesis AI'
+            : 'Sign in or create your account'}
         </Typography>
 
         {/* ── Initial view: "Continue with Email" button ── */}
@@ -348,6 +372,16 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             size="large"
             startIcon={<EmailIcon />}
             onClick={() => setShowEmailForm(true)}
+            sx={{
+              height: 46,
+              borderRadius: '10px', // Intentional: button border radius
+              bgcolor: 'primary.main',
+              borderColor: 'primary.main',
+              '&:hover': {
+                bgcolor: BUTTON_HOVER,
+                boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
+              },
+            }}
           >
             Continue with Email
           </Button>
@@ -458,12 +492,12 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                       title="Set a new password via email to use password login"
                       arrow
                     >
-                      <a
+                      <Link
                         href="/auth/forgot-password"
                         style={{ color: 'inherit' }}
                       >
                         reset your password
-                      </a>
+                      </Link>
                     </Tooltip>
                     .
                   </Typography>
@@ -479,6 +513,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 startIcon={
                   formLoading ? <CircularProgress size={20} /> : <EmailIcon />
                 }
+                sx={{
+                  height: 46,
+                  borderRadius: '10px', // Intentional: button border radius
+                  bgcolor: 'primary.main',
+                  '&:hover': {
+                    bgcolor: BUTTON_HOVER,
+                    boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
+                  },
+                }}
               >
                 {isRegistration ? 'Create Account' : 'Sign in'}
               </Button>
@@ -493,7 +536,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   }}
                 >
                   <Typography variant="body2">
-                    <a
+                    <Link
                       href="/auth/forgot-password"
                       style={{
                         color: 'inherit',
@@ -501,7 +544,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                       }}
                     >
                       Forgot password?
-                    </a>
+                    </Link>
                   </Typography>
                   <Tooltip
                     title="We'll send you a link to sign in without typing your password"
@@ -573,6 +616,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   <AutoFixHighIcon />
                 )
               }
+              sx={{
+                height: 46,
+                borderRadius: '10px', // Intentional: button border radius
+                bgcolor: 'primary.main',
+                '&:hover': {
+                  bgcolor: BUTTON_HOVER,
+                  boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
+                },
+              }}
             >
               Email me a link
             </Button>
@@ -651,7 +703,17 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   startIcon={getProviderIcon(provider.name)}
                   onClick={() => handleOAuthLogin(provider.name)}
                   sx={{
-                    color: theme => theme.palette.text.primary,
+                    height: 46,
+                    borderRadius: '10px', // Intentional: button border radius
+                    color: FORM_TEXT,
+                    borderColor: FORM_BORDER,
+                    borderWidth: '1.5px',
+                    '&:hover': {
+                      borderColor: HOVER_BORDER,
+                      bgcolor: HOVER_BG,
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                      borderWidth: '1.5px',
+                    },
                   }}
                 >
                   Continue with {provider.display_name}
@@ -677,9 +739,19 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 variant="outlined"
                 fullWidth
                 size="large"
+                component={Link}
                 href="/auth/register"
                 sx={{
-                  color: theme => theme.palette.text.primary,
+                  height: 46,
+                  borderRadius: '10px', // Intentional: button border radius
+                  color: FORM_TEXT,
+                  borderColor: FORM_BORDER,
+                  borderWidth: '1.5px',
+                  '&:hover': {
+                    borderColor: HOVER_BORDER,
+                    bgcolor: HOVER_BG,
+                    borderWidth: '1.5px',
+                  },
                 }}
               >
                 Create an account
@@ -695,9 +767,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             sx={{ color: 'text.secondary' }}
           >
             Already have an account?{' '}
-            <a href="/" style={{ color: 'inherit' }}>
+            <Link href="/" style={{ color: 'inherit' }}>
               Sign in
-            </a>
+            </Link>
           </Typography>
         )}
 
@@ -786,7 +858,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             )}
           </Box>
         )}
-      </Paper>
+      </Box>
     </Box>
   );
 }

@@ -253,6 +253,10 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: DEFAULT_POLYPHEMUS_URL
+        - name: GIT_BRANCH
+          value: "GIT_BRANCH_PLACEHOLDER"
+        - name: GIT_COMMIT
+          value: "GIT_COMMIT_PLACEHOLDER"
         ports:
         - containerPort: 8080
           name: health

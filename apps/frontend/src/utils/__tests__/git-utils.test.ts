@@ -40,10 +40,10 @@ describe('shouldShowGitInfo', () => {
     expect(shouldShowGitInfo()).toBe(false);
   });
 
-  it('returns false for staging', () => {
+  it('returns true for staging', () => {
     process.env.FRONTEND_ENV = 'staging';
     (process.env as MutableEnv).NODE_ENV = 'production';
-    expect(shouldShowGitInfo()).toBe(false);
+    expect(shouldShowGitInfo()).toBe(true);
   });
 });
 
