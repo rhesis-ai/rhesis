@@ -5,6 +5,8 @@
  * the sitemap stays in sync with llms.txt and llms-full.txt automatically.
  */
 
+import fs from 'fs'
+import path from 'path'
 import {
   findContentDir,
   getMdxFiles,
@@ -31,13 +33,13 @@ export default async function sitemap() {
   const urlSet = new Set()
   const entries = []
 
-  const addEntry = urlPath => {
+  const addEntry = (urlPath, lastModified = new Date()) => {
     const url = urlPath ? `${BASE_URL}/${urlPath}` : BASE_URL
     if (urlSet.has(url)) return
     urlSet.add(url)
     entries.push({
       url,
-      lastModified: new Date(),
+      lastModified,
       changeFrequency: 'weekly',
       priority: getPriority(urlPath),
     })
@@ -45,10 +47,21 @@ export default async function sitemap() {
 
   if (!contentDir) {
     // Minimal fallback when content dir is unavailable (e.g. partial build)
+    // eslint-disable-next-line no-console
+    console.warn(
+      'Content directory not found; sitemap will include base URL only'
+    )
     addEntry('')
   } else {
     for (const filePath of getMdxFiles(contentDir)) {
-      addEntry(filePathToUrl(filePath))
+      const urlPath = filePathToUrl(filePath)
+      let lastModified = new Date()
+      try {
+        lastModified = fs.statSync(path.join(contentDir, filePath)).mtime
+      } catch {
+        // use default lastModified
+      }
+      addEntry(urlPath, lastModified)
     }
 
     // Safety net: ensure glossary terms from the JSONL are always included
