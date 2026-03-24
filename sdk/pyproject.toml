@@ -36,7 +36,7 @@ dependencies = [
     "tenacity>=8.2.3",
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
-    "litellm>=1.76.0",
+    "litellm>=1.76.0,<=1.82.3",
     "deepteam>=0.2.5",
     "langchain-google-genai>=2.1.12",
     "ragas>=0.3.7",
