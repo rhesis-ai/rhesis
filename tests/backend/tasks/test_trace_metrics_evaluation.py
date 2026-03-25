@@ -134,9 +134,7 @@ class TestEvaluateTurnTraceMetrics:
         db = _db_mock_turn(project, root, status)
         mock_metric = _mock_metric_model()
 
-        eval_results = {
-            "metrics": {"m1": {"is_successful": True, "score": 1.0}},
-        }
+        eval_results = {"m1": {"is_successful": True, "score": 1.0}}
 
         with (
             patch(
@@ -159,14 +157,14 @@ class TestEvaluateTurnTraceMetrics:
         assert out["status"] == "success"
         assert out["trace_id"] == TRACE_ID
         mock_load.assert_called_once()
-        assert mock_load.call_args.kwargs.get("scope_filter") is None
+        assert mock_load.call_args.kwargs.get("phase") == "all"
         assert mock_load.call_args.args[0] is db
         assert mock_load.call_args.args[1] == ORG_ID
         mock_crud.update_trace_turn_metrics.assert_called_once()
         utm = mock_crud.update_trace_turn_metrics.call_args.kwargs
         assert utm["span_id"] == str(root.id)
         assert "metrics" in utm["turn_metrics"]
-        assert utm["turn_metrics"]["metrics"] == eval_results["metrics"]
+        assert utm["turn_metrics"]["metrics"] == eval_results
         db.close.assert_called_once()
 
     def test_multi_turn_with_conversation_id(self):
@@ -176,7 +174,7 @@ class TestEvaluateTurnTraceMetrics:
         db = _db_mock_turn(project, root, status)
         mock_metric = _mock_metric_model()
 
-        eval_results = {"metrics": {"m1": {"is_successful": True}}}
+        eval_results = {"m1": {"is_successful": True}}
 
         with (
             patch(
@@ -201,9 +199,7 @@ class TestEvaluateTurnTraceMetrics:
             evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
 
         mock_load.assert_called_once()
-        assert mock_load.call_args.kwargs["scope_filter"] == [
-            MetricScope.SINGLE_TURN.value,
-        ]
+        assert mock_load.call_args.kwargs["phase"] == "turn"
         mock_schedule.assert_called_once_with(TRACE_ID, PROJECT_ID, ORG_ID)
 
     def test_project_disabled(self):
@@ -411,7 +407,7 @@ class TestEvaluateConversationTraceMetrics:
         mock_metric = _mock_metric_model("multi")
         mock_metric.metric_scope = [MetricScope.TRACE.value, MetricScope.MULTI_TURN.value]
 
-        eval_results = {"metrics": {"multi": {"is_successful": True}}}
+        eval_results = {"multi": {"is_successful": True}}
 
         with (
             patch(
@@ -451,7 +447,7 @@ class TestEvaluateConversationTraceMetrics:
         mock_crud.update_trace_conversation_metrics.assert_called_once()
         ucm = mock_crud.update_trace_conversation_metrics.call_args.kwargs
         assert ucm["trace_id"] == TRACE_ID
-        assert ucm["conversation_metrics"]["metrics"] == eval_results["metrics"]
+        assert ucm["conversation_metrics"]["metrics"] == eval_results
         eval_kwargs = mock_eval_cls.return_value.evaluate.call_args.kwargs
         assert eval_kwargs["conversation_history"] is conv_instance
         assert eval_kwargs["output_text"] == "formatted thread".strip()
