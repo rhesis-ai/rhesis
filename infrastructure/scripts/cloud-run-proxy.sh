@@ -3,7 +3,7 @@
 # Proxy local ports to Rhesis Cloud Run services (requires authenticated gcloud + run.invoker).
 #
 # Examples:
-#   ./cloud-run-proxy.sh frontend   # project defaults to playground-437609
+#   ./cloud-run-proxy.sh frontend   # project defaults
 #   ./cloud-run-proxy.sh -p other-project -e dev docs
 #   ./cloud-run-proxy.sh all
 #   ./cloud-run-proxy.sh stop
@@ -16,7 +16,7 @@ LOGDIR="${TMPDIR:-/tmp}/rhesis-cloud-run-proxy-logs"
 
 DEFAULT_REGION="${GCP_REGION:-us-central1}"
 DEFAULT_ENV="${RHESIS_ENV:-${ENVIRONMENT:-dev}}"
-DEFAULT_PROJECT_ID="playground-437609"
+DEFAULT_PROJECT_ID="${GCP_PROJECT:-playground-437609}"
 
 ALL_KEYS="frontend docs chatbot polyphemus"
 
