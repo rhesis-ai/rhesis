@@ -27,6 +27,7 @@ function LeftPanelCloseIcon(props: React.ComponentProps<typeof SvgIcon>) {
 import NavItem from './NavItem';
 import NavCategoryHeader from './NavCategoryHeader';
 import NavCompanyBranding from './NavCompanyBranding';
+import NavScrollArea from './NavScrollArea';
 import CompanyMenu from './CompanyMenu';
 import SidebarFooter from './SidebarFooter';
 import { type NavigationItem } from '@/types/navigation';
@@ -183,23 +184,7 @@ export default function AppSidebar({
             <MenuIcon sx={{ fontSize: 20 }} />
           </IconButton>
         </Tooltip>
-        <Box
-          sx={{
-            flex: 1,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 0.25,
-            width: '100%',
-            px: 1,
-            '&::-webkit-scrollbar': { width: 4 },
-            '&::-webkit-scrollbar-thumb': {
-              bgcolor: 'grey.300',
-              borderRadius: 2,
-            },
-          }}
-        >
+        <NavScrollArea sx={{ gap: 0.25, width: '100%', px: 1 }}>
           {groups.map((group, idx) => {
             const renderedItems = group.items.map(renderItem);
             if (group.header) {
@@ -219,7 +204,7 @@ export default function AppSidebar({
               </React.Fragment>
             );
           })}
-        </Box>
+        </NavScrollArea>
         <SidebarFooter mini />
       </Box>
     );
@@ -262,20 +247,7 @@ export default function AppSidebar({
       </Tooltip>
 
       {/* Top section */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          '&::-webkit-scrollbar': { width: 4 },
-          '&::-webkit-scrollbar-thumb': {
-            bgcolor: 'grey.300',
-            borderRadius: 2,
-          },
-        }}
-      >
+      <NavScrollArea>
         <Box sx={{ mb: 4 }}>
           <NavCompanyBranding onClick={handleCompanyMenuOpen} />
         </Box>
@@ -316,7 +288,7 @@ export default function AppSidebar({
             );
           })}
         </Box>
-      </Box>
+      </NavScrollArea>
 
       {/* Footer */}
       <SidebarFooter />

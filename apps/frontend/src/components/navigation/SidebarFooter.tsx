@@ -1,18 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Box,
-  Typography,
-  Tooltip,
-  Avatar,
-  IconButton,
-  Divider,
-} from '@mui/material';
+import { Box, Tooltip, Avatar, IconButton, Divider } from '@mui/material';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import ForumIcon from '@mui/icons-material/ForumOutlined';
 import { useSession } from 'next-auth/react';
 import UserMenu from './UserMenu';
+import SidebarLinkItem from './SidebarLinkItem';
+import UserAvatarRow from './UserAvatarRow';
 
 interface SidebarFooterProps {
   mini?: boolean;
@@ -112,99 +107,24 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
           flexDirection: 'column',
         }}
       >
-        <Box
-          component="a"
+        <SidebarLinkItem
           href="https://github.com/rhesis-ai/rhesis"
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.25,
-            textDecoration: 'none',
-            color: 'text.secondary',
-            px: 1.75,
-            py: 1,
-            borderRadius: 1,
-            '&:hover': { bgcolor: 'grey.200' },
-          }}
-        >
-          <StarBorderIcon sx={{ fontSize: 24 }} />
-          <Typography fontSize={14} lineHeight="22px">
-            Star Rhesis
-          </Typography>
-        </Box>
-        <Box
-          component="a"
+          icon={<StarBorderIcon sx={{ fontSize: 24 }} />}
+          label="Star Rhesis"
+        />
+        <SidebarLinkItem
           href="https://docs.rhesis.ai"
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.25,
-            textDecoration: 'none',
-            color: 'text.secondary',
-            px: 1.75,
-            py: 1,
-            borderRadius: 1,
-            '&:hover': { bgcolor: 'grey.200' },
-          }}
-        >
-          <ForumIcon sx={{ fontSize: 24 }} />
-          <Typography fontSize={14} lineHeight="22px">
-            Support
-          </Typography>
-        </Box>
+          icon={<ForumIcon sx={{ fontSize: 24 }} />}
+          label="Support"
+        />
       </Box>
 
-      {/* User avatar row */}
-      <Box
+      <UserAvatarRow
+        displayName={displayName}
+        email={email}
+        avatarSrc={avatarSrc}
         onClick={handleUserMenuOpen}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.25,
-          cursor: 'pointer',
-          p: 1.25,
-          borderRadius: '999px',
-          '&:hover': { bgcolor: 'grey.200' },
-        }}
-      >
-        <Avatar
-          src={avatarSrc}
-          alt={displayName}
-          sx={{
-            width: 32,
-            height: 32,
-            fontSize: 14,
-            border: '2px solid',
-            borderColor: 'common.black',
-          }}
-        >
-          {displayName.charAt(0).toUpperCase()}
-        </Avatar>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography
-            fontWeight={400}
-            fontSize={14}
-            lineHeight="22px"
-            noWrap
-            sx={{ textDecoration: 'underline', color: 'text.primary' }}
-          >
-            {displayName}
-          </Typography>
-          <Typography
-            fontSize={12}
-            lineHeight="18px"
-            noWrap
-            display="block"
-            sx={{ color: 'grey.500' }}
-          >
-            {email}
-          </Typography>
-        </Box>
-      </Box>
+      />
 
       <UserMenu
         anchorEl={userMenuAnchor}

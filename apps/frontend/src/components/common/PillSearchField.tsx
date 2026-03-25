@@ -1,22 +1,58 @@
 'use client';
 
 import React from 'react';
-import { InputBase, Box, IconButton } from '@mui/material';
+import {
+  InputBase,
+  Box,
+  IconButton,
+  InputAdornment,
+  BoxProps,
+} from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 
-interface PillSearchFieldProps {
+interface PillSearchFieldControlledProps {
   value: string;
   onChange: (value: string) => void;
-  placeholder?: string;
-  onSearch?: () => void;
+  inputRef?: never;
+  defaultValue?: never;
+  onInputChange?: never;
+  onClear?: never;
+  showClear?: never;
 }
 
-export default function PillSearchField({
-  value,
-  onChange,
-  placeholder = 'Search...',
-  onSearch,
-}: PillSearchFieldProps) {
+interface PillSearchFieldUncontrolledProps {
+  value?: never;
+  onChange?: never;
+  inputRef: React.Ref<HTMLInputElement>;
+  defaultValue?: string;
+  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClear?: () => void;
+  showClear?: boolean;
+}
+
+type PillSearchFieldProps = (
+  | PillSearchFieldControlledProps
+  | PillSearchFieldUncontrolledProps
+) & {
+  placeholder?: string;
+  onSearch?: () => void;
+  width?: number | string;
+  height?: number;
+  sx?: BoxProps['sx'];
+};
+
+export default function PillSearchField(props: PillSearchFieldProps) {
+  const {
+    placeholder = 'Search...',
+    onSearch,
+    width = 288,
+    height = 38,
+    sx,
+  } = props;
+
+  const isControlled = 'value' in props && props.value !== undefined;
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && onSearch) {
       onSearch();
@@ -29,17 +65,30 @@ export default function PillSearchField({
         display: 'flex',
         alignItems: 'center',
         bgcolor: 'grey.100',
-        borderRadius: 999,
+        borderRadius: '30px',
+        height,
+        width,
         pl: 2,
         pr: 0.5,
-        py: 0.25,
-        minWidth: 220,
-        maxWidth: 360,
+        ...sx,
       }}
     >
       <InputBase
-        value={value}
-        onChange={e => onChange(e.target.value)}
+        {...(isControlled
+          ? {
+              value: (props as PillSearchFieldControlledProps).value,
+              onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+                (props as PillSearchFieldControlledProps).onChange(
+                  e.target.value
+                ),
+            }
+          : {
+              inputRef: (props as PillSearchFieldUncontrolledProps).inputRef,
+              defaultValue:
+                (props as PillSearchFieldUncontrolledProps).defaultValue ?? '',
+              onChange: (props as PillSearchFieldUncontrolledProps)
+                .onInputChange,
+            })}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         sx={{
@@ -47,24 +96,40 @@ export default function PillSearchField({
           fontSize: 14,
           '& .MuiInputBase-input': {
             py: 0.5,
+            '&::placeholder': { color: 'grey.400', opacity: 1 },
           },
         }}
+        endAdornment={
+          !isControlled &&
+          (props as PillSearchFieldUncontrolledProps).showClear ? (
+            <InputAdornment position="end">
+              <IconButton
+                size="small"
+                onClick={(props as PillSearchFieldUncontrolledProps).onClear}
+                aria-label="Clear search"
+              >
+                <ClearIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            </InputAdornment>
+          ) : null
+        }
       />
-      <IconButton
-        onClick={onSearch}
-        size="small"
+      <Box
         sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           bgcolor: 'primary.main',
-          color: 'primary.contrastText',
-          width: 32,
-          height: 32,
-          '&:hover': {
-            bgcolor: 'primary.light',
-          },
+          borderRadius: '50%',
+          width: 30,
+          height: 30,
+          flexShrink: 0,
+          cursor: 'pointer',
         }}
+        onClick={onSearch}
       >
-        <SearchIcon sx={{ fontSize: 18 }} />
-      </IconButton>
+        <SearchIcon sx={{ fontSize: 18, color: '#fff' }} />
+      </Box>
     </Box>
   );
 }

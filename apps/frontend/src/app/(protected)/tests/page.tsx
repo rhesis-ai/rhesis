@@ -18,8 +18,8 @@ import {
 import PageHeader from '@/components/layout/PageHeader';
 import DataCard from '@/components/common/DataCard';
 import FloatingActionButton from '@/components/common/FloatingActionButton';
-import AddIcon from '@mui/icons-material/Add';
-import DownloadIcon from '@mui/icons-material/Download';
+import AddIcon from '@mui/icons-material/AddOutlined';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();

@@ -23,13 +23,10 @@ import {
   ClickAwayListener,
   MenuList,
   CircularProgress,
-  TextField,
-  InputAdornment,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
-import TuneIcon from '@mui/icons-material/Tune';
-import IconButton from '@mui/material/IconButton';
+import GridFilterButton from './GridFilterButton';
+import GridToolbarActions from './GridToolbarActions';
+import PillSearchField from './PillSearchField';
 import {
   DataGrid,
   GridColDef,
@@ -38,12 +35,10 @@ import {
   GridEditMode,
   GridDensity,
   GridRowSelectionModel,
-  GridToolbar,
   GridToolbarQuickFilter,
   GridToolbarColumnsButton,
   GridToolbarDensitySelector,
   GridToolbarExport,
-  GridToolbarFilterButton,
   useGridApiContext,
   useGridApiRef,
   GridFilterModel,
@@ -221,18 +216,22 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
       height: 38,
       '&:hover': {
         borderColor: theme.palette.primary.main,
+        color: theme.palette.primary.main,
         backgroundColor: 'transparent',
       },
       '&.Mui-disabled': {
         borderColor: theme.palette.grey[300],
+        color: theme.palette.grey[300],
         opacity: 0.5,
       },
+      color: theme.palette.grey[400],
       '& .MuiSvgIcon-root': {
         fontSize: 20,
       },
     },
     '& .MuiIconButton-root:last-of-type': {
       borderColor: theme.palette.primary.main,
+      color: theme.palette.primary.main,
     },
   },
 }));
@@ -656,103 +655,23 @@ export default function BaseDataGrid({
             alignItems: 'center',
           }}
         >
-          {/* Left: filter button + pill search */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
-            <IconButton
+            <GridFilterButton
               onClick={() => apiRef.current.showFilterPanel()}
-              sx={{
-                width: 38,
-                height: 38,
-                bgcolor: 'primary.main',
-                color: '#fff',
-                borderRadius: 1,
-                '&:hover': { bgcolor: 'primary.dark' },
-              }}
-            >
-              <TuneIcon sx={{ fontSize: 20 }} />
-            </IconButton>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                bgcolor: 'grey.100',
-                borderRadius: '30px',
-                height: 38,
-                width: 288,
-                pl: 2,
-                pr: 0.5,
-              }}
-            >
-              <TextField
-                inputRef={quickFilterInputRef}
-                variant="standard"
-                placeholder="Search..."
-                defaultValue=""
-                onChange={handleQuickFilterChange}
-                sx={{ flex: 1 }}
-                InputProps={{
-                  disableUnderline: true,
-                  sx: {
-                    fontSize: 14,
-                    '& input::placeholder': {
-                      color: 'grey.400',
-                      opacity: 1,
-                    },
-                  },
-                  endAdornment: quickFilterInputRef.current?.value ? (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={handleQuickFilterClear}
-                        aria-label="Clear search"
-                      >
-                        <ClearIcon sx={{ fontSize: 16 }} />
-                      </IconButton>
-                    </InputAdornment>
-                  ) : null,
-                }}
-              />
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: 'primary.main',
-                  borderRadius: '50%',
-                  width: 30,
-                  height: 30,
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                }}
-              >
-                <SearchIcon sx={{ fontSize: 18, color: '#fff' }} />
-              </Box>
-            </Box>
+            />
+            <PillSearchField
+              inputRef={quickFilterInputRef}
+              defaultValue=""
+              onInputChange={handleQuickFilterChange}
+              onClear={handleQuickFilterClear}
+              showClear={!!quickFilterInputRef.current?.value}
+            />
           </Box>
-
-          {/* Right: Columns, Density, Export */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              '& .MuiButton-root': {
-                color: 'primary.main',
-                fontSize: 14,
-                fontWeight: 400,
-                textTransform: 'none',
-                px: 2,
-                py: 1,
-                borderRadius: 1,
-                '& .MuiButton-startIcon': {
-                  '& .MuiSvgIcon-root': { fontSize: 20 },
-                },
-              },
-            }}
-          >
+          <GridToolbarActions>
             <GridToolbarColumnsButton />
             <GridToolbarDensitySelector />
             <GridToolbarExport />
-          </Box>
+          </GridToolbarActions>
         </Box>
       );
     };

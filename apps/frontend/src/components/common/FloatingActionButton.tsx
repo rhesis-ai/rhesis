@@ -34,7 +34,7 @@ export default function FloatingActionButton({
         '&:hover': {
           boxShadow: '0px 4px 8px rgba(84, 90, 101, 0.3)',
         },
-        '& .MuiSvgIcon-root': { fontSize: 20 },
+        '& .MuiSvgIcon-root': { fontSize: 24 },
       }}
     >
       {icon}
