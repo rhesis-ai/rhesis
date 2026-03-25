@@ -15,7 +15,7 @@ export const siteConfig = {
   twitterSite: '@rhesis_ai',
 
   // Default images for social sharing
-  defaultImage: '/logo/rhesis-logo-website.png',
+  defaultImage: '/GH_Short_Demo.png',
   defaultImageAlt: 'Rhesis - AI-powered testing and evaluation platform',
 
   // Organization information

@@ -20,7 +20,7 @@ import React from 'react'
  *   icon={CodeOutlined}
  *   title="Development Setup"
  *   description="Complete guide to setting up your development environment."
- *   link="/docs/development/setup"
+ *   link="/docs/contribute/setup"
  *   linkText="Setup Guide →"
  * />
  * ```

@@ -7,6 +7,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
     create_test_node,
+    delete_adaptive_test_set,
     delete_test_node,
     get_adaptive_test_sets,
     get_tree_nodes,
@@ -417,6 +418,62 @@ class TestCreateAdaptiveTestSet:
         )
         assert result.name == "No Description Set"
         assert result.description is None
+
+
+# ============================================================================
+# Tests for delete_adaptive_test_set
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+class TestDeleteAdaptiveTestSet:
+    """Test delete_adaptive_test_set - removes adaptive test sets only."""
+
+    def test_delete_existing_adaptive_set(self, test_db, test_org_id, authenticated_user_id):
+        """Created adaptive set is deleted and no longer listed."""
+        created = create_adaptive_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name=f"To Delete {uuid.uuid4().hex[:6]}",
+        )
+        created_id = str(created.id)
+
+        deleted = delete_adaptive_test_set(
+            db=test_db,
+            test_set_identifier=created_id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert deleted.id == created.id
+        listed = get_adaptive_test_sets(db=test_db, organization_id=test_org_id, limit=500)
+        assert all(str(ts.id) != created_id for ts in listed)
+
+    def test_delete_nonexistent_set(self, test_db, test_org_id, authenticated_user_id):
+        """Fake UUID raises ValueError."""
+        fake_id = str(uuid.uuid4())
+        with pytest.raises(ValueError, match="not found"):
+            delete_adaptive_test_set(
+                db=test_db,
+                test_set_identifier=fake_id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+    def test_delete_non_adaptive_set(
+        self, test_db, adaptive_and_regular_test_sets, test_org_id, authenticated_user_id
+    ):
+        """Regular test set without Adaptive Testing behavior raises ValueError."""
+        regular = adaptive_and_regular_test_sets["regular"]
+        with pytest.raises(ValueError, match="not configured for adaptive testing"):
+            delete_adaptive_test_set(
+                db=test_db,
+                test_set_identifier=str(regular.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
 
 
 # ============================================================================

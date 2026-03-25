@@ -252,6 +252,75 @@ body,
   color: #2aa1ce !important; /* CTA blue text on hover */
 }
 
+/* Sidebar and navbar icon + label alignment */
+.sidebar-icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* Ensure navbar items with icons are vertically centered */
+nav .sidebar-icon-label,
+.nextra-navbar .sidebar-icon-label,
+.nextra-nav-container .sidebar-icon-label {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+/* Reduce Nextra's built-in top margin on sidebar separator list items */
+.nextra-sidebar li.x\:not-first\:mt-5,
+.nextra-sidebar li.x\:mb-2 {
+  margin-top: 0.375rem !important;
+  margin-bottom: 0 !important;
+}
+
+/* Intent-based section headers (collapsible separators) */
+.rhesis-sidebar-section-header {
+  cursor: pointer !important;
+  font-weight: 700 !important;
+  font-size: 0.8125rem !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  margin-top: 0.375rem !important;
+  padding-top: 0.25rem !important;
+  color: var(--rhesis-text-dark, #1a1a1a) !important;
+  text-decoration: none !important;
+  pointer-events: auto;
+  position: relative;
+  padding-right: 1.25rem !important;
+  user-select: none;
+}
+
+.rhesis-sidebar-section-header::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  margin-top: 0.25rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-50%) rotate(45deg);
+  transition: transform 0.2s ease;
+  opacity: 0.5;
+}
+
+.rhesis-sidebar-section-header.sidebar-collapsed::after {
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.rhesis-sidebar-section-header:hover {
+  text-decoration: none !important;
+  opacity: 0.8;
+}
+
+[data-theme='dark'] .rhesis-sidebar-section-header,
+.dark .rhesis-sidebar-section-header {
+  color: var(--rhesis-text-primary, #e6edf3) !important;
+}
+
 /* Remove/hide sidebar submenu borders */
 .nextra-sidebar ul[class*='before:bg-gray'],
 .nextra-sidebar ul.x\:before\:bg-gray-200,

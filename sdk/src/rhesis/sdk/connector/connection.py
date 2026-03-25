@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import re
+from collections.abc import Coroutine
 from typing import Any, Callable, Dict, Optional
 
 import websockets
@@ -134,8 +135,8 @@ class WebSocketConnection:
         self,
         url: str,
         headers: Dict[str, str],
-        on_message: Callable[[Dict[str, Any]], None],
-        on_connect: Optional[Callable[[], None]] = None,
+        on_message: Callable[[Dict[str, Any]], Coroutine[Any, Any, None]],
+        on_connect: Optional[Callable[[], Coroutine[Any, Any, None]]] = None,
         on_connection_failed: Optional[Callable[[str], None]] = None,
         ping_interval: int = RetryConfig.DEFAULT_PING_INTERVAL,
         ping_timeout: int = RetryConfig.DEFAULT_PING_TIMEOUT,
@@ -361,6 +362,7 @@ class WebSocketConnection:
 
             # Trigger on_connect callback (for registration)
             if self.on_connect:
+                # Assuming on_connect is an async function that returns a coroutine
                 asyncio.create_task(self.on_connect())
 
             # Listen for messages (blocks until connection closes)

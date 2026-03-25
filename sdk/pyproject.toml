@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.6.9"
+version = "0.6.10"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -36,7 +36,7 @@ dependencies = [
     "tenacity>=8.2.3",
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
-    "litellm>=1.76.0",
+    "litellm>=1.76.0,<=1.82.3",
     "deepteam>=0.2.5",
     "langchain-google-genai>=2.1.12",
     "ragas>=0.3.7",
@@ -63,6 +63,7 @@ dependencies = [
     "scikit-learn",
     "torch",
     "jsonfinder>=0.4.2",
+    "chonkie>=1.6.1",
 ]
 
 [project.license]

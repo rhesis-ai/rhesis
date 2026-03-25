@@ -23,13 +23,13 @@ For more information, see the [Installation & Setup](../installation) guide.
 
 Rhesis integrates with the following open-source evaluation frameworks:
 
-- **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0  
+- **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0
   The LLM Evaluation Framework by Confident AI
-- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Apache License 2.0  
+- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Apache License 2.0
   The LLM Red Teaming Framework by Confident AI
-- **[Ragas](https://github.com/explodinggradients/ragas)** - Apache License 2.0  
+- **[Ragas](https://github.com/explodinggradients/ragas)** - Apache License 2.0
   Supercharge Your LLM Application Evaluations by Exploding Gradients
-- **[Garak](https://github.com/NVIDIA/garak)** - Apache License 2.0  
+- **[Garak](https://github.com/NVIDIA/garak)** - Apache License 2.0
   LLM Vulnerability Scanner by NVIDIA
 
 These tools are used through their public APIs. The original licenses and copyright notices can be found in their respective repositories. Rhesis is not affiliated with these projects.
@@ -284,7 +284,7 @@ print(f"Score: {result.score}")
 print(f"Reason: {result.details['reason']}")`}
 </CodeBlock>
 
-When running tests through the platform, metadata is extracted automatically from your endpoint's response using the `metadata` field in the [response mapping](/platform/endpoints). The metadata is then passed to each metric during evaluation.
+When running tests through the platform, metadata is extracted automatically from your endpoint's response using the `metadata` field in the [response mapping](/docs/endpoints). The metadata is then passed to each metric during evaluation.
 
 #### Categorical Judge
 
@@ -416,4 +416,3 @@ To pull metrics from the platform, use the `pull` method and specify the metric 
 - [Models Documentation](../models) - Configure LLM models for evaluation
 - [Installation & Setup](../installation) - Setup instructions
 - [GitHub Repository](https://github.com/rhesis-ai/rhesis) - Source code and examples
-
