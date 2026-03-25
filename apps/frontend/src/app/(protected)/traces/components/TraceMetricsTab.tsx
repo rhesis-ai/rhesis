@@ -14,10 +14,11 @@ import {
   TableCell,
   Chip,
   Stack,
+  Tooltip,
+  useTheme,
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
+import StatusChip from '@/components/common/StatusChip';
 
 interface MetricEntry {
   name: string;
@@ -28,6 +29,7 @@ interface MetricEntry {
   class_name?: string;
   threshold?: number;
   duration_ms?: number;
+  description?: string;
 }
 
 interface TraceMetricsTabProps {
@@ -42,6 +44,7 @@ function MetricsTable({
   metrics: Record<string, MetricEntry>;
   executionTime?: number;
 }) {
+  const theme = useTheme();
   const entries = Object.entries(metrics);
 
   if (entries.length === 0) {
@@ -75,29 +78,54 @@ function MetricsTable({
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Status</TableCell>
-              <TableCell>Metric</TableCell>
-              <TableCell align="right">Score</TableCell>
-              <TableCell>Reason</TableCell>
+              <TableCell width="12%">Status</TableCell>
+              <TableCell width="25%">Metric</TableCell>
+              <TableCell width="10%" align="right">
+                Score
+              </TableCell>
+              <TableCell width="53%">Reason</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {entries.map(([name, metric]) => (
-              <TableRow key={name}>
+              <TableRow
+                key={name}
+                sx={{
+                  '&:hover': {
+                    backgroundColor: theme.palette.action.hover,
+                  },
+                }}
+              >
                 <TableCell>
-                  {metric.is_successful ? (
-                    <CheckCircleOutlineIcon fontSize="small" color="success" />
-                  ) : (
-                    <CancelOutlinedIcon fontSize="small" color="error" />
-                  )}
+                  <StatusChip
+                    status={metric.is_successful ? 'Pass' : 'Fail'}
+                    label={metric.is_successful ? 'Pass' : 'Fail'}
+                    size="small"
+                    variant="filled"
+                    sx={{ minWidth: theme.spacing(10) }}
+                  />
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    {name}
-                  </Typography>
+                  <Tooltip
+                    title={metric.description || ''}
+                    arrow
+                    placement="top"
+                    enterDelay={300}
+                    disableHoverListener={!metric.description}
+                  >
+                    <Typography variant="body2" fontWeight={500}>
+                      {name}
+                    </Typography>
+                  </Tooltip>
                 </TableCell>
                 <TableCell align="right">
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontFamily:
+                        theme.typography.fontFamilyCode ?? 'monospace',
+                    }}
+                  >
                     {metric.score !== undefined
                       ? typeof metric.score === 'number'
                         ? metric.score.toFixed(2)
@@ -106,19 +134,22 @@ function MetricsTable({
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      maxWidth: 400,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                    title={metric.reason}
-                  >
-                    {metric.reason || '—'}
-                  </Typography>
+                  {metric.reason ? (
+                    <Typography
+                      variant="caption"
+                      sx={{ wordBreak: 'break-word' }}
+                    >
+                      {metric.reason}
+                    </Typography>
+                  ) : (
+                    <Typography
+                      variant="caption"
+                      color="text.disabled"
+                      fontStyle="italic"
+                    >
+                      No reason provided
+                    </Typography>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
