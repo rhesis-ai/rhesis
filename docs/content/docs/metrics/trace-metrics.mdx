@@ -119,6 +119,33 @@ When you click on a trace that has evaluation results, a **Trace Metrics** tab a
 - **Turn Metrics** — per-turn results for the selected span, showing each metric's score, pass/fail status, and the evaluator's reasoning
 - **Conversation Metrics** — full-conversation results shared across all spans, shown only for multi-turn traces
 
+## How Overall Status Is Determined
+
+Each trace receives an overall status of **Pass**, **Fail**, or **Error** based on its metric results. This status appears in the Evaluation column of the Traces dashboard and powers the evaluation filter.
+
+### Single-turn traces
+
+After per-turn evaluation completes, the status is derived from the turn metrics:
+
+| Condition | Status |
+| --- | --- |
+| Every metric has `is_successful: true` | **Pass** |
+| Any metric has `is_successful: false` | **Fail** |
+| No metric results (evaluation produced nothing) | **Error** |
+
+### Multi-turn traces (conversation)
+
+Multi-turn traces go through two evaluation phases. The final status reflects **all** metrics combined:
+
+1. **Phase 1 (per-turn):** Turn metrics run immediately and set an initial status.
+2. **Phase 2 (conversation):** After the inactivity timeout, conversation metrics run. The backend then merges turn metrics and conversation metrics together and re-derives the status from the combined set.
+
+This means a single failing turn metric causes the overall trace to show **Fail**, even if all conversation-level metrics pass.
+
+### When status is not set
+
+If the evaluation task itself fails (for example, the evaluation model is unavailable), the task retries up to three times. If all retries are exhausted, no status is written and the trace shows a dash in the Evaluation column. These traces are not returned by the Pass, Fail, or Error filters.
+
 ## Using Trace Metrics with Test Metrics
 
 A metric can participate in both test execution and trace evaluation. Add all three scopes to make a metric universal:
