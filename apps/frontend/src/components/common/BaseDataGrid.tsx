@@ -28,6 +28,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import TuneIcon from '@mui/icons-material/Tune';
 import IconButton from '@mui/material/IconButton';
 import {
   DataGrid,
@@ -39,6 +40,11 @@ import {
   GridRowSelectionModel,
   GridToolbar,
   GridToolbarQuickFilter,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+  GridToolbarFilterButton,
+  useGridApiContext,
   useGridApiRef,
   GridFilterModel,
   GridSortModel,
@@ -148,7 +154,7 @@ interface BaseDataGridProps {
 }
 
 // Create a styled version of DataGrid with bold headers
-const StyledDataGrid = styled(DataGrid)({
+const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-columnHeaders': {
     backgroundColor: 'rgba(0, 0, 0, 0.04)',
     fontWeight: 'bold',
@@ -168,11 +174,68 @@ const StyledDataGrid = styled(DataGrid)({
   },
   '& .MuiDataGrid-cell': {
     display: 'flex',
-    alignItems: 'center', // This ensures vertical centering of all cell content
+    alignItems: 'center',
     overflow: 'hidden',
   },
   border: 'none',
-});
+
+  '& .MuiDataGrid-footerContainer': {
+    borderTop: 'none',
+    padding: '12px 20px',
+  },
+  '& .MuiTablePagination-root': {
+    overflow: 'visible',
+  },
+  '& .MuiTablePagination-toolbar': {
+    padding: 0,
+    minHeight: 'auto',
+  },
+  '& .MuiTablePagination-selectLabel': {
+    fontSize: 12,
+    fontWeight: 600,
+    color: theme.palette.text.secondary,
+    margin: 0,
+  },
+  '& .MuiTablePagination-select': {
+    fontSize: 14,
+    fontWeight: 700,
+    color: theme.palette.text.secondary,
+    paddingRight: 24,
+  },
+  '& .MuiTablePagination-displayedRows': {
+    fontSize: 12,
+    fontWeight: 600,
+    color: theme.palette.text.secondary,
+    margin: 0,
+  },
+  '& .MuiTablePagination-actions': {
+    marginLeft: 30,
+    display: 'flex',
+    gap: 30,
+    '& .MuiIconButton-root': {
+      border: '2px solid',
+      borderColor: theme.palette.grey[300],
+      borderRadius: 8,
+      padding: 9,
+      width: 38,
+      height: 38,
+      '&:hover': {
+        borderColor: theme.palette.primary.main,
+        backgroundColor: 'transparent',
+      },
+      '&.Mui-disabled': {
+        borderColor: theme.palette.grey[300],
+        opacity: 0.5,
+      },
+      '& .MuiSvgIcon-root': {
+        fontSize: 20,
+      },
+    },
+    '& .MuiIconButton-root:last-of-type': {
+      borderColor: theme.palette.primary.main,
+    },
+  },
+}));
 
 function QuickFilterToolbar() {
   return (
@@ -582,43 +645,114 @@ export default function BaseDataGrid({
   const CustomToolbarWithFiltersRef = useRef<React.ComponentType | null>(null);
   if (!CustomToolbarWithFiltersRef.current) {
     CustomToolbarWithFiltersRef.current = function CustomToolbar() {
+      const apiRef = useGridApiContext();
       return (
         <Box
           sx={{
-            p: 1,
+            px: 2.5,
+            py: 1.5,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            gap: 2,
           }}
         >
-          <GridToolbar />
-          <TextField
-            inputRef={quickFilterInputRef}
-            size="small"
-            placeholder="Search..."
-            defaultValue=""
-            onChange={handleQuickFilterChange}
-            sx={{ minWidth: 250 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    onClick={handleQuickFilterClear}
-                    aria-label="Clear search"
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
+          {/* Left: filter button + pill search */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+            <IconButton
+              onClick={() => apiRef.current.showFilterPanel()}
+              sx={{
+                width: 38,
+                height: 38,
+                bgcolor: 'primary.main',
+                color: '#fff',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'primary.dark' },
+              }}
+            >
+              <TuneIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                bgcolor: 'grey.100',
+                borderRadius: '30px',
+                height: 38,
+                width: 288,
+                pl: 2,
+                pr: 0.5,
+              }}
+            >
+              <TextField
+                inputRef={quickFilterInputRef}
+                variant="standard"
+                placeholder="Search..."
+                defaultValue=""
+                onChange={handleQuickFilterChange}
+                sx={{ flex: 1 }}
+                InputProps={{
+                  disableUnderline: true,
+                  sx: {
+                    fontSize: 14,
+                    '& input::placeholder': {
+                      color: 'grey.400',
+                      opacity: 1,
+                    },
+                  },
+                  endAdornment: quickFilterInputRef.current?.value ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={handleQuickFilterClear}
+                        aria-label="Clear search"
+                      >
+                        <ClearIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+              />
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'primary.main',
+                  borderRadius: '50%',
+                  width: 30,
+                  height: 30,
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                <SearchIcon sx={{ fontSize: 18, color: '#fff' }} />
+              </Box>
+            </Box>
+          </Box>
+
+          {/* Right: Columns, Density, Export */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              '& .MuiButton-root': {
+                color: 'primary.main',
+                fontSize: 14,
+                fontWeight: 400,
+                textTransform: 'none',
+                px: 2,
+                py: 1,
+                borderRadius: 1,
+                '& .MuiButton-startIcon': {
+                  '& .MuiSvgIcon-root': { fontSize: 20 },
+                },
+              },
             }}
-          />
+          >
+            <GridToolbarColumnsButton />
+            <GridToolbarDensitySelector />
+            <GridToolbarExport />
+          </Box>
         </Box>
       );
     };

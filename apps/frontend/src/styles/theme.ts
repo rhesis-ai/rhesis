@@ -7,43 +7,59 @@ const getDesignTokens = (mode: PaletteMode) => ({
     mode,
     ...(mode === 'light'
       ? {
-          // Light mode - Rhesis AI colors
           primary: {
-            main: '#50B9E0', // Primary Blue
-            light: '#97D5EE', // Primary Light Blue
-            dark: '#2AA1CE', // Primary CTA Blue
+            main: '#0080af',
+            light: '#009bd3',
+            dark: '#00658c',
             contrastText: '#FFFFFF',
           },
           secondary: {
-            main: '#FD6E12', // Secondary CTA Orange
-            light: '#FDD803', // Accent Yellow
-            dark: '#1A1A1A', // Dark Black
+            main: '#FD6E12',
+            light: '#FDD803',
+            dark: '#1A1A1A',
             contrastText: '#FFFFFF',
           },
           background: {
-            default: '#FFFFFF', // White Background
-            paper: '#FFFFFF', // White Background
-            // Custom Rhesis AI background variants
-            light1: '#F2F9FD',
-            light2: '#E4F2FA',
-            light3: '#C2E5F5',
-            light4: '#97D5EE',
+            default: '#FFFFFF',
+            paper: '#FFFFFF',
+            light1: '#F9F9FA',
+            light2: '#F3F4F6',
+            light3: '#E7E8EC',
+            light4: '#CDD2DA',
           },
           text: {
-            primary: '#3D3D3D', // Dark Text
-            secondary: '#1A1A1A', // Dark Black
+            primary: '#1A1C20',
+            secondary: '#2A2E36',
           },
           success: {
-            main: '#2E7D32', // Material success green, dark enough for contrast
+            main: '#38ad87',
+            light: '#3fc497',
+            dark: '#2a8969',
             contrastText: '#FFFFFF',
           },
           warning: {
-            main: '#F57C00', // Amber 800, lighter than CTA orange
-            contrastText: '#FFFFFF',
+            main: '#ffab24',
+            light: '#ffbc74',
+            dark: '#ca8501',
+            contrastText: '#000000',
           },
           error: {
-            main: '#C62828', // Strong error red, good contrast
+            main: '#de3355',
+            light: '#f06076',
+            dark: '#b12744',
             contrastText: '#FFFFFF',
+          },
+          grey: {
+            50: '#F9F9FA',
+            100: '#F3F4F6',
+            200: '#E7E8EC',
+            300: '#CDD2DA',
+            400: '#B6BDC9',
+            500: '#7F8A9B',
+            600: '#545A65',
+            700: '#7F8A9B',
+            800: '#2A2E36',
+            900: '#1A1C20',
           },
         }
       : {
@@ -87,9 +103,9 @@ const getDesignTokens = (mode: PaletteMode) => ({
         }),
   },
   shape: {
-    borderRadius: 4, // Default MUI border radius
-    sharp: 0, // Sharp corners (no border radius)
-    circular: '50%', // For circular elements
+    borderRadius: 8,
+    sharp: 0,
+    circular: '50%',
   },
   typography: {
     fontFamily: '"Be Vietnam Pro", "Roboto", "Helvetica", "Arial", sans-serif',
@@ -208,7 +224,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: mode === 'light' ? '#2AA1CE' : '#161B22', // Rhesis primary CTA blue / secondary dark bg
+          backgroundColor: mode === 'light' ? '#0080af' : '#161B22',
           '& .MuiSvgIcon-root': {
             color: '#FFFFFF',
           },
@@ -219,14 +235,14 @@ const getDesignTokens = (mode: PaletteMode) => ({
       styleOverrides: {
         root: {
           '& .MuiPaper-root': {
-            backgroundColor: mode === 'light' ? '#FFFFFF' : '#161B22',
-            color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
+            backgroundColor: mode === 'light' ? '#F9F9FA' : '#161B22',
+            color: mode === 'light' ? '#2A2E36' : '#E6EDF3',
           },
           '& .MuiSvgIcon-root': {
-            color: mode === 'light' ? '#3D3D3D' : '#FFFFFF',
+            color: mode === 'light' ? '#2A2E36' : '#FFFFFF',
           },
           '& .MuiListItemButton-root.Mui-selected': {
-            backgroundColor: mode === 'light' ? '#50B9E0' : '#2AA1CE', // Rhesis primary blue / primary CTA
+            backgroundColor: mode === 'light' ? '#0080af' : '#2AA1CE',
             '& .MuiSvgIcon-root': {
               color: '#FFFFFF',
             },
@@ -240,7 +256,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
           '& .MuiDivider-root': {
             margin: '16px 0',
             borderColor:
-              mode === 'light' ? 'rgba(61, 61, 61, 0.12)' : '#2C2C2C',
+              mode === 'light' ? 'rgba(42, 46, 54, 0.12)' : '#2C2C2C',
           },
         },
       },
@@ -276,54 +292,50 @@ const getDesignTokens = (mode: PaletteMode) => ({
         root: {
           fontFamily: '"Be Vietnam Pro", sans-serif',
           fontWeight: 600,
-          // Primary button styling
           '&.MuiButton-containedPrimary': {
-            backgroundColor: '#2AA1CE', // Primary CTA Blue
+            backgroundColor: '#0080af',
             color: '#FFFFFF',
             '&:hover': {
-              backgroundColor: '#50B9E0', // Primary Blue on hover
+              backgroundColor: '#009bd3',
             },
             '&.Mui-disabled': {
               backgroundColor: 'unset',
               color: 'unset',
             },
           },
-          // Secondary button styling
           '&.MuiButton-containedSecondary': {
-            backgroundColor: '#FD6E12', // Secondary CTA Orange
+            backgroundColor: '#FD6E12',
             color: '#FFFFFF',
             '&:hover': {
-              backgroundColor: '#FDD803', // Accent Yellow on hover
+              backgroundColor: '#FDD803',
               color: '#1A1A1A',
             },
           },
-          // Outlined button styling
           '&.MuiButton-outlinedPrimary': {
-            color: '#2AA1CE', // Primary CTA Blue
-            borderColor: '#2AA1CE',
+            color: '#0080af',
+            borderColor: '#0080af',
             backgroundColor: 'transparent',
             '&:hover': {
-              backgroundColor: '#2AA1CE', // Fill with CTA blue on hover
+              backgroundColor: '#0080af',
               color: '#FFFFFF',
-              borderColor: '#2AA1CE',
+              borderColor: '#0080af',
             },
           },
           '&.MuiButton-outlinedSecondary': {
-            color: '#FD6E12', // Secondary CTA Orange
+            color: '#FD6E12',
             borderColor: '#FD6E12',
             backgroundColor: 'transparent',
             '&:hover': {
-              backgroundColor: '#FD6E12', // Fill with orange on hover
+              backgroundColor: '#FD6E12',
               color: '#FFFFFF',
               borderColor: '#FD6E12',
             },
           },
-          // Text button styling
           '&.MuiButton-textPrimary': {
-            color: mode === 'light' ? '#50B9E0' : '#3BC4F2',
+            color: mode === 'light' ? '#0080af' : '#3BC4F2',
             '&:hover': {
               backgroundColor:
-                mode === 'light' ? 'rgba(80, 185, 224, 0.04)' : '#1F242B',
+                mode === 'light' ? 'rgba(0, 128, 175, 0.04)' : '#1F242B',
             },
           },
         },
@@ -395,10 +407,60 @@ const getDesignTokens = (mode: PaletteMode) => ({
       },
     },
   },
+  customRadius: {
+    m: 8,
+    l: 12,
+    xl: 16,
+    full: 999,
+  },
+  greyscale:
+    mode === 'light'
+      ? {
+          surface: {
+            subtle: '#F9F9FA',
+            default: '#F3F4F6',
+            disabled: '#CDD2DA',
+            white: '#FFFFFF',
+          },
+          border: {
+            default: '#C1C7D1',
+            disabled: '#CDD2DA',
+            darker: '#B6BDC9',
+          },
+          text: {
+            title: '#1A1C20',
+            body: '#2A2E36',
+            subtitle: '#7F8A9B',
+            caption: '#B6BDC9',
+            negative: '#F9F9FA',
+            disabled: '#CDD2DA',
+          },
+        }
+      : {
+          surface: {
+            subtle: '#1F242B',
+            default: '#161B22',
+            disabled: '#2C2C2C',
+            white: '#161B22',
+          },
+          border: {
+            default: '#404040',
+            disabled: '#2C2C2C',
+            darker: '#555555',
+          },
+          text: {
+            title: '#E6EDF3',
+            body: '#C9D1D9',
+            subtitle: '#8B949E',
+            caption: '#6E7681',
+            negative: '#0D1117',
+            disabled: '#484F58',
+          },
+        },
   chartPalettes: {
-    line: ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803'], // Rhesis primary blue, orange, CTA blue, yellow
-    pie: ['#97D5EE', '#50B9E0', '#2AA1CE'], // Rhesis light blue, primary blue, CTA blue
-    status: ['#2E7D32', '#F57C00', '#C62828'], // success (green), warning (amber), error (red) - using light mode colors for consistency
+    line: ['#0080af', '#FD6E12', '#009bd3', '#FDD803'],
+    pie: ['#009bd3', '#0080af', '#00658c'],
+    status: ['#38ad87', '#ffab24', '#de3355'],
   },
   elevation: {
     none: 0, // Flat surfaces, nested components
@@ -474,6 +536,33 @@ declare module '@mui/material/styles' {
       sharp: number;
       circular: string;
     };
+    customRadius: {
+      m: number;
+      l: number;
+      xl: number;
+      full: number;
+    };
+    greyscale: {
+      surface: {
+        subtle: string;
+        default: string;
+        disabled: string;
+        white: string;
+      };
+      border: {
+        default: string;
+        disabled: string;
+        darker: string;
+      };
+      text: {
+        title: string;
+        body: string;
+        subtitle: string;
+        caption: string;
+        negative: string;
+        disabled: string;
+      };
+    };
     customSpacing: {
       container: {
         small: number;
@@ -505,6 +594,33 @@ declare module '@mui/material/styles' {
       standard: number;
       prominent: number;
       modal: number;
+    };
+    customRadius?: {
+      m: number;
+      l: number;
+      xl: number;
+      full: number;
+    };
+    greyscale?: {
+      surface: {
+        subtle: string;
+        default: string;
+        disabled: string;
+        white: string;
+      };
+      border: {
+        default: string;
+        disabled: string;
+        darker: string;
+      };
+      text: {
+        title: string;
+        body: string;
+        subtitle: string;
+        caption: string;
+        negative: string;
+        disabled: string;
+      };
     };
     customSpacing?: {
       container: {

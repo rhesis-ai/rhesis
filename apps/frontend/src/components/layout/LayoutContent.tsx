@@ -1,15 +1,23 @@
 'use client';
 
 import * as React from 'react';
-import { Box, useTheme } from '@mui/material';
+import { Box } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { SessionProvider } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { NavigationProvider } from '../navigation/NavigationProvider';
+import { NavigationContextProvider } from '../navigation/NavigationContext';
 import { NotificationProvider } from '../common/NotificationContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import OnboardingChecklist from '../onboarding/OnboardingChecklist';
-import { type NavigationItem, type LayoutProps } from '../../types/navigation';
+import {
+  type NavigationItem,
+  type BrandingProps,
+  type AuthenticationProps,
+} from '../../types/navigation';
+import { type Session } from 'next-auth';
+import { type Theme } from '@mui/material/styles';
+import { useTheme } from '@mui/material';
 
 function getAllSegments(items: NavigationItem[]): string[] {
   return items.reduce<string[]>((acc, item) => {
@@ -23,13 +31,21 @@ function getAllSegments(items: NavigationItem[]): string[] {
   }, []);
 }
 
+interface LayoutContentProps {
+  children: React.ReactNode;
+  session: Session | null;
+  navigation: NavigationItem[];
+  branding: BrandingProps;
+  authentication?: AuthenticationProps;
+}
+
 export function LayoutContent({
   children,
   session,
   navigation,
   branding,
   authentication,
-}: Omit<LayoutProps, 'theme'>) {
+}: LayoutContentProps) {
   const theme = useTheme();
   const pathname = usePathname();
   const protectedSegments = React.useMemo(
@@ -39,7 +55,6 @@ export function LayoutContent({
 
   const isProtectedRoute = React.useMemo(() => {
     if (!pathname) return false;
-    // Remove leading slash for comparison
     const currentPath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
     return protectedSegments.some(
       segment =>
@@ -47,71 +62,40 @@ export function LayoutContent({
     );
   }, [pathname, protectedSegments]);
 
-  // Use state to avoid hydration mismatch - start with false (matches server)
-  const [isQuickStartMode, setIsQuickStartMode] = React.useState(false);
-
-  // Check Quick Start mode after mount (client-side only)
-  React.useEffect(() => {
-    // Dynamic import for client-side only code
-    import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
-      setIsQuickStartMode(isQuickStartEnabled());
-    });
-  }, []);
-
-  // Build sx prop conditionally
-  const boxSx = React.useMemo(() => {
-    const baseStyles = {
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: '100vh',
-    };
-
-    if (isQuickStartMode) {
-      return {
-        ...baseStyles,
-        // Hide the account menu button when Quick Start mode is enabled
-        '& [aria-label="Account"]': {
-          display: 'none !important',
-        },
-        '& button[aria-label*="account" i]': {
-          display: 'none !important',
-        },
-        // Target the account preview/popover button
-        '& .ToolpadAccountButton, & [class*="AccountButton"]': {
-          display: 'none !important',
-        },
-        // Target any button in the toolbar that has an avatar (account button)
-        '& header button:has(.MuiAvatar-root)': {
-          display: 'none !important',
-        },
-        '& .MuiToolbar-root button:has(.MuiAvatar-root)': {
-          display: 'none !important',
-        },
-      };
-    }
-
-    return baseStyles;
-  }, [isQuickStartMode]);
-
   return (
     <SessionProvider session={session} refetchOnWindowFocus={false}>
       <AppRouterCacheProvider options={{ enableCssLayer: true }}>
         <NotificationProvider>
           <OnboardingProvider>
-            <Box sx={boxSx}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: '100vh',
+              }}
+            >
               <Box sx={{ flex: 1 }}>
-                <NavigationProvider
+                <NavigationContextProvider
                   navigation={navigation}
                   branding={branding}
-                  session={session}
-                  authentication={authentication}
-                  theme={theme}
                 >
-                  {children}
-                </NavigationProvider>
+                  <NavigationProvider
+                    navigation={navigation}
+                    branding={branding}
+                    session={session}
+                    authentication={
+                      authentication || {
+                        signIn: async () => {},
+                        signOut: async () => {},
+                      }
+                    }
+                    theme={theme}
+                  >
+                    {children}
+                  </NavigationProvider>
+                </NavigationContextProvider>
               </Box>
             </Box>
-            {/* Show onboarding checklist for authenticated users */}
             {session && isProtectedRoute && <OnboardingChecklist />}
           </OnboardingProvider>
         </NotificationProvider>

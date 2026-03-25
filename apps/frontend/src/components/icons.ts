@@ -41,6 +41,16 @@ export { default as GridViewIcon } from '@mui/icons-material/GridViewOutlined';
 export { default as ApiIcon } from '@mui/icons-material/ApiOutlined';
 export { default as ViewListIcon } from '@mui/icons-material/ViewListOutlined';
 
+// Figma design system icons (Material Symbols equivalents)
+export { default as RouteIcon } from '@mui/icons-material/RouteOutlined';
+export { default as FingerprintIcon } from '@mui/icons-material/FingerprintOutlined';
+export { default as BarChartIcon } from '@mui/icons-material/BarChartOutlined';
+export { default as SlideshowIcon } from '@mui/icons-material/SlideshowOutlined';
+export { default as ChecklistRtlIcon } from '@mui/icons-material/ChecklistRtlOutlined';
+export { default as SportsFootballIcon } from '@mui/icons-material/SportsFootballOutlined';
+export { default as ShowChartIcon } from '@mui/icons-material/ShowChartOutlined';
+export { default as InsertChartIcon } from '@mui/icons-material/InsertChartOutlined';
+
 // Common action icons
 export { default as AttachFileIcon } from '@mui/icons-material/AttachFileOutlined';
 export { default as AddIcon } from '@mui/icons-material/AddOutlined';
