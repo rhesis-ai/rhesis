@@ -12,7 +12,7 @@ from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.chunker import (
     ChunkingService,
     ChunkingStrategy,
-    SemanticChunker,
+    RecursiveChunker,
 )
 from rhesis.sdk.services.extractor import (
     ExtractionService,
@@ -65,14 +65,14 @@ class TestSetSynthesizer(ABC):
             model: The model to use for generation (string name or BaseLLM instance)
             sources: Optional list of source specifications to extract content from
             chunking_strategy: Strategy for chunking source content
-                (defaults to SemanticChunker with 1500 max tokens per chunk)
+                (defaults to RecursiveChunker with 1500 chunk_size)
         """
         if batch_size < _MIN_BATCH_SIZE:
             raise ValueError(f"batch_size must be >= {_MIN_BATCH_SIZE}, got {batch_size}")
         self.batch_size = batch_size
         self.prompt_template = load_prompt_template(self.prompt_template_file)
         self.sources = sources
-        self.chunker = chunking_strategy or SemanticChunker(max_tokens_per_chunk=1500)
+        self.chunker = chunking_strategy or RecursiveChunker(chunk_size=1500)
 
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
