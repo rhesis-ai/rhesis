@@ -273,6 +273,13 @@ jobs:
       - name: Deploy to Cloud Run
         id: deploy
         run: |
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            AUTH_FLAGS="--allow-unauthenticated"
+          else
+            AUTH_FLAGS="--no-allow-unauthenticated"
+          fi
+          echo "🔐 Cloud Run auth: $AUTH_FLAGS (environment=${{ env.ENVIRONMENT }})"
+
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # Preview deployment with commit SHA
             IMAGE_TAG="${{ env.COMMIT_SHA }}"
@@ -289,7 +296,7 @@ jobs:
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.REGION }} \
               --platform=managed \
-              --allow-unauthenticated \
+              $AUTH_FLAGS \
               --port=3000 \
               --memory=512Mi \
               --cpu=1 \
@@ -329,7 +336,7 @@ jobs:
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.REGION }} \
               --platform=managed \
-              --allow-unauthenticated \
+              $AUTH_FLAGS \
               --port=3000 \
               --memory=512Mi \
               --cpu=1 \
@@ -371,6 +378,13 @@ jobs:
       - name: Tag revision for commit-specific URL
         if: env.IS_PREVIEW == 'true'
         run: |
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            AUTH_FLAGS="--allow-unauthenticated"
+          else
+            AUTH_FLAGS="--no-allow-unauthenticated"
+          fi
+          echo "🔐 Cloud Run auth: $AUTH_FLAGS (environment=${{ env.ENVIRONMENT }})"
+
           echo "Creating tag for commit-specific URL"
 
           # Get the latest revision (the one we just created)
@@ -480,7 +494,7 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --allow-unauthenticated \
+            $AUTH_FLAGS \
             --port=3000 \
             --memory=2Gi \
             --cpu=1 \
@@ -537,7 +551,7 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --allow-unauthenticated \
+            $AUTH_FLAGS \
             --port=3000 \
             --memory=2Gi \
             --cpu=1 \

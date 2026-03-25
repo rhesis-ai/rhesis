@@ -412,6 +412,13 @@ jobs:
       - name: Deploy to Cloud Run
         id: deploy
         run: |
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            AUTH_FLAGS="--allow-unauthenticated"
+          else
+            AUTH_FLAGS="--no-allow-unauthenticated"
+          fi
+          echo "🔐 Cloud Run auth: $AUTH_FLAGS (environment=${{ env.ENVIRONMENT }})"
+
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # Preview deployment with unique build tag
             IMAGE_TAG="${{ env.BUILD_TAG }}"
@@ -435,7 +442,7 @@ jobs:
               --vpc-egress=private-ranges-only \
               --region=${{ env.REGION }} \
               --platform=managed \
-              --allow-unauthenticated \
+              $AUTH_FLAGS \
               --port=8080 \
               --no-traffic \
               --revision-suffix=${{ env.COMMIT_SHA }} \
@@ -517,7 +524,7 @@ jobs:
               --vpc-egress=private-ranges-only \
               --region=${{ env.REGION }} \
               --platform=managed \
-              --allow-unauthenticated \
+              $AUTH_FLAGS \
               --port=8080 \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
               --set-env-vars="$(cat <<EOF
@@ -597,6 +604,13 @@ jobs:
       - name: Tag revision for commit-specific URL
         if: env.IS_PREVIEW == 'true'
         run: |
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            AUTH_FLAGS="--allow-unauthenticated"
+          else
+            AUTH_FLAGS="--no-allow-unauthenticated"
+          fi
+          echo "🔐 Cloud Run auth: $AUTH_FLAGS (environment=${{ env.ENVIRONMENT }})"
+
           echo "Creating tag for commit-specific URL"
 
           # Get the latest revision (the one we just created)
@@ -708,7 +722,7 @@ jobs:
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --allow-unauthenticated \
+            $AUTH_FLAGS \
             --port=8080 \
             --memory=2Gi \
             --cpu=2 \
@@ -794,7 +808,7 @@ jobs:
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
-            --allow-unauthenticated \
+            $AUTH_FLAGS \
             --port=8080 \
             --memory=2Gi \
             --cpu=2 \
