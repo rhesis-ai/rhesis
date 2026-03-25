@@ -409,14 +409,14 @@ export default function ProjectTraceMetrics({
               px: 2,
               border: '1px dashed',
               borderColor: 'divider',
-              borderRadius: 1,
+              borderRadius: theme => theme.shape.borderRadius,
               textAlign: 'center',
               bgcolor: 'background.default',
             }}
           >
             <AutoGraphIcon
               sx={{
-                fontSize: '40px',
+                fontSize: theme => theme.typography.h3.fontSize,
                 color: 'text.disabled',
                 mb: 1,
                 opacity: 0.5,
