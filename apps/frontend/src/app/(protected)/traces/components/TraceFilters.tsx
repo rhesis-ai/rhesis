@@ -618,7 +618,9 @@ export default function TraceFilters({
               All
             </Button>
             <Button
-              onClick={() => handleEvaluationStatusChange(TRACE_METRICS_STATUS.PASS)}
+              onClick={() =>
+                handleEvaluationStatusChange(TRACE_METRICS_STATUS.PASS)
+              }
               variant={
                 filters.trace_metrics_status === TRACE_METRICS_STATUS.PASS
                   ? 'contained'
@@ -626,7 +628,8 @@ export default function TraceFilters({
               }
               startIcon={<TaskAltIcon fontSize="small" />}
               sx={{
-                ...(filters.trace_metrics_status === TRACE_METRICS_STATUS.PASS && {
+                ...(filters.trace_metrics_status ===
+                  TRACE_METRICS_STATUS.PASS && {
                   backgroundColor: theme.palette.success.main,
                   color: 'white',
                   '&:hover': {
@@ -638,7 +641,9 @@ export default function TraceFilters({
               Pass
             </Button>
             <Button
-              onClick={() => handleEvaluationStatusChange(TRACE_METRICS_STATUS.FAIL)}
+              onClick={() =>
+                handleEvaluationStatusChange(TRACE_METRICS_STATUS.FAIL)
+              }
               variant={
                 filters.trace_metrics_status === TRACE_METRICS_STATUS.FAIL
                   ? 'contained'
@@ -646,7 +651,8 @@ export default function TraceFilters({
               }
               startIcon={<CancelIcon fontSize="small" />}
               sx={{
-                ...(filters.trace_metrics_status === TRACE_METRICS_STATUS.FAIL && {
+                ...(filters.trace_metrics_status ===
+                  TRACE_METRICS_STATUS.FAIL && {
                   backgroundColor: theme.palette.error.main,
                   color: 'white',
                   '&:hover': {
@@ -658,7 +664,9 @@ export default function TraceFilters({
               Fail
             </Button>
             <Button
-              onClick={() => handleEvaluationStatusChange(TRACE_METRICS_STATUS.ERROR)}
+              onClick={() =>
+                handleEvaluationStatusChange(TRACE_METRICS_STATUS.ERROR)
+              }
               variant={
                 filters.trace_metrics_status === TRACE_METRICS_STATUS.ERROR
                   ? 'contained'
@@ -666,7 +674,8 @@ export default function TraceFilters({
               }
               startIcon={<WarningAmberIcon fontSize="small" />}
               sx={{
-                ...(filters.trace_metrics_status === TRACE_METRICS_STATUS.ERROR && {
+                ...(filters.trace_metrics_status ===
+                  TRACE_METRICS_STATUS.ERROR && {
                   backgroundColor: theme.palette.warning.main,
                   color: 'white',
                   '&:hover': {

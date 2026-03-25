@@ -142,23 +142,6 @@ export default function TracesTable({
         align: 'center',
       },
       {
-        field: 'status_code',
-        headerName: 'Status',
-        width: 100,
-        renderCell: params => {
-          const status = params.value as string;
-          return (
-            <Chip
-              label={status}
-              color={status === 'OK' ? 'success' : 'error'}
-              size="small"
-              variant="outlined"
-              sx={{ fontWeight: 500 }}
-            />
-          );
-        },
-      },
-      {
         field: 'trace_metrics_status',
         headerName: 'Evaluation',
         width: 110,
