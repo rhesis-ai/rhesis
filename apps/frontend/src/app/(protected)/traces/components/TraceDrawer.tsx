@@ -52,6 +52,7 @@ interface TraceDrawerProps {
   currentUserId?: string;
   currentUserName?: string;
   currentUserPicture?: string;
+  onTraceUpdated?: () => void;
 }
 
 export default function TraceDrawer({
@@ -64,6 +65,7 @@ export default function TraceDrawer({
   currentUserId = '',
   currentUserName = '',
   currentUserPicture,
+  onTraceUpdated,
 }: TraceDrawerProps) {
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -270,7 +272,8 @@ export default function TraceDrawer({
 
   const handleReviewSave = useCallback(async () => {
     await refreshTrace();
-  }, [refreshTrace]);
+    onTraceUpdated?.();
+  }, [refreshTrace, onTraceUpdated]);
 
   useEffect(() => {
     if (open && traceId && projectId) {

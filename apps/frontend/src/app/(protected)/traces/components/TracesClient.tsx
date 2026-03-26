@@ -161,6 +161,7 @@ export default function TracesClient({
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}
+        onTraceUpdated={handleRefresh}
       />
     </>
   );
