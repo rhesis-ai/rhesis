@@ -14,13 +14,13 @@ import logging
 from typing import Optional
 
 from rhesis.backend.app.constants import DEFAULT_CONVERSATION_DEBOUNCE_SECONDS
-
 from rhesis.backend.app.services.cache import RedisBackedCache
 from rhesis.backend.app.services.redis_constants import RedisDatabase
 
 logger = logging.getLogger(__name__)
 
 _PREFIX = "tracemetrics:pending:"
+_COMPLETE_PREFIX = "tracemetrics:complete:"
 
 
 class TraceMetricsDebounceCache(RedisBackedCache):
@@ -46,6 +46,14 @@ class TraceMetricsDebounceCache(RedisBackedCache):
     def pop_pending_eval(self, trace_id: str) -> Optional[str]:
         """Retrieve and delete the pending task ID for a trace."""
         return self._getdel(f"{_PREFIX}{trace_id}")
+
+    def mark_complete(self, trace_id: str) -> None:
+        """Mark a conversation as complete to prevent further debounce scheduling."""
+        self._set(f"{_COMPLETE_PREFIX}{trace_id}", "1")
+
+    def is_complete(self, trace_id: str) -> bool:
+        """Check if a conversation has been marked complete."""
+        return self._get(f"{_COMPLETE_PREFIX}{trace_id}") == "1"
 
 
 # ---------------------------------------------------------------
@@ -96,3 +104,52 @@ def schedule_conversation_eval(
         f"task {result.id} for trace {trace_id} "
         f"(countdown={debounce_seconds}s)"
     )
+
+
+def signal_conversation_complete(
+    trace_id: str,
+    project_id: str,
+    organization_id: str,
+) -> None:
+    """Bypass debounce and evaluate conversation metrics immediately.
+
+    Called when Penelope finishes a multi-turn test execution. The
+    conversation is definitively over so there is no need to wait for
+    the inactivity timeout.
+
+    Steps:
+      1. Dispatch immediate conversation evaluation (if this fails,
+         the pending debounce remains as a safety net).
+      2. Mark the trace as complete so future turns (still in the
+         enrichment pipeline) skip debounce scheduling.
+      3. Revoke any pending debounced task.
+    """
+    from rhesis.backend.tasks.telemetry.evaluate import (
+        evaluate_conversation_trace_metrics,
+    )
+    from rhesis.backend.worker import app as celery_app
+
+    # Dispatch first: if this fails the debounce stays as a safety net.
+    evaluate_conversation_trace_metrics.delay(trace_id, project_id, organization_id)
+    logger.debug(
+        f"[TRACE_METRICS] Dispatched immediate conversation eval "
+        f"for trace {trace_id} (conversation complete)"
+    )
+
+    # Mark complete so in-flight turns skip debounce scheduling.
+    _cache.mark_complete(trace_id)
+
+    # Revoke the pending debounced task (no longer needed).
+    previous_task_id = _cache.pop_pending_eval(trace_id)
+    if previous_task_id:
+        celery_app.control.revoke(previous_task_id)
+        logger.debug(
+            f"[TRACE_METRICS] Revoked debounced conversation eval "
+            f"task {previous_task_id} for trace {trace_id} "
+            f"(conversation marked complete)"
+        )
+
+
+def is_conversation_complete(trace_id: str) -> bool:
+    """Check whether a conversation has been marked complete."""
+    return _cache.is_complete(trace_id)

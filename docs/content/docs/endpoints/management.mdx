@@ -45,6 +45,14 @@ When you run a test set, select which endpoint to execute it against, configure 
 
 Creating multiple endpoints opens up powerful testing scenarios. You can run the same tests against different AI models to compare their performance, set up separate endpoints for each environment to validate changes before production deployment, configure A/B tests to compare response quality across different settings, or use different endpoints for load and performance testing. Each test run is independent, allowing you to analyze differences in behavior, quality, and performance across your various configurations.
 
+## Disabling Tracing
+
+Each endpoint has a **Disable tracing** toggle available in both the creation form and the endpoint detail page. When this option is turned on, invocations to the endpoint will not generate traces or telemetry data. The tracing status is displayed as a chip (Enabled or Disabled) on the endpoint detail page.
+
+This is useful when you want to call an endpoint during test runs without collecting trace data, for example when the endpoint already emits its own telemetry or when tracing would add unwanted overhead.
+
+By default, tracing is enabled on all endpoints.
+
 ## Environment Management
 
 Organize endpoints by environment to match your deployment workflow.

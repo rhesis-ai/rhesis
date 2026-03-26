@@ -131,10 +131,10 @@ def ingest_trace(
 
         # Enqueue post-ingestion work (linking + enrichment) as a background task.
         from rhesis.backend.app.services.telemetry.enrichment import (
-            are_workers_recently_available,
+            check_workers_available,
         )
 
-        if are_workers_recently_available():
+        if check_workers_available():
             from rhesis.backend.tasks.telemetry.post_ingest import post_ingest_link
 
             first_span = stored_spans[0]

@@ -199,11 +199,20 @@ def evaluate_turn_trace_metrics(
     trace_id: str,
     project_id: str,
     organization_id: str,
+    root_span_id: Optional[str] = None,
 ) -> dict:
     """Phase 1: Immediate per-turn trace metrics evaluation.
 
     Runs after every enrichment. For turns with conversation_id,
     also schedules a debounced conversation-level evaluation.
+
+    Args:
+        root_span_id: DB primary key of the root span to evaluate.
+            When provided the task targets that exact span, avoiding
+            a race where the ``trace_id``-based fallback query picks
+            up a newer turn in the same conversation.  ``None`` falls
+            back to the legacy latest-root-span query for backward
+            compatibility with in-flight tasks during deploy.
     """
     db: Session = SessionLocal()
 
@@ -215,15 +224,25 @@ def evaluate_turn_trace_metrics(
             return {"status": "skipped", "trace_id": trace_id}
         project, config, evaluator = prepared
 
-        root_span = (
-            db.query(models.Trace)
-            .filter(
-                models.Trace.trace_id == trace_id,
-                models.Trace.parent_span_id.is_(None),
+        if root_span_id:
+            root_span = (
+                db.query(models.Trace)
+                .filter(
+                    models.Trace.id == root_span_id,
+                    models.Trace.parent_span_id.is_(None),
+                )
+                .first()
             )
-            .order_by(models.Trace.start_time.desc())
-            .first()
-        )
+        else:
+            root_span = (
+                db.query(models.Trace)
+                .filter(
+                    models.Trace.trace_id == trace_id,
+                    models.Trace.parent_span_id.is_(None),
+                )
+                .order_by(models.Trace.start_time.desc())
+                .first()
+            )
         if not root_span:
             logger.warning(f"No root span found for trace {trace_id}")
             return {"status": "no_root_span", "trace_id": trace_id}
@@ -418,11 +437,23 @@ def _schedule_debounced_conversation_eval(
     project_id: str,
     organization_id: str,
 ) -> None:
-    """Schedule/reset the debounced conversation evaluation."""
+    """Schedule/reset the debounced conversation evaluation.
+
+    Skips scheduling when the conversation has already been marked
+    complete (e.g. by Penelope finishing a multi-turn test), since
+    an immediate evaluation was already dispatched.
+    """
     try:
         from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
+            is_conversation_complete,
             schedule_conversation_eval,
         )
+
+        if is_conversation_complete(trace_id):
+            logger.debug(
+                f"Conversation {trace_id} already marked complete, skipping debounce scheduling"
+            )
+            return
 
         schedule_conversation_eval(trace_id, project_id, organization_id)
     except Exception as e:

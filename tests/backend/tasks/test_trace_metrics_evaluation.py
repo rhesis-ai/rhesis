@@ -19,6 +19,7 @@ from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.tasks.telemetry.evaluate import (
     CONVERSATION_INPUT_KEY,
     CONVERSATION_OUTPUT_KEY,
+    _schedule_debounced_conversation_eval,
     evaluate_conversation_trace_metrics,
     evaluate_turn_trace_metrics,
 )
@@ -410,6 +411,99 @@ class TestEvaluateTurnTraceMetrics:
 
 
 @pytest.mark.unit
+class TestEvaluateTurnWithRootSpanId:
+    """Tests for the root_span_id parameter that fixes multi-turn race conditions."""
+
+    def test_root_span_id_queries_by_id(self):
+        """When root_span_id is provided, the task queries by DB primary key."""
+        project = _mock_project()
+        root = _mock_root_span(conversation_id="conv-1")
+        status = _mock_status_row()
+        db = _db_mock_turn(project, root, status)
+        mock_metric = _mock_metric_model()
+        eval_results = {"m1": {"is_successful": True}}
+
+        with (
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
+                return_value=db,
+            ),
+            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
+                return_value=[mock_metric],
+            ),
+            patch("rhesis.backend.tasks.telemetry.evaluate.crud") as mock_crud,
+            patch(
+                "rhesis.backend.metrics.evaluator.MetricEvaluator",
+            ) as mock_eval_cls,
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "schedule_conversation_eval",
+            ),
+        ):
+            mock_eval_cls.return_value.evaluate.return_value = eval_results
+            out = evaluate_turn_trace_metrics.run(
+                TRACE_ID, PROJECT_ID, ORG_ID, root_span_id=SPAN_DB_ID,
+            )
+
+        assert out["status"] == "success"
+        mock_crud.update_trace_turn_metrics.assert_called_once()
+        utm = mock_crud.update_trace_turn_metrics.call_args.kwargs
+        assert utm["span_id"] == str(root.id)
+
+    def test_root_span_id_none_falls_back(self):
+        """When root_span_id is None, the legacy latest-root-span query is used."""
+        project = _mock_project()
+        root = _mock_root_span(conversation_id=None)
+        status = _mock_status_row()
+        db = _db_mock_turn(project, root, status)
+        mock_metric = _mock_metric_model()
+        eval_results = {"m1": {"is_successful": True}}
+
+        with (
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
+                return_value=db,
+            ),
+            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
+                return_value=[mock_metric],
+            ),
+            patch("rhesis.backend.tasks.telemetry.evaluate.crud") as mock_crud,
+            patch(
+                "rhesis.backend.metrics.evaluator.MetricEvaluator",
+            ) as mock_eval_cls,
+        ):
+            mock_eval_cls.return_value.evaluate.return_value = eval_results
+            out = evaluate_turn_trace_metrics.run(
+                TRACE_ID, PROJECT_ID, ORG_ID, root_span_id=None,
+            )
+
+        assert out["status"] == "success"
+        mock_crud.update_trace_turn_metrics.assert_called_once()
+
+    def test_root_span_id_not_found(self):
+        """When root_span_id refers to a non-existent span, returns no_root_span."""
+        project = _mock_project()
+        db = _db_mock_turn(project, root_span=None, status_row=None)
+
+        with (
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
+                return_value=db,
+            ),
+            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+        ):
+            out = evaluate_turn_trace_metrics.run(
+                TRACE_ID, PROJECT_ID, ORG_ID, root_span_id="nonexistent-id",
+            )
+
+        assert out == {"status": "no_root_span", "trace_id": TRACE_ID}
+
+
+@pytest.mark.unit
 class TestEvaluateConversationTraceMetrics:
     def test_multi_turn_evaluation(self):
         project = _mock_project()
@@ -613,3 +707,42 @@ class TestEvaluateConversationTraceMetrics:
 
         mock_retry.assert_called_once()
         db.close.assert_called_once()
+
+
+@pytest.mark.unit
+class TestScheduleDebounceSkipsWhenComplete:
+    """_schedule_debounced_conversation_eval skips when conversation is complete."""
+
+    def test_skips_when_conversation_complete(self):
+        with (
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "is_conversation_complete",
+                return_value=True,
+            ) as mock_complete,
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "schedule_conversation_eval",
+            ) as mock_schedule,
+        ):
+            _schedule_debounced_conversation_eval(TRACE_ID, PROJECT_ID, ORG_ID)
+
+        mock_complete.assert_called_once_with(TRACE_ID)
+        mock_schedule.assert_not_called()
+
+    def test_schedules_when_not_complete(self):
+        with (
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "is_conversation_complete",
+                return_value=False,
+            ) as mock_complete,
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "schedule_conversation_eval",
+            ) as mock_schedule,
+        ):
+            _schedule_debounced_conversation_eval(TRACE_ID, PROJECT_ID, ORG_ID)
+
+        mock_complete.assert_called_once_with(TRACE_ID)
+        mock_schedule.assert_called_once_with(TRACE_ID, PROJECT_ID, ORG_ID)
