@@ -19,6 +19,7 @@ from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.tasks.telemetry.evaluate import (
     CONVERSATION_INPUT_KEY,
     CONVERSATION_OUTPUT_KEY,
+    _schedule_debounced_conversation_eval,
     evaluate_conversation_trace_metrics,
     evaluate_turn_trace_metrics,
 )
@@ -613,3 +614,42 @@ class TestEvaluateConversationTraceMetrics:
 
         mock_retry.assert_called_once()
         db.close.assert_called_once()
+
+
+@pytest.mark.unit
+class TestScheduleDebounceSkipsWhenComplete:
+    """_schedule_debounced_conversation_eval skips when conversation is complete."""
+
+    def test_skips_when_conversation_complete(self):
+        with (
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "is_conversation_complete",
+                return_value=True,
+            ) as mock_complete,
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "schedule_conversation_eval",
+            ) as mock_schedule,
+        ):
+            _schedule_debounced_conversation_eval(TRACE_ID, PROJECT_ID, ORG_ID)
+
+        mock_complete.assert_called_once_with(TRACE_ID)
+        mock_schedule.assert_not_called()
+
+    def test_schedules_when_not_complete(self):
+        with (
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "is_conversation_complete",
+                return_value=False,
+            ) as mock_complete,
+            patch(
+                "rhesis.backend.app.services.telemetry.trace_metrics_cache."
+                "schedule_conversation_eval",
+            ) as mock_schedule,
+        ):
+            _schedule_debounced_conversation_eval(TRACE_ID, PROJECT_ID, ORG_ID)
+
+        mock_complete.assert_called_once_with(TRACE_ID)
+        mock_schedule.assert_called_once_with(TRACE_ID, PROJECT_ID, ORG_ID)

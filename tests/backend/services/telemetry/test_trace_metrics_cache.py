@@ -8,7 +8,9 @@ from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
     TraceMetricsDebounceCache,
     _cache,
     initialize_cache,  # noqa: F401
+    is_conversation_complete,
     schedule_conversation_eval,
+    signal_conversation_complete,
 )
 
 
@@ -100,3 +102,68 @@ class TestScheduleConversationEval:
             schedule_conversation_eval("trace-1", "project-1", "org-1")
 
         mock_revoke.assert_called_once_with("previous-celery-id")
+
+
+@pytest.mark.unit
+class TestConversationComplete:
+    """mark_complete / is_complete flag on TraceMetricsDebounceCache."""
+
+    def test_is_complete_false_for_unknown(self):
+        assert _cache.is_complete("unknown-trace") is False
+
+    def test_mark_complete_sets_flag(self):
+        _cache.mark_complete("trace-1")
+        assert _cache.is_complete("trace-1") is True
+
+    def test_is_complete_false_before_mark(self):
+        assert _cache.is_complete("trace-1") is False
+
+    def test_separate_traces_independent(self):
+        _cache.mark_complete("trace-1")
+        assert _cache.is_complete("trace-1") is True
+        assert _cache.is_complete("trace-2") is False
+
+    def test_module_level_helper(self):
+        _cache.mark_complete("trace-1")
+        assert is_conversation_complete("trace-1") is True
+        assert is_conversation_complete("trace-other") is False
+
+
+@pytest.mark.unit
+class TestSignalConversationComplete:
+    """signal_conversation_complete marks, revokes, and dispatches."""
+
+    def test_marks_complete_and_dispatches(self):
+        with (
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate."
+                "evaluate_conversation_trace_metrics"
+            ) as mock_task,
+            patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
+        ):
+            signal_conversation_complete("trace-1", "project-1", "org-1")
+
+        assert _cache.is_complete("trace-1") is True
+        mock_task.delay.assert_called_once_with(
+            "trace-1", "project-1", "org-1"
+        )
+        mock_revoke.assert_not_called()
+
+    def test_revokes_pending_task(self):
+        _cache.register_pending_eval("trace-1", "old-celery-id")
+
+        with (
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate."
+                "evaluate_conversation_trace_metrics"
+            ) as mock_task,
+            patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
+        ):
+            signal_conversation_complete("trace-1", "project-1", "org-1")
+
+        mock_revoke.assert_called_once_with("old-celery-id")
+        mock_task.delay.assert_called_once_with(
+            "trace-1", "project-1", "org-1"
+        )
+        assert _cache.is_complete("trace-1") is True
+        assert _cache.pop_pending_eval("trace-1") is None

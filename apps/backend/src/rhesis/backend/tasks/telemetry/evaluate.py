@@ -418,11 +418,24 @@ def _schedule_debounced_conversation_eval(
     project_id: str,
     organization_id: str,
 ) -> None:
-    """Schedule/reset the debounced conversation evaluation."""
+    """Schedule/reset the debounced conversation evaluation.
+
+    Skips scheduling when the conversation has already been marked
+    complete (e.g. by Penelope finishing a multi-turn test), since
+    an immediate evaluation was already dispatched.
+    """
     try:
         from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
+            is_conversation_complete,
             schedule_conversation_eval,
         )
+
+        if is_conversation_complete(trace_id):
+            logger.debug(
+                f"Conversation {trace_id} already marked complete, "
+                f"skipping debounce scheduling"
+            )
+            return
 
         schedule_conversation_eval(trace_id, project_id, organization_id)
     except Exception as e:
