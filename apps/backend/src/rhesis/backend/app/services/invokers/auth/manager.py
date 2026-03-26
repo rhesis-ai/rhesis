@@ -1,11 +1,14 @@
 """Authentication management for endpoint invokers."""
 
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
 import requests
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
@@ -95,6 +98,8 @@ class AuthenticationManager:
 
             return endpoint.last_token
         except Exception as e:
+            logger.error(f"Failed to get client credentials token: {str(e)}")
             raise HTTPException(
-                status_code=500, detail=f"Failed to get client credentials token: {str(e)}"
+                status_code=500,
+                detail="Failed to get client credentials token",
             )
