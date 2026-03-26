@@ -8,6 +8,74 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.10] - 2026-03-23
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.9**
+- **Frontend 0.6.10**
+- **SDK 0.6.10**
+- **Polyphemus 0.2.8**
+
+### Summary
+
+This release introduces **adaptive testing overwrite controls and suggestion/evaluation workflows**, **typed SDK
+statistics collection methods**, and **NIST-aligned password hardening** across authentication flows.
+
+### Featured Capabilities
+
+**Adaptive Testing Iteration Loop**
+
+Adaptive testing now supports a tighter edit-run-evaluate workflow:
+
+- **Delete Adaptive Test Sets**: Adaptive testing sets can now be deleted directly from the adaptive testing flow
+- **Overwrite Controls**: Output generation and evaluation support `overwrite` behavior so teams can explicitly
+  re-run existing tests instead of only processing missing outputs/results
+- **Suggestion Pipeline**: Added suggestion generation, suggestion output generation, and suggestion evaluation
+  endpoints to iterate on test quality before persisting new tests
+- **Bulk Test Deletion**: Adaptive testing UI supports bulk deletion for faster curation
+
+**SDK Statistics API Enhancements**
+
+Stats access in the SDK now has clearer, typed entry points:
+
+- **Collection Methods**: `TestRuns.stats()` and `TestResults.stats()` expose typed response models
+- **Per-Run Shortcut**: `TestRun.stats()` delegates to run-scoped stats for convenience
+- **DataFrame Conversion**: Stats responses support `to_dataframe()` for optional pandas workflows
+
+**Authentication Hardening**
+
+Password validation now aligns with NIST-oriented best practices:
+
+- **Minimum Length**: Default minimum password length is now 12 characters
+- **Strength Scoring**: zxcvbn-based strength checks are enforced with configurable minimum score
+- **Context Blocking**: Passwords are rejected if they contain user/service context words
+- **Breach Screening**: Optional HaveIBeenPwned k-anonymity checks reject known compromised passwords
+
+### Backend Highlights
+- Added adaptive testing evaluate and suggestion endpoints, including overwrite support
+- Added deletion endpoint for adaptive testing test sets
+- Exposed password policy settings through auth provider metadata
+- Hardened password validation with zxcvbn and breach checks
+- Continued metric evaluation refactor toward strategy-based execution
+
+### Frontend Highlights
+- Added adaptive testing delete test set action and bulk test deletion support
+- Added overwrite toggles for adaptive testing output generation and evaluation
+- Added suggestion generation/evaluation UI flow in adaptive testing detail
+- Updated auth screens to enforce the new password policy and improve rate-limit/registration errors
+- Added attachments count column in tests grid
+
+### SDK Highlights
+- Added typed stats collection methods for test runs and test results
+- Added stable transcript formatting support via `ConversationHistory.format_conversation()`
+- Kept async-first metric/model improvements and strategy-based evaluation integration
+
+### Polyphemus Highlights
+- No component version change in this platform release (`0.2.8`)
+- Existing `POST /generate_batch` capability remains available for batched generation workloads
+
 ## [0.6.9] - 2026-03-12
 
 ### Platform Release
