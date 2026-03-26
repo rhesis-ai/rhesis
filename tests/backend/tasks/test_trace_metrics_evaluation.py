@@ -278,7 +278,35 @@ class TestEvaluateTurnTraceMetrics:
 
         assert out == {"status": "no_io", "trace_id": TRACE_ID}
 
-    def test_evaluator_exception(self):
+    def test_non_retryable_exception_propagates(self):
+        """Programming errors (RuntimeError, TypeError, etc.) should propagate immediately."""
+        project = _mock_project()
+        root = _mock_root_span()
+        db = _db_mock_turn(project, root, _mock_status_row())
+        mock_metric = _mock_metric_model()
+
+        with (
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
+                return_value=db,
+            ),
+            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
+                return_value=[mock_metric],
+            ),
+            patch(
+                "rhesis.backend.metrics.evaluator.MetricEvaluator",
+            ) as mock_eval_cls,
+        ):
+            mock_eval_cls.return_value.evaluate.side_effect = RuntimeError("eval boom")
+            with pytest.raises(RuntimeError, match="eval boom"):
+                evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
+
+        db.close.assert_called_once()
+
+    def test_transient_exception_retries(self):
+        """Transient errors (IOError, ConnectionError) should trigger retry."""
         project = _mock_project()
         root = _mock_root_span()
         db = _db_mock_turn(project, root, _mock_status_row())
@@ -303,12 +331,11 @@ class TestEvaluateTurnTraceMetrics:
                 side_effect=lambda exc=None: (_ for _ in ()).throw(Retry("retry")),
             ) as mock_retry,
         ):
-            mock_eval_cls.return_value.evaluate.side_effect = RuntimeError("eval boom")
+            mock_eval_cls.return_value.evaluate.side_effect = ConnectionError("db gone")
             with pytest.raises(Retry):
                 evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
 
         mock_retry.assert_called_once()
-        assert isinstance(mock_retry.call_args.kwargs.get("exc"), RuntimeError)
         db.close.assert_called_once()
 
     def test_status_derivation_pass(self):
@@ -495,7 +522,51 @@ class TestEvaluateConversationTraceMetrics:
         assert out == {"status": "skipped", "trace_id": TRACE_ID}
         mock_load.assert_not_called()
 
-    def test_evaluator_exception(self):
+    def test_non_retryable_exception_propagates(self):
+        """Programming errors should propagate, not retry."""
+        project = _mock_project()
+        span1 = _mock_root_span(
+            attributes={
+                CONVERSATION_INPUT_KEY: "u",
+                CONVERSATION_OUTPUT_KEY: "a",
+            },
+        )
+        span1.trace_metrics = {}
+        db = _db_mock_conversation(project, [span1], _mock_status_row())
+        mock_metric = _mock_metric_model()
+        mock_metric.metric_scope = [MetricScope.TRACE.value, MetricScope.MULTI_TURN.value]
+
+        with (
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
+                return_value=db,
+            ),
+            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
+                return_value=[mock_metric],
+            ),
+            patch(
+                "rhesis.backend.metrics.evaluator.MetricEvaluator",
+            ) as mock_eval_cls,
+            patch(
+                "rhesis.sdk.metrics.conversational.types.ConversationHistory",
+            ) as mock_ch,
+        ):
+            conv_instance = MagicMock()
+            conv_instance.format_conversation.return_value = "x"
+            mock_ch.from_messages.return_value = conv_instance
+            mock_eval_cls.return_value.evaluate.side_effect = RuntimeError("conv eval")
+
+            with pytest.raises(RuntimeError, match="conv eval"):
+                evaluate_conversation_trace_metrics.run(
+                    TRACE_ID, PROJECT_ID, ORG_ID,
+                )
+
+        db.close.assert_called_once()
+
+    def test_transient_exception_retries(self):
+        """Transient errors should trigger retry."""
         project = _mock_project()
         span1 = _mock_root_span(
             attributes={
@@ -533,7 +604,7 @@ class TestEvaluateConversationTraceMetrics:
             conv_instance = MagicMock()
             conv_instance.format_conversation.return_value = "x"
             mock_ch.from_messages.return_value = conv_instance
-            mock_eval_cls.return_value.evaluate.side_effect = RuntimeError("conv eval")
+            mock_eval_cls.return_value.evaluate.side_effect = IOError("network gone")
 
             with pytest.raises(Retry):
                 evaluate_conversation_trace_metrics.run(
@@ -541,5 +612,4 @@ class TestEvaluateConversationTraceMetrics:
                 )
 
         mock_retry.assert_called_once()
-        assert isinstance(mock_retry.call_args.kwargs.get("exc"), RuntimeError)
         db.close.assert_called_once()

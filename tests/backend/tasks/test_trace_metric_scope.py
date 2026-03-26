@@ -1,4 +1,9 @@
-"""Data-level tests for Trace metric_scope membership (telemetry evaluation)."""
+"""Data-level tests for Trace metric_scope membership (telemetry evaluation).
+
+These tests validate the same list-membership semantics used by
+``_load_trace_scoped_metrics`` in the evaluate task module, but operate
+on plain Python lists rather than requiring a live database.
+"""
 
 import pytest
 
@@ -6,7 +11,7 @@ from rhesis.backend.app.schemas.metric import MetricScope
 
 
 def _trace_in_scope(scope):
-    """Same membership semantics as checking Trace in a stored metric_scope list."""
+    """Same membership semantics used in _load_trace_scoped_metrics SQL filter."""
     if scope is None:
         return False
     return MetricScope.TRACE.value in scope
@@ -47,3 +52,9 @@ class TestTraceMetricScopeFiltering:
     def test_none_scope(self):
         scope = None
         assert _trace_in_scope(scope) is False
+
+    def test_metric_scope_values_are_strings(self):
+        """Ensure enum str mixin allows direct use in JSON lists."""
+        assert MetricScope.TRACE == "Trace"
+        assert MetricScope.SINGLE_TURN == "Single-Turn"
+        assert MetricScope.MULTI_TURN == "Multi-Turn"

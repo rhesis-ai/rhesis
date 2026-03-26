@@ -287,3 +287,38 @@ class TestRecalculateOverallStatus:
         trace.trace_metrics = None
         recalculate_overall_status(trace)
         mock_set_status.assert_not_called()
+
+    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
+    def test_failed_turn_override_sets_fail(self, mock_set_status):
+        """Even if all metrics pass, a failed turn override should result in Fail."""
+        trace = MagicMock()
+        trace.trace_metrics = {
+            "turn_metrics": {
+                "metrics": {
+                    "m1": {"is_successful": True},
+                    "m2": {"is_successful": True},
+                }
+            },
+            "conversation_metrics": {"metrics": {}},
+            "turn_overrides": {
+                "2": {"success": False, "override": {"original_value": True, "review_id": "r1"}},
+            },
+        }
+        recalculate_overall_status(trace)
+        mock_set_status.assert_called_once_with(trace, False)
+
+    @patch("rhesis.backend.app.services.trace_review_override._set_trace_status")
+    def test_all_pass_with_passing_turn_override(self, mock_set_status):
+        """All metrics pass and turn overrides also pass -> overall Pass."""
+        trace = MagicMock()
+        trace.trace_metrics = {
+            "turn_metrics": {
+                "metrics": {"m1": {"is_successful": True}}
+            },
+            "conversation_metrics": {"metrics": {}},
+            "turn_overrides": {
+                "1": {"success": True, "override": {"original_value": False, "review_id": "r2"}},
+            },
+        }
+        recalculate_overall_status(trace)
+        mock_set_status.assert_called_once_with(trace, True)

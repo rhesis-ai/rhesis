@@ -1108,7 +1108,7 @@ class TestCrossOrganizationSecurity:
     filter by organization_id as required.
     """
 
-    @pytest.mark.skip(reason="Core security verified by existing 33 telemetry tests")
+    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
     def test_crud_functions_require_organization_id(self, test_db):
         """🔒 SECURITY: Verify CRUD functions accept and use organization_id parameter"""
         import uuid
@@ -1145,7 +1145,7 @@ class TestCrossOrganizationSecurity:
         # Total count is embedded in each row via window function
         assert rows[0].total >= 1
 
-    @pytest.mark.skip(reason="Complex auth setup needed - core security verified by existing tests")
+    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
     def test_cannot_access_trace_from_different_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that users cannot access traces from other organizations"""
         import uuid
@@ -1223,7 +1223,7 @@ class TestCrossOrganizationSecurity:
         assert response.status_code == 404  # Not 403 to avoid information leakage
         assert "not found" in response.json()["detail"].lower()
 
-    @pytest.mark.skip(reason="Complex auth setup needed - core security verified by existing tests")
+    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
     def test_list_traces_only_shows_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that list endpoint only returns traces from user's organization"""
         import uuid
@@ -1330,7 +1330,7 @@ class TestCrossOrganizationSecurity:
             trace_ids = {t["trace_id"] for t in data["traces"]}
             assert span_b["trace_id"] not in trace_ids
 
-    @pytest.mark.skip(reason="Complex auth setup needed - core security verified by existing tests")
+    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
     def test_metrics_only_for_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that metrics endpoint only aggregates from user's organization"""
         import uuid
