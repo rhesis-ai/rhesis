@@ -12,6 +12,7 @@ from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities import BaseEntity, Endpoint
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
+from rhesis.sdk.errors import RhesisAPIError
 from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.entities.test import Test
 from rhesis.sdk.enums import ExecutionMode, TestType
@@ -90,6 +91,7 @@ class TestSet(BaseEntity):
 
         Raises:
             ValueError: If test set ID is not set.
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> test_set = TestSet(id='test-set-123')
@@ -269,11 +271,11 @@ class TestSet(BaseEntity):
                 the ``/metrics`` API).
 
         Returns:
-            Dict containing the execution submission response, or
-            ``None`` if an error occurred.
+            Dict containing the execution submission response.
 
         Raises:
             ValueError: If test set ID is not set.
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> test_set = TestSets.pull(name="Safety Tests")
@@ -324,12 +326,12 @@ class TestSet(BaseEntity):
             metrics: Optional list of metrics for re-scoring.
 
         Returns:
-            Dict containing the execution submission response, or
-            ``None`` if an error occurred.
+            Dict containing the execution submission response.
 
         Raises:
             ValueError: If test set ID is not set or no completed
                 run is found when *run* is ``None``.
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> test_set.rescore(endpoint)
@@ -340,7 +342,14 @@ class TestSet(BaseEntity):
             raise ValueError("Test set ID must be set before rescoring")
 
         if run is None:
-            last = self.last_run(endpoint)
+            try:
+                last = self.last_run(endpoint)
+            except RhesisAPIError as e:
+                if e.status_code == 404:
+                    raise ValueError(
+                        "No completed test run found for this test set and endpoint"
+                    ) from e
+                raise
             if not last:
                 raise ValueError("No completed test run found for this test set and endpoint")
             run_id = str(last["id"])
@@ -376,6 +385,7 @@ class TestSet(BaseEntity):
 
         Raises:
             ValueError: If test set ID is not set.
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> last = test_set.last_run(endpoint)
@@ -446,6 +456,7 @@ class TestSet(BaseEntity):
         Raises:
             ValueError: If test set ID is not set or a test reference
                 cannot be resolved.
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> test_set = TestSets.pull(name="Safety Tests")
@@ -485,6 +496,7 @@ class TestSet(BaseEntity):
         Raises:
             ValueError: If test set ID is not set or a test reference
                 cannot be resolved.
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> test_set = TestSets.pull(name="Safety Tests")
@@ -516,6 +528,7 @@ class TestSet(BaseEntity):
 
         Raises:
             ValueError: If test set ID is not set.
+            RhesisAPIError: If the API request fails.
         """
         if not self.id:
             raise ValueError("Test set ID must be set before fetching metrics")
@@ -542,6 +555,7 @@ class TestSet(BaseEntity):
         Raises:
             ValueError: If test set ID is not set or the metric
                 cannot be resolved.
+            RhesisAPIError: If the API request fails.
         """
         if not self.id:
             raise ValueError("Test set ID must be set before adding metrics")
@@ -584,6 +598,7 @@ class TestSet(BaseEntity):
         Raises:
             ValueError: If test set ID is not set or the metric
                 cannot be resolved.
+            RhesisAPIError: If the API request fails.
         """
         if not self.id:
             raise ValueError("Test set ID must be set before removing metrics")
@@ -708,10 +723,11 @@ class TestSet(BaseEntity):
         Otherwise, creates a new test set with tests via the bulk POST endpoint.
 
         Returns:
-            Dict containing the response from the API, or None if error occurred.
+            Dict containing the response from the API.
 
         Raises:
             ValueError: If required fields are missing (creation only).
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> test_set = TestSet(

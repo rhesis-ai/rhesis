@@ -6,6 +6,7 @@ import pytest
 from rhesis.sdk.enums import ExecutionMode
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.errors import RhesisAPIError
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
 
@@ -195,7 +196,7 @@ class TestRescore:
 
     @patch("requests.request")
     def test_rescore_no_completed_run_raises(self, mock_request, test_set, endpoint):
-        """ValueError when run=None and no completed run exists."""
+        """ValueError when run=None and no completed run exists (404 from last_run)."""
         import requests as req
 
         mock_response = MagicMock()
@@ -210,7 +211,6 @@ class TestRescore:
         mock_response.raise_for_status.side_effect = http_error
         mock_request.return_value = mock_response
 
-        # last_run returns None due to HTTP error, then rescore raises
         with pytest.raises(ValueError, match="No completed test run found"):
             test_set.rescore(endpoint)
 

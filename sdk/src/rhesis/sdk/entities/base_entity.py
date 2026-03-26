@@ -7,35 +7,38 @@ import requests
 from pydantic import BaseModel, ConfigDict
 
 from rhesis.sdk.clients import APIClient, Endpoints, HTTPStatus, Methods
+from rhesis.sdk.errors import RhesisAPIError
 
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
 
 
-def handle_http_errors(func: Callable[..., T]) -> Callable[..., Optional[T]]:
-    """Decorator to handle HTTP errors in API requests."""
+def handle_http_errors(func: Callable[..., T]) -> Callable[..., T]:
+    """Decorator to handle HTTP errors in API requests.
+
+    Logs safe diagnostic info (status, URL, method, response body) and raises
+    RhesisAPIError. Never logs request headers or request body to avoid
+    leaking credentials.
+    """
 
     @functools.wraps(func)
-    def wrapper(self_or_cls: Any, *args: Any, **kwargs: Any) -> Optional[T]:
+    def wrapper(self_or_cls: Any, *args: Any, **kwargs: Any) -> T:
         try:
             return func(self_or_cls, *args, **kwargs)
         except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error occurred: {e}")
-            # Handle potential string or bytes content
             content = e.response.content
             if isinstance(content, bytes):
                 content = content.decode()
+            logger.error(f"HTTP error occurred: {e}")
             logger.error(f"Response content: {content}")
             logger.error(f"Request URL: {e.response.request.url}")
             logger.error(f"Request method: {e.response.request.method}")
-            logger.error(f"Request headers: {e.response.request.headers}")
-            if e.response.request.body:
-                body = e.response.request.body
-                if isinstance(body, bytes):
-                    body = body.decode()
-                logger.error(f"Request body: {body}")
-            return None
+            raise RhesisAPIError(
+                message=str(e),
+                status_code=e.response.status_code,
+                response_content=content,
+            ) from e
 
     return wrapper
 
@@ -59,9 +62,7 @@ class BaseEntity(BaseModel):
 
     def __str__(self) -> str:
         """Return a string representation of the entity."""
-        string = self.model_dump_json(indent=2)
-        print(type(string))
-        return string
+        return self.model_dump_json(indent=2)
 
     @classmethod
     def _delete(cls, id: str) -> bool:

@@ -13,6 +13,7 @@ from rhesis.sdk.decorators import (
     observe,
 )
 from rhesis.sdk.enums import ExecutionMode, TestType
+from rhesis.sdk.errors import RhesisAPIError
 
 try:
     __version__ = version("rhesis-sdk")
@@ -26,6 +27,7 @@ __all__ = [
     "__version__",
     "ExecutionMode",
     "TestType",
+    "RhesisAPIError",
     "RhesisClient",
     "DisabledClient",
     "CONNECTOR_DISABLED",
