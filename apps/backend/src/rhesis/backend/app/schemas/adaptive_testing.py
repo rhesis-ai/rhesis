@@ -201,3 +201,39 @@ class EvaluateSuggestionsResponse(Base):
 
     evaluated: int
     results: List[SuggestionEvalItem]
+
+
+# ---------------------------------------------------------------------------
+# Adaptive testing settings
+# ---------------------------------------------------------------------------
+
+
+class AdaptiveSettingsUpdate(Base):
+    """Request body for updating adaptive testing settings.
+
+    Both fields are optional so callers can update only what changed.
+    """
+
+    default_endpoint_id: Optional[UUID4] = None
+    metric_ids: Optional[List[UUID4]] = None
+
+
+class AdaptiveSettingsMetric(BaseModel):
+    """Lightweight metric reference returned inside settings."""
+
+    id: UUID4
+    name: str
+
+
+class AdaptiveSettingsEndpoint(BaseModel):
+    """Lightweight endpoint reference returned inside settings."""
+
+    id: UUID4
+    name: str
+
+
+class AdaptiveSettingsResponse(Base):
+    """Response for GET/PUT adaptive testing settings."""
+
+    default_endpoint: Optional[AdaptiveSettingsEndpoint] = None
+    metrics: List[AdaptiveSettingsMetric] = []

@@ -21,6 +21,8 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.adaptive_testing import (
+    AdaptiveSettingsResponse,
+    AdaptiveSettingsUpdate,
     EvaluateFailedItem,
     EvaluateRequest,
     EvaluateResponse,
@@ -49,12 +51,14 @@ from rhesis.backend.app.services.adaptive_testing import (
     evaluate_tests_for_adaptive_set,
     generate_outputs_for_tests,
     generate_suggestions,
+    get_adaptive_settings,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
     invoke_endpoint_for_suggestions,
     remove_topic_node,
+    update_adaptive_settings,
     update_test_node,
     update_topic_node,
 )
@@ -156,6 +160,69 @@ def delete_adaptive_test_set_endpoint(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get(
+    "/{test_set_identifier}/settings",
+    response_model=AdaptiveSettingsResponse,
+)
+def get_adaptive_settings_endpoint(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get adaptive testing settings for a test set.
+
+    Returns the default endpoint (if configured) and metrics assigned to
+    the test set.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        return get_adaptive_settings(
+            db=db,
+            test_set=db_test_set,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put(
+    "/{test_set_identifier}/settings",
+    response_model=AdaptiveSettingsResponse,
+)
+def update_adaptive_settings_endpoint(
+    test_set_identifier: str,
+    body: AdaptiveSettingsUpdate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Update adaptive testing settings for a test set.
+
+    Supports updating the default endpoint and replacing the metric list.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        return update_adaptive_settings(
+            db=db,
+            test_set=db_test_set,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            default_endpoint_id=body.default_endpoint_id,
+            metric_ids=list(body.metric_ids) if body.metric_ids is not None else None,
+        )
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get(
