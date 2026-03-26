@@ -35,7 +35,7 @@ class EnrichmentService:
         """
         Check if Celery workers are available to process telemetry tasks.
 
-        Uses a module-level cache (TTL=60s) to avoid the ~3s Celery
+        Uses a module-level cache (TTL=300s) to avoid the ~3s Celery
         inspect.ping() cost on every endpoint invocation.
 
         Returns:
@@ -109,11 +109,23 @@ class EnrichmentService:
 
         if workers_available:
             try:
-                from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
+                from celery import chain
 
-                # Try to enqueue async task
-                result = enrich_trace_async.delay(trace_id, project_id, organization_id)
-                logger.debug(f"Enqueued async enrichment for trace {trace_id} (task: {result.id})")
+                from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
+                from rhesis.backend.tasks.telemetry.evaluate import evaluate_turn_trace_metrics
+
+                # Orchestrate the pipeline using a Celery chain.
+                # .si() creates immutable signatures so the result of enrich isn't passed
+                # as the first argument to evaluate (since both just need the IDs).
+                workflow = chain(
+                    enrich_trace_async.si(trace_id, project_id, organization_id),
+                    evaluate_turn_trace_metrics.si(trace_id, project_id, organization_id),
+                )
+
+                result = workflow.apply_async()
+                logger.debug(
+                    f"Enqueued async pipeline (enrich -> evaluate) for trace {trace_id} (task: {result.id})"
+                )
                 return True
 
             except Exception as e:
@@ -129,6 +141,23 @@ class EnrichmentService:
             enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
             if enriched_data:
                 logger.info(f"Completed sync enrichment for trace {trace_id}")
+
+                # Trigger turn-level trace metrics evaluation (sync fallback)
+                try:
+                    from rhesis.backend.tasks.telemetry.evaluate import (
+                        evaluate_turn_trace_metrics,
+                    )
+
+                    # Call it synchronously via apply
+                    result = evaluate_turn_trace_metrics.apply(
+                        args=[trace_id, project_id, organization_id]
+                    )
+                    if result.failed():
+                        logger.error(f"Sync trace metrics evaluation failed: {result.traceback}")
+                except Exception as eval_err:
+                    logger.warning(
+                        f"Failed to run sync trace metrics evaluation for {trace_id}: {eval_err}"
+                    )
             else:
                 logger.warning(f"Sync enrichment returned no data for trace {trace_id}")
             return False

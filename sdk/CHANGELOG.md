@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Replaced the custom chunker implementation with `chonkie`-backed strategies for improved performance and flexibility.
 - Replaced instances of the deprecated `SemanticChunker` with `RecursiveChunker` in `synthesizers/base.py` and `examples/config-synthesizer.ipynb`.
+- Removed strict input validation from base judge to support conversational trace metrics evaluation.
 
 ### Fixed
 - Fixed an issue where long-running test executions could block the main WebSocket listener loop, leading to connection drops. Test and metric executions are now non-blocking.
@@ -30,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - Deprecated the custom-written `SemanticChunker` class. Consider using `RecursiveChunker` or the `SemanticChunker` provided by the `chonkie` library.
-
 
 ## [0.6.10] - 2026-03-23
 

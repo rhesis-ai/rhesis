@@ -23,7 +23,7 @@ from rhesis.backend.app.constants import (
     categorize_test_result_status,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.test_result import (
+from rhesis.backend.app.constants import (
     REVIEW_TARGET_METRIC,
     REVIEW_TARGET_TEST_RESULT,
     REVIEW_TARGET_TURN,

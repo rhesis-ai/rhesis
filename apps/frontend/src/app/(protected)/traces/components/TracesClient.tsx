@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { Alert } from '@mui/material';
 import TracesTable from './TracesTable';
 import TraceFilters from './TraceFilters';
@@ -15,21 +16,39 @@ import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TracesClientProps {
   sessionToken: string;
+  currentUserId?: string;
+  currentUserName?: string;
+  currentUserPicture?: string;
+  initialTraceId?: string | null;
+  initialProjectId?: string | null;
 }
 
-export default function TracesClient({ sessionToken }: TracesClientProps) {
+export default function TracesClient({
+  sessionToken,
+  currentUserId = '',
+  currentUserName = '',
+  currentUserPicture,
+  initialTraceId = null,
+  initialProjectId = null,
+}: TracesClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const notifications = useNotifications();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Drawer state
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    null
+  // Drawer state - initialize from props for deep-link support
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(
+    initialTraceId
   );
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    initialProjectId
+  );
+  const [drawerOpen, setDrawerOpen] = useState(
+    !!(initialTraceId && initialProjectId)
+  );
 
   // Filter state - default to last 24 hours
   const [filters, setFilters] = useState<TraceQueryParams>({
@@ -75,11 +94,14 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
     setDrawerOpen(true);
   };
 
-  const handleCloseDrawer = () => {
+  const handleCloseDrawer = useCallback(() => {
     setDrawerOpen(false);
     setSelectedTraceId(null);
     setSelectedProjectId(null);
-  };
+    if (initialTraceId) {
+      router.replace(pathname, { scroll: false });
+    }
+  }, [initialTraceId, router, pathname]);
 
   const handlePageChange = (newPage: number) => {
     setFilters(prev => ({
@@ -127,7 +149,6 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
           pageSize={filters.limit || 50}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
-          filters={filters}
         />
       )}
 
@@ -137,6 +158,9 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
         traceId={selectedTraceId}
         projectId={selectedProjectId || ''}
         sessionToken={sessionToken}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        currentUserPicture={currentUserPicture}
       />
     </>
   );

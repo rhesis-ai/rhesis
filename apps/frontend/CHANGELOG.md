@@ -9,19 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.11] - 2026-03-26
 
-### Fixed
+### Added
 
-- Fixed: Resolved issue where the date picker component was not correctly displaying dates in the user's local timezone.
-- Fixed: Corrected a bug that prevented form submissions when certain special characters were used in input fields.
+- Added trace metrics tab displaying per-metric evaluation results with status indicators, scores, and explanations.
+- Added trace reviews tab with the ability to submit human review overrides for traces, individual turns, and specific metrics.
+- Added trace review drawer for creating reviews with target type selection, pass/fail toggles, and comment validation.
+- Added project-level trace metrics configuration page with bulk metric selection and removal via a data grid.
+- Added evaluation status filter (Passed/Failed/Pending) to the traces list page.
+- Added dedicated trace detail page at `/traces/[identifier]`.
+- Added `hideFooter` prop to `BaseDataGrid` component.
+- Added Trace scope option to metric forms and filters.
+- Added `conversation_id` to `TraceQueryParams` interface.
+- Added error boundary around trace drawer tab content for improved resilience.
 
 ### Changed
 
-- Changed: Improved the responsiveness of the main navigation menu on smaller screens.
-- Changed: Updated the styling of error messages to be more visually prominent and user-friendly.
+- Consolidated review target label maps into a shared `TRACE_REVIEW_TARGET_LABELS` constant.
+- Tightened `MetricScopeValue` type by removing the `| string` escape hatch.
+- Replaced hardcoded `color: 'white'` and `rgba()` values in TraceFilters with MUI theme tokens.
+- Memoized span attribute categorization in SpanDetailsPanel using `useMemo`.
+- Removed unused state and callbacks from TracesClientWrapper.
+- Aligned trace metrics display style with test-run metrics layout.
 
-### Added
+### Fixed
 
-- Added: Implemented a loading indicator on the search results page to provide feedback during data retrieval.
+- Fixed `useMemo` called conditionally after early return in SpanDetailsPanel, violating rules of hooks.
+- Fixed TypeScript error: cast metric ID to UUID template literal for `getMetric` calls.
+- Fixed status filter functionality and removed unused status column from traces table.
+- Fixed span detail tab indices using string values for stability.
+- Fixed missing trace metrics extraction in telemetry service.
 
 ## [0.6.10] - 2026-03-23
 

@@ -25,23 +25,36 @@ This release includes the following component versions:
 ### Summary of Changes
 
 **Backend v0.6.10:**
-Initial release or no significant changes.
+- Added trace metrics evaluation system with per-turn and per-conversation metric evaluation via Celery tasks.
+- Added trace review system with human review overrides for traces, turns, and individual metrics.
+- Added SQL-level trace metrics aggregation for improved performance over Python-side processing.
+- Added Trace scope to MetricScope, enabling metrics to target traces alongside test results.
+- Added configurable debounce for conversation-level metric evaluation.
+- Introduced ReviewTarget enum for type-safe review target constants across the codebase.
+- Added task and comment support for traces.
+- Improved operational safety: sanitized API error messages, added Celery task time limits, and refined retry strategy for transient errors.
 
 **Frontend v0.6.11:**
-Initial release or no significant changes.
+- Added trace metrics tab with detailed per-metric breakdown, status indicators, and metric-level reviews.
+- Added trace reviews tab with per-turn and per-metric human review overrides.
+- Added trace review drawer for submitting reviews with target selection and status toggles.
+- Added project-level trace metrics configuration with bulk selection and removal.
+- Added evaluation status filter to the traces list with pass/fail/pending filtering.
+- Added dedicated trace detail page at `/traces/[identifier]`.
+- Improved trace filters with theme-aware styling replacing hardcoded colors.
+- Added error boundary around trace drawer content for improved resilience.
+- Memoized span attribute categorization for better render performance.
 
 **SDK v0.6.11:**
 - Replaced custom chunking logic with `chonkie`-backed strategies (TokenChunker, SentenceChunker, RecursiveChunker), improving text splitting capabilities. Deprecated the custom SemanticChunker.
 - Fixed a security vulnerability by pinning the `litellm` dependency to version <=1.82.3 due to compromised newer versions.
 - Improved connector stability by making test and metric executions non-blocking, preventing connection drops during concurrent runs.
-
+- Removed strict input validation from base judge to support conversational trace metrics evaluation.
 
 See individual component changelogs for detailed changes:
 - [Backend Changelog](apps/backend/CHANGELOG.md)
 - [Frontend Changelog](apps/frontend/CHANGELOG.md)
 - [SDK Changelog](sdk/CHANGELOG.md)
-
-
 
 ## [0.6.10] - 2026-03-23
 

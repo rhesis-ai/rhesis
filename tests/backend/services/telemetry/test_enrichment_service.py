@@ -101,18 +101,20 @@ class TestEnrichmentService:
     @patch(
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
-    @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
+    @patch("celery.chain")
     def test_enrich_traces_async_success(
-        self, mock_async_task, mock_check_workers, enrichment_service
+        self, mock_chain, mock_check_workers, enrichment_service
     ):
         """Test successful async enrichment"""
         # Mock workers available
         mock_check_workers.return_value = True
 
         # Mock successful async task
+        mock_workflow = Mock()
         mock_result = Mock()
         mock_result.id = "task-123"
-        mock_async_task.delay.return_value = mock_result
+        mock_workflow.apply_async.return_value = mock_result
+        mock_chain.return_value = mock_workflow
 
         trace_ids = {"trace1", "trace2"}
         project_id = "project-123"
@@ -124,14 +126,16 @@ class TestEnrichmentService:
 
         assert async_count == 2
         assert sync_count == 0
-        assert mock_async_task.delay.call_count == 2
+        assert mock_chain.call_count == 2
+        assert mock_workflow.apply_async.call_count == 2
 
     @patch(
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
     @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
+    @patch("rhesis.backend.tasks.telemetry.evaluate.evaluate_turn_trace_metrics")
     def test_enrich_traces_sync_fallback(
-        self, mock_enricher_class, mock_check_workers, enrichment_service
+        self, mock_eval_task, mock_enricher_class, mock_check_workers, enrichment_service
     ):
         """Test sync fallback when no workers available"""
         # Mock no workers available
@@ -141,6 +145,11 @@ class TestEnrichmentService:
         mock_enricher = Mock()
         mock_enricher.enrich_trace.return_value = {"costs": {"total_cost_usd": 0.01}}
         mock_enricher_class.return_value = mock_enricher
+
+        # Mock eval task apply
+        mock_eval_result = Mock()
+        mock_eval_result.failed.return_value = False
+        mock_eval_task.apply.return_value = mock_eval_result
 
         trace_ids = {"trace1", "trace2"}
         project_id = "project-123"
@@ -153,26 +162,33 @@ class TestEnrichmentService:
         assert async_count == 0
         assert sync_count == 2
         assert mock_enricher.enrich_trace.call_count == 2
+        assert mock_eval_task.apply.call_count == 2
 
     @patch(
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
-    @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
+    @patch("celery.chain")
     @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
+    @patch("rhesis.backend.tasks.telemetry.evaluate.evaluate_turn_trace_metrics")
     def test_enrich_traces_async_fallback_to_sync(
-        self, mock_enricher_class, mock_async_task, mock_check_workers, enrichment_service
+        self, mock_eval_task, mock_enricher_class, mock_chain, mock_check_workers, enrichment_service
     ):
         """Test fallback to sync when async fails"""
         # Mock workers available initially
         mock_check_workers.return_value = True
 
-        # Mock async task failure
-        mock_async_task.delay.side_effect = Exception("Celery error")
+        # Mock async task failure (chain building or applying fails)
+        mock_chain.side_effect = Exception("Celery error")
 
         # Mock successful sync enrichment
         mock_enricher = Mock()
         mock_enricher.enrich_trace.return_value = {"costs": {"total_cost_usd": 0.01}}
         mock_enricher_class.return_value = mock_enricher
+
+        # Mock eval task apply
+        mock_eval_result = Mock()
+        mock_eval_result.failed.return_value = False
+        mock_eval_task.apply.return_value = mock_eval_result
 
         trace_ids = {"trace1"}
         project_id = "project-123"
@@ -185,6 +201,7 @@ class TestEnrichmentService:
         assert async_count == 0
         assert sync_count == 1
         mock_enricher.enrich_trace.assert_called_once_with("trace1", project_id, organization_id)
+        mock_eval_task.apply.assert_called_once()
 
     @patch(
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
@@ -257,24 +274,32 @@ class TestEnrichmentService:
     @patch(
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
-    @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
+    @patch("celery.chain")
     @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
+    @patch("rhesis.backend.tasks.telemetry.evaluate.evaluate_turn_trace_metrics")
     def test_enrich_traces_mixed_success_failure(
-        self, mock_enricher_class, mock_async_task, mock_check_workers, enrichment_service
+        self, mock_eval_task, mock_enricher_class, mock_chain, mock_check_workers, enrichment_service
     ):
         """Test mixed async success and failure scenarios"""
         # Mock workers available
         mock_check_workers.return_value = True
 
         # Mock async task: first succeeds, second fails
+        mock_workflow = Mock()
         mock_result = Mock()
         mock_result.id = "task-123"
-        mock_async_task.delay.side_effect = [mock_result, Exception("Task error")]
+        mock_workflow.apply_async.return_value = mock_result
+        mock_chain.side_effect = [mock_workflow, Exception("Task error")]
 
         # Mock successful sync enrichment for fallback
         mock_enricher = Mock()
         mock_enricher.enrich_trace.return_value = {"costs": {"total_cost_usd": 0.01}}
         mock_enricher_class.return_value = mock_enricher
+
+        # Mock eval task apply
+        mock_eval_result = Mock()
+        mock_eval_result.failed.return_value = False
+        mock_eval_task.apply.return_value = mock_eval_result
 
         trace_ids = {"trace1", "trace2"}
         project_id = "project-123"
@@ -286,23 +311,26 @@ class TestEnrichmentService:
 
         assert async_count == 1  # First trace succeeded async
         assert sync_count == 1  # Second trace fell back to sync
+        mock_eval_task.apply.assert_called_once()
 
     @patch("rhesis.backend.app.services.telemetry.enrichment.service.logger")
     @patch(
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
-    @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
+    @patch("celery.chain")
     def test_enrich_traces_logging(
-        self, mock_async_task, mock_check_workers, mock_logger, enrichment_service
+        self, mock_chain, mock_check_workers, mock_logger, enrichment_service
     ):
         """Test that appropriate logging occurs during enrichment"""
         # Mock workers available
         mock_check_workers.return_value = True
 
         # Mock successful async task
+        mock_workflow = Mock()
         mock_result = Mock()
         mock_result.id = "task-123"
-        mock_async_task.delay.return_value = mock_result
+        mock_workflow.apply_async.return_value = mock_result
+        mock_chain.return_value = mock_workflow
 
         trace_ids = {"trace1"}
         project_id = "project-123"
@@ -312,7 +340,7 @@ class TestEnrichmentService:
 
         # Check that debug logging occurred
         mock_logger.debug.assert_called_with(
-            "Enqueued async enrichment for trace trace1 (task: task-123)"
+            "Enqueued async pipeline (enrich -> evaluate) for trace trace1 (task: task-123)"
         )
 
     @patch("rhesis.backend.app.services.telemetry.enrichment.service.logger")
@@ -320,8 +348,9 @@ class TestEnrichmentService:
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
     @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
+    @patch("rhesis.backend.tasks.telemetry.evaluate.evaluate_turn_trace_metrics")
     def test_enrich_traces_sync_logging(
-        self, mock_enricher_class, mock_check_workers, mock_logger, enrichment_service
+        self, mock_eval_task, mock_enricher_class, mock_check_workers, mock_logger, enrichment_service
     ):
         """Test logging during sync enrichment"""
         # Mock no workers available
@@ -331,6 +360,11 @@ class TestEnrichmentService:
         mock_enricher = Mock()
         mock_enricher.enrich_trace.return_value = {"costs": {"total_cost_usd": 0.01}}
         mock_enricher_class.return_value = mock_enricher
+
+        # Mock eval task apply
+        mock_eval_result = Mock()
+        mock_eval_result.failed.return_value = False
+        mock_eval_task.apply.return_value = mock_eval_result
 
         trace_ids = {"trace1"}
         project_id = "project-123"
@@ -344,12 +378,12 @@ class TestEnrichmentService:
         )
         mock_logger.info.assert_any_call("Completed sync enrichment for trace trace1")
 
-    @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
+    @patch("celery.chain")
     @patch(
         "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
     def test_enrich_traces_checks_workers_once(
-        self, mock_check_workers, mock_async_task, enrichment_service
+        self, mock_check_workers, mock_chain, enrichment_service
     ):
         """
         Test that worker availability is checked once per batch, not per trace.
@@ -361,9 +395,11 @@ class TestEnrichmentService:
         mock_check_workers.return_value = True
 
         # Mock successful async task
+        mock_workflow = Mock()
         mock_result = Mock()
         mock_result.id = "task-123"
-        mock_async_task.delay.return_value = mock_result
+        mock_workflow.apply_async.return_value = mock_result
+        mock_chain.return_value = mock_workflow
 
         # Process 10 traces
         trace_ids = {f"trace{i}" for i in range(10)}

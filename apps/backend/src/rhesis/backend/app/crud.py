@@ -3450,6 +3450,28 @@ def create_trace_spans(
         raise
 
 
+def get_trace_by_db_id(
+    db: Session,
+    trace_db_id: str,
+    organization_id: str,
+) -> Optional[models.Trace]:
+    """Get a single trace span row by its database UUID."""
+    from uuid import UUID
+
+    org_uuid = UUID(organization_id)
+    return (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.id == trace_db_id,
+                models.Trace.organization_id == org_uuid,
+                models.Trace.deleted_at.is_(None),
+            )
+        )
+        .first()
+    )
+
+
 def get_trace_by_id(
     db: Session,
     trace_id: str,
@@ -3582,6 +3604,7 @@ def query_traces(
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
+    trace_metrics_status: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> List[TraceRow]:
@@ -3758,6 +3781,16 @@ def query_traces(
         query = query.filter(models.Trace.conversation_id.isnot(None))
     elif trace_type == TraceType.SINGLE_TURN:
         query = query.filter(models.Trace.conversation_id.is_(None))
+
+    # Trace metrics evaluation status filter (Pass / Fail / Error)
+    # Uses an IN subquery instead of a scalar to handle orgs where the same
+    # status name exists for multiple entity types (e.g. multiple "Error" rows).
+    if trace_metrics_status:
+        matching_status_ids = select(models.Status.id).where(
+            models.Status.name == trace_metrics_status,
+            models.Status.organization_id == org_uuid,
+        )
+        query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
@@ -4090,3 +4123,170 @@ def delete_file(
 ) -> Optional[models.File]:
     """Soft-delete a file."""
     return delete_item(db, models.File, file_id, organization_id, user_id)
+
+
+# ---------------------------------------------------------------
+# Trace metrics CRUD helpers
+# ---------------------------------------------------------------
+
+
+def update_trace_turn_metrics(
+    db: Session,
+    span_id: str,
+    turn_metrics: dict,
+    status_id: Optional[str] = None,
+    processed_at: Optional[datetime] = None,
+) -> int:
+    """Update turn-level trace metrics on a single span row.
+
+    Merges turn_metrics into trace_metrics.turn_metrics without
+    overwriting conversation_metrics if already present.
+    """
+    span = db.query(models.Trace).filter(models.Trace.id == span_id).first()
+    if not span:
+        return 0
+
+    existing = span.trace_metrics or {}
+    existing["turn_metrics"] = turn_metrics
+    now = processed_at or datetime.utcnow()
+
+    update_values: Dict[str, Any] = {
+        "trace_metrics": existing,
+        "trace_metrics_processed_at": now,
+        "updated_at": datetime.utcnow(),
+    }
+    if status_id is not None:
+        update_values["trace_metrics_status_id"] = status_id
+
+    result = db.query(models.Trace).filter(models.Trace.id == span_id).update(update_values)
+    db.commit()
+    return result
+
+
+def update_trace_conversation_metrics(
+    db: Session,
+    trace_id: str,
+    conversation_metrics: dict,
+    status_id: Optional[str] = None,
+    processed_at: Optional[datetime] = None,
+) -> int:
+    """Update conversation-level trace metrics on all spans sharing a trace_id.
+
+    Writes conversation_metrics into trace_metrics.conversation_metrics on
+    every span row, re-derives status from combined turn + conversation results.
+    """
+    from sqlalchemy.orm.attributes import flag_modified
+
+    spans = db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
+    if not spans:
+        return 0
+
+    now = processed_at or datetime.utcnow()
+    count = 0
+    for span in spans:
+        existing = span.trace_metrics or {}
+        # Important: copy the dict so SQLAlchemy detects the change, or use flag_modified
+        new_metrics = dict(existing)
+        new_metrics["conversation_metrics"] = conversation_metrics
+        span.trace_metrics = new_metrics
+
+        # Explicitly flag the JSON column as modified
+        flag_modified(span, "trace_metrics")
+
+        span.trace_metrics_processed_at = now
+        span.updated_at = datetime.utcnow()
+        if status_id is not None:
+            span.trace_metrics_status_id = status_id
+        count += 1
+
+    db.commit()
+    return count
+
+
+def get_trace_metrics_aggregated(
+    db: Session,
+    organization_id: str,
+    project_id: str,
+    environment: Optional[str] = None,
+    start_time_after: Optional[datetime] = None,
+    start_time_before: Optional[datetime] = None,
+) -> dict:
+    """Compute trace metrics using SQL-level aggregation.
+
+    Uses PostgreSQL aggregate functions (COUNT, SUM, AVG, percentile_cont)
+    to avoid loading large result sets into Python memory.
+    """
+    from sqlalchemy import case, literal_column
+    from sqlalchemy.sql import functions as sqlfunc
+
+    from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
+
+    T = models.Trace
+
+    filters = [
+        T.organization_id == organization_id,
+        T.project_id == project_id,
+        T.deleted_at.is_(None),
+    ]
+    if environment:
+        filters.append(T.environment == environment)
+    if start_time_after:
+        filters.append(T.start_time >= start_time_after)
+    if start_time_before:
+        filters.append(T.start_time <= start_time_before)
+
+    base = db.query(T).filter(*filters).subquery()
+
+    # JSONB extraction expressions for tokens and costs
+    tokens_expr = base.c.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()
+    cost_expr = base.c.enriched_data[EnrichedDataKeys.COSTS][
+        EnrichedDataKeys.TOTAL_COST_USD
+    ].as_float()
+
+    agg = db.query(
+        func.count(func.distinct(base.c.trace_id)).label("total_traces"),
+        func.count(base.c.id).label("total_spans"),
+        func.coalesce(func.sum(tokens_expr), 0).label("total_tokens"),
+        func.coalesce(func.sum(cost_expr), 0).label("total_cost_usd"),
+        func.count(case((base.c.status_code == "ERROR", 1))).label("error_count"),
+        func.coalesce(func.avg(base.c.duration_ms), 0).label("avg_duration_ms"),
+        func.coalesce(sqlfunc.percentile_cont(0.5).within_group(base.c.duration_ms), 0).label(
+            "p50_duration_ms"
+        ),
+        func.coalesce(sqlfunc.percentile_cont(0.95).within_group(base.c.duration_ms), 0).label(
+            "p95_duration_ms"
+        ),
+        func.coalesce(sqlfunc.percentile_cont(0.99).within_group(base.c.duration_ms), 0).label(
+            "p99_duration_ms"
+        ),
+    ).one()
+
+    total_spans = agg.total_spans or 0
+    error_count = agg.error_count or 0
+
+    # Operation breakdown as a separate grouped query
+    op_type_expr = func.coalesce(
+        base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string(),
+        literal_column("'unknown'"),
+    )
+    op_rows = (
+        db.query(
+            op_type_expr.label("op_type"),
+            func.count(base.c.id).label("cnt"),
+        )
+        .group_by(op_type_expr)
+        .all()
+    )
+
+    return {
+        "total_traces": agg.total_traces or 0,
+        "total_spans": total_spans,
+        "total_tokens": int(agg.total_tokens or 0),
+        "total_cost_usd": round(float(agg.total_cost_usd or 0), 6),
+        "error_rate": round(error_count / total_spans, 4) if total_spans else 0,
+        "avg_duration_ms": round(float(agg.avg_duration_ms or 0), 2),
+        "p50_duration_ms": round(float(agg.p50_duration_ms or 0), 2),
+        "p95_duration_ms": round(float(agg.p95_duration_ms or 0), 2),
+        "p99_duration_ms": round(float(agg.p99_duration_ms or 0), 2),
+        "operation_breakdown": {row.op_type: row.cnt for row in op_rows},
+    }

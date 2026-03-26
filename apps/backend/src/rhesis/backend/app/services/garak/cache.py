@@ -18,6 +18,8 @@ from urllib.parse import urlparse, urlunparse
 
 import redis.asyncio as redis
 
+from rhesis.backend.app.services.redis_constants import RedisDatabase
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,10 +65,8 @@ class GarakProbeCache:
 
         try:
             redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
-            # Use database 2 for application cache (0 and 1 are for Celery)
-            # Parse URL properly to handle cases where BROKER_URL has no database suffix
             parsed = urlparse(redis_url)
-            cache_url = urlunparse(parsed._replace(path="/2"))
+            cache_url = urlunparse(parsed._replace(path=f"/{RedisDatabase.GARAK_PROBE_CACHE}"))
             cls._redis_client = await redis.from_url(
                 cache_url,
                 decode_responses=True,

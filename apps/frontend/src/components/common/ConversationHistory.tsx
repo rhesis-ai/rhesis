@@ -23,6 +23,7 @@ import {
   Review,
 } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
+import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
 import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -431,10 +432,8 @@ export default function ConversationHistory({
                   borderLeft: `3px solid ${theme.palette.primary.main}`,
                 }}
               >
-                <Typography
-                  variant="body2"
+                <Box
                   sx={{
-                    whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
                     mb:
                       turn.penelope_reasoning ||
@@ -443,8 +442,11 @@ export default function ConversationHistory({
                         : 0,
                   }}
                 >
-                  {turn.penelope_message}
-                </Typography>
+                  <MarkdownContent
+                    content={turn.penelope_message || ''}
+                    variant="body2"
+                  />
+                </Box>
 
                 {turn.penelope_files &&
                   turn.penelope_files.length > 0 &&
@@ -577,10 +579,8 @@ export default function ConversationHistory({
                   }),
                 }}
               >
-                <Typography
-                  variant="body2"
+                <Box
                   sx={{
-                    whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
                     mb:
                       (turn.context && turn.context.length > 0) ||
@@ -591,8 +591,11 @@ export default function ConversationHistory({
                         : 0,
                   }}
                 >
-                  {turn.target_response}
-                </Typography>
+                  <MarkdownContent
+                    content={turn.target_response || ''}
+                    variant="body2"
+                  />
+                </Box>
 
                 {/* Context (collapsible within response) */}
                 {turn.context && turn.context.length > 0 && (

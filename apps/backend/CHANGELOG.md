@@ -10,17 +10,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.10] - 2026-03-26
 
 ### Added
-- Implemented rate limiting for API endpoints to prevent abuse and ensure service stability.
-- Added support for specifying custom HTTP headers in outgoing requests.
+- Added trace metrics evaluation system with Celery tasks for per-turn and per-conversation metric evaluation, including configurable debounce for conversation-level evaluation.
+- Added trace review system with human review overrides for traces, turns, and individual metrics, including overall status recalculation.
+- Added SQL-level trace metrics aggregation (`get_trace_metrics_aggregated`) replacing Python-side processing for improved query performance.
+- Added Trace scope to MetricScope lookup type, enabling metrics to target traces.
+- Added `trace_metrics_status_id` column on Trace model for evaluation status tracking.
+- Added `trace_reviews` JSONB column on Trace model for storing human review data.
+- Added task and comment endpoints for traces via the telemetry router.
+- Added trace metrics cache service for caching project metric configurations.
+- Added `project.attributes` JSONB column for storing project-level trace metric assignments.
 
 ### Changed
-- Improved error handling and logging for database connection failures.
-- Optimized database queries for faster response times on user profile retrieval.
+- Consolidated review target constants into a `ReviewTarget(str, Enum)` for type safety across test result and trace review systems.
+- Consolidated `MetricScope` enum definition, removing duplication between app schemas and task constants.
+- Replaced hardcoded entity type strings with `EntityType` enum constants.
+- Replaced `datetime.utcnow()` with `datetime.now(timezone.utc)` across trace review and telemetry code.
+- Sanitized API error messages in telemetry endpoints to prevent internal details from leaking to clients.
+- Refined Celery retry strategy to only retry on transient errors (IOError, ConnectionError, SoftTimeLimitExceeded).
+- Added soft and hard time limits to trace evaluation Celery tasks.
+- Extracted shared `_prepare_evaluation` helper to reduce duplication in evaluation tasks.
+- Decoupled trace enrichment from evaluation into separate services.
 
 ### Fixed
-- Fixed a bug where user authentication would fail intermittently due to token expiration issues.
-- Resolved an issue causing incorrect data aggregation in the reporting module.
-
+- Fixed `recalculate_overall_status` to correctly account for turn overrides in overall pass/fail determination.
+- Fixed `rollback_initial_data` to nullify `trace_metrics_status_id` before deleting Status rows, preventing FK constraint violations.
+- Fixed multi-turn trace metric filtering to correctly scope metrics.
+- Fixed default evaluation model resolution for trace metrics.
+- Corrected docstring mismatch for worker cache TTL value.
 
 ## [0.6.9] - 2026-03-23
 
