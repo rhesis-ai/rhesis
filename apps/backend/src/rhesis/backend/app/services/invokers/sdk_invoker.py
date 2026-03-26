@@ -498,7 +498,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
             function_kwargs = self._prepare_function_kwargs(endpoint, input_data, function_name)
 
-            # Signal the SDK to suppress trace generation for this invocation
+            # Strip any user-supplied _rhesis_* keys to prevent injection,
+            # then set the internal flag if the endpoint has tracing disabled.
+            reserved = [k for k in function_kwargs if k.startswith("_rhesis_")]
+            for k in reserved:
+                function_kwargs.pop(k)
             if endpoint.disable_tracing:
                 function_kwargs["_rhesis_disable_tracing"] = True
 
