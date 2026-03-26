@@ -1,0 +1,13 @@
+# Explicit list of resources synced by stg-base Application.
+# Add new components here so the sync contract is auditable.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - argocd/argocd-application.yaml
+  - argocd/argocd-ingress.yaml
+  - external-secrets.yaml
+  - external-dns.yaml
+  - cert-manager.yaml
+  - ingress-nginx-external.yaml
+  - ingress-nginx-internal.yaml
+  - internal-dns.yaml
