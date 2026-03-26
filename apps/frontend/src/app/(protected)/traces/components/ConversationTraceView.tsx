@@ -35,9 +35,7 @@ interface TurnOverrideEntry {
  * Compute automated turn success from turn_metrics.metrics
  * (before any human per-turn overrides).
  */
-function getAutomatedTurnSuccess(
-  rootSpans: SpanNode[]
-): boolean | undefined {
+function getAutomatedTurnSuccess(rootSpans: SpanNode[]): boolean | undefined {
   const traceMetrics = rootSpans.find(s => s.trace_metrics)?.trace_metrics as
     | Record<string, unknown>
     | undefined;
@@ -78,7 +76,11 @@ function getPerTurnOverrides(
   const result: Record<number, TurnOverrideEntry> = {};
   for (const [key, data] of Object.entries(turnOverrides)) {
     const turnNum = parseInt(key, 10);
-    if (!isNaN(turnNum) && data?.override && typeof data.success === 'boolean') {
+    if (
+      !isNaN(turnNum) &&
+      data?.override &&
+      typeof data.success === 'boolean'
+    ) {
       result[turnNum] = {
         success: data.success,
         override: data.override,
@@ -189,9 +191,8 @@ export default function ConversationTraceView({
 
   const turnReviewMap = useMemo(() => {
     const map = new Map<number, Review>();
-    const reviews = rootSpans
-      ?.find(s => s.trace_reviews)
-      ?.trace_reviews?.reviews;
+    const reviews = rootSpans?.find(s => s.trace_reviews)?.trace_reviews
+      ?.reviews;
     if (!reviews) return map;
     for (const review of reviews) {
       if (
@@ -262,7 +263,11 @@ export default function ConversationTraceView({
   const overriddenTurns = baseTurns.map(turn => {
     const turnOverride = perTurnOverrides[turn.turn];
     if (turnOverride) {
-      return { ...turn, success: turnOverride.success, override: turnOverride.override };
+      return {
+        ...turn,
+        success: turnOverride.success,
+        override: turnOverride.override,
+      };
     }
     return turn;
   });

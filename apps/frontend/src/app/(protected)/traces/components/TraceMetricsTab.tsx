@@ -175,8 +175,16 @@ function MetricsTable({
                         arrow
                       >
                         <StatusChip
-                          status={metric.is_successful ? TEST_RESULT_STATUS_NAMES.PASSED : TEST_RESULT_STATUS_NAMES.FAILED}
-                          label={metric.is_successful ? TEST_RESULT_STATUS_NAMES.PASSED : TEST_RESULT_STATUS_NAMES.FAILED}
+                          status={
+                            metric.is_successful
+                              ? TEST_RESULT_STATUS_NAMES.PASSED
+                              : TEST_RESULT_STATUS_NAMES.FAILED
+                          }
+                          label={
+                            metric.is_successful
+                              ? TEST_RESULT_STATUS_NAMES.PASSED
+                              : TEST_RESULT_STATUS_NAMES.FAILED
+                          }
                           size="small"
                           variant="filled"
                           sx={{ minWidth: theme.spacing(10) }}
@@ -351,11 +359,7 @@ export default function TraceMetricsTab({
     > = {};
     for (const [key, data] of Object.entries(overrides)) {
       const num = parseInt(key, 10);
-      if (
-        !isNaN(num) &&
-        data?.override &&
-        typeof data.success === 'boolean'
-      ) {
+      if (!isNaN(num) && data?.override && typeof data.success === 'boolean') {
         result[num] = { success: data.success, override: data.override };
       }
     }
@@ -502,11 +506,7 @@ export default function TraceMetricsTab({
           <Grid size={{ xs: 12, md: 4 }}>
             <Card variant="outlined" sx={{ height: '100%' }}>
               <CardContent>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  gutterBottom
-                >
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   Overall Performance
                 </Typography>
                 <Typography variant="h5" fontWeight={600}>
@@ -523,11 +523,7 @@ export default function TraceMetricsTab({
           <Grid size={{ xs: 12, md: 4 }}>
             <Card variant="outlined" sx={{ height: '100%' }}>
               <CardContent>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  gutterBottom
-                >
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   Results
                 </Typography>
                 <Stack direction="row" spacing={3} alignItems="baseline">
@@ -574,11 +570,7 @@ export default function TraceMetricsTab({
                 }}
               >
                 <Box>
-                  <Typography
-                    variant="subtitle1"
-                    gutterBottom
-                    fontWeight={600}
-                  >
+                  <Typography variant="subtitle1" gutterBottom fontWeight={600}>
                     Turn Metrics
                   </Typography>
                   <Typography
@@ -589,98 +581,95 @@ export default function TraceMetricsTab({
                     Per-turn evaluation results for this span.
                   </Typography>
                 </Box>
-                {isConversationTrace && selectedTurnNumber != null && (() => {
-                  const override = turnOverrides[selectedTurnNumber];
-                  const turnSuccess = override
-                    ? override.success
-                    : (automatedTurnSuccess ?? false);
-                  const review = turnReviewMap.get(selectedTurnNumber);
-                  const isOverruled = !!override;
-                  const isConfirmed = !!review && !isOverruled;
+                {isConversationTrace &&
+                  selectedTurnNumber != null &&
+                  (() => {
+                    const override = turnOverrides[selectedTurnNumber];
+                    const turnSuccess = override
+                      ? override.success
+                      : (automatedTurnSuccess ?? false);
+                    const review = turnReviewMap.get(selectedTurnNumber);
+                    const isOverruled = !!override;
+                    const isConfirmed = !!review && !isOverruled;
 
-                  return (
-                    <Stack
-                      direction="row"
-                      spacing={0.75}
-                      alignItems="center"
-                      sx={{ flexShrink: 0, ml: 2 }}
-                    >
-                      <Tooltip
-                        title={
-                          isOverruled
-                            ? `Reviewed by ${review?.user?.name}: status changed to ${review?.status?.name}`
-                            : isConfirmed
-                              ? `Confirmed by ${review?.user?.name}`
-                              : ''
-                        }
-                        disableHoverListener={
-                          !isOverruled && !isConfirmed
-                        }
-                        arrow
+                    return (
+                      <Stack
+                        direction="row"
+                        spacing={0.75}
+                        alignItems="center"
+                        sx={{ flexShrink: 0, ml: 2 }}
                       >
-                        <Chip
-                          label={`Turn ${selectedTurnNumber}`}
-                          size="small"
-                          color={turnSuccess ? 'success' : 'error'}
-                          variant="outlined"
-                          sx={{
-                            ...(isOverruled
-                              ? {
-                                  borderColor:
-                                    theme.palette.warning.main,
-                                  borderWidth: theme.spacing(0.25),
-                                }
+                        <Tooltip
+                          title={
+                            isOverruled
+                              ? `Reviewed by ${review?.user?.name}: status changed to ${review?.status?.name}`
                               : isConfirmed
+                                ? `Confirmed by ${review?.user?.name}`
+                                : ''
+                          }
+                          disableHoverListener={!isOverruled && !isConfirmed}
+                          arrow
+                        >
+                          <Chip
+                            label={`Turn ${selectedTurnNumber}`}
+                            size="small"
+                            color={turnSuccess ? 'success' : 'error'}
+                            variant="outlined"
+                            sx={{
+                              ...(isOverruled
                                 ? {
-                                    borderColor:
-                                      theme.palette.success.light,
+                                    borderColor: theme.palette.warning.main,
                                     borderWidth: theme.spacing(0.25),
                                   }
-                                : {}),
-                          }}
-                        />
-                      </Tooltip>
-                      <StatusChip
-                        status={turnSuccess ? TEST_RESULT_STATUS_NAMES.PASSED : TEST_RESULT_STATUS_NAMES.FAILED}
-                        label={turnSuccess ? 'Passed' : 'Failed'}
-                        size="small"
-                        variant="filled"
-                      />
-                      {onReviewTurn && (
-                        <Tooltip
-                          title={`Review Turn ${selectedTurnNumber}`}
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              onReviewTurn(
-                                selectedTurnNumber,
-                                turnSuccess
-                              )
-                            }
-                            sx={{
-                              padding: theme.spacing(0.25),
-                              color: theme.palette.text.secondary,
-                              '&:hover': {
-                                color: theme.palette.primary.main,
-                                backgroundColor: alpha(
-                                  theme.palette.primary.main,
-                                  theme.palette.action.hoverOpacity
-                                ),
-                              },
+                                : isConfirmed
+                                  ? {
+                                      borderColor: theme.palette.success.light,
+                                      borderWidth: theme.spacing(0.25),
+                                    }
+                                  : {}),
                             }}
-                          >
-                            <RateReviewIcon
-                              sx={{
-                                fontSize: theme.spacing(2),
-                              }}
-                            />
-                          </IconButton>
+                          />
                         </Tooltip>
-                      )}
-                    </Stack>
-                  );
-                })()}
+                        <StatusChip
+                          status={
+                            turnSuccess
+                              ? TEST_RESULT_STATUS_NAMES.PASSED
+                              : TEST_RESULT_STATUS_NAMES.FAILED
+                          }
+                          label={turnSuccess ? 'Passed' : 'Failed'}
+                          size="small"
+                          variant="filled"
+                        />
+                        {onReviewTurn && (
+                          <Tooltip title={`Review Turn ${selectedTurnNumber}`}>
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                onReviewTurn(selectedTurnNumber, turnSuccess)
+                              }
+                              sx={{
+                                padding: theme.spacing(0.25),
+                                color: theme.palette.text.secondary,
+                                '&:hover': {
+                                  color: theme.palette.primary.main,
+                                  backgroundColor: alpha(
+                                    theme.palette.primary.main,
+                                    theme.palette.action.hoverOpacity
+                                  ),
+                                },
+                              }}
+                            >
+                              <RateReviewIcon
+                                sx={{
+                                  fontSize: theme.spacing(2),
+                                }}
+                              />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    );
+                  })()}
               </Box>
               <MetricsTable
                 metrics={turnMetrics.metrics}
@@ -710,13 +699,13 @@ export default function TraceMetricsTab({
                   Full-conversation evaluation results (shared across all
                   turns).
                 </Typography>
-              <MetricsTable
-                metrics={conversationMetrics.metrics}
-                executionTime={conversationMetrics.execution_time}
-                filterStatus={filterStatus}
-                onReviewMetric={onReviewMetric}
-                metricReviewMap={metricReviewMap}
-              />
+                <MetricsTable
+                  metrics={conversationMetrics.metrics}
+                  executionTime={conversationMetrics.execution_time}
+                  filterStatus={filterStatus}
+                  onReviewMetric={onReviewMetric}
+                  metricReviewMap={metricReviewMap}
+                />
               </CardContent>
             </Card>
           )}

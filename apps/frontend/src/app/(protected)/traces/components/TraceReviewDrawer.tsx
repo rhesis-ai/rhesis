@@ -18,6 +18,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 import {
   SpanNode,
   TRACE_REVIEW_TARGET_TYPES,
+  TRACE_REVIEW_TARGET_LABELS,
   TraceReviewTargetType,
 } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -29,13 +30,6 @@ import MentionTextInput, {
   inferReviewTarget,
   InferredTarget,
 } from '@/components/common/MentionTextInput';
-
-const TRACE_TARGET_LABELS: Record<string, string> = {
-  trace: 'Trace',
-  metric: 'Metric',
-  turn: 'Turn',
-  test_result: 'Trace',
-};
 
 interface TraceReviewDrawerProps {
   open: boolean;
@@ -113,7 +107,10 @@ export default function TraceReviewDrawer({
   }, [rawTarget]);
 
   const targetLabel = useMemo(
-    () => TRACE_TARGET_LABELS[rawTarget.type] ?? 'Trace',
+    () =>
+      TRACE_REVIEW_TARGET_LABELS[
+        rawTarget.type as keyof typeof TRACE_REVIEW_TARGET_LABELS
+      ] ?? 'Trace',
     [rawTarget]
   );
 

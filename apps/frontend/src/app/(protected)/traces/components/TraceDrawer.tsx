@@ -28,6 +28,7 @@ import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
 import TraceReviewDrawer from './TraceReviewDrawer';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -644,61 +645,66 @@ export default function TraceDrawer({
               </Tabs>
             </Box>
 
-            {/* Tab Content */}
-            <Box
-              sx={{
-                flex: 1,
-                overflow:
-                  viewTab === tabIndices.tree ||
-                  (showConversationTab && viewTab === 0)
-                    ? 'auto'
-                    : 'hidden',
-                p: viewTab === tabIndices.tree ? theme => theme.spacing(2) : 0,
-              }}
-            >
-              {showConversationTab && (
-                <Box
-                  sx={{
-                    display: viewTab === 0 ? 'block' : 'none',
-                    height: '100%',
-                  }}
-                >
-                  <ConversationTraceView
-                    trace={trace}
-                    sessionToken={sessionToken}
+            {/* Tab Content - wrapped in error boundary for resilience */}
+            <ErrorBoundary>
+              <Box
+                sx={{
+                  flex: 1,
+                  overflow:
+                    viewTab === tabIndices.tree ||
+                    (showConversationTab && viewTab === 0)
+                      ? 'auto'
+                      : 'hidden',
+                  p:
+                    viewTab === tabIndices.tree ? theme => theme.spacing(2) : 0,
+                }}
+              >
+                {showConversationTab && (
+                  <Box
+                    sx={{
+                      display: viewTab === 0 ? 'block' : 'none',
+                      height: '100%',
+                    }}
+                  >
+                    <ConversationTraceView
+                      trace={trace}
+                      sessionToken={sessionToken}
+                      onSpanSelect={handleSpanSelect}
+                      rootSpans={trace.root_spans}
+                      onReviewTurn={
+                        hasTraceMetrics ? handleReviewTurn : undefined
+                      }
+                    />
+                  </Box>
+                )}
+                {viewTab === tabIndices.tree && (
+                  <SpanTreeView
+                    spans={trace.root_spans}
+                    selectedSpan={selectedSpan}
                     onSpanSelect={handleSpanSelect}
-                    rootSpans={trace.root_spans}
-                    onReviewTurn={hasTraceMetrics ? handleReviewTurn : undefined}
+                    isConversationTrace={isConversationTrace}
                   />
-                </Box>
-              )}
-              {viewTab === tabIndices.tree && (
-                <SpanTreeView
-                  spans={trace.root_spans}
-                  selectedSpan={selectedSpan}
-                  onSpanSelect={handleSpanSelect}
-                  isConversationTrace={isConversationTrace}
-                />
-              )}
-              {viewTab === tabIndices.sequence && (
-                <SpanSequenceView
-                  spans={trace.root_spans}
-                  selectedSpan={selectedSpan}
-                  onSpanSelect={handleSpanSelect}
-                  isConversationTrace={isConversationTrace}
-                  rootSpans={trace.root_spans}
-                />
-              )}
-              {viewTab === tabIndices.graph && (
-                <SpanGraphView
-                  spans={trace.root_spans}
-                  selectedSpan={selectedSpan}
-                  onSpanSelect={handleSpanSelect}
-                  isConversationTrace={isConversationTrace}
-                  rootSpans={trace.root_spans}
-                />
-              )}
-            </Box>
+                )}
+                {viewTab === tabIndices.sequence && (
+                  <SpanSequenceView
+                    spans={trace.root_spans}
+                    selectedSpan={selectedSpan}
+                    onSpanSelect={handleSpanSelect}
+                    isConversationTrace={isConversationTrace}
+                    rootSpans={trace.root_spans}
+                  />
+                )}
+                {viewTab === tabIndices.graph && (
+                  <SpanGraphView
+                    spans={trace.root_spans}
+                    selectedSpan={selectedSpan}
+                    onSpanSelect={handleSpanSelect}
+                    isConversationTrace={isConversationTrace}
+                    rootSpans={trace.root_spans}
+                  />
+                )}
+              </Box>
+            </ErrorBoundary>
           </Box>
 
           {/* Draggable Divider */}
@@ -749,9 +755,7 @@ export default function TraceDrawer({
               onTraceUpdated={refreshTrace}
               onReviewMetric={handleReviewMetric}
               onReviewTrace={handleReviewTrace}
-              onReviewTurn={
-                hasTraceMetrics ? handleReviewTurn : undefined
-              }
+              onReviewTurn={hasTraceMetrics ? handleReviewTurn : undefined}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}
               traceMetricsStatus={traceMetricsStatus}

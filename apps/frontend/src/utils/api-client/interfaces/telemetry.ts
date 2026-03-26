@@ -23,6 +23,17 @@ export const TRACE_REVIEW_TARGET_TYPES = {
 export type TraceReviewTargetType =
   (typeof TRACE_REVIEW_TARGET_TYPES)[keyof typeof TRACE_REVIEW_TARGET_TYPES];
 
+/** Display labels for review target types (shared across trace components). */
+export const TRACE_REVIEW_TARGET_LABELS: Record<
+  TraceReviewTargetType | 'test_result',
+  string
+> = {
+  [TRACE_REVIEW_TARGET_TYPES.TRACE]: 'Trace',
+  [TRACE_REVIEW_TARGET_TYPES.METRIC]: 'Metric',
+  [TRACE_REVIEW_TARGET_TYPES.TURN]: 'Turn',
+  test_result: 'Trace',
+};
+
 export interface TraceReviewTarget {
   type: TraceReviewTargetType;
   reference: string | null;
@@ -228,6 +239,7 @@ export const TRACE_METRICS_STATUS = {
  */
 export interface TraceQueryParams {
   project_id?: string; // Optional - shows all projects if not specified
+  conversation_id?: string;
   environment?: string;
   span_name?: string;
   status_code?: string;

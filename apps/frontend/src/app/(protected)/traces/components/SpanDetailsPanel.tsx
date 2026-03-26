@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -149,23 +149,32 @@ export default function SpanDetailsPanel({
     );
   }
 
-  // Categorize attributes
-  const llmAttributes: Record<string, unknown> = {};
-  const functionAttributes: Record<string, unknown> = {};
-  const testAttributes: Record<string, unknown> = {};
-  const otherAttributes: Record<string, unknown> = {};
+  const { llmAttributes, functionAttributes, testAttributes, otherAttributes } =
+    useMemo(() => {
+      const llm: Record<string, unknown> = {};
+      const fn: Record<string, unknown> = {};
+      const test: Record<string, unknown> = {};
+      const other: Record<string, unknown> = {};
 
-  Object.entries(span.attributes).forEach(([key, value]) => {
-    if (key.startsWith('ai.') || key.startsWith('llm.')) {
-      llmAttributes[key] = value;
-    } else if (key.startsWith('function.')) {
-      functionAttributes[key] = value;
-    } else if (key.startsWith('rhesis.test.')) {
-      testAttributes[key] = value;
-    } else {
-      otherAttributes[key] = value;
-    }
-  });
+      Object.entries(span.attributes).forEach(([key, value]) => {
+        if (key.startsWith('ai.') || key.startsWith('llm.')) {
+          llm[key] = value;
+        } else if (key.startsWith('function.')) {
+          fn[key] = value;
+        } else if (key.startsWith('rhesis.test.')) {
+          test[key] = value;
+        } else {
+          other[key] = value;
+        }
+      });
+
+      return {
+        llmAttributes: llm,
+        functionAttributes: fn,
+        testAttributes: test,
+        otherAttributes: other,
+      };
+    }, [span.attributes]);
 
   // Extract I/O attributes for prominent display
   const inputArgs = functionAttributes['function.args'];
@@ -1150,7 +1159,6 @@ export default function SpanDetailsPanel({
           </TabPanel>
         )}
       </Box>
-
     </Box>
   );
 }

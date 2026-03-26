@@ -30,6 +30,7 @@ import {
   TraceDetailResponse,
   TraceReview,
   TRACE_REVIEW_TARGET_TYPES,
+  TRACE_REVIEW_TARGET_LABELS,
 } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -45,12 +46,6 @@ import MentionTextInput, {
   renderMentionText,
   inferReviewTarget,
 } from '@/components/common/MentionTextInput';
-
-const TRACE_REVIEW_TARGET_LABELS: Record<string, string> = {
-  [TRACE_REVIEW_TARGET_TYPES.TRACE]: 'Trace',
-  [TRACE_REVIEW_TARGET_TYPES.METRIC]: 'Metric',
-  [TRACE_REVIEW_TARGET_TYPES.TURN]: 'Turn',
-};
 
 interface TraceReviewsTabProps {
   selectedSpan: SpanNode;
@@ -123,8 +118,8 @@ export default function TraceReviewsTab({
   }, [sessionToken, showReviewForm]);
 
   const handleSubmitReview = async () => {
-    if (!reason.trim()) {
-      setError('Please provide a reason for your review.');
+    if (reason.trim().length < 10) {
+      setError('Review comment must be at least 10 characters.');
       return;
     }
 
