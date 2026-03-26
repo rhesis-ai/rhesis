@@ -57,6 +57,9 @@ export interface Endpoint {
   response_mapping?: Record<string, unknown>;
   validation_rules?: Record<string, unknown>;
 
+  // Tracing control
+  disable_tracing?: boolean;
+
   status_id?: string;
   user_id?: string;
   organization_id?: string;

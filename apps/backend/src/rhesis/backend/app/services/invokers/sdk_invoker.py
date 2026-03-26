@@ -498,6 +498,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
             function_kwargs = self._prepare_function_kwargs(endpoint, input_data, function_name)
 
+            # Signal the SDK to suppress trace generation for this invocation
+            if endpoint.disable_tracing:
+                function_kwargs["_rhesis_disable_tracing"] = True
+
             # Inject test and conversation context into function kwargs
             if test_execution_context:
                 context = TestExecutionContext(**test_execution_context)
@@ -544,13 +548,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             if result.get("trace_id"):
                 mapped_response["trace_id"] = result["trace_id"]
 
-            # Park mapped output for injection when SDK spans arrive
-            # at the telemetry ingest endpoint (before storage).
-            self._park_mapped_output(result, endpoint, mapped_response)
-
-            # Park input files for creation when SDK spans arrive
-            # at the telemetry ingest endpoint (after storage).
-            self._park_input_files(result, endpoint, input_data)
+            # Park mapped output and files only when tracing is active;
+            # there are no spans to attach them to when tracing is disabled.
+            if not endpoint.disable_tracing:
+                self._park_mapped_output(result, endpoint, mapped_response)
+                self._park_input_files(result, endpoint, input_data)
 
             logger.info(
                 f"SDK function {function_name} completed successfully "

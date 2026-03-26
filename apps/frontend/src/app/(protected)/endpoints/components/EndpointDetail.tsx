@@ -13,6 +13,8 @@ import {
   Select,
   MenuItem,
   FormControl,
+  FormControlLabel,
+  FormHelperText,
   InputLabel,
   CircularProgress,
   ListItemIcon,
@@ -21,6 +23,7 @@ import {
   Alert,
   IconButton,
   InputAdornment,
+  Switch,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
@@ -835,6 +838,44 @@ export default function EndpointDetail({
                     color={getEnvironmentColor()}
                     variant="outlined"
                     sx={{ textTransform: 'capitalize' }}
+                  />
+                </>
+              )}
+            </Grid>
+
+            <Grid size={12}>
+              {isEditing ? (
+                <>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={
+                          editedValues.disable_tracing ??
+                          endpoint.disable_tracing ??
+                          false
+                        }
+                        onChange={e =>
+                          handleChange('disable_tracing', e.target.checked)
+                        }
+                      />
+                    }
+                    label="Disable tracing"
+                  />
+                  <FormHelperText>
+                    When enabled, invocations to this endpoint will not generate
+                    traces or telemetry data
+                  </FormHelperText>
+                </>
+              ) : (
+                <>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Tracing
+                  </Typography>
+                  <Chip
+                    label={endpoint.disable_tracing ? 'Disabled' : 'Enabled'}
+                    size="small"
+                    variant="outlined"
+                    color={endpoint.disable_tracing ? 'warning' : 'success'}
                   />
                 </>
               )}
