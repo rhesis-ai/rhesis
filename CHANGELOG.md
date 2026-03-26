@@ -13,6 +13,36 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.11] - 2026-03-26
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.10**
+- **Frontend 0.6.11**
+- **SDK 0.6.11**
+
+### Summary of Changes
+
+**Backend v0.6.10:**
+Initial release or no significant changes.
+
+**Frontend v0.6.11:**
+Initial release or no significant changes.
+
+**SDK v0.6.11:**
+- Replaced custom chunking logic with `chonkie`-backed strategies (TokenChunker, SentenceChunker, RecursiveChunker), improving text splitting capabilities. Deprecated the custom SemanticChunker.
+- Fixed a security vulnerability by pinning the `litellm` dependency to version <=1.82.3 due to compromised newer versions.
+- Improved connector stability by making test and metric executions non-blocking, preventing connection drops during concurrent runs.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.6.10] - 2026-03-23
 
 ### Platform Release

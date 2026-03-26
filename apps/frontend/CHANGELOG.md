@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.11] - 2026-03-26
+
+### Fixed
+
+- Fixed: Resolved issue where the date picker component was not correctly displaying dates in the user's local timezone.
+- Fixed: Corrected a bug that prevented form submissions when certain special characters were used in input fields.
+
+### Changed
+
+- Changed: Improved the responsiveness of the main navigation menu on smaller screens.
+- Changed: Updated the styling of error messages to be more visually prominent and user-friendly.
+
+### Added
+
+- Added: Implemented a loading indicator on the search results page to provide feedback during data retrieval.
+
 ## [0.6.10] - 2026-03-23
 
 ### Added

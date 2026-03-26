@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10] - 2026-03-26
+
+### Added
+- Implemented rate limiting for API endpoints to prevent abuse and ensure service stability.
+- Added support for specifying custom HTTP headers in outgoing requests.
+
+### Changed
+- Improved error handling and logging for database connection failures.
+- Optimized database queries for faster response times on user profile retrieval.
+
+### Fixed
+- Fixed a bug where user authentication would fail intermittently due to token expiration issues.
+- Resolved an issue causing incorrect data aggregation in the reporting module.
+
+
 ## [0.6.9] - 2026-03-23
 
 ### Added
