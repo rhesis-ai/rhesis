@@ -631,7 +631,7 @@ export default function TraceFilters({
                 ...(filters.trace_metrics_status ===
                   TRACE_METRICS_STATUS.PASS && {
                   backgroundColor: theme.palette.success.main,
-                  color: 'white',
+                  color: theme.palette.success.contrastText,
                   '&:hover': {
                     backgroundColor: theme.palette.success.dark,
                   },
@@ -654,7 +654,7 @@ export default function TraceFilters({
                 ...(filters.trace_metrics_status ===
                   TRACE_METRICS_STATUS.FAIL && {
                   backgroundColor: theme.palette.error.main,
-                  color: 'white',
+                  color: theme.palette.error.contrastText,
                   '&:hover': {
                     backgroundColor: theme.palette.error.dark,
                   },
@@ -677,7 +677,7 @@ export default function TraceFilters({
                 ...(filters.trace_metrics_status ===
                   TRACE_METRICS_STATUS.ERROR && {
                   backgroundColor: theme.palette.warning.main,
-                  color: 'white',
+                  color: theme.palette.warning.contrastText,
                   '&:hover': {
                     backgroundColor: theme.palette.warning.dark,
                   },
@@ -913,10 +913,7 @@ export default function TraceFilters({
             <Box
               sx={{
                 p: 1.5,
-                backgroundColor:
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.05)'
-                    : 'rgba(0, 0, 0, 0.02)',
+                backgroundColor: theme.palette.action.hover,
                 borderRadius: theme => theme.shape.borderRadius,
               }}
             >
