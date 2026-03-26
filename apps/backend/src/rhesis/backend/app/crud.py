@@ -3429,6 +3429,7 @@ def create_trace_spans(
         db.add(trace_model)
         trace_models.append(trace_model)
 
+    prev_expire = db.expire_on_commit
     try:
         db.expire_on_commit = False
         db.commit()
@@ -3437,6 +3438,8 @@ def create_trace_spans(
         db.rollback()
         logger.error(f"Failed to create trace spans: {e}")
         raise
+    finally:
+        db.expire_on_commit = prev_expire
 
 
 def get_trace_by_db_id(
@@ -3447,13 +3450,12 @@ def get_trace_by_db_id(
     """Get a single trace span row by its database UUID."""
     from uuid import UUID
 
-    org_uuid = UUID(organization_id)
     return (
         db.query(models.Trace)
         .filter(
             and_(
-                models.Trace.id == trace_db_id,
-                models.Trace.organization_id == org_uuid,
+                models.Trace.id == UUID(trace_db_id),
+                models.Trace.organization_id == UUID(organization_id),
                 models.Trace.deleted_at.is_(None),
             )
         )
@@ -4210,11 +4212,13 @@ def get_trace_metrics_aggregated(
 
     from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
 
+    from uuid import UUID
+
     T = models.Trace
 
     filters = [
-        T.organization_id == organization_id,
-        T.project_id == project_id,
+        T.organization_id == UUID(organization_id),
+        T.project_id == UUID(project_id),
         T.deleted_at.is_(None),
     ]
     if environment:

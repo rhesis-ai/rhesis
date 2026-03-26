@@ -13,6 +13,7 @@ from rhesis.backend.app.services.telemetry.enrichment.service import (
     EnrichmentService,
     are_workers_recently_available,
     build_enrichment_chain,
+    check_workers_available,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "EnrichmentService",
     "are_workers_recently_available",
     "build_enrichment_chain",
+    "check_workers_available",
 ]
