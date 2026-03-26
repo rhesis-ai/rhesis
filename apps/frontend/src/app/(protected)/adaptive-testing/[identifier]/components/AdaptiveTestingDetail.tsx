@@ -87,6 +87,8 @@ interface AdaptiveTestingDetailProps {
   sessionToken: string;
 }
 
+const NO_TOPIC_FILTER = '__NO_TOPIC__';
+
 const allTestsTopicOption: Topic = {
   path: '',
   name: 'All tests',
@@ -1161,6 +1163,49 @@ function TopicTreePanel({
         />
       </Box>
 
+      {/* Tests Without Topic option */}
+      <Box
+        onClick={() => onTopicSelect(NO_TOPIC_FILTER)}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          py: 0.75,
+          px: 1,
+          cursor: 'pointer',
+          borderRadius: theme.shape.borderRadius / 4,
+          backgroundColor:
+            selectedTopic === NO_TOPIC_FILTER ? 'action.selected' : 'transparent',
+          '&:hover': {
+            backgroundColor:
+              selectedTopic === NO_TOPIC_FILTER
+                ? 'action.selected'
+                : 'action.hover',
+          },
+          mb: 1,
+        }}
+      >
+        <Box sx={{ width: 28, flexShrink: 0 }} />
+        <FolderIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+        <Typography
+          variant="body2"
+          sx={{
+            flex: 1,
+            fontWeight: selectedTopic === NO_TOPIC_FILTER ? 600 : 400,
+          }}
+        >
+          Tests without topic
+        </Typography>
+        <Chip
+          label={tests.filter(t => !t.topic).length}
+          size="small"
+          variant="outlined"
+          sx={{
+            height: 20,
+            fontSize: theme.typography.overline.fontSize,
+          }}
+        />
+      </Box>
+
       {/* Topic Tree */}
       {topicTree.map(node => (
         <TreeNodeView
@@ -1567,6 +1612,8 @@ export default function AdaptiveTestingDetail({
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const selectedTopicForApi =
+    selectedTopic && selectedTopic !== NO_TOPIC_FILTER ? selectedTopic : null;
 
   const handleTopicSelect = useCallback((topic: string | null) => {
     setSelectedTopic(topic);
@@ -1679,8 +1726,8 @@ export default function AdaptiveTestingDetail({
   }, [sessionToken]);
 
   const handleGenerateOutputsOpen = (fromTable?: boolean) => {
-    if (fromTable && activeTab === 0 && selectedTopic) {
-      setGenerateOutputsTopic(selectedTopic);
+    if (fromTable && activeTab === 0 && selectedTopicForApi) {
+      setGenerateOutputsTopic(selectedTopicForApi);
       setGenerateOutputsIncludeSubtopics(true);
     } else {
       setGenerateOutputsTopic(null);
@@ -1744,8 +1791,8 @@ export default function AdaptiveTestingDetail({
   };
 
   const handleEvaluateOpen = (fromTable?: boolean) => {
-    if (fromTable && activeTab === 0 && selectedTopic) {
-      setEvaluateTopic(selectedTopic);
+    if (fromTable && activeTab === 0 && selectedTopicForApi) {
+      setEvaluateTopic(selectedTopicForApi);
       setEvaluateIncludeSubtopics(true);
     } else {
       setEvaluateTopic(null);
@@ -1914,7 +1961,7 @@ export default function AdaptiveTestingDetail({
 
       const created = await client.createTest(testSetId, {
         input: trimmedInput,
-        ...(selectedTopic ? { topic: selectedTopic } : {}),
+        ...(selectedTopicForApi ? { topic: selectedTopicForApi } : {}),
         labeler: 'user',
       });
       setTests(prev => prev.map(test => (test.id === tempId ? created : test)));
@@ -2283,6 +2330,9 @@ export default function AdaptiveTestingDetail({
     if (selectedTopic === null) {
       return tests;
     }
+    if (selectedTopic === NO_TOPIC_FILTER) {
+      return tests.filter(test => !test.topic);
+    }
     return tests.filter(test => test.topic === selectedTopic);
   }, [tests, selectedTopic]);
 
@@ -2453,7 +2503,9 @@ export default function AdaptiveTestingDetail({
             >
               <Typography variant="subtitle2" color="text.primary">
                 {selectedTopic
-                  ? decodeURIComponent(selectedTopic)
+                  ? selectedTopic === NO_TOPIC_FILTER
+                    ? 'Tests without topic'
+                    : decodeURIComponent(selectedTopic)
                   : 'All Tests'}
               </Typography>
               <Typography
@@ -2603,7 +2655,7 @@ export default function AdaptiveTestingDetail({
         open={addTestDialogOpen}
         onClose={() => setAddTestDialogOpen(false)}
         onSubmit={handleAddTestSubmit}
-        topic={selectedTopic}
+        topic={selectedTopicForApi}
         topics={topics}
       />
 
@@ -3037,7 +3089,7 @@ export default function AdaptiveTestingDetail({
         onClose={() => setSuggestionsDialogOpen(false)}
         testSetId={testSetId}
         sessionToken={sessionToken}
-        topic={selectedTopic}
+        topic={selectedTopicForApi}
         onTestAccepted={handleSuggestionAccepted}
       />
     </Box>
