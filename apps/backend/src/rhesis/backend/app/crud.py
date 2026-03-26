@@ -942,6 +942,42 @@ def delete_source(
     return delete_item(db, models.Source, source_id, organization_id, user_id)
 
 
+def create_chunk(
+    db: Session, chunk: schemas.ChunkCreate, organization_id: str = None, user_id: str = None
+) -> models.Chunk:
+    """Create chunk."""
+    return create_item(db, models.Chunk, chunk, organization_id=organization_id, user_id=user_id)
+
+
+def update_chunk(
+    db: Session,
+    chunk_id: uuid.UUID,
+    chunk: schemas.ChunkUpdate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.Chunk]:
+    """Update chunk."""
+    return update_item(
+        db, models.Chunk, chunk_id, chunk, organization_id=organization_id, user_id=user_id
+    )
+
+
+def delete_chunk(
+    db: Session, chunk_id: uuid.UUID, organization_id: str, user_id: str
+) -> Optional[models.Chunk]:
+    """Delete chunk."""
+    return delete_item(db, models.Chunk, chunk_id, organization_id=organization_id, user_id=user_id)
+
+
+def get_chunk(
+    db: Session, chunk_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Chunk]:
+    """Get chunk."""
+    return get_item_detail(
+        db, models.Chunk, chunk_id, organization_id=organization_id, user_id=user_id
+    )
+
+
 # Topic CRUD
 def get_topic(
     db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None
