@@ -14,7 +14,7 @@ from rhesis.backend.app.schemas import Base
 class GenerateOutputsRequest(Base):
     """Request body for generating test outputs via endpoint invocation."""
 
-    endpoint_id: UUID4
+    endpoint_id: Optional[UUID4] = None
     test_ids: Optional[List[UUID4]] = None
     topic: Optional[str] = None
     include_subtopics: bool = True
@@ -52,11 +52,7 @@ class GenerateOutputsResponse(Base):
 class EvaluateRequest(Base):
     """Request body for evaluating adaptive tests with specified metrics."""
 
-    metric_names: List[str] = Field(
-        ...,
-        min_length=1,
-        description="Metric names to evaluate (must exist in the organization)",
-    )
+    metric_names: Optional[List[str]] = None
     test_ids: Optional[List[UUID4]] = None
     topic: Optional[str] = None
     include_subtopics: bool = True
@@ -144,7 +140,7 @@ class SuggestionInput(BaseModel):
 class GenerateSuggestionOutputsRequest(Base):
     """Request body for generating outputs for non-persisted suggestions."""
 
-    endpoint_id: UUID4
+    endpoint_id: Optional[UUID4] = None
     suggestions: List[SuggestionInput]
 
 
@@ -178,11 +174,7 @@ class SuggestionForEval(BaseModel):
 class EvaluateSuggestionsRequest(Base):
     """Request body for evaluating non-persisted suggestions."""
 
-    metric_names: List[str] = Field(
-        ...,
-        min_length=1,
-        description="Metric names to evaluate",
-    )
+    metric_names: Optional[List[str]] = None
     suggestions: List[SuggestionForEval]
 
 

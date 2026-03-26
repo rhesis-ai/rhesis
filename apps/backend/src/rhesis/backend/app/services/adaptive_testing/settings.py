@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -27,6 +27,38 @@ def _get_default_endpoint_id_from_attributes(
         return UUID(str(raw_id))
     except (ValueError, TypeError):
         return None
+
+
+def resolve_endpoint_id(
+    test_set: models.TestSet,
+    request_endpoint_id: Optional[UUID],
+) -> str:
+    if request_endpoint_id is not None:
+        return str(request_endpoint_id)
+
+    endpoint_id = _get_default_endpoint_id_from_attributes(test_set)
+    if endpoint_id is None:
+        raise ValueError("No endpoint specified and no default endpoint configured in settings")
+
+    return str(endpoint_id)
+
+
+def resolve_metric_names(
+    test_set: models.TestSet,
+    db: Session,
+    organization_id: str,
+    request_metric_names: Optional[List[str]],
+) -> List[str]:
+    # Kept for API symmetry with endpoint resolver usage from routers.
+    _ = db, organization_id
+    if request_metric_names:
+        return request_metric_names
+
+    metric_names = [metric.name for metric in (test_set.metrics or []) if metric.name]
+    if not metric_names:
+        raise ValueError("No metrics specified and no metrics configured in settings")
+
+    return metric_names
 
 
 def get_adaptive_settings(

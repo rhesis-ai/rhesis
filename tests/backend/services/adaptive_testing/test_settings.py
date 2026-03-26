@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.services.adaptive_testing.settings import (
     get_adaptive_settings,
+    resolve_endpoint_id,
+    resolve_metric_names,
     update_adaptive_settings,
 )
 from rhesis.backend.app.services.adaptive_testing.tests import create_adaptive_test_set
@@ -204,3 +206,103 @@ class TestAdaptiveSettings:
         assert str(result.default_endpoint.id) == str(endpoint.id)
         assert len(result.metrics) == 1
         assert str(result.metrics[0].id) == str(metric.id)
+
+    def test_resolve_endpoint_id_prefers_request_value(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        request_endpoint_id = uuid.uuid4()
+
+        resolved = resolve_endpoint_id(
+            test_set=test_set,
+            request_endpoint_id=request_endpoint_id,
+        )
+
+        assert resolved == str(request_endpoint_id)
+
+    def test_resolve_endpoint_id_falls_back_to_settings(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        project = _create_project(test_db, test_org_id, authenticated_user_id)
+        endpoint = _create_endpoint(test_db, test_org_id, authenticated_user_id, project.id)
+        update_adaptive_settings(
+            db=test_db,
+            test_set=test_set,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            default_endpoint_id=endpoint.id,
+        )
+        test_db.refresh(test_set)
+
+        resolved = resolve_endpoint_id(
+            test_set=test_set,
+            request_endpoint_id=None,
+        )
+
+        assert resolved == str(endpoint.id)
+
+    def test_resolve_endpoint_id_raises_when_missing_everywhere(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+
+        with pytest.raises(
+            ValueError,
+            match="No endpoint specified and no default endpoint configured in settings",
+        ):
+            resolve_endpoint_id(test_set=test_set, request_endpoint_id=None)
+
+    def test_resolve_metric_names_prefers_request_value(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        metric_names = ["answer_relevancy", "faithfulness"]
+
+        resolved = resolve_metric_names(
+            test_set=test_set,
+            db=test_db,
+            organization_id=test_org_id,
+            request_metric_names=metric_names,
+        )
+
+        assert resolved == metric_names
+
+    def test_resolve_metric_names_falls_back_to_settings(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        metric = _create_metric(test_db, test_org_id, authenticated_user_id, "adaptive-metric-e")
+        update_adaptive_settings(
+            db=test_db,
+            test_set=test_set,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            metric_ids=[metric.id],
+        )
+        test_db.refresh(test_set)
+
+        resolved = resolve_metric_names(
+            test_set=test_set,
+            db=test_db,
+            organization_id=test_org_id,
+            request_metric_names=None,
+        )
+
+        assert resolved == [metric.name]
+
+    def test_resolve_metric_names_raises_when_missing_everywhere(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+
+        with pytest.raises(
+            ValueError,
+            match="No metrics specified and no metrics configured in settings",
+        ):
+            resolve_metric_names(
+                test_set=test_set,
+                db=test_db,
+                organization_id=test_org_id,
+                request_metric_names=None,
+            )

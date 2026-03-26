@@ -8,6 +8,8 @@ from .responses import (
 )
 from .settings import (
     get_adaptive_settings,
+    resolve_endpoint_id,
+    resolve_metric_names,
     update_adaptive_settings,
 )
 from .suggestions import (
@@ -49,6 +51,8 @@ __all__ = [
     "get_tree_topics",
     "invoke_endpoint_for_suggestions",
     "remove_topic_node",
+    "resolve_endpoint_id",
+    "resolve_metric_names",
     "update_adaptive_settings",
     "update_test_node",
     "update_topic_node",

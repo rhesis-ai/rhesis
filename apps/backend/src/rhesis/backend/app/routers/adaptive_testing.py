@@ -58,6 +58,8 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_topics,
     invoke_endpoint_for_suggestions,
     remove_topic_node,
+    resolve_endpoint_id,
+    resolve_metric_names,
     update_adaptive_settings,
     update_test_node,
     update_topic_node,
@@ -557,11 +559,16 @@ async def generate_outputs(
     (test_metadata.output).
     """
     organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
     try:
+        endpoint_id = resolve_endpoint_id(
+            test_set=db_test_set,
+            request_endpoint_id=body.endpoint_id,
+        )
         result = await generate_outputs_for_tests(
             db=db,
             test_set_identifier=test_set_identifier,
-            endpoint_id=str(body.endpoint_id),
+            endpoint_id=endpoint_id,
             organization_id=str(organization_id),
             user_id=str(user_id),
             test_ids=list(body.test_ids) if body.test_ids else None,
@@ -570,6 +577,9 @@ async def generate_outputs(
             overwrite=body.overwrite,
         )
     except ValueError as e:
+        msg = str(e).lower()
+        if "no endpoint specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
 
     return GenerateOutputsResponse(
@@ -604,13 +614,20 @@ async def evaluate_tests(
     test's metadata.
     """
     organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
     try:
+        metric_names = resolve_metric_names(
+            test_set=db_test_set,
+            db=db,
+            organization_id=str(organization_id),
+            request_metric_names=body.metric_names,
+        )
         result = await evaluate_tests_for_adaptive_set(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),
             user_id=str(user_id),
-            metric_names=body.metric_names,
+            metric_names=metric_names,
             test_ids=list(body.test_ids) if body.test_ids else None,
             topic=body.topic,
             include_subtopics=body.include_subtopics,
@@ -618,6 +635,8 @@ async def evaluate_tests(
         )
     except ValueError as e:
         msg = str(e).lower()
+        if "no metrics specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
         if "metric" in msg and "does not exist" in msg:
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
@@ -699,19 +718,26 @@ async def generate_suggestion_outputs_endpoint(
     the outputs. Nothing is persisted to the database.
     """
     organization_id, user_id = tenant_context
-    _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
     inputs = [{"input": s.input, "topic": s.topic} for s in body.suggestions]
 
     try:
+        endpoint_id = resolve_endpoint_id(
+            test_set=db_test_set,
+            request_endpoint_id=body.endpoint_id,
+        )
         result = await invoke_endpoint_for_suggestions(
             db=db,
-            endpoint_id=str(body.endpoint_id),
+            endpoint_id=endpoint_id,
             inputs=inputs,
             organization_id=str(organization_id),
             user_id=str(user_id),
         )
     except ValueError as e:
+        msg = str(e).lower()
+        if "no endpoint specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
     return GenerateSuggestionOutputsResponse(
@@ -744,20 +770,28 @@ async def evaluate_suggestions_endpoint(
     returns results. Nothing is persisted to the database.
     """
     organization_id, user_id = tenant_context
-    _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
     items = [{"input": s.input, "output": s.output} for s in body.suggestions]
 
     try:
+        metric_names = resolve_metric_names(
+            test_set=db_test_set,
+            db=db,
+            organization_id=str(organization_id),
+            request_metric_names=body.metric_names,
+        )
         result = await evaluate_suggestions(
             db=db,
             organization_id=str(organization_id),
             user_id=str(user_id),
-            metric_names=body.metric_names,
+            metric_names=metric_names,
             suggestions=items,
         )
     except ValueError as e:
         msg = str(e).lower()
+        if "no metrics specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
         if "metric" in msg and "does not exist" in msg:
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
