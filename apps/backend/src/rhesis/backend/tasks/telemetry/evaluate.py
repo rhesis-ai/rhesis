@@ -451,8 +451,7 @@ def _schedule_debounced_conversation_eval(
 
         if is_conversation_complete(trace_id):
             logger.debug(
-                f"Conversation {trace_id} already marked complete, "
-                f"skipping debounce scheduling"
+                f"Conversation {trace_id} already marked complete, skipping debounce scheduling"
             )
             return
 

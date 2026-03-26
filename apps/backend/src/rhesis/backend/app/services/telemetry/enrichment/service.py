@@ -55,10 +55,7 @@ def check_workers_available() -> bool:
             _worker_cache["checked_at"] = time.monotonic()
             return False
 
-        logger.debug(
-            f"Found {len(ping_result)} available worker(s): "
-            f"{list(ping_result.keys())}"
-        )
+        logger.debug(f"Found {len(ping_result)} available worker(s): {list(ping_result.keys())}")
         _worker_cache["available"] = True
         _worker_cache["checked_at"] = time.monotonic()
         return True
@@ -122,7 +119,9 @@ class EnrichmentService:
         if workers_available:
             try:
                 workflow = build_enrichment_chain(
-                    trace_id, project_id, organization_id,
+                    trace_id,
+                    project_id,
+                    organization_id,
                     root_span_id=root_span_id,
                 )
                 result = workflow.apply_async()
@@ -245,9 +244,7 @@ class EnrichmentService:
 
         child_only_traces = {s.trace_id for s in stored_spans} - dispatched_traces
         for trace_id in child_only_traces:
-            if self.enqueue_enrichment(
-                trace_id, project_id, organization_id, workers_available
-            ):
+            if self.enqueue_enrichment(trace_id, project_id, organization_id, workers_available):
                 async_count += 1
             else:
                 sync_count += 1
@@ -285,7 +282,9 @@ def build_enrichment_chain(
     return chain(
         enrich_trace_async.si(trace_id, project_id, organization_id),
         evaluate_turn_trace_metrics.si(
-            trace_id, project_id, organization_id,
+            trace_id,
+            project_id,
+            organization_id,
             root_span_id=root_span_id,
         ),
     )

@@ -141,8 +141,7 @@ def post_ingest_link(
                     enrich_trace_async.delay(trace_id, project_id, organization_id)
                 except Exception as enrich_error:
                     logger.warning(
-                        f"Failed to enqueue enrichment for trace {trace_id}: "
-                        f"{enrich_error}"
+                        f"Failed to enqueue enrichment for trace {trace_id}: {enrich_error}"
                     )
 
         return {

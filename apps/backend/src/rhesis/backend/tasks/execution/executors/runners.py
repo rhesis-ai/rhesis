@@ -265,7 +265,10 @@ def _signal_penelope_conversation_complete(
         )
 
         trace_id = crud.get_trace_id_for_conversation(
-            db, conversation_id, project_id, organization_id,
+            db,
+            conversation_id,
+            project_id,
+            organization_id,
         )
         if not trace_id:
             return

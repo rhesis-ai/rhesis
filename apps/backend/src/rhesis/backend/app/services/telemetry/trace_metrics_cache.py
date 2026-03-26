@@ -14,7 +14,6 @@ import logging
 from typing import Optional
 
 from rhesis.backend.app.constants import DEFAULT_CONVERSATION_DEBOUNCE_SECONDS
-
 from rhesis.backend.app.services.cache import RedisBackedCache
 from rhesis.backend.app.services.redis_constants import RedisDatabase
 
@@ -131,9 +130,7 @@ def signal_conversation_complete(
     from rhesis.backend.worker import app as celery_app
 
     # Dispatch first: if this fails the debounce stays as a safety net.
-    evaluate_conversation_trace_metrics.delay(
-        trace_id, project_id, organization_id
-    )
+    evaluate_conversation_trace_metrics.delay(trace_id, project_id, organization_id)
     logger.debug(
         f"[TRACE_METRICS] Dispatched immediate conversation eval "
         f"for trace {trace_id} (conversation complete)"
