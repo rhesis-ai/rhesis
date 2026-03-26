@@ -12,6 +12,7 @@ class ChunkBase(BaseModel):
     chunk_index: int
     token_count: int
     chunk_metadata: Optional[Dict[str, Any]] = None
+    status_id: Optional[UUID4] = None
 
 
 class ChunkCreate(ChunkBase):
