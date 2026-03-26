@@ -11,6 +11,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
@@ -154,6 +155,46 @@ def _resolve_status_id(
     return str(status.id)
 
 
+def _prepare_evaluation(
+    db: Session,
+    trace_id: str,
+    project_id: str,
+    organization_id: str,
+):
+    """Shared setup: load project, check config, resolve evaluation model.
+
+    Returns (project, config, evaluator) or None if evaluation should be skipped.
+    """
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        logger.warning(f"Project {project_id} not found for trace {trace_id}")
+        return None
+
+    config = _get_trace_metrics_config(project)
+    if not _should_evaluate(config):
+        return None
+
+    from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
+    from rhesis.backend.metrics.evaluator import MetricEvaluator
+
+    default_model = None
+    project_user = project.owner or project.user
+    if project_user:
+        try:
+            default_model = get_user_evaluation_model(db, project_user)
+        except Exception as e:
+            logger.warning(
+                f"Failed to get default evaluation model for trace {trace_id}: {e}"
+            )
+
+    evaluator = MetricEvaluator(
+        model=default_model,
+        db=db,
+        organization_id=organization_id,
+    )
+    return project, config, evaluator
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def evaluate_turn_trace_metrics(
     self,
@@ -171,14 +212,10 @@ def evaluate_turn_trace_metrics(
     try:
         set_session_variables(db, organization_id, "")
 
-        project = db.query(models.Project).filter(models.Project.id == project_id).first()
-        if not project:
-            logger.warning(f"Project {project_id} not found for trace {trace_id}")
-            return {"status": "error", "trace_id": trace_id, "message": "project not found"}
-
-        config = _get_trace_metrics_config(project)
-        if not _should_evaluate(config):
+        prepared = _prepare_evaluation(db, trace_id, project_id, organization_id)
+        if prepared is None:
             return {"status": "skipped", "trace_id": trace_id}
+        project, config, evaluator = prepared
 
         root_span = (
             db.query(models.Trace)
@@ -200,16 +237,8 @@ def evaluate_turn_trace_metrics(
             return {"status": "no_io", "trace_id": trace_id}
 
         has_conversation = bool(root_span.conversation_id)
-
-        if has_conversation:
-            metrics = _load_trace_scoped_metrics(
-                db,
-                organization_id,
-                config,
-                phase="turn",
-            )
-        else:
-            metrics = _load_trace_scoped_metrics(db, organization_id, config, phase="all")
+        phase = "turn" if has_conversation else "all"
+        metrics = _load_trace_scoped_metrics(db, organization_id, config, phase=phase)
 
         if not metrics:
             logger.info(f"No Trace-scoped metrics found for trace {trace_id}")
@@ -217,23 +246,7 @@ def evaluate_turn_trace_metrics(
                 _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "no_metrics", "trace_id": trace_id}
 
-        from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
-        from rhesis.backend.metrics.evaluator import MetricEvaluator
-
-        default_model = None
-        project_user = project.owner or project.user
-        if project_user:
-            try:
-                default_model = get_user_evaluation_model(db, project_user)
-            except Exception as e:
-                logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
-
         start_time = time.time()
-        evaluator = MetricEvaluator(
-            model=default_model,
-            db=db,
-            organization_id=organization_id,
-        )
         results = evaluator.evaluate(
             input_text=input_text,
             output_text=output_text,
@@ -271,16 +284,16 @@ def evaluate_turn_trace_metrics(
             "metrics_count": len(turn_metrics.get("metrics", {})),
         }
 
+    except (IOError, ConnectionError, SoftTimeLimitExceeded, OSError) as e:
+        logger.warning(f"Transient error in turn eval for trace {trace_id}: {e}")
+        raise self.retry(exc=e)
+
     except Exception as e:
         logger.error(
             f"Turn metrics evaluation failed for trace {trace_id}: {e}",
             exc_info=True,
         )
-        try:
-            raise self.retry(exc=e)
-        except self.MaxRetriesExceededError:
-            logger.error(f"Max retries exceeded for turn eval of trace {trace_id}")
-            return {"status": "error", "trace_id": trace_id, "message": str(e)}
+        raise
 
     finally:
         db.close()
@@ -303,19 +316,13 @@ def evaluate_conversation_trace_metrics(
     try:
         set_session_variables(db, organization_id, "")
 
-        project = db.query(models.Project).filter(models.Project.id == project_id).first()
-        if not project:
-            return {"status": "error", "trace_id": trace_id, "message": "project not found"}
-
-        config = _get_trace_metrics_config(project)
-        if not _should_evaluate(config):
+        prepared = _prepare_evaluation(db, trace_id, project_id, organization_id)
+        if prepared is None:
             return {"status": "skipped", "trace_id": trace_id}
+        project, config, evaluator = prepared
 
         metrics = _load_trace_scoped_metrics(
-            db,
-            organization_id,
-            config,
-            phase="conversation",
+            db, organization_id, config, phase="conversation"
         )
         if not metrics:
             logger.info(f"No Multi-Turn Trace metrics found for trace {trace_id}")
@@ -351,23 +358,7 @@ def evaluate_conversation_trace_metrics(
         conversation_history = ConversationHistory.from_messages(messages)
         conversation_text = conversation_history.format_conversation()
 
-        from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
-        from rhesis.backend.metrics.evaluator import MetricEvaluator
-
-        default_model = None
-        project_user = project.owner or project.user
-        if project_user:
-            try:
-                default_model = get_user_evaluation_model(db, project_user)
-            except Exception as e:
-                logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
-
         start_time = time.time()
-        evaluator = MetricEvaluator(
-            model=default_model,
-            db=db,
-            organization_id=organization_id,
-        )
         results = evaluator.evaluate(
             input_text="",
             output_text=conversation_text.strip(),
@@ -385,11 +376,8 @@ def evaluate_conversation_trace_metrics(
 
         first_span = root_spans[0]
         status_id = _derive_combined_status_id(
-            db,
-            organization_id,
-            first_span,
-            "conversation_metrics",
-            conversation_metrics,
+            db, organization_id, first_span,
+            "conversation_metrics", conversation_metrics,
         )
 
         crud.update_trace_conversation_metrics(
@@ -411,16 +399,16 @@ def evaluate_conversation_trace_metrics(
             "metrics_count": len(conversation_metrics.get("metrics", {})),
         }
 
+    except (IOError, ConnectionError, SoftTimeLimitExceeded, OSError) as e:
+        logger.warning(f"Transient error in conversation eval for trace {trace_id}: {e}")
+        raise self.retry(exc=e)
+
     except Exception as e:
         logger.error(
             f"Conversation metrics evaluation failed for trace {trace_id}: {e}",
             exc_info=True,
         )
-        try:
-            raise self.retry(exc=e)
-        except self.MaxRetriesExceededError:
-            logger.error(f"Max retries exceeded for conversation eval of trace {trace_id}")
-            return {"status": "error", "trace_id": trace_id, "message": str(e)}
+        raise
 
     finally:
         db.close()

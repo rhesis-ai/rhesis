@@ -1,7 +1,7 @@
 """Telemetry router for trace ingestion and queries."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID, uuid4
 
@@ -394,14 +394,13 @@ async def list_traces(
             )
 
         # Log and return error for other database issues
-        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to list traces for org {organization_id}: {error_msg}",
+            f"Failed to list traces for org {organization_id}: {e}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve traces: {error_msg}",
+            detail="Failed to retrieve traces. Check server logs for details.",
         )
 
 
@@ -614,14 +613,13 @@ async def get_trace(
             )
 
         # Log and return error for other database issues
-        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to retrieve trace {trace_id}: {error_msg}",
+            f"Failed to retrieve trace {trace_id}: {e}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve trace details: {error_msg}",
+            detail="Failed to retrieve trace details. Check server logs for details.",
         )
 
 
@@ -674,91 +672,17 @@ async def get_metrics(
     organization_id, user_id = tenant_context
 
     try:
-        # Query all matching spans (no default time filter - controlled by frontend)
-        spans_with_counts = crud.query_traces(
+        result = crud.get_trace_metrics_aggregated(
             db=db,
             organization_id=organization_id,
             project_id=project_id,
-            root_spans_only=False,  # Metrics need all spans for accurate calculations
-            trace_source=TraceSource.ALL,  # Include all trace sources
             environment=environment,
             start_time_after=start_time_after,
             start_time_before=start_time_before,
-            limit=10000,  # Large limit for metrics calculation
-            offset=0,
         )
-
-        # Extract just the Trace objects (discard span_count and total)
-        spans = [row.trace for row in spans_with_counts]
-
-        if not spans:
-            return TraceMetricsResponse(
-                total_traces=0,
-                total_spans=0,
-                total_tokens=0,
-                total_cost_usd=0,
-                error_rate=0,
-                avg_duration_ms=0,
-                p50_duration_ms=0,
-                p95_duration_ms=0,
-                p99_duration_ms=0,
-                operation_breakdown={},
-            )
-
-        # Count unique traces
-        trace_ids = set(span.trace_id for span in spans)
-        total_traces = len(trace_ids)
-        total_spans = len(spans)
-
-        # Calculate token metrics (LLM spans only)
-        total_tokens = sum(span.total_tokens or 0 for span in spans)
-
-        # Calculate cost metrics
-        total_cost = 0.0
-        for span in spans:
-            costs = (span.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
-            if costs:
-                total_cost += costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
-
-        # Calculate error rate
-        error_count = sum(1 for span in spans if span.status_code == StatusCode.ERROR.value)
-        error_rate = error_count / total_spans if total_spans > 0 else 0
-
-        # Calculate latency percentiles
-        durations = sorted(span.duration_ms or 0.0 for span in spans)
-
-        def percentile(values: List[float], p: int) -> float:
-            if not values:
-                return 0.0
-            index = int((p / 100) * len(values))
-            index = min(index, len(values) - 1)
-            return values[index]
-
-        p50_duration = percentile(durations, 50)
-        p95_duration = percentile(durations, 95)
-        p99_duration = percentile(durations, 99)
-        avg_duration = sum(durations) / len(durations) if durations else 0
-
-        # Operation type breakdown
-        operation_breakdown = {}
-        for span in spans:
-            op_type = span.operation_type or "unknown"
-            operation_breakdown[op_type] = operation_breakdown.get(op_type, 0) + 1
 
         logger.info(f"Calculated metrics for project {project_id}")
-
-        return TraceMetricsResponse(
-            total_traces=total_traces,
-            total_spans=total_spans,
-            total_tokens=total_tokens,
-            total_cost_usd=round(total_cost, 6),
-            error_rate=round(error_rate, 4),
-            avg_duration_ms=round(avg_duration, 2),
-            p50_duration_ms=round(p50_duration, 2),
-            p95_duration_ms=round(p95_duration, 2),
-            p99_duration_ms=round(p99_duration, 2),
-            operation_breakdown=operation_breakdown,
-        )
+        return TraceMetricsResponse(**result)
 
     except Exception as e:
         # Check if it's a database permission error
@@ -777,14 +701,13 @@ async def get_metrics(
             )
 
         # Log and return error for other database issues
-        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to calculate metrics for project {project_id}: {error_msg}",
+            f"Failed to calculate metrics for project {project_id}: {e}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve trace metrics: {error_msg}",
+            detail="Failed to retrieve trace metrics. Check server logs for details.",
         )
 
 
@@ -810,7 +733,7 @@ def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> d
 
 def _update_review_metadata(reviews_data: dict, current_user: User, latest_status: dict) -> None:
     """Update metadata when reviews change."""
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     reviews_data["metadata"] = {
         "last_updated_at": now,
         "last_updated_by": {
@@ -852,7 +775,7 @@ def add_trace_review(
     if "reviews" not in db_trace.trace_reviews:
         db_trace.trace_reviews["reviews"] = []
 
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     new_review = {
         "review_id": str(uuid4()),
         "status": status_details,
@@ -940,7 +863,7 @@ def update_trace_review(
         }
         target_changed = True
 
-    review_to_update["updated_at"] = datetime.utcnow().isoformat()
+    review_to_update["updated_at"] = datetime.now(timezone.utc).isoformat()
     latest_status = review_to_update["status"]
     _update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
     flag_modified(db_trace, "trace_reviews")
@@ -1013,7 +936,7 @@ def delete_trace_review(
         _update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
     else:
         db_trace.trace_reviews["metadata"] = {
-            "last_updated_at": datetime.utcnow().isoformat(),
+            "last_updated_at": datetime.now(timezone.utc).isoformat(),
             "last_updated_by": {
                 "user_id": str(current_user.id),
                 "name": current_user.name or current_user.email,

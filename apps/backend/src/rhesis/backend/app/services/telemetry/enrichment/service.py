@@ -35,7 +35,7 @@ class EnrichmentService:
         """
         Check if Celery workers are available to process telemetry tasks.
 
-        Uses a module-level cache (TTL=60s) to avoid the ~3s Celery
+        Uses a module-level cache (TTL=300s) to avoid the ~3s Celery
         inspect.ping() cost on every endpoint invocation.
 
         Returns:

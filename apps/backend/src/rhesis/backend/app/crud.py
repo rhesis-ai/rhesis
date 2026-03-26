@@ -4203,3 +4203,92 @@ def update_trace_conversation_metrics(
 
     db.commit()
     return count
+
+
+def get_trace_metrics_aggregated(
+    db: Session,
+    organization_id: str,
+    project_id: str,
+    environment: Optional[str] = None,
+    start_time_after: Optional[datetime] = None,
+    start_time_before: Optional[datetime] = None,
+) -> dict:
+    """Compute trace metrics using SQL-level aggregation.
+
+    Uses PostgreSQL aggregate functions (COUNT, SUM, AVG, percentile_cont)
+    to avoid loading large result sets into Python memory.
+    """
+    from sqlalchemy import case, literal_column
+    from sqlalchemy.sql import functions as sqlfunc
+
+    from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
+
+    T = models.Trace
+
+    filters = [
+        T.organization_id == organization_id,
+        T.project_id == project_id,
+        T.deleted_at.is_(None),
+    ]
+    if environment:
+        filters.append(T.environment == environment)
+    if start_time_after:
+        filters.append(T.start_time >= start_time_after)
+    if start_time_before:
+        filters.append(T.start_time <= start_time_before)
+
+    base = db.query(T).filter(*filters).subquery()
+
+    # JSONB extraction expressions for tokens and costs
+    tokens_expr = base.c.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()
+    cost_expr = base.c.enriched_data[EnrichedDataKeys.COSTS][
+        EnrichedDataKeys.TOTAL_COST_USD
+    ].as_float()
+
+    agg = db.query(
+        func.count(func.distinct(base.c.trace_id)).label("total_traces"),
+        func.count(base.c.id).label("total_spans"),
+        func.coalesce(func.sum(tokens_expr), 0).label("total_tokens"),
+        func.coalesce(func.sum(cost_expr), 0).label("total_cost_usd"),
+        func.count(case((base.c.status_code == "ERROR", 1))).label("error_count"),
+        func.coalesce(func.avg(base.c.duration_ms), 0).label("avg_duration_ms"),
+        func.coalesce(
+            sqlfunc.percentile_cont(0.5).within_group(base.c.duration_ms), 0
+        ).label("p50_duration_ms"),
+        func.coalesce(
+            sqlfunc.percentile_cont(0.95).within_group(base.c.duration_ms), 0
+        ).label("p95_duration_ms"),
+        func.coalesce(
+            sqlfunc.percentile_cont(0.99).within_group(base.c.duration_ms), 0
+        ).label("p99_duration_ms"),
+    ).one()
+
+    total_spans = agg.total_spans or 0
+    error_count = agg.error_count or 0
+
+    # Operation breakdown as a separate grouped query
+    op_type_expr = func.coalesce(
+        base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string(),
+        literal_column("'unknown'"),
+    )
+    op_rows = (
+        db.query(
+            op_type_expr.label("op_type"),
+            func.count(base.c.id).label("cnt"),
+        )
+        .group_by(op_type_expr)
+        .all()
+    )
+
+    return {
+        "total_traces": agg.total_traces or 0,
+        "total_spans": total_spans,
+        "total_tokens": int(agg.total_tokens or 0),
+        "total_cost_usd": round(float(agg.total_cost_usd or 0), 6),
+        "error_rate": round(error_count / total_spans, 4) if total_spans else 0,
+        "avg_duration_ms": round(float(agg.avg_duration_ms or 0), 2),
+        "p50_duration_ms": round(float(agg.p50_duration_ms or 0), 2),
+        "p95_duration_ms": round(float(agg.p95_duration_ms or 0), 2),
+        "p99_duration_ms": round(float(agg.p99_duration_ms or 0), 2),
+        "operation_breakdown": {row.op_type: row.cnt for row in op_rows},
+    }

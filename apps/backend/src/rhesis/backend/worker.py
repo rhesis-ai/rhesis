@@ -90,6 +90,16 @@ app.conf.update(
             "soft_time_limit": 300,  # 5 minutes
             "time_limit": 600,  # 10 minutes
         },
+        "rhesis.backend.tasks.telemetry.evaluate.evaluate_turn_trace_metrics": {
+            "max_retries": 3,
+            "soft_time_limit": 300,  # 5 minutes
+            "time_limit": 360,  # 6 minutes
+        },
+        "rhesis.backend.tasks.telemetry.evaluate.evaluate_conversation_trace_metrics": {
+            "max_retries": 3,
+            "soft_time_limit": 600,  # 10 minutes (longer for full conversation)
+            "time_limit": 660,  # 11 minutes
+        },
     },
     # Task discovery
     include=[
