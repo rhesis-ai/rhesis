@@ -205,19 +205,12 @@ jobs:
             echo "🛠️ Development configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           fi
 
-          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            AUTH_FLAGS="--allow-unauthenticated"
-          else
-            AUTH_FLAGS="--no-allow-unauthenticated"
-          fi
-          echo "🔐 Cloud Run auth: $AUTH_FLAGS (environment=${{ env.ENVIRONMENT }})"
-
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:latest \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --platform=managed \
-            $AUTH_FLAGS \
+            --allow-unauthenticated \
             --port=8080 \
             --memory=$MEMORY \
             --cpu=$CPU \
