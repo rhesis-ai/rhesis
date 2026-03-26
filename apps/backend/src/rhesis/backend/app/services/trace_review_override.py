@@ -19,16 +19,21 @@ Trace metrics live in a JSONB column with the structure::
 """
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import TestResultStatus, categorize_test_result_status, OverallTestResult
-from rhesis.backend.app.models.trace import REVIEW_TARGET_TRACE
-from rhesis.backend.app.schemas.test_result import REVIEW_TARGET_METRIC, REVIEW_TARGET_TURN
+from rhesis.backend.app.constants import (
+    OverallTestResult,
+    REVIEW_TARGET_METRIC,
+    REVIEW_TARGET_TRACE,
+    REVIEW_TARGET_TURN,
+    TestResultStatus,
+    categorize_test_result_status,
+)
 
 
 def _is_passed_status(status_name: str) -> bool:
@@ -93,7 +98,7 @@ def apply_review_override(
 ) -> None:
     """Apply a review override to trace_metrics or trace_metrics_status_id."""
     review_passed = _is_passed_status(status_details.get("name", ""))
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     if target_type == REVIEW_TARGET_METRIC and target_reference:
         _apply_metric_override(
@@ -320,7 +325,7 @@ def _revert_metric_override(
                 metric["is_successful"] = original_val
                 metric.pop("override", None)
             else:
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(timezone.utc).isoformat()
                 metric["is_successful"] = review_passed
                 metric["override"] = {
                     "original_value": original_val,
@@ -373,7 +378,7 @@ def _revert_turn_override(
         if review_passed == original_val:
             turn_overrides.pop(turn_key, None)
         else:
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
             turn_overrides[turn_key] = {
                 "success": review_passed,
                 "override": {
@@ -395,7 +400,7 @@ def _revert_turn_override(
 
 
 def recalculate_overall_status(db_trace: models.Trace) -> None:
-    """Recalculate trace_metrics_status_id from all metric is_successful values."""
+    """Recalculate trace_metrics_status_id from metrics and turn overrides."""
     trace_metrics = db_trace.trace_metrics
     if not trace_metrics or not isinstance(trace_metrics, dict):
         return
@@ -404,5 +409,11 @@ def recalculate_overall_status(db_trace: models.Trace) -> None:
     if not all_metrics:
         return
 
-    all_passed = all(m.get("is_successful", False) for m in all_metrics)
-    _set_trace_status(db_trace, all_passed)
+    metrics_passed = all(m.get("is_successful", False) for m in all_metrics)
+
+    turn_overrides = trace_metrics.get("turn_overrides", {})
+    turns_passed = all(
+        entry.get("success", True) for entry in turn_overrides.values()
+    )
+
+    _set_trace_status(db_trace, metrics_passed and turns_passed)

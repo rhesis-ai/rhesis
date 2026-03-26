@@ -5,7 +5,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.backend.app.schemas.test_result import (
+from rhesis.backend.app.constants import (
     LEGACY_TARGET_TEST,
     REVIEW_TARGET_TEST_RESULT,
 )

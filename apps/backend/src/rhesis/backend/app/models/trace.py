@@ -25,10 +25,10 @@ from rhesis.backend.app.models.mixins import (
     TasksMixin,
 )
 
+from rhesis.backend.app.constants import REVIEW_TARGET_TRACE
+
 if TYPE_CHECKING:
     pass
-
-REVIEW_TARGET_TRACE = "trace"
 
 
 class Trace(Base, TagsMixin, CommentsMixin, TasksMixin, FilesMixin, ReviewsMixin):

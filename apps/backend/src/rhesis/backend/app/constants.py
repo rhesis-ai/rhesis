@@ -129,6 +129,28 @@ class TestResultStatus(str, Enum):
     ERROR = "Error"
 
 
+class ReviewTarget(str, Enum):
+    """Review target types shared by TestResult and Trace review systems.
+
+    Using str mixin so values work directly in string comparisons and JSON.
+    """
+
+    TEST_RESULT = "test_result"
+    TRACE = "trace"
+    TURN = "turn"
+    METRIC = "metric"
+
+
+LEGACY_TARGET_TEST = "test"
+
+# Backward-compatible aliases used across the codebase
+REVIEW_TARGET_TEST_RESULT = ReviewTarget.TEST_RESULT
+REVIEW_TARGET_TRACE = ReviewTarget.TRACE
+REVIEW_TARGET_TURN = ReviewTarget.TURN
+REVIEW_TARGET_METRIC = ReviewTarget.METRIC
+VALID_TARGET_TYPES = tuple(ReviewTarget)
+
+
 class TestType(str, Enum):
     """Reserved test type values in the TypeLookup table.
 
