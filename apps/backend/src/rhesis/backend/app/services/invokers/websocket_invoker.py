@@ -444,10 +444,12 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 )
                 logger.error(f"WebSocket connection rejected after {connection_duration:.2f}s")
                 logger.error(f"Status code: {status_err.response.status_code}")
-                response_headers_str = (
-                    dict(status_err.response.headers) if status_err.response.headers else "None"
+                sanitized_resp_headers = (
+                    self._sanitize_headers(dict(status_err.response.headers))
+                    if status_err.response.headers
+                    else "None"
                 )
-                logger.error(f"Response headers: {response_headers_str}")
+                logger.error(f"Response headers: {sanitized_resp_headers}")
                 logger.error(f"Response body: {status_err.response.body}")
                 logger.debug(f"Connection URI: {uri}")
                 sanitized_conn_headers = json.dumps(
@@ -470,11 +472,13 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     request_details={
                         "connection_type": "WebSocket",
                         "uri": uri,
-                        "headers": additional_headers,
+                        "headers": self._sanitize_headers(additional_headers or {}),
                         "body": message_data,
                     },
                     status_code=status_err.response.status_code,
-                    response_headers=dict(status_err.response.headers)
+                    response_headers=self._sanitize_headers(
+                        dict(status_err.response.headers)
+                    )
                     if status_err.response.headers
                     else {},
                     response_body=status_err.response.body,
@@ -515,7 +519,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     request_details={
                         "connection_type": "WebSocket",
                         "uri": uri,
-                        "headers": additional_headers,
+                        "headers": self._sanitize_headers(additional_headers or {}),
                         "body": message_data,
                     },
                 )
@@ -523,7 +527,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         except Exception as e:
             logger.error(f"Async invoke error: {type(e).__name__}: {str(e)}", exc_info=True)
             logger.debug(
-                f"Error context - URI: {uri}, Headers: {additional_headers}, "
+                f"Error context - URI: {uri}, "
+                f"Headers: {self._sanitize_headers(additional_headers or {})}, "
                 f"Message: {message_data}"
             )
 
@@ -534,7 +539,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 request_details={
                     "connection_type": "WebSocket",
                     "uri": uri or "unknown",
-                    "headers": additional_headers or {},
+                    "headers": self._sanitize_headers(additional_headers or {}),
                     "body": message_data,
                 },
             )

@@ -141,12 +141,18 @@ def cmd_status(args):
     print(f"Workers: {summary['workers']}")
     print(f"Active tasks: {summary['total_active_tasks']}")
     print(f"Chord tasks: {summary['chord_tasks']}")
-    print(f"Redis broker: {summary['redis_config']['broker_url']}")
-    print(f"Redis result backend: {summary['redis_config']['result_backend']}")
+    print("Redis broker: [configured]")
+    print("Redis result backend: [configured]")
 
     if args.json:
+        safe_summary = {**summary}
+        if "redis_config" in safe_summary:
+            safe_summary["redis_config"] = {
+                k: "[redacted]" if "url" in k or "backend" in k else v
+                for k, v in safe_summary["redis_config"].items()
+            }
         print("\nJSON output:")
-        print(json.dumps(summary, indent=2))
+        print(json.dumps(safe_summary, indent=2))
 
     return 0
 
