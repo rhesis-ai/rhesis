@@ -102,6 +102,10 @@ class ToolResult(BaseModel):
         default=None,
         description="Error message when success=False.",
     )
+    duration_ms: Optional[int] = Field(
+        default=None,
+        description="Wall-clock execution time in milliseconds.",
+    )
 
 
 class ExecutionStep(BaseModel):

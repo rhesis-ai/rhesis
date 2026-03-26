@@ -65,15 +65,16 @@ class WebSocketEventHandler:
     async def on_tool_end(self, *, tool_name: str, result: Any, **kw: Any) -> None:
         success = getattr(result, "success", True)
         content = getattr(result, "content", "")
-        self._publish(
-            EventType.ARCHITECT_TOOL_END,
-            {
-                "tool": tool_name,
-                "description": _tool_description(tool_name, {}),
-                "success": success,
-                "preview": str(content)[:300],
-            },
-        )
+        duration_ms = getattr(result, "duration_ms", None)
+        payload: Dict[str, Any] = {
+            "tool": tool_name,
+            "description": _tool_description(tool_name, {}),
+            "success": success,
+            "preview": str(content)[:300],
+        }
+        if duration_ms is not None:
+            payload["duration_ms"] = duration_ms
+        self._publish(EventType.ARCHITECT_TOOL_END, payload)
 
     async def on_mode_change(self, *, old_mode: str, new_mode: str, **kw: Any) -> None:
         self._publish(

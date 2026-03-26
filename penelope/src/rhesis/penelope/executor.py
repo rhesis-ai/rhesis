@@ -7,6 +7,7 @@ including LLM interaction, tool invocation, and state updates.
 
 import json
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from rhesis.penelope.context import TestState
@@ -346,6 +347,8 @@ class TurnExecutor:
                         param_keys = list(action_params.keys()) if action_params else []
                         logger.info(f"Executing tool: {action_name} (params: {param_keys})")
 
+                    t0 = time.monotonic()
+
                     # Execute with enhanced validation for analysis tools
                     if isinstance(tool, AnalysisTool):
                         context = self.workflow_manager.state.get_analysis_context()
@@ -355,9 +358,11 @@ class TurnExecutor:
                     else:
                         tool_result = tool.execute(**action_params)
 
+                    duration_ms = round((time.monotonic() - t0) * 1000)
+
                     if on_tool_end:
                         try:
-                            on_tool_end(action_name, tool_result)
+                            on_tool_end(action_name, tool_result, duration_ms)
                         except Exception as e:
                             logger.error(f"Error in on_tool_end callback: {e}")
 

@@ -789,7 +789,9 @@ class BaseAgent:
                 reasoning=reasoning,
             )
 
+            t0 = time.monotonic()
             result = await self.execute_tool(tc)
+            result.duration_ms = round((time.monotonic() - t0) * 1000)
             results.append(result)
 
             if not result.success:
