@@ -24,6 +24,13 @@ _worker_cache: dict = {"available": None, "checked_at": 0.0}
 _WORKER_CACHE_TTL = 300.0  # seconds
 
 
+def are_workers_recently_available() -> bool:
+    """Return True if a recent worker-availability check was positive (cache-only, no ping)."""
+    now = time.monotonic()
+    age = now - _worker_cache["checked_at"]
+    return _worker_cache["available"] is True and age < _WORKER_CACHE_TTL
+
+
 class EnrichmentService:
     """Service for orchestrating trace enrichment with async/sync fallback."""
 
@@ -51,10 +58,9 @@ class EnrichmentService:
         try:
             from rhesis.backend.worker import app as celery_app
 
-            # Use ping with 3 second timeout - more reliable for solo pool workers
-            # Solo pool workers process tasks sequentially, so stats() may timeout
-            # while ping() is faster and gets prioritized
-            inspect = celery_app.control.inspect(timeout=3.0)
+            # Use ping with 1 second timeout. The result is cached for 300s,
+            # so the cost is only paid once per TTL window.
+            inspect = celery_app.control.inspect(timeout=1.0)
 
             # Ping is faster and works better with solo pool
             ping_result = inspect.ping()
@@ -109,22 +115,11 @@ class EnrichmentService:
 
         if workers_available:
             try:
-                from celery import chain
-
-                from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
-                from rhesis.backend.tasks.telemetry.evaluate import evaluate_turn_trace_metrics
-
-                # Orchestrate the pipeline using a Celery chain.
-                # .si() creates immutable signatures so the result of enrich isn't passed
-                # as the first argument to evaluate (since both just need the IDs).
-                workflow = chain(
-                    enrich_trace_async.si(trace_id, project_id, organization_id),
-                    evaluate_turn_trace_metrics.si(trace_id, project_id, organization_id),
-                )
-
+                workflow = build_enrichment_chain(trace_id, project_id, organization_id)
                 result = workflow.apply_async()
                 logger.debug(
-                    f"Enqueued async pipeline (enrich -> evaluate) for trace {trace_id} (task: {result.id})"
+                    f"Enqueued async pipeline (enrich -> evaluate) "
+                    f"for trace {trace_id} (task: {result.id})"
                 )
                 return True
 
@@ -135,29 +130,18 @@ class EnrichmentService:
         else:
             logger.info(f"No Celery workers available, using sync enrichment for trace {trace_id}")
 
-        # Fall back to synchronous enrichment
+        # Fall back to synchronous enrichment (cost calculation, anomaly
+        # detection).  Metric evaluation (LLM calls) is skipped -- it
+        # requires Celery workers and should never run in-process.
         try:
             enricher = TraceEnricher(self.db)
             enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
             if enriched_data:
                 logger.info(f"Completed sync enrichment for trace {trace_id}")
-
-                # Trigger turn-level trace metrics evaluation (sync fallback)
-                try:
-                    from rhesis.backend.tasks.telemetry.evaluate import (
-                        evaluate_turn_trace_metrics,
-                    )
-
-                    # Call it synchronously via apply
-                    result = evaluate_turn_trace_metrics.apply(
-                        args=[trace_id, project_id, organization_id]
-                    )
-                    if result.failed():
-                        logger.error(f"Sync trace metrics evaluation failed: {result.traceback}")
-                except Exception as eval_err:
-                    logger.warning(
-                        f"Failed to run sync trace metrics evaluation for {trace_id}: {eval_err}"
-                    )
+                logger.warning(
+                    f"Trace metrics evaluation skipped for {trace_id} "
+                    f"(requires Celery workers for async processing)"
+                )
             else:
                 logger.warning(f"Sync enrichment returned no data for trace {trace_id}")
             return False
@@ -206,6 +190,10 @@ class EnrichmentService:
         """
         Create trace spans and automatically trigger enrichment.
 
+        Used by the endpoint invocation path (``services/invokers/tracing.py``),
+        **not** by the main telemetry ingestion router which handles storage and
+        enrichment dispatch separately.
+
         This helper consolidates the pattern of:
         1. Creating spans in database
         2. Extracting unique trace IDs
@@ -240,3 +228,16 @@ class EnrichmentService:
         )
 
         return stored_spans, async_count, sync_count
+
+
+def build_enrichment_chain(trace_id: str, project_id: str, organization_id: str):
+    """Build the Celery chain for trace enrichment followed by metric evaluation."""
+    from celery import chain
+
+    from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
+    from rhesis.backend.tasks.telemetry.evaluate import evaluate_turn_trace_metrics
+
+    return chain(
+        enrich_trace_async.si(trace_id, project_id, organization_id),
+        evaluate_turn_trace_metrics.si(trace_id, project_id, organization_id),
+    )
