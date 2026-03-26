@@ -11,7 +11,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.constants import EnrichedDataKeys, TestResultStatus
+from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.telemetry import (
@@ -634,7 +634,7 @@ def list_span_files(
 ):
     """List files attached to a trace span."""
     organization_id, user_id = tenant_context
-    return crud.get_files_for_entity(db, span_db_id, "Trace", organization_id, user_id)
+    return crud.get_files_for_entity(db, span_db_id, EntityType.TRACE.value, organization_id, user_id)
 
 
 @router.get("/metrics", response_model=TraceMetricsResponse)
