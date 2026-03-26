@@ -476,9 +476,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         "body": message_data,
                     },
                     status_code=status_err.response.status_code,
-                    response_headers=self._sanitize_headers(
-                        dict(status_err.response.headers)
-                    )
+                    response_headers=self._sanitize_headers(dict(status_err.response.headers))
                     if status_err.response.headers
                     else {},
                     response_body=status_err.response.body,
