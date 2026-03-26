@@ -108,17 +108,42 @@ def post_ingest_link(
             )
             logger.debug("File linking traceback:", exc_info=True)
 
-        # 4. Dispatch enrichment pipeline per unique trace
+        # 4. Dispatch enrichment pipeline per root span so each turn in a
+        #    multi-turn conversation gets its own evaluation task keyed by
+        #    the root span's DB primary key.
         from rhesis.backend.app.services.telemetry.enrichment import (
             build_enrichment_chain,
         )
+        from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
+
+        root_spans_in_batch = [s for s in stored_spans if s.parent_span_id is None]
+        dispatched_traces: set[str] = set()
+
+        for root_span in root_spans_in_batch:
+            try:
+                workflow = build_enrichment_chain(
+                    root_span.trace_id,
+                    project_id,
+                    organization_id,
+                    root_span_id=str(root_span.id),
+                )
+                workflow.apply_async()
+                dispatched_traces.add(root_span.trace_id)
+            except Exception as enrich_error:
+                logger.warning(
+                    f"Failed to enqueue enrichment for root span "
+                    f"{root_span.id} (trace {root_span.trace_id}): {enrich_error}"
+                )
 
         for trace_id in unique_trace_ids:
-            try:
-                workflow = build_enrichment_chain(trace_id, project_id, organization_id)
-                workflow.apply_async()
-            except Exception as enrich_error:
-                logger.warning(f"Failed to enqueue enrichment for trace {trace_id}: {enrich_error}")
+            if trace_id not in dispatched_traces:
+                try:
+                    enrich_trace_async.delay(trace_id, project_id, organization_id)
+                except Exception as enrich_error:
+                    logger.warning(
+                        f"Failed to enqueue enrichment for trace {trace_id}: "
+                        f"{enrich_error}"
+                    )
 
         return {
             "status": "success",

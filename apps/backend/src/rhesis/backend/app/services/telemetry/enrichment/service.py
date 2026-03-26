@@ -91,6 +91,7 @@ class EnrichmentService:
         project_id: str,
         organization_id: str,
         workers_available: bool | None = None,
+        root_span_id: str | None = None,
     ) -> bool:
         """
         Try to enqueue async enrichment. Fall back to sync if workers unavailable.
@@ -106,6 +107,10 @@ class EnrichmentService:
             organization_id: Organization ID for multi-tenant security
             workers_available: Optional cached worker availability check result.
                              If None, will check on this call.
+            root_span_id: DB primary key of the root span that triggered
+                this enrichment.  Passed through to
+                ``evaluate_turn_trace_metrics`` so it evaluates the
+                correct span in multi-turn conversations.
 
         Returns:
             True if async task was enqueued, False if sync fallback was used
@@ -116,7 +121,10 @@ class EnrichmentService:
 
         if workers_available:
             try:
-                workflow = build_enrichment_chain(trace_id, project_id, organization_id)
+                workflow = build_enrichment_chain(
+                    trace_id, project_id, organization_id,
+                    root_span_id=root_span_id,
+                )
                 result = workflow.apply_async()
                 logger.debug(
                     f"Enqueued async pipeline (enrich -> evaluate) "
@@ -195,10 +203,10 @@ class EnrichmentService:
         **not** by the main telemetry ingestion router which handles storage and
         enrichment dispatch separately.
 
-        This helper consolidates the pattern of:
-        1. Creating spans in database
-        2. Extracting unique trace IDs
-        3. Triggering async/sync enrichment
+        Dispatches one enrichment chain **per root span** so that each turn
+        in a multi-turn conversation gets its own evaluation task keyed by
+        the root span's DB primary key.  Trace IDs that only contain child
+        spans in this batch still get an enrichment-only dispatch.
 
         Args:
             spans: List of OTEL spans to create
@@ -210,29 +218,65 @@ class EnrichmentService:
         """
         from rhesis.backend.app import crud
 
-        # Create spans in database
         stored_spans = crud.create_trace_spans(self.db, spans, organization_id)
 
         if not stored_spans:
             logger.warning("No spans were stored")
             return [], 0, 0
 
-        # Extract unique trace IDs
-        unique_traces: Set[str] = {span.trace_id for span in stored_spans}
+        workers_available = self._check_workers_available()
+        async_count = 0
+        sync_count = 0
+        dispatched_traces: Set[str] = set()
 
-        # Trigger enrichment (async preferred, sync fallback)
-        async_count, sync_count = self.enrich_traces(unique_traces, project_id, organization_id)
+        root_spans = [s for s in stored_spans if s.parent_span_id is None]
+        for root_span in root_spans:
+            if self.enqueue_enrichment(
+                root_span.trace_id,
+                project_id,
+                organization_id,
+                workers_available=workers_available,
+                root_span_id=str(root_span.id),
+            ):
+                async_count += 1
+            else:
+                sync_count += 1
+            dispatched_traces.add(root_span.trace_id)
+
+        child_only_traces = {s.trace_id for s in stored_spans} - dispatched_traces
+        for trace_id in child_only_traces:
+            if self.enqueue_enrichment(
+                trace_id, project_id, organization_id, workers_available
+            ):
+                async_count += 1
+            else:
+                sync_count += 1
 
         logger.debug(
-            f"Created {len(stored_spans)} spans from {len(unique_traces)} traces "
-            f"(async enrichment: {async_count}, sync: {sync_count})"
+            f"Created {len(stored_spans)} spans, dispatched "
+            f"{len(root_spans)} root-span chains + "
+            f"{len(child_only_traces)} child-only enrichments "
+            f"(async: {async_count}, sync: {sync_count})"
         )
 
         return stored_spans, async_count, sync_count
 
 
-def build_enrichment_chain(trace_id: str, project_id: str, organization_id: str):
-    """Build the Celery chain for trace enrichment followed by metric evaluation."""
+def build_enrichment_chain(
+    trace_id: str,
+    project_id: str,
+    organization_id: str,
+    root_span_id: str | None = None,
+):
+    """Build the Celery chain for trace enrichment followed by metric evaluation.
+
+    Args:
+        root_span_id: DB primary key of the root span to evaluate.
+            Threaded through to ``evaluate_turn_trace_metrics`` so it
+            targets the exact span rather than querying for the latest
+            root span by ``trace_id`` (which causes missed turns in
+            multi-turn conversations).
+    """
     from celery import chain
 
     from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
@@ -240,5 +284,8 @@ def build_enrichment_chain(trace_id: str, project_id: str, organization_id: str)
 
     return chain(
         enrich_trace_async.si(trace_id, project_id, organization_id),
-        evaluate_turn_trace_metrics.si(trace_id, project_id, organization_id),
+        evaluate_turn_trace_metrics.si(
+            trace_id, project_id, organization_id,
+            root_span_id=root_span_id,
+        ),
     )
