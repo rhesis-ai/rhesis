@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import EntityCard from '../EntityCard';
 
 const defaultProps = {
@@ -21,31 +21,6 @@ describe('EntityCard', () => {
     render(<EntityCard {...defaultProps} />);
 
     expect(screen.getByTestId('icon')).toBeInTheDocument();
-  });
-
-  it('renders caption text when provided', () => {
-    render(
-      <EntityCard {...defaultProps} captionText="Last run: Jan 1, 2024" />
-    );
-
-    expect(screen.getByText('Last run: Jan 1, 2024')).toBeInTheDocument();
-  });
-
-  it('does not render caption area when captionText is not provided', () => {
-    render(<EntityCard {...defaultProps} />);
-
-    expect(screen.queryByText('Last run:')).not.toBeInTheDocument();
-  });
-
-  it('renders topRightActions when provided', () => {
-    render(
-      <EntityCard
-        {...defaultProps}
-        topRightActions={<button data-testid="edit-btn">Edit</button>}
-      />
-    );
-
-    expect(screen.getByTestId('edit-btn')).toBeInTheDocument();
   });
 
   it('renders chips in a single section', () => {
@@ -82,9 +57,105 @@ describe('EntityCard', () => {
     expect(screen.getByText('Multi-Turn')).toBeInTheDocument();
   });
 
+  it('renders chip section labels when provided', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        chipSections={[
+          {
+            label: 'Metrics',
+            chips: [{ key: 'metric-1', label: 'Accuracy' }],
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Metrics')).toBeInTheDocument();
+    expect(screen.getByText('Accuracy')).toBeInTheDocument();
+  });
+
   it('renders empty state with no chips', () => {
     render(<EntityCard {...defaultProps} chipSections={[{ chips: [] }]} />);
 
     expect(screen.getByText('My Entity')).toBeInTheDocument();
+  });
+
+  it('calls onClick when card is clicked', () => {
+    const handleClick = jest.fn();
+    render(<EntityCard {...defaultProps} onClick={handleClick} />);
+
+    fireEvent.click(screen.getByText('My Entity'));
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders delete button when onDelete is provided', () => {
+    const handleDelete = jest.fn();
+    render(<EntityCard {...defaultProps} onDelete={handleDelete} />);
+
+    const deleteButton = screen.getByRole('button', { name: /delete/i });
+    expect(deleteButton).toBeInTheDocument();
+  });
+
+  it('calls onDelete when delete button is clicked', () => {
+    const handleDelete = jest.fn();
+    render(<EntityCard {...defaultProps} onDelete={handleDelete} />);
+
+    const deleteButton = screen.getByRole('button', { name: /delete/i });
+    fireEvent.click(deleteButton);
+    expect(handleDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onClick when delete button is clicked', () => {
+    const handleClick = jest.fn();
+    const handleDelete = jest.fn();
+    render(
+      <EntityCard
+        {...defaultProps}
+        onClick={handleClick}
+        onDelete={handleDelete}
+      />
+    );
+
+    const deleteButton = screen.getByRole('button', { name: /delete/i });
+    fireEvent.click(deleteButton);
+    expect(handleDelete).toHaveBeenCalledTimes(1);
+    expect(handleClick).not.toHaveBeenCalled();
+  });
+
+  it('renders owner name and avatar when provided', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        ownerName="Jessica"
+        ownerAvatar="https://example.com/avatar.jpg"
+      />
+    );
+
+    expect(screen.getByText('Jessica')).toBeInTheDocument();
+    expect(screen.getByAltText('Jessica')).toBeInTheDocument();
+  });
+
+  it('does not render owner section when ownerName is not provided', () => {
+    render(<EntityCard {...defaultProps} />);
+
+    expect(screen.queryByText('Jessica')).not.toBeInTheDocument();
+  });
+
+  it('renders status badge when statusLabel is provided', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        statusLabel="Active"
+        statusColor="success"
+      />
+    );
+
+    expect(screen.getByText('Active')).toBeInTheDocument();
+  });
+
+  it('does not render status badge when statusLabel is not provided', () => {
+    render(<EntityCard {...defaultProps} />);
+
+    expect(screen.queryByText('Active')).not.toBeInTheDocument();
   });
 });

@@ -6,33 +6,27 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
-import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
-import AddIcon from '@mui/icons-material/Add';
+import AddIcon from '@mui/icons-material/AddOutlined';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ButtonGroup from '@mui/material/ButtonGroup';
-import Badge from '@mui/material/Badge';
-import Popover from '@mui/material/Popover';
-import Divider from '@mui/material/Divider';
-import FormGroup from '@mui/material/FormGroup';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
 import TablePagination from '@mui/material/TablePagination';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import CodeIcon from '@mui/icons-material/Code';
-import FunctionsIcon from '@mui/icons-material/Functions';
-import CategoryIcon from '@mui/icons-material/Category';
-import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ListIcon from '@mui/icons-material/List';
-import TuneIcon from '@mui/icons-material/Tune';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
 import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
+import FilterDrawer, {
+  FilterSection as DrawerFilterSection,
+  FilterValues,
+} from '@/components/common/FilterDrawer';
+import PageHeader from '@/components/layout/PageHeader';
+import FloatingActionButton from '@/components/common/FloatingActionButton';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -141,10 +135,8 @@ export default function MetricsDirectoryTab({
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(25);
 
-  // Advanced filters popover state
-  const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(
-    null
-  );
+  // Filter drawer state
+  const [filterDrawerOpen, setFilterDrawerOpen] = React.useState(false);
 
   // Filter handlers
   const handleFilterChange = (
@@ -158,25 +150,91 @@ export default function MetricsDirectoryTab({
     setPage(0);
   };
 
-  // Popover handlers
-  const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleFilterClose = () => {
-    setAnchorEl(null);
-  };
-
-  const open = Boolean(anchorEl);
-
-  // Count active advanced filters
+  // Count active advanced filters (everything except search and backend which are in the toolbar)
   const activeAdvancedFilterCount =
     filters.type.length +
     filters.scoreType.length +
     filters.metricScope.length +
     filters.behavior.length;
 
-  const handleClearAllAdvancedFilters = () => {
+  // Build FilterDrawer sections from filterOptions
+  const drawerSections: DrawerFilterSection[] = React.useMemo(() => {
+    const sections: DrawerFilterSection[] = [
+      {
+        id: 'scoreType',
+        title: 'Score Type',
+        type: 'checkbox',
+        options: filterOptions.scoreType.map(o => ({
+          value: o.value,
+          label: o.label,
+        })),
+      },
+      {
+        id: 'metricScope',
+        title: 'Metric Scope',
+        type: 'checkbox',
+        options: filterOptions.metricScope.map(o => ({
+          value: o.value,
+          label: o.label,
+        })),
+      },
+    ];
+
+    if (filterOptions.type.length > 0) {
+      sections.push({
+        id: 'type',
+        title: 'Metric Type',
+        type: 'checkbox',
+        options: filterOptions.type.map(o => ({
+          value: o.type_value,
+          label: o.type_value
+            .replace(/-/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' '),
+        })),
+      });
+    }
+
+    if (filterOptions.behavior.length > 0) {
+      sections.push({
+        id: 'behavior',
+        title: 'Behaviors',
+        type: 'checkbox',
+        options: filterOptions.behavior.map(o => ({
+          value: o.id,
+          label: o.name,
+        })),
+        showAllThreshold: 5,
+      });
+    }
+
+    return sections;
+  }, [filterOptions]);
+
+  // Build current filter values for the drawer
+  const drawerValues: FilterValues = React.useMemo(
+    () => ({
+      scoreType: filters.scoreType,
+      type: filters.type,
+      metricScope: filters.metricScope,
+      behavior: filters.behavior,
+    }),
+    [filters.scoreType, filters.type, filters.metricScope, filters.behavior]
+  );
+
+  const handleDrawerApply = (values: FilterValues) => {
+    setFilters(prev => ({
+      ...prev,
+      scoreType: values.scoreType || [],
+      type: values.type || [],
+      metricScope: values.metricScope || [],
+      behavior: values.behavior || [],
+    }));
+    setPage(0);
+  };
+
+  const handleDrawerReset = () => {
     setFilters(prev => ({
       ...prev,
       type: [],
@@ -593,416 +651,155 @@ export default function MetricsDirectoryTab({
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Explanation */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" color="text.secondary">
-          Metrics are quantifiable measurements that evaluate behaviors and
-          determine if requirements are met.
-        </Typography>
-      </Box>
+    <>
+      <PageHeader
+        title="Metrics"
+        description="Metrics are quantifiable measurements that evaluate behaviors and determine if requirements are met."
+        actions={
+          <>
+            <FloatingActionButton
+              icon={<DownloadIcon />}
+              tooltip="Export metrics"
+            />
+            <FloatingActionButton
+              icon={<AddIcon />}
+              tooltip="New metric"
+              onClick={() => setCreateMetricOpen(true)}
+            />
+          </>
+        }
+      />
 
-      {/* Search and Filters */}
-      <SearchAndFilterBar
-        searchValue={filters.search}
-        onSearchChange={value => handleFilterChange('search', value)}
-        onReset={hasActiveFilters() ? handleResetFilters : undefined}
-        hasActiveFilters={hasActiveFilters()}
-        onAddNew={() => setCreateMetricOpen(true)}
-        addNewLabel="New Metric"
-        searchPlaceholder="Search metrics..."
-      >
-        {/* Backend Filter */}
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => handleFilterChange('backend', [])}
-            variant={filters.backend.length === 0 ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          {filterOptions.backend.map(option => {
-            const isSelected = filters.backend.includes(
-              option.type_value.toLowerCase()
-            );
-            return (
-              <Button
-                key={option.type_value}
-                onClick={() => {
-                  const value = option.type_value.toLowerCase();
-                  const newBackend = isSelected
-                    ? filters.backend.filter(b => b !== value)
-                    : [...filters.backend, value];
-                  handleFilterChange('backend', newBackend);
-                }}
-                variant={isSelected ? 'contained' : 'outlined'}
-                startIcon={<CodeIcon fontSize="small" />}
-              >
-                {option.type_value}
-              </Button>
-            );
-          })}
-        </ButtonGroup>
-
-        {/* More Filters Toggle */}
-        <Badge
-          badgeContent={activeAdvancedFilterCount}
-          color="primary"
-          invisible={activeAdvancedFilterCount === 0}
+      <Box sx={{ px: 4, pb: 4, pt: 3 }}>
+        <SearchAndFilterBar
+          searchValue={filters.search}
+          onSearchChange={value => handleFilterChange('search', value)}
+          onReset={hasActiveFilters() ? handleResetFilters : undefined}
+          hasActiveFilters={hasActiveFilters()}
+          searchPlaceholder="Search metrics..."
+          onFilterClick={() => setFilterDrawerOpen(true)}
+          activeFilterCount={activeAdvancedFilterCount}
         >
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<FilterListIcon />}
-            onClick={handleFilterClick}
-          >
-            Filters
-          </Button>
-        </Badge>
-      </SearchAndFilterBar>
+          {/* Backend Filter */}
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => handleFilterChange('backend', [])}
+              variant={filters.backend.length === 0 ? 'contained' : 'outlined'}
+              startIcon={<ListIcon fontSize="small" />}
+            >
+              All
+            </Button>
+            {filterOptions.backend.map(option => {
+              const isSelected = filters.backend.includes(
+                option.type_value.toLowerCase()
+              );
+              return (
+                <Button
+                  key={option.type_value}
+                  onClick={() => {
+                    const value = option.type_value.toLowerCase();
+                    const newBackend = isSelected
+                      ? filters.backend.filter(b => b !== value)
+                      : [...filters.backend, value];
+                    handleFilterChange('backend', newBackend);
+                  }}
+                  variant={isSelected ? 'contained' : 'outlined'}
+                  startIcon={<CodeIcon fontSize="small" />}
+                >
+                  {option.type_value}
+                </Button>
+              );
+            })}
+          </ButtonGroup>
+        </SearchAndFilterBar>
 
-      {/* Advanced Filters Popover */}
-      <Popover
-        open={open}
-        anchorEl={anchorEl}
-        onClose={handleFilterClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-        PaperProps={{
-          sx: {
-            p: 0,
-            width: 400,
-            maxHeight: 600,
-          },
-        }}
-      >
-        {/* Header */}
+        <FilterDrawer
+          open={filterDrawerOpen}
+          onClose={() => setFilterDrawerOpen(false)}
+          sections={drawerSections}
+          values={drawerValues}
+          onApply={handleDrawerApply}
+          onReset={handleDrawerReset}
+        />
+
+        {/* Metrics grid */}
         <Box
           sx={{
-            p: 2,
-            borderBottom: 1,
-            borderColor: 'divider',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              md: 'repeat(2, 1fr)',
+              lg: 'repeat(3, 1fr)',
+            },
+            gap: 3,
+            mb: 4,
           }}
         >
-          <Typography variant="subtitle1" fontWeight={600}>
-            Advanced Filters
-          </Typography>
-          {activeAdvancedFilterCount > 0 && (
-            <Button
-              size="small"
-              startIcon={<ClearAllIcon />}
-              onClick={handleClearAllAdvancedFilters}
-              color="secondary"
-            >
-              Clear All
-            </Button>
-          )}
-        </Box>
+          {filteredMetrics
+            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+            .map(metric => {
+              const assignedBehaviors = activeBehaviors.filter(b => {
+                if (!Array.isArray(metric.behaviors)) return false;
+                // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
+                const behaviorIds = metric.behaviors.map(behavior =>
+                  typeof behavior === 'string' ? behavior : behavior.id
+                );
+                return behaviorIds.includes(b.id as string);
+              });
+              const behaviorNames = assignedBehaviors.map(
+                b => b.name || 'Unnamed Behavior'
+              );
 
-        {/* Content */}
-        <Box sx={{ p: 2.5, maxHeight: 520, overflow: 'auto' }}>
-          <Stack spacing={3}>
-            {/* Score Type */}
-            <Box>
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
-              >
-                <FunctionsIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Score Type
-                </Typography>
-              </Box>
-              <FormGroup>
-                {filterOptions.scoreType.map(option => (
-                  <FormControlLabel
-                    key={option.value}
-                    control={
-                      <Checkbox
-                        checked={filters.scoreType.includes(option.value)}
-                        onChange={e => {
-                          const newScoreType = e.target.checked
-                            ? [...filters.scoreType, option.value]
-                            : filters.scoreType.filter(s => s !== option.value);
-                          handleFilterChange('scoreType', newScoreType);
-                        }}
-                        size="small"
-                      />
-                    }
-                    label={option.label}
-                  />
-                ))}
-              </FormGroup>
-            </Box>
-
-            <Divider />
-
-            {/* Metric Type */}
-            <Box>
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
-              >
-                <TuneIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Metric Type
-                </Typography>
-              </Box>
-              <FormGroup>
-                {filterOptions.type.map(option => (
-                  <FormControlLabel
-                    key={option.type_value}
-                    control={
-                      <Checkbox
-                        checked={filters.type.includes(option.type_value)}
-                        onChange={e => {
-                          const newType = e.target.checked
-                            ? [...filters.type, option.type_value]
-                            : filters.type.filter(t => t !== option.type_value);
-                          handleFilterChange('type', newType);
-                        }}
-                        size="small"
-                      />
-                    }
-                    label={option.type_value
-                      .replace(/-/g, ' ')
-                      .split(' ')
-                      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                      .join(' ')}
-                  />
-                ))}
-              </FormGroup>
-            </Box>
-
-            <Divider />
-
-            {/* Metric Scope */}
-            <Box>
-              <Box
-                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}
-              >
-                <CategoryIcon fontSize="small" color="action" />
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Metric Scope
-                </Typography>
-              </Box>
-              <FormGroup>
-                {filterOptions.metricScope.map(option => (
-                  <FormControlLabel
-                    key={option.value}
-                    control={
-                      <Checkbox
-                        checked={filters.metricScope.includes(option.value)}
-                        onChange={e => {
-                          const newScope = e.target.checked
-                            ? [...filters.metricScope, option.value]
-                            : filters.metricScope.filter(
-                                s => s !== option.value
-                              );
-                          handleFilterChange('metricScope', newScope);
-                        }}
-                        size="small"
-                      />
-                    }
-                    label={option.label}
-                  />
-                ))}
-              </FormGroup>
-            </Box>
-
-            {filterOptions.behavior.length > 0 && (
-              <>
-                <Divider />
-
-                {/* Behaviors */}
-                <Box>
+              return (
+                <Box
+                  key={metric.id}
+                  sx={{
+                    position: 'relative',
+                    ...(assignMode && {
+                      cursor: 'pointer',
+                      transition: theme.transitions.create(
+                        ['transform', 'box-shadow'],
+                        {
+                          duration: theme.transitions.duration.short,
+                        }
+                      ),
+                      '&:hover': {
+                        transform: `translateY(-${theme.spacing(0.5)})`,
+                      },
+                      '&:active': {
+                        transform: `translateY(-${theme.spacing(0.25)})`,
+                      },
+                    }),
+                  }}
+                  onClick={
+                    assignMode
+                      ? () => {
+                          setSelectedMetric(metric);
+                          setAssignDialogOpen(true);
+                        }
+                      : undefined
+                  }
+                >
                   <Box
                     sx={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
                       display: 'flex',
-                      alignItems: 'center',
                       gap: 1,
-                      mb: 1.5,
+                      zIndex: 1,
                     }}
                   >
-                    <AccountTreeIcon fontSize="small" color="action" />
-                    <Typography variant="subtitle2" fontWeight={600}>
-                      Behaviors
-                    </Typography>
-                  </Box>
-                  <FormGroup>
-                    {filterOptions.behavior.map(option => (
-                      <FormControlLabel
-                        key={option.id}
-                        control={
-                          <Checkbox
-                            checked={filters.behavior.includes(option.id)}
-                            onChange={e => {
-                              const newBehavior = e.target.checked
-                                ? [...filters.behavior, option.id]
-                                : filters.behavior.filter(b => b !== option.id);
-                              handleFilterChange('behavior', newBehavior);
-                            }}
-                            size="small"
-                          />
-                        }
-                        label={option.name}
-                      />
-                    ))}
-                  </FormGroup>
-                </Box>
-              </>
-            )}
-          </Stack>
-        </Box>
-      </Popover>
-
-      {/* Metrics grid */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            md: 'repeat(2, 1fr)',
-            lg: 'repeat(3, 1fr)',
-          },
-          gap: 3,
-          mb: 4,
-        }}
-      >
-        {filteredMetrics
-          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-          .map(metric => {
-            const assignedBehaviors = activeBehaviors.filter(b => {
-              if (!Array.isArray(metric.behaviors)) return false;
-              // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-              const behaviorIds = metric.behaviors.map(behavior =>
-                typeof behavior === 'string' ? behavior : behavior.id
-              );
-              return behaviorIds.includes(b.id as string);
-            });
-            const behaviorNames = assignedBehaviors.map(
-              b => b.name || 'Unnamed Behavior'
-            );
-
-            return (
-              <Box
-                key={metric.id}
-                sx={{
-                  position: 'relative',
-                  ...(assignMode && {
-                    cursor: 'pointer',
-                    transition: theme.transitions.create(
-                      ['transform', 'box-shadow'],
-                      {
-                        duration: theme.transitions.duration.short,
-                      }
-                    ),
-                    '&:hover': {
-                      transform: `translateY(-${theme.spacing(0.5)})`,
-                    },
-                    '&:active': {
-                      transform: `translateY(-${theme.spacing(0.25)})`,
-                    },
-                  }),
-                }}
-                onClick={
-                  assignMode
-                    ? () => {
-                        setSelectedMetric(metric);
-                        setAssignDialogOpen(true);
-                      }
-                    : undefined
-                }
-              >
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    display: 'flex',
-                    gap: 1,
-                    zIndex: 1,
-                  }}
-                >
-                  {/* Only show detail button for rhesis and custom metrics */}
-                  {(metric.backend_type?.type_value?.toLowerCase() ===
-                    'rhesis' ||
-                    metric.backend_type?.type_value?.toLowerCase() ===
-                      'custom') && (
-                    <IconButton
-                      size="small"
-                      onClick={e => {
-                        if (assignMode) e.stopPropagation();
-                        handleMetricDetail(metric.id);
-                      }}
-                      sx={{
-                        padding: theme.spacing(0.25),
-                        '& .MuiSvgIcon-root': {
-                          fontSize:
-                            theme?.typography?.helperText?.fontSize ||
-                            '0.75rem',
-                        },
-                      }}
-                    >
-                      <EditIcon fontSize="inherit" />
-                    </IconButton>
-                  )}
-                  <IconButton
-                    size="small"
-                    onClick={e => {
-                      if (assignMode) e.stopPropagation();
-                      setSelectedMetric(metric);
-                      setAssignDialogOpen(true);
-                    }}
-                    sx={{
-                      padding: theme => theme.spacing(0.25),
-                      '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
-                      },
-                    }}
-                  >
-                    <AddIcon fontSize="inherit" />
-                  </IconButton>
-                  {/* Duplicate button for rhesis and custom metrics */}
-                  {(metric.backend_type?.type_value?.toLowerCase() ===
-                    'rhesis' ||
-                    metric.backend_type?.type_value?.toLowerCase() ===
-                      'custom') && (
-                    <IconButton
-                      size="small"
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleDuplicateMetric(metric);
-                      }}
-                      sx={{
-                        padding: theme.spacing(0.25),
-                        '& .MuiSvgIcon-root': {
-                          fontSize:
-                            theme?.typography?.helperText?.fontSize ||
-                            '0.75rem',
-                        },
-                      }}
-                    >
-                      <ContentCopyIcon fontSize="inherit" />
-                    </IconButton>
-                  )}
-                  {/* Only show delete button for unassigned custom metrics */}
-                  {assignedBehaviors.length === 0 &&
-                    metric.backend_type?.type_value?.toLowerCase() ===
-                      'custom' && (
+                    {/* Only show detail button for rhesis and custom metrics */}
+                    {(metric.backend_type?.type_value?.toLowerCase() ===
+                      'rhesis' ||
+                      metric.backend_type?.type_value?.toLowerCase() ===
+                        'custom') && (
                       <IconButton
                         size="small"
                         onClick={e => {
-                          e.stopPropagation();
-                          handleDeleteMetric(metric.id, metric.name);
+                          if (assignMode) e.stopPropagation();
+                          handleMetricDetail(metric.id);
                         }}
                         sx={{
                           padding: theme.spacing(0.25),
@@ -1013,70 +810,134 @@ export default function MetricsDirectoryTab({
                           },
                         }}
                       >
-                        <DeleteIcon fontSize="inherit" />
+                        <EditIcon fontSize="inherit" />
                       </IconButton>
                     )}
+                    <IconButton
+                      size="small"
+                      onClick={e => {
+                        if (assignMode) e.stopPropagation();
+                        setSelectedMetric(metric);
+                        setAssignDialogOpen(true);
+                      }}
+                      sx={{
+                        padding: theme => theme.spacing(0.25),
+                        '& .MuiSvgIcon-root': {
+                          fontSize:
+                            theme?.typography?.helperText?.fontSize ||
+                            '0.75rem',
+                        },
+                      }}
+                    >
+                      <AddIcon fontSize="inherit" />
+                    </IconButton>
+                    {/* Duplicate button for rhesis and custom metrics */}
+                    {(metric.backend_type?.type_value?.toLowerCase() ===
+                      'rhesis' ||
+                      metric.backend_type?.type_value?.toLowerCase() ===
+                        'custom') && (
+                      <IconButton
+                        size="small"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDuplicateMetric(metric);
+                        }}
+                        sx={{
+                          padding: theme.spacing(0.25),
+                          '& .MuiSvgIcon-root': {
+                            fontSize:
+                              theme?.typography?.helperText?.fontSize ||
+                              '0.75rem',
+                          },
+                        }}
+                      >
+                        <ContentCopyIcon fontSize="inherit" />
+                      </IconButton>
+                    )}
+                    {/* Only show delete button for unassigned custom metrics */}
+                    {assignedBehaviors.length === 0 &&
+                      metric.backend_type?.type_value?.toLowerCase() ===
+                        'custom' && (
+                        <IconButton
+                          size="small"
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleDeleteMetric(metric.id, metric.name);
+                          }}
+                          sx={{
+                            padding: theme.spacing(0.25),
+                            '& .MuiSvgIcon-root': {
+                              fontSize:
+                                theme?.typography?.helperText?.fontSize ||
+                                '0.75rem',
+                            },
+                          }}
+                        >
+                          <DeleteIcon fontSize="inherit" />
+                        </IconButton>
+                      )}
+                  </Box>
+                  <MetricCard
+                    type={
+                      isValidMetricType(metric.metric_type?.type_value)
+                        ? metric.metric_type.type_value
+                        : undefined
+                    }
+                    title={metric.name}
+                    description={metric.description}
+                    backend={metric.backend_type?.type_value}
+                    metricType={metric.metric_type?.type_value}
+                    scoreType={metric.score_type}
+                    metricScope={metric.metric_scope}
+                    usedIn={behaviorNames}
+                    showUsage={true}
+                  />
                 </Box>
-                <MetricCard
-                  type={
-                    isValidMetricType(metric.metric_type?.type_value)
-                      ? metric.metric_type.type_value
-                      : undefined
-                  }
-                  title={metric.name}
-                  description={metric.description}
-                  backend={metric.backend_type?.type_value}
-                  metricType={metric.metric_type?.type_value}
-                  scoreType={metric.score_type}
-                  metricScope={metric.metric_scope}
-                  usedIn={behaviorNames}
-                  showUsage={true}
-                />
-              </Box>
-            );
-          })}
-      </Box>
-      {filteredMetrics.length > 0 && (
-        <TablePagination
-          component="div"
-          count={filteredMetrics.length}
-          page={page}
-          onPageChange={(_event, newPage) => setPage(newPage)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={event => {
-            setRowsPerPage(parseInt(event.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[25, 50, 100]}
-          labelRowsPerPage="Metrics per page:"
-          sx={{ mb: 2 }}
+              );
+            })}
+        </Box>
+        {filteredMetrics.length > 0 && (
+          <TablePagination
+            component="div"
+            count={filteredMetrics.length}
+            page={page}
+            onPageChange={(_event, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={event => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            rowsPerPageOptions={[25, 50, 100]}
+            labelRowsPerPage="Metrics per page:"
+            sx={{ mb: 2 }}
+          />
+        )}
+        {/* Dialogs */}
+        <DeleteModal
+          open={deleteMetricDialogOpen}
+          onClose={handleCancelDeleteMetric}
+          onConfirm={handleConfirmDeleteMetric}
+          isLoading={isDeletingMetric}
+          itemType="metric"
+          itemName={metricToDeleteCompletely?.name}
         />
-      )}
-      {/* Dialogs */}
-      <DeleteModal
-        open={deleteMetricDialogOpen}
-        onClose={handleCancelDeleteMetric}
-        onConfirm={handleConfirmDeleteMetric}
-        isLoading={isDeletingMetric}
-        itemType="metric"
-        itemName={metricToDeleteCompletely?.name}
-      />
-      <SelectBehaviorsDialog
-        open={assignDialogOpen}
-        onClose={() => {
-          setAssignDialogOpen(false);
-          setSelectedMetric(null);
-        }}
-        onSelect={handleAssignMetric}
-        sessionToken={sessionToken}
-        excludeBehaviorIds={(selectedMetric?.behaviors || [])
-          .filter(b => typeof b !== 'string' && b.id)
-          .map(b => (typeof b !== 'string' ? b.id : (b as unknown as UUID)))}
-      />
-      <MetricTypeDialog
-        open={createMetricOpen}
-        onClose={() => setCreateMetricOpen(false)}
-      />
-    </Box>
+        <SelectBehaviorsDialog
+          open={assignDialogOpen}
+          onClose={() => {
+            setAssignDialogOpen(false);
+            setSelectedMetric(null);
+          }}
+          onSelect={handleAssignMetric}
+          sessionToken={sessionToken}
+          excludeBehaviorIds={(selectedMetric?.behaviors || [])
+            .filter(b => typeof b !== 'string' && b.id)
+            .map(b => (typeof b !== 'string' ? b.id : (b as unknown as UUID)))}
+        />
+        <MetricTypeDialog
+          open={createMetricOpen}
+          onClose={() => setCreateMetricOpen(false)}
+        />
+      </Box>
+    </>
   );
 }

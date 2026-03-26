@@ -30,9 +30,9 @@ export default function FloatingActionButton({
         width: 44,
         height: 44,
         minHeight: 44,
-        boxShadow: '0px 2px 4px rgba(84, 90, 101, 0.25)',
+        boxShadow: (theme: any) => theme.shadows[2],
         '&:hover': {
-          boxShadow: '0px 4px 8px rgba(84, 90, 101, 0.3)',
+          boxShadow: (theme: any) => theme.shadows[4],
         },
         '& .MuiSvgIcon-root': { fontSize: 24 },
       }}

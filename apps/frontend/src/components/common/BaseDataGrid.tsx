@@ -176,7 +176,7 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
 
   '& .MuiDataGrid-footerContainer': {
     borderTop: 'none',
-    padding: '12px 20px',
+    padding: (t: any) => `${t.spacing(1.5)} ${t.spacing(2.5)}`,
   },
   '& .MuiTablePagination-root': {
     overflow: 'visible',
@@ -210,7 +210,7 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
     '& .MuiIconButton-root': {
       border: '2px solid',
       borderColor: theme.palette.grey[300],
-      borderRadius: 8,
+      borderRadius: (t: any) => `${t.customRadius.m}px`,
       padding: 9,
       width: 38,
       height: 38,

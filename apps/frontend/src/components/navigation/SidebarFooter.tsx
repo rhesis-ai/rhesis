@@ -102,7 +102,7 @@ export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
       <Box
         sx={{
           bgcolor: 'background.paper',
-          borderRadius: 2,
+          borderRadius: (theme: any) => `${theme.customRadius.xl}px`,
           display: 'flex',
           flexDirection: 'column',
         }}

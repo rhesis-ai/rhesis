@@ -25,7 +25,7 @@ export default function UserAvatarRow({
         gap: 1.25,
         cursor: 'pointer',
         p: 1.25,
-        borderRadius: '999px',
+        borderRadius: (theme: any) => `${theme.customRadius.full}px`,
         '&:hover': { bgcolor: 'grey.200' },
       }}
     >

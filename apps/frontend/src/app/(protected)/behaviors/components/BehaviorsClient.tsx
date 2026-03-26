@@ -5,15 +5,13 @@ import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import AddIcon from '@mui/icons-material/Add';
-import ListIcon from '@mui/icons-material/List';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import ClearIcon from '@mui/icons-material/Clear';
+import AddIcon from '@mui/icons-material/AddOutlined';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 import { useNotifications } from '@/components/common/NotificationContext';
+import PageHeader from '@/components/layout/PageHeader';
+import FloatingActionButton from '@/components/common/FloatingActionButton';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
@@ -21,6 +19,7 @@ import BehaviorCard from './BehaviorCard';
 import BehaviorDrawer from './BehaviorDrawer';
 import BehaviorMetricsViewer from './BehaviorMetricsViewer';
 import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
+import FilterDrawer, { FilterValues } from '@/components/common/FilterDrawer';
 import { generateCopyName } from '@/utils/entity-helpers';
 
 interface BehaviorsClientProps {
@@ -63,6 +62,9 @@ export default function BehaviorsClient({
   const [metricCountFilter, setMetricCountFilter] = React.useState<
     'all' | 'has_metrics' | 'no_metrics'
   >('all');
+
+  // Filter drawer state
+  const [filterDrawerOpen, setFilterDrawerOpen] = React.useState(false);
 
   // Refresh key for manual refresh
   const [refreshKey, setRefreshKey] = React.useState(0);
@@ -389,198 +391,181 @@ export default function BehaviorsClient({
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Header with explanation */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" color="text.secondary">
-          Behaviors are atomic expectations for your application, measured
-          through one or more metrics to determine if requirements are met.
-        </Typography>
-      </Box>
-
-      {/* Search and Filter Bar */}
-      <SearchAndFilterBar
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        onAddNew={handleAddNewBehavior}
-        addNewLabel="New Behavior"
-        searchPlaceholder="Search behaviors..."
-      >
-        {/* Metric Count Filter */}
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => setMetricCountFilter('all')}
-            variant={metricCountFilter === 'all' ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => setMetricCountFilter('has_metrics')}
-            variant={
-              metricCountFilter === 'has_metrics' ? 'contained' : 'outlined'
-            }
-            startIcon={<CheckCircleIcon fontSize="small" />}
-            sx={{
-              ...(metricCountFilter === 'has_metrics' && {
-                backgroundColor: theme.palette.success.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.success.dark,
-                },
-              }),
-            }}
-          >
-            Has Metrics
-          </Button>
-          <Button
-            onClick={() => setMetricCountFilter('no_metrics')}
-            variant={
-              metricCountFilter === 'no_metrics' ? 'contained' : 'outlined'
-            }
-            startIcon={<ErrorOutlineIcon fontSize="small" />}
-            sx={{
-              ...(metricCountFilter === 'no_metrics' && {
-                backgroundColor: theme.palette.warning.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.warning.dark,
-                },
-              }),
-            }}
-          >
-            No Metrics
-          </Button>
-        </ButtonGroup>
-
-        {/* Reset Button - inline with filters */}
-        {hasActiveFilters && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<ClearIcon />}
-            onClick={handleResetFilters}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
-            Reset
-          </Button>
-        )}
-      </SearchAndFilterBar>
-
-      {/* Behaviors grid */}
-      {filteredBehaviors.length > 0 ? (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              md: 'repeat(2, 1fr)',
-              lg: 'repeat(3, 1fr)',
-            },
-            gap: 3,
-            mb: 4,
-          }}
-        >
-          {filteredBehaviors
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map(behavior => (
-              <BehaviorCard
-                key={behavior.id}
-                behavior={behavior}
-                onEdit={() =>
-                  handleEditBehavior(
-                    behavior.id,
-                    behavior.name,
-                    behavior.description || ''
-                  )
-                }
-                onDuplicate={() =>
-                  handleDuplicateBehavior(
-                    behavior.id,
-                    behavior.name,
-                    behavior.description || ''
-                  )
-                }
-                onViewMetrics={() => handleViewMetrics(behavior)}
-                onRefresh={handleRefresh}
-                sessionToken={sessionToken}
-              />
-            ))}
-        </Box>
-      ) : behaviors.length > 0 ? (
-        <Box
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            border: theme => `2px dashed ${theme.palette.divider}`,
-            borderRadius: theme.shape.borderRadius / 2,
-          }}
-        >
-          <Typography variant="body1" color="text.secondary">
-            No behaviors match your search criteria.
-          </Typography>
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            border: theme => `2px dashed ${theme.palette.divider}`,
-            borderRadius: theme.shape.borderRadius / 2,
-          }}
-        >
-          <Typography variant="body1" color="text.secondary" gutterBottom>
-            No behaviors found. Create your first behavior to get started.
-          </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<AddIcon />}
-            onClick={handleAddNewBehavior}
-            sx={{ mt: 2 }}
-          >
-            Add New Behavior
-          </Button>
-        </Box>
-      )}
-
-      {/* Behavior Edit Drawer */}
-      {editingBehavior && (
-        <BehaviorDrawer
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          name={editingBehavior.name}
-          description={editingBehavior.description}
-          onSave={handleSaveBehavior}
-          onDuplicate={
-            !isNewBehavior && editingBehavior.id
-              ? () =>
-                  handleDuplicateBehavior(
-                    editingBehavior.id!,
-                    editingBehavior.name,
-                    editingBehavior.description
-                  )
-              : undefined
-          }
-          onDelete={
-            !isNewBehavior &&
-            editingBehavior.id &&
-            behaviors.find(b => b.id === editingBehavior.id)?.metrics
-              ?.length === 0
-              ? handleDeleteBehavior
-              : undefined
-          }
-          isNew={isNewBehavior}
-          loading={drawerLoading}
-          error={drawerError}
-        />
-      )}
-
-      {/* Behavior Metrics Viewer */}
-      <BehaviorMetricsViewer
-        open={metricsViewerOpen}
-        onClose={handleMetricsViewerClose}
-        behavior={viewingBehavior}
-        sessionToken={sessionToken}
-        onRefresh={handleMetricsViewerRefresh}
+    <>
+      <PageHeader
+        title="Behaviors"
+        description="Behaviors are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
+        actions={
+          <>
+            <FloatingActionButton
+              icon={<DownloadIcon />}
+              tooltip="Export behaviors"
+            />
+            <FloatingActionButton
+              icon={<AddIcon />}
+              tooltip="New behavior"
+              onClick={handleAddNewBehavior}
+            />
+          </>
+        }
       />
-    </Box>
+
+      <Box sx={{ px: 4, pb: 4, pt: 3 }}>
+        <SearchAndFilterBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search behaviors..."
+          onFilterClick={() => setFilterDrawerOpen(true)}
+          activeFilterCount={metricCountFilter !== 'all' ? 1 : 0}
+          hasActiveFilters={hasActiveFilters}
+          onReset={hasActiveFilters ? handleResetFilters : undefined}
+        />
+
+        <FilterDrawer
+          open={filterDrawerOpen}
+          onClose={() => setFilterDrawerOpen(false)}
+          sections={[
+            {
+              id: 'metricCount',
+              title: 'Metric Status',
+              type: 'radio',
+              options: [
+                { value: 'all', label: 'All' },
+                { value: 'has_metrics', label: 'Has Metrics' },
+                { value: 'no_metrics', label: 'No Metrics' },
+              ],
+            },
+          ]}
+          values={{ metricCount: [metricCountFilter] }}
+          onApply={(values: FilterValues) => {
+            const filter = (values.metricCount?.[0] || 'all') as
+              | 'all'
+              | 'has_metrics'
+              | 'no_metrics';
+            setMetricCountFilter(filter);
+          }}
+          onReset={() => {
+            setMetricCountFilter('all');
+          }}
+        />
+
+        {/* Behaviors grid */}
+        {filteredBehaviors.length > 0 ? (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                md: 'repeat(2, 1fr)',
+                lg: 'repeat(3, 1fr)',
+              },
+              gap: 3,
+              mb: 4,
+            }}
+          >
+            {filteredBehaviors
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map(behavior => (
+                <BehaviorCard
+                  key={behavior.id}
+                  behavior={behavior}
+                  onEdit={() =>
+                    handleEditBehavior(
+                      behavior.id,
+                      behavior.name,
+                      behavior.description || ''
+                    )
+                  }
+                  onDuplicate={() =>
+                    handleDuplicateBehavior(
+                      behavior.id,
+                      behavior.name,
+                      behavior.description || ''
+                    )
+                  }
+                  onViewMetrics={() => handleViewMetrics(behavior)}
+                  onRefresh={handleRefresh}
+                  sessionToken={sessionToken}
+                />
+              ))}
+          </Box>
+        ) : behaviors.length > 0 ? (
+          <Box
+            sx={{
+              p: 4,
+              textAlign: 'center',
+              border: theme => `2px dashed ${theme.palette.divider}`,
+              borderRadius: theme.shape.borderRadius / 2,
+            }}
+          >
+            <Typography variant="body1" color="text.secondary">
+              No behaviors match your search criteria.
+            </Typography>
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              p: 4,
+              textAlign: 'center',
+              border: theme => `2px dashed ${theme.palette.divider}`,
+              borderRadius: theme.shape.borderRadius / 2,
+            }}
+          >
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              No behaviors found. Create your first behavior to get started.
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={handleAddNewBehavior}
+              sx={{ mt: 2 }}
+            >
+              Add New Behavior
+            </Button>
+          </Box>
+        )}
+
+        {/* Behavior Edit Drawer */}
+        {editingBehavior && (
+          <BehaviorDrawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            name={editingBehavior.name}
+            description={editingBehavior.description}
+            onSave={handleSaveBehavior}
+            onDuplicate={
+              !isNewBehavior && editingBehavior.id
+                ? () =>
+                    handleDuplicateBehavior(
+                      editingBehavior.id!,
+                      editingBehavior.name,
+                      editingBehavior.description
+                    )
+                : undefined
+            }
+            onDelete={
+              !isNewBehavior &&
+              editingBehavior.id &&
+              behaviors.find(b => b.id === editingBehavior.id)?.metrics
+                ?.length === 0
+                ? handleDeleteBehavior
+                : undefined
+            }
+            isNew={isNewBehavior}
+            loading={drawerLoading}
+            error={drawerError}
+          />
+        )}
+
+        {/* Behavior Metrics Viewer */}
+        <BehaviorMetricsViewer
+          open={metricsViewerOpen}
+          onClose={handleMetricsViewerClose}
+          behavior={viewingBehavior}
+          sessionToken={sessionToken}
+          onRefresh={handleMetricsViewerRefresh}
+        />
+      </Box>
+    </>
   );
 }

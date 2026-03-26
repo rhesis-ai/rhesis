@@ -5,14 +5,13 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import MetricsClientComponent from './components/MetricsClient';
+import PageHeader from '@/components/layout/PageHeader';
 import type { UUID } from 'crypto';
 
 export default function MetricsPage() {
   const { data: session, status } = useSession();
 
-  // Use memoized values to prevent unnecessary re-renders from session object recreation
   const sessionToken = React.useMemo(
     () => session?.session_token,
     [session?.session_token]
@@ -22,13 +21,18 @@ export default function MetricsPage() {
     [session?.user?.organization_id]
   );
 
-  // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Metrics" breadcrumbs={[]}>
+      <>
+        <PageHeader
+          title="Metrics"
+          description="Metrics are quantifiable measurements that evaluate behaviors and determine if requirements are met."
+        />
         <Box
           sx={{
-            p: 3,
+            px: 4,
+            pb: 4,
+            pt: 3,
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -40,29 +44,30 @@ export default function MetricsPage() {
             <Typography>Loading metrics...</Typography>
           </Box>
         </Box>
-      </PageContainer>
+      </>
     );
   }
 
-  // Handle no session state
   if (!sessionToken) {
     return (
-      <PageContainer title="Metrics" breadcrumbs={[]}>
-        <Box sx={{ p: 3 }}>
+      <>
+        <PageHeader
+          title="Metrics"
+          description="Metrics are quantifiable measurements that evaluate behaviors and determine if requirements are met."
+        />
+        <Box sx={{ px: 4, pb: 4, pt: 3 }}>
           <Typography color="error">
             Authentication required. Please log in.
           </Typography>
         </Box>
-      </PageContainer>
+      </>
     );
   }
 
   return (
-    <PageContainer title="Metrics" breadcrumbs={[]}>
-      <MetricsClientComponent
-        sessionToken={sessionToken}
-        organizationId={organizationId}
-      />
-    </PageContainer>
+    <MetricsClientComponent
+      sessionToken={sessionToken}
+      organizationId={organizationId}
+    />
   );
 }

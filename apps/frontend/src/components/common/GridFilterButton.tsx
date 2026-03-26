@@ -21,7 +21,7 @@ export default function GridFilterButton({
         height: 38,
         bgcolor: 'primary.main',
         color: '#fff',
-        borderRadius: 1,
+        borderRadius: (theme: any) => `${theme.customRadius.m}px`,
         '&:hover': { bgcolor: 'primary.dark' },
         ...sx,
       }}

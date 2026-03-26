@@ -24,7 +24,7 @@ export default function GridToolbarActions({
           textTransform: 'none',
           px: 2,
           py: 1,
-          borderRadius: 1,
+          borderRadius: (theme: any) => `${theme.customRadius.m}px`,
           '& .MuiButton-startIcon': {
             '& .MuiSvgIcon-root': { fontSize: 20 },
           },

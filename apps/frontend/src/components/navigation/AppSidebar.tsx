@@ -199,6 +199,7 @@ export default function AppSidebar({
               );
             }
             return (
+              // eslint-disable-next-line react/no-array-index-key
               <React.Fragment key={`group-${idx}`}>
                 {renderedItems}
               </React.Fragment>
@@ -238,7 +239,7 @@ export default function AppSidebar({
             position: 'absolute',
             top: 26,
             right: 14,
-            borderRadius: 1.5,
+            borderRadius: (theme: any) => `${theme.customRadius.l}px`,
             p: 1.5,
           }}
         >
@@ -282,6 +283,7 @@ export default function AppSidebar({
             }
 
             return (
+              // eslint-disable-next-line react/no-array-index-key
               <React.Fragment key={`group-${idx}`}>
                 {renderedItems}
               </React.Fragment>

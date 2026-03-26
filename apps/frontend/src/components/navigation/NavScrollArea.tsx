@@ -23,7 +23,7 @@ export default function NavScrollArea({
         '&::-webkit-scrollbar': { width: 4 },
         '&::-webkit-scrollbar-thumb': {
           bgcolor: 'grey.300',
-          borderRadius: 2,
+          borderRadius: (theme: any) => `${theme.customRadius.xl}px`,
         },
         ...sx,
       }}

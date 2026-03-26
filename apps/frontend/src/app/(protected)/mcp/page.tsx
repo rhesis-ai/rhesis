@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
+import AddIcon from '@mui/icons-material/AddOutlined';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
+import PageHeader from '@/components/layout/PageHeader';
+import FloatingActionButton from '@/components/common/FloatingActionButton';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   Tool,
@@ -15,7 +18,6 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
 import {
   ConnectedToolCard,
-  AddToolCard,
   MCPProviderSelectionDialog,
   MCPConnectionDialog,
 } from './components';
@@ -191,88 +193,99 @@ export default function MCPSPage() {
   };
 
   return (
-    <PageContainer title="MCP" breadcrumbs={[]}>
-      <Box sx={{ mb: 3 }}>
-        <Typography color="text.secondary">
-          Connect to Model Context Protocol (MCP) providers to import knowledge
-          sources and enhance your evaluation workflows.
-        </Typography>
+    <>
+      <PageHeader
+        title="MCP"
+        description="Connect to Model Context Protocol (MCP) providers to import knowledge sources and enhance your evaluation workflows."
+        actions={
+          <>
+            <FloatingActionButton
+              icon={<DownloadIcon />}
+              tooltip="Export MCP connections"
+            />
+            <FloatingActionButton
+              icon={<AddIcon />}
+              tooltip="Add MCP connection"
+              onClick={handleAddMCP}
+            />
+          </>
+        }
+      />
+
+      <Box sx={{ px: 4, pb: 4, pt: 3 }}>
         {error && (
-          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
-      </Box>
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-            },
-            gap: 3,
-            width: '100%',
-            px: 0,
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+              },
+              gap: 3,
+              width: '100%',
+              px: 0,
+            }}
+          >
+            {/* Connected MCP Cards */}
+            {tools.map(tool => (
+              <ConnectedToolCard
+                key={tool.id}
+                tool={tool}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteClick}
+              />
+            ))}
+          </Box>
+        )}
+
+        <MCPProviderSelectionDialog
+          open={providerSelectionOpen}
+          onClose={() => setProviderSelectionOpen(false)}
+          onSelectProvider={handleProviderSelect}
+          providers={providerTypes}
+        />
+
+        <MCPConnectionDialog
+          open={connectionDialogOpen}
+          provider={selectedProvider}
+          mcpToolType={mcpToolType}
+          tool={toolToEdit}
+          mode={toolToEdit ? 'edit' : 'create'}
+          onClose={() => {
+            setConnectionDialogOpen(false);
+            // Delay clearing state to prevent button text flicker during closing animation
+            setTimeout(() => {
+              setSelectedProvider(null);
+              setToolToEdit(null);
+            }, 200);
           }}
-        >
-          {/* Connected MCP Cards */}
-          {tools.map(tool => (
-            <ConnectedToolCard
-              key={tool.id}
-              tool={tool}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteClick}
-            />
-          ))}
+          onConnect={handleConnect}
+          onUpdate={handleUpdate}
+        />
 
-          {/* Add MCP Card */}
-          <AddToolCard onClick={handleAddMCP} />
-        </Box>
-      )}
-
-      <MCPProviderSelectionDialog
-        open={providerSelectionOpen}
-        onClose={() => setProviderSelectionOpen(false)}
-        onSelectProvider={handleProviderSelect}
-        providers={providerTypes}
-      />
-
-      <MCPConnectionDialog
-        open={connectionDialogOpen}
-        provider={selectedProvider}
-        mcpToolType={mcpToolType}
-        tool={toolToEdit}
-        mode={toolToEdit ? 'edit' : 'create'}
-        onClose={() => {
-          setConnectionDialogOpen(false);
-          // Delay clearing state to prevent button text flicker during closing animation
-          setTimeout(() => {
-            setSelectedProvider(null);
-            setToolToEdit(null);
-          }, 200);
-        }}
-        onConnect={handleConnect}
-        onUpdate={handleUpdate}
-      />
-
-      <DeleteModal
-        open={deleteDialogOpen}
-        onClose={() => {
-          setDeleteDialogOpen(false);
-          setToolToDelete(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        itemType="MCP connection"
-        itemName={toolToDelete?.name}
-        title="Delete MCP Connection"
-      />
-    </PageContainer>
+        <DeleteModal
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setToolToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          itemType="MCP connection"
+          itemName={toolToDelete?.name}
+          title="Delete MCP Connection"
+        />
+      </Box>
+    </>
   );
 }

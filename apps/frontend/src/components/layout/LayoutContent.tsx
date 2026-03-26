@@ -16,8 +16,7 @@ import {
   type AuthenticationProps,
 } from '../../types/navigation';
 import { type Session } from 'next-auth';
-import { type Theme } from '@mui/material/styles';
-import { useTheme } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 function getAllSegments(items: NavigationItem[]): string[] {
   return items.reduce<string[]>((acc, item) => {

@@ -28,7 +28,7 @@ export default function SidebarLinkItem({
         color: 'text.secondary',
         px: 1.75,
         py: 1,
-        borderRadius: 1,
+        borderRadius: (theme: any) => `${theme.customRadius.m}px`,
         '&:hover': { bgcolor: 'grey.200' },
       }}
     >

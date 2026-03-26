@@ -1,9 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Alert, CircularProgress } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import {
+  Box,
+  Typography,
+  Alert,
+  CircularProgress,
+  ButtonGroup,
+  Button,
+} from '@mui/material';
 import { useSession } from 'next-auth/react';
+import AddIcon from '@mui/icons-material/AddOutlined';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
+import TranslateIcon from '@mui/icons-material/Translate';
+import DataObjectIcon from '@mui/icons-material/DataObject';
+import PageHeader from '@/components/layout/PageHeader';
+import FloatingActionButton from '@/components/common/FloatingActionButton';
+import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
@@ -14,7 +27,6 @@ import {
   ProviderSelectionDialog,
   ConnectionDialog,
   ConnectedModelCard,
-  AddModelCard,
 } from './components';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
 import type { ValidationStatus } from './types';
@@ -44,6 +56,10 @@ export default function ModelsPage() {
   >('language');
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
   const [organization, setOrganization] = useState<any>(null);
+  const [modelTab, setModelTab] = useState<'language' | 'embedding'>(
+    'language'
+  );
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -106,13 +122,8 @@ export default function ModelsPage() {
     loadData();
   }, [session]);
 
-  const handleAddLLM = () => {
-    setSelectedModelType('language');
-    setProviderSelectionOpen(true);
-  };
-
-  const handleAddEmbedding = () => {
-    setSelectedModelType('embedding');
+  const handleAddModel = () => {
+    setSelectedModelType(modelTab);
     setProviderSelectionOpen(true);
   };
 
@@ -329,7 +340,7 @@ export default function ModelsPage() {
     }
   };
 
-  const handleRequestPolyphemusAccess = (model: Model) => {
+  const handleRequestPolyphemusAccess = (_model: Model) => {
     setPolyphemusModalOpen(true);
   };
 
@@ -346,150 +357,178 @@ export default function ModelsPage() {
     model => model.model_type === 'embedding'
   );
 
+  // Apply search filter
+  const filterBySearch = (models: Model[]) => {
+    if (!searchQuery.trim()) return models;
+    const query = searchQuery.toLowerCase();
+    return models.filter(
+      model =>
+        model.name?.toLowerCase().includes(query) ||
+        model.provider_type?.type_value?.toLowerCase().includes(query)
+    );
+  };
+
+  const filteredModels =
+    modelTab === 'language'
+      ? filterBySearch(languageModels)
+      : filterBySearch(embeddingModels);
+
+  const hasActiveFilters = searchQuery.trim() !== '';
+  const handleResetFilters = () => setSearchQuery('');
+
   return (
-    <PageContainer title="Models" breadcrumbs={[]}>
-      <Box sx={{ mb: 3 }}>
-        <Typography color="text.secondary">
-          Connect language models for test generation and
-          language-model-as-judge evaluation, and embedding models for semantic
-          search. Set your default models for each purpose.
-        </Typography>
+    <>
+      <PageHeader
+        title="Models"
+        description="Connect language models for test generation and language-model-as-judge evaluation, and embedding models for semantic search. Set your default models for each purpose."
+        actions={
+          <>
+            <FloatingActionButton
+              icon={<DownloadIcon />}
+              tooltip="Export models"
+            />
+            <FloatingActionButton
+              icon={<AddIcon />}
+              tooltip={
+                modelTab === 'language'
+                  ? 'Add language model'
+                  : 'Add embedding model'
+              }
+              onClick={handleAddModel}
+            />
+          </>
+        }
+      />
+
+      <Box sx={{ px: 4, pb: 4, pt: 3 }}>
         {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
+          <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
         )}
-      </Box>
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <>
-          {/* Language Models Section */}
-          <Box sx={{ mb: 6 }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+        <SearchAndFilterBar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search models..."
+          hasActiveFilters={hasActiveFilters}
+          onReset={hasActiveFilters ? handleResetFilters : undefined}
+        >
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => setModelTab('language')}
+              variant={modelTab === 'language' ? 'contained' : 'outlined'}
+              startIcon={<TranslateIcon fontSize="small" />}
+            >
               Language Models
-            </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: 'repeat(2, 1fr)',
-                  md: 'repeat(3, 1fr)',
-                },
-                gap: 3,
-                width: '100%',
-                px: 0,
-              }}
+            </Button>
+            <Button
+              onClick={() => setModelTab('embedding')}
+              variant={modelTab === 'embedding' ? 'contained' : 'outlined'}
+              startIcon={<DataObjectIcon fontSize="small" />}
             >
-              {/* Connected Language Model Cards */}
-              {languageModels.map(model => (
-                <ConnectedModelCard
-                  key={model.id}
-                  model={model}
-                  userSettings={userSettings}
-                  isVerified={userSettings?.is_verified}
-                  validationStatus={modelValidationStatus.get(model.id)}
-                  onEdit={handleEditClick}
-                  onDelete={handleDeleteClick}
-                  onRequestAccess={handleRequestPolyphemusAccess}
-                />
-              ))}
-
-              {/* Add Language Model Card */}
-              <AddModelCard onClick={handleAddLLM} />
-            </Box>
-          </Box>
-
-          {/* Embedding Models Section */}
-          <Box>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
               Embedding Models
-            </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: 'repeat(2, 1fr)',
-                  md: 'repeat(3, 1fr)',
-                },
-                gap: 3,
-                width: '100%',
-                px: 0,
-              }}
-            >
-              {/* Connected Embedding Model Cards */}
-              {embeddingModels.map(model => (
-                <ConnectedModelCard
-                  key={model.id}
-                  model={model}
-                  userSettings={userSettings}
-                  isVerified={userSettings?.is_verified}
-                  validationStatus={modelValidationStatus.get(model.id)}
-                  onEdit={handleEditClick}
-                  onDelete={handleDeleteClick}
-                  onRequestAccess={handleRequestPolyphemusAccess}
-                />
-              ))}
+            </Button>
+          </ButtonGroup>
+        </SearchAndFilterBar>
 
-              {/* Add Embedding Model Card */}
-              <AddModelCard onClick={handleAddEmbedding} />
-            </Box>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
           </Box>
-        </>
-      )}
+        ) : (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: '1fr',
+                sm: 'repeat(2, 1fr)',
+                md: 'repeat(3, 1fr)',
+              },
+              gap: 3,
+              width: '100%',
+            }}
+          >
+            {filteredModels.map(model => (
+              <ConnectedModelCard
+                key={model.id}
+                model={model}
+                userSettings={userSettings}
+                isVerified={userSettings?.is_verified}
+                validationStatus={modelValidationStatus.get(model.id)}
+                onEdit={handleEditClick}
+                onDelete={handleDeleteClick}
+                onRequestAccess={handleRequestPolyphemusAccess}
+              />
+            ))}
+            {filteredModels.length === 0 && (
+              <Box
+                sx={{
+                  gridColumn: '1 / -1',
+                  p: 4,
+                  textAlign: 'center',
+                  border: theme => `2px dashed ${theme.palette.divider}`,
+                  borderRadius: 1,
+                }}
+              >
+                <Typography color="text.secondary">
+                  {hasActiveFilters
+                    ? 'No models match your search.'
+                    : `No ${modelTab} models connected yet. Click the + button to add one.`}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        )}
 
-      <ProviderSelectionDialog
-        open={providerSelectionOpen}
-        onClose={() => setProviderSelectionOpen(false)}
-        onSelectProvider={handleProviderSelect}
-        providers={providerTypes}
-        modelType={selectedModelType}
-      />
+        <ProviderSelectionDialog
+          open={providerSelectionOpen}
+          onClose={() => setProviderSelectionOpen(false)}
+          onSelectProvider={handleProviderSelect}
+          providers={providerTypes}
+          modelType={selectedModelType}
+        />
 
-      <ConnectionDialog
-        open={connectionDialogOpen}
-        provider={selectedProvider}
-        model={modelToEdit}
-        mode={modelToEdit ? 'edit' : 'create'}
-        modelType={selectedModelType}
-        userSettings={userSettings}
-        onClose={() => {
-          setConnectionDialogOpen(false);
-          // Delay clearing state to prevent button text flicker during closing animation
-          setTimeout(() => {
-            setSelectedProvider(null);
-            setModelToEdit(null);
-          }, 200);
-        }}
-        onConnect={handleConnect}
-        onUpdate={handleUpdate}
-        onUserSettingsUpdate={refreshUserSettings}
-      />
+        <ConnectionDialog
+          open={connectionDialogOpen}
+          provider={selectedProvider}
+          model={modelToEdit}
+          mode={modelToEdit ? 'edit' : 'create'}
+          modelType={selectedModelType}
+          userSettings={userSettings}
+          onClose={() => {
+            setConnectionDialogOpen(false);
+            // Delay clearing state to prevent button text flicker during closing animation
+            setTimeout(() => {
+              setSelectedProvider(null);
+              setModelToEdit(null);
+            }, 200);
+          }}
+          onConnect={handleConnect}
+          onUpdate={handleUpdate}
+          onUserSettingsUpdate={refreshUserSettings}
+        />
 
-      <DeleteModal
-        open={deleteDialogOpen}
-        onClose={() => {
-          setDeleteDialogOpen(false);
-          setModelToDelete(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        itemType="model connection"
-        itemName={modelToDelete?.name}
-        title="Delete Model Connection"
-      />
+        <DeleteModal
+          open={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setModelToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          itemType="model connection"
+          itemName={modelToDelete?.name}
+          title="Delete Model Connection"
+        />
 
-      <PolyphemusAccessModal
-        open={polyphemusModalOpen}
-        onClose={() => setPolyphemusModalOpen(false)}
-        onSuccess={handlePolyphemusAccessSuccess}
-        userEmail={session?.user?.email || ''}
-        organization={organization}
-      />
-    </PageContainer>
+        <PolyphemusAccessModal
+          open={polyphemusModalOpen}
+          onClose={() => setPolyphemusModalOpen(false)}
+          onSuccess={handlePolyphemusAccessSuccess}
+          userEmail={session?.user?.email || ''}
+          organization={organization}
+        />
+      </Box>
+    </>
   );
 }
