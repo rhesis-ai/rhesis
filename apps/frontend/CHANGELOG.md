@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.11] - 2026-03-26
 
 ### Added
+
 - Added trace metrics tab displaying per-metric evaluation results with status indicators, scores, and explanations.
 - Added trace reviews tab with the ability to submit human review overrides for traces, individual turns, and specific metrics.
 - Added trace review drawer for creating reviews with target type selection, pass/fail toggles, and comment validation.
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added error boundary around trace drawer tab content for improved resilience.
 
 ### Changed
+
 - Consolidated review target label maps into a shared `TRACE_REVIEW_TARGET_LABELS` constant.
 - Tightened `MetricScopeValue` type by removing the `| string` escape hatch.
 - Replaced hardcoded `color: 'white'` and `rgba()` values in TraceFilters with MUI theme tokens.
@@ -30,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aligned trace metrics display style with test-run metrics layout.
 
 ### Fixed
+
 - Fixed `useMemo` called conditionally after early return in SpanDetailsPanel, violating rules of hooks.
 - Fixed TypeScript error: cast metric ID to UUID template literal for `getMetric` calls.
 - Fixed status filter functionality and removed unused status column from traces table.
