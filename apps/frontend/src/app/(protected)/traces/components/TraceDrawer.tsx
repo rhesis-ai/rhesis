@@ -49,6 +49,8 @@ interface TraceDrawerProps {
   sessionToken: string;
   initialTurnIndex?: number;
   currentUserId?: string;
+  currentUserName?: string;
+  currentUserPicture?: string;
 }
 
 export default function TraceDrawer({
@@ -59,6 +61,8 @@ export default function TraceDrawer({
   sessionToken,
   initialTurnIndex,
   currentUserId = '',
+  currentUserName = '',
+  currentUserPicture,
 }: TraceDrawerProps) {
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -740,6 +744,8 @@ export default function TraceDrawer({
               hasTraceMetrics={hasTraceMetrics}
               isConversationTrace={isConversationTrace}
               currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
               onTraceUpdated={refreshTrace}
               onReviewMetric={handleReviewMetric}
               onReviewTrace={handleReviewTrace}

@@ -81,6 +81,20 @@ export class TelemetryClient extends BaseApiClient {
   }
 
   /**
+   * Resolve a span DB UUID to its trace_id and project_id.
+   * Used for navigating to traces from tasks/comments.
+   */
+  async lookupSpan(
+    spanDbId: string
+  ): Promise<{ trace_id: string; project_id: string; span_id: string }> {
+    return this.fetch<{
+      trace_id: string;
+      project_id: string;
+      span_id: string;
+    }>(`/telemetry/spans/${spanDbId}/lookup`, { cache: 'no-store' });
+  }
+
+  /**
    * Create a review on a trace span.
    * @param traceDbId - The database UUID of the trace span row
    */

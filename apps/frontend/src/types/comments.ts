@@ -46,4 +46,5 @@ export type EntityType =
   | 'Behavior'
   | 'Category'
   | 'Task'
-  | 'Source';
+  | 'Source'
+  | 'Trace';

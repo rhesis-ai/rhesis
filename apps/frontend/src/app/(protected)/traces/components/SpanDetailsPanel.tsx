@@ -37,6 +37,8 @@ import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
 import TraceReviewsTab from './TraceReviewsTab';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
+import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
@@ -45,6 +47,8 @@ interface SpanDetailsPanelProps {
   hasTraceMetrics?: boolean;
   isConversationTrace?: boolean;
   currentUserId?: string;
+  currentUserName?: string;
+  currentUserPicture?: string;
   onTraceUpdated?: () => void;
   onReviewMetric?: (metricName: string) => void;
   onReviewTrace?: () => void;
@@ -82,6 +86,8 @@ export default function SpanDetailsPanel({
   hasTraceMetrics = false,
   isConversationTrace = false,
   currentUserId = '',
+  currentUserName = '',
+  currentUserPicture,
   onTraceUpdated,
   onReviewMetric,
   onReviewTrace,
@@ -344,6 +350,14 @@ export default function SpanDetailsPanel({
               aria-controls="span-detail-tabpanel-reviews"
             />
           )}
+          <Tab
+            value="tasks"
+            icon={<ForumOutlinedIcon fontSize="small" />}
+            iconPosition="start"
+            label="Tasks & Comments"
+            id="span-detail-tab-tasks"
+            aria-controls="span-detail-tabpanel-tasks"
+          />
         </Tabs>
       </Box>
 
@@ -1118,6 +1132,20 @@ export default function SpanDetailsPanel({
               onTraceUpdated={onTraceUpdated ?? (() => {})}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}
+            />
+          </TabPanel>
+        )}
+
+        {trace?.root_spans?.[0]?.id && (
+          <TabPanel value={activeTab} index="tasks">
+            <TasksAndCommentsWrapper
+              entityType="Trace"
+              entityId={trace.root_spans[0].id}
+              sessionToken={sessionToken}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
+              elevation={0}
             />
           </TabPanel>
         )}

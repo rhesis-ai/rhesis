@@ -28,6 +28,8 @@ from rhesis.backend.app.schemas.telemetry import (
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 from rhesis.backend.app.services.trace_review_override import (
     apply_review_override as trace_apply_review_override,
+)
+from rhesis.backend.app.services.trace_review_override import (
     revert_override as trace_revert_override,
 )
 
@@ -401,6 +403,31 @@ async def list_traces(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve traces: {error_msg}",
         )
+
+
+@router.get("/spans/{span_db_id}/lookup")
+def lookup_span(
+    span_db_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """
+    Resolve a span's database UUID to its trace_id and project_id.
+
+    Used for navigation from tasks/comments linked to a Trace entity.
+    """
+    organization_id, _ = tenant_context
+    span = crud.get_trace_by_db_id(db, str(span_db_id), organization_id)
+    if not span:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Span {span_db_id} not found",
+        )
+    return {
+        "trace_id": span.trace_id,
+        "project_id": str(span.project_id),
+        "span_id": span.span_id,
+    }
 
 
 @router.get("/traces/{trace_id}", response_model=TraceDetailResponse)
@@ -781,9 +808,7 @@ def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> d
     return {"status_id": str(status_obj.id), "name": status_obj.name}
 
 
-def _update_review_metadata(
-    reviews_data: dict, current_user: User, latest_status: dict
-) -> None:
+def _update_review_metadata(reviews_data: dict, current_user: User, latest_status: dict) -> None:
     """Update metadata when reviews change."""
     now = datetime.utcnow().isoformat()
     reviews_data["metadata"] = {
@@ -984,12 +1009,8 @@ def delete_trace_review(
             reviews,
             key=lambda r: r.get("updated_at", r.get("created_at", "")),
         )
-        latest_status = latest_review.get(
-            "status", {"status_id": None, "name": "Unknown"}
-        )
-        _update_review_metadata(
-            db_trace.trace_reviews, current_user, latest_status
-        )
+        latest_status = latest_review.get("status", {"status_id": None, "name": "Unknown"})
+        _update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
     else:
         db_trace.trace_reviews["metadata"] = {
             "last_updated_at": datetime.utcnow().isoformat(),

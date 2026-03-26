@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Box, Typography, Alert, Paper } from '@mui/material';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import { PageContainer } from '@toolpad/core/PageContainer';
@@ -70,6 +71,8 @@ function EmptyStateMessage({
 interface TracesClientWrapperProps {
   sessionToken: string;
   currentUserId?: string;
+  currentUserName?: string;
+  currentUserPicture?: string;
 }
 
 /**
@@ -79,9 +82,15 @@ interface TracesClientWrapperProps {
 export default function TracesClientWrapper({
   sessionToken,
   currentUserId = '',
+  currentUserName = '',
+  currentUserPicture,
 }: TracesClientWrapperProps) {
+  const searchParams = useSearchParams();
   const [refreshKey, _setRefreshKey] = useState(0);
   const _notifications = useNotifications();
+
+  const initialTraceId = searchParams.get('open_trace');
+  const initialProjectId = searchParams.get('project_id');
 
   const _handleRefresh = React.useCallback(() => {
     _setRefreshKey(prev => prev + 1);
@@ -116,6 +125,10 @@ export default function TracesClientWrapper({
           <TracesClient
             sessionToken={sessionToken}
             currentUserId={currentUserId}
+            currentUserName={currentUserName}
+            currentUserPicture={currentUserPicture}
+            initialTraceId={initialTraceId}
+            initialProjectId={initialProjectId}
             key={`traces-${refreshKey}`}
           />
         </Box>
