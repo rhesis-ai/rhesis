@@ -190,7 +190,7 @@ jobs:
             CONCURRENCY="100"
             echo "🏭 Production configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
-            MEMORY="2Gi"
+            MEMORY="4Gi"
             CPU="2"
             MIN_INSTANCES="1"
             MAX_INSTANCES="10"
