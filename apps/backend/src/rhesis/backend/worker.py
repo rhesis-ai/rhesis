@@ -110,6 +110,7 @@ app.conf.update(
         "rhesis.backend.tasks.execution.test",
         "rhesis.backend.tasks.telemetry.enrich",
         "rhesis.backend.tasks.telemetry.evaluate",
+        "rhesis.backend.tasks.telemetry.post_ingest",
     ],
 )
 
@@ -126,6 +127,15 @@ from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
 
 init_conv_cache()
 init_metrics_cache()
+
+# Pre-warm the exchange rate cache so the first enrichment task
+# does not block on an HTTP call to the exchange rate API.
+try:
+    from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
+
+    get_usd_to_eur_rate()
+except Exception:
+    pass
 
 # Configure logging to reduce verbosity
 # Suppress verbose Celery task result logging

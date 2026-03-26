@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/traces", response_model=TraceResponse)
-async def ingest_trace(
+def ingest_trace(
     trace_batch: OTELTraceBatch,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -98,13 +98,8 @@ async def ingest_trace(
     )
 
     # Pre-storage: inject any parked mapped output into span attributes.
-    # The SDK tracer sets rhesis.conversation.input per-span but cannot
-    # set rhesis.conversation.output (it only has the raw function
-    # return value).  The backend parks the response-mapped output after
-    # invocation and injects it here — before the span is stored.
+    # Must happen before storage because it mutates span attributes in-place.
     from rhesis.backend.app.services.telemetry.conversation_linking import (
-        apply_pending_conversation_links,
-        apply_pending_files,
         inject_pending_output,
     )
 
@@ -118,70 +113,81 @@ async def ingest_trace(
         logger.warning(f"Failed to inject pending output for trace_id={trace_id}: {inject_error}")
         logger.debug("Pending output injection traceback:", exc_info=True)
 
-    # Store spans and trigger enrichment
+    # Store spans, then enqueue linking + enrichment as a background task.
     try:
-        enrichment_service = EnrichmentService(db)
-        stored_spans, async_count, sync_count = enrichment_service.create_and_enrich_spans(
-            spans=trace_batch.spans,
-            organization_id=organization_id,
-            project_id=project_id,
-        )
+        stored_spans = crud.create_trace_spans(db, trace_batch.spans, organization_id)
 
-        unique_trace_count = len(set(s.trace_id for s in stored_spans))
+        if not stored_spans:
+            logger.warning(f"No spans were stored for trace_id={trace_id}")
+            return TraceResponse(status="received", span_count=0, trace_id=trace_id)
+
+        unique_trace_ids = list({s.trace_id for s in stored_spans})
+        stored_span_ids = [str(s.id) for s in stored_spans]
+
         logger.info(
             f"Ingested {len(stored_spans)} spans from "
-            f"{unique_trace_count} traces "
-            f"(async: {async_count}, sync: {sync_count})"
+            f"{len(unique_trace_ids)} trace(s) for trace_id={trace_id}"
         )
 
-        # Post-storage linking: apply deferred links now that spans
-        # are committed.  Each linking step is independent and must
-        # not fail the overall ingestion.
-        if stored_spans:
-            # 1. Test-result linking (traces <-> test results)
+        # Enqueue post-ingestion work (linking + enrichment) as a background task.
+        from rhesis.backend.app.services.telemetry.enrichment import (
+            are_workers_recently_available,
+        )
+
+        if are_workers_recently_available():
+            from rhesis.backend.tasks.telemetry.post_ingest import post_ingest_link
+
+            first_span = stored_spans[0]
+            post_ingest_link.delay(
+                stored_span_ids=stored_span_ids,
+                unique_trace_ids=unique_trace_ids,
+                organization_id=organization_id,
+                project_id=str(project_id),
+                test_run_id=str(first_span.test_run_id) if first_span.test_run_id else None,
+                test_id=str(first_span.test_id) if first_span.test_id else None,
+                test_configuration_id=first_span.attributes.get(
+                    "rhesis.test.test_configuration_id"
+                ),
+            )
+        else:
+            # Sync fallback: run linking in-request, enrichment via service
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                apply_pending_conversation_links,
+                apply_pending_files,
+            )
             from rhesis.backend.app.services.telemetry.linking_service import (
                 TraceLinkingService,
             )
 
             linking_service = TraceLinkingService(db)
             try:
-                linked_count = linking_service.link_traces_for_incoming_batch(
+                linking_service.link_traces_for_incoming_batch(
                     spans=stored_spans,
                     organization_id=organization_id,
                 )
-                if linked_count > 0:
-                    logger.info(
-                        f"Linked {linked_count} traces to test result for trace_id={trace_id}"
-                    )
             except Exception as link_error:
                 logger.warning(f"Failed to link traces for trace_id={trace_id}: {link_error}")
-                logger.debug("Trace linking traceback:", exc_info=True)
 
-            # 2. Conversation-id linking (first-turn patching)
             try:
-                conversation_linked = apply_pending_conversation_links(db, stored_spans)
-                if conversation_linked > 0:
-                    logger.info(
-                        f"Applied {conversation_linked} pending "
-                        f"conversation links for trace_id={trace_id}"
-                    )
-            except Exception as conversation_error:
+                apply_pending_conversation_links(db, stored_spans)
+            except Exception as conv_error:
                 logger.warning(
-                    f"Failed to apply conversation links for "
-                    f"trace_id={trace_id}: {conversation_error}"
+                    f"Failed to apply conversation links for trace_id={trace_id}: {conv_error}"
                 )
-                logger.debug("Conversation linking traceback:", exc_info=True)
 
-            # 3. Input file linking (SDK turns with file attachments)
             try:
-                files_created = apply_pending_files(db, stored_spans)
-                if files_created > 0:
-                    logger.info(f"Created {files_created} pending file(s) for trace_id={trace_id}")
+                apply_pending_files(db, stored_spans)
             except Exception as file_error:
                 logger.warning(
                     f"Failed to apply pending files for trace_id={trace_id}: {file_error}"
                 )
-                logger.debug("File linking traceback:", exc_info=True)
+
+            enrichment_service = EnrichmentService(db)
+            enrichment_service.enrich_traces(
+                set(unique_trace_ids),
+                str(project_id),
+                organization_id,
+            )
 
         return TraceResponse(
             status="received",
@@ -190,7 +196,7 @@ async def ingest_trace(
         )
 
     except Exception as e:
-        logger.error(f"❌ Failed to store trace {trace_id}: {e}", exc_info=True)
+        logger.error(f"Failed to store trace {trace_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to store trace spans",
@@ -198,7 +204,7 @@ async def ingest_trace(
 
 
 @router.get("/traces", response_model=TraceListResponse)
-async def list_traces(
+def list_traces(
     project_id: Optional[str] = Query(
         None, description="Project ID (optional - shows all projects if not specified)"
     ),
@@ -430,7 +436,7 @@ def lookup_span(
 
 
 @router.get("/traces/{trace_id}", response_model=TraceDetailResponse)
-async def get_trace(
+def get_trace(
     trace_id: str,
     project_id: str = Query(..., description="Project ID"),
     db: Session = Depends(get_tenant_db_session),
@@ -640,7 +646,7 @@ def list_span_files(
 
 
 @router.get("/metrics", response_model=TraceMetricsResponse)
-async def get_metrics(
+def get_metrics(
     project_id: str = Query(..., description="Project ID"),
     environment: Optional[str] = Query(None, description="Environment filter"),
     start_time_after: Optional[datetime] = Query(None, description="Start time >= (ISO 8601)"),

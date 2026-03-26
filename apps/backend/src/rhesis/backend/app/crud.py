@@ -3381,36 +3381,28 @@ def create_trace_spans(
     Raises:
         Exception: If database operation fails
     """
+    from uuid import UUID as _UUID
+
+    def _safe_uuid(value: str | None, field_name: str) -> _UUID | None:
+        if not value:
+            return None
+        try:
+            return _UUID(value)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid UUID in test context {field_name}: {value}")
+            return None
+
     trace_models = []
 
     for span in spans:
-        # Calculate duration
         duration_ms = (span.end_time - span.start_time).total_seconds() * 1000
 
-        # Extract test execution context from span attributes
         test_run_id = span.attributes.get("rhesis.test.run_id")
         test_result_id = span.attributes.get("rhesis.test.result_id")
         test_id = span.attributes.get("rhesis.test.id")
 
-        # Convert to UUID if present, otherwise None
-        # Handle each UUID independently to preserve valid values
-        from uuid import UUID
-
-        def safe_uuid_convert(value: str | None, field_name: str) -> UUID | None:
-            """Convert string to UUID, handling errors independently."""
-            if not value:
-                return None
-            try:
-                return UUID(value)
-            except (ValueError, TypeError):
-                logger.warning(f"Invalid UUID in test context {field_name}: {value}")
-                return None
-
-        test_run_id_uuid = safe_uuid_convert(test_run_id, "test_run_id")
-        test_result_id_uuid = safe_uuid_convert(test_result_id, "test_result_id")
-        test_id_uuid = safe_uuid_convert(test_id, "test_id")
-
         trace_model = models.Trace(
+            id=uuid.uuid4(),
             trace_id=span.trace_id,
             span_id=span.span_id,
             parent_span_id=span.parent_span_id,
@@ -3429,20 +3421,17 @@ def create_trace_spans(
             events=[event.model_dump(mode="json") for event in span.events],
             links=[link.model_dump(mode="json") for link in span.links],
             resource=span.resource,
-            # Test execution context
-            test_run_id=test_run_id_uuid,
-            test_result_id=test_result_id_uuid,
-            test_id=test_id_uuid,
+            test_run_id=_safe_uuid(test_run_id, "test_run_id"),
+            test_result_id=_safe_uuid(test_result_id, "test_result_id"),
+            test_id=_safe_uuid(test_id, "test_id"),
         )
 
         db.add(trace_model)
         trace_models.append(trace_model)
 
-    # Bulk insert with single commit
     try:
+        db.expire_on_commit = False
         db.commit()
-        for trace_model in trace_models:
-            db.refresh(trace_model)
         return trace_models
     except Exception as e:
         db.rollback()
