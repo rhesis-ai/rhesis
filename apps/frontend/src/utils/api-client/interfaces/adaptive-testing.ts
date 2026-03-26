@@ -116,7 +116,7 @@ export interface DeleteTestResponse {
 // =============================================================================
 
 export interface GenerateOutputsRequest {
-  endpoint_id: string;
+  endpoint_id?: string | null;
   test_ids?: string[] | null;
   topic?: string | null;
   include_subtopics?: boolean;
@@ -145,7 +145,7 @@ export interface GenerateOutputsResponse {
 // =============================================================================
 
 export interface EvaluateRequest {
-  metric_names: string[];
+  metric_names?: string[] | null;
   test_ids?: string[] | null;
   topic?: string | null;
   include_subtopics?: boolean;
@@ -205,7 +205,7 @@ export interface SuggestionInput {
 }
 
 export interface GenerateSuggestionOutputsRequest {
-  endpoint_id: string;
+  endpoint_id?: string | null;
   suggestions: SuggestionInput[];
 }
 
@@ -230,8 +230,32 @@ export interface SuggestionForEval {
 }
 
 export interface EvaluateSuggestionsRequest {
-  metric_names: string[];
+  metric_names?: string[] | null;
   suggestions: SuggestionForEval[];
+}
+
+// =============================================================================
+// Adaptive Settings
+// =============================================================================
+
+export interface AdaptiveSettingsMetric {
+  id: string;
+  name: string;
+}
+
+export interface AdaptiveSettingsEndpoint {
+  id: string;
+  name: string;
+}
+
+export interface AdaptiveSettings {
+  default_endpoint: AdaptiveSettingsEndpoint | null;
+  metrics: AdaptiveSettingsMetric[];
+}
+
+export interface AdaptiveSettingsUpdateRequest {
+  default_endpoint_id?: string | null;
+  metric_ids?: string[] | null;
 }
 
 export interface SuggestionEvalItem {
