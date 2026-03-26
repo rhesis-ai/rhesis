@@ -233,7 +233,10 @@ class Test(BaseEntity):
             endpoint: The endpoint to execute the test against
 
         Returns:
-            Dict containing the execution results, or None if error occurred.
+            Dict containing the execution results.
+
+        Raises:
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> test = Test(id='test-123')

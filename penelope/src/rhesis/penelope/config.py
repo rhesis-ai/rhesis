@@ -322,17 +322,15 @@ class PenelopeConfig:
 
     @staticmethod
     def _enable_external_loggers():
-        """Enable debug logging for external libraries (DEBUG mode)."""
-        external_loggers = [
-            "LiteLLM",
-            "httpx",
-            "httpcore",
-            "httpcore.connection",
-            "httpcore.http11",
-        ]
+        """Enable debug logging for external libraries (DEBUG mode).
 
-        for logger_name in external_loggers:
-            logging.getLogger(logger_name).setLevel(logging.DEBUG)
+        WARNING: httpx/httpcore at DEBUG level may log full HTTP headers
+        including Authorization tokens. Keep at INFO to avoid credential
+        leakage; only LiteLLM is set to DEBUG here.
+        """
+        logging.getLogger("LiteLLM").setLevel(logging.DEBUG)
+        for logger_name in ("httpx", "httpcore", "httpcore.connection", "httpcore.http11"):
+            logging.getLogger(logger_name).setLevel(logging.INFO)
 
     @classmethod
     def reset(cls):

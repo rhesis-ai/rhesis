@@ -3,6 +3,8 @@
 import os
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from rhesis.sdk.entities.endpoint import ConnectionType, Endpoint
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
@@ -155,9 +157,11 @@ class TestAutoConfigureFailure:
         assert endpoint is None
 
     @patch("requests.request")
-    def test_auto_configure_http_error_returns_none(self, mock_request):
-        """auto_configure should return None on HTTP errors."""
+    def test_auto_configure_http_error_raises(self, mock_request):
+        """auto_configure should raise RhesisAPIError on HTTP errors."""
         from requests.exceptions import HTTPError
+
+        from rhesis.sdk.errors import RhesisAPIError
 
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -171,13 +175,12 @@ class TestAutoConfigureFailure:
         mock_response.raise_for_status.side_effect = error
         mock_request.return_value = mock_response
 
-        # The @handle_http_errors decorator should catch this
-        endpoint = Endpoint.auto_configure(
-            input_text="some code",
-            url="https://api.example.com",
-        )
-
-        assert endpoint is None
+        with pytest.raises(RhesisAPIError) as exc_info:
+            Endpoint.auto_configure(
+                input_text="some code",
+                url="https://api.example.com",
+            )
+        assert exc_info.value.status_code == 500
 
 
 class TestAutoConfigurePartial:
