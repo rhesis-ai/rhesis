@@ -52,7 +52,7 @@ interface TraceFiltersProps {
 export default function TraceFilters({
   filters,
   onFiltersChange,
-  onRefresh,
+  onRefresh: _onRefresh,
   sessionToken,
 }: TraceFiltersProps) {
   const theme = useTheme();

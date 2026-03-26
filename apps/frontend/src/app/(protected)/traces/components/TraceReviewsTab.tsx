@@ -62,7 +62,7 @@ interface TraceReviewsTabProps {
 
 export default function TraceReviewsTab({
   selectedSpan,
-  trace,
+  trace: _trace,
   sessionToken,
   currentUserId,
   onTraceUpdated,

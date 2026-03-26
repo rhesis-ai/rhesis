@@ -139,24 +139,24 @@ export default function SpanDetailsPanel({
     };
   }, [span?.id, sessionToken]);
 
-  if (!span) {
-    return (
-      <Box sx={{ p: theme => theme.spacing(3) }}>
-        <Typography color="text.secondary">
-          Select a span to view details
-        </Typography>
-      </Box>
-    );
-  }
-
   const { llmAttributes, functionAttributes, testAttributes, otherAttributes } =
     useMemo(() => {
+      const attrs = span?.attributes;
+      if (!attrs) {
+        return {
+          llmAttributes: {} as Record<string, unknown>,
+          functionAttributes: {} as Record<string, unknown>,
+          testAttributes: {} as Record<string, unknown>,
+          otherAttributes: {} as Record<string, unknown>,
+        };
+      }
+
       const llm: Record<string, unknown> = {};
       const fn: Record<string, unknown> = {};
       const test: Record<string, unknown> = {};
       const other: Record<string, unknown> = {};
 
-      Object.entries(span.attributes).forEach(([key, value]) => {
+      Object.entries(attrs).forEach(([key, value]) => {
         if (key.startsWith('ai.') || key.startsWith('llm.')) {
           llm[key] = value;
         } else if (key.startsWith('function.')) {
@@ -174,7 +174,17 @@ export default function SpanDetailsPanel({
         testAttributes: test,
         otherAttributes: other,
       };
-    }, [span.attributes]);
+    }, [span?.attributes]);
+
+  if (!span) {
+    return (
+      <Box sx={{ p: theme => theme.spacing(3) }}>
+        <Typography color="text.secondary">
+          Select a span to view details
+        </Typography>
+      </Box>
+    );
+  }
 
   // Extract I/O attributes for prominent display
   const inputArgs = functionAttributes['function.args'];
