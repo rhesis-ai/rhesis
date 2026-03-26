@@ -66,16 +66,17 @@ tools:
     path: /test_sets/{test_set_identifier}/execute/{endpoint_id}
     requires_confirmation: true
     description: >
-      Run a complete test set against a specified endpoint. This tool
-      automatically handles creating any necessary internal test configurations
-      and triggers the test run immediately.
+      Run a complete test set against an endpoint. The backend
+      automatically creates the internal test configuration and queues
+      a test run — you do NOT need to create these manually. The
+      response includes a test_run_id you can use with get_test_run
+      to monitor progress and list_test_results to fetch results once
+      the run completes.
     parameters:
       test_set_identifier:
-        description: "REQUIRED. The UUID or name of the test set to execute."
+        description: "REQUIRED. The UUID of the test set to execute (path parameter)."
       endpoint_id:
-        description: "REQUIRED. The UUID of the target endpoint to test."
-      attributes:
-        description: "Optional execution attributes (object)."
+        description: "REQUIRED. The UUID of the target endpoint (path parameter)."
 
   # ── Tests ─────────────────────────────────────────────────
   - name: list_tests
@@ -87,40 +88,29 @@ tools:
       expected response behavior, and optional metadata. Use $select to
       request only the fields you need.
 
-  - name: execute_tests
-    label: Executing tests
-    method: POST
-    path: /tests/execute
-    requires_confirmation: true
-    description: >
-      Execute tests against a configured endpoint. Sends prompts to
-      the endpoint, collects responses, and evaluates results.
-
   # ── Test Runs ─────────────────────────────────────────────
   - name: list_test_runs
     label: Checking test runs
     method: GET
     path: /test_runs/
     description: >
-      List test runs. Each test run represents one execution of a test
-      configuration, with status and timing information. Use $select to
-      request only the fields you need.
-
-  - name: create_test_run
-    label: Creating test run
-    method: POST
-    path: /test_runs/
-    requires_confirmation: true
-    description: >
-      Create a new test run to track the execution of a test configuration.
+      List test runs in the organization. Each test run tracks one
+      execution of a test set. Key fields: id, status, test_set,
+      endpoint, created_at, completed_at. Status values: Queued,
+      Running, Completed, Failed. Use $select to request only the
+      fields you need (e.g. $select=id,status,test_set,created_at).
+      Use $filter to narrow results (e.g. $filter=status eq 'Completed').
 
   - name: get_test_run
     label: Checking test run status
     method: GET
     path: /test_runs/{test_run_id}
     description: >
-      Get details of a specific test run including its status, timing,
-      and associated test results.
+      Get details of a specific test run. Use this to monitor execution
+      progress after calling execute_test_set. Status progression:
+      Queued → Running → Completed (or Failed). Poll this endpoint
+      until the status is Completed or Failed. The response includes
+      timing, status, and summary information.
 
   # ── Test Results ──────────────────────────────────────────
   - name: list_test_results
@@ -129,16 +119,21 @@ tools:
     path: /test_results/
     description: >
       List test results. Each result contains the prompt sent, the
-      response received, and evaluation scores from metrics. Use $select
-      to request only the fields you need.
+      response received, status (Passed/Failed), and evaluation scores.
+      Filter by test run: $filter=test_run_id eq '<uuid>'. Use $select
+      to keep responses small (e.g. $select=id,status,prompt,response,
+      behavior,metric_scores). Key fields: status (Passed/Failed),
+      prompt (the input), response (the output), metric_scores (array
+      of score objects with metric name, score, and threshold).
 
   - name: get_test_result
     label: Retrieving test result
     method: GET
     path: /test_results/{test_result_id}
     description: >
-      Get details of a specific test result including the prompt,
-      response, metric scores, and evaluation details.
+      Get full details of a specific test result: the prompt, response,
+      expected response, status, metric scores with individual reasoning,
+      and evaluation metadata. Use this to drill into specific failures.
 
   # ── Behaviors ─────────────────────────────────────────────
   - name: list_behaviors

@@ -84,6 +84,7 @@ async def handle_architect_message(
                 "session_id": session_id,
                 "user_message": user_message,
                 "attachments": payload.get("attachments"),
+                "auto_approve": payload.get("auto_approve"),
             },
             headers={
                 "organization_id": str(user.organization_id),

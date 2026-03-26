@@ -135,6 +135,7 @@ def architect_chat_task(
     session_id: str,
     user_message: str,
     attachments: Optional[Dict[str, Any]] = None,
+    auto_approve: Optional[bool] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """Process a single architect chat turn.
@@ -243,6 +244,12 @@ def architect_chat_task(
         if saved_agent_state.get("guard_state"):
             agent.guard_state = saved_agent_state["guard_state"]
 
+        # Apply session-level auto-approve from the frontend toggle.
+        # This overrides whatever was persisted in guard_state so the
+        # user can toggle it on/off at any point in the session.
+        if auto_approve is not None:
+            agent.auto_approve_all = auto_approve
+
         if saved_plan_data:
             from rhesis.sdk.agents.architect.plan import ArchitectPlan
 
@@ -310,6 +317,7 @@ def architect_chat_task(
                     "content": response,
                     "mode": agent.mode,
                     "needs_confirmation": agent.needs_confirmation,
+                    "auto_approve_all": agent.auto_approve_all,
                     "plan": (
                         agent.plan.to_markdown()
                         if agent.plan and hasattr(agent.plan, "to_markdown")

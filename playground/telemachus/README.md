@@ -12,18 +12,55 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 | 04 | `04-architect-behavior-tuning.md` | Done |
 | 05 | `05-personality-and-auth.md` | Done |
 | 06 | `06-conversational-ux.md` | Done |
-| 07 | `07-entity-linking-and-files.md` | Partially done |
-| 08 | `08-test-execution-and-analysis.md` | Planned |
-| 09 | `09-prompt-hardening.md` | Planned |
-| 10 | `10-permission-management.md` | Planned |
+| 07 | `07-entity-linking-and-files.md` | Done |
+| 08 | `08-test-execution-and-analysis.md` | In progress |
+| 09 | `09-prompt-hardening.md` | Done |
+| 10 | `10-permission-management.md` | Done |
 | 11 | `11-advanced-exploration.md` | Planned |
 
-## What was done (Phase 06 & 07 in progress)
+## What was done (Phase 08 in progress)
 
 ### TODOs
-- [ ] Adjust the `c4d8e2f1a3b5_add_architect_tables.py` migration's `down_revision` to point to the current latest migration in `main` before merging or doing further work.
-- [ ] Introduce a button for "accept all for this session" to allow users to bypass per-action confirmations.
-- [ ] Improve the test execution flow to be smoother and more robust. Currently, the agent struggles with "Test configuration not found" errors, gets confused about whether configurations exist, and attempts to re-create them manually instead of relying on the backend's automated execution process.
+- [ ] Adjust the `c4d8e2f1a3b5_add_architect_tables.py` migration's `down_revision` to point to the current latest migration in `main` before merging (deferred).
+- [x] Introduce "Auto-approve" toggle for the session — users can bypass per-action confirmations via a switch in the chat header.
+- [x] Plan-level approval — when the write guard blocks tools, all mutating tools are placed in the confirming set so that one approval covers the full plan.
+- [ ] Add result analysis patterns to the agent: structured pass/fail summaries, failure clustering by behavior, score distributions, and actionable suggestions (parked).
+- [ ] Add run comparison capability: when the user references two test runs, show a diff of behaviors that improved or regressed (parked).
+- [x] Fix `test_set_id` → `test_set_identifier` parameter name mismatch in system prompt step 9.
+- [x] Remove `create_test_run` and `execute_tests` trap tools from `mcp_tools.yaml`.
+- [x] Add execution monitoring guidance (poll `get_test_run`, fetch `list_test_results`, present summary).
+
+### Permission management (Phase 10)
+- Added "Auto-approve" switch to the chat header — when toggled on, `auto_approve: true` is sent with every message, the SDK's write guard skips confirmation entirely, and the state is persisted in `guard_state` across turns
+- Changed plan-level approval scope: when the write guard blocks mutating tools, it now places ALL mutating tools in the `_confirming_tools` set (not just the blocked batch). When the user clicks Accept, the entire plan's worth of tools is unlocked for the turn — no re-blocking on subsequent tool types
+- `auto_approve_all` flows end-to-end: frontend toggle → WS payload → Celery task kwarg → `agent.auto_approve_all` → persisted in `agent_state.guard_state`
+- Frontend restores the toggle state from `agent_state.guard_state.auto_approve_all` when reloading a session
+- `ARCHITECT_RESPONSE` payload now includes `auto_approve_all` for UI sync
+- Tests: 9 new SDK tests (`TestArchitectAutoApprove`), 1 updated SDK test (plan-level approval), 2 new backend handler tests (`auto_approve` forwarding)
+
+### Prompt hardening (Phase 09)
+- Added "Security and Boundaries" section to `system_prompt.j2` with five subsections: Identity, Prompt injection resistance, Information boundaries, Tool safety, and Off-topic requests
+- **Identity**: Agent must not adopt other personas — politely declines and redirects to its purpose
+- **Injection resistance**: Explicit guardrails against "ignore previous instructions", hidden instructions in files, and override attempts. System prompt treated as immutable.
+- **Information boundaries**: Never reveals system prompt, internal JSON schema, tool schemas, endpoint paths, tokens, or implementation details
+- **Tool safety**: No blind proxying of user text into OData filters; payload size limits; no data exfiltration via encoded formats; scope enforcement (only listed tools)
+- **Off-topic requests**: Declines code writing, trivia, translations, and other non-testing tasks
+- Added boundary enforcement to `streaming_response.j2` — the streaming LLM call (separate from reasoning) also enforces identity, no-reveal, and anti-injection rules
+- Added structural argument validation in `ArchitectAgent.execute_tool()` — rejects payloads > 100 KB, individual strings > 10 KB, and arrays > 100 items before execution reaches the backend
+- Tests: 7 new prompt hardening tests (`TestArchitectPromptHardening`) verifying security sections are present in the rendered system prompt; 7 new argument validation tests (`TestArchitectArgumentValidation`) covering oversized payloads, strings, arrays, and happy paths
+
+### Entity linking and files completion (Phase 07)
+- Fixed history reload: reopening a session now restores file attachment chips and mention data from the `attachments` JSONB field
+- Added entity-type mention highlighting in user message bubbles — `@endpoint:Name` renders with a colored background matching the entity type (info/secondary/success/warning/primary)
+- File chips in message bubbles now show file size alongside the filename (e.g. "spec.yaml (1.2 MB)")
+- Added `mentions` field to `ArchitectChatMessage` interface — mentions are preserved when sending and when reloading history
+
+### Test execution flow fixes (Phase 08)
+- Fixed `test_set_id` → `test_set_identifier` parameter name mismatch in system prompt step 9 — the agent was passing the wrong argument key to `execute_test_set`
+- Removed `create_test_run` from MCP tools — it required a `test_configuration_id` but no tools existed to obtain one, causing the agent to chase dead ends
+- Removed `execute_tests` from MCP tools — a synchronous dev endpoint that doesn't persist results, confused with `execute_test_set`
+- Added execution monitoring guidance to the system prompt: poll `get_test_run` for status, fetch results via `list_test_results` with `$filter`, present structured summaries
+- Improved `list_test_runs`, `get_test_run`, `list_test_results`, and `execute_test_set` tool descriptions with status values, field names, and usage patterns
 
 ### Robustness & Safety Fixes
 - Fixed a context scope bug in `architect.py` that caused `DetachedInstanceError` when accessing DB session properties out of bounds.

@@ -56,6 +56,8 @@ export interface ArchitectMessagePayload {
   session_id: string;
   message: string;
   attachments?: Record<string, unknown>;
+  /** When true, skip per-action confirmations for this session. */
+  auto_approve?: boolean;
 }
 
 /**
@@ -67,6 +69,8 @@ export interface ArchitectResponsePayload {
   mode?: string;
   plan?: string;
   needs_confirmation?: boolean;
+  /** Server-side auto-approve state (echoed back for UI sync). */
+  auto_approve_all?: boolean;
 }
 
 /**

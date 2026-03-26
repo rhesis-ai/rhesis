@@ -27,6 +27,11 @@ export interface ArchitectChatMessage {
     data: string;
     size: number;
   }>;
+  mentions?: Array<{
+    type: string;
+    id: string;
+    display: string;
+  }>;
 }
 
 export interface StreamingState {
@@ -69,6 +74,8 @@ interface UseArchitectChatResult {
   streamingState: StreamingState;
   currentMode: string;
   currentPlan: string | null;
+  autoApproveAll: boolean;
+  setAutoApproveAll: React.Dispatch<React.SetStateAction<boolean>>;
   sendMessage: (message: string, attachments?: ChatAttachments) => void;
   setMessages: React.Dispatch<React.SetStateAction<ArchitectChatMessage[]>>;
 }
@@ -101,9 +108,12 @@ export function useArchitectChat(
   );
   const [currentMode, setCurrentMode] = useState('discovery');
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [autoApproveAll, setAutoApproveAll] = useState(false);
 
   const pendingCorrelationRef = useRef<string | null>(null);
   const streamingMessageIdRef = useRef<string | null>(null);
+  const autoApproveRef = useRef(autoApproveAll);
+  autoApproveRef.current = autoApproveAll;
 
   // Subscribe to architect channel when session changes
   useEffect(() => {
@@ -337,6 +347,7 @@ export function useArchitectChat(
           content: trimmed,
           timestamp: new Date(),
           files: attachments?.files,
+          mentions: attachments?.mentions,
         },
       ]);
 
@@ -349,6 +360,9 @@ export function useArchitectChat(
       };
       if (attachments) {
         payload.attachments = attachments;
+      }
+      if (autoApproveRef.current) {
+        payload.auto_approve = true;
       }
 
       const sent = send({
@@ -374,6 +388,8 @@ export function useArchitectChat(
     streamingState,
     currentMode,
     currentPlan,
+    autoApproveAll,
+    setAutoApproveAll,
     sendMessage,
     setMessages,
   };

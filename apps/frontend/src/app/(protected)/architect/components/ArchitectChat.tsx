@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { Box, Paper, Typography, Alert, Chip } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Typography,
+  Alert,
+  Chip,
+  Switch,
+  FormControlLabel,
+  Tooltip,
+} from '@mui/material';
 import { useSession } from 'next-auth/react';
 import {
   useArchitectChat,
@@ -45,6 +54,8 @@ export default function ArchitectChat({
     streamingState,
     currentMode,
     currentPlan,
+    autoApproveAll,
+    setAutoApproveAll,
     sendMessage,
     setMessages,
   } = useArchitectChat({ sessionId });
@@ -68,15 +79,41 @@ export default function ArchitectChat({
         const client = new ApiClientFactory(sessionToken).getArchitectClient();
         const session = await client.getSession(sessionId);
 
+        // Restore auto-approve toggle from persisted agent state
+        const guardState = (session.agent_state as Record<string, unknown>)
+          ?.guard_state as Record<string, unknown> | undefined;
+        if (guardState?.auto_approve_all === true) {
+          setAutoApproveAll(true);
+        }
+
         if (session.messages?.length) {
           const loaded: ArchitectChatMessage[] = session.messages
             .filter(m => m.role === 'user' || m.role === 'assistant')
-            .map(m => ({
-              id: m.id,
-              role: m.role as 'user' | 'assistant',
-              content: m.content || '',
-              timestamp: new Date(m.created_at || Date.now()),
-            }));
+            .map(m => {
+              const attachments = m.attachments as
+                | {
+                    files?: Array<{
+                      filename: string;
+                      content_type: string;
+                      data: string;
+                      size: number;
+                    }>;
+                    mentions?: Array<{
+                      type: string;
+                      id: string;
+                      display: string;
+                    }>;
+                  }
+                | undefined;
+              return {
+                id: m.id,
+                role: m.role as 'user' | 'assistant',
+                content: m.content || '',
+                timestamp: new Date(m.created_at || Date.now()),
+                files: attachments?.files,
+                mentions: attachments?.mentions,
+              };
+            });
           setMessages(loaded);
         } else {
           setMessages([]);
@@ -87,7 +124,7 @@ export default function ArchitectChat({
     };
 
     loadMessages();
-  }, [sessionId, sessionToken, setMessages]);
+  }, [sessionId, sessionToken, setMessages, setAutoApproveAll]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -172,11 +209,30 @@ export default function ArchitectChat({
             variant="outlined"
           />
         </Box>
-        {!isConnected && (
-          <Typography variant="caption" color="warning.main">
-            Reconnecting...
-          </Typography>
-        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {!isConnected && (
+            <Typography variant="caption" color="warning.main">
+              Reconnecting...
+            </Typography>
+          )}
+          <Tooltip title="Skip per-action confirmations — the agent will create entities without asking first">
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={autoApproveAll}
+                  onChange={(e) => setAutoApproveAll(e.target.checked)}
+                />
+              }
+              label={
+                <Typography variant="caption" color="text.secondary">
+                  Auto-approve
+                </Typography>
+              }
+              sx={{ mr: 0 }}
+            />
+          </Tooltip>
+        </Box>
       </Box>
 
       {/* Messages area */}

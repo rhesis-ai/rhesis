@@ -657,8 +657,8 @@ class TestArchitectWriteGuard:
         assert agent._creation_approved is False  # Reset after turn
 
     @pytest.mark.asyncio
-    async def test_scoped_approval_blocks_different_tool(self, mock_model):
-        """Approval for create_metric should NOT unlock create_project."""
+    async def test_plan_approval_unlocks_all_mutating_tools(self, mock_model):
+        """Approval after any block unlocks ALL mutating tools (plan-level)."""
         tool = DummyTool()
         agent = _make_agent(mock_model, tools=[tool])
         agent._mutating_tools = frozenset({"create_metric", "create_project"})
@@ -666,7 +666,8 @@ class TestArchitectWriteGuard:
         async def fake_stream(**kw):
             yield "Plan"
 
-        # Turn 1: create_metric is blocked
+        # Turn 1: create_metric is blocked — confirming set should
+        # include ALL mutating tools, not just the blocked batch.
         mock_model.generate = Mock(
             return_value={
                 "reasoning": "Creating metric",
@@ -682,30 +683,32 @@ class TestArchitectWriteGuard:
         )
         mock_model.generate_stream = Mock(side_effect=fake_stream)
         await agent.chat_async("create a metric")
-        assert agent._confirming_tools == frozenset({"create_metric"})
+        assert agent._confirming_tools == frozenset({"create_metric", "create_project"})
+        assert agent._needs_confirmation is True
 
-        # Turn 2: LLM tries create_project instead — should be blocked
-        # because only create_metric was approved
+        # Turn 2: LLM tries create_project — should be allowed because
+        # plan-level approval covers all mutating tools.
         mock_model.generate = Mock(
-            return_value={
-                "reasoning": "Creating project",
-                "action": "call_tool",
-                "tool_calls": [
-                    {
-                        "tool_name": "create_project",
-                        "arguments": json.dumps({"name": "proj"}),
-                    }
-                ],
-                "final_answer": "Plan to create project",
-            },
+            side_effect=[
+                {
+                    "reasoning": "Creating project",
+                    "action": "call_tool",
+                    "tool_calls": [
+                        {
+                            "tool_name": "create_project",
+                            "arguments": json.dumps({"name": "proj"}),
+                        }
+                    ],
+                    "final_answer": None,
+                },
+                _finish_dict("Project created"),
+            ]
         )
         mock_model.generate_stream = Mock(side_effect=fake_stream)
         await agent.chat_async("Yes, go ahead.")
 
-        # create_project was NOT in the approved set, so it should
-        # be blocked again with a new confirmation
-        assert agent._needs_confirmation is True
-        assert agent._confirming_tools == frozenset({"create_project"})
+        # create_project was in the approved set — no re-blocking
+        assert agent._creation_approved is False  # Reset after turn
 
     @pytest.mark.asyncio
     async def test_approval_resets_after_turn(self, mock_model):
@@ -719,6 +722,143 @@ class TestArchitectWriteGuard:
         await agent.chat_async("Yes, go ahead.")
 
         assert agent._creation_approved is False
+
+
+# ── auto-approve and guard_state tests ────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectAutoApprove:
+    """Test session-level auto-approve and guard_state persistence."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    def test_auto_approve_all_default_false(self, mock_model):
+        agent = _make_agent(mock_model)
+        assert agent.auto_approve_all is False
+
+    def test_auto_approve_all_setter(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent.auto_approve_all = True
+        assert agent.auto_approve_all is True
+        assert agent._auto_approve_all is True
+
+    def test_reset_clears_auto_approve_all(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent.auto_approve_all = True
+        agent.reset()
+        assert agent.auto_approve_all is False
+
+    def test_guard_state_includes_auto_approve_all(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent.auto_approve_all = True
+        state = agent.guard_state
+        assert state["auto_approve_all"] is True
+
+    def test_guard_state_setter_restores_auto_approve(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent.guard_state = {
+            "needs_confirmation": True,
+            "confirming_tools": ["create_metric"],
+            "auto_approve_all": True,
+        }
+        assert agent.auto_approve_all is True
+        assert agent._needs_confirmation is True
+        assert agent._confirming_tools == frozenset({"create_metric"})
+
+    def test_guard_state_setter_defaults_auto_approve_false(self, mock_model):
+        """Old guard_state without auto_approve_all defaults to False."""
+        agent = _make_agent(mock_model)
+        agent.auto_approve_all = True
+        agent.guard_state = {
+            "needs_confirmation": False,
+            "confirming_tools": [],
+        }
+        assert agent.auto_approve_all is False
+
+    @pytest.mark.asyncio
+    async def test_auto_approve_bypasses_write_guard(self, mock_model):
+        """When auto_approve_all=True, mutating tools execute immediately."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric"})
+        agent.auto_approve_all = True
+
+        async def fake_stream(**kw):
+            yield "Created the metric"
+
+        # LLM calls a mutating tool — should NOT be blocked
+        mock_model.generate = Mock(
+            side_effect=[
+                {
+                    "reasoning": "Creating metric",
+                    "action": "call_tool",
+                    "tool_calls": [
+                        {
+                            "tool_name": "create_metric",
+                            "arguments": json.dumps({"name": "test"}),
+                        }
+                    ],
+                    "final_answer": None,
+                },
+                _finish_dict("Created the metric"),
+            ]
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+
+        response = await agent.chat_async("create a friendliness metric")
+
+        # The tool should have been called, not blocked
+        assert agent._needs_confirmation is False
+        assert "Created the metric" in response
+        # Verify it went through tool execution (even though the dummy
+        # tool won't match create_metric, the guard didn't intercept)
+        assert len(agent._execution_history) >= 1
+
+    @pytest.mark.asyncio
+    async def test_auto_approve_is_approved_returns_true(self, mock_model):
+        """_is_approved returns True unconditionally when auto_approve_all is set."""
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"create_metric"})
+        agent.auto_approve_all = True
+
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        tool_calls = [ToolCall(tool_name="create_metric", arguments="{}")]
+        assert agent._is_approved(tool_calls) is True
+
+    @pytest.mark.asyncio
+    async def test_auto_approve_false_does_not_bypass(self, mock_model):
+        """auto_approve_all=False preserves normal confirmation flow."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric"})
+        agent.auto_approve_all = False
+
+        async def fake_stream(**kw):
+            yield "Plan"
+
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "Creating metric",
+                "action": "call_tool",
+                "tool_calls": [
+                    {
+                        "tool_name": "create_metric",
+                        "arguments": json.dumps({"name": "test"}),
+                    }
+                ],
+                "final_answer": "Plan to create",
+            },
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+
+        await agent.chat_async("create a metric")
+
+        # Should still be blocked
+        assert agent._needs_confirmation is True
 
 
 # ── discovery state tests ────────────────────────────────────────
@@ -802,3 +942,152 @@ class TestArchitectDiscoveryState:
         assert "Safety" in formatted
         assert "Accuracy" in formatted
         assert "Compliance requirements?" in formatted
+
+
+# ── prompt hardening tests (Phase 09) ────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectPromptHardening:
+    """Test that system prompt contains security guardrails."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    def test_system_prompt_contains_security_section(self, mock_model):
+        """The rendered system prompt must include the security section."""
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "## Security and Boundaries" in prompt
+
+    def test_system_prompt_contains_identity_guardrail(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "### Identity" in prompt
+        assert "only role" in prompt.lower()
+
+    def test_system_prompt_contains_injection_resistance(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "### Prompt injection resistance" in prompt
+        assert "Ignore all previous instructions" in prompt
+
+    def test_system_prompt_contains_information_boundaries(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "### Information boundaries" in prompt
+        assert "system prompt" in prompt.lower()
+
+    def test_system_prompt_contains_tool_safety(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "### Tool safety" in prompt
+        assert "blind proxying" in prompt.lower() or "No blind proxying" in prompt
+
+    def test_system_prompt_contains_off_topic_section(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "### Off-topic requests" in prompt
+
+    def test_security_section_before_response_format(self, mock_model):
+        """Security section should come before Response Format."""
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        sec_pos = prompt.index("## Security and Boundaries")
+        fmt_pos = prompt.index("## Response Format")
+        assert sec_pos < fmt_pos
+
+
+@pytest.mark.unit
+class TestArchitectArgumentValidation:
+    """Test structural argument validation (Phase 09)."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    def test_valid_arguments_pass(self, mock_model):
+        agent = _make_agent(mock_model)
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        tc = ToolCall(tool_name="list_metrics", arguments=json.dumps({"$select": "name,id"}))
+        assert agent._validate_tool_arguments(tc) is None
+
+    def test_oversized_payload_rejected(self, mock_model):
+        agent = _make_agent(mock_model)
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        huge = {"data": "x" * (agent.MAX_PAYLOAD_BYTES + 1)}
+        tc = ToolCall(tool_name="create_test_set_bulk", arguments=json.dumps(huge))
+        error = agent._validate_tool_arguments(tc)
+        assert error is not None
+        assert "payload limit" in error.lower()
+
+    def test_oversized_string_value_rejected(self, mock_model):
+        agent = _make_agent(mock_model)
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        tc = ToolCall(
+            tool_name="create_behavior",
+            arguments=json.dumps({"description": "y" * (agent.MAX_STRING_VALUE_LEN + 1)}),
+        )
+        error = agent._validate_tool_arguments(tc)
+        assert error is not None
+        assert "string limit" in error.lower()
+
+    def test_oversized_array_rejected(self, mock_model):
+        agent = _make_agent(mock_model)
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        items = [{"prompt": {"content": f"test {i}"}} for i in range(agent.MAX_ARRAY_ITEMS + 1)]
+        tc = ToolCall(
+            tool_name="create_test_set_bulk",
+            arguments=json.dumps({"tests": items}),
+        )
+        error = agent._validate_tool_arguments(tc)
+        assert error is not None
+        assert "items" in error.lower()
+
+    def test_normal_array_passes(self, mock_model):
+        agent = _make_agent(mock_model)
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        items = [{"prompt": {"content": f"test {i}"}} for i in range(10)]
+        tc = ToolCall(
+            tool_name="create_test_set_bulk",
+            arguments=json.dumps({"name": "safety tests", "tests": items}),
+        )
+        assert agent._validate_tool_arguments(tc) is None
+
+    def test_empty_arguments_pass(self, mock_model):
+        agent = _make_agent(mock_model)
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        tc = ToolCall(tool_name="list_projects", arguments="{}")
+        assert agent._validate_tool_arguments(tc) is None
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_rejects_invalid_arguments(self, mock_model):
+        """execute_tool should return a ToolResult with success=False."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        huge = {"data": "x" * (agent.MAX_PAYLOAD_BYTES + 1)}
+        tc = ToolCall(tool_name="dummy", arguments=json.dumps(huge))
+        result = await agent.execute_tool(tc)
+        assert result.success is False
+        assert "payload limit" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_allows_valid_arguments(self, mock_model):
+        """execute_tool should pass through to the real tool when valid."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        tc = ToolCall(tool_name="dummy", arguments=json.dumps({"x": "hello"}))
+        result = await agent.execute_tool(tc)
+        assert result.success is True
+        assert result.content == "ok"

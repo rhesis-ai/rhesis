@@ -164,6 +164,73 @@ class TestArchitectHandlerSuccess:
         assert ack_target.connection_id == "conn-1"
 
     @pytest.mark.asyncio
+    async def test_auto_approve_forwarded_to_celery(self, mock_manager, mock_user):
+        message = WebSocketMessage(
+            type=EventType.ARCHITECT_MESSAGE,
+            correlation_id="corr-1",
+            payload={
+                "session_id": "sess-1",
+                "message": "go ahead",
+                "auto_approve": True,
+            },
+        )
+
+        with patch(
+            "rhesis.backend.app.services.websocket.handlers.architect.get_db_with_tenant_variables"
+        ) as mock_get_db:
+            mock_db = MagicMock()
+            mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
+            mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+            mock_task = MagicMock()
+
+            with (
+                patch("rhesis.backend.app.crud", MagicMock()),
+                patch("rhesis.backend.app.schemas"),
+                patch(
+                    "rhesis.backend.tasks.architect.architect_chat_task",
+                    mock_task,
+                ),
+            ):
+                await handle_architect_message(mock_manager, "conn-1", mock_user, message)
+
+                task_kwargs = mock_task.apply_async.call_args[1]
+                assert task_kwargs["kwargs"]["auto_approve"] is True
+
+    @pytest.mark.asyncio
+    async def test_auto_approve_absent_sends_none(self, mock_manager, mock_user):
+        message = WebSocketMessage(
+            type=EventType.ARCHITECT_MESSAGE,
+            correlation_id="corr-1",
+            payload={
+                "session_id": "sess-1",
+                "message": "hello",
+            },
+        )
+
+        with patch(
+            "rhesis.backend.app.services.websocket.handlers.architect.get_db_with_tenant_variables"
+        ) as mock_get_db:
+            mock_db = MagicMock()
+            mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
+            mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+            mock_task = MagicMock()
+
+            with (
+                patch("rhesis.backend.app.crud", MagicMock()),
+                patch("rhesis.backend.app.schemas"),
+                patch(
+                    "rhesis.backend.tasks.architect.architect_chat_task",
+                    mock_task,
+                ),
+            ):
+                await handle_architect_message(mock_manager, "conn-1", mock_user, message)
+
+                task_kwargs = mock_task.apply_async.call_args[1]
+                assert task_kwargs["kwargs"]["auto_approve"] is None
+
+    @pytest.mark.asyncio
     async def test_attachments_forwarded(self, mock_manager, mock_user):
         attachments = {"files": ["doc.pdf"]}
         message = WebSocketMessage(

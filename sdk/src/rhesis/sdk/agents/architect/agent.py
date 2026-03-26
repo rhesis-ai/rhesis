@@ -5,6 +5,7 @@ plan tracking. Tools are injected by the caller.
 """
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
@@ -12,7 +13,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.constants import Action, InternalTool, Role, ToolMeta
 from rhesis.sdk.agents.events import AgentEventHandler, _emit
-from rhesis.sdk.agents.schemas import AgentAction, ExecutionStep, ToolResult
+from rhesis.sdk.agents.schemas import AgentAction, ExecutionStep, ToolCall, ToolResult
 from rhesis.sdk.models.base import BaseLLM
 
 from .plan import ArchitectPlan
@@ -92,6 +93,7 @@ class ArchitectAgent(BaseAgent):
         self._creation_approved: bool = False
         self._confirming_tools: FrozenSet[str] = frozenset()
         self._mutating_tools: Optional[FrozenSet[str]] = None
+        self._auto_approve_all: bool = False
 
         # ── discovery state ───────────────────────────────────────
         self._discovery_state: Dict[str, Any] = {
@@ -217,17 +219,28 @@ class ArchitectAgent(BaseAgent):
         self._discovery_state = value
 
     @property
+    def auto_approve_all(self) -> bool:
+        """Whether all mutating tools are auto-approved (no confirmation)."""
+        return self._auto_approve_all
+
+    @auto_approve_all.setter
+    def auto_approve_all(self, value: bool) -> None:
+        self._auto_approve_all = value
+
+    @property
     def guard_state(self) -> Dict[str, Any]:
         """Current state of the write-guard (confirmation flow)."""
         return {
             "needs_confirmation": self._needs_confirmation,
             "confirming_tools": list(self._confirming_tools),
+            "auto_approve_all": self._auto_approve_all,
         }
 
     @guard_state.setter
     def guard_state(self, value: Dict[str, Any]) -> None:
         self._needs_confirmation = value.get("needs_confirmation", False)
         self._confirming_tools = frozenset(value.get("confirming_tools", []))
+        self._auto_approve_all = value.get("auto_approve_all", False)
 
     def reset(self) -> None:
         """Reset all state for a fresh conversation."""
@@ -238,6 +251,7 @@ class ArchitectAgent(BaseAgent):
         self._creation_approved = False
         self._confirming_tools = frozenset()
         self._mutating_tools = None
+        self._auto_approve_all = False
         self._attachments = None
         self._discovery_state = {
             "endpoint_id": None,
@@ -302,22 +316,28 @@ class ArchitectAgent(BaseAgent):
         converted into a finish action that presents the plan and
         asks for confirmation.  Read-only tools are always allowed.
 
-        Approval is scoped: only the specific tools that were blocked
-        are unlocked when the user replies, not all mutating tools.
+        When ``auto_approve_all`` is set, all tools are allowed
+        without confirmation (session-level override).
+
+        When a block occurs, ALL mutating tools are placed in the
+        confirming set so that the user's approval covers the full
+        plan — not just the first batch of blocked tools.
         """
+        if self._auto_approve_all:
+            return await super()._handle_tool_calls(action, iteration)
+
         mutating = [tc for tc in action.tool_calls if self._is_mutating(tc.tool_name)]
 
         if mutating and not self._is_approved(mutating):
-            # Block: describe what we *would* do instead of doing it
             blocked_names = [tc.tool_name for tc in mutating]
             logger.info(
                 "[Architect] Blocked tools pending confirmation: %s",
                 blocked_names,
             )
 
-            # Remember which tools were blocked so only those are
-            # unlocked when the user replies.
-            self._confirming_tools = frozenset(blocked_names)
+            # Unlock ALL mutating tools on approval so the full plan
+            # can execute without re-blocking on subsequent tool types.
+            self._confirming_tools = self._mutating_tools or frozenset(blocked_names)
 
             # Allow read-only tools to still execute (e.g. list_metrics
             # called alongside create_metric)
@@ -354,14 +374,72 @@ class ArchitectAgent(BaseAgent):
     def _is_approved(self, tool_calls: list) -> bool:
         """Check if the requested tool calls are approved.
 
-        Approval is scoped: when the guard blocks tools, it records
-        which ones were blocked in ``_confirming_tools``.  On the
-        next turn, only those specific tools are unlocked.
+        Returns True if session-level auto-approve is on, or if
+        the user approved and the requested tools are in the
+        confirming set (which now includes all mutating tools
+        after any plan-level approval).
         """
+        if self._auto_approve_all:
+            return True
         if not self._creation_approved:
             return False
-        # All requested mutating tools must be in the approved set
         return all(tc.tool_name in self._confirming_tools for tc in tool_calls)
+
+    # ── argument validation (structural defense) ───────────────────
+
+    MAX_PAYLOAD_BYTES = 100_000  # 100 KB per tool call
+    MAX_STRING_VALUE_LEN = 10_000  # 10 KB per individual string value
+    MAX_ARRAY_ITEMS = 100  # max items in any single array argument
+
+    def _validate_tool_arguments(self, tool_call: ToolCall) -> Optional[str]:
+        """Validate tool arguments before execution.
+
+        Returns an error message if validation fails, None if ok.
+        This is a structural defense — prevents oversized payloads,
+        excessively long strings, and unreasonable array sizes
+        regardless of what the LLM generates.
+        """
+        args = tool_call.arguments
+        try:
+            serialized = json.dumps(args, default=str)
+        except (TypeError, ValueError):
+            return "Tool arguments could not be serialized"
+
+        if len(serialized.encode("utf-8")) > self.MAX_PAYLOAD_BYTES:
+            return (
+                f"Tool arguments exceed the {self.MAX_PAYLOAD_BYTES // 1000} KB "
+                f"payload limit. Break the operation into smaller calls."
+            )
+
+        for key, value in args.items():
+            if isinstance(value, str) and len(value) > self.MAX_STRING_VALUE_LEN:
+                return (
+                    f"Argument '{key}' exceeds the "
+                    f"{self.MAX_STRING_VALUE_LEN // 1000} KB string limit."
+                )
+            if isinstance(value, list) and len(value) > self.MAX_ARRAY_ITEMS:
+                return (
+                    f"Argument '{key}' contains {len(value)} items "
+                    f"(max {self.MAX_ARRAY_ITEMS}). Split into multiple calls."
+                )
+
+        return None
+
+    async def execute_tool(self, tool_call: ToolCall) -> ToolResult:
+        """Override to validate arguments before execution."""
+        error = self._validate_tool_arguments(tool_call)
+        if error:
+            logger.warning(
+                "[Architect] Rejected tool %s: %s",
+                tool_call.tool_name,
+                error,
+            )
+            return ToolResult(
+                tool_name=tool_call.tool_name,
+                success=False,
+                error=error,
+            )
+        return await super().execute_tool(tool_call)
 
     # ── transport lifecycle ─────────────────────────────────────────
 
