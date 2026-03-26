@@ -12,10 +12,10 @@ from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities import BaseEntity, Endpoint
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
-from rhesis.sdk.errors import RhesisAPIError
 from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.entities.test import Test
 from rhesis.sdk.enums import ExecutionMode, TestType
+from rhesis.sdk.errors import RhesisAPIError
 from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
