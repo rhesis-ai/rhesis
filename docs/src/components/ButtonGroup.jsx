@@ -18,15 +18,15 @@ import React from 'react'
  * ```jsx
  * <ButtonGroup
  *   primaryText="Get Started →"
- *   primaryHref="/getting-started"
+ *   primaryHref="/docs/getting-started"
  *   secondaryText="Learn Core Concepts →"
- *   secondaryHref="/concepts"
+ *   secondaryHref="/docs/concepts"
  * />
  * ```
  */
 export const ButtonGroup = ({
   primaryText = 'Get Started →',
-  primaryHref = '/getting-started',
+  primaryHref = '/docs/getting-started',
   secondaryText = 'Learn Core Concepts →',
   secondaryHref = '/concepts',
 }) => {

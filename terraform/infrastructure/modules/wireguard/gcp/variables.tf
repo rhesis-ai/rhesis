@@ -111,6 +111,20 @@ variable "env_nics" {
     subnet_self_link = string
     network_ip       = string
     master_cidr      = string
+    environment      = string
+    pod_cidr         = string
+    service_cidr     = string
+    node_cidr        = string
+    vpc_name         = string
   }))
   default = []
+}
+
+variable "bind9_tsig_keys" {
+  description = "TSIG keys for BIND9 dynamic update (env → {keyname, secret})"
+  type = map(object({
+    keyname = string
+    secret  = string
+  }))
+  default = {}
 }

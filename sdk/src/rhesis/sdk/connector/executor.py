@@ -20,6 +20,7 @@ from rhesis.sdk.telemetry.context import (
     set_conversation_trace_id,
     set_root_trace_id,
     set_test_execution_context,
+    set_tracing_disabled,
 )
 from rhesis.sdk.telemetry.tracer import pop_result_trace_id
 
@@ -156,10 +157,15 @@ class TestExecutor:
         serializer = self._get_serializer(serializers)
 
         try:
+            # Check if tracing should be suppressed for this invocation
+            disable_tracing = inputs.pop("_rhesis_disable_tracing", False)
+            if disable_tracing:
+                set_tracing_disabled(True)
+
             # Extract test execution context (internal parameter, not for user function)
             # Store in context variable so tracer can access it
             test_context = inputs.pop(TestContextConstants.CONTEXT_KEY, None)
-            if test_context:
+            if test_context and not disable_tracing:
                 logger.debug(
                     f"Test context for {function_name}: "
                     f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
@@ -168,7 +174,7 @@ class TestExecutor:
 
             # Extract conversation context (internal parameter)
             conv_context = inputs.pop(ConvContextConstants.CONTEXT_KEY, None)
-            if conv_context:
+            if conv_context and not disable_tracing:
                 conv_id = conv_context.get(ConvContextConstants.Fields.CONVERSATION_ID)
                 conv_trace = conv_context.get(ConvContextConstants.Fields.TRACE_ID)
                 mapped_input = conv_context.get(ConvContextConstants.Fields.MAPPED_INPUT, "")
@@ -207,9 +213,11 @@ class TestExecutor:
                 # Get trace_id BEFORE serialization (which creates a new object)
                 # For sync functions in thread pools, context vars don't propagate back,
                 # so check for trace_id stored in thread-safe dict by tracer
-                trace_id = get_root_trace_id()
-                if trace_id is None and result is not None:
-                    trace_id = pop_result_trace_id(result)
+                trace_id = None
+                if not disable_tracing:
+                    trace_id = get_root_trace_id()
+                    if trace_id is None and result is not None:
+                        trace_id = pop_result_trace_id(result)
 
                 # Serialize result to JSON-compatible format
                 result = self._serialize_result(result, serializer)
@@ -231,6 +239,8 @@ class TestExecutor:
                 set_conversation_id(None)
                 set_conversation_trace_id(None)
                 set_conversation_mapped_input(None)
+                if disable_tracing:
+                    set_tracing_disabled(False)
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000

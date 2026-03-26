@@ -5,6 +5,7 @@ import pytest
 
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.errors import RhesisAPIError
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
 
@@ -78,7 +79,7 @@ class TestLastRun:
 
     @patch("requests.request")
     def test_last_run_no_runs(self, mock_request, test_set, endpoint):
-        """Returns None when no completed run exists (404)."""
+        """Raises RhesisAPIError when no completed run exists (404)."""
         import requests as req
 
         mock_response = MagicMock()
@@ -93,10 +94,9 @@ class TestLastRun:
         mock_response.raise_for_status.side_effect = http_error
         mock_request.return_value = mock_response
 
-        result = test_set.last_run(endpoint)
-
-        # handle_http_errors returns None on HTTPError
-        assert result is None
+        with pytest.raises(RhesisAPIError) as exc_info:
+            test_set.last_run(endpoint)
+        assert exc_info.value.status_code == 404
 
     def test_last_run_no_id_raises(self, test_set_no_id, endpoint):
         """ValueError when test set has no ID."""

@@ -21,7 +21,7 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 ## What was done (Phase 08 in progress)
 
 ### TODOs
-- [ ] Adjust the `c4d8e2f1a3b5_add_architect_tables.py` migration's `down_revision` to point to the current latest migration in `main` before merging (deferred).
+- [x] Adjust the `c4d8e2f1a3b5_add_architect_tables.py` migration's `down_revision` to point to the current latest migration in `main` before merging — rebased to `e1f2a3b4c5d6` (origin/main head).
 - [x] Introduce "Auto-approve" toggle for the session — users can bypass per-action confirmations via a switch in the chat header.
 - [x] Plan-level approval — when the write guard blocks tools, all mutating tools are placed in the confirming set so that one approval covers the full plan.
 - [ ] Add result analysis patterns to the agent: structured pass/fail summaries, failure clustering by behavior, score distributions, and actionable suggestions (parked).

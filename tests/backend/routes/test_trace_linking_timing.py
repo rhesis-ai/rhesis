@@ -293,7 +293,7 @@ class TestTraceLinkingTiming:
             )
 
         assert len(stored_spans) == 5
-        assert sync_count == 1  # Sync enrichment used
+        assert sync_count == 5  # One sync enrichment per root span
 
         # Link traces
         linking_service = TraceLinkingService(test_db)

@@ -1,3 +1,4 @@
+import logging
 import os
 from enum import Enum
 from typing import ClassVar, Optional
@@ -7,7 +8,8 @@ import pytest
 from requests.exceptions import HTTPError
 
 from rhesis.sdk.clients import HTTPStatus
-from rhesis.sdk.entities.base_entity import BaseEntity
+from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
+from rhesis.sdk.errors import RhesisAPIError
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
 
@@ -116,16 +118,63 @@ def test_pull_by_id(mock_request, test_entity):
     )
 
 
-# def test_pull(test_entity_without_id):
-#     with pytest.raises(ValueError):
-#         test_entity_without_id.pull()
+class TestHandleHttpErrorsSecurity:
+    """Verify that handle_http_errors never leaks credentials."""
 
+    API_KEY = "rh-SUPER_SECRET_KEY_12345"
 
-# def test_delete(test_entity_without_id):
-#     with pytest.raises(ValueError):
-#         test_entity_without_id.delete()
+    def _make_http_error(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.content = b"Internal Server Error"
+        mock_response.request = MagicMock()
+        mock_response.request.url = "http://test:8000/test/1"
+        mock_response.request.method = "POST"
+        mock_response.request.headers = {
+            "Authorization": f"Bearer {self.API_KEY}",
+            "Content-Type": "application/json",
+        }
+        mock_response.request.body = b'{"auth_token": "secret-token-value"}'
+        error = HTTPError("500 Server Error", response=mock_response)
+        return error
 
+    def test_no_api_key_in_logs(self, caplog):
+        """Authorization header must never appear in log output."""
 
-# def test_push(test_entity, test_entity_without_id):
-#     test_entity.push()
-#     test_entity_without_id.push()
+        @handle_http_errors
+        def failing_method(self_arg):
+            raise self._make_http_error()
+
+        with caplog.at_level(logging.ERROR, logger="rhesis.sdk.entities.base_entity"):
+            with pytest.raises(RhesisAPIError):
+                failing_method(None)
+
+        full_log = caplog.text
+        assert self.API_KEY not in full_log, "API key was leaked in log output"
+        assert "Bearer" not in full_log, "Authorization header was leaked in log output"
+        assert "auth_token" not in full_log, "Request body was leaked in log output"
+
+    def test_raises_rhesis_api_error(self):
+        """handle_http_errors must raise RhesisAPIError, not return None."""
+
+        @handle_http_errors
+        def failing_method(self_arg):
+            raise self._make_http_error()
+
+        with pytest.raises(RhesisAPIError) as exc_info:
+            failing_method(None)
+
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.response_content == "Internal Server Error"
+
+    def test_preserves_original_exception(self):
+        """RhesisAPIError must chain from the original HTTPError."""
+
+        @handle_http_errors
+        def failing_method(self_arg):
+            raise self._make_http_error()
+
+        with pytest.raises(RhesisAPIError) as exc_info:
+            failing_method(None)
+
+        assert isinstance(exc_info.value.__cause__, HTTPError)

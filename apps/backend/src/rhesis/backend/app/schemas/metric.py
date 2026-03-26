@@ -15,6 +15,7 @@ from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
 class MetricScope(str, Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
+    TRACE = "Trace"
 
 
 class MetricBase(Base):

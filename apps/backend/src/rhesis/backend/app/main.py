@@ -217,9 +217,15 @@ async def lifespan(app: FastAPI):
         )
 
     # Initialize conversation linking cache (Redis with in-memory fallback)
-    from rhesis.backend.app.services.telemetry.conversation_linking import initialize_cache
+    from rhesis.backend.app.services.telemetry.conversation_linking import (
+        initialize_cache as init_conv_cache,
+    )
+    from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
+        initialize_cache as init_metrics_cache,
+    )
 
-    initialize_cache()
+    init_conv_cache()
+    init_metrics_cache()
 
     # Initialize WebSocket Redis subscriber (optional, doesn't fail startup)
     from rhesis.backend.app.services.websocket import start_redis_subscriber, ws_manager

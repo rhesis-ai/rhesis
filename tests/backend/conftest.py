@@ -230,7 +230,7 @@ def disable_enrichment(request, monkeypatch):
         return
 
     def mock_enqueue_enrichment(
-        self, trace_id, project_id, organization_id, workers_available=None
+        self, trace_id, project_id, organization_id, workers_available=None, root_span_id=None
     ):
         return False
 

@@ -1,0 +1,131 @@
+import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
+
+# Getting Started
+
+Welcome to Rhesis! This guide will help you get started with testing and evaluating your Generative AI applications.
+
+The Rhesis platform is designed to seamlessly integrate into your development lifecycle, enabling you to build, test, and deploy Gen AI applications with confidence. From setting up your first environment to running complex adversarial evaluations, this guide provides a step-by-step pathway.
+
+## Quick install (Python SDK)
+
+Prefer code first? Install the SDK and list your test sets in a few lines:
+
+```bash
+pip install rhesis-sdk
+```
+
+```python
+import os
+from rhesis.sdk.entities import TestSet
+
+os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # from app.rhesis.ai
+for ts in TestSet().all():
+    print(ts.name)
+```
+
+For full SDK docs, see [SDK installation](/sdk/installation).
+
+## What are you building?
+
+Pick a path that matches your goal — each card links to deeper docs.
+
+<NextStepCardGrid>
+  <NextStepCard
+    emoji="🤖"
+    title="Testing AI agents"
+    description="Exercise agents with goals, metrics, and traces."
+    link="/guides/testing-user-journeys"
+    linkText="User journeys guide →"
+  />
+  <NextStepCard
+    emoji="📚"
+    title="Testing RAG pipelines"
+    description="Structure expectations, metrics, and generated tests."
+    link="/docs/metrics"
+    linkText="Metrics →"
+  />
+  <NextStepCard
+    emoji="🛡️"
+    title="Adversarial and safety"
+    description="Red-team style checks and Polyphemus integration."
+    link="/docs/adversarial-testing"
+    linkText="Adversarial testing →"
+  />
+  <NextStepCard
+    emoji="⚙️"
+    title="CI/CD integration"
+    description="Run evaluations from your pipeline with the SDK."
+    link="/guides/ci-cd-integration"
+    linkText="CI/CD guide →"
+  />
+  <NextStepCard
+    emoji="💬"
+    title="Conversation testing"
+    description="Multi-turn simulation with Penelope."
+    link="/docs/conversation-simulation"
+    linkText="Conversation simulation →"
+  />
+</NextStepCardGrid>
+
+<Callout type="default">
+  **Prefer programmatic access?** Use the [Python SDK](/sdk/installation) for test sets, runs, and the connector.
+</Callout>
+
+Getting started consists of three core steps:
+
+<Steps>
+### Setup Environment
+Choose how you want to run Rhesis: Cloud (fastest), Local, or Self-hosted.
+[Setup Environment Guide →](/docs/getting-started/setup-environment)
+
+### Connect Application
+Connect your Gen AI application to Rhesis via REST Endpoints or our Python SDK.
+[Connect Application Guide →](/docs/getting-started/connecting-application)
+
+### Run Evaluations
+Generate test sets interactively and run automated evaluations against your application.
+[Run Evaluations Guide →](/docs/getting-started/run-evaluations)
+</Steps>
+
+## Next Steps
+
+<NextStepCardGrid>
+  <NextStepCard
+    emoji="📚"
+    title="Core Concepts"
+    description="Understand the fundamental concepts of Gen AI testing with Rhesis."
+    link="/docs/concepts"
+    linkText="Learn Core Concepts →"
+  />
+  <NextStepCard
+    emoji="🚀"
+    title="Product tour"
+    description="Explore the Rhesis platform features and capabilities."
+    link="/docs/product-tour"
+    linkText="View product tour →"
+  />
+  <NextStepCard
+    emoji="💻"
+    title="Deployment"
+    description="Learn how to run Rhesis locally or self-host it on your infrastructure."
+    link="/docs/deployment"
+    linkText="View Deployment Options →"
+  />
+  <NextStepCard
+    emoji="📖"
+    title="Guides"
+    description="Step-by-step tutorials for common use cases."
+    link="/guides"
+    linkText="View Guides →"
+  />
+</NextStepCardGrid>
+
+## Need Help?
+
+- **Documentation**: Browse the docs using the navigation menu
+- **GitHub Issues**: [Report bugs or request features](https://github.com/rhesis-ai/rhesis/issues)
+- **Community**: Join discussions and get support
+
+<Callout type="default">
+**Tip**: If you're new to Gen AI testing, start with [Core Concepts](/docs/concepts) to understand key principles before diving into implementation.
+</Callout>

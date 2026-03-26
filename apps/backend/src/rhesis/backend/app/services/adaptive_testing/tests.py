@@ -196,6 +196,41 @@ def create_adaptive_test_set(
     )
 
 
+def _is_adaptive_test_set(test_set: models.TestSet) -> bool:
+    """True if the test set has Adaptive Testing in metadata.behaviors."""
+    attrs = test_set.attributes or {}
+    metadata = attrs.get("metadata") or {}
+    behaviors = metadata.get("behaviors") or []
+    return ADAPTIVE_TESTING_BEHAVIOR in behaviors
+
+
+def delete_adaptive_test_set(
+    db: Session,
+    test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+) -> models.TestSet:
+    """Delete a test set that is configured for adaptive testing.
+
+    Resolves the test set by UUID, nano_id, or slug. Raises ValueError if the
+    set is missing or does not include the Adaptive Testing behavior.
+    """
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id)
+    if db_test_set is None:
+        raise ValueError("Test set not found with provided identifier")
+    if not _is_adaptive_test_set(db_test_set):
+        raise ValueError("Test set is not configured for adaptive testing")
+    deleted = crud.delete_test_set(
+        db,
+        test_set_id=db_test_set.id,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    if deleted is None:
+        raise ValueError("Test set not found with provided identifier")
+    return deleted
+
+
 def create_test_node(
     db: Session,
     test_set_id: UUID,

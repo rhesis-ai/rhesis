@@ -4,6 +4,15 @@
 # flake8: noqa: E501
 
 
+class RhesisAPIError(Exception):
+    """Raised when a Rhesis API request fails."""
+
+    def __init__(self, message, status_code=None, response_content=None):
+        self.status_code = status_code
+        self.response_content = response_content
+        super().__init__(message)
+
+
 # LLM Errors
 NO_MODEL_NAME_PROVIDED = "The model name is not valid. Please provide a non-empty string."
 HUGGINGFACE_MODEL_NOT_LOADED = "Hugging Face model is not loaded. Set auto_loading=True to load it manually using `load_model()`."

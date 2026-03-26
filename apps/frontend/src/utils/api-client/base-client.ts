@@ -226,7 +226,6 @@ export class BaseApiClient {
               url,
               status: response.status,
               statusText: response.statusText,
-              headers: Object.fromEntries(response.headers.entries()),
             };
             if (logLevel === 'error') {
               console.error(`${logPrefix} API Response Error:`, logData);

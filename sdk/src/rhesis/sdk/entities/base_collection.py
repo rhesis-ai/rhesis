@@ -48,7 +48,10 @@ class BaseCollection(Generic[T]):
         """Retrieve the first record from the API.
 
         Returns:
-            The first record, or None if no records found
+            The first record, or None if no records found.
+
+        Raises:
+            RhesisAPIError: If the API request fails.
         """
         client = APIClient()
 

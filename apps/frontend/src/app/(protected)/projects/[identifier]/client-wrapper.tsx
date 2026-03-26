@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Button, Typography, Paper } from '@mui/material';
 import { EditIcon, DeleteIcon } from '@/components/icons';
 import ProjectContent from '../components/ProjectContent';
 import ProjectEditDrawer from './edit-drawer';
 import ProjectEndpoints from './components/ProjectEndpoints';
+import ProjectTraceMetrics from './components/ProjectTraceMetrics';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -169,6 +170,27 @@ export default function ClientWrapper({
           Endpoints
         </Typography>
         <ProjectEndpoints projectId={projectId} sessionToken={sessionToken} />
+      </Box>
+
+      {/* Trace Metrics Section */}
+      <Box sx={{ mt: 3 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            mb: 2,
+            fontWeight: 600,
+            color: 'text.primary',
+          }}
+        >
+          Trace Metrics
+        </Typography>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <ProjectTraceMetrics
+            project={currentProject}
+            sessionToken={sessionToken}
+            onProjectUpdate={handleUpdateProject}
+          />
+        </Paper>
       </Box>
 
       {/* Edit Drawer */}

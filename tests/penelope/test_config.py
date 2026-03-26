@@ -113,12 +113,14 @@ def test_config_enable_external_loggers():
     # Set to DEBUG (should enable external loggers)
     PenelopeConfig.set_log_level("DEBUG")
 
-    # Check that external loggers are at DEBUG level
+    # LiteLLM should be at DEBUG
     litellm_logger = logging.getLogger("LiteLLM")
-    httpx_logger = logging.getLogger("httpx")
-
     assert litellm_logger.level == logging.DEBUG
-    assert httpx_logger.level == logging.DEBUG
+
+    # httpx/httpcore stay at INFO even in DEBUG mode to avoid
+    # logging Authorization headers (credential leakage prevention)
+    httpx_logger = logging.getLogger("httpx")
+    assert httpx_logger.level == logging.INFO
 
     # Cleanup
     PenelopeConfig.reset()

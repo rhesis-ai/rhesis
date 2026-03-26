@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import UUID4
 
@@ -15,6 +15,7 @@ class ProjectBase(Base):
     organization_id: Optional[UUID4] = None
     icon: Optional[str] = None
     status_id: Optional[UUID4] = None
+    attributes: Optional[Dict[str, Any]] = None
 
 
 class ProjectCreate(ProjectBase):

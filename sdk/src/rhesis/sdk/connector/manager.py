@@ -211,9 +211,9 @@ class ConnectorManager:
         message_type = message.get("type")
 
         if message_type == MessageType.EXECUTE_TEST.value:
-            await self._handle_test_request(message)
+            asyncio.create_task(self._handle_test_request(message))
         elif message_type == MessageType.EXECUTE_METRIC.value:
-            await self._handle_metric_request(message)
+            asyncio.create_task(self._handle_metric_request(message))
         elif message_type == MessageType.PING.value:
             await self._handle_ping()
         elif message_type == MessageType.CONNECTED.value:
@@ -257,6 +257,15 @@ class ConnectorManager:
             serializers = metadata.get("serializers")
 
             # Execute function via executor with serializers
+            if func is None:
+                await self._send_test_result(
+                    test_run_id,
+                    status=TestStatus.ERROR,
+                    error=f"Function '{function_name}' could not be loaded",
+                    duration_ms=0,
+                )
+                return
+
             result = await self._executor.execute(
                 func, function_name, inputs, serializers=serializers
             )
@@ -337,6 +346,16 @@ class ConnectorManager:
                 return
 
             metric_func = self._metric_registry.get(metric_name)
+
+            if metric_func is None:
+                await self._send_metric_result(
+                    metric_run_id,
+                    status=TestStatus.ERROR,
+                    error=f"Metric '{metric_name}' could not be loaded",
+                    duration_ms=0,
+                )
+                return
+
             metadata = self._metric_registry.get_metadata(metric_name) or {}
             accepted_params = metadata.get("accepted_params", list(DEFAULT_METRIC_PARAMS))
 

@@ -22,7 +22,7 @@ import React from 'react'
  *   emoji="📚"
  *   title="Core Concepts"
  *   description="Understand the fundamental concepts of Gen AI testing with Rhesis."
- *   link="/concepts"
+ *   link="/docs/concepts"
  *   linkText="Learn Core Concepts →"
  * />
  * ```

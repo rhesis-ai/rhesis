@@ -18,7 +18,11 @@ export default {
   sidebar: {
     titleComponent({ title, type }) {
       if (type === 'separator') {
-        return <span className="cursor-default">{title}</span>
+        return (
+          <span className="rhesis-sidebar-section-header nx-block nx-w-full nx-text-left">
+            {title}
+          </span>
+        )
       }
       return <>{title}</>
     },
@@ -62,7 +66,7 @@ export default {
   },
 
   // Repository configuration
-  docsRepositoryBase: 'https://github.com/rhesis-ai/rhesis/tree/main/apps/documentation',
+  docsRepositoryBase: 'https://github.com/rhesis-ai/rhesis/tree/main/docs',
 
   // Edit link - disabled since pages are not editable
   editLink: null,

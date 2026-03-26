@@ -33,6 +33,11 @@ output "subnet_self_links" {
   }
 }
 
+output "ilb_subnet_name" {
+  description = "Name of the ILB subnet (for GKE internal LB annotation)"
+  value       = var.create_gke_subnets ? google_compute_subnetwork.ilb[0].name : null
+}
+
 output "secondary_ranges" {
   description = "Secondary IP ranges for pods and services (GKE)"
   value = var.create_gke_subnets ? {

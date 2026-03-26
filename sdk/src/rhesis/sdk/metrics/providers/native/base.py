@@ -51,8 +51,8 @@ class JudgeBase(BaseMetric, SerializationMixin, BackendSyncMixin):
         Raises:
             ValueError: If any input validation fails
         """
-        if not isinstance(input, str) or not input.strip():
-            raise ValueError("input must be a non-empty string")
+        if not isinstance(input, str):
+            raise ValueError("input must be a string")
 
         if not isinstance(output, str):
             raise ValueError(

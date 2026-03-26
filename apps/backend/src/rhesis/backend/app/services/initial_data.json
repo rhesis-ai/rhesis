@@ -533,6 +533,11 @@
             "description": "Metric applies to multi-turn tests only"
         },
         {
+            "type_name": "MetricScope",
+            "type_value": "Trace",
+            "description": "Metric applies to execution traces"
+        },
+        {
             "type_name": "ToolType",
             "type_value": "mcp",
             "description": "Model Context Protocol tool"

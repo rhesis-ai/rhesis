@@ -22,7 +22,7 @@ const communityItems = [
     icon: MenuBookOutlined,
     title: 'Documentation',
     description: 'Comprehensive guides and API references',
-    link: '/platform',
+    link: '/docs/getting-started',
     linkText: 'Browse Docs →',
   },
   {

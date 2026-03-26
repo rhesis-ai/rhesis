@@ -42,15 +42,14 @@ gap by parking the output/files and injecting them when the spans arrive.
 
 import json
 import logging
-import os
-import threading
 import time
 from typing import Any, Dict, List, NamedTuple, Optional
-from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.services.cache import RedisBackedCache
+from rhesis.backend.app.services.redis_constants import RedisDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +62,7 @@ _MAX_IO_LENGTH = 10000  # synced with ConversationConstants.MAX_IO_LENGTH
 
 
 # ---------------------------------------------------------------
-# Data classes
+# Data classes (kept for backward compatibility with tests)
 # ---------------------------------------------------------------
 
 
@@ -72,36 +71,35 @@ class PendingConversationLink(NamedTuple):
 
     conversation_id: str
     organization_id: str
-    registered_at: float  # time.monotonic() timestamp
+    registered_at: float
 
 
 class PendingOutput(NamedTuple):
     """Mapped output waiting to be injected into an arriving SDK span."""
 
     mapped_output: str
-    registered_at: float  # time.monotonic() timestamp
+    registered_at: float
 
 
 class PendingFiles(NamedTuple):
     """Input files waiting to be linked to a Trace when SDK spans arrive."""
 
-    files_json: str  # JSON-serialized list of file dicts
+    files_json: str
     organization_id: str
-    registered_at: float  # time.monotonic() timestamp
+    registered_at: float
 
 
 # ---------------------------------------------------------------
-# Cache class (Redis primary, in-memory fallback)
-# ---------------------------------------------------------------
-
 # Redis key prefixes
+# ---------------------------------------------------------------
+
 _PREFIX_PENDING = "convlink:pending:"
 _PREFIX_REVERSE = "convlink:reverse:"
 _PREFIX_OUTPUT = "convlink:output:"
 _PREFIX_FILES = "convlink:files:"
 
 
-class ConversationLinkingCache:
+class ConversationLinkingCache(RedisBackedCache):
     """Redis-backed cache with in-memory fallback for conversation linking.
 
     Uses synchronous redis.Redis (not asyncio) because all callers are sync.
@@ -109,63 +107,15 @@ class ConversationLinkingCache:
     """
 
     def __init__(self) -> None:
-        self._redis: Optional[Any] = None
-        self._initialized = False
-        # In-memory fallback caches (used when Redis unavailable)
+        super().__init__(
+            redis_db=RedisDatabase.CONVERSATION_LINKING,
+            cache_name="conversation-linking",
+            ttl=_CACHE_TTL,
+        )
+        # Backward-compatible in-memory dicts (used by tests and in-memory fallback)
         self._pending_links: Dict[str, PendingConversationLink] = {}
         self._pending_outputs: Dict[str, PendingOutput] = {}
         self._pending_files: Dict[str, PendingFiles] = {}
-        self._lock = threading.Lock()
-
-    @property
-    def _using_redis(self) -> bool:
-        return self._redis is not None
-
-    def initialize(self) -> None:
-        """Try to connect to Redis. Falls back to in-memory if unavailable."""
-        if self._initialized:
-            return
-
-        try:
-            import redis as redis_pkg
-
-            redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
-            # Use database 3 for conversation linking cache
-            parsed = urlparse(redis_url)
-            cache_url = urlunparse(parsed._replace(path="/3"))
-
-            self._redis = redis_pkg.Redis.from_url(
-                cache_url,
-                decode_responses=True,
-                encoding="utf-8",
-                socket_connect_timeout=5,
-                socket_timeout=5,
-            )
-            self._redis.ping()
-            self._initialized = True
-            logger.info("Conversation linking cache: Redis connection established (db 3)")
-        except Exception as e:
-            logger.debug(
-                "Conversation linking cache: Redis not available "
-                f"({type(e).__name__}: {e}). "
-                "Operating in memory-only mode."
-            )
-            if self._redis is not None:
-                try:
-                    self._redis.close()
-                except Exception:
-                    pass
-                self._redis = None
-            self._initialized = True
-
-    def close(self) -> None:
-        """Close the Redis connection if open."""
-        if self._redis is not None:
-            try:
-                self._redis.close()
-            except Exception:
-                pass
-            self._redis = None
 
     # -----------------------------------------------------------
     # Conversation link methods
@@ -204,7 +154,6 @@ class ConversationLinkingCache:
                     f"Redis write failed for register_link, falling back to memory: {exc}"
                 )
 
-        # In-memory fallback
         with self._lock:
             self._pending_links[trace_id] = PendingConversationLink(
                 conversation_id=conversation_id,
@@ -218,15 +167,14 @@ class ConversationLinkingCache:
         if self._using_redis:
             try:
                 result = self._redis.get(f"{_PREFIX_REVERSE}{conversation_id}")
-                return result  # str or None
+                if result is not None:
+                    return result
             except Exception as exc:
                 logger.warning(
-                    "Redis read failed for "
-                    "get_trace_id_for_conversation, "
+                    "Redis read failed for get_trace_id_for_conversation, "
                     f"falling back to memory: {exc}"
                 )
 
-        # In-memory fallback (linear scan)
         with self._lock:
             for tid, link in self._pending_links.items():
                 if link.conversation_id == conversation_id:
@@ -246,7 +194,6 @@ class ConversationLinkingCache:
                     f"Redis read failed for pop_links_for_traces, falling back to memory: {exc}"
                 )
 
-        # In-memory fallback
         matched = []
         with self._lock:
             for tid in trace_ids:
@@ -294,7 +241,6 @@ class ConversationLinkingCache:
                     f"Redis write failed for register_output, falling back to memory: {exc}"
                 )
 
-        # In-memory fallback
         with self._lock:
             self._pending_outputs[trace_id] = PendingOutput(
                 mapped_output=mapped_output,
@@ -315,7 +261,6 @@ class ConversationLinkingCache:
                     f"Redis read failed for pop_outputs_for_traces, falling back to memory: {exc}"
                 )
 
-        # In-memory fallback
         matched = {}
         with self._lock:
             for tid in trace_ids:
@@ -371,7 +316,6 @@ class ConversationLinkingCache:
                     f"Redis write failed for register_files, falling back to memory: {exc}"
                 )
 
-        # In-memory fallback
         with self._lock:
             self._pending_files[trace_id] = PendingFiles(
                 files_json=files_json,
@@ -393,7 +337,6 @@ class ConversationLinkingCache:
                     f"Redis read failed for pop_files_for_traces, falling back to memory: {exc}"
                 )
 
-        # In-memory fallback
         matched = {}
         with self._lock:
             for tid in trace_ids:

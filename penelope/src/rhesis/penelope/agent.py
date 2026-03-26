@@ -560,10 +560,10 @@ class PenelopeAgent:
 
         # Create system prompt
         logger.info("=== AGENT: Creating system prompt ===")
-        logger.info(f"Agent received - instructions: {instructions}")
-        logger.info(f"Agent received - goal: {goal}")
-        logger.info(f"Agent received - scenario: {scenario}")
-        logger.info(f"Agent received - restrictions: {restrictions}")
+        logger.debug(f"Agent received - instructions: {instructions}")
+        logger.debug(f"Agent received - goal: {goal}")
+        logger.debug(f"Agent received - scenario: {scenario}")
+        logger.debug(f"Agent received - restrictions: {restrictions}")
 
         # Build context string, including file attachment info if present
         context_str = str(context) if context else ""

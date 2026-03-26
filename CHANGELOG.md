@@ -13,6 +13,99 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.11] - 2026-03-26
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.10**
+- **Frontend 0.6.11**
+- **SDK 0.6.11**
+
+### Summary of Changes
+
+**Backend v0.6.10:**
+- Added trace metrics evaluation system with per-turn and per-conversation metric evaluation via Celery tasks.
+- Added trace review system with human review overrides for traces, turns, and individual metrics.
+- Added SQL-level trace metrics aggregation for improved performance over Python-side processing.
+- Added Trace scope to MetricScope, enabling metrics to target traces alongside test results.
+- Added configurable debounce for conversation-level metric evaluation.
+- Introduced ReviewTarget enum for type-safe review target constants across the codebase.
+- Added task and comment support for traces.
+- Improved operational safety: sanitized API error messages, added Celery task time limits, and refined retry strategy for transient errors.
+
+**Frontend v0.6.11:**
+- Added trace metrics tab with detailed per-metric breakdown, status indicators, and metric-level reviews.
+- Added trace reviews tab with per-turn and per-metric human review overrides.
+- Added trace review drawer for submitting reviews with target selection and status toggles.
+- Added project-level trace metrics configuration with bulk selection and removal.
+- Added evaluation status filter to the traces list with pass/fail/pending filtering.
+- Added dedicated trace detail page at `/traces/[identifier]`.
+- Improved trace filters with theme-aware styling replacing hardcoded colors.
+- Added error boundary around trace drawer content for improved resilience.
+- Memoized span attribute categorization for better render performance.
+
+**SDK v0.6.11:**
+- Replaced custom chunking logic with `chonkie`-backed strategies (TokenChunker, SentenceChunker, RecursiveChunker), improving text splitting capabilities. Deprecated the custom SemanticChunker.
+- Fixed a security vulnerability by pinning the `litellm` dependency to version <=1.82.3 due to compromised newer versions.
+- Improved connector stability by making test and metric executions non-blocking, preventing connection drops during concurrent runs.
+- Removed strict input validation from base judge to support conversational trace metrics evaluation.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+## [0.6.10] - 2026-03-23
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.9**
+- **Frontend 0.6.10**
+- **SDK 0.6.10**
+
+### Summary of Changes
+
+**Backend v0.6.9:**
+- Added API endpoint to delete adaptive testing test sets.
+- Added SDK stats API for test runs and test results.
+- Exposed test execution context in request mapping templates.
+- Improved backend performance with DB views, indexes, and cleanup.
+- Implemented NIST-aligned password hardening with breach checks.
+- Added overwrite functionality for test generation and evaluation in adaptive testing.
+- Refactored metric configuration handling and evaluation.
+- Migrated feedback and polyphemus emails to backend email service.
+- Added evaluate endpoint and UI for adaptive testing.
+- Fixed welcome email not sent on email/password and magic link sign-up.
+- Added attachments column to tests grid.
+- Fixed counts including soft-deleted records.
+- Fixed MCP auth: use system default model and fix credential testing.
+- Bumped security deps (tornado, langgraph, mcp-atlassian).
+
+
+**Frontend v0.6.10:**
+- Redesigned login and registration pages with a new white-dominant theme and improved accessibility.
+- Added the ability to delete adaptive testing test sets.
+- Implemented overwrite functionality for test generation and evaluation in adaptive testing.
+- Improved test run detail page search functionality and fixed pagination issues.
+- Added an Attachments column to the Tests grid, displaying the number of attached files.
+
+
+**SDK v0.6.10:**
+- Added `TestRuns.stats()` and `TestResults.stats()` methods for retrieving test run and result statistics, including optional pandas DataFrame conversion.
+- Implemented NIST-aligned password hardening with zxcvbn strength scoring, context-specific word blocking, and HaveIBeenPwned breach checks. Minimum password length increased to 12 characters.
+- Improved metric evaluation by refactoring the MetricEvaluator to use a strategy pattern, allowing for more flexible backend integrations and streamlined configuration handling.
+- Made SDK metrics evaluation async-first, enhancing performance with asynchronous execution methods in judges and metrics.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.6.9] - 2026-03-12
 
 ### Platform Release

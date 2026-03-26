@@ -1,10 +1,11 @@
-import type { MetaRecord } from "nextra";
+import type { MetaRecord } from 'nextra'
 
 const meta: MetaRecord = {
-  index: "Overview",
-  "quick-start-guide": "Quick Start: Testing in 10 Minutes",
-  "custom-metrics": "Building Custom Metrics with the Rhesis SDK",
-  "ci-cd-integration": "Integrating Rhesis SDK into CI/CD",
-};
+  index: 'Overview',
+  'quick-start-guide': 'Quick Start: Testing in 10 Minutes',
+  'custom-metrics': 'Building Custom Metrics with the Rhesis SDK',
+  'ci-cd-integration': 'Integrating Rhesis SDK into CI/CD',
+  'testing-user-journeys': 'Testing User Journeys of AI Agents',
+}
 
-export default meta;
+export default meta

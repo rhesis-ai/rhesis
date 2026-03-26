@@ -25,7 +25,7 @@ FIRST_TURN_PROMPT = PromptTemplate(
         "testing\n"
         "2. **Select Methodology**: Choose testing techniques appropriate for the test type\n"
         "3. **Plan First Action**: Decide on your initial testing step\n"
-        "4. **Execute**: Take your first action\n\n"
+        "4. **Execute**: Take your first action in the EXACT SAME LANGUAGE as the Test Goal\n\n"
         "Start now with your first testing action."
     ),
 )
@@ -56,8 +56,8 @@ SUBSEQUENT_TURN_PROMPT = PromptTemplate(
         "2. **Assess Findings**: What have you learned about the target system's behavior?\n"
         "3. **Plan Next Action**: What NEW question or topic will advance your objectives? "
         "Do NOT repeat any previous message.\n"
-        "4. **Execute**: Send your message as a natural user would — "
-        "conversational, never mentioning tests or evaluations.\n\n"
+        "4. **Execute**: Send your message in the EXACT SAME LANGUAGE as the Test Goal, "
+        "as a natural user would — conversational, never mentioning tests or evaluations.\n\n"
         "Continue toward the goal."
     ),
 )

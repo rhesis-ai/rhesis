@@ -1,8 +1,11 @@
 import json
+import logging
 import os
 from typing import AsyncGenerator, Iterator, Union
 
 from openai import AzureOpenAI, OpenAI
+
+logger = logging.getLogger(__name__)
 
 # Think about https://pypi.org/project/json-repair/ to enable JSON parsing
 # of OpenAI responses in stream mode
@@ -78,7 +81,7 @@ def _create_completion(
             return _stream_response(response)
         return response if raw_response else response.choices[0].message.content
     except Exception as e:
-        print(f"Error getting OpenAI response: {str(e)}")
+        logger.error(f"Error getting OpenAI response: {str(e)}")
         raise
 
 
@@ -130,7 +133,7 @@ def get_json_response(prompt: str, stream: bool = False) -> Union[dict, AsyncGen
 
             return _stream_response()
     except Exception as e:
-        print(f"OpenAI API error: {str(e)}")
+        logger.error(f"OpenAI API error: {str(e)}")
         raise e
 
 
@@ -229,5 +232,5 @@ def create_chat_completion(request: dict):
 
         return get_chat_response(**kwargs, stream=stream)
     except Exception as e:
-        print(f"Error in create_chat_completion: {str(e)}")
+        logger.error(f"Error in create_chat_completion: {str(e)}")
         raise

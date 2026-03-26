@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -25,24 +25,44 @@ import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import {
   SpanNode,
   TraceDetailResponse,
+  TraceMetricsStatus,
 } from '@/utils/api-client/interfaces/telemetry';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { FilesClient } from '@/utils/api-client/files-client';
 import FileAttachmentList from '@/components/common/FileAttachmentList';
+import { MentionOption } from '@/components/common/MentionTextInput';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 import TestResultTab from './TestResultTab';
+import TraceMetricsTab from './TraceMetricsTab';
+import TraceReviewsTab from './TraceReviewsTab';
+import RateReviewIcon from '@mui/icons-material/RateReview';
+import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
+import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
   trace: TraceDetailResponse | null;
   sessionToken: string;
+  hasTraceMetrics?: boolean;
+  isConversationTrace?: boolean;
+  currentUserId?: string;
+  currentUserName?: string;
+  currentUserPicture?: string;
+  onTraceUpdated?: () => void;
+  onReviewMetric?: (metricName: string) => void;
+  onReviewTrace?: () => void;
+  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  mentionableMetrics?: MentionOption[];
+  mentionableTurns?: MentionOption[];
+  traceMetricsStatus?: TraceMetricsStatus | null;
+  selectedTurnNumber?: number | null;
 }
 
 interface TabPanelProps {
   children?: React.ReactNode;
-  index: number;
-  value: number;
+  index: number | string;
+  value: number | string;
 }
 
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -63,18 +83,31 @@ export default function SpanDetailsPanel({
   span,
   trace,
   sessionToken,
+  hasTraceMetrics = false,
+  isConversationTrace = false,
+  currentUserId = '',
+  currentUserName = '',
+  currentUserPicture,
+  onTraceUpdated,
+  onReviewMetric,
+  onReviewTrace,
+  onReviewTurn,
+  mentionableMetrics = [],
+  mentionableTurns = [],
+  traceMetricsStatus = null,
+  selectedTurnNumber = null,
 }: SpanDetailsPanelProps) {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState<number | string>('details');
   const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
   const [spanFilesLoading, setSpanFilesLoading] = useState(false);
 
   // Determine if Test Result tab should be shown
   const showTestResultTab = trace?.test_result != null;
 
-  // Reset activeTab to 0 when Test Result tab becomes unavailable
+  // Reset to details tab when Test Result tab becomes unavailable
   useEffect(() => {
-    if (!showTestResultTab && activeTab === 1) {
-      setActiveTab(0);
+    if (!showTestResultTab && activeTab === 'tests') {
+      setActiveTab('details');
     }
   }, [showTestResultTab, activeTab]);
 
@@ -106,6 +139,43 @@ export default function SpanDetailsPanel({
     };
   }, [span?.id, sessionToken]);
 
+  const { llmAttributes, functionAttributes, testAttributes, otherAttributes } =
+    useMemo(() => {
+      const attrs = span?.attributes;
+      if (!attrs) {
+        return {
+          llmAttributes: {} as Record<string, unknown>,
+          functionAttributes: {} as Record<string, unknown>,
+          testAttributes: {} as Record<string, unknown>,
+          otherAttributes: {} as Record<string, unknown>,
+        };
+      }
+
+      const llm: Record<string, unknown> = {};
+      const fn: Record<string, unknown> = {};
+      const test: Record<string, unknown> = {};
+      const other: Record<string, unknown> = {};
+
+      Object.entries(attrs).forEach(([key, value]) => {
+        if (key.startsWith('ai.') || key.startsWith('llm.')) {
+          llm[key] = value;
+        } else if (key.startsWith('function.')) {
+          fn[key] = value;
+        } else if (key.startsWith('rhesis.test.')) {
+          test[key] = value;
+        } else {
+          other[key] = value;
+        }
+      });
+
+      return {
+        llmAttributes: llm,
+        functionAttributes: fn,
+        testAttributes: test,
+        otherAttributes: other,
+      };
+    }, [span?.attributes]);
+
   if (!span) {
     return (
       <Box sx={{ p: theme => theme.spacing(3) }}>
@@ -115,24 +185,6 @@ export default function SpanDetailsPanel({
       </Box>
     );
   }
-
-  // Categorize attributes
-  const llmAttributes: Record<string, unknown> = {};
-  const functionAttributes: Record<string, unknown> = {};
-  const testAttributes: Record<string, unknown> = {};
-  const otherAttributes: Record<string, unknown> = {};
-
-  Object.entries(span.attributes).forEach(([key, value]) => {
-    if (key.startsWith('ai.') || key.startsWith('llm.')) {
-      llmAttributes[key] = value;
-    } else if (key.startsWith('function.')) {
-      functionAttributes[key] = value;
-    } else if (key.startsWith('rhesis.test.')) {
-      testAttributes[key] = value;
-    } else {
-      otherAttributes[key] = value;
-    }
-  });
 
   // Extract I/O attributes for prominent display
   const inputArgs = functionAttributes['function.args'];
@@ -280,28 +332,58 @@ export default function SpanDetailsPanel({
           }}
         >
           <Tab
+            value="details"
             icon={<InfoOutlinedIcon fontSize="small" />}
             iconPosition="start"
             label="Span Details"
-            id="span-detail-tab-0"
-            aria-controls="span-detail-tabpanel-0"
+            id="span-detail-tab-details"
+            aria-controls="span-detail-tabpanel-details"
           />
           {showTestResultTab && (
             <Tab
+              value="tests"
               icon={<AssessmentOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Test Results"
-              id="span-detail-tab-1"
-              aria-controls="span-detail-tabpanel-1"
+              id="span-detail-tab-tests"
+              aria-controls="span-detail-tabpanel-tests"
             />
           )}
+          {hasTraceMetrics && (
+            <Tab
+              value="metrics"
+              icon={<AssessmentOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+              label="Trace Metrics"
+              id="span-detail-tab-metrics"
+              aria-controls="span-detail-tabpanel-metrics"
+            />
+          )}
+          {hasTraceMetrics && (
+            <Tab
+              value="reviews"
+              icon={<RateReviewIcon fontSize="small" />}
+              iconPosition="start"
+              label="Reviews"
+              id="span-detail-tab-reviews"
+              aria-controls="span-detail-tabpanel-reviews"
+            />
+          )}
+          <Tab
+            value="tasks"
+            icon={<ForumOutlinedIcon fontSize="small" />}
+            iconPosition="start"
+            label="Tasks & Comments"
+            id="span-detail-tab-tasks"
+            aria-controls="span-detail-tabpanel-tasks"
+          />
         </Tabs>
       </Box>
 
       {/* Tab Content */}
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {/* Span Details Tab */}
-        <TabPanel value={activeTab} index={0}>
+        <TabPanel value={activeTab} index="details">
           <Box sx={{ p: theme => theme.spacing(2) }}>
             {/* Overview Card */}
             <Card
@@ -1040,8 +1122,50 @@ export default function SpanDetailsPanel({
 
         {/* Test Result Tab */}
         {showTestResultTab && (
-          <TabPanel value={activeTab} index={1}>
+          <TabPanel value={activeTab} index="tests">
             <TestResultTab trace={trace} sessionToken={sessionToken} />
+          </TabPanel>
+        )}
+
+        {hasTraceMetrics && (
+          <TabPanel value={activeTab} index="metrics">
+            <TraceMetricsTab
+              selectedSpan={span}
+              isConversationTrace={isConversationTrace}
+              onReviewMetric={onReviewMetric}
+              onReviewTrace={onReviewTrace}
+              onReviewTurn={onReviewTurn}
+              traceMetricsStatus={traceMetricsStatus}
+              selectedTurnNumber={selectedTurnNumber}
+            />
+          </TabPanel>
+        )}
+
+        {hasTraceMetrics && trace && (
+          <TabPanel value={activeTab} index="reviews">
+            <TraceReviewsTab
+              selectedSpan={span}
+              trace={trace}
+              sessionToken={sessionToken}
+              currentUserId={currentUserId}
+              onTraceUpdated={onTraceUpdated ?? (() => {})}
+              mentionableMetrics={mentionableMetrics}
+              mentionableTurns={mentionableTurns}
+            />
+          </TabPanel>
+        )}
+
+        {trace?.root_spans?.[0]?.id && (
+          <TabPanel value={activeTab} index="tasks">
+            <TasksAndCommentsWrapper
+              entityType="Trace"
+              entityId={trace.root_spans[0].id}
+              sessionToken={sessionToken}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
+              elevation={0}
+            />
           </TabPanel>
         )}
       </Box>

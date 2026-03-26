@@ -237,6 +237,54 @@ class SingleTurnRunner(BaseRunner):
         return execution_time, processed_result, metrics_results
 
 
+def _signal_penelope_conversation_complete(
+    db: Session,
+    penelope_trace: Dict[str, Any],
+    project_id: str,
+    organization_id: str,
+) -> None:
+    """Signal that a Penelope multi-turn conversation is finished.
+
+    Extracts the conversation_id from the Penelope trace, resolves the
+    corresponding trace_id, and dispatches an immediate conversation-level
+    trace metrics evaluation (bypassing the production debounce timeout).
+    """
+    conversation_id = None
+    for turn in penelope_trace.get("conversation_summary", []):
+        if turn.get("conversation_id"):
+            conversation_id = turn["conversation_id"]
+            break
+
+    if not conversation_id:
+        return
+
+    try:
+        from rhesis.backend.app import crud
+        from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
+            signal_conversation_complete,
+        )
+
+        trace_id = crud.get_trace_id_for_conversation(
+            db,
+            conversation_id,
+            project_id,
+            organization_id,
+        )
+        if not trace_id:
+            return
+
+        signal_conversation_complete(trace_id, project_id, organization_id)
+        logger.info(
+            f"[MultiTurnRunner] Signaled conversation complete "
+            f"for trace {trace_id} (conversation_id={conversation_id})"
+        )
+    except Exception as e:
+        logger.warning(
+            f"[MultiTurnRunner] Failed to signal conversation complete "
+            f"for conversation_id={conversation_id}: {e}"
+        )
+
+
 class MultiTurnRunner(BaseRunner):
     """
     Core multi-turn test execution logic using Penelope.
@@ -304,6 +352,11 @@ class MultiTurnRunner(BaseRunner):
 
         # --- Entity 2: Evaluate metrics ---
         ep_project_id, ep_environment = _get_endpoint_routing(db, endpoint_id, organization_id)
+
+        if output.source == "live" and ep_project_id:
+            _signal_penelope_conversation_complete(
+                db, penelope_trace, ep_project_id, organization_id
+            )
 
         if output.metrics:
             # Live execution: Penelope already evaluated Goal Achievement

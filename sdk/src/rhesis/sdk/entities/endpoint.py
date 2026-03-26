@@ -5,6 +5,7 @@ from rhesis.sdk.clients import APIClient, Methods
 from rhesis.sdk.clients import Endpoints as ApiEndpoints
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
+from rhesis.sdk.errors import RhesisAPIError
 
 ENDPOINT = ApiEndpoints.ENDPOINTS
 
@@ -102,8 +103,7 @@ class Endpoint(BaseEntity):
             session_id: Deprecated alias for *conversation_id*.
 
         Returns:
-            Dict containing the response from the endpoint, or ``None``
-            if an error occurred.
+            Dict containing the response from the endpoint.
 
             Response structure (standard Rhesis format)::
 
@@ -115,8 +115,8 @@ class Endpoint(BaseEntity):
                 }
 
         Raises:
-            ValueError: If endpoint ID is not set
-            requests.exceptions.HTTPError: If the API request fails
+            ValueError: If endpoint ID is not set.
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> endpoint = Endpoint(id='endpoint-123')
@@ -152,9 +152,10 @@ class Endpoint(BaseEntity):
         )
 
     def test(self) -> None:
-        result = self.invoke(input="This is a test, answer shortly")
-        if result is None:
-            raise ValueError("Endpoint is not answering")
+        try:
+            self.invoke(input="This is a test, answer shortly")
+        except RhesisAPIError as e:
+            raise ValueError("Endpoint is not answering") from e
         print("Endpoint is working correctly")
 
     @property
@@ -199,10 +200,10 @@ class Endpoint(BaseEntity):
         Returns:
             An Endpoint instance pre-filled with the generated mappings
             and configuration. Call ``push()`` to save it. Returns None
-            if the request fails.
+            if auto-configuration could not produce a result.
 
         Raises:
-            requests.exceptions.HTTPError: If the API request fails.
+            RhesisAPIError: If the API request fails.
 
         Example:
             >>> endpoint = Endpoint.auto_configure(
