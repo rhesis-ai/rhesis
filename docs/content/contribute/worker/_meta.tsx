@@ -11,6 +11,9 @@ export default {
   "background-tasks": {
     title: "Background Tasks",
   },
+  "trace-ingestion-pipeline": {
+    title: "Trace Ingestion Pipeline",
+  },
   "test-execution": {
     title: "Test Execution",
   },
