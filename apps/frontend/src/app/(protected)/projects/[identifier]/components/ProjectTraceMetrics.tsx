@@ -91,7 +91,11 @@ export default function ProjectTraceMetrics({
       const metricsClient = apiFactory.getMetricsClient();
 
       const results = await Promise.allSettled(
-        metricIds.map((id: string) => metricsClient.getMetric(id as `${string}-${string}-${string}-${string}-${string}`))
+        metricIds.map((id: string) =>
+          metricsClient.getMetric(
+            id as `${string}-${string}-${string}-${string}-${string}`
+          )
+        )
       );
 
       const fetchedMetrics = results
