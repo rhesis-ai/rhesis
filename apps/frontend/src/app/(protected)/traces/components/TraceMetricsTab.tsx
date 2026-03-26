@@ -27,6 +27,7 @@ import {
   SpanNode,
   TraceMetricsStatus,
   TraceReview,
+  TRACE_METRICS_STATUS,
   TRACE_REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/telemetry';
 import StatusChip from '@/components/common/StatusChip';
@@ -451,19 +452,32 @@ export default function TraceMetricsTab({
                     '&:last-child': { pb: theme.spacing(2) },
                   }}
                 >
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    gutterBottom
+                  >
+                    Trace Status
+                  </Typography>
                   <Box
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      gap: 1,
                     }}
                   >
                     <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      gutterBottom
+                      variant="h5"
+                      fontWeight={600}
+                      color={
+                        traceMetricsStatus === TRACE_METRICS_STATUS.PASS
+                          ? 'success.main'
+                          : traceMetricsStatus === TRACE_METRICS_STATUS.FAIL
+                            ? 'error.main'
+                            : 'warning.main'
+                      }
                     >
-                      Trace Status
+                      {traceMetricsStatus}
                     </Typography>
                     {onReviewTrace && (
                       <Tooltip title="Review overall trace">
@@ -488,12 +502,6 @@ export default function TraceMetricsTab({
                       </Tooltip>
                     )}
                   </Box>
-                  <StatusChip
-                    status={traceMetricsStatus}
-                    label={traceMetricsStatus}
-                    size="small"
-                    variant="filled"
-                  />
                   <Typography variant="caption" color="text.secondary">
                     {summary.passed}/{summary.total} metrics passed
                   </Typography>
