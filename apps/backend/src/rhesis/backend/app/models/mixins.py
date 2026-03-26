@@ -226,6 +226,108 @@ class OrganizationAndUserMixin(OrganizationMixin, UserOwnedMixin):
     pass
 
 
+class ReviewsMixin:
+    """Mixin providing human-review properties over a JSONB reviews column.
+
+    Subclasses must define:
+        _reviews_column_name: str  — the JSONB column name (e.g. "test_reviews")
+        _reviews_entity_type: str  — the entity-level target type (e.g. "test_result")
+        _reviews_legacy_types: tuple[str, ...]  — legacy synonyms for the entity type
+    """
+
+    _reviews_column_name: str = ""
+    _reviews_entity_type: str = ""
+    _reviews_legacy_types: tuple = ()
+
+    def _get_reviews_data(self):
+        data = getattr(self, self._reviews_column_name, None)
+        if not data or not isinstance(data, dict):
+            return {}
+        return data
+
+    def _get_all_reviews(self):
+        data = self._get_reviews_data()
+        reviews = data.get("reviews", [])
+        if not reviews or not isinstance(reviews, list):
+            return []
+        return reviews
+
+    @staticmethod
+    def _get_target_type_from_review(review, default_type):
+        target = review.get("target") or {}
+        return target.get("type", default_type)
+
+    def _compute_review_state(self):
+        """Single-pass over all reviews. Returns (last_review, matches_review, review_summary)."""
+        reviews = self._get_all_reviews()
+        if not reviews:
+            return None, False, None
+
+        entity_type = self._reviews_entity_type
+        all_entity_types = (entity_type,) + self._reviews_legacy_types
+
+        summary = {}
+        entity_level = []
+
+        for review in reviews:
+            raw_type = self._get_target_type_from_review(review, entity_type)
+            canonical_type = entity_type if raw_type in self._reviews_legacy_types else raw_type
+
+            target = review.get("target") or {}
+            reference = target.get("reference")
+            key = f"{canonical_type}:{reference}" if reference else canonical_type
+            ts = review.get("updated_at") or review.get("created_at") or ""
+            existing = summary.get(key)
+            _ex = existing or {}
+            existing_ts = _ex.get("updated_at") or _ex.get("created_at") or ""
+            if not existing or ts > existing_ts:
+                summary[key] = {
+                    "target_type": canonical_type,
+                    "reference": reference,
+                    "status": review.get("status"),
+                    "user": review.get("user"),
+                    "updated_at": ts,
+                    "review_id": review.get("review_id"),
+                }
+
+            if raw_type in all_entity_types:
+                entity_level.append(review)
+
+        last_review = None
+        if entity_level:
+            last_review = max(
+                entity_level,
+                key=lambda r: r.get("updated_at") or r.get("created_at") or "",
+            )
+
+        matches = False
+        if last_review:
+            review_status = last_review.get("status")
+            if review_status and isinstance(review_status, dict):
+                review_status_id = review_status.get("status_id")
+                status_id = self._get_status_id_for_match()
+                if review_status_id and status_id:
+                    matches = str(status_id) == str(review_status_id)
+
+        return last_review, matches, summary if summary else None
+
+    def _get_status_id_for_match(self):
+        """Return the status UUID to compare against the review verdict."""
+        return getattr(self, "status_id", None)
+
+    @property
+    def last_review(self):
+        return self._compute_review_state()[0]
+
+    @property
+    def matches_review(self):
+        return self._compute_review_state()[1]
+
+    @property
+    def review_summary(self):
+        return self._compute_review_state()[2]
+
+
 class EmbeddableMixin:
     """
     Mixin for entities that support vector embeddings and full-text search.

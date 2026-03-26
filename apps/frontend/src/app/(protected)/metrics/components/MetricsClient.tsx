@@ -53,6 +53,7 @@ const initialFilterOptions: FilterOptions = {
   metricScope: [
     { value: TEST_TYPES.SINGLE_TURN, label: TEST_TYPES.SINGLE_TURN },
     { value: TEST_TYPES.MULTI_TURN, label: TEST_TYPES.MULTI_TURN },
+    { value: 'Trace', label: 'Trace' },
   ],
   behavior: [],
 };

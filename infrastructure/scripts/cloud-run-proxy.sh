@@ -1,60 +1,38 @@
 #!/usr/bin/env bash
 #
-# Proxy local ports to Rhesis Cloud Run services (requires authenticated gcloud + run.invoker).
+# Proxy localhost to the Rhesis documentation Cloud Run service (requires gcloud auth + run.invoker on dev/stg).
 #
 # Examples:
-#   ./cloud-run-proxy.sh frontend   # project defaults
-#   ./cloud-run-proxy.sh -p other-project -e dev docs
-#   ./cloud-run-proxy.sh all
+#   ./cloud-run-proxy.sh
+#   ./cloud-run-proxy.sh docs
+#   ./cloud-run-proxy.sh -e stg -r europe-west4
 #   ./cloud-run-proxy.sh stop
 #
 set -euo pipefail
 
 SCRIPT_NAME=$(basename "$0")
-PIDFILE="${TMPDIR:-/tmp}/rhesis-cloud-run-proxy.pids"
+PIDFILE="${TMPDIR:-/tmp}/rhesis-cloud-run-proxy-docs.pids"
 LOGDIR="${TMPDIR:-/tmp}/rhesis-cloud-run-proxy-logs"
 
 DEFAULT_REGION="${GCP_REGION:-us-central1}"
 DEFAULT_ENV="${RHESIS_ENV:-${ENVIRONMENT:-dev}}"
 DEFAULT_PROJECT_ID="${GCP_PROJECT:-playground-437609}"
 
-ALL_KEYS="frontend docs chatbot polyphemus"
 
-service_slug() {
-  case "$1" in
-    frontend) echo frontend ;;
-    docs) echo docs ;;
-    chatbot) echo chatbot ;;
-    polyphemus) echo polyphemus ;;
-    *) return 1 ;;
-  esac
-}
-
-service_port() {
-  case "$1" in
-    frontend) echo 3000 ;;
-    docs) echo 3001 ;;
-    chatbot) echo 8080 ;;
-    polyphemus) echo 8081 ;; # distinct local port when using "all"
-    *) return 1 ;;
-  esac
-}
+DOCS_LOCAL_PORT=3001
 
 usage() {
   cat <<EOF
-Usage: $SCRIPT_NAME [options] <command>
+Usage: $SCRIPT_NAME [options] [command]
+
+Proxies only the rhesis-docs Cloud Run service (same pattern as docs workflow: prd → rhesis-docs, else → rhesis-docs-<env>).
 
 Commands:
-  <service>   Run gcloud run services proxy for one service (foreground).
-  all         Start proxies for every service in the background (unique local ports).
-  list        Print Cloud Run service names and local ports used by this script.
-  stop        Stop background proxies recorded in $PIDFILE
-
-Services (short name → Cloud Run name pattern rhesis-<type>[-<env>]):
-  frontend    local port 3000
-  docs        local port 3001
-  chatbot     local port 8080
-  polyphemus  local port 8081  (distinct from chatbot when using "all")
+  (default)   Same as docs — run proxy in foreground.
+  docs        Run gcloud run services proxy for docs (foreground).
+  all         Start docs proxy in the background (log under $LOGDIR).
+  list        Print resolved service name and local port.
+  stop        Stop background proxy if PID file exists ($PIDFILE).
 
 Options:
   -p, --project ID   GCP project (default: $DEFAULT_PROJECT_ID)
@@ -75,81 +53,61 @@ resolve_project() {
   echo "${GCP_PROJECT:-$DEFAULT_PROJECT_ID}"
 }
 
-cloud_run_service_name() {
-  local key=$1
-  local env=$2
-  local slug
-  slug=$(service_slug "$key") || {
-    echo "error: unknown service key '$key'" >&2
-    exit 1
-  }
+docs_service_name() {
+  local env=$1
   if [[ "$env" == "prd" ]]; then
-    echo "rhesis-${slug}"
+    echo "rhesis-docs"
   else
-    echo "rhesis-${slug}-${env}"
+    echo "rhesis-docs-${env}"
   fi
 }
 
-is_valid_key() {
-  local k=$1
-  for x in $ALL_KEYS; do
-    [[ "$x" == "$k" ]] && return 0
-  done
-  return 1
-}
-
-run_proxy() {
-  local service=$1
-  local port=$2
-  local project=$3
-  local region=$4
-
-  echo "→ proxy ${service} → http://127.0.0.1:${port} (project=${project} region=${region})"
-  exec gcloud run services proxy "$service" \
+run_proxy_foreground() {
+  local project=$1
+  local region=$2
+  local env=$3
+  local name
+  name=$(docs_service_name "$env")
+  echo "→ proxy ${name} → http://127.0.0.1:${DOCS_LOCAL_PORT} (project=${project} region=${region})"
+  exec gcloud run services proxy "$name" \
     --region="$region" \
     --project="$project" \
-    --port="$port"
+    --port="$DOCS_LOCAL_PORT"
 }
 
 cmd_list() {
-  local project region env name port
+  local project region env name
   project=$(resolve_project)
   region=$REGION
   env=$ENV
+  name=$(docs_service_name "$env")
 
   echo "Project: $project  Region: $region  Environment: $env"
   echo ""
-  for key in $ALL_KEYS; do
-    name=$(cloud_run_service_name "$key" "$env")
-    port=$(service_port "$key")
-    echo "  $key → $name  (local port ${port})"
-  done
+  echo "  docs → $name  (local port ${DOCS_LOCAL_PORT})"
 }
 
 cmd_all() {
-  local project region env name port logf
+  local project region env name logf
   project=$(resolve_project)
   region=$REGION
   env=$ENV
+  name=$(docs_service_name "$env")
 
   mkdir -p "$LOGDIR"
-  : >"$PIDFILE"
+  logf="${LOGDIR}/docs.log"
 
-  echo "Starting Cloud Run proxies in background (logs under $LOGDIR)"
-  for key in $ALL_KEYS; do
-    name=$(cloud_run_service_name "$key" "$env")
-    port=$(service_port "$key")
-    logf="${LOGDIR}/${key}.log"
-    echo "  $name → http://127.0.0.1:${port} (log: $logf)"
-    nohup gcloud run services proxy "$name" \
-      --region="$region" \
-      --project="$project" \
-      --port="$port" >>"$logf" 2>&1 &
-    echo $! >>"$PIDFILE"
-  done
+  echo "Starting docs proxy in background (log: $logf)"
+  echo "  $name → http://127.0.0.1:${DOCS_LOCAL_PORT}"
+
+  nohup gcloud run services proxy "$name" \
+    --region="$region" \
+    --project="$project" \
+    --port="$DOCS_LOCAL_PORT" >>"$logf" 2>&1 &
+  echo $! >"$PIDFILE"
 
   echo ""
-  echo "PIDs saved to $PIDFILE"
+  echo "PID saved to $PIDFILE"
   echo "Stop with: $SCRIPT_NAME stop"
 }
 
@@ -199,13 +157,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ${#POSITIONAL[@]} -eq 0 ]]; then
-  usage
-  exit 1
-fi
-
-COMMAND="${POSITIONAL[0]}"
-
 case "$ENV" in
   dev | stg | prd) ;;
   *)
@@ -213,6 +164,15 @@ case "$ENV" in
     exit 1
     ;;
 esac
+
+# Default command: docs (foreground)
+if [[ ${#POSITIONAL[@]} -eq 0 ]]; then
+  project=$(resolve_project)
+  run_proxy_foreground "$project" "$REGION" "$ENV"
+  exit 0
+fi
+
+COMMAND="${POSITIONAL[0]}"
 
 case "$COMMAND" in
   list)
@@ -224,15 +184,12 @@ case "$COMMAND" in
   stop)
     cmd_stop
     ;;
-  *)
-    key="$COMMAND"
-    if ! is_valid_key "$key"; then
-      echo "error: unknown service '$key'. Use: $ALL_KEYS | all | list | stop" >&2
-      exit 1
-    fi
+  docs)
     project=$(resolve_project)
-    name=$(cloud_run_service_name "$key" "$ENV")
-    port=$(service_port "$key")
-    run_proxy "$name" "$port" "$project" "$REGION"
+    run_proxy_foreground "$project" "$REGION" "$ENV"
+    ;;
+  *)
+    echo "error: unknown command '$COMMAND'. Use: docs | all | list | stop (or omit for docs)" >&2
+    exit 1
     ;;
 esac

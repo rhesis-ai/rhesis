@@ -90,6 +90,16 @@ app.conf.update(
             "soft_time_limit": 300,  # 5 minutes
             "time_limit": 600,  # 10 minutes
         },
+        "rhesis.backend.tasks.telemetry.evaluate.evaluate_turn_trace_metrics": {
+            "max_retries": 3,
+            "soft_time_limit": 300,  # 5 minutes
+            "time_limit": 360,  # 6 minutes
+        },
+        "rhesis.backend.tasks.telemetry.evaluate.evaluate_conversation_trace_metrics": {
+            "max_retries": 3,
+            "soft_time_limit": 600,  # 10 minutes (longer for full conversation)
+            "time_limit": 660,  # 11 minutes
+        },
     },
     # Task discovery
     include=[
@@ -99,11 +109,33 @@ app.conf.update(
         "rhesis.backend.tasks.execution.results",
         "rhesis.backend.tasks.execution.test",
         "rhesis.backend.tasks.telemetry.enrich",
+        "rhesis.backend.tasks.telemetry.evaluate",
+        "rhesis.backend.tasks.telemetry.post_ingest",
     ],
 )
 
 # Auto-discover tasks
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
+
+# Initialize caches in worker
+from rhesis.backend.app.services.telemetry.conversation_linking import (
+    initialize_cache as init_conv_cache,
+)
+from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
+    initialize_cache as init_metrics_cache,
+)
+
+init_conv_cache()
+init_metrics_cache()
+
+# Pre-warm the exchange rate cache so the first enrichment task
+# does not block on an HTTP call to the exchange rate API.
+try:
+    from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
+
+    get_usd_to_eur_rate()
+except Exception:
+    pass
 
 # Configure logging to reduce verbosity
 # Suppress verbose Celery task result logging

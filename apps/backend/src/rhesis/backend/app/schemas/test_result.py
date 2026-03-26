@@ -1,14 +1,19 @@
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from pydantic import UUID4, ConfigDict, Field, field_validator
 
+from rhesis.backend.app.constants import (
+    LEGACY_TARGET_TEST,
+    REVIEW_TARGET_TEST_RESULT,
+    ReviewTarget,
+)
 from rhesis.backend.app.schemas import Base
 
-REVIEW_TARGET_TEST_RESULT = "test_result"
-REVIEW_TARGET_TURN = "turn"
-REVIEW_TARGET_METRIC = "metric"
-LEGACY_TARGET_TEST = "test"
-VALID_TARGET_TYPES = (REVIEW_TARGET_TEST_RESULT, REVIEW_TARGET_TURN, REVIEW_TARGET_METRIC)
+# Re-export for backward compatibility
+REVIEW_TARGET_TRACE = ReviewTarget.TRACE
+REVIEW_TARGET_TURN = ReviewTarget.TURN
+REVIEW_TARGET_METRIC = ReviewTarget.METRIC
+VALID_TARGET_TYPES = tuple(ReviewTarget)
 
 
 # TestResult schemas
@@ -43,9 +48,9 @@ class TestResult(TestResultBase):
 
 # Review schemas
 class ReviewTargetCreate(Base):
-    type: Literal["test_result", "turn", "metric"] = Field(
+    type: ReviewTarget = Field(
         ...,
-        description="Type of target: 'test_result', 'turn', or 'metric'",
+        description="Type of target: 'test_result', 'trace', 'turn', or 'metric'",
     )
     reference: Optional[str] = Field(
         None,

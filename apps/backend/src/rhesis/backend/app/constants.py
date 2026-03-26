@@ -88,9 +88,11 @@ DEFAULT_GENERATION_MODEL = os.getenv(
 DEFAULT_EVALUATION_MODEL = os.getenv(
     "DEFAULT_EVALUATION_MODEL", "rhesis/rhesis-default"
 )  # Default model for evaluation (language-model-as-a-judge)
-DEFAULT_EMBEDDING_MODEL = os.getenv(
-    "DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005"
-)  # Default model for embedding generation
+DEFAULT_EMBEDDING_MODEL = os.getenv("DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005")
+
+DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(
+    os.getenv("DEFAULT_CONVERSATION_DEBOUNCE_SECONDS", "300")
+)  # Seconds to wait before evaluating conversation-level metrics
 
 # Rhesis API configuration
 # Required for Rhesis system models to work
@@ -125,6 +127,28 @@ class TestResultStatus(str, Enum):
     PASS = "Pass"
     FAIL = "Fail"
     ERROR = "Error"
+
+
+class ReviewTarget(str, Enum):
+    """Review target types shared by TestResult and Trace review systems.
+
+    Using str mixin so values work directly in string comparisons and JSON.
+    """
+
+    TEST_RESULT = "test_result"
+    TRACE = "trace"
+    TURN = "turn"
+    METRIC = "metric"
+
+
+LEGACY_TARGET_TEST = "test"
+
+# Backward-compatible aliases used across the codebase
+REVIEW_TARGET_TEST_RESULT = ReviewTarget.TEST_RESULT
+REVIEW_TARGET_TRACE = ReviewTarget.TRACE
+REVIEW_TARGET_TURN = ReviewTarget.TURN
+REVIEW_TARGET_METRIC = ReviewTarget.METRIC
+VALID_TARGET_TYPES = tuple(ReviewTarget)
 
 
 class TestType(str, Enum):

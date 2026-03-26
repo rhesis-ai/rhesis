@@ -15,28 +15,33 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Tooltip,
   Typography,
   Divider,
   Stack,
-  Tooltip,
   useTheme,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ListIcon from '@mui/icons-material/List';
 import ScienceIcon from '@mui/icons-material/Science';
 import PublicIcon from '@mui/icons-material/Public';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import CloseIcon from '@mui/icons-material/Close';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import CancelIcon from '@mui/icons-material/Cancel';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Chip from '@mui/material/Chip';
-import { TraceQueryParams } from '@/utils/api-client/interfaces/telemetry';
+import {
+  TraceQueryParams,
+  TRACE_METRICS_STATUS,
+} from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 
@@ -127,10 +132,6 @@ export default function TraceFilters({
     setAnchorEl(null);
   };
 
-  const handleStatusFilterChange = (status: string) => {
-    handleFilterChange('status_code', status === 'all' ? undefined : status);
-  };
-
   const handleTraceSourceFilterChange = (source: string) => {
     handleFilterChange('trace_source', source === 'all' ? undefined : source);
   };
@@ -139,6 +140,13 @@ export default function TraceFilters({
     handleFilterChange(
       'trace_type',
       traceType === 'all' ? undefined : traceType
+    );
+  };
+
+  const handleEvaluationStatusChange = (evalStatus: string) => {
+    handleFilterChange(
+      'trace_metrics_status',
+      evalStatus === 'all' ? undefined : evalStatus
     );
   };
 
@@ -211,13 +219,13 @@ export default function TraceFilters({
           'offset',
           'trace_source',
           'trace_type',
-          'status_code',
+          'trace_metrics_status',
           'start_time_after',
           'environment',
         ].includes(key)) ||
       (key === 'trace_source' && value !== 'all' && value !== undefined) ||
       (key === 'trace_type' && value !== 'all' && value !== undefined) ||
-      (key === 'status_code' && value !== undefined) ||
+      (key === 'trace_metrics_status' && value !== undefined) ||
       (key === 'start_time_after' && value !== undefined) ||
       (key === 'environment' && value !== undefined)
   ).length;
@@ -296,12 +304,12 @@ export default function TraceFilters({
       });
     }
 
-    // Status filter
-    if (filters.status_code) {
+    // Evaluation status filter
+    if (filters.trace_metrics_status) {
       chips.push({
-        key: 'status_code',
-        label: `Status: ${filters.status_code}`,
-        value: filters.status_code,
+        key: 'trace_metrics_status',
+        label: `Evaluation: ${filters.trace_metrics_status}`,
+        value: filters.trace_metrics_status,
       });
     }
 
@@ -525,57 +533,6 @@ export default function TraceFilters({
             sx={{ display: { xs: 'none', sm: 'block' } }}
           />
 
-          {/* Status Filter */}
-          <ButtonGroup size="small" variant="outlined">
-            <Button
-              onClick={() => handleStatusFilterChange('all')}
-              variant={!filters.status_code ? 'contained' : 'outlined'}
-              startIcon={<ListIcon fontSize="small" />}
-            >
-              All
-            </Button>
-            <Button
-              onClick={() => handleStatusFilterChange('OK')}
-              variant={filters.status_code === 'OK' ? 'contained' : 'outlined'}
-              startIcon={<CheckCircleOutlineIcon fontSize="small" />}
-              sx={{
-                ...(filters.status_code === 'OK' && {
-                  backgroundColor: theme.palette.success.main,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.palette.success.dark,
-                  },
-                }),
-              }}
-            >
-              OK
-            </Button>
-            <Button
-              onClick={() => handleStatusFilterChange('ERROR')}
-              variant={
-                filters.status_code === 'ERROR' ? 'contained' : 'outlined'
-              }
-              startIcon={<ErrorOutlineIcon fontSize="small" />}
-              sx={{
-                ...(filters.status_code === 'ERROR' && {
-                  backgroundColor: theme.palette.error.main,
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: theme.palette.error.dark,
-                  },
-                }),
-              }}
-            >
-              Error
-            </Button>
-          </ButtonGroup>
-
-          <Divider
-            orientation="vertical"
-            flexItem
-            sx={{ display: { xs: 'none', sm: 'block' } }}
-          />
-
           {/* Trace Source Filter */}
           <ButtonGroup size="small" variant="outlined">
             <Button
@@ -654,11 +611,89 @@ export default function TraceFilters({
             sx={{ display: { xs: 'none', sm: 'block' } }}
           />
 
-          {/* Spacer */}
-          <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 20 } }} />
+          {/* Evaluation Status Filter (Pass / Fail / Error) */}
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => handleEvaluationStatusChange('all')}
+              variant={!filters.trace_metrics_status ? 'contained' : 'outlined'}
+              startIcon={<AssessmentIcon fontSize="small" />}
+            >
+              All
+            </Button>
+            <Button
+              onClick={() =>
+                handleEvaluationStatusChange(TRACE_METRICS_STATUS.PASS)
+              }
+              variant={
+                filters.trace_metrics_status === TRACE_METRICS_STATUS.PASS
+                  ? 'contained'
+                  : 'outlined'
+              }
+              startIcon={<TaskAltIcon fontSize="small" />}
+              sx={{
+                ...(filters.trace_metrics_status ===
+                  TRACE_METRICS_STATUS.PASS && {
+                  backgroundColor: theme.palette.success.main,
+                  color: theme.palette.success.contrastText,
+                  '&:hover': {
+                    backgroundColor: theme.palette.success.dark,
+                  },
+                }),
+              }}
+            >
+              Pass
+            </Button>
+            <Button
+              onClick={() =>
+                handleEvaluationStatusChange(TRACE_METRICS_STATUS.FAIL)
+              }
+              variant={
+                filters.trace_metrics_status === TRACE_METRICS_STATUS.FAIL
+                  ? 'contained'
+                  : 'outlined'
+              }
+              startIcon={<CancelIcon fontSize="small" />}
+              sx={{
+                ...(filters.trace_metrics_status ===
+                  TRACE_METRICS_STATUS.FAIL && {
+                  backgroundColor: theme.palette.error.main,
+                  color: theme.palette.error.contrastText,
+                  '&:hover': {
+                    backgroundColor: theme.palette.error.dark,
+                  },
+                }),
+              }}
+            >
+              Fail
+            </Button>
+            <Button
+              onClick={() =>
+                handleEvaluationStatusChange(TRACE_METRICS_STATUS.ERROR)
+              }
+              variant={
+                filters.trace_metrics_status === TRACE_METRICS_STATUS.ERROR
+                  ? 'contained'
+                  : 'outlined'
+              }
+              startIcon={<WarningAmberIcon fontSize="small" />}
+              sx={{
+                ...(filters.trace_metrics_status ===
+                  TRACE_METRICS_STATUS.ERROR && {
+                  backgroundColor: theme.palette.warning.main,
+                  color: theme.palette.warning.contrastText,
+                  '&:hover': {
+                    backgroundColor: theme.palette.warning.dark,
+                  },
+                }),
+              }}
+            >
+              Error
+            </Button>
+          </ButtonGroup>
 
-          {/* Advanced Filters & Refresh */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 'auto' }}
+          >
             <Badge badgeContent={activeFilterCount} color="primary">
               <Button
                 size="small"
@@ -666,7 +701,7 @@ export default function TraceFilters({
                 startIcon={<FilterListIcon />}
                 onClick={handleFilterClick}
               >
-                More Filters
+                More
               </Button>
             </Badge>
             <Tooltip title="Refresh">
@@ -884,10 +919,7 @@ export default function TraceFilters({
             <Box
               sx={{
                 p: 1.5,
-                backgroundColor:
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.05)'
-                    : 'rgba(0, 0, 0, 0.02)',
+                backgroundColor: theme.palette.action.hover,
                 borderRadius: theme => theme.shape.borderRadius,
               }}
             >
