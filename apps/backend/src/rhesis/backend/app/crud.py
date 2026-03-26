@@ -3450,6 +3450,28 @@ def create_trace_spans(
         raise
 
 
+def get_trace_by_db_id(
+    db: Session,
+    trace_db_id: str,
+    organization_id: str,
+) -> Optional[models.Trace]:
+    """Get a single trace span row by its database UUID."""
+    from uuid import UUID
+
+    org_uuid = UUID(organization_id)
+    return (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.id == trace_db_id,
+                models.Trace.organization_id == org_uuid,
+                models.Trace.deleted_at.is_(None),
+            )
+        )
+        .first()
+    )
+
+
 def get_trace_by_id(
     db: Session,
     trace_id: str,

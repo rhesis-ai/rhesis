@@ -106,6 +106,12 @@ class OTELSpanResponse(BaseModel):
         default=None, description="Evaluation status name (Pass/Fail/Error)"
     )
 
+    # Human reviews
+    trace_reviews: Optional[Dict[str, Any]] = None
+    last_review: Optional[Dict[str, Any]] = None
+    matches_review: bool = False
+    review_summary: Optional[Dict[str, Any]] = None
+
     # Tags and comments
     tags: Optional[List[TagRead]] = Field(
         default_factory=list, description="Tags associated with this trace"
@@ -177,6 +183,18 @@ class TraceSummary(BaseModel):
         default=None, description="Evaluation status name (Pass/Fail/Error)"
     )
 
+    # Human reviews
+    has_reviews: Optional[bool] = Field(
+        default=False, description="Whether this trace has human reviews"
+    )
+    last_review: Optional[Dict[str, Any]] = Field(
+        default=None, description="Most recent trace-level review"
+    )
+    matches_review: bool = Field(
+        default=False,
+        description="Whether automated status matches the human review",
+    )
+
     # Tags and comments count for summary view
     tags_count: Optional[int] = Field(
         default=0, description="Number of tags associated with this trace"
@@ -216,6 +234,12 @@ class SpanNode(BaseModel):
     # Trace metrics
     trace_metrics: Optional[Dict[str, Any]] = None
 
+    # Human reviews
+    trace_reviews: Optional[Dict[str, Any]] = None
+    last_review: Optional[Dict[str, Any]] = None
+    matches_review: bool = False
+    review_summary: Optional[Dict[str, Any]] = None
+
     # Tags and comments
     tags: Optional[List[TagRead]] = Field(
         default_factory=list, description="Tags associated with this span"
@@ -245,6 +269,12 @@ class TraceDetailResponse(BaseModel):
     trace_metrics_status: Optional[str] = Field(
         default=None, description="Evaluation status name (Pass/Fail/Error)"
     )
+
+    # Human reviews
+    trace_reviews: Optional[Dict[str, Any]] = None
+    last_review: Optional[Dict[str, Any]] = None
+    matches_review: bool = False
+    review_summary: Optional[Dict[str, Any]] = None
 
     # Related entities (optional - populated via relationships)
     project: Optional[Project] = Field(default=None, description="Project this trace belongs to")

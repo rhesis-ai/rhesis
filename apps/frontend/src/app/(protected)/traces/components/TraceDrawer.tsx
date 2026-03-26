@@ -27,12 +27,18 @@ import SpanSequenceView from './SpanSequenceView';
 import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
+import TraceReviewDrawer from './TraceReviewDrawer';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TraceDetailResponse,
+  TraceMetricsStatus,
   SpanNode,
 } from '@/utils/api-client/interfaces/telemetry';
+import {
+  MentionOption,
+  toMentionId,
+} from '@/components/common/MentionTextInput';
 import { formatDuration } from '@/utils/format-duration';
 
 interface TraceDrawerProps {
@@ -42,6 +48,7 @@ interface TraceDrawerProps {
   projectId: string;
   sessionToken: string;
   initialTurnIndex?: number;
+  currentUserId?: string;
 }
 
 export default function TraceDrawer({
@@ -51,6 +58,7 @@ export default function TraceDrawer({
   projectId,
   sessionToken,
   initialTurnIndex,
+  currentUserId = '',
 }: TraceDrawerProps) {
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -118,6 +126,146 @@ export default function TraceDrawer({
       setLoading(false);
     }
   }, [traceId, projectId, sessionToken, initialTurnIndex]);
+
+  const refreshTrace = useCallback(async () => {
+    if (!traceId || !projectId) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const client = clientFactory.getTelemetryClient();
+      const data = await client.getTrace(traceId, projectId);
+      setTrace(data);
+
+      setSelectedSpan(prev => {
+        if (!prev) return data.root_spans[0] ?? null;
+        const findSpan = (spans: SpanNode[]): SpanNode | null => {
+          for (const s of spans) {
+            if (s.span_id === prev.span_id) return s;
+            const found = findSpan(s.children);
+            if (found) return found;
+          }
+          return null;
+        };
+        return findSpan(data.root_spans) ?? data.root_spans[0] ?? null;
+      });
+    } catch (err) {
+      console.error('Failed to refresh trace:', err);
+    }
+  }, [traceId, projectId, sessionToken]);
+
+  // Review drawer state (lifted from SpanDetailsPanel for cross-panel access)
+  const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false);
+  const [reviewInitialComment, setReviewInitialComment] = useState<
+    string | undefined
+  >();
+  const [reviewInitialStatus, setReviewInitialStatus] = useState<
+    'passed' | 'failed' | undefined
+  >();
+
+  const mentionableMetrics: MentionOption[] = useMemo(() => {
+    const traceMetrics = selectedSpan?.trace_metrics as
+      | Record<string, unknown>
+      | undefined;
+    if (!traceMetrics) return [];
+    const names: string[] = [];
+    for (const section of ['turn_metrics', 'conversation_metrics']) {
+      const sectionData = traceMetrics[section] as
+        | Record<string, unknown>
+        | undefined;
+      const metrics = sectionData?.metrics as
+        | Record<string, unknown>
+        | undefined;
+      if (metrics) {
+        names.push(...Object.keys(metrics));
+      }
+    }
+    return names.map(name => ({
+      id: toMentionId(name),
+      display: name,
+      type: 'metric' as const,
+    }));
+  }, [selectedSpan]);
+
+  const mentionableTurns: MentionOption[] = useMemo(() => {
+    if (!trace?.root_spans || !trace.conversation_id) return [];
+    return trace.root_spans
+      .filter(
+        span =>
+          span.attributes['rhesis.conversation.input'] ||
+          span.attributes['rhesis.conversation.output']
+      )
+      .map((_, i) => ({
+        id: String(i + 1),
+        display: `Turn ${i + 1}`,
+        type: 'turn' as const,
+      }));
+  }, [trace]);
+
+  const traceMetricsStatus = useMemo(() => {
+    return (trace?.trace_metrics_status as TraceMetricsStatus) ?? null;
+  }, [trace]);
+
+  const selectedTurnNumber = useMemo(() => {
+    if (!selectedSpan || !trace?.root_spans || !trace.conversation_id)
+      return null;
+    const conversationSpans = trace.root_spans.filter(
+      s =>
+        s.attributes['rhesis.conversation.input'] ||
+        s.attributes['rhesis.conversation.output']
+    );
+    const idx = conversationSpans.findIndex(
+      s => s.span_id === selectedSpan.span_id
+    );
+    return idx >= 0 ? idx + 1 : null;
+  }, [selectedSpan, trace]);
+
+  const handleReviewMetric = useCallback(
+    (metricName: string) => {
+      const traceMetrics = selectedSpan?.trace_metrics as
+        | Record<string, unknown>
+        | undefined;
+      if (!traceMetrics) return;
+
+      let isSuccessful = false;
+      for (const section of ['turn_metrics', 'conversation_metrics']) {
+        const sectionData = traceMetrics[section] as
+          | Record<string, unknown>
+          | undefined;
+        const metrics = sectionData?.metrics as
+          | Record<string, { is_successful?: boolean }>
+          | undefined;
+        if (metrics?.[metricName]) {
+          isSuccessful = !!metrics[metricName].is_successful;
+          break;
+        }
+      }
+
+      const slug = toMentionId(metricName);
+      setReviewInitialComment(`@[${metricName}](metric:${slug}) `);
+      setReviewInitialStatus(isSuccessful ? 'failed' : 'passed');
+      setReviewDrawerOpen(true);
+    },
+    [selectedSpan]
+  );
+
+  const handleReviewTrace = useCallback(() => {
+    setReviewInitialComment(undefined);
+    setReviewInitialStatus(undefined);
+    setReviewDrawerOpen(true);
+  }, []);
+
+  const handleReviewTurn = useCallback(
+    (turnNumber: number, turnSuccess: boolean) => {
+      setReviewInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
+      setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
+      setReviewDrawerOpen(true);
+    },
+    []
+  );
+
+  const handleReviewSave = useCallback(async () => {
+    await refreshTrace();
+  }, [refreshTrace]);
 
   useEffect(() => {
     if (open && traceId && projectId) {
@@ -516,6 +664,7 @@ export default function TraceDrawer({
                     sessionToken={sessionToken}
                     onSpanSelect={handleSpanSelect}
                     rootSpans={trace.root_spans}
+                    onReviewTurn={hasTraceMetrics ? handleReviewTurn : undefined}
                   />
                 </Box>
               )}
@@ -590,6 +739,17 @@ export default function TraceDrawer({
               sessionToken={sessionToken}
               hasTraceMetrics={hasTraceMetrics}
               isConversationTrace={isConversationTrace}
+              currentUserId={currentUserId}
+              onTraceUpdated={refreshTrace}
+              onReviewMetric={handleReviewMetric}
+              onReviewTrace={handleReviewTrace}
+              onReviewTurn={
+                hasTraceMetrics ? handleReviewTurn : undefined
+              }
+              mentionableMetrics={mentionableMetrics}
+              mentionableTurns={mentionableTurns}
+              traceMetricsStatus={traceMetricsStatus}
+              selectedTurnNumber={selectedTurnNumber}
             />
           </Box>
         </Box>
@@ -638,6 +798,23 @@ export default function TraceDrawer({
         />
         {drawerContent()}
       </Box>
+      {hasTraceMetrics && (
+        <TraceReviewDrawer
+          open={reviewDrawerOpen}
+          onClose={() => {
+            setReviewDrawerOpen(false);
+            setReviewInitialComment(undefined);
+            setReviewInitialStatus(undefined);
+          }}
+          selectedSpan={selectedSpan}
+          sessionToken={sessionToken}
+          onSave={handleReviewSave}
+          initialComment={reviewInitialComment}
+          initialStatus={reviewInitialStatus}
+          mentionableMetrics={mentionableMetrics}
+          mentionableTurns={mentionableTurns}
+        />
+      )}
     </BaseDrawer>
   );
 }

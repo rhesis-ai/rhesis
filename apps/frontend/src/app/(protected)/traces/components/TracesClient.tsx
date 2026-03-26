@@ -15,9 +15,13 @@ import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TracesClientProps {
   sessionToken: string;
+  currentUserId?: string;
 }
 
-export default function TracesClient({ sessionToken }: TracesClientProps) {
+export default function TracesClient({
+  sessionToken,
+  currentUserId = '',
+}: TracesClientProps) {
   const notifications = useNotifications();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -136,6 +140,7 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
         traceId={selectedTraceId}
         projectId={selectedProjectId || ''}
         sessionToken={sessionToken}
+        currentUserId={currentUserId}
       />
     </>
   );

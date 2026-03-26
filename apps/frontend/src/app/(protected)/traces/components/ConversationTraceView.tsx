@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import {
   TraceDetailResponse,
   SpanNode,
+  TRACE_REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/telemetry';
 import {
   TestResultDetail,
   ConversationTurn,
   GoalEvaluation,
+  OverrideMarker,
+  Review,
 } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -20,6 +23,69 @@ interface ConversationTraceViewProps {
   sessionToken: string;
   onSpanSelect?: (span: SpanNode) => void;
   rootSpans?: SpanNode[];
+  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+}
+
+interface TurnOverrideEntry {
+  success: boolean;
+  override: OverrideMarker;
+}
+
+/**
+ * Compute automated turn success from turn_metrics.metrics
+ * (before any human per-turn overrides).
+ */
+function getAutomatedTurnSuccess(
+  rootSpans: SpanNode[]
+): boolean | undefined {
+  const traceMetrics = rootSpans.find(s => s.trace_metrics)?.trace_metrics as
+    | Record<string, unknown>
+    | undefined;
+  if (!traceMetrics) return undefined;
+
+  const turnSection = traceMetrics.turn_metrics as
+    | Record<string, unknown>
+    | undefined;
+  if (!turnSection) return undefined;
+
+  const metrics = turnSection.metrics as
+    | Record<string, { is_successful?: boolean }>
+    | undefined;
+  if (metrics && Object.keys(metrics).length > 0) {
+    return Object.values(metrics).every(m => m?.is_successful);
+  }
+
+  return undefined;
+}
+
+/**
+ * Read per-turn overrides from trace_metrics.turn_overrides.
+ * Returns a map of turn number -> { success, override }.
+ */
+function getPerTurnOverrides(
+  rootSpans: SpanNode[]
+): Record<number, TurnOverrideEntry> {
+  const traceMetrics = rootSpans.find(s => s.trace_metrics)?.trace_metrics as
+    | Record<string, unknown>
+    | undefined;
+  if (!traceMetrics) return {};
+
+  const turnOverrides = traceMetrics.turn_overrides as
+    | Record<string, { success?: boolean; override?: OverrideMarker }>
+    | undefined;
+  if (!turnOverrides) return {};
+
+  const result: Record<number, TurnOverrideEntry> = {};
+  for (const [key, data] of Object.entries(turnOverrides)) {
+    const turnNum = parseInt(key, 10);
+    if (!isNaN(turnNum) && data?.override && typeof data.success === 'boolean') {
+      result[turnNum] = {
+        success: data.success,
+        override: data.override,
+      };
+    }
+  }
+  return result;
 }
 
 /**
@@ -29,6 +95,8 @@ interface ConversationTraceViewProps {
 function reconstructConversationFromSpans(
   rootSpans: SpanNode[]
 ): ConversationTurn[] {
+  const automatedSuccess = getAutomatedTurnSuccess(rootSpans);
+
   return rootSpans
     .filter(
       span =>
@@ -46,7 +114,7 @@ function reconstructConversationFromSpans(
       ),
       penelope_reasoning: '',
       session_id: span.span_id,
-      success: span.status_code !== 'ERROR',
+      success: automatedSuccess ?? span.status_code !== 'ERROR',
     }));
 }
 
@@ -55,6 +123,7 @@ export default function ConversationTraceView({
   sessionToken,
   onSpanSelect,
   rootSpans,
+  onReviewTurn,
 }: ConversationTraceViewProps) {
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +187,35 @@ export default function ConversationTraceView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trace.trace_id, trace.test_result?.id, sessionToken]);
 
+  const turnReviewMap = useMemo(() => {
+    const map = new Map<number, Review>();
+    const reviews = rootSpans
+      ?.find(s => s.trace_reviews)
+      ?.trace_reviews?.reviews;
+    if (!reviews) return map;
+    for (const review of reviews) {
+      if (
+        review.target?.type === TRACE_REVIEW_TARGET_TYPES.TURN &&
+        review.target.reference
+      ) {
+        const turnNum = parseInt(
+          review.target.reference.replace(/\D/g, ''),
+          10
+        );
+        if (!isNaN(turnNum)) {
+          const existing = map.get(turnNum);
+          if (
+            !existing ||
+            (review.updated_at || '') > (existing.updated_at || '')
+          ) {
+            map.set(turnNum, review as unknown as Review);
+          }
+        }
+      }
+    }
+    return map;
+  }, [rootSpans]);
+
   if (loading) {
     return (
       <Box
@@ -159,13 +257,23 @@ export default function ConversationTraceView({
   const baseTurns =
     conversationSummary.length > 0 ? conversationSummary : spanConversation;
 
+  const perTurnOverrides = rootSpans ? getPerTurnOverrides(rootSpans) : {};
+
+  const overriddenTurns = baseTurns.map(turn => {
+    const turnOverride = perTurnOverrides[turn.turn];
+    if (turnOverride) {
+      return { ...turn, success: turnOverride.success, override: turnOverride.override };
+    }
+    return turn;
+  });
+
   const turns =
     spanFiles.length > 0
-      ? baseTurns.map((turn, i) => ({
+      ? overriddenTurns.map((turn, i) => ({
           ...turn,
           penelope_files: spanFiles[i] ?? [],
         }))
-      : baseTurns;
+      : overriddenTurns;
 
   const handleResponseClick = (turnNumber: number) => {
     if (onSpanSelect && rootSpans) {
@@ -196,8 +304,10 @@ export default function ConversationTraceView({
       onResponseClick={
         onSpanSelect && rootSpans ? handleResponseClick : undefined
       }
+      onReviewTurn={onReviewTurn}
       maxHeight="100%"
       sessionToken={sessionToken}
+      turnReviewMap={turnReviewMap}
     />
   );
 }

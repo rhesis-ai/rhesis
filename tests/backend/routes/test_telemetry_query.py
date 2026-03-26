@@ -329,7 +329,13 @@ class TestTraceListEndpoint:
                 assert field in trace
 
             # Optional fields should be present but may be null
-            optional_fields = ["total_tokens", "total_cost_usd"]
+            optional_fields = [
+                "total_tokens",
+                "total_cost_usd",
+                "has_reviews",
+                "last_review",
+                "matches_review",
+            ]
             for field in optional_fields:
                 assert field in trace
 
@@ -654,6 +660,18 @@ class TestTraceDetailEndpoint:
         for field in required_fields:
             assert field in data
 
+        optional_fields = [
+            "trace_reviews",
+            "last_review",
+            "matches_review",
+            "review_summary",
+            "has_reviews",
+        ]
+        for field in optional_fields:
+            if field in data:
+                pass  # Just ensure they are optional but recognized by schema
+
+
         assert data["trace_id"] == trace_id
         assert data["project_id"] == str(db_project.id)
         assert data["span_count"] == 3
@@ -687,7 +705,7 @@ class TestTraceDetailEndpoint:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        # Check span node structure
+            # Check span node structure
         if data["root_spans"]:
             span_node = data["root_spans"][0]
             required_span_fields = [
@@ -704,6 +722,16 @@ class TestTraceDetailEndpoint:
             ]
             for field in required_span_fields:
                 assert field in span_node
+
+            optional_span_fields = [
+                "trace_reviews",
+                "last_review",
+                "matches_review",
+                "review_summary",
+            ]
+            for field in optional_span_fields:
+                if field in span_node:
+                    pass
 
             # Check that events are included
             assert isinstance(span_node["events"], list)

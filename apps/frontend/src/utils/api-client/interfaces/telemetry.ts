@@ -12,6 +12,65 @@ export interface SpanEvent {
 }
 
 /**
+ * Review types for trace reviews (mirroring test-results review types)
+ */
+export const TRACE_REVIEW_TARGET_TYPES = {
+  TRACE: 'trace',
+  METRIC: 'metric',
+  TURN: 'turn',
+} as const;
+
+export type TraceReviewTargetType =
+  (typeof TRACE_REVIEW_TARGET_TYPES)[keyof typeof TRACE_REVIEW_TARGET_TYPES];
+
+export interface TraceReviewTarget {
+  type: TraceReviewTargetType;
+  reference: string | null;
+}
+
+export interface TraceReviewUser {
+  user_id: string;
+  name: string;
+}
+
+export interface TraceReviewStatus {
+  status_id: string;
+  name: string;
+}
+
+export interface TraceReview {
+  review_id: string;
+  status: TraceReviewStatus;
+  user: TraceReviewUser;
+  comments: string;
+  created_at: string;
+  updated_at: string;
+  target: TraceReviewTarget;
+}
+
+export interface TraceReviewsMetadata {
+  last_updated_at: string;
+  last_updated_by: TraceReviewUser;
+  total_reviews: number;
+  latest_status: TraceReviewStatus;
+  summary?: string;
+}
+
+export interface TraceReviews {
+  metadata: TraceReviewsMetadata;
+  reviews: TraceReview[];
+}
+
+export interface TraceReviewSummaryEntry {
+  target_type: string;
+  reference: string | null;
+  status: TraceReviewStatus;
+  user: TraceReviewUser;
+  updated_at: string;
+  review_id: string;
+}
+
+/**
  * Span node in trace tree with hierarchical children
  */
 export interface SpanNode {
@@ -28,6 +87,10 @@ export interface SpanNode {
   events: SpanEvent[];
   children: SpanNode[];
   trace_metrics?: Record<string, unknown>;
+  trace_reviews?: TraceReviews;
+  last_review?: TraceReview;
+  matches_review?: boolean;
+  review_summary?: Record<string, TraceReviewSummaryEntry>;
   tags?: Array<{ id: string; name: string }>;
   comments?: Array<{ id: string; content: string }>;
 }
@@ -62,6 +125,11 @@ export interface TraceSummary {
   // Trace metrics evaluation
   trace_metrics_status?: TraceMetricsStatus;
 
+  // Human reviews
+  has_reviews?: boolean;
+  last_review?: TraceReview;
+  matches_review?: boolean;
+
   // Counts for UI
   tags_count?: number;
   comments_count?: number;
@@ -86,6 +154,12 @@ export interface TraceDetailResponse {
 
   // Trace metrics evaluation
   trace_metrics_status?: TraceMetricsStatus;
+
+  // Human reviews
+  trace_reviews?: TraceReviews;
+  last_review?: TraceReview;
+  matches_review?: boolean;
+  review_summary?: Record<string, TraceReviewSummaryEntry>;
 
   // Related entities (optional - populated via relationships)
   project?: {

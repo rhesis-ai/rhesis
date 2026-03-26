@@ -22,7 +22,12 @@ export default async function TracesPage() {
       );
     }
 
-    return <TracesClientWrapper sessionToken={session.session_token} />;
+    return (
+      <TracesClientWrapper
+        sessionToken={session.session_token}
+        currentUserId={session.user?.id || ''}
+      />
+    );
   } catch (error) {
     // Show error state instead of empty traces
     return (

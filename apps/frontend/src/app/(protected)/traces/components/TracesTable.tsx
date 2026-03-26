@@ -7,9 +7,11 @@ import {
   TraceSummary,
   TRACE_METRICS_STATUS,
 } from '@/utils/api-client/interfaces/telemetry';
-import { Box, Chip, Typography, Tooltip } from '@mui/material';
+import { Box, Chip, Stack, Typography, Tooltip } from '@mui/material';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
+import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 
@@ -144,9 +146,13 @@ export default function TracesTable({
       {
         field: 'trace_metrics_status',
         headerName: 'Evaluation',
-        width: 110,
+        width: 140,
         renderCell: params => {
           const evalStatus = params.value as string | undefined;
+          const row = params.row as TraceSummary;
+          const hasReview = row.has_reviews;
+          const lastReview = row.last_review;
+
           if (!evalStatus) {
             return (
               <Typography
@@ -163,14 +169,42 @@ export default function TracesTable({
               : evalStatus === TRACE_METRICS_STATUS.FAIL
                 ? 'error'
                 : 'warning';
+
+          const reviewConflicts =
+            hasReview &&
+            lastReview?.status?.name &&
+            isPassedStatusName(lastReview.status.name) !==
+              (evalStatus === TRACE_METRICS_STATUS.PASS);
+
           return (
-            <Chip
-              label={evalStatus}
-              color={color}
-              size="small"
-              variant="outlined"
-              sx={{ fontWeight: 500 }}
-            />
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Chip
+                label={evalStatus}
+                color={color}
+                size="small"
+                variant="outlined"
+                sx={{ fontWeight: 500 }}
+              />
+              {hasReview && (
+                <Tooltip
+                  title={
+                    reviewConflicts
+                      ? 'Human review conflicts with automation'
+                      : 'Human reviewed'
+                  }
+                >
+                  <RateReviewOutlinedIcon
+                    fontSize="small"
+                    sx={{
+                      color: reviewConflicts
+                        ? 'warning.main'
+                        : 'text.secondary',
+                      fontSize: 16,
+                    }}
+                  />
+                </Tooltip>
+              )}
+            </Stack>
           );
         },
       },

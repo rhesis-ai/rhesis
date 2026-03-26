@@ -25,14 +25,18 @@ import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import {
   SpanNode,
   TraceDetailResponse,
+  TraceMetricsStatus,
 } from '@/utils/api-client/interfaces/telemetry';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { FilesClient } from '@/utils/api-client/files-client';
 import FileAttachmentList from '@/components/common/FileAttachmentList';
+import { MentionOption } from '@/components/common/MentionTextInput';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 import TestResultTab from './TestResultTab';
 import TraceMetricsTab from './TraceMetricsTab';
+import TraceReviewsTab from './TraceReviewsTab';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
@@ -40,6 +44,15 @@ interface SpanDetailsPanelProps {
   sessionToken: string;
   hasTraceMetrics?: boolean;
   isConversationTrace?: boolean;
+  currentUserId?: string;
+  onTraceUpdated?: () => void;
+  onReviewMetric?: (metricName: string) => void;
+  onReviewTrace?: () => void;
+  onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  mentionableMetrics?: MentionOption[];
+  mentionableTurns?: MentionOption[];
+  traceMetricsStatus?: TraceMetricsStatus | null;
+  selectedTurnNumber?: number | null;
 }
 
 interface TabPanelProps {
@@ -68,6 +81,15 @@ export default function SpanDetailsPanel({
   sessionToken,
   hasTraceMetrics = false,
   isConversationTrace = false,
+  currentUserId = '',
+  onTraceUpdated,
+  onReviewMetric,
+  onReviewTrace,
+  onReviewTurn,
+  mentionableMetrics = [],
+  mentionableTurns = [],
+  traceMetricsStatus = null,
+  selectedTurnNumber = null,
 }: SpanDetailsPanelProps) {
   const [activeTab, setActiveTab] = useState<number | string>('details');
   const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
@@ -310,6 +332,16 @@ export default function SpanDetailsPanel({
               label="Trace Metrics"
               id="span-detail-tab-metrics"
               aria-controls="span-detail-tabpanel-metrics"
+            />
+          )}
+          {hasTraceMetrics && (
+            <Tab
+              value="reviews"
+              icon={<RateReviewIcon fontSize="small" />}
+              iconPosition="start"
+              label="Reviews"
+              id="span-detail-tab-reviews"
+              aria-controls="span-detail-tabpanel-reviews"
             />
           )}
         </Tabs>
@@ -1067,10 +1099,30 @@ export default function SpanDetailsPanel({
             <TraceMetricsTab
               selectedSpan={span}
               isConversationTrace={isConversationTrace}
+              onReviewMetric={onReviewMetric}
+              onReviewTrace={onReviewTrace}
+              onReviewTurn={onReviewTurn}
+              traceMetricsStatus={traceMetricsStatus}
+              selectedTurnNumber={selectedTurnNumber}
+            />
+          </TabPanel>
+        )}
+
+        {hasTraceMetrics && trace && (
+          <TabPanel value={activeTab} index="reviews">
+            <TraceReviewsTab
+              selectedSpan={span}
+              trace={trace}
+              sessionToken={sessionToken}
+              currentUserId={currentUserId}
+              onTraceUpdated={onTraceUpdated ?? (() => {})}
+              mentionableMetrics={mentionableMetrics}
+              mentionableTurns={mentionableTurns}
             />
           </TabPanel>
         )}
       </Box>
+
     </Box>
   );
 }

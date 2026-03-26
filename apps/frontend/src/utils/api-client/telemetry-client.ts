@@ -4,6 +4,9 @@ import {
   TraceDetailResponse,
   TraceQueryParams,
   TraceMetricsResponse,
+  TraceReview,
+  TraceReviewTarget,
+  TRACE_REVIEW_TARGET_TYPES,
 } from './interfaces/telemetry';
 
 /**
@@ -75,5 +78,62 @@ export class TelemetryClient extends BaseApiClient {
     return this.fetch<TraceMetricsResponse>(endpoint, {
       cache: 'no-store',
     });
+  }
+
+  /**
+   * Create a review on a trace span.
+   * @param traceDbId - The database UUID of the trace span row
+   */
+  async createReview(
+    traceDbId: string,
+    statusId: string,
+    comments: string,
+    target: TraceReviewTarget = {
+      type: TRACE_REVIEW_TARGET_TYPES.TRACE,
+      reference: null,
+    }
+  ): Promise<TraceReview> {
+    return this.fetch<TraceReview>(`/telemetry/traces/${traceDbId}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify({
+        status_id: statusId,
+        comments,
+        target,
+      }),
+    });
+  }
+
+  /**
+   * Update an existing trace review.
+   */
+  async updateReview(
+    traceDbId: string,
+    reviewId: string,
+    data: {
+      status_id?: string;
+      comments?: string;
+      target?: TraceReviewTarget;
+    }
+  ): Promise<TraceReview> {
+    return this.fetch<TraceReview>(
+      `/telemetry/traces/${traceDbId}/reviews/${reviewId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  /**
+   * Delete a review from a trace.
+   */
+  async deleteReview(
+    traceDbId: string,
+    reviewId: string
+  ): Promise<{ message: string; review_id: string }> {
+    return this.fetch<{ message: string; review_id: string }>(
+      `/telemetry/traces/${traceDbId}/reviews/${reviewId}`,
+      { method: 'DELETE' }
+    );
   }
 }

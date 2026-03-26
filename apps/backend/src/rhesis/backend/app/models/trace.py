@@ -17,16 +17,22 @@ from sqlalchemy.orm import relationship
 from rhesis.backend.app.constants import AISpanAttributes
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
-from rhesis.backend.app.models.mixins import CommentsMixin, FilesMixin, TagsMixin
+from rhesis.backend.app.models.mixins import CommentsMixin, FilesMixin, ReviewsMixin, TagsMixin
 
 if TYPE_CHECKING:
     pass
 
+REVIEW_TARGET_TRACE = "trace"
 
-class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
+
+class Trace(Base, TagsMixin, CommentsMixin, FilesMixin, ReviewsMixin):
     """OpenTelemetry trace span model."""
 
     __tablename__ = "trace"
+
+    _reviews_column_name = "trace_reviews"
+    _reviews_entity_type = REVIEW_TARGET_TRACE
+    _reviews_legacy_types = ()
 
     # OpenTelemetry identifiers
     trace_id = Column(String(32), nullable=False, index=True)
@@ -77,6 +83,13 @@ class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
     trace_metrics = Column(JSONB, nullable=True)
     trace_metrics_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True, index=True)
     trace_metrics_processed_at = Column(DateTime, nullable=True)
+
+    # Human reviews
+    trace_reviews = Column(JSONB, nullable=True)
+
+    def _get_status_id_for_match(self):
+        """Traces compare reviews against trace_metrics_status_id, not status_id."""
+        return self.trace_metrics_status_id
 
     # Relationships
     project = relationship("Project", back_populates="traces")

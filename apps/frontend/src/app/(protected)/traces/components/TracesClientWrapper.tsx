@@ -69,6 +69,7 @@ function EmptyStateMessage({
 /** Props for the TracesClientWrapper component */
 interface TracesClientWrapperProps {
   sessionToken: string;
+  currentUserId?: string;
 }
 
 /**
@@ -77,6 +78,7 @@ interface TracesClientWrapperProps {
  */
 export default function TracesClientWrapper({
   sessionToken,
+  currentUserId = '',
 }: TracesClientWrapperProps) {
   const [refreshKey, _setRefreshKey] = useState(0);
   const _notifications = useNotifications();
@@ -113,6 +115,7 @@ export default function TracesClientWrapper({
         <Box sx={{ p: 2 }}>
           <TracesClient
             sessionToken={sessionToken}
+            currentUserId={currentUserId}
             key={`traces-${refreshKey}`}
           />
         </Box>

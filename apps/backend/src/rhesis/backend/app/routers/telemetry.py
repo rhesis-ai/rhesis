@@ -3,14 +3,17 @@
 import logging
 from datetime import datetime
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys, TestResultStatus
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
     StatusCode,
@@ -23,6 +26,10 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
+from rhesis.backend.app.services.trace_review_override import (
+    apply_review_override as trace_apply_review_override,
+    revert_override as trace_revert_override,
+)
 
 # Legacy alias for backward compatibility
 TraceResponse = TraceIngestResponse
@@ -325,6 +332,13 @@ async def list_traces(
             if hasattr(trace, "trace_metrics_status") and trace.trace_metrics_status:
                 trace_metrics_status_name = trace.trace_metrics_status.name
 
+            # Check review state
+            has_reviews = bool(
+                trace.trace_reviews
+                and isinstance(trace.trace_reviews, dict)
+                and trace.trace_reviews.get("reviews")
+            )
+
             summary = TraceSummary(
                 trace_id=trace.trace_id,
                 project_id=str(trace.project_id),
@@ -345,6 +359,9 @@ async def list_traces(
                 total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
                 has_errors=has_errors,
                 trace_metrics_status=trace_metrics_status_name,
+                has_reviews=has_reviews,
+                last_review=trace.last_review,
+                matches_review=trace.matches_review,
             )
             summaries.append(summary)
 
@@ -528,7 +545,7 @@ async def get_trace(
 
         return TraceDetailResponse(
             trace_id=first_span.trace_id,
-            project_id=str(first_span.project_id),  # Convert UUID to string
+            project_id=str(first_span.project_id),
             environment=first_span.environment,
             conversation_id=trace_conversation_id,
             start_time=min(span.start_time for span in spans),
@@ -540,7 +557,10 @@ async def get_trace(
             total_cost_usd=total_cost,
             root_spans=root_spans,
             trace_metrics_status=trace_metrics_status_name,
-            # Add relationship objects
+            trace_reviews=first_span.trace_reviews,
+            last_review=first_span.last_review,
+            matches_review=first_span.matches_review,
+            review_summary=first_span.review_summary,
             project=project_obj,
             endpoint=endpoint_obj,
             test_run=test_run_obj,
@@ -739,3 +759,264 @@ async def get_metrics(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve trace metrics: {error_msg}",
         )
+
+
+# ---------------------------------------------------------------------------
+# Trace review endpoints
+# ---------------------------------------------------------------------------
+
+
+def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> dict:
+    """Fetch status details for a review."""
+    status_obj = (
+        db.query(models.Status)
+        .filter(
+            models.Status.id == status_id,
+            models.Status.organization_id == organization_id,
+        )
+        .first()
+    )
+    if not status_obj:
+        raise HTTPException(status_code=404, detail="Status not found")
+    return {"status_id": str(status_obj.id), "name": status_obj.name}
+
+
+def _update_review_metadata(
+    reviews_data: dict, current_user: User, latest_status: dict
+) -> None:
+    """Update metadata when reviews change."""
+    now = datetime.utcnow().isoformat()
+    reviews_data["metadata"] = {
+        "last_updated_at": now,
+        "last_updated_by": {
+            "user_id": str(current_user.id),
+            "name": current_user.name or current_user.email,
+        },
+        "total_reviews": len(reviews_data.get("reviews", [])),
+        "latest_status": latest_status,
+        "summary": f"Last updated by {current_user.name or current_user.email}",
+    }
+
+
+@router.post(
+    "/traces/{trace_db_id}/reviews",
+    response_model=schemas.ReviewResponse,
+)
+def add_trace_review(
+    trace_db_id: UUID,
+    review: schemas.ReviewCreate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Add a new review to a trace span."""
+    organization_id, user_id = tenant_context
+
+    db_trace = crud.get_trace_by_db_id(
+        db, trace_db_id=str(trace_db_id), organization_id=organization_id
+    )
+    if db_trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    status_details = _get_status_details(db, review.status_id, organization_id)
+
+    if not db_trace.trace_reviews:
+        db_trace.trace_reviews = {"metadata": {}, "reviews": []}
+    elif not isinstance(db_trace.trace_reviews, dict):
+        db_trace.trace_reviews = {"metadata": {}, "reviews": []}
+    if "reviews" not in db_trace.trace_reviews:
+        db_trace.trace_reviews["reviews"] = []
+
+    now = datetime.utcnow().isoformat()
+    new_review = {
+        "review_id": str(uuid4()),
+        "status": status_details,
+        "user": {
+            "user_id": str(current_user.id),
+            "name": current_user.name or current_user.email,
+        },
+        "comments": review.comments,
+        "created_at": now,
+        "updated_at": now,
+        "target": {
+            "type": review.target.type,
+            "reference": review.target.reference,
+        },
+    }
+
+    db_trace.trace_reviews["reviews"].append(new_review)
+    _update_review_metadata(db_trace.trace_reviews, current_user, status_details)
+    flag_modified(db_trace, "trace_reviews")
+
+    trace_apply_review_override(
+        db_trace,
+        review.target.type,
+        review.target.reference,
+        status_details,
+        current_user,
+        new_review["review_id"],
+    )
+
+    db.flush()
+    db.refresh(db_trace)
+    db.commit()
+
+    return new_review
+
+
+@router.put(
+    "/traces/{trace_db_id}/reviews/{review_id}",
+    response_model=schemas.ReviewResponse,
+)
+def update_trace_review(
+    trace_db_id: UUID,
+    review_id: str,
+    review: schemas.ReviewUpdate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Update an existing trace review."""
+    organization_id, user_id = tenant_context
+
+    db_trace = crud.get_trace_by_db_id(
+        db, trace_db_id=str(trace_db_id), organization_id=organization_id
+    )
+    if db_trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    if not db_trace.trace_reviews or "reviews" not in db_trace.trace_reviews:
+        raise HTTPException(status_code=404, detail="No reviews found for this trace")
+
+    reviews = db_trace.trace_reviews["reviews"]
+    review_to_update = None
+    for rev in reviews:
+        if rev.get("review_id") == review_id:
+            review_to_update = rev
+            break
+    if review_to_update is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    old_target = review_to_update.get("target", {})
+    status_changed = False
+    if review.status_id is not None:
+        status_details = _get_status_details(db, review.status_id, organization_id)
+        review_to_update["status"] = status_details
+        status_changed = True
+
+    if review.comments is not None:
+        review_to_update["comments"] = review.comments
+
+    target_changed = False
+    if review.target is not None:
+        review_to_update["target"] = {
+            "type": review.target.type,
+            "reference": review.target.reference,
+        }
+        target_changed = True
+
+    review_to_update["updated_at"] = datetime.utcnow().isoformat()
+    latest_status = review_to_update["status"]
+    _update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
+    flag_modified(db_trace, "trace_reviews")
+
+    if status_changed or target_changed:
+        if target_changed:
+            trace_revert_override(
+                db_trace,
+                old_target.get("type", ""),
+                old_target.get("reference"),
+                review_id,
+                [],
+            )
+        trace_apply_review_override(
+            db_trace,
+            review_to_update["target"]["type"],
+            review_to_update["target"].get("reference"),
+            review_to_update["status"],
+            current_user,
+            review_id,
+        )
+
+    db.flush()
+    db.refresh(db_trace)
+    db.commit()
+
+    return review_to_update
+
+
+@router.delete(
+    "/traces/{trace_db_id}/reviews/{review_id}",
+    response_model=dict,
+)
+def delete_trace_review(
+    trace_db_id: UUID,
+    review_id: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete a review from a trace."""
+    organization_id, user_id = tenant_context
+
+    db_trace = crud.get_trace_by_db_id(
+        db, trace_db_id=str(trace_db_id), organization_id=organization_id
+    )
+    if db_trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    if not db_trace.trace_reviews or "reviews" not in db_trace.trace_reviews:
+        raise HTTPException(status_code=404, detail="No reviews found for this trace")
+
+    reviews = db_trace.trace_reviews["reviews"]
+    review_index = None
+    for idx, rev in enumerate(reviews):
+        if rev.get("review_id") == review_id:
+            review_index = idx
+            break
+    if review_index is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    deleted_review = reviews.pop(review_index)
+
+    if reviews:
+        latest_review = max(
+            reviews,
+            key=lambda r: r.get("updated_at", r.get("created_at", "")),
+        )
+        latest_status = latest_review.get(
+            "status", {"status_id": None, "name": "Unknown"}
+        )
+        _update_review_metadata(
+            db_trace.trace_reviews, current_user, latest_status
+        )
+    else:
+        db_trace.trace_reviews["metadata"] = {
+            "last_updated_at": datetime.utcnow().isoformat(),
+            "last_updated_by": {
+                "user_id": str(current_user.id),
+                "name": current_user.name or current_user.email,
+            },
+            "total_reviews": 0,
+            "latest_status": None,
+            "summary": "All reviews removed",
+        }
+
+    flag_modified(db_trace, "trace_reviews")
+
+    trace_revert_override(
+        db_trace,
+        deleted_review.get("target", {}).get("type", ""),
+        deleted_review.get("target", {}).get("reference"),
+        review_id,
+        reviews,
+    )
+
+    db.flush()
+    db.refresh(db_trace)
+    db.commit()
+
+    return {
+        "message": "Review deleted successfully",
+        "review_id": review_id,
+    }
