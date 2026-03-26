@@ -284,11 +284,11 @@ class TurnExecutor:
                     action_params["files"] = state.context.files
                     logger.debug("Injected %d file(s) into params", len(state.context.files))
 
-            # Debug: Log structured response
             if self.verbose:
+                param_keys = list(action_params.keys()) if action_params else []
                 logger.debug(
                     f"Tool call {i + 1}/{len(tool_calls_data)} - "
-                    f"Tool: {action_name}, Params: {action_params}"
+                    f"Tool: {action_name}, Param keys: {param_keys}"
                 )
 
             # With structured output, we should always have an action
@@ -335,7 +335,11 @@ class TurnExecutor:
                         return False  # Stop the agent loop immediately
 
                     if self.verbose:
-                        logger.info(f"Executing tool: {action_name} with params: {action_params}")
+                        param_keys = list(action_params.keys()) if action_params else []
+                        logger.info(
+                            f"Executing tool: {action_name} "
+                            f"(params: {param_keys})"
+                        )
 
                     # Execute with enhanced validation for analysis tools
                     if isinstance(tool, AnalysisTool):

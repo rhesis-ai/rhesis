@@ -300,13 +300,10 @@ async def chat(request: ChatRequest):
         )
 
     except Exception as e:
-        logger.error(f"Error in chat: {str(e)}")
-        import traceback
-
-        logger.error(traceback.format_exc())
+        logger.error(f"Error in chat: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Error processing request: {str(e)}",
+            detail="Error processing request",
         )
 
 
