@@ -15,11 +15,10 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import ErrorIcon from '@mui/icons-material/Error';
 import EditIcon from '@mui/icons-material/Edit';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import CircularProgress from '@mui/material/CircularProgress';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ThinkingDots from './ThinkingDots';
+import ToolCallList from './ToolCallList';
 import Chip from '@mui/material/Chip';
 import { alpha } from '@mui/material/styles';
 import { ArchitectChatMessage, StreamingState } from '@/hooks/useArchitectChat';
@@ -191,78 +190,20 @@ export default function ArchitectMessageBubble({
               <Box
                 sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
               >
-                <CircularProgress size={14} />
+                <ThinkingDots size={5} color="text.secondary" />
                 <Typography variant="body2" color="text.secondary">
                   Thinking
                   {streamingState.currentIteration
                     ? ` (step ${streamingState.currentIteration})`
-                    : '...'}
+                    : ''}
                 </Typography>
               </Box>
             )}
-            {streamingState.activeTools.map((tool) => (
-              <Box key={`active-${tool.tool}-${Date.now()}-${Math.random()}`} sx={{ mb: 0.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CircularProgress size={12} />
-                  <Typography variant="body2" color="text.secondary">
-                    {tool.description || tool.tool}
-                  </Typography>
-                </Box>
-                {tool.reasoning && (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      ml: 2.5,
-                      mt: 0.25,
-                      mb: 0.5,
-                      fontStyle: 'italic',
-                      borderLeft: 2,
-                      borderColor: 'divider',
-                      pl: 1,
-                    }}
-                  >
-                    {tool.reasoning}
-                  </Typography>
-                )}
-              </Box>
-            ))}
-            {streamingState.completedTools.map((tool) => (
-              <Box key={`done-${tool.tool}-${Date.now()}-${Math.random()}`} sx={{ mb: 0.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {tool.success ? (
-                    <CheckCircleIcon
-                      sx={{ fontSize: 14, color: 'success.main' }}
-                    />
-                  ) : (
-                    <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
-                  )}
-                  <Typography
-                    variant="body2"
-                    color={tool.success ? 'text.secondary' : 'error.main'}
-                  >
-                    {tool.description || tool.tool}
-                  </Typography>
-                </Box>
-                {tool.reasoning && (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      ml: 2.5,
-                      mt: 0.25,
-                      mb: 0.5,
-                      fontStyle: 'italic',
-                      borderLeft: 2,
-                      borderColor: 'divider',
-                      pl: 1,
-                    }}
-                  >
-                    {tool.reasoning}
-                  </Typography>
-                )}
-              </Box>
-            ))}
+
+            <ToolCallList
+              completedTools={streamingState.completedTools}
+              activeTools={streamingState.activeTools}
+            />
           </Box>
         )}
 

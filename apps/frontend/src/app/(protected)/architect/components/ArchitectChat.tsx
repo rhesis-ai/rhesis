@@ -319,8 +319,9 @@ export default function ArchitectChat({
         </Alert>
       )}
 
-      {/* Input area */}
+      {/* Input area -- key by sessionId to remount and auto-focus on session switch */}
       <ArchitectChatInput
+        key={sessionId}
         onSend={handleSend}
         disabled={isLoading}
         isLoading={isLoading}

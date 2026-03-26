@@ -42,6 +42,7 @@ export interface StreamingState {
     description?: string;
     args?: Record<string, unknown>;
     reasoning?: string;
+    startedAt: number;
   }>;
   completedTools: Array<{
     tool: string;
@@ -49,6 +50,7 @@ export interface StreamingState {
     success: boolean;
     preview?: string;
     reasoning?: string;
+    durationMs?: number;
   }>;
 }
 
@@ -255,6 +257,7 @@ export function useArchitectChat(
               description: payload.description,
               args: payload.args,
               reasoning: payload.reasoning,
+              startedAt: Date.now(),
             },
           ],
         }));
@@ -267,6 +270,10 @@ export function useArchitectChat(
         if (!payload?.tool) return;
         setStreamingState(prev => {
           const activeTool = prev.activeTools.find(t => t.tool === payload.tool);
+          const clientDuration = activeTool
+            ? Date.now() - activeTool.startedAt
+            : undefined;
+          const durationMs = payload.duration_ms ?? clientDuration;
           return {
             ...prev,
             activeTools: prev.activeTools.filter(t => t.tool !== payload.tool),
@@ -278,6 +285,7 @@ export function useArchitectChat(
                 success: payload.success ?? true,
                 preview: payload.preview,
                 reasoning: activeTool?.reasoning || payload.reasoning,
+                durationMs,
               },
             ],
           };

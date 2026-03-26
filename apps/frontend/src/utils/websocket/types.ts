@@ -92,6 +92,7 @@ export interface ArchitectToolPayload {
   reasoning?: string;
   success?: boolean;
   preview?: string;
+  duration_ms?: number;
 }
 
 /**

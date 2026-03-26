@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MentionsInput, Mention, SuggestionDataItem } from 'react-mentions';
 import {
   Box,
@@ -116,7 +116,14 @@ export default function ArchitectChatInput({
   const [value, setValue] = useState('');
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mentionsInputRef = useRef<HTMLTextAreaElement | null>(null);
   const debounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    if (!disabled && isConnected && mentionsInputRef.current) {
+      mentionsInputRef.current.focus();
+    }
+  }, [disabled, isConnected]);
 
   const typeColors = useMemo(
     () => ({
@@ -419,6 +426,7 @@ export default function ArchitectChatInput({
 
         <Box sx={{ flex: 1 }}>
           <MentionsInput
+            inputRef={mentionsInputRef}
             value={value}
             onChange={e => setValue(e.target.value)}
             onKeyDown={handleKeyDown}

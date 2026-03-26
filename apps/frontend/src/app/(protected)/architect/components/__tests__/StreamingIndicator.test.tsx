@@ -20,10 +20,10 @@ describe('StreamingIndicator', () => {
     expect(screen.getByText(/thinking/i)).toBeInTheDocument();
   });
 
-  it('shows thinking with ellipsis when no iteration', () => {
+  it('shows thinking text when no iteration', () => {
     render(<StreamingIndicator state={createState({ isThinking: true })} />);
 
-    expect(screen.getByText('Thinking...')).toBeInTheDocument();
+    expect(screen.getByText('Thinking')).toBeInTheDocument();
   });
 
   it('shows step number when iteration is provided', () => {
@@ -42,7 +42,7 @@ describe('StreamingIndicator', () => {
     expect(screen.queryByText(/thinking/i)).not.toBeInTheDocument();
   });
 
-  it('renders active tool calls with spinner', () => {
+  it('renders active tool calls with build icon', () => {
     render(
       <StreamingIndicator
         state={createState({

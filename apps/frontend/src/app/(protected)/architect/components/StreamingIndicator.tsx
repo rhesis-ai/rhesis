@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Box, Typography, CircularProgress } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
+import { Box, Typography } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { StreamingState } from '@/hooks/useArchitectChat';
+import ThinkingDots from './ThinkingDots';
+import ToolCallList from './ToolCallList';
 
 interface StreamingIndicatorProps {
   state: StreamingState;
@@ -52,81 +52,21 @@ export default function StreamingIndicator({ state }: StreamingIndicatorProps) {
       >
         {/* Thinking indicator */}
         {state.isThinking && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <CircularProgress size={14} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <ThinkingDots size={5} color="text.secondary" />
             <Typography variant="body2" color="text.secondary">
               Thinking
               {state.currentIteration
                 ? ` (step ${state.currentIteration})`
-                : '...'}
+                : ''}
             </Typography>
           </Box>
         )}
 
-        {/* Active tool calls */}
-        {state.activeTools.map((tool) => (
-          <Box key={`active-${tool.tool}-${Date.now()}-${Math.random()}`} sx={{ mb: 0.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={12} />
-              <Typography variant="body2" color="text.secondary">
-                {tool.description || tool.tool}
-              </Typography>
-            </Box>
-            {tool.reasoning && (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{
-                  ml: 2.5,
-                  mt: 0.25,
-                  mb: 0.5,
-                  fontStyle: 'italic',
-                  borderLeft: 2,
-                  borderColor: 'divider',
-                  pl: 1,
-                }}
-              >
-                {tool.reasoning}
-              </Typography>
-            )}
-          </Box>
-        ))}
-
-        {/* Completed tool calls */}
-        {state.completedTools.map((tool) => (
-          <Box key={`done-${tool.tool}-${Date.now()}-${Math.random()}`} sx={{ mb: 0.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {tool.success ? (
-                <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
-              ) : (
-                <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
-              )}
-              <Typography
-                variant="body2"
-                color={tool.success ? 'text.secondary' : 'error.main'}
-              >
-                {tool.description || tool.tool}
-              </Typography>
-            </Box>
-            {tool.reasoning && (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{
-                  ml: 2.5,
-                  mt: 0.25,
-                  mb: 0.5,
-                  fontStyle: 'italic',
-                  borderLeft: 2,
-                  borderColor: 'divider',
-                  pl: 1,
-                }}
-              >
-                {tool.reasoning}
-              </Typography>
-            )}
-          </Box>
-        ))}
+        <ToolCallList
+          completedTools={state.completedTools}
+          activeTools={state.activeTools}
+        />
       </Box>
     </Box>
   );
