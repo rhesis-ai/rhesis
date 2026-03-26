@@ -336,10 +336,7 @@ class TurnExecutor:
 
                     if self.verbose:
                         param_keys = list(action_params.keys()) if action_params else []
-                        logger.info(
-                            f"Executing tool: {action_name} "
-                            f"(params: {param_keys})"
-                        )
+                        logger.info(f"Executing tool: {action_name} (params: {param_keys})")
 
                     # Execute with enhanced validation for analysis tools
                     if isinstance(tool, AnalysisTool):
