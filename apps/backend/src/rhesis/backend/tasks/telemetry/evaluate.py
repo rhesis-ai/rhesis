@@ -183,9 +183,7 @@ def _prepare_evaluation(
         try:
             default_model = get_user_evaluation_model(db, project_user)
         except Exception as e:
-            logger.warning(
-                f"Failed to get default evaluation model for trace {trace_id}: {e}"
-            )
+            logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
 
     evaluator = MetricEvaluator(
         model=default_model,
@@ -321,9 +319,7 @@ def evaluate_conversation_trace_metrics(
             return {"status": "skipped", "trace_id": trace_id}
         project, config, evaluator = prepared
 
-        metrics = _load_trace_scoped_metrics(
-            db, organization_id, config, phase="conversation"
-        )
+        metrics = _load_trace_scoped_metrics(db, organization_id, config, phase="conversation")
         if not metrics:
             logger.info(f"No Multi-Turn Trace metrics found for trace {trace_id}")
             return {"status": "no_metrics", "trace_id": trace_id}
@@ -376,8 +372,11 @@ def evaluate_conversation_trace_metrics(
 
         first_span = root_spans[0]
         status_id = _derive_combined_status_id(
-            db, organization_id, first_span,
-            "conversation_metrics", conversation_metrics,
+            db,
+            organization_id,
+            first_span,
+            "conversation_metrics",
+            conversation_metrics,
         )
 
         crud.update_trace_conversation_metrics(

@@ -634,7 +634,9 @@ def list_span_files(
 ):
     """List files attached to a trace span."""
     organization_id, user_id = tenant_context
-    return crud.get_files_for_entity(db, span_db_id, EntityType.TRACE.value, organization_id, user_id)
+    return crud.get_files_for_entity(
+        db, span_db_id, EntityType.TRACE.value, organization_id, user_id
+    )
 
 
 @router.get("/metrics", response_model=TraceMetricsResponse)

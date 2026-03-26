@@ -107,8 +107,12 @@ def apply_review_override(
         recalculate_overall_status(db_trace)
     elif target_type == REVIEW_TARGET_TURN:
         _apply_turn_override(
-            db_trace, target_reference, review_passed, review_id,
-            current_user, now,
+            db_trace,
+            target_reference,
+            review_passed,
+            review_id,
+            current_user,
+            now,
         )
         recalculate_overall_status(db_trace)
     elif target_type == REVIEW_TARGET_TRACE:
@@ -137,9 +141,7 @@ def _apply_metric_override(
 
         current_val = metric.get("is_successful", False)
         existing_override = metric.get("override")
-        original_val = (
-            existing_override["original_value"] if existing_override else current_val
-        )
+        original_val = existing_override["original_value"] if existing_override else current_val
 
         if review_passed == original_val:
             metric["is_successful"] = original_val
@@ -183,11 +185,11 @@ def _apply_turn_override(
 
     turn_section = trace_metrics.get("turn_metrics", {})
     metrics = turn_section.get("metrics", {})
-    automated_passed = all(
-        m.get("is_successful", False)
-        for m in metrics.values()
-        if isinstance(m, dict)
-    ) if metrics else False
+    automated_passed = (
+        all(m.get("is_successful", False) for m in metrics.values() if isinstance(m, dict))
+        if metrics
+        else False
+    )
 
     if "turn_overrides" not in trace_metrics:
         trace_metrics["turn_overrides"] = {}
@@ -195,11 +197,7 @@ def _apply_turn_override(
     turn_key = str(turn_num)
     existing = trace_metrics["turn_overrides"].get(turn_key, {})
     existing_override = existing.get("override")
-    original_val = (
-        existing_override["original_value"]
-        if existing_override
-        else automated_passed
-    )
+    original_val = existing_override["original_value"] if existing_override else automated_passed
 
     if review_passed == original_val:
         trace_metrics["turn_overrides"].pop(turn_key, None)
@@ -229,18 +227,14 @@ def revert_override(
     """Revert an override when a review is deleted."""
     if target_type == REVIEW_TARGET_TRACE:
         same_target = [
-            r
-            for r in remaining_reviews
-            if r.get("target", {}).get("type") == REVIEW_TARGET_TRACE
+            r for r in remaining_reviews if r.get("target", {}).get("type") == REVIEW_TARGET_TRACE
         ]
         if same_target:
             latest = max(
                 same_target,
                 key=lambda r: r.get("updated_at") or r.get("created_at") or "",
             )
-            review_passed = _is_passed_status(
-                latest.get("status", {}).get("name", "")
-            )
+            review_passed = _is_passed_status(latest.get("status", {}).get("name", ""))
             _set_trace_status(db_trace, review_passed)
         else:
             recalculate_overall_status(db_trace)
@@ -261,9 +255,7 @@ def revert_override(
             if same_target
             else None
         )
-        _revert_turn_override(
-            db_trace, target_reference, deleted_review_id, replacement
-        )
+        _revert_turn_override(db_trace, target_reference, deleted_review_id, replacement)
         recalculate_overall_status(db_trace)
         return
 
@@ -286,9 +278,7 @@ def revert_override(
     )
 
     if target_type == REVIEW_TARGET_METRIC:
-        _revert_metric_override(
-            db_trace, target_reference, deleted_review_id, replacement
-        )
+        _revert_metric_override(db_trace, target_reference, deleted_review_id, replacement)
 
     recalculate_overall_status(db_trace)
 
@@ -318,9 +308,7 @@ def _revert_metric_override(
         original_val = override["original_value"]
 
         if replacement_review:
-            review_passed = _is_passed_status(
-                replacement_review.get("status", {}).get("name", "")
-            )
+            review_passed = _is_passed_status(replacement_review.get("status", {}).get("name", ""))
             if review_passed == original_val:
                 metric["is_successful"] = original_val
                 metric.pop("override", None)
@@ -330,9 +318,7 @@ def _revert_metric_override(
                 metric["override"] = {
                     "original_value": original_val,
                     "review_id": replacement_review["review_id"],
-                    "overridden_by": replacement_review.get("user", {}).get(
-                        "user_id", ""
-                    ),
+                    "overridden_by": replacement_review.get("user", {}).get("user_id", ""),
                     "overridden_at": now,
                 }
         else:
@@ -372,9 +358,7 @@ def _revert_turn_override(
     original_val = override["original_value"]
 
     if replacement_review:
-        review_passed = _is_passed_status(
-            replacement_review.get("status", {}).get("name", "")
-        )
+        review_passed = _is_passed_status(replacement_review.get("status", {}).get("name", ""))
         if review_passed == original_val:
             turn_overrides.pop(turn_key, None)
         else:
@@ -384,9 +368,7 @@ def _revert_turn_override(
                 "override": {
                     "original_value": original_val,
                     "review_id": replacement_review["review_id"],
-                    "overridden_by": replacement_review.get("user", {}).get(
-                        "user_id", ""
-                    ),
+                    "overridden_by": replacement_review.get("user", {}).get("user_id", ""),
                     "overridden_at": now,
                 },
             }
@@ -412,8 +394,6 @@ def recalculate_overall_status(db_trace: models.Trace) -> None:
     metrics_passed = all(m.get("is_successful", False) for m in all_metrics)
 
     turn_overrides = trace_metrics.get("turn_overrides", {})
-    turns_passed = all(
-        entry.get("success", True) for entry in turn_overrides.values()
-    )
+    turns_passed = all(entry.get("success", True) for entry in turn_overrides.values())
 
     _set_trace_status(db_trace, metrics_passed and turns_passed)

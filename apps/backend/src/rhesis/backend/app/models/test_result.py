@@ -22,9 +22,7 @@ from .mixins import (
 )
 
 
-class TestResult(
-    Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesMixin, ReviewsMixin
-):
+class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesMixin, ReviewsMixin):
     __tablename__ = "test_result"
 
     _reviews_column_name = "test_reviews"

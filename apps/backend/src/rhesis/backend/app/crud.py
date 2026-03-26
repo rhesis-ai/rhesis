@@ -3790,9 +3790,7 @@ def query_traces(
             models.Status.name == trace_metrics_status,
             models.Status.organization_id == org_uuid,
         )
-        query = query.filter(
-            models.Trace.trace_metrics_status_id.in_(matching_status_ids)
-        )
+        query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
@@ -4252,15 +4250,15 @@ def get_trace_metrics_aggregated(
         func.coalesce(func.sum(cost_expr), 0).label("total_cost_usd"),
         func.count(case((base.c.status_code == "ERROR", 1))).label("error_count"),
         func.coalesce(func.avg(base.c.duration_ms), 0).label("avg_duration_ms"),
-        func.coalesce(
-            sqlfunc.percentile_cont(0.5).within_group(base.c.duration_ms), 0
-        ).label("p50_duration_ms"),
-        func.coalesce(
-            sqlfunc.percentile_cont(0.95).within_group(base.c.duration_ms), 0
-        ).label("p95_duration_ms"),
-        func.coalesce(
-            sqlfunc.percentile_cont(0.99).within_group(base.c.duration_ms), 0
-        ).label("p99_duration_ms"),
+        func.coalesce(sqlfunc.percentile_cont(0.5).within_group(base.c.duration_ms), 0).label(
+            "p50_duration_ms"
+        ),
+        func.coalesce(sqlfunc.percentile_cont(0.95).within_group(base.c.duration_ms), 0).label(
+            "p95_duration_ms"
+        ),
+        func.coalesce(sqlfunc.percentile_cont(0.99).within_group(base.c.duration_ms), 0).label(
+            "p99_duration_ms"
+        ),
     ).one()
 
     total_spans = agg.total_spans or 0
