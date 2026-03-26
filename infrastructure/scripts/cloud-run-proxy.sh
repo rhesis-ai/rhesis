@@ -6,7 +6,6 @@
 #   ./cloud-run-proxy.sh
 #   ./cloud-run-proxy.sh docs
 #   ./cloud-run-proxy.sh -e stg -r europe-west4
-#   ./cloud-run-proxy.sh all
 #   ./cloud-run-proxy.sh stop
 #
 set -euo pipefail
