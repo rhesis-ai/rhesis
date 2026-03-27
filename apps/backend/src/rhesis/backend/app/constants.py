@@ -24,6 +24,7 @@ class EntityType(Enum):
     TASK = "Task"
     PROJECT = "Project"
     SOURCE = "Source"
+    CHUNK = "Chunk"
     TRACE = "Trace"
 
     @classmethod

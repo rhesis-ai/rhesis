@@ -113,6 +113,7 @@ class User(Base):
 
     # Source relationships
     created_sources = relationship("Source", foreign_keys="[Source.user_id]", back_populates="user")
+    created_chunks = relationship("Chunk", foreign_keys="[Chunk.user_id]", back_populates="user")
 
     # Task relationships
     assigned_tasks = relationship(
