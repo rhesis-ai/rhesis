@@ -94,10 +94,12 @@ export default function SuggestionsDialog({
         num_examples: 10,
         num_suggestions: 20,
       });
-      const rows: SuggestionRow[] = suggestionsResult.suggestions.map((s, idx) => ({
-        ...s,
-        _id: `suggestion-${idx}-${Date.now()}`,
-      }));
+      const rows: SuggestionRow[] = suggestionsResult.suggestions.map(
+        (s, idx) => ({
+          ...s,
+          _id: `suggestion-${idx}-${Date.now()}`,
+        })
+      );
       setSuggestions(rows);
       if (rows.length === 0) {
         setError('No suggestions were generated. The test set may be empty.');
@@ -111,12 +113,15 @@ export default function SuggestionsDialog({
         setCurrentStep('outputs');
         setOutputsLoading(true);
         try {
-          const outputsResult = await client.generateSuggestionOutputs(testSetId, {
-            suggestions: eligibleForOutputs.map(s => ({
-              input: s.input,
-              topic: s.topic,
-            })),
-          });
+          const outputsResult = await client.generateSuggestionOutputs(
+            testSetId,
+            {
+              suggestions: eligibleForOutputs.map(s => ({
+                input: s.input,
+                topic: s.topic,
+              })),
+            }
+          );
 
           const outputMap = new Map<string, string>();
           for (const r of outputsResult.results) {
@@ -189,7 +194,9 @@ export default function SuggestionsDialog({
             })
           );
 
-          const failedCount = evaluateResult.results.filter(r => r.error).length;
+          const failedCount = evaluateResult.results.filter(
+            r => r.error
+          ).length;
           if (failedCount > 0) {
             notifications.show(
               `Evaluated ${evaluateResult.evaluated} suggestions; ${failedCount} failed.`,
@@ -198,7 +205,9 @@ export default function SuggestionsDialog({
           }
         } catch (err) {
           notifications.show(
-            err instanceof Error ? err.message : 'Failed to evaluate suggestions.',
+            err instanceof Error
+              ? err.message
+              : 'Failed to evaluate suggestions.',
             { severity: 'error' }
           );
         } finally {
@@ -392,12 +401,7 @@ export default function SuggestionsDialog({
   const isProcessing = loading || outputsLoading || evaluateLoading;
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="lg"
-      fullWidth
-    >
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
         <Box
           sx={{

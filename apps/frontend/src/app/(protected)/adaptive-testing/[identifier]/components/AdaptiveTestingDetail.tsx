@@ -1174,7 +1174,9 @@ function TopicTreePanel({
           cursor: 'pointer',
           borderRadius: theme.shape.borderRadius / 4,
           backgroundColor:
-            selectedTopic === NO_TOPIC_FILTER ? 'action.selected' : 'transparent',
+            selectedTopic === NO_TOPIC_FILTER
+              ? 'action.selected'
+              : 'transparent',
           '&:hover': {
             backgroundColor:
               selectedTopic === NO_TOPIC_FILTER
@@ -1605,8 +1607,12 @@ export default function AdaptiveTestingDetail({
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [settingsEndpoint, setSettingsEndpoint] = useState<Endpoint | null>(null);
-  const [settingsMetric, setSettingsMetric] = useState<MetricDetail | null>(null);
+  const [settingsEndpoint, setSettingsEndpoint] = useState<Endpoint | null>(
+    null
+  );
+  const [settingsMetric, setSettingsMetric] = useState<MetricDetail | null>(
+    null
+  );
 
   const notifications = useNotifications();
   const searchParams = useSearchParams();
@@ -1660,8 +1666,9 @@ export default function AdaptiveTestingDetail({
     const adaptiveClient = clientFactory.getAdaptiveTestingClient();
     const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
     setSettingsEndpoint(
-      endpoints.find(endpoint => endpoint.id === settings.default_endpoint?.id) ??
-        null
+      endpoints.find(
+        endpoint => endpoint.id === settings.default_endpoint?.id
+      ) ?? null
     );
     const firstMetricId = settings.metrics[0]?.id;
     setSettingsMetric(
@@ -1681,9 +1688,12 @@ export default function AdaptiveTestingDetail({
     setSettingsDialogOpen(true);
     const next = new URLSearchParams(searchParams.toString());
     next.delete('openSettings');
-    router.replace(next.toString() ? `${pathname}?${next.toString()}` : pathname, {
-      scroll: false,
-    });
+    router.replace(
+      next.toString() ? `${pathname}?${next.toString()}` : pathname,
+      {
+        scroll: false,
+      }
+    );
   }, [pathname, router, searchParams]);
 
   // Load metrics on mount for the metric selector
