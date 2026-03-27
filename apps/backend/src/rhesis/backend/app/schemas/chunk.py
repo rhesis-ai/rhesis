@@ -24,6 +24,7 @@ class ChunkUpdate(BaseModel):
     chunk_index: Optional[int] = None
     token_count: Optional[int] = None
     chunk_metadata: Optional[Dict[str, Any]] = None
+    status_id: Optional[UUID4] = None
 
 
 class Chunk(ChunkBase):
