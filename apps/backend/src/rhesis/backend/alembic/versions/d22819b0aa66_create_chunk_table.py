@@ -1,7 +1,7 @@
 """create chunk table
 
 Revision ID: d22819b0aa66
-Revises: 5b3d40e898ff
+Revises: e1f2a3b4c5d6
 Create Date: 2026-03-26
 
 """
@@ -22,7 +22,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 
 # revision identifiers, used by Alembic.
 revision: str = "d22819b0aa66"
-down_revision: Union[str, None] = "5b3d40e898ff"
+down_revision: Union[str, None] = "e1f2a3b4c5d6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
