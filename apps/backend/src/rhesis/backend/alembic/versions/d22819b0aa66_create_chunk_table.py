@@ -150,4 +150,8 @@ def downgrade() -> None:
     entity_cleanup_sql = load_cleanup_type_lookup_template("EntityType", entity_type_cleanup_values)
     op.execute(entity_cleanup_sql)
 
+    op.drop_index("ix_chunk_source_id", table_name="chunk")
+    op.drop_index("ix_chunk_deleted_at", table_name="chunk")
+    op.drop_index("ix_chunk_nano_id", table_name="chunk")
+    op.drop_index("ix_chunk_id", table_name="chunk")
     op.drop_table("chunk")
