@@ -22,6 +22,8 @@ import {
   GenerateSuggestionOutputsResponse,
   EvaluateSuggestionsRequest,
   EvaluateSuggestionsResponse,
+  AdaptiveSettings,
+  AdaptiveSettingsUpdateRequest,
 } from './interfaces/adaptive-testing';
 
 /**
@@ -89,6 +91,25 @@ export class AdaptiveTestingClient extends BaseApiClient {
   async deleteAdaptiveTestSet(testSetId: string): Promise<void> {
     return this.fetch<void>(`${API_ENDPOINTS.adaptiveTesting}/${testSetId}`, {
       method: 'DELETE',
+    });
+  }
+
+  async getAdaptiveSettings(testSetId: string): Promise<AdaptiveSettings> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<AdaptiveSettings>(`${basePath}/settings`, {
+      cache: 'no-store',
+    });
+  }
+
+  async updateAdaptiveSettings(
+    testSetId: string,
+    body: AdaptiveSettingsUpdateRequest
+  ): Promise<AdaptiveSettings> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<AdaptiveSettings>(`${basePath}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 

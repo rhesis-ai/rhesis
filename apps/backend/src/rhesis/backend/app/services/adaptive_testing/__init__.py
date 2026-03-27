@@ -6,6 +6,12 @@ from .evaluation import (
 from .responses import (
     generate_outputs_for_tests,
 )
+from .settings import (
+    get_adaptive_settings,
+    resolve_endpoint_id,
+    resolve_metric_names,
+    update_adaptive_settings,
+)
 from .suggestions import (
     evaluate_suggestions,
     generate_suggestions,
@@ -38,12 +44,16 @@ __all__ = [
     "evaluate_tests_for_adaptive_set",
     "generate_outputs_for_tests",
     "generate_suggestions",
+    "get_adaptive_settings",
     "get_adaptive_test_sets",
     "get_tree_nodes",
     "get_tree_tests",
     "get_tree_topics",
     "invoke_endpoint_for_suggestions",
     "remove_topic_node",
+    "resolve_endpoint_id",
+    "resolve_metric_names",
+    "update_adaptive_settings",
     "update_test_node",
     "update_topic_node",
 ]
