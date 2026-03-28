@@ -5,28 +5,26 @@ import {
   Box,
   Typography,
   Grid,
-  Button,
   Alert,
   Paper,
   CircularProgress,
-  ButtonGroup,
   TablePagination,
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import ProjectCard from './ProjectCard';
-import AddIcon from '@mui/icons-material/Add';
+import AddIcon from '@mui/icons-material/AddOutlined';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 import FolderIcon from '@mui/icons-material/Folder';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import ListIcon from '@mui/icons-material/List';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
-import Link from 'next/link';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { useRouter } from 'next/navigation';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import styles from '@/styles/ProjectsClientWrapper.module.css';
 import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
+import FilterDrawer, { FilterValues } from '@/components/common/FilterDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import PageHeader from '@/components/layout/PageHeader';
+import FloatingActionButton from '@/components/common/FloatingActionButton';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -78,6 +76,10 @@ export default function ProjectsClientWrapper({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
+  // Filter drawer state
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+
+  const router = useRouter();
   const { markStepComplete, progress, activeTour } = useOnboarding();
   const isOnProjectTour = activeTour === 'project';
   const isProjectButtonDisabled = activeTour !== null && !isOnProjectTour;
@@ -154,156 +156,159 @@ export default function ProjectsClientWrapper({
 
   if (!sessionToken) {
     return (
-      <PageContainer title="Projects" breadcrumbs={[]}>
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Session expired. Please refresh the page or log in again.
-        </Alert>
-        <EmptyStateMessage
-          title="Authentication Required"
-          description="Please log in to view and manage your projects."
+      <>
+        <PageHeader
+          title="Projects"
+          description="Projects group your endpoints for testing and evaluation. Use them to organise your AI applications and collaborate with your team."
         />
-      </PageContainer>
+        <Box sx={{ px: 4, pb: 4, pt: 3 }}>
+          <Alert severity="error" sx={{ mb: 3 }}>
+            Session expired. Please refresh the page or log in again.
+          </Alert>
+          <EmptyStateMessage
+            title="Authentication Required"
+            description="Please log in to view and manage your projects."
+          />
+        </Box>
+      </>
     );
   }
 
   return (
-    <PageContainer title="Projects" breadcrumbs={[]}>
-      {/* Description */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" color="text.secondary">
-          Projects group your endpoints for testing and evaluation. Use them to
-          organise your AI applications and collaborate with your team.
-        </Typography>
-      </Box>
-
-      <SearchAndFilterBar
-        searchValue={search}
-        onSearchChange={value => {
-          setSearch(value);
-          setPage(0);
-        }}
-        hasActiveFilters={hasActiveFilters}
-        onReset={hasActiveFilters ? handleReset : undefined}
-        searchPlaceholder="Search projects..."
-        renderAddButton={() => (
-          <Button
-            component={isProjectButtonDisabled ? 'button' : Link}
-            href={isProjectButtonDisabled ? undefined : '/projects/create-new'}
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            data-tour="create-project-button"
-            disabled={isProjectButtonDisabled}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
-            Create Project
-          </Button>
-        )}
-      >
-        {/* Status filter buttons */}
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => {
-              setStatusFilter('all');
-              setPage(0);
-            }}
-            variant={statusFilter === 'all' ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => {
-              setStatusFilter('active');
-              setPage(0);
-            }}
-            variant={statusFilter === 'active' ? 'contained' : 'outlined'}
-            startIcon={<CheckCircleIcon fontSize="small" />}
-          >
-            Active
-          </Button>
-          <Button
-            onClick={() => {
-              setStatusFilter('inactive');
-              setPage(0);
-            }}
-            variant={statusFilter === 'inactive' ? 'contained' : 'outlined'}
-            startIcon={<DoNotDisturbAltIcon fontSize="small" />}
-          >
-            Inactive
-          </Button>
-        </ButtonGroup>
-      </SearchAndFilterBar>
-
-      {/* Loading state */}
-      {isLoading && (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            py: 8,
-            gap: 2,
-          }}
-        >
-          <CircularProgress size={24} />
-          <Typography>Loading projects…</Typography>
-        </Box>
-      )}
-
-      {/* Error state */}
-      {!isLoading && error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Projects grid */}
-      {!isLoading && !error && (
-        <>
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            {paginatedProjects.map(project => (
-              <Grid key={project.id} size={{ xs: 12, md: 6, lg: 4 }}>
-                <ProjectCard project={project} />
-              </Grid>
-            ))}
-
-            {filteredProjects.length === 0 && (
-              <Grid size={12}>
-                {hasActiveFilters ? (
-                  <EmptyStateMessage
-                    title="No projects match your filters"
-                    description="Try adjusting your search or status filter to find the projects you're looking for."
-                  />
-                ) : (
-                  <EmptyStateMessage
-                    title="No projects found"
-                    description="Create your first project to start building and testing your AI applications. Projects help you organize your work and collaborate with your team."
-                  />
-                )}
-              </Grid>
-            )}
-          </Grid>
-
-          {/* Pagination — only shown when there are enough results */}
-          {filteredProjects.length > rowsPerPage && (
-            <TablePagination
-              component="div"
-              count={filteredProjects.length}
-              page={page}
-              onPageChange={(_event, newPage) => setPage(newPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={event => {
-                setRowsPerPage(parseInt(event.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[25, 50, 100]}
-              labelRowsPerPage="Projects per page:"
-              sx={{ mb: 2 }}
+    <>
+      <PageHeader
+        title="Projects"
+        description="Projects group your endpoints for testing and evaluation. Use them to organise your AI applications and collaborate with your team."
+        actions={
+          <>
+            <FloatingActionButton
+              icon={<DownloadIcon />}
+              tooltip="Export projects"
             />
-          )}
-        </>
-      )}
-    </PageContainer>
+            <FloatingActionButton
+              icon={<AddIcon />}
+              tooltip="Create project"
+              onClick={() => router.push('/projects/create-new')}
+              disabled={isProjectButtonDisabled}
+            />
+          </>
+        }
+      />
+
+      <Box sx={{ px: 4, pb: 4, pt: 3 }}>
+        <SearchAndFilterBar
+          searchValue={search}
+          onSearchChange={value => {
+            setSearch(value);
+            setPage(0);
+          }}
+          hasActiveFilters={hasActiveFilters}
+          onReset={hasActiveFilters ? handleReset : undefined}
+          searchPlaceholder="Search projects..."
+          onFilterClick={() => setFilterDrawerOpen(true)}
+          activeFilterCount={statusFilter !== 'all' ? 1 : 0}
+        />
+
+        <FilterDrawer
+          open={filterDrawerOpen}
+          onClose={() => setFilterDrawerOpen(false)}
+          sections={[
+            {
+              id: 'status',
+              title: 'Status',
+              type: 'radio',
+              options: [
+                { value: 'all', label: 'All' },
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ],
+            },
+          ]}
+          values={{ status: [statusFilter] }}
+          onApply={(values: FilterValues) => {
+            const status = (values.status?.[0] || 'all') as StatusFilter;
+            setStatusFilter(status);
+            setPage(0);
+          }}
+          onReset={() => {
+            setStatusFilter('all');
+            setPage(0);
+          }}
+        />
+
+        {/* Loading state */}
+        {isLoading && (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              py: 8,
+              gap: 2,
+            }}
+          >
+            <CircularProgress size={24} />
+            <Typography>Loading projects…</Typography>
+          </Box>
+        )}
+
+        {/* Error state */}
+        {!isLoading && error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Projects grid */}
+        {!isLoading && !error && (
+          <>
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+              {paginatedProjects.map(project => (
+                <Grid key={project.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                  <ProjectCard
+                    project={project}
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                  />
+                </Grid>
+              ))}
+
+              {filteredProjects.length === 0 && (
+                <Grid size={12}>
+                  {hasActiveFilters ? (
+                    <EmptyStateMessage
+                      title="No projects match your filters"
+                      description="Try adjusting your search or status filter to find the projects you're looking for."
+                    />
+                  ) : (
+                    <EmptyStateMessage
+                      title="No projects found"
+                      description="Create your first project to start building and testing your AI applications. Projects help you organize your work and collaborate with your team."
+                    />
+                  )}
+                </Grid>
+              )}
+            </Grid>
+
+            {/* Pagination — only shown when there are enough results */}
+            {filteredProjects.length > rowsPerPage && (
+              <TablePagination
+                component="div"
+                count={filteredProjects.length}
+                page={page}
+                onPageChange={(_event, newPage) => setPage(newPage)}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={event => {
+                  setRowsPerPage(parseInt(event.target.value, 10));
+                  setPage(0);
+                }}
+                rowsPerPageOptions={[25, 50, 100]}
+                labelRowsPerPage="Projects per page:"
+                sx={{ mb: 2 }}
+              />
+            )}
+          </>
+        )}
+      </Box>
+    </>
   );
 }

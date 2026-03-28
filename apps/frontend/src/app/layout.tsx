@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { Box, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
 import {
@@ -10,24 +9,22 @@ import {
   VpnKeyIcon,
   BusinessIcon,
   GroupIcon,
-  PlayArrowIcon,
-  AssessmentIcon,
   CategoryIcon,
-  AutoGraphIcon,
   SmartToyIcon,
-  ApiIcon,
   TerminalIcon,
-  AssignmentIcon,
   SettingsIcon,
   MenuBookIcon,
   BoltIcon,
   PsychologyIcon,
-  GitHubIcon,
-  DescriptionIcon,
-  CodeIcon,
-  TimelineIcon,
-  ChatIcon,
   AccountTreeIcon,
+  RouteIcon,
+  FingerprintIcon,
+  BarChartIcon,
+  SlideshowIcon,
+  ChecklistRtlIcon,
+  SportsFootballIcon,
+  ShowChartIcon,
+  InsertChartIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -75,21 +72,11 @@ async function getNavigationItems(
   }
 
   return [
-    // Organization Section
+    // Organization (hidden from sidebar, accessed via CompanyMenu popover)
     {
       kind: 'page',
       segment: 'organizations',
-      title: (
-        <Tooltip
-          placement="top"
-          // sidebar is 240px, px to rem conversion => 240/16=15, so from 16 characters we display ellipsis+tooltip
-          title={organizationName.length < 15 ? '' : organizationName}
-        >
-          <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {organizationName}
-          </Box>
-        </Tooltip>
-      ),
+      title: organizationName,
       icon: <BusinessIcon key="org-icon" />,
       children: [
         {
@@ -106,17 +93,17 @@ async function getNavigationItems(
         },
       ],
     },
-    // Dashboard
+    // Dashboard — standalone, above categories
     {
       kind: 'page',
       segment: 'dashboard',
       title: 'Dashboard',
       icon: <DashboardIcon key="dashboard-icon" />,
     },
-    // Requirements Section
+    // DEFINE
     {
       kind: 'header',
-      title: 'Requirements',
+      title: 'Define',
     },
     {
       kind: 'page',
@@ -138,15 +125,15 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'metrics',
-      title: 'Metrics',
-      icon: <AutoGraphIcon key="metrics-icon" />,
-      requireSuperuser: true,
+      segment: 'tests',
+      title: 'Tests',
+      icon: <ScienceIcon key="tests-icon" />,
     },
-    // Testing Section
     {
-      kind: 'header',
-      title: 'Testing',
+      kind: 'page',
+      segment: 'test-sets',
+      title: 'Test Sets',
+      icon: <CategoryIcon key="test-sets-icon" />,
     },
     {
       kind: 'page',
@@ -158,19 +145,43 @@ async function getNavigationItems(
       kind: 'page',
       segment: 'playground',
       title: 'Playground',
-      icon: <ChatIcon key="playground-icon" />,
+      icon: <SportsFootballIcon key="playground-icon" />,
+    },
+    // EVALUATE
+    {
+      kind: 'header',
+      title: 'Evaluate',
     },
     {
       kind: 'page',
-      segment: 'tests',
-      title: 'Tests',
-      icon: <ScienceIcon key="tests-icon" />,
+      segment: 'test-results',
+      title: 'Overview',
+      icon: <InsertChartIcon key="test-results-icon" />,
     },
     {
       kind: 'page',
-      segment: 'test-sets',
-      title: 'Test Sets',
-      icon: <CategoryIcon key="test-sets-icon" />,
+      segment: 'test-runs',
+      title: 'Test Runs',
+      icon: <SlideshowIcon key="test-runs-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'traces',
+      title: 'Traces',
+      icon: <FingerprintIcon key="traces-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'tasks',
+      title: 'Tasks',
+      icon: <ChecklistRtlIcon key="tasks-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'metrics',
+      title: 'Metrics',
+      icon: <ShowChartIcon key="metrics-icon" />,
+      requireSuperuser: true,
     },
     ...(process.env.NODE_ENV === 'development'
       ? [
@@ -182,45 +193,16 @@ async function getNavigationItems(
           },
         ]
       : []),
-    // Results Section
+    // DEVELOP
     {
       kind: 'header',
-      title: 'Results',
-    },
-    {
-      kind: 'page',
-      segment: 'test-results',
-      title: 'Overview',
-      icon: <AssessmentIcon key="test-results-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'test-runs',
-      title: 'Test Runs',
-      icon: <PlayArrowIcon key="test-runs-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'traces',
-      title: 'Traces',
-      icon: <TimelineIcon key="traces-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'tasks',
-      title: 'Tasks',
-      icon: <AssignmentIcon key="tasks-icon" />,
-    },
-    // Development Section
-    {
-      kind: 'header',
-      title: 'Development',
+      title: 'Develop',
     },
     {
       kind: 'page',
       segment: 'endpoints',
       title: 'Endpoints',
-      icon: <ApiIcon key="endpoints-icon" />,
+      icon: <RouteIcon key="endpoints-icon" />,
     },
     {
       kind: 'page',
@@ -241,32 +223,6 @@ async function getNavigationItems(
       segment: 'tokens',
       title: 'API Tokens',
       icon: <VpnKeyIcon key="tokens-icon" />,
-    },
-    // Divider before external links
-    {
-      kind: 'divider',
-    },
-    // External Links
-    {
-      kind: 'link',
-      title: '⭐ Star Rhesis',
-      href: 'https://github.com/rhesis-ai/rhesis',
-      icon: <GitHubIcon key="star-icon" className="star-rhesis-icon" />,
-      external: true,
-    },
-    {
-      kind: 'link',
-      title: 'Documentation',
-      href: 'https://docs.rhesis.ai',
-      icon: <DescriptionIcon key="docs-icon" />,
-      external: true,
-    },
-    {
-      kind: 'link',
-      title: 'SDK Reference',
-      href: 'https://rtd.rhesis.ai',
-      icon: <CodeIcon key="sdk-icon" />,
-      external: true,
     },
   ] as NavigationItem[];
 }

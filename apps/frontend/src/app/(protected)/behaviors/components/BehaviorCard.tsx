@@ -1,15 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
-import EditIcon from '@mui/icons-material/Edit';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
 import { PsychologyIcon, AutoGraphIcon } from '@/components/icons';
-import { useTheme } from '@mui/material/styles';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -31,18 +23,15 @@ interface BehaviorCardProps {
 export default function BehaviorCard({
   behavior,
   onEdit,
-  onDuplicate,
-  onViewMetrics,
   onRefresh,
   sessionToken,
 }: BehaviorCardProps) {
-  const theme = useTheme();
   const notifications = useNotifications();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [metricsDialogOpen, setMetricsDialogOpen] = React.useState(false);
 
-  const handleDeleteClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleDeleteClick = (event: React.MouseEvent) => {
     event.stopPropagation();
     setDeleteDialogOpen(true);
   };
@@ -74,11 +63,6 @@ export default function BehaviorCard({
     setDeleteDialogOpen(false);
   };
 
-  const handleAddMetricClick = (event: React.MouseEvent<HTMLElement>) => {
-    event.stopPropagation();
-    setMetricsDialogOpen(true);
-  };
-
   const handleAddMetric = async (metricId: UUID) => {
     try {
       const metricsClient = new MetricsClient(sessionToken);
@@ -101,9 +85,9 @@ export default function BehaviorCard({
   const metricsCount = behavior.metrics?.length || 0;
   const canDelete = metricsCount === 0;
 
-  // Prepare chip sections
   const chipSections: ChipSection[] = [
     {
+      label: 'Metrics',
       chips: [
         ...(behavior.metrics || []).slice(0, 3).map(metric => ({
           key: metric.id,
@@ -123,100 +107,6 @@ export default function BehaviorCard({
     },
   ];
 
-  // Top right actions
-  const topRightActions = (
-    <>
-      <Tooltip title="Add metric">
-        <IconButton
-          size="small"
-          onClick={handleAddMetricClick}
-          sx={{
-            padding: theme.spacing(0.25),
-            '& .MuiSvgIcon-root': {
-              fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
-              color: 'currentColor',
-            },
-          }}
-        >
-          <AddIcon fontSize="inherit" />
-        </IconButton>
-      </Tooltip>
-      {metricsCount > 0 && (
-        <Tooltip title="View metrics">
-          <IconButton
-            size="small"
-            onClick={e => {
-              e.stopPropagation();
-              onViewMetrics();
-            }}
-            sx={{
-              padding: theme.spacing(0.25),
-              '& .MuiSvgIcon-root': {
-                fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
-                color: 'currentColor',
-              },
-            }}
-          >
-            <AssessmentIcon fontSize="inherit" />
-          </IconButton>
-        </Tooltip>
-      )}
-      <Tooltip title="Edit behavior">
-        <IconButton
-          size="small"
-          onClick={e => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          sx={{
-            padding: theme.spacing(0.25),
-            '& .MuiSvgIcon-root': {
-              fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
-              color: 'currentColor',
-            },
-          }}
-        >
-          <EditIcon fontSize="inherit" />
-        </IconButton>
-      </Tooltip>
-      {canDelete && (
-        <Tooltip title="Delete behavior">
-          <IconButton
-            size="small"
-            onClick={handleDeleteClick}
-            sx={{
-              padding: theme.spacing(0.25),
-              '& .MuiSvgIcon-root': {
-                fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
-                color: 'currentColor',
-              },
-            }}
-          >
-            <DeleteIcon fontSize="inherit" />
-          </IconButton>
-        </Tooltip>
-      )}
-      <Tooltip title="Duplicate behavior">
-        <IconButton
-          size="small"
-          onClick={e => {
-            e.stopPropagation();
-            onDuplicate();
-          }}
-          sx={{
-            padding: theme.spacing(0.25),
-            '& .MuiSvgIcon-root': {
-              fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
-              color: 'currentColor',
-            },
-          }}
-        >
-          <ContentCopyIcon fontSize="inherit" />
-        </IconButton>
-      </Tooltip>
-    </>
-  );
-
   const excludeMetricIds = behavior.metrics?.map(m => m.id as UUID) || [];
 
   return (
@@ -225,12 +115,8 @@ export default function BehaviorCard({
         icon={<PsychologyIcon fontSize="medium" />}
         title={behavior.name}
         description={behavior.description || 'No description provided'}
-        topRightActions={topRightActions}
-        captionText={
-          metricsCount > 0
-            ? `${metricsCount} ${metricsCount === 1 ? 'Metric' : 'Metrics'}`
-            : 'No metrics assigned'
-        }
+        onClick={onEdit}
+        onDelete={canDelete ? handleDeleteClick : undefined}
         chipSections={chipSections}
       />
 

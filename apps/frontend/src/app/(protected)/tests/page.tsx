@@ -4,11 +4,8 @@ import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import TestsGrid from './components/TestsGrid';
-import TestCharts from './components/TestCharts';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -18,6 +15,11 @@ import {
   TestType,
   TestTemplate,
 } from './new-generated/components/shared/types';
+import PageHeader from '@/components/layout/PageHeader';
+import DataCard from '@/components/common/DataCard';
+import FloatingActionButton from '@/components/common/FloatingActionButton';
+import AddIcon from '@mui/icons-material/AddOutlined';
+import DownloadIcon from '@mui/icons-material/FileDownloadOutlined';
 
 export default function TestsPage() {
   const { data: session, status } = useSession();
@@ -28,7 +30,6 @@ export default function TestsPage() {
   const [showTestTypeModal, setShowTestTypeModal] = React.useState(false);
   const [selectedTestType, setSelectedTestType] =
     React.useState<TestType | null>(null);
-  const [chartsLoaded, setChartsLoaded] = React.useState(false);
   const {
     markStepComplete: _markStepComplete,
     progress: _progress,
@@ -37,45 +38,32 @@ export default function TestsPage() {
     isComplete: _isComplete,
   } = useOnboarding();
 
-  // Set document title
   useDocumentTitle('Tests');
 
-  // Don't use the auto-tour hook, we'll manually control it after charts load
   const tourParam = searchParams?.get('tour');
-
-  // Check if user is currently on the testCases tour
   const isOnTestCasesTour =
     tourParam === 'testCases' || activeTour === 'testCases';
-
-  // Disable "Add Tests" button ONLY when user is actively on a tour OTHER than testCases
   const shouldDisableAddButton = activeTour !== null && !isOnTestCasesTour;
 
-  // Start tour only after charts are loaded
   React.useEffect(() => {
-    if (tourParam === 'testCases' && chartsLoaded) {
-      // Small additional delay to ensure button is positioned correctly
+    if (tourParam === 'testCases') {
       const timeout = setTimeout(() => {
         startTour('testCases');
       }, 300);
       return () => clearTimeout(timeout);
     }
-  }, [tourParam, chartsLoaded, startTour]);
+  }, [tourParam, startTour]);
 
-  // No auto-close logic needed - tour handles modal closing
-
-  // Check for openGeneration query parameter
   React.useEffect(() => {
     const openGeneration = searchParams?.get('openGeneration');
     if (openGeneration === 'true' && !showTestTypeModal) {
       setShowTestTypeModal(true);
-      // Remove the query parameter from URL
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('openGeneration');
       window.history.replaceState({}, '', newUrl.toString());
     }
   }, [searchParams, showTestTypeModal]);
 
-  // Fetch test count to check if user has created tests
   React.useEffect(() => {
     const fetchTestCount = async () => {
       if (!session?.session_token) return;
@@ -93,27 +81,17 @@ export default function TestsPage() {
     fetchTestCount();
   }, [session?.session_token, refreshKey]);
 
-  // Tour completion is handled in OnboardingContext when "Got it!" is clicked
-  // We don't auto-complete based on test count to avoid marking it done prematurely
-
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
   }, []);
 
-  const handleChartsLoaded = React.useCallback(() => {
-    setChartsLoaded(true);
-  }, []);
-
   const handleOpenModal = React.useCallback(() => {
-    // Prevent manual clicks when tour is active - tour handles modal opening
     if (activeTour === 'testCases') {
       return;
     }
-    // Open test type selection modal
     setShowTestTypeModal(true);
   }, [activeTour]);
 
-  // Listen for tour event to open modal (needed because programmatic clicks on disabled buttons don't work)
   React.useEffect(() => {
     const handleTourOpenModal = () => {
       setShowTestTypeModal(true);
@@ -125,16 +103,13 @@ export default function TestsPage() {
   }, []);
 
   const handleTestTypeSelection = React.useCallback((testType: TestType) => {
-    // Store test type and move to step 2 (method selection)
     setSelectedTestType(testType);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('testType', testType);
     }
-    // Keep modal open, just move to step 2
   }, []);
 
   const handleBackToTestType = React.useCallback(() => {
-    // Go back to test type selection (step 1)
     setSelectedTestType(null);
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('testType');
@@ -150,20 +125,17 @@ export default function TestsPage() {
   }, []);
 
   const handleSelectAI = React.useCallback(() => {
-    // Close modal and navigate to AI generation flow
     setShowTestTypeModal(false);
     router.push('/tests/new-generated');
   }, [router]);
 
   const handleSelectManual = React.useCallback(() => {
-    // Close modal and navigate to manual test creation
     setShowTestTypeModal(false);
     router.push('/tests/new-manual');
   }, [router]);
 
   const handleSelectTemplate = React.useCallback(
     (template: TestTemplate) => {
-      // Store template ID, close modal, and navigate to generation flow
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('selectedTemplateId', template.id);
       }
@@ -173,52 +145,58 @@ export default function TestsPage() {
     [router]
   );
 
-  // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Tests" breadcrumbs={[]}>
-        <Box sx={{ p: 3 }}>
-          <Typography>Loading...</Typography>
-        </Box>
-      </PageContainer>
+      <Box sx={{ p: 4 }}>
+        <Typography>Loading...</Typography>
+      </Box>
     );
   }
 
-  // Handle no session state
   if (!session?.session_token) {
     return (
-      <PageContainer title="Tests" breadcrumbs={[]}>
-        <Box sx={{ p: 3 }}>
-          <Typography color="error">No session token available</Typography>
-        </Box>
-      </PageContainer>
+      <Box sx={{ p: 4 }}>
+        <Typography color="error">No session token available</Typography>
+      </Box>
     );
   }
 
   return (
     <>
-      <PageContainer title="Tests" breadcrumbs={[]}>
-        {/* Charts Section */}
-        <TestCharts
-          sessionToken={session.session_token}
-          key={`charts-${refreshKey}`}
-          onLoadComplete={handleChartsLoaded}
-        />
-
-        {/* Table Section */}
-        <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
-          <Box sx={{ p: 2 }}>
-            <TestsGrid
-              sessionToken={session.session_token}
-              onRefresh={handleRefresh}
-              onNewTest={handleOpenModal}
-              disableAddButton={shouldDisableAddButton}
+      <PageHeader
+        title="Tests"
+        description="Manage and organize your test cases"
+        breadcrumbs={[
+          { label: 'Home', href: '/dashboard' },
+          { label: 'Tests' },
+        ]}
+        actions={
+          <>
+            <FloatingActionButton
+              icon={<DownloadIcon />}
+              tooltip="Export tests"
             />
-          </Box>
-        </Paper>
-      </PageContainer>
+            <FloatingActionButton
+              icon={<AddIcon />}
+              tooltip="Add tests"
+              onClick={handleOpenModal}
+              disabled={shouldDisableAddButton}
+            />
+          </>
+        }
+      />
 
-      {/* Test Creation Modals - Step 1: Test Type Selection */}
+      <Box sx={{ px: 4, pb: 4, pt: 5 }}>
+        <DataCard>
+          <TestsGrid
+            sessionToken={session.session_token}
+            onRefresh={handleRefresh}
+            onNewTest={handleOpenModal}
+            disableAddButton={shouldDisableAddButton}
+          />
+        </DataCard>
+      </Box>
+
       {!selectedTestType && (
         <TestTypeSelectionScreen
           open={showTestTypeModal}
@@ -227,7 +205,6 @@ export default function TestsPage() {
         />
       )}
 
-      {/* Step 2: Creation Method Selection */}
       {selectedTestType && (
         <SelectTestCreationMethod
           open={showTestTypeModal}

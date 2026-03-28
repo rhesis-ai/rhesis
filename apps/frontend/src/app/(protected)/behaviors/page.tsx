@@ -5,14 +5,13 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
 import BehaviorsClient from './components/BehaviorsClient';
+import PageHeader from '@/components/layout/PageHeader';
 import type { UUID } from 'crypto';
 
 export default function BehaviorsPage() {
   const { data: session, status } = useSession();
 
-  // Use memoized values to prevent unnecessary re-renders from session object recreation
   const sessionToken = React.useMemo(
     () => session?.session_token,
     [session?.session_token]
@@ -22,13 +21,18 @@ export default function BehaviorsPage() {
     [session?.user?.organization_id]
   );
 
-  // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Behaviors" breadcrumbs={[]}>
+      <>
+        <PageHeader
+          title="Behaviors"
+          description="Behaviors are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
+        />
         <Box
           sx={{
-            p: 3,
+            px: 4,
+            pb: 4,
+            pt: 3,
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
@@ -40,29 +44,30 @@ export default function BehaviorsPage() {
             <Typography>Loading behaviors...</Typography>
           </Box>
         </Box>
-      </PageContainer>
+      </>
     );
   }
 
-  // Handle no session state
   if (!sessionToken) {
     return (
-      <PageContainer title="Behaviors" breadcrumbs={[]}>
-        <Box sx={{ p: 3 }}>
+      <>
+        <PageHeader
+          title="Behaviors"
+          description="Behaviors are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
+        />
+        <Box sx={{ px: 4, pb: 4, pt: 3 }}>
           <Typography color="error">
             Authentication required. Please log in.
           </Typography>
         </Box>
-      </PageContainer>
+      </>
     );
   }
 
   return (
-    <PageContainer title="Behaviors" breadcrumbs={[]}>
-      <BehaviorsClient
-        sessionToken={sessionToken}
-        organizationId={organizationId}
-      />
-    </PageContainer>
+    <BehaviorsClient
+      sessionToken={sessionToken}
+      organizationId={organizationId}
+    />
   );
 }

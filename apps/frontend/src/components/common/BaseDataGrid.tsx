@@ -23,12 +23,10 @@ import {
   ClickAwayListener,
   MenuList,
   CircularProgress,
-  TextField,
-  InputAdornment,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
-import IconButton from '@mui/material/IconButton';
+import GridFilterButton from './GridFilterButton';
+import GridToolbarActions from './GridToolbarActions';
+import PillSearchField from './PillSearchField';
 import {
   DataGrid,
   GridColDef,
@@ -37,8 +35,11 @@ import {
   GridEditMode,
   GridDensity,
   GridRowSelectionModel,
-  GridToolbar,
   GridToolbarQuickFilter,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+  useGridApiContext,
   useGridApiRef,
   GridFilterModel,
   GridSortModel,
@@ -149,7 +150,7 @@ interface BaseDataGridProps {
 }
 
 // Create a styled version of DataGrid with bold headers
-const StyledDataGrid = styled(DataGrid)({
+const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-columnHeaders': {
     backgroundColor: 'rgba(0, 0, 0, 0.04)',
     fontWeight: 'bold',
@@ -169,11 +170,72 @@ const StyledDataGrid = styled(DataGrid)({
   },
   '& .MuiDataGrid-cell': {
     display: 'flex',
-    alignItems: 'center', // This ensures vertical centering of all cell content
+    alignItems: 'center',
     overflow: 'hidden',
   },
   border: 'none',
-});
+
+  '& .MuiDataGrid-footerContainer': {
+    borderTop: 'none',
+    padding: (t: any) => `${t.spacing(1.5)} ${t.spacing(2.5)}`,
+  },
+  '& .MuiTablePagination-root': {
+    overflow: 'visible',
+  },
+  '& .MuiTablePagination-toolbar': {
+    padding: 0,
+    minHeight: 'auto',
+  },
+  '& .MuiTablePagination-selectLabel': {
+    fontSize: 12,
+    fontWeight: 600,
+    color: theme.palette.text.secondary,
+    margin: 0,
+  },
+  '& .MuiTablePagination-select': {
+    fontSize: 14,
+    fontWeight: 700,
+    color: theme.palette.text.secondary,
+    paddingRight: 24,
+  },
+  '& .MuiTablePagination-displayedRows': {
+    fontSize: 12,
+    fontWeight: 600,
+    color: theme.palette.text.secondary,
+    margin: 0,
+  },
+  '& .MuiTablePagination-actions': {
+    marginLeft: 30,
+    display: 'flex',
+    gap: 30,
+    '& .MuiIconButton-root': {
+      border: '2px solid',
+      borderColor: theme.palette.grey[300],
+      borderRadius: (t: any) => `${t.customRadius.m}px`,
+      padding: 9,
+      width: 38,
+      height: 38,
+      '&:hover': {
+        borderColor: theme.palette.primary.main,
+        color: theme.palette.primary.main,
+        backgroundColor: 'transparent',
+      },
+      '&.Mui-disabled': {
+        borderColor: theme.palette.grey[300],
+        color: theme.palette.grey[300],
+        opacity: 0.5,
+      },
+      color: theme.palette.grey[400],
+      '& .MuiSvgIcon-root': {
+        fontSize: 20,
+      },
+    },
+    '& .MuiIconButton-root:last-of-type': {
+      borderColor: theme.palette.primary.main,
+      color: theme.palette.primary.main,
+    },
+  },
+}));
 
 function QuickFilterToolbar() {
   return (
@@ -584,43 +646,34 @@ export default function BaseDataGrid({
   const CustomToolbarWithFiltersRef = useRef<React.ComponentType | null>(null);
   if (!CustomToolbarWithFiltersRef.current) {
     CustomToolbarWithFiltersRef.current = function CustomToolbar() {
+      const apiRef = useGridApiContext();
       return (
         <Box
           sx={{
-            p: 1,
+            px: 2.5,
+            py: 1.5,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            gap: 2,
           }}
         >
-          <GridToolbar />
-          <TextField
-            inputRef={quickFilterInputRef}
-            size="small"
-            placeholder="Search..."
-            defaultValue=""
-            onChange={handleQuickFilterChange}
-            sx={{ minWidth: 250 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    size="small"
-                    onClick={handleQuickFilterClear}
-                    aria-label="Clear search"
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+            <GridFilterButton
+              onClick={() => apiRef.current.showFilterPanel()}
+            />
+            <PillSearchField
+              inputRef={quickFilterInputRef}
+              defaultValue=""
+              onInputChange={handleQuickFilterChange}
+              onClear={handleQuickFilterClear}
+              showClear={!!quickFilterInputRef.current?.value}
+            />
+          </Box>
+          <GridToolbarActions>
+            <GridToolbarColumnsButton />
+            <GridToolbarDensitySelector />
+            <GridToolbarExport />
+          </GridToolbarActions>
         </Box>
       );
     };

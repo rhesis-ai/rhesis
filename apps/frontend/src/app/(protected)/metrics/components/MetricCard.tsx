@@ -16,7 +16,6 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
 import { getMetricScopeIcon } from '@/constants/metric-scopes';
 
-// Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
   fontSize = 'small',
 }: {
@@ -46,19 +45,14 @@ interface MetricCardProps {
   metricScope?: string[];
   usedIn?: string[];
   showUsage?: boolean;
+  onClick?: () => void;
 }
-
-const _getMetricIcon = (_type: string) => {
-  // Use the same icon as in the navbar for consistency
-  return <AutoGraphIcon />;
-};
 
 const getBackendIcon = (backend: string) => {
   switch (backend.toLowerCase()) {
     case 'custom':
       return <FaceIcon fontSize="small" />;
     case 'deepeval':
-      return <HandymanIcon fontSize="small" />;
     case 'ragas':
       return <HandymanIcon fontSize="small" />;
     case 'garak':
@@ -71,26 +65,8 @@ const getBackendIcon = (backend: string) => {
   }
 };
 
-const _getMetricTypeDisplay = (_metricType: string): string => {
-  if (!_metricType) return 'Unknown';
-
-  const mapping: Record<string, string> = {
-    'custom-prompt': 'LLM Judge',
-    'api-call': 'External API',
-    'custom-code': 'Script',
-    grading: 'Grades',
-    framework: 'Framework',
-  };
-
-  // If we have a specific mapping, use it; otherwise capitalize the first letter
-  return (
-    mapping[_metricType] ||
-    _metricType.charAt(0).toUpperCase() + _metricType.slice(1).toLowerCase()
-  );
-};
-
-const _getMetricTypeIcon = (_metricType: string) => {
-  switch (_metricType.toLowerCase()) {
+const _getMetricTypeIcon = (metricType: string) => {
+  switch (metricType.toLowerCase()) {
     case 'custom-prompt':
       return <SmartToyIcon fontSize="small" />;
     case 'api-call':
@@ -127,14 +103,12 @@ export default function MetricCard({
   title,
   description,
   backend,
-  metricType: _metricType,
   scoreType,
   metricScope,
-  type: _type,
   usedIn,
   showUsage = false,
+  onClick,
 }: MetricCardProps) {
-  // Safely handle capitalization with fallbacks for empty/undefined values
   const capitalizedScoreType = scoreType
     ? scoreType.charAt(0).toUpperCase() + scoreType.slice(1).toLowerCase()
     : 'Unknown';
@@ -142,12 +116,11 @@ export default function MetricCard({
     ? backend.charAt(0).toUpperCase() + backend.slice(1).toLowerCase()
     : 'Unknown';
 
-  // Prepare chip sections
   const chipSections: ChipSection[] = [];
 
-  // First section: behaviors (if showing usage)
   if (showUsage && usedIn && usedIn.length > 0) {
     chipSections.push({
+      label: 'Behaviors',
       chips: [
         ...usedIn.slice(0, 3).map((behaviorName, index) => ({
           key: `behavior-${index}`,
@@ -167,7 +140,6 @@ export default function MetricCard({
     });
   }
 
-  // Second section: metric properties
   const metricPropertyChips = [];
 
   if (backend || capitalizedBackend !== 'Unknown') {
@@ -198,6 +170,7 @@ export default function MetricCard({
 
   if (metricPropertyChips.length > 0) {
     chipSections.push({
+      label: 'Properties',
       chips: metricPropertyChips,
     });
   }
@@ -207,12 +180,8 @@ export default function MetricCard({
       icon={<AutoGraphIcon fontSize="medium" />}
       title={title}
       description={description}
-      captionText={
-        showUsage && usedIn && usedIn.length > 0
-          ? `${usedIn.length} ${usedIn.length === 1 ? 'Behavior' : 'Behaviors'}`
-          : undefined
-      }
       chipSections={chipSections}
+      onClick={onClick}
     />
   );
 }

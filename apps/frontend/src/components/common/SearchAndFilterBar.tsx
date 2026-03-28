@@ -2,12 +2,14 @@
 
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import TextField from '@mui/material/TextField';
+import InputBase from '@mui/material/InputBase';
 import Button from '@mui/material/Button';
-import InputAdornment from '@mui/material/InputAdornment';
+import IconButton from '@mui/material/IconButton';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
+import { useTheme } from '@mui/material/styles';
+import GridFilterButton from '@/components/common/GridFilterButton';
 
 interface SearchAndFilterBarProps {
   searchValue: string;
@@ -16,10 +18,11 @@ interface SearchAndFilterBarProps {
   hasActiveFilters?: boolean;
   onAddNew?: () => void;
   addNewLabel?: string;
-  /** Overrides the built-in Add button. Use when custom routing or attributes are needed. */
   renderAddButton?: () => React.ReactNode;
   searchPlaceholder?: string;
   children?: React.ReactNode;
+  onFilterClick?: () => void;
+  activeFilterCount?: number;
 }
 
 export default function SearchAndFilterBar({
@@ -32,60 +35,100 @@ export default function SearchAndFilterBar({
   renderAddButton,
   searchPlaceholder = 'Search...',
   children,
+  onFilterClick,
+  activeFilterCount: _activeFilterCount = 0,
 }: SearchAndFilterBarProps) {
+  const theme = useTheme();
+
   return (
     <Box
       data-testid="search-action-row"
       sx={{
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
-        gap: 2,
+        gap: 2.5,
         alignItems: { xs: 'stretch', md: 'center' },
         justifyContent: 'space-between',
         mb: 3,
       }}
     >
-      {/* Left side: Search and inline filters */}
+      {/* Left: Filter button + Search field */}
       <Box
         sx={{
           display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 2,
-          flex: 1,
-          alignItems: { xs: 'stretch', sm: 'center' },
+          alignItems: 'center',
+          flexShrink: 0,
+          gap: 1.25,
         }}
       >
-        <TextField
-          size="small"
-          placeholder={searchPlaceholder}
-          value={searchValue}
-          onChange={e => onSearchChange(e.target.value)}
-          variant="outlined"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+        {onFilterClick && <GridFilterButton onClick={onFilterClick} />}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            bgcolor: theme.greyscale.surface.default,
+            borderRadius: theme.customRadius.full,
+            height: 38,
+            pl: 2,
+            pr: 0.5,
+            minWidth: { xs: '100%', sm: 288 },
+            gap: 1.25,
           }}
-          sx={{ minWidth: { xs: '100%', sm: 250 } }}
-        />
-        {children && (
-          <Box
-            data-testid="filter-row"
+        >
+          <InputBase
+            placeholder={searchPlaceholder}
+            value={searchValue}
+            onChange={e => onSearchChange(e.target.value)}
             sx={{
-              display: 'flex',
-              gap: 2,
-              flexWrap: 'wrap',
-              alignItems: 'center',
+              flex: 1,
+              fontSize: '0.875rem',
+              '& .MuiInputBase-input': {
+                p: 0,
+                '&::placeholder': {
+                  color: theme.greyscale.text.caption,
+                  opacity: 1,
+                },
+              },
             }}
+            inputProps={{
+              'aria-label': 'search',
+            }}
+          />
+          <IconButton
+            size="small"
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+              width: 30,
+              height: 30,
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+            }}
+            aria-label="search"
           >
-            {children}
-          </Box>
-        )}
+            <SearchIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Box>
       </Box>
 
-      {/* Right side: Action buttons */}
+      {/* Center: Inline filters (children) */}
+      {children && (
+        <Box
+          data-testid="filter-row"
+          sx={{
+            display: 'flex',
+            gap: 2,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {children}
+        </Box>
+      )}
+
+      {/* Right: Action buttons */}
       <Box
         data-testid="actions-box"
         sx={{
@@ -94,6 +137,7 @@ export default function SearchAndFilterBar({
           flexShrink: 0,
           flexWrap: 'wrap',
           alignItems: 'center',
+          justifyContent: 'flex-end',
         }}
       >
         {renderAddButton

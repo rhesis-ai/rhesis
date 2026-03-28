@@ -387,11 +387,18 @@ class StyleChecker {
   }
 
   /**
-   * Get changed files from git diff (for PR checks)
+   * Get changed files from git diff (for PR checks and pre-commit hooks)
    */
   getChangedFiles() {
     try {
-      // Get files changed in this PR/commit
+      // In a pre-commit hook context, check staged files first
+      const staged = execSync('git diff --cached --name-only', { encoding: 'utf8' }).trim();
+      if (staged) {
+        return staged.split('\n').filter(file =>
+          file.trim() && /\.(ts|tsx|js|jsx|mdx)$/.test(file)
+        );
+      }
+      // Fallback: files changed in the last commit (CI context)
       const gitDiff = execSync('git diff --name-only HEAD~1 HEAD', { encoding: 'utf8' });
       return gitDiff.split('\n').filter(file =>
         file.trim() && /\.(ts|tsx|js|jsx|mdx)$/.test(file)

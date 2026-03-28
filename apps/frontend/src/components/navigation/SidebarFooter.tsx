@@ -1,112 +1,136 @@
-import React, { useState } from 'react';
-import { Box, Button, Typography, Tooltip } from '@mui/material';
-import FeedbackIcon from '@mui/icons-material/Feedback';
-import FeedbackModal from '../common/FeedbackModal';
+'use client';
 
-type SidebarFooterProps = {
+import React, { useState } from 'react';
+import { Box, Tooltip, Avatar, IconButton, Divider } from '@mui/material';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import ForumIcon from '@mui/icons-material/ForumOutlined';
+import { useSession } from 'next-auth/react';
+import UserMenu from './UserMenu';
+import SidebarLinkItem from './SidebarLinkItem';
+import UserAvatarRow from './UserAvatarRow';
+
+interface SidebarFooterProps {
   mini?: boolean;
-};
+}
 
 export default function SidebarFooter({ mini = false }: SidebarFooterProps) {
-  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const { data: session } = useSession();
+  const [userMenuAnchor, setUserMenuAnchor] = useState<HTMLElement | null>(
+    null
+  );
 
-  const handleOpenFeedbackModal = () => {
-    setFeedbackModalOpen(true);
+  const user = session?.user;
+  const displayName = user?.name || 'User';
+  const email = user?.email || '';
+  const avatarSrc = user?.image || undefined;
+
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUserMenuAnchor(event.currentTarget);
   };
 
-  const handleCloseFeedbackModal = () => {
-    setFeedbackModalOpen(false);
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null);
   };
+
+  if (mini) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 0.5,
+          py: 1,
+          px: 0.5,
+        }}
+      >
+        <Tooltip title="Star Rhesis" placement="right">
+          <IconButton
+            size="small"
+            onClick={() =>
+              window.open(
+                'https://github.com/rhesis-ai/rhesis',
+                '_blank',
+                'noopener'
+              )
+            }
+          >
+            <StarBorderIcon sx={{ fontSize: 24 }} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Support" placement="right">
+          <IconButton
+            size="small"
+            onClick={() =>
+              window.open('https://docs.rhesis.ai', '_blank', 'noopener')
+            }
+          >
+            <ForumIcon sx={{ fontSize: 24 }} />
+          </IconButton>
+        </Tooltip>
+        <Divider sx={{ width: '100%', my: 0.5 }} />
+        <Tooltip title={displayName} placement="right">
+          <IconButton onClick={handleUserMenuOpen} size="small" sx={{ p: 0 }}>
+            <Avatar
+              src={avatarSrc}
+              alt={displayName}
+              sx={{ width: 32, height: 32, fontSize: 14 }}
+            >
+              {displayName.charAt(0).toUpperCase()}
+            </Avatar>
+          </IconButton>
+        </Tooltip>
+        <UserMenu
+          anchorEl={userMenuAnchor}
+          open={Boolean(userMenuAnchor)}
+          onClose={handleUserMenuClose}
+        />
+      </Box>
+    );
+  }
 
   return (
-    <>
-      {mini ? (
-        <Box
-          sx={{
-            padding: 0.5,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Tooltip title="Feedback" placement="right">
-            <Button
-              onClick={handleOpenFeedbackModal}
-              sx={{
-                minWidth: '36px',
-                minHeight: '36px',
-                width: '36px',
-                height: '36px',
-                borderRadius: theme => theme.shape.borderRadius * 1.5,
-                color: 'text.secondary',
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                  color: 'primary.main',
-                },
-              }}
-            >
-              <FeedbackIcon sx={{ width: '16px', height: '16px' }} />
-            </Button>
-          </Tooltip>
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            padding: 1,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Button
-            onClick={handleOpenFeedbackModal}
-            startIcon={<FeedbackIcon sx={{ width: '16px', height: '16px' }} />}
-            sx={{
-              width: '100%',
-              justifyContent: 'flex-start',
-              color: 'text.secondary',
-              textTransform: 'none',
-              borderRadius: theme => theme.shape.borderRadius,
-              padding: theme => theme.spacing(0.5, 1),
-              minHeight: '36px',
-              maxHeight: '42px',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-                color: 'primary.main',
-              },
-              '& .MuiButton-startIcon': {
-                marginRight: theme => theme.spacing(1.5),
-              },
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                width: '100%',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              <Typography variant="body2">Feedback</Typography>
-              <Typography
-                variant="caption"
-                color="text.disabled"
-                sx={{
-                  opacity: 0.6,
-                  marginLeft: 1,
-                  flexShrink: 0,
-                }}
-              >
-                v{process.env.APP_VERSION || '0.0.0'}
-              </Typography>
-            </Box>
-          </Button>
-        </Box>
-      )}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2.5,
+        pt: 2,
+      }}
+    >
+      {/* Links card — white bg, rounded 16px */}
+      <Box
+        sx={{
+          bgcolor: 'background.paper',
+          borderRadius: (theme: any) => `${theme.customRadius.xl}px`,
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <SidebarLinkItem
+          href="https://github.com/rhesis-ai/rhesis"
+          icon={<StarBorderIcon sx={{ fontSize: 24 }} />}
+          label="Star Rhesis"
+        />
+        <SidebarLinkItem
+          href="https://docs.rhesis.ai"
+          icon={<ForumIcon sx={{ fontSize: 24 }} />}
+          label="Support"
+        />
+      </Box>
 
-      <FeedbackModal
-        open={feedbackModalOpen}
-        onClose={handleCloseFeedbackModal}
+      <UserAvatarRow
+        displayName={displayName}
+        email={email}
+        avatarSrc={avatarSrc}
+        onClick={handleUserMenuOpen}
       />
-    </>
+
+      <UserMenu
+        anchorEl={userMenuAnchor}
+        open={Boolean(userMenuAnchor)}
+        onClose={handleUserMenuClose}
+      />
+    </Box>
   );
 }

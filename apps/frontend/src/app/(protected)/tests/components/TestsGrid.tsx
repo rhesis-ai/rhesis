@@ -7,7 +7,6 @@ import React, {
   useRef,
   useMemo,
 } from 'react';
-import AddIcon from '@mui/icons-material/Add';
 import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
@@ -534,18 +533,8 @@ export default function TestsTable({
     }
   }, [onNewTest, generateNewTests]);
 
-  // Get action buttons based on selection
   const getActionButtons = useCallback(() => {
     const buttons = [];
-
-    buttons.push({
-      label: 'Add Tests',
-      icon: <AddIcon />,
-      variant: 'contained' as const,
-      onClick: handleGenerateTests,
-      dataTour: 'create-test-button',
-      disabled: disableAddButton,
-    });
 
     if (selectedRows.length > 0) {
       buttons.push({
@@ -570,8 +559,6 @@ export default function TestsTable({
     selectedRows.length,
     handleCreateTestSet,
     handleDeleteTests,
-    handleGenerateTests,
-    disableAddButton,
     selectedTestTypes.isMixed,
   ]);
 
@@ -583,26 +570,6 @@ export default function TestsTable({
         </Alert>
       )}
 
-      {selectedRows.length > 0 && (
-        <Box
-          sx={{
-            mb: 2,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-          }}
-        >
-          <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} tests selected
-          </Typography>
-          {selectedTestTypes.isMixed && (
-            <Alert severity="warning">
-              Select tests with the same test type
-            </Alert>
-          )}
-        </Box>
-      )}
-
       <BaseDataGrid
         rows={tests}
         columns={columns}
@@ -611,10 +578,7 @@ export default function TestsTable({
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}
-        checkboxSelection
         disableRowSelectionOnClick
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
         onRowClick={handleRowClick}
         serverSidePagination={true}
         totalRows={totalCount}

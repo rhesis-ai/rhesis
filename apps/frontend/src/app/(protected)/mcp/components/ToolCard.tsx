@@ -1,18 +1,10 @@
 import React from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Chip,
-} from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import EditIcon from '@mui/icons-material/Edit';
-import { DeleteIcon, AddIcon } from '@/components/icons';
+import { AddIcon } from '@/components/icons';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
+import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
 
 interface ConnectedToolCardProps {
   tool: Tool;
@@ -26,164 +18,47 @@ export function ConnectedToolCard({
   onDelete,
 }: ConnectedToolCardProps) {
   const providerName = tool.tool_provider_type?.type_value || 'Unknown';
-  const providerIconKey = providerName;
-  const providerIcon = MCP_PROVIDER_ICONS[providerIconKey] || (
+  const providerIcon = MCP_PROVIDER_ICONS[providerName] || (
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
   );
 
+  const chipSections: ChipSection[] = [];
+  const metadataChips = [];
+
+  if (providerName === 'github' && tool.tool_metadata?.repository) {
+    metadataChips.push({
+      key: 'repo',
+      label: tool.tool_metadata.repository.full_name,
+    });
+  }
+
+  if (providerName === 'jira' && tool.tool_metadata?.space_key) {
+    metadataChips.push({
+      key: 'space',
+      label: `Space: ${tool.tool_metadata.space_key}`,
+    });
+  }
+
+  if (metadataChips.length > 0) {
+    chipSections.push({ label: 'Details', chips: metadataChips });
+  }
+
   return (
-    <Card
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
+    <EntityCard
+      icon={providerIcon}
+      title={tool.name}
+      description={tool.description || 'No description provided'}
+      statusLabel="Connected"
+      statusColor="success"
+      chipSections={chipSections}
+      onClick={() => {
+        const syntheticEvent = {
+          stopPropagation: () => {},
+        } as React.MouseEvent;
+        onEdit(tool, syntheticEvent);
       }}
-    >
-      <CardContent
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          pb: 2,
-          pt: 3,
-        }}
-      >
-        {/* Action buttons */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: theme => theme.spacing(1),
-            right: theme => theme.spacing(1),
-            display: 'flex',
-            gap: theme => theme.spacing(0.5),
-            zIndex: 1,
-          }}
-        >
-          <IconButton
-            size="small"
-            onClick={e => onEdit(tool, e)}
-            sx={{
-              padding: '2px',
-              '& .MuiSvgIcon-root': {
-                fontSize: theme =>
-                  theme?.typography?.helperText?.fontSize || '0.75rem',
-                color: 'currentColor',
-              },
-            }}
-          >
-            <EditIcon fontSize="inherit" />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={e => onDelete(tool, e)}
-            sx={{
-              padding: '2px',
-              '& .MuiSvgIcon-root': {
-                fontSize: theme =>
-                  theme?.typography?.helperText?.fontSize || '0.75rem',
-                color: 'currentColor',
-              },
-            }}
-          >
-            <DeleteIcon fontSize="inherit" />
-          </IconButton>
-        </Box>
-
-        <Box>
-          {/* Tool header */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-            <Box
-              sx={{
-                mr: 1.5,
-                display: 'flex',
-                alignItems: 'center',
-                color: 'primary.main',
-              }}
-            >
-              {providerIcon}
-            </Box>
-            <Typography
-              variant="subtitle1"
-              component="div"
-              sx={{
-                fontWeight: 500,
-                lineHeight: 1.2,
-              }}
-            >
-              {tool.name}
-            </Typography>
-          </Box>
-
-          {/* Tool description */}
-          {tool.description && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mb: 'auto', minHeight: '2.5em' }}
-            >
-              {tool.description}
-            </Typography>
-          )}
-        </Box>
-
-        <Box sx={{ mt: 2 }}>
-          {/* Repository info for GitHub */}
-          {providerName === 'github' && tool.tool_metadata?.repository && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                display: 'block',
-                mb: 1.5,
-                fontStyle: 'italic',
-              }}
-            >
-              Repository: {tool.tool_metadata.repository.full_name}
-            </Typography>
-          )}
-
-          {/* Space info for Jira */}
-          {providerName === 'jira' && tool.tool_metadata?.space_key && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                display: 'block',
-                mb: 1.5,
-                fontStyle: 'italic',
-              }}
-            >
-              Space: {tool.tool_metadata.space_key}
-            </Typography>
-          )}
-
-          {/* Spacing for tools without additional info */}
-          {!(
-            (providerName === 'github' && tool.tool_metadata?.repository) ||
-            (providerName === 'jira' && tool.tool_metadata?.space_key)
-          ) && <Box sx={{ mb: 1.5 }} />}
-
-          {/* Connected status */}
-          <Chip
-            icon={<CheckCircleIcon />}
-            label="Connected"
-            size="small"
-            variant="outlined"
-            sx={{
-              width: '100%',
-              color: 'text.secondary',
-              borderColor: 'divider',
-              '& .MuiChip-icon': {
-                color: 'primary.main',
-                opacity: 0.7,
-              },
-            }}
-          />
-        </Box>
-      </CardContent>
-    </Card>
+      onDelete={(e: React.MouseEvent) => onDelete(tool, e)}
+    />
   );
 }
 
@@ -213,72 +88,44 @@ export function AddToolCard({ onClick }: AddToolCardProps) {
           flexGrow: 1,
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
-          pb: 2,
-          pt: 3,
+          justifyContent: 'center',
+          alignItems: 'center',
+          p: 3.75,
+          '&:last-child': { pb: 3.75 },
+          gap: 1.5,
         }}
       >
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-            <Box
-              sx={{
-                mr: 1.5,
-                display: 'flex',
-                alignItems: 'center',
-                color: 'primary.main',
-              }}
-            >
-              <AddIcon />
-            </Box>
-            <Typography
-              variant="subtitle1"
-              component="div"
-              sx={{
-                fontWeight: 500,
-                lineHeight: 1.2,
-              }}
-            >
-              Add MCP
-            </Typography>
-          </Box>
-
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 'auto', minHeight: '2.5em' }}
-          >
-            Connect a new MCP provider
-          </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            color: 'primary.main',
+          }}
+        >
+          <AddIcon />
         </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              display: 'block',
-              mb: 1.5,
-              minHeight: '1.5em',
-            }}
-          >
-            {/* Empty space for alignment */}
-          </Typography>
-
-          <Chip
-            icon={<AddIcon />}
-            label="New"
-            size="small"
-            variant="outlined"
-            sx={{
-              width: '100%',
-              '& .MuiChip-icon': {
-                color: 'text.secondary',
-              },
-              borderColor: 'divider',
-              color: 'text.secondary',
-            }}
-          />
-        </Box>
+        <Typography
+          variant="subtitle1"
+          component="div"
+          sx={{ fontWeight: 700 }}
+        >
+          Add MCP
+        </Typography>
+        <Typography variant="body2" color="text.secondary" textAlign="center">
+          Connect a new MCP provider
+        </Typography>
+        <Chip
+          icon={<AddIcon />}
+          label="New"
+          size="small"
+          variant="outlined"
+          sx={{
+            mt: 1,
+            '& .MuiChip-icon': { color: 'text.secondary' },
+            borderColor: 'divider',
+            color: 'text.secondary',
+          }}
+        />
       </CardContent>
     </Card>
   );

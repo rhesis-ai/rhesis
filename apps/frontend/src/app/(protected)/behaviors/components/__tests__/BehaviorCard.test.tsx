@@ -31,19 +31,28 @@ jest.mock('@/components/common/EntityCard', () => ({
   default: ({
     title,
     description,
-    topRightActions,
-    captionText,
+    onClick,
+    onDelete,
   }: {
     title: string;
     description: string;
-    topRightActions: React.ReactNode;
-    captionText: string;
+    onClick?: () => void;
+    onDelete?: (e: React.MouseEvent) => void;
   }) => (
-    <div data-testid="entity-card">
+    <div data-testid="entity-card" onClick={onClick}>
       <h3>{title}</h3>
       <p>{description}</p>
-      <span data-testid="caption">{captionText}</span>
-      <div data-testid="top-right-actions">{topRightActions}</div>
+      {onDelete && (
+        <button
+          aria-label="delete"
+          onClick={e => {
+            e.stopPropagation();
+            onDelete(e);
+          }}
+        >
+          Delete
+        </button>
+      )}
     </div>
   ),
 }));
@@ -132,26 +141,9 @@ describe('BehaviorCard', () => {
     expect(screen.getByText('Detects jailbreak attempts')).toBeInTheDocument();
   });
 
-  it('shows "No metrics assigned" caption when there are no metrics', () => {
-    renderCard();
-    expect(screen.getByTestId('caption')).toHaveTextContent(
-      'No metrics assigned'
-    );
-  });
-
-  it('shows metric count caption when metrics exist', () => {
-    renderCard({
-      ...DEFAULT_PROPS,
-      behavior: makeBehavior({ metrics: [{ id: 'm1', name: 'Metric A' }] }),
-    });
-    expect(screen.getByTestId('caption')).toHaveTextContent('1 Metric');
-  });
-
   it('shows delete button when there are no metrics', () => {
     renderCard();
-    expect(
-      screen.getByRole('button', { name: /delete behavior/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /delete/i })).toBeInTheDocument();
   });
 
   it('hides delete button when there are metrics (canDelete=false)', () => {
@@ -160,7 +152,7 @@ describe('BehaviorCard', () => {
       behavior: makeBehavior({ metrics: [{ id: 'm1', name: 'Metric A' }] }),
     });
     expect(
-      screen.queryByRole('button', { name: /delete behavior/i })
+      screen.queryByRole('button', { name: /delete/i })
     ).not.toBeInTheDocument();
   });
 
@@ -168,7 +160,7 @@ describe('BehaviorCard', () => {
     const user = userEvent.setup();
     renderCard();
 
-    await user.click(screen.getByRole('button', { name: /delete behavior/i }));
+    await user.click(screen.getByRole('button', { name: /delete/i }));
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
   });
 
@@ -177,7 +169,7 @@ describe('BehaviorCard', () => {
     const onRefresh = jest.fn();
     renderCard({ ...DEFAULT_PROPS, onRefresh });
 
-    await user.click(screen.getByRole('button', { name: /delete behavior/i }));
+    await user.click(screen.getByRole('button', { name: /delete/i }));
     await user.click(screen.getByRole('button', { name: /confirm-delete/i }));
 
     await waitFor(() => {
@@ -190,38 +182,19 @@ describe('BehaviorCard', () => {
     const user = userEvent.setup();
     renderCard();
 
-    await user.click(screen.getByRole('button', { name: /delete behavior/i }));
+    await user.click(screen.getByRole('button', { name: /delete/i }));
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /cancel-delete/i }));
     expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument();
   });
 
-  it('calls onEdit when the edit button is clicked', async () => {
+  it('calls onEdit when the card is clicked', async () => {
     const user = userEvent.setup();
     const onEdit = jest.fn();
     renderCard({ ...DEFAULT_PROPS, onEdit });
 
-    await user.click(screen.getByRole('button', { name: /edit behavior/i }));
+    await user.click(screen.getByTestId('entity-card'));
     expect(onEdit).toHaveBeenCalled();
-  });
-
-  it('calls onDuplicate when the duplicate button is clicked', async () => {
-    const user = userEvent.setup();
-    const onDuplicate = jest.fn();
-    renderCard({ ...DEFAULT_PROPS, onDuplicate });
-
-    await user.click(
-      screen.getByRole('button', { name: /duplicate behavior/i })
-    );
-    expect(onDuplicate).toHaveBeenCalled();
-  });
-
-  it('opens the metrics dialog when the add metric button is clicked', async () => {
-    const user = userEvent.setup();
-    renderCard();
-
-    await user.click(screen.getByRole('button', { name: /add metric/i }));
-    expect(screen.getByTestId('select-metrics-dialog')).toBeInTheDocument();
   });
 });
