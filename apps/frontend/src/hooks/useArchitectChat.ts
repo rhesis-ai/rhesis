@@ -231,17 +231,21 @@ export function useArchitectChat(
 
         const streamId = streamingMessageIdRef.current;
         if (streamId) {
-          // Finalize the streaming message
+          // Finalize the streaming message. If no text chunks arrived
+          // (e.g. agent completed without streaming), backfill content
+          // from the response payload so the message isn't empty.
           setMessages(prev =>
-            prev.map(m =>
-              m.id === streamId
-                ? {
-                    ...m,
-                    isStreaming: false,
-                    needsConfirmation: payload.needs_confirmation ?? false,
-                  }
-                : m
-            )
+            prev.map(m => {
+              if (m.id !== streamId) return m;
+              const content =
+                m.content.trim() ? m.content : (payload.content || '');
+              return {
+                ...m,
+                content,
+                isStreaming: false,
+                needsConfirmation: payload.needs_confirmation ?? false,
+              };
+            })
           );
           streamingMessageIdRef.current = null;
         } else {
