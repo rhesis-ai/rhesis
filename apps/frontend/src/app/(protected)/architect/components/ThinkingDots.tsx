@@ -27,7 +27,7 @@ export default function ThinkingDots({
         height: size * 2,
       }}
     >
-      {[0, 1, 2].map((i) => (
+      {[0, 1, 2].map(i => (
         <Box
           key={i}
           sx={{

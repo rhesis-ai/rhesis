@@ -1,6 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { MentionsInput, Mention, SuggestionDataItem } from 'react-mentions';
 import {
   Box,
@@ -66,6 +74,10 @@ const ACCEPTED_FILE_EXTENSIONS = [
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
+export interface ArchitectChatInputHandle {
+  focus: () => void;
+}
+
 interface ArchitectChatInputProps {
   onSend: (message: string, attachments?: Attachments) => void;
   disabled?: boolean;
@@ -105,19 +117,29 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function ArchitectChatInput({
-  onSend,
-  disabled = false,
-  isLoading = false,
-  isConnected = true,
-  sessionToken,
-}: ArchitectChatInputProps) {
+const ArchitectChatInput = forwardRef<
+  ArchitectChatInputHandle,
+  ArchitectChatInputProps
+>(function ArchitectChatInput(
+  {
+    onSend,
+    disabled = false,
+    isLoading = false,
+    isConnected = true,
+    sessionToken,
+  },
+  ref
+) {
   const theme = useTheme();
   const [value, setValue] = useState('');
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionsInputRef = useRef<HTMLTextAreaElement | null>(null);
   const debounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useImperativeHandle(ref, () => ({
+    focus: () => mentionsInputRef.current?.focus(),
+  }));
 
   useEffect(() => {
     if (!disabled && isConnected && mentionsInputRef.current) {
@@ -561,4 +583,6 @@ export default function ArchitectChatInput({
       </Box>
     </Box>
   );
-}
+});
+
+export default ArchitectChatInput;

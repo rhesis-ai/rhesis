@@ -71,16 +71,16 @@ export default function ToolCallList({
     }
     if (newIndices.length === 0) return;
 
-    setExpandedReasoning((prev) => {
+    setExpandedReasoning(prev => {
       const next = new Set(prev);
-      newIndices.forEach((i) => next.add(i));
+      newIndices.forEach(i => next.add(i));
       return next;
     });
 
     const timer = setTimeout(() => {
-      setExpandedReasoning((prev) => {
+      setExpandedReasoning(prev => {
         const next = new Set(prev);
-        newIndices.forEach((i) => next.delete(i));
+        newIndices.forEach(i => next.delete(i));
         return next;
       });
     }, FOLD_DELAY_MS);
@@ -102,7 +102,7 @@ export default function ToolCallList({
     : completedTools;
 
   const toggleReasoning = (idx: number) => {
-    setExpandedReasoning((prev) => {
+    setExpandedReasoning(prev => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx);
       else next.add(idx);
@@ -132,9 +132,7 @@ export default function ToolCallList({
             borderRadius: 0.5,
             py: 0.125,
             cursor: tool.reasoning ? 'pointer' : 'default',
-            '&:hover': tool.reasoning
-              ? { bgcolor: 'action.hover' }
-              : undefined,
+            '&:hover': tool.reasoning ? { bgcolor: 'action.hover' } : undefined,
           }}
         >
           {tool.success ? (
@@ -229,7 +227,7 @@ export default function ToolCallList({
       {/* Collapsed summary for completed tools */}
       {shouldCollapse && (
         <ButtonBase
-          onClick={() => setExpandedCompleted((prev) => !prev)}
+          onClick={() => setExpandedCompleted(prev => !prev)}
           sx={{
             display: 'flex',
             alignItems: 'center',

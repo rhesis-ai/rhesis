@@ -65,7 +65,8 @@ export default function ArchitectMessageBubble({
 
   const renderedContent = useMemo(() => {
     if (!isUser) return null;
-    const mentionRegex = /@(endpoint|metric|test_set|behavior|test_run):([^\s@]+(?:\s+[^\s@]+)*?)(?=\s|$|[.,!?;])/g;
+    const mentionRegex =
+      /@(endpoint|metric|test_set|behavior|test_run):([^\s@]+(?:\s+[^\s@]+)*?)(?=\s|$|[.,!?;])/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;
@@ -80,9 +81,9 @@ export default function ArchitectMessageBubble({
       const colorToken = MENTION_TYPE_COLORS[entityType] || 'text.primary';
       const colorTokenParts = colorToken.split('.');
       const color =
-        (theme.palette as Record<string, Record<string, string>>)[colorTokenParts[0]]?.[
-          colorTokenParts[1]
-        ] || theme.palette.text.primary;
+        (theme.palette as Record<string, Record<string, string>>)[
+          colorTokenParts[0]
+        ]?.[colorTokenParts[1]] || theme.palette.text.primary;
 
       parts.push(
         <Box
@@ -217,7 +218,7 @@ export default function ArchitectMessageBubble({
         {/* File attachment chips (user messages) */}
         {isUser && message.files && message.files.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-            {message.files.map((f) => (
+            {message.files.map(f => (
               <Chip
                 key={`${f.filename}-${f.size}`}
                 icon={<InsertDriveFileIcon />}

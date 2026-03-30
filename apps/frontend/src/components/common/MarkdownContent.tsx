@@ -17,6 +17,19 @@ function isInternalPath(href: string | undefined): boolean {
   return href.startsWith('/') && !href.startsWith('//');
 }
 
+/**
+ * Repair markdown link patterns that LLMs sometimes break:
+ * - Escaped brackets: \[text\](url) → [text](url)
+ * - Whitespace between ] and (: [text] (url) → [text](url)
+ * Only targets URLs starting with / or http(s):// to avoid false positives.
+ */
+function normalizeMarkdownLinks(content: string): string {
+  return content.replace(
+    /\\?\[([^\]\\]+)\\?\]\s*\(((?:\/|https?:\/\/)[^)\s]+)\)/g,
+    '[$1]($2)'
+  );
+}
+
 function SmartLink({
   href,
   children,
@@ -97,6 +110,12 @@ export default function MarkdownContent({
         '& p': { mb: 1, '&:last-child': { mb: 0 } },
         '& ul, & ol': { pl: 2.5, mb: 1, '&:last-child': { mb: 0 } },
         '& li': { mb: 0.5 },
+        '& li > input[type="checkbox"]': {
+          mr: 0.75,
+          verticalAlign: 'middle',
+          accentColor: theme.palette.success.main,
+          pointerEvents: 'none',
+        },
         '& pre': {
           bgcolor: 'action.hover',
           p: 1.5,
@@ -163,7 +182,7 @@ export default function MarkdownContent({
         }}
       >
         {typeof content === 'string'
-          ? content
+          ? normalizeMarkdownLinks(content)
           : '```json\n' + JSON.stringify(content, null, 2) + '\n```'}
       </Markdown>
     </Box>

@@ -78,6 +78,8 @@ interface UseArchitectChatResult {
   currentPlan: string | null;
   autoApproveAll: boolean;
   setAutoApproveAll: React.Dispatch<React.SetStateAction<boolean>>;
+  setCurrentMode: React.Dispatch<React.SetStateAction<string>>;
+  setCurrentPlan: React.Dispatch<React.SetStateAction<string | null>>;
   sendMessage: (message: string, attachments?: ChatAttachments) => void;
   setMessages: React.Dispatch<React.SetStateAction<ArchitectChatMessage[]>>;
 }
@@ -116,6 +118,18 @@ export function useArchitectChat(
   const streamingMessageIdRef = useRef<string | null>(null);
   const autoApproveRef = useRef(autoApproveAll);
   autoApproveRef.current = autoApproveAll;
+
+  // Reset state when switching sessions
+  useEffect(() => {
+    setMessages([]);
+    setIsLoading(false);
+    setError(null);
+    setStreamingState(initialStreamingState);
+    setCurrentMode('discovery');
+    setCurrentPlan(null);
+    streamingMessageIdRef.current = null;
+    pendingCorrelationRef.current = null;
+  }, [sessionId]);
 
   // Subscribe to architect channel when session changes
   useEffect(() => {
@@ -269,7 +283,9 @@ export function useArchitectChat(
         const payload = msg.payload as unknown as ArchitectToolPayload;
         if (!payload?.tool) return;
         setStreamingState(prev => {
-          const activeTool = prev.activeTools.find(t => t.tool === payload.tool);
+          const activeTool = prev.activeTools.find(
+            t => t.tool === payload.tool
+          );
           const clientDuration = activeTool
             ? Date.now() - activeTool.startedAt
             : undefined;
@@ -398,6 +414,8 @@ export function useArchitectChat(
     currentPlan,
     autoApproveAll,
     setAutoApproveAll,
+    setCurrentMode,
+    setCurrentPlan,
     sendMessage,
     setMessages,
   };

@@ -20,7 +20,9 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ArchitectMessageBubble from './ArchitectMessageBubble';
 import PlanDisplay from './PlanDisplay';
-import ArchitectChatInput from './ArchitectChatInput';
+import ArchitectChatInput, {
+  ArchitectChatInputHandle,
+} from './ArchitectChatInput';
 
 interface ArchitectChatProps {
   sessionId: string | null;
@@ -28,6 +30,73 @@ interface ArchitectChatProps {
   onSessionTitleUpdate?: (sessionId: string, title: string) => void;
   initialMessage?: string | null;
   onInitialMessageSent?: () => void;
+}
+
+interface PlanSpec {
+  name?: string;
+  description?: string;
+  completed?: boolean;
+  reuse_status?: string;
+  num_tests?: number;
+  test_type?: string;
+  behaviors?: string[];
+  behavior?: string;
+  metrics?: string[];
+}
+
+function planDataToMarkdown(data: Record<string, unknown>): string {
+  const lines: string[] = [];
+  const project = data.project as PlanSpec | undefined;
+  if (project?.name) {
+    lines.push(`# ${project.name}`, '', project.description || '', '');
+  }
+  const behaviors = (data.behaviors || []) as PlanSpec[];
+  if (behaviors.length) {
+    lines.push('## Behaviors', '');
+    for (const b of behaviors) {
+      const box = b.completed ? '[x]' : '[ ]';
+      const tag = b.reuse_status && b.reuse_status !== 'new' ? ` *(${b.reuse_status})*` : '';
+      lines.push(`- ${box} **${b.name}**${tag}`);
+      if (b.description) lines.push(`  ${b.description}`);
+    }
+    lines.push('');
+  }
+  const testSets = (data.test_sets || []) as PlanSpec[];
+  if (testSets.length) {
+    lines.push('## Test Sets', '');
+    for (const ts of testSets) {
+      const box = ts.completed ? '[x]' : '[ ]';
+      lines.push(`- ${box} **${ts.name}** — ${ts.num_tests ?? 15} ${ts.test_type ?? 'Single-Turn'} tests`);
+      if (ts.behaviors?.length) lines.push(`  Behaviors: ${ts.behaviors.join(', ')}`);
+    }
+    lines.push('');
+  }
+  const metrics = (data.metrics || []) as PlanSpec[];
+  if (metrics.length) {
+    lines.push('## Metrics', '');
+    for (const m of metrics) {
+      const box = m.completed ? '[x]' : '[ ]';
+      const tag = m.reuse_status && m.reuse_status !== 'new' ? ` *(${m.reuse_status})*` : '';
+      lines.push(`- ${box} **${m.name}**${tag}`);
+    }
+    lines.push('');
+  }
+  const mappings = data.behavior_metric_mappings as PlanSpec[] | Record<string, string[]> | undefined;
+  if (mappings) {
+    lines.push('## Behavior-Metric Mappings', '');
+    if (Array.isArray(mappings)) {
+      for (const mapping of mappings) {
+        const box = mapping.completed ? '[x]' : '[ ]';
+        lines.push(`- ${box} **${mapping.behavior}** → ${(mapping.metrics || []).join(', ')}`);
+      }
+    } else {
+      for (const [beh, mnames] of Object.entries(mappings)) {
+        lines.push(`- [ ] **${beh}** → ${mnames.join(', ')}`);
+      }
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
 }
 
 const SUGGESTED_PROMPTS = [
@@ -45,6 +114,7 @@ export default function ArchitectChat({
 }: ArchitectChatProps) {
   const { data: authSession } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<ArchitectChatInputHandle>(null);
 
   const {
     messages,
@@ -56,6 +126,8 @@ export default function ArchitectChat({
     currentPlan,
     autoApproveAll,
     setAutoApproveAll,
+    setCurrentMode,
+    setCurrentPlan,
     sendMessage,
     setMessages,
   } = useArchitectChat({ sessionId });
@@ -84,6 +156,14 @@ export default function ArchitectChat({
           ?.guard_state as Record<string, unknown> | undefined;
         if (guardState?.auto_approve_all === true) {
           setAutoApproveAll(true);
+        }
+
+        // Restore mode and plan from session
+        if (session.mode) {
+          setCurrentMode(session.mode);
+        }
+        if (session.plan_data) {
+          setCurrentPlan(planDataToMarkdown(session.plan_data));
         }
 
         if (session.messages?.length) {
@@ -124,7 +204,7 @@ export default function ArchitectChat({
     };
 
     loadMessages();
-  }, [sessionId, sessionToken, setMessages, setAutoApproveAll]);
+  }, [sessionId, sessionToken, setMessages, setAutoApproveAll, setCurrentMode, setCurrentPlan]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -221,7 +301,7 @@ export default function ArchitectChat({
                 <Switch
                   size="small"
                   checked={autoApproveAll}
-                  onChange={(e) => setAutoApproveAll(e.target.checked)}
+                  onChange={e => setAutoApproveAll(e.target.checked)}
                 />
               }
               label={
@@ -281,14 +361,40 @@ export default function ArchitectChat({
         ) : (
           <>
             {messages.map((message, index) => {
-              const isLastAssistant =
+              const hasContent =
+                message.content.trim().length > 0 || message.isStreaming;
+
+              if (
                 message.role === 'assistant' &&
+                !hasContent &&
+                !message.isStreaming
+              ) {
+                return null;
+              }
+
+              const lastMsg = messages[messages.length - 1];
+              const pendingConfirmation =
                 !isLoading &&
-                index === messages.length - 1;
-              const showActions =
-                isLastAssistant &&
-                !!message.needsConfirmation &&
+                lastMsg?.role === 'assistant' &&
+                !!lastMsg.needsConfirmation &&
                 !autoApproveAll;
+
+              let isLastContentAssistant = false;
+              if (message.role === 'assistant' && !isLoading) {
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  const m = messages[i];
+                  if (
+                    m.role === 'assistant' &&
+                    (m.content.trim().length > 0 || m.isStreaming)
+                  ) {
+                    isLastContentAssistant = i === index;
+                    break;
+                  }
+                }
+              }
+
+              const showActions = isLastContentAssistant && pendingConfirmation;
+
               return (
                 <ArchitectMessageBubble
                   key={message.id}
@@ -300,7 +406,7 @@ export default function ArchitectChat({
                     message.isStreaming ? streamingState : undefined
                   }
                   onAccept={() => sendMessage('Yes, go ahead.')}
-                  onReject={() => {}}
+                  onReject={() => chatInputRef.current?.focus()}
                 />
               );
             })}
@@ -323,6 +429,7 @@ export default function ArchitectChat({
 
       {/* Input area -- key by sessionId to remount and auto-focus on session switch */}
       <ArchitectChatInput
+        ref={chatInputRef}
         key={sessionId}
         onSend={handleSend}
         disabled={isLoading}
