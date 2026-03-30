@@ -10,11 +10,12 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, desc, func, text
+from sqlalchemy import and_, cast, desc, func, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR, TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
@@ -536,6 +537,21 @@ def get_test_sets(
                 return filtered_query
 
         query_builder = query_builder.with_custom_filter(has_runs_filter)
+
+    # Exclude test sets used for adaptive testing (they use the dedicated adaptive_testing API)
+    adaptive_marker = cast([ADAPTIVE_TESTING_BEHAVIOR], JSONB)
+    behaviors_json = models.TestSet.attributes["metadata"]["behaviors"]
+
+    def exclude_adaptive_test_sets(query):
+        return query.filter(
+            or_(
+                models.TestSet.attributes.is_(None),
+                behaviors_json.is_(None),
+                ~behaviors_json.contains(adaptive_marker),
+            )
+        )
+
+    query_builder = query_builder.with_custom_filter(exclude_adaptive_test_sets)
 
     return query_builder.all()
 
