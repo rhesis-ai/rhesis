@@ -14,6 +14,7 @@ describe('getEntityDisplayName', () => {
     expect(getEntityDisplayName('TestResult')).toBe('Test Result');
     expect(getEntityDisplayName('Task')).toBe('Task');
     expect(getEntityDisplayName('Source')).toBe('Source');
+    expect(getEntityDisplayName('Trace')).toBe('Trace');
   });
 
   it('falls back to raw entity type for unknown types', () => {
@@ -30,6 +31,7 @@ describe('getEntityPath', () => {
     expect(getEntityPath('TestResult')).toBe('test-results');
     expect(getEntityPath('Task')).toBe('tasks');
     expect(getEntityPath('Source')).toBe('knowledge');
+    expect(getEntityPath('Trace')).toBe('traces');
   });
 
   it('falls back to lowercase for unknown types', () => {
@@ -41,7 +43,7 @@ describe('getEntityPath', () => {
 describe('getEntityUrlMap', () => {
   it('returns a complete mapping', () => {
     const map = getEntityUrlMap();
-    expect(Object.keys(map)).toHaveLength(6);
+    expect(Object.keys(map)).toHaveLength(7);
     expect(map.Test).toBe('tests');
     expect(map.TestSet).toBe('test-sets');
     expect(map.Source).toBe('knowledge');
@@ -56,6 +58,7 @@ describe('getEntityIconName', () => {
     expect(getEntityIconName('TestResult')).toBe('Assignment');
     expect(getEntityIconName('Task')).toBe('Assignment');
     expect(getEntityIconName('Source')).toBe('Description');
+    expect(getEntityIconName('Trace')).toBe('Timeline');
   });
 
   it('falls back to Assignment for unknown types', () => {
@@ -72,6 +75,7 @@ describe('isValidEntityType', () => {
     expect(isValidEntityType('TestResult')).toBe(true);
     expect(isValidEntityType('Task')).toBe(true);
     expect(isValidEntityType('Source')).toBe(true);
+    expect(isValidEntityType('Trace')).toBe(true);
   });
 
   it('returns false for invalid entity types', () => {

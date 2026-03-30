@@ -148,6 +148,14 @@ Configure your request body template and response mappings to bridge platform va
 - **[Multi-Turn Conversations](/docs/endpoints/multi-turn-conversations)**: Conversation tracking for stateful endpoints (your API manages session state) and message history for stateless endpoints (Rhesis manages conversation state).
 - **[Mapping Examples](/docs/endpoints/mapping-examples)**: Practical examples for OpenAI, Anthropic, Google Gemini, RAG pipelines, WebSocket endpoints, and more.
 
+### Disabling Tracing
+
+Each endpoint has a **Disable tracing** toggle. When turned on, invocations
+skip trace and telemetry collection. This is useful when the endpoint already
+emits its own telemetry or when tracing overhead is unwanted. Tracing is
+enabled by default. See [Managing Endpoints](/docs/endpoints/management#disabling-tracing)
+for details.
+
 ### SDK Endpoints
 
 If your AI logic lives in Python functions, you can register them as endpoints

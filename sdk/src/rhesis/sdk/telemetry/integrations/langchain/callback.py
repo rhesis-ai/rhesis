@@ -8,7 +8,7 @@ from opentelemetry import trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
-from rhesis.sdk.telemetry.context import is_llm_observation_active
+from rhesis.sdk.telemetry.context import is_llm_observation_active, is_tracing_disabled
 from rhesis.sdk.telemetry.schemas import AIOperationType
 
 from .extractors import (
@@ -83,7 +83,9 @@ def create_langchain_callback():
                 otel_context.detach(parent_token)
 
         def _should_skip_llm(self, run_id: Any) -> bool:
-            """Check if LLM span should be skipped (deduplication)."""
+            """Check if LLM span should be skipped (deduplication or tracing disabled)."""
+            if is_tracing_disabled():
+                return True
             if is_llm_observation_active():
                 logger.debug(f"Skipping LLM span - @observe.llm() active for {run_id}")
                 return True
@@ -191,6 +193,9 @@ def create_langchain_callback():
             **kwargs: Any,
         ) -> None:
             """Start tool span or handoff span."""
+            if is_tracing_disabled():
+                return
+
             run_id_str = str(run_id)
             if run_id_str in self._active_run_ids:
                 return
@@ -269,6 +274,9 @@ def create_langchain_callback():
             **kwargs: Any,
         ) -> None:
             """Start agent span if this represents an agent."""
+            if is_tracing_disabled():
+                return
+
             run_id_str = str(run_id)
 
             # Skip if we've already processed this run

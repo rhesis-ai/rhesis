@@ -119,15 +119,6 @@ export function usePlaygroundChat(
         const payload = msg.payload as unknown as ChatResponsePayload;
         const correlationId = msg.correlation_id;
 
-        // Debug: log extracted values
-        console.warn('[usePlaygroundChat] Extracted from payload:', {
-          output: payload?.output?.substring?.(0, 100) || payload?.output,
-          trace_id: payload?.trace_id,
-          conversation_id: payload?.conversation_id,
-          endpoint_id: payload?.endpoint_id,
-          allPayloadKeys: payload ? Object.keys(payload) : [],
-        });
-
         // Only process if this is the response we're waiting for
         if (correlationId && correlationId === pendingCorrelationRef.current) {
           pendingCorrelationRef.current = null;

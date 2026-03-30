@@ -62,9 +62,14 @@ def build_span_tree(spans: List[Trace]) -> List[SpanNode]:
             status_message=span.status_message,
             attributes=span.attributes or {},
             events=span.events or [],
-            children=[],  # Will be populated below
-            tags=None,  # TODO: Populate from span.tags relationship
-            comments=None,  # TODO: Populate from span.comments relationship
+            trace_metrics=span.trace_metrics,
+            trace_reviews=span.trace_reviews,
+            last_review=span.last_review,
+            matches_review=span.matches_review,
+            review_summary=span.review_summary,
+            children=[],
+            tags=None,
+            comments=None,
         )
         span_map[span.span_id] = node
 

@@ -13,6 +13,7 @@ import pytest
 import requests as _requests
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
+from rhesis.sdk.errors import RhesisAPIError
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
@@ -206,7 +207,6 @@ class TestLastRun:
         ts = _create_test_set()
         ep = _create_endpoint("LastRun Endpoint")
 
-        result = ts.last_run(ep)
-
-        # handle_http_errors returns None on 404
-        assert result is None
+        with pytest.raises(RhesisAPIError) as exc_info:
+            ts.last_run(ep)
+        assert exc_info.value.status_code == 404

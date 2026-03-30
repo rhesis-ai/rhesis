@@ -104,4 +104,5 @@ export type EntityType =
   | 'TestRun'
   | 'TestResult'
   | 'Task'
-  | 'Source';
+  | 'Source'
+  | 'Trace';

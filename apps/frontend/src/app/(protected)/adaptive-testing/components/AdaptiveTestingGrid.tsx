@@ -154,7 +154,7 @@ export default function AdaptiveTestingGrid({
       );
       setDialogOpen(false);
       router.refresh();
-      router.push(`/adaptive-testing/${created.id}`);
+      router.push(`/adaptive-testing/${created.id}?openSettings=1`);
     } catch (err) {
       setSubmitError((err as Error).message);
     } finally {

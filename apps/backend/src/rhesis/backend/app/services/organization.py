@@ -1269,8 +1269,16 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
                 # Status entities are referenced by many other entities with NOT NULL constraints
                 # We need to delete or update those entities before deleting the Status
                 if entity.__class__.__name__ == "Status":
+                    # Nullify trace_metrics_status_id references before deletion
+                    db.query(models.Trace).filter(
+                        models.Trace.trace_metrics_status_id == entity.id,
+                        models.Trace.organization_id == organization_id,
+                    ).update(
+                        {"trace_metrics_status_id": None},
+                        synchronize_session="fetch",
+                    )
+
                     # Delete tasks that reference this status
-                    # These are typically test-created tasks, not part of initial data
                     tasks_with_status = (
                         db.query(models.Task)
                         .filter(

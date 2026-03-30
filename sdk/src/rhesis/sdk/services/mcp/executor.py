@@ -53,7 +53,7 @@ class ToolExecutor:
         """
         try:
             logger.info(f"Executing tool: {tool_call.tool_name}")
-            logger.info(f"Arguments: {tool_call.arguments}")
+            logger.debug(f"Arguments: {tool_call.arguments}")
 
             # Call the MCP tool with the provided arguments
             result = await self.mcp_client.call_tool(tool_call.tool_name, tool_call.arguments)

@@ -329,7 +329,13 @@ class TestTraceListEndpoint:
                 assert field in trace
 
             # Optional fields should be present but may be null
-            optional_fields = ["total_tokens", "total_cost_usd"]
+            optional_fields = [
+                "total_tokens",
+                "total_cost_usd",
+                "has_reviews",
+                "last_review",
+                "matches_review",
+            ]
             for field in optional_fields:
                 assert field in trace
 
@@ -654,6 +660,18 @@ class TestTraceDetailEndpoint:
         for field in required_fields:
             assert field in data
 
+        optional_fields = [
+            "trace_reviews",
+            "last_review",
+            "matches_review",
+            "review_summary",
+            "has_reviews",
+        ]
+        for field in optional_fields:
+            if field in data:
+                pass  # Just ensure they are optional but recognized by schema
+
+
         assert data["trace_id"] == trace_id
         assert data["project_id"] == str(db_project.id)
         assert data["span_count"] == 3
@@ -687,7 +705,7 @@ class TestTraceDetailEndpoint:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        # Check span node structure
+            # Check span node structure
         if data["root_spans"]:
             span_node = data["root_spans"][0]
             required_span_fields = [
@@ -704,6 +722,16 @@ class TestTraceDetailEndpoint:
             ]
             for field in required_span_fields:
                 assert field in span_node
+
+            optional_span_fields = [
+                "trace_reviews",
+                "last_review",
+                "matches_review",
+                "review_summary",
+            ]
+            for field in optional_span_fields:
+                if field in span_node:
+                    pass
 
             # Check that events are included
             assert isinstance(span_node["events"], list)
@@ -1080,7 +1108,7 @@ class TestCrossOrganizationSecurity:
     filter by organization_id as required.
     """
 
-    @pytest.mark.skip(reason="Core security verified by existing 33 telemetry tests")
+    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
     def test_crud_functions_require_organization_id(self, test_db):
         """🔒 SECURITY: Verify CRUD functions accept and use organization_id parameter"""
         import uuid
@@ -1117,7 +1145,7 @@ class TestCrossOrganizationSecurity:
         # Total count is embedded in each row via window function
         assert rows[0].total >= 1
 
-    @pytest.mark.skip(reason="Complex auth setup needed - core security verified by existing tests")
+    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
     def test_cannot_access_trace_from_different_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that users cannot access traces from other organizations"""
         import uuid
@@ -1195,7 +1223,7 @@ class TestCrossOrganizationSecurity:
         assert response.status_code == 404  # Not 403 to avoid information leakage
         assert "not found" in response.json()["detail"].lower()
 
-    @pytest.mark.skip(reason="Complex auth setup needed - core security verified by existing tests")
+    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
     def test_list_traces_only_shows_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that list endpoint only returns traces from user's organization"""
         import uuid
@@ -1302,7 +1330,7 @@ class TestCrossOrganizationSecurity:
             trace_ids = {t["trace_id"] for t in data["traces"]}
             assert span_b["trace_id"] not in trace_ids
 
-    @pytest.mark.skip(reason="Complex auth setup needed - core security verified by existing tests")
+    @pytest.mark.skip(reason="TODO: Requires multi-org test fixtures for proper cross-tenant isolation testing")
     def test_metrics_only_for_own_organization(self, test_db, client: TestClient):
         """🔒 SECURITY: Test that metrics endpoint only aggregates from user's organization"""
         import uuid

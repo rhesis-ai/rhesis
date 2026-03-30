@@ -4,6 +4,7 @@ from .base import Base
 # Import remaining models
 from .behavior import Behavior
 from .category import Category
+from .chunk import Chunk
 from .comment import Comment
 from .demographic import Demographic
 from .dimension import Dimension
@@ -53,6 +54,7 @@ __all__ = [
     "Behavior",
     "TestSet",
     "Category",
+    "Chunk",
     "Comment",
     "Embedding",
     "Endpoint",

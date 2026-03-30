@@ -1577,6 +1577,7 @@ export default function MetricDetailPage() {
                         [
                           TEST_TYPES.SINGLE_TURN,
                           TEST_TYPES.MULTI_TURN,
+                          'Trace',
                         ] as MetricScope[]
                       ).map(scope => {
                         const currentScope =

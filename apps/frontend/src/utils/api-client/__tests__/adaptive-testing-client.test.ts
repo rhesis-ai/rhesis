@@ -76,6 +76,40 @@ describe('AdaptiveTestingClient', () => {
     expect(opts.method).toBe('DELETE');
   });
 
+  it('fetches adaptive settings for a test set', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({ default_endpoint: null, metrics: [] })
+    );
+
+    await client.getAdaptiveSettings(TEST_SET_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/settings`),
+      expect.objectContaining({ cache: 'no-store' })
+    );
+  });
+
+  it('updates adaptive settings for a test set', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        default_endpoint: { id: 'ep1', name: 'Endpoint 1' },
+        metrics: [{ id: 'm1', name: 'metric1' }],
+      })
+    );
+
+    await client.updateAdaptiveSettings(TEST_SET_ID, {
+      default_endpoint_id: 'ep1',
+      metric_ids: ['m1'],
+    });
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain(`/adaptive_testing/${TEST_SET_ID}/settings`);
+    expect(opts.method).toBe('PUT');
+    const body = JSON.parse(opts.body);
+    expect(body.default_endpoint_id).toBe('ep1');
+    expect(body.metric_ids).toEqual(['m1']);
+  });
+
   // -------------------------------------------------------------------------
   // Tree
   // -------------------------------------------------------------------------

@@ -188,7 +188,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             request_details=self._create_request_details(method, url, headers, request_body),
             status_code=response.status_code,
             reason=reason,
-            response_headers=dict(response.headers),
+            response_headers=self._sanitize_headers(dict(response.headers)),
             response_content=response.text,
         )
 
@@ -249,7 +249,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 message=f"{error_message} (status: {response.status_code})",
                 request_details=self._create_request_details(method, url, headers, request_body),
                 status_code=response.status_code,
-                response_headers=dict(response.headers),
+                response_headers=self._sanitize_headers(dict(response.headers)),
                 response_content=response.text,
                 response_content_length=len(response.text) if response.text else 0,
                 json_error=str(json_error),

@@ -58,6 +58,7 @@ class Source(
     prompt_templates = relationship("PromptTemplate", back_populates="source")
     prompts = relationship("Prompt", back_populates="source")
     tests = relationship("Test", back_populates="source")
+    chunks = relationship("Chunk", back_populates="source", cascade="all, delete-orphan")
 
     # Comment relationship (polymorphic)
     comments = relationship(
