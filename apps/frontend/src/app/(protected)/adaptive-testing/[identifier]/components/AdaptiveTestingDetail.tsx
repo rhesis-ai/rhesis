@@ -1621,6 +1621,16 @@ export default function AdaptiveTestingDetail({
     useState(true);
 
   const [suggestionsDialogOpen, setSuggestionsDialogOpen] = useState(false);
+  const [suggestionGuidanceDialogOpen, setSuggestionGuidanceDialogOpen] =
+    useState(false);
+  const [suggestionGuidanceDraft, setSuggestionGuidanceDraft] = useState('');
+  /** choose: pick Generate vs Specify guide; guide: optional text field shown */
+  const [suggestionGuidanceStep, setSuggestionGuidanceStep] = useState<
+    'choose' | 'guide'
+  >('choose');
+  const [suggestionsUserFeedback, setSuggestionsUserFeedback] = useState<
+    string | null
+  >(null);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   /** True when dialog opened from Edit settings (not initial ?openSettings=1). */
   const [settingsReEvaluateWarning, setSettingsReEvaluateWarning] =
@@ -2091,6 +2101,45 @@ export default function AdaptiveTestingDetail({
       }
     );
   }, [sessionToken, testSetId]);
+
+  const openSuggestionGuidance = useCallback(() => {
+    setSuggestionGuidanceDraft('');
+    setSuggestionGuidanceStep('choose');
+    setSuggestionGuidanceDialogOpen(true);
+  }, []);
+
+  const closeSuggestionGuidanceDialog = useCallback(() => {
+    setSuggestionGuidanceDialogOpen(false);
+    setSuggestionGuidanceStep('choose');
+  }, []);
+
+  /** Generate immediately without optional user guidance. */
+  const handleSuggestionGuidanceGenerateNow = useCallback(() => {
+    setSuggestionsUserFeedback(null);
+    closeSuggestionGuidanceDialog();
+    setSuggestionsDialogOpen(true);
+  }, [closeSuggestionGuidanceDialog]);
+
+  const handleSuggestionGuidanceSpecifyGuide = useCallback(() => {
+    setSuggestionGuidanceStep('guide');
+  }, []);
+
+  const handleSuggestionGuidanceBackToChoose = useCallback(() => {
+    setSuggestionGuidanceStep('choose');
+  }, []);
+
+  /** After user chose to specify guide: run generation with trimmed feedback (may be empty). */
+  const handleSuggestionGuidanceGenerateWithGuide = useCallback(() => {
+    const trimmed = suggestionGuidanceDraft.trim();
+    setSuggestionsUserFeedback(trimmed || null);
+    closeSuggestionGuidanceDialog();
+    setSuggestionsDialogOpen(true);
+  }, [suggestionGuidanceDraft, closeSuggestionGuidanceDialog]);
+
+  const handleSuggestionsDialogClose = useCallback(() => {
+    setSuggestionsDialogOpen(false);
+    setSuggestionsUserFeedback(null);
+  }, []);
 
   const handleEditTestOpen = (test: TestNode) => {
     setEditingTest(test);
@@ -2846,7 +2895,7 @@ export default function AdaptiveTestingDetail({
               <Button
                 size="small"
                 startIcon={<AutoAwesomeIcon />}
-                onClick={() => setSuggestionsDialogOpen(true)}
+                onClick={openSuggestionGuidance}
                 sx={{ textTransform: 'none' }}
               >
                 Suggest tests
@@ -2915,7 +2964,7 @@ export default function AdaptiveTestingDetail({
             <Button
               size="small"
               startIcon={<AutoAwesomeIcon />}
-              onClick={() => setSuggestionsDialogOpen(true)}
+              onClick={openSuggestionGuidance}
               sx={{ textTransform: 'none' }}
             >
               Suggest tests
@@ -3442,13 +3491,83 @@ export default function AdaptiveTestingDetail({
         ) : null}
       </Dialog>
 
+      {/* Optional user guidance before generating suggestions */}
+      <Dialog
+        open={suggestionGuidanceDialogOpen}
+        onClose={closeSuggestionGuidanceDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Suggest tests</DialogTitle>
+        <DialogContent>
+          {suggestionGuidanceStep === 'choose' ? (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                New suggestions are generated from examples in this test set.
+                Choose whether to run generation now, or add guidance first for
+                how the model should shape suggestions.
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Describe how suggestions should be generated. This is sent to
+                the model together with your existing tests.
+              </Typography>
+              <TextField
+                autoFocus
+                multiline
+                minRows={3}
+                fullWidth
+                label="Generation guide"
+                placeholder="e.g., Focus on edge cases for date parsing..."
+                value={suggestionGuidanceDraft}
+                onChange={e => setSuggestionGuidanceDraft(e.target.value)}
+                inputProps={{ maxLength: 1000 }}
+                helperText="Up to 1000 characters."
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {suggestionGuidanceStep === 'choose' ? (
+            <>
+              <Button onClick={closeSuggestionGuidanceDialog}>Cancel</Button>
+              <Button
+                variant="outlined"
+                onClick={handleSuggestionGuidanceSpecifyGuide}
+              >
+                Specify guide
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSuggestionGuidanceGenerateNow}
+              >
+                Generate
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={handleSuggestionGuidanceBackToChoose}>Back</Button>
+              <Button
+                variant="contained"
+                onClick={handleSuggestionGuidanceGenerateWithGuide}
+              >
+                Generate
+              </Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+
       {/* Suggestions dialog */}
       <SuggestionsDialog
         open={suggestionsDialogOpen}
-        onClose={() => setSuggestionsDialogOpen(false)}
+        onClose={handleSuggestionsDialogClose}
         testSetId={testSetId}
         sessionToken={sessionToken}
         topic={selectedTopicForApi}
+        userFeedback={suggestionsUserFeedback}
         onTestAccepted={handleSuggestionAccepted}
       />
     </Box>

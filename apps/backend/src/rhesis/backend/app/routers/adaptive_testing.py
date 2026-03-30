@@ -691,6 +691,7 @@ def generate_suggestions_endpoint(
             topic=body.topic,
             num_examples=body.num_examples,
             num_suggestions=body.num_suggestions,
+            user_feedback=body.user_feedback,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

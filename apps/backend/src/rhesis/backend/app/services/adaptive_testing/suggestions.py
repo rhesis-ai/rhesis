@@ -37,6 +37,7 @@ def _build_suggestion_prompt(
     examples: List[Dict[str, str]],
     topic: str,
     num_suggestions: int,
+    user_feedback: str = "",
 ) -> str:
     """Build a prompt asking the LLM to generate new test inputs."""
     lines = [
@@ -56,6 +57,9 @@ def _build_suggestion_prompt(
             lines.append(f"{i}. [{ex_topic}] {ex_input}")
         else:
             lines.append(f"{i}. {ex_input}")
+
+    if user_feedback:
+        lines.append(f"\nAdditional guidance from the user:\n{user_feedback}\n")
 
     lines.append(
         f"\nGenerate exactly {num_suggestions} new, diverse test inputs. "
@@ -89,6 +93,7 @@ def generate_suggestions(
     topic: Optional[str] = None,
     num_examples: int = 10,
     num_suggestions: int = 20,
+    user_feedback: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Generate test suggestions using an LLM.
 
@@ -111,6 +116,8 @@ def generate_suggestions(
         Number of existing tests to sample as examples (default 10)
     num_suggestions : int
         Number of new tests to generate (default 20)
+    user_feedback : str, optional
+        Optional user guidance appended to the LLM prompt
 
     Returns
     -------
@@ -145,7 +152,10 @@ def generate_suggestions(
             }
         )
 
-    prompt_text = _build_suggestion_prompt(examples, topic or "", num_suggestions)
+    feedback_text = (user_feedback or "").strip()
+    prompt_text = _build_suggestion_prompt(
+        examples, topic or "", num_suggestions, user_feedback=feedback_text
+    )
 
     model = _get_generation_model(db, user_id)
 

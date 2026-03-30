@@ -105,6 +105,11 @@ class GenerateSuggestionsRequest(Base):
         le=100,
         description="Number of new test suggestions to generate",
     )
+    user_feedback: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+        description="Optional user guidance to steer suggestion generation",
+    )
 
 
 class SuggestedTest(BaseModel):

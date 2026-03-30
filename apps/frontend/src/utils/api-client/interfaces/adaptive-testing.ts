@@ -179,6 +179,7 @@ export interface GenerateSuggestionsRequest {
   topic?: string | null;
   num_examples?: number;
   num_suggestions?: number;
+  user_feedback?: string | null;
 }
 
 export interface SuggestedTest {
