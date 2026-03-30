@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -18,7 +18,7 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
     Maps DB fields to the SDK node format:
     - test.topic.name -> node.topic
     - test.prompt.content -> node.input
-    - test.test_metadata -> output, label, labeler, model_score
+    - test.test_metadata -> output, label, labeler, model_score, metrics
 
     Returns None for tests without prompts (unless they are topic markers).
     """
@@ -34,6 +34,11 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
     if db_test.topic:
         topic_name = db_test.topic.name if hasattr(db_test.topic, "name") else ""
 
+    raw_metrics = meta.get("metrics")
+    metrics: Optional[Dict[str, Any]] = None
+    if isinstance(raw_metrics, dict):
+        metrics = raw_metrics
+
     return TestTreeNode(
         id=str(db_test.id),
         topic=topic_name,
@@ -42,6 +47,7 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
         label=meta.get("label", ""),
         labeler=meta.get("labeler", "imported"),
         model_score=meta.get("model_score", 0.0),
+        metrics=metrics,
     )
 
 

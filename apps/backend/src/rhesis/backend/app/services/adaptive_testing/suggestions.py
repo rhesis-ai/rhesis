@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 
-from .evaluation import _EVAL_MAX_CONCURRENCY, _resolve_sdk_metrics, _run_metrics_on_text
+from .evaluation import (
+    _EVAL_MAX_CONCURRENCY,
+    _resolve_sdk_metrics,
+    _run_metrics_on_text,
+    build_metrics_summary_for_response,
+)
 from .utils import _build_eligible_tests, _get_test_set_tests_from_db
 
 logger = logging.getLogger(__name__)
@@ -294,7 +299,7 @@ async def evaluate_suggestions(
     -------
     dict
         - evaluated: count of successful evaluations
-        - results: list of {input, label, labeler, model_score, error}
+        - results: list of {input, label, labeler, model_score, metrics?, error}
     """
     sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
@@ -331,11 +336,22 @@ async def evaluate_suggestions(
             scores = [v.get("score", 0.0) for v in valid.values()]
             score = sum(scores) / len(scores) if scores else 0.0
 
+            metrics_summary = build_metrics_summary_for_response(valid)
+            logger.debug(
+                "Suggestion evaluation: %s",
+                {
+                    "input": input_text,
+                    "output": output_text,
+                    "metrics": metrics_summary,
+                },
+            )
+
             return {
                 "input": input_text,
                 "label": label,
                 "labeler": labeler,
                 "model_score": score,
+                "metrics": metrics_summary,
                 "error": None,
             }
 

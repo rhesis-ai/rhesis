@@ -650,6 +650,7 @@ async def evaluate_tests(
                 label=r["label"],
                 labeler=r["labeler"],
                 model_score=r["model_score"],
+                metrics=r.get("metrics"),
             )
             for r in result["results"]
         ],
@@ -805,6 +806,7 @@ async def evaluate_suggestions_endpoint(
                 label=r["label"],
                 labeler=r["labeler"],
                 model_score=r["model_score"],
+                metrics=r.get("metrics"),
                 error=r.get("error"),
             )
             for r in result["results"]

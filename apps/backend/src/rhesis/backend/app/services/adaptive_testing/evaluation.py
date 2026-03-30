@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from uuid import UUID
@@ -15,6 +16,35 @@ from .utils import _build_eligible_tests, _get_test_set_tests_from_db
 logger = logging.getLogger(__name__)
 
 _EVAL_MAX_CONCURRENCY = 20
+
+
+def _serialize_details_for_api(details: Dict[str, Any]) -> Dict[str, Any]:
+    """Make metric ``details`` JSON-serializable for API/DB storage."""
+    if not details:
+        return {}
+    try:
+        return json.loads(json.dumps(details, default=str))
+    except (TypeError, ValueError):
+        return {}
+
+
+def build_metrics_summary_for_response(
+    valid: Dict[str, Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    """Build per-metric payload for HTTP responses and ``test_metadata.metrics``."""
+    out: Dict[str, Dict[str, Any]] = {}
+    for name, v in valid.items():
+        row: Dict[str, Any] = {
+            "score": v.get("score"),
+            "is_successful": v.get("is_successful"),
+        }
+        if v.get("reason") is not None:
+            row["reason"] = v["reason"]
+        det = v.get("details")
+        if det:
+            row["details"] = det
+        out[name] = row
+    return out
 
 
 def _resolve_sdk_metrics(
@@ -125,10 +155,20 @@ async def _run_metrics_on_text(
         if score is None or not isinstance(score, (int, float)):
             score = 0.0 if is_successful else 1.0
 
-        metric_results[metric.name] = {
+        details = result.details or {}
+        reason = details.get("reason")
+        serialized_details = _serialize_details_for_api(details)
+
+        entry: Dict[str, Any] = {
             "score": score,
             "is_successful": is_successful,
         }
+        if reason is not None:
+            entry["reason"] = reason
+        if serialized_details:
+            entry["details"] = serialized_details
+
+        metric_results[metric.name] = entry
 
     return metric_results
 
@@ -175,7 +215,7 @@ async def evaluate_tests_for_adaptive_set(
     dict
         - evaluated: number of tests evaluated
         - skipped: number of tests skipped due to existing results
-        - results: list of {test_id, label, labeler, model_score}
+        - results: list of {test_id, label, labeler, model_score, metrics?}
         - failed: list of {test_id, error}
 
     Raises
@@ -230,16 +270,18 @@ async def evaluate_tests_for_adaptive_set(
             agg_labeler = ", ".join(metric_names)
             scores = [v.get("score", 0.0) for v in valid.values()]
             agg_score = sum(scores) / len(scores) if scores else 0.0
+            metrics_summary = build_metrics_summary_for_response(valid)
 
             meta = dict(test.test_metadata or {})
             meta["label"] = agg_label
             meta["labeler"] = agg_labeler
             meta["model_score"] = agg_score
+            meta["metrics"] = metrics_summary
             if len(sdk_metrics) > 1:
                 meta["evaluation"] = [
                     {
                         "label": "pass" if r.get("is_successful") else "fail",
-                        "labeler": r.get("name", key),
+                        "labeler": key,
                         "model_score": r.get("score", 0.0),
                     }
                     for key, r in valid.items()
@@ -254,6 +296,7 @@ async def evaluate_tests_for_adaptive_set(
                 "label": agg_label,
                 "labeler": agg_labeler,
                 "model_score": agg_score,
+                "metrics": metrics_summary,
             }
 
         except Exception as e:
@@ -265,6 +308,7 @@ async def evaluate_tests_for_adaptive_set(
             meta["label"] = "error"
             meta["labeler"] = ", ".join(metric_names)
             meta["model_score"] = 0.0
+            meta.pop("metrics", None)
             test.test_metadata = meta
             return {
                 "status": "failed",
@@ -288,6 +332,7 @@ async def evaluate_tests_for_adaptive_set(
             "label": o["label"],
             "labeler": o["labeler"],
             "model_score": o["model_score"],
+            "metrics": o.get("metrics"),
         }
         for o in all_outcomes
         if o["status"] == "ok"
