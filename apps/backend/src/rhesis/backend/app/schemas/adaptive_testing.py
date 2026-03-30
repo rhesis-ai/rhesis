@@ -21,6 +21,15 @@ class ImportAdaptiveTestSetResponse(Base):
     skipped_test_ids: List[str] = Field(default_factory=list)
 
 
+class ExportAdaptiveTestSetResponse(Base):
+    """Response for POST /adaptive_testing/export/{source_test_set_id}."""
+
+    test_set: TestSetSchema
+    exported: int = 0
+    skipped: int = 0
+    skipped_test_ids: List[str] = Field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Generate outputs
 # ---------------------------------------------------------------------------

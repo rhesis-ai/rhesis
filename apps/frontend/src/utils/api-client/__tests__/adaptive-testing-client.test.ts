@@ -96,6 +96,26 @@ describe('AdaptiveTestingClient', () => {
     expect(opts.method).toBe('POST');
   });
 
+  it('exports to a regular test set with POST /export/{id}', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        test_set: { id: 'new-regular', name: 'Adaptive (Exported)' },
+        exported: 2,
+        skipped: 2,
+        skipped_test_ids: ['m1', 'm2'],
+      })
+    );
+
+    const result = await client.exportRegularTestSetFromAdaptive('adaptive-ts-1');
+
+    expect(result.exported).toBe(2);
+    expect(result.skipped).toBe(2);
+    expect(result.test_set.id).toBe('new-regular');
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/adaptive_testing/export/adaptive-ts-1');
+    expect(opts.method).toBe('POST');
+  });
+
   it('fetches adaptive settings for a test set', async () => {
     fetchMock.mockResolvedValue(
       makeFetch({ default_endpoint: null, metrics: [] })

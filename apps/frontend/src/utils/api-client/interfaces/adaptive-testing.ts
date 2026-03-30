@@ -29,6 +29,14 @@ export interface ImportAdaptiveTestSetResponse {
   skipped_test_ids: string[];
 }
 
+/** Response from POST /adaptive_testing/export/{source_test_set_id} */
+export interface ExportAdaptiveTestSetResponse {
+  test_set: AdaptiveTestSet;
+  exported: number;
+  skipped: number;
+  skipped_test_ids: string[];
+}
+
 // =============================================================================
 // Test Node Interfaces
 // =============================================================================

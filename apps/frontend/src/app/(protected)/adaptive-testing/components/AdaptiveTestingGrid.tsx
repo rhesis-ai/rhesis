@@ -23,6 +23,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import type {
   AdaptiveTestSet,
   ImportAdaptiveTestSetResponse,
@@ -61,6 +62,7 @@ export default function AdaptiveTestingGrid({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     setRows(initialTestSets);
@@ -176,6 +178,46 @@ export default function AdaptiveTestingGrid({
     setDeleteModalOpen(false);
   };
 
+  const handleExportSelected = useCallback(async () => {
+    if (selectedRows.length !== 1) return;
+    const token = sessionToken || session?.session_token;
+    if (!token) return;
+
+    setIsExporting(true);
+    try {
+      const client = new ApiClientFactory(token).getAdaptiveTestingClient();
+      const result = await client.exportRegularTestSetFromAdaptive(
+        String(selectedRows[0])
+      );
+      const { exported, skipped, test_set: created } = result;
+      const parts = [
+        `Created "${created.name}"`,
+        `exported ${exported} test(s)`,
+      ];
+      if (skipped > 0) {
+        parts.push(`skipped ${skipped}`);
+      }
+      notifications.show(parts.join('. '), {
+        severity: 'success',
+        autoHideDuration: 6000,
+      });
+      router.push(`/test-sets/${created.id}`);
+    } catch (err) {
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to export test set.',
+        { severity: 'error', autoHideDuration: 6000 }
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }, [
+    notifications,
+    router,
+    selectedRows,
+    session?.session_token,
+    sessionToken,
+  ]);
+
   const handleImportedAdaptiveSet = useCallback(
     (result: ImportAdaptiveTestSetResponse) => {
       const { imported, skipped, test_set: created } = result;
@@ -260,6 +302,16 @@ export default function AdaptiveTestingGrid({
         disabled: !authToken,
       },
     ];
+
+    if (selectedRows.length === 1) {
+      buttons.push({
+        label: 'Export to test set',
+        icon: <IosShareOutlinedIcon />,
+        variant: 'outlined' as const,
+        onClick: () => void handleExportSelected(),
+        disabled: !authToken || isExporting,
+      });
+    }
 
     if (selectedRows.length > 0) {
       buttons.push({

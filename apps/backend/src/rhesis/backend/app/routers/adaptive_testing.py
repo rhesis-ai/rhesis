@@ -23,6 +23,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.adaptive_testing import (
     AdaptiveSettingsResponse,
     AdaptiveSettingsUpdate,
+    ExportAdaptiveTestSetResponse,
     ImportAdaptiveTestSetResponse,
     EvaluateFailedItem,
     EvaluateRequest,
@@ -48,6 +49,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     create_topic_node,
     delete_adaptive_test_set,
     delete_test_node,
+    export_regular_test_set_from_adaptive,
     evaluate_suggestions,
     evaluate_tests_for_adaptive_set,
     generate_outputs_for_tests,
@@ -144,6 +146,44 @@ def import_adaptive_test_set_endpoint(
     return ImportAdaptiveTestSetResponse(
         test_set=result["test_set"],
         imported=result["imported"],
+        skipped=result["skipped"],
+        skipped_test_ids=result["skipped_test_ids"],
+    )
+
+
+@router.post(
+    "/export/{source_test_set_identifier}",
+    response_model=ExportAdaptiveTestSetResponse,
+    status_code=201,
+)
+def export_regular_test_set_from_adaptive_endpoint(
+    source_test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new regular test set by exporting from an adaptive test set.
+
+    Copies tests with prompts; skips topic markers and empty prompts. The new
+    set has no Adaptive Testing behavior or adaptive_settings.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        result = export_regular_test_set_from_adaptive(
+            db=db,
+            source_test_set_identifier=source_test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return ExportAdaptiveTestSetResponse(
+        test_set=result["test_set"],
+        exported=result["exported"],
         skipped=result["skipped"],
         skipped_test_ids=result["skipped_test_ids"],
     )
