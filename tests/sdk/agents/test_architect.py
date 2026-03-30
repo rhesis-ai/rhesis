@@ -1040,7 +1040,8 @@ class TestArchitectArgumentValidation:
         agent = _make_agent(mock_model)
         from rhesis.sdk.agents.schemas import ToolCall
 
-        items = [{"prompt": {"content": f"test {i}"}} for i in range(agent._cfg.max_array_items + 1)]
+        max_items = agent._cfg.max_array_items
+        items = [{"prompt": {"content": f"test {i}"}} for i in range(max_items + 1)]
         tc = ToolCall(
             tool_name="create_test_set_bulk",
             arguments=json.dumps({"tests": items}),
@@ -1091,3 +1092,563 @@ class TestArchitectArgumentValidation:
         result = await agent.execute_tool(tc)
         assert result.success is True
         assert result.content == "ok"
+
+
+# ── await_task tests ─────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectAwaitTask:
+    """Test the await_task internal tool and iteration override."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    @pytest.mark.asyncio
+    async def test_await_task_stores_pending_tasks(self, mock_model):
+        agent = _make_agent(mock_model)
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        tc = ToolCall(
+            tool_name="await_task",
+            arguments=json.dumps({
+                "task_ids": ["tid-1", "tid-2"],
+                "message": "Generating tests...",
+            }),
+        )
+        result = await agent.execute_tool(tc)
+        assert result.success is True
+        assert len(agent.pending_tasks) == 2
+        assert agent.pending_tasks[0]["task_id"] == "tid-1"
+        assert agent.pending_tasks[1]["task_id"] == "tid-2"
+        assert agent._awaiting_task is True
+        assert agent._await_message == "Generating tests..."
+
+    @pytest.mark.asyncio
+    async def test_await_task_rejects_empty_task_ids(self, mock_model):
+        agent = _make_agent(mock_model)
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        tc = ToolCall(
+            tool_name="await_task",
+            arguments=json.dumps({
+                "task_ids": [],
+                "message": "Waiting...",
+            }),
+        )
+        result = await agent.execute_tool(tc)
+        assert result.success is False
+        assert "required" in result.error.lower()
+        assert agent._awaiting_task is False
+
+    @pytest.mark.asyncio
+    async def test_await_task_forces_turn_finish(self, mock_model):
+        """When await_task is called, the agent's turn should end."""
+        agent = _make_agent(mock_model, max_iterations=5)
+
+        mock_model.generate.side_effect = [
+            _tool_dict("await_task", {
+                "task_ids": ["tid-1"],
+                "message": "Generating tests...",
+            }),
+            # The agent should NOT reach a second iteration
+            _finish_dict("should not reach here"),
+        ]
+
+        response = await agent.chat_async("go ahead")
+        assert "Generating tests..." in response
+        assert len(agent.pending_tasks) == 1
+        assert mock_model.generate.call_count == 1
+        assert agent.needs_confirmation is False
+
+    @pytest.mark.asyncio
+    async def test_pending_tasks_cleared_on_new_turn(self, mock_model):
+        """pending_tasks should be cleared at the start of each turn."""
+        agent = _make_agent(mock_model)
+        agent._pending_tasks = [{"task_id": "old-task"}]
+        agent._awaiting_task = True
+
+        mock_model.generate.side_effect = [_finish_dict("hello")]
+
+        await agent.chat_async("new message")
+        assert agent.pending_tasks == []
+        assert agent._awaiting_task is False
+
+    @pytest.mark.asyncio
+    async def test_pending_tasks_cleared_on_reset(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._pending_tasks = [{"task_id": "task-1"}]
+        agent._awaiting_task = True
+        agent._await_message = "waiting"
+
+        agent.reset()
+        assert agent.pending_tasks == []
+        assert agent._awaiting_task is False
+        assert agent._await_message == ""
+
+    @pytest.mark.asyncio
+    async def test_await_task_tool_in_available_tools(self, mock_model):
+        agent = _make_agent(mock_model)
+        tools = await agent.get_available_tools()
+        tool_names = [t["name"] for t in tools]
+        assert "await_task" in tool_names
+
+    @pytest.mark.asyncio
+    async def test_await_task_after_other_tools(self, mock_model):
+        """Agent can call tools then await_task in the same turn."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool], max_iterations=5)
+
+        mock_model.generate.side_effect = [
+            _tool_dict("dummy", {"x": "work"}),
+            _tool_dict("await_task", {
+                "task_ids": ["tid-1"],
+                "message": "Now waiting...",
+            }),
+        ]
+
+        response = await agent.chat_async("do work then wait")
+        assert "Now waiting..." in response
+        assert len(agent.pending_tasks) == 1
+        assert mock_model.generate.call_count == 2
+
+
+# ── deferred test set completion tests ───────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectDeferredTestSetCompletion:
+    """Test that generate_test_set does not immediately mark test sets
+    as completed, and that [TASK_COMPLETED] messages do."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    @pytest.mark.asyncio
+    async def test_generate_test_set_does_not_mark_completed(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan, TestSetSpec
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[TestSetSpec(name="Safety Tests", description="d")],
+            metrics=[],
+        )
+
+        mock_model.generate.side_effect = [
+            _tool_dict("generate_test_set", {"name": "Safety Tests"}),
+            _tool_dict("await_task", {
+                "task_ids": ["tid-1"],
+                "message": "Generating...",
+            }),
+        ]
+
+        await agent.chat_async("create tests")
+        assert not agent._plan.test_sets[0].completed
+
+    @pytest.mark.asyncio
+    async def test_task_completed_message_marks_test_sets(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan, TestSetSpec
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[
+                TestSetSpec(name="Safety Tests", description="d"),
+                TestSetSpec(name="Accuracy Tests", description="d"),
+            ],
+            metrics=[],
+        )
+
+        msg = (
+            "[TASK_COMPLETED] The background tasks you were waiting "
+            "for have finished. Here are the results:\n"
+            "- Test set 'Safety Tests' generated successfully "
+            "(5 tests). test_set_id=ts-1\n"
+            "- Test set 'Accuracy Tests' generated successfully "
+            "(10 tests). test_set_id=ts-2\n"
+            "Please continue with the next steps in the plan."
+        )
+
+        mock_model.generate.side_effect = [_finish_dict("done")]
+
+        await agent.chat_async(msg)
+        assert agent._plan.test_sets[0].completed is True
+        assert agent._plan.test_sets[1].completed is True
+
+    @pytest.mark.asyncio
+    async def test_task_completed_partial_match(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan, TestSetSpec
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[
+                TestSetSpec(name="Safety Tests", description="d"),
+                TestSetSpec(name="Other Tests", description="d"),
+            ],
+            metrics=[],
+        )
+
+        msg = (
+            "[TASK_COMPLETED] Results:\n"
+            "- Test set 'Safety Tests' generated successfully "
+            "(5 tests). test_set_id=ts-1\n"
+        )
+
+        mock_model.generate.side_effect = [_finish_dict("done")]
+
+        await agent.chat_async(msg)
+        assert agent._plan.test_sets[0].completed is True
+        assert agent._plan.test_sets[1].completed is False
+
+
+# ── plan constraints tests ───────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectPlanConstraints:
+    """Test structural guards that prevent plan violations."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    def test_rejects_create_project_without_plan_project(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[],
+            metrics=[],
+        )
+        tc = ToolCall(
+            tool_name="create_project",
+            arguments=json.dumps({"name": "Rogue Project"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is not None
+        assert "does not include a project" in error
+
+    def test_allows_create_project_with_plan_project(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan, ProjectSpec
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            project=ProjectSpec(name="Real Project", description="A test project"),
+            behaviors=[],
+            test_sets=[],
+            metrics=[],
+        )
+        tc = ToolCall(
+            tool_name="create_project",
+            arguments=json.dumps({"name": "Real Project"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is None
+
+    def test_rejects_metric_name_mismatch(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[],
+            metrics=[MetricSpec(name="Factual Accuracy", description="Checks facts")],
+        )
+        tc = ToolCall(
+            tool_name="create_metric",
+            arguments=json.dumps({"name": "Conversation Coherence"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is not None
+        assert "does not match" in error
+        assert "Factual Accuracy" in error
+
+    def test_allows_matching_metric_name(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[],
+            metrics=[MetricSpec(name="Factual Accuracy", description="Checks facts")],
+        )
+        tc = ToolCall(
+            tool_name="create_metric",
+            arguments=json.dumps({"name": "factual accuracy"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is None
+
+    def test_no_constraints_without_plan(self, mock_model):
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        tc = ToolCall(
+            tool_name="create_project",
+            arguments=json.dumps({"name": "anything"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is None
+
+    def test_rejects_already_completed_metric(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[],
+            metrics=[MetricSpec(
+                name="Factual Accuracy",
+                description="d",
+                completed=True,
+            )],
+        )
+        tc = ToolCall(
+            tool_name="create_metric",
+            arguments=json.dumps({"name": "Factual Accuracy"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is not None
+        assert "already completed" in error
+
+    def test_rejects_already_completed_behavior(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+        )
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[BehaviorSpec(
+                name="Safety",
+                description="d",
+                completed=True,
+            )],
+            test_sets=[],
+            metrics=[],
+        )
+        tc = ToolCall(
+            tool_name="create_behavior",
+            arguments=json.dumps({"name": "Safety"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is not None
+        assert "already completed" in error
+
+    def test_allows_incomplete_item(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[],
+            metrics=[MetricSpec(
+                name="Factual Accuracy",
+                description="d",
+                completed=False,
+            )],
+        )
+        tc = ToolCall(
+            tool_name="create_metric",
+            arguments=json.dumps({"name": "Factual Accuracy"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is None
+
+    def test_blocks_test_set_when_behaviors_incomplete(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            TestSetSpec,
+        )
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[BehaviorSpec(
+                name="Safety",
+                description="d",
+                completed=False,
+            )],
+            test_sets=[TestSetSpec(name="Tests", description="d")],
+            metrics=[],
+        )
+        tc = ToolCall(
+            tool_name="generate_test_set",
+            arguments=json.dumps({"name": "Tests"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is not None
+        assert "behavior 'Safety'" in error
+
+    def test_blocks_test_set_when_metrics_incomplete(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            MetricSpec,
+            TestSetSpec,
+        )
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[TestSetSpec(name="Tests", description="d")],
+            metrics=[MetricSpec(
+                name="Accuracy",
+                description="d",
+                completed=False,
+            )],
+        )
+        tc = ToolCall(
+            tool_name="generate_test_set",
+            arguments=json.dumps({"name": "Tests"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is not None
+        assert "metric 'Accuracy'" in error
+
+    def test_blocks_test_set_when_mappings_incomplete(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            MappingSpec,
+            TestSetSpec,
+        )
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[],
+            test_sets=[TestSetSpec(name="Tests", description="d")],
+            metrics=[],
+            behavior_metric_mappings=[MappingSpec(
+                behavior="Safety",
+                metrics=["Accuracy"],
+            )],
+        )
+        tc = ToolCall(
+            tool_name="generate_test_set",
+            arguments=json.dumps({"name": "Tests"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is not None
+        assert "mapping" in error
+
+    def test_allows_test_set_when_all_prereqs_done(self, mock_model):
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MappingSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._plan = ArchitectPlan(
+            behaviors=[BehaviorSpec(
+                name="Safety", description="d", completed=True,
+            )],
+            test_sets=[TestSetSpec(name="Tests", description="d")],
+            metrics=[MetricSpec(
+                name="Accuracy", description="d", completed=True,
+            )],
+            behavior_metric_mappings=[MappingSpec(
+                behavior="Safety",
+                metrics=["Accuracy"],
+                completed=True,
+            )],
+        )
+        tc = ToolCall(
+            tool_name="generate_test_set",
+            arguments=json.dumps({"name": "Tests"}),
+        )
+        error = agent._check_plan_constraints(tc)
+        assert error is None
+
+
+# ── ID-to-name collection tests ──────────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectIdNameCollection:
+    """Test ID-to-name resolution from tool results."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    def test_collects_from_single_object(self, mock_model):
+        agent = _make_agent(mock_model)
+        result = ToolResult(
+            tool_name="create_behavior",
+            success=True,
+            content=json.dumps({"id": "uuid-1", "name": "Safety"}),
+        )
+        agent._collect_id_names(result)
+        assert agent._id_to_name["uuid-1"] == "Safety"
+
+    def test_collects_from_list(self, mock_model):
+        agent = _make_agent(mock_model)
+        result = ToolResult(
+            tool_name="list_behaviors",
+            success=True,
+            content=json.dumps([
+                {"id": "uuid-1", "name": "Safety"},
+                {"id": "uuid-2", "name": "Accuracy"},
+            ]),
+        )
+        agent._collect_id_names(result)
+        assert agent._id_to_name["uuid-1"] == "Safety"
+        assert agent._id_to_name["uuid-2"] == "Accuracy"
+
+    def test_collects_from_odata_value_wrapper(self, mock_model):
+        agent = _make_agent(mock_model)
+        result = ToolResult(
+            tool_name="list_metrics",
+            success=True,
+            content=json.dumps({
+                "value": [
+                    {"id": "uuid-3", "name": "Relevance"},
+                ]
+            }),
+        )
+        agent._collect_id_names(result)
+        assert agent._id_to_name["uuid-3"] == "Relevance"
+
+    def test_skips_failed_results(self, mock_model):
+        agent = _make_agent(mock_model)
+        result = ToolResult(
+            tool_name="create_behavior",
+            success=False,
+            error="validation error",
+        )
+        agent._collect_id_names(result)
+        assert len(agent._id_to_name) == 0
+
+    def test_skips_malformed_json(self, mock_model):
+        agent = _make_agent(mock_model)
+        result = ToolResult(
+            tool_name="create_behavior",
+            success=True,
+            content="not json",
+        )
+        agent._collect_id_names(result)
+        assert len(agent._id_to_name) == 0
+
+    def test_id_to_name_cleared_on_reset(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._id_to_name["uuid-1"] = "test"
+        agent.reset()
+        assert len(agent._id_to_name) == 0

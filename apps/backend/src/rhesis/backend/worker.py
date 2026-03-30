@@ -119,6 +119,10 @@ app.conf.update(
 # Auto-discover tasks
 app.autodiscover_tasks(["rhesis.backend.tasks"], force=True)
 
+# Register the task_postrun signal for architect task monitoring.
+# The import itself connects the @task_postrun.connect handler.
+import rhesis.backend.tasks.architect_monitor  # noqa: F401
+
 # Initialize caches in worker
 from rhesis.backend.app.services.telemetry.conversation_linking import (
     initialize_cache as init_conv_cache,

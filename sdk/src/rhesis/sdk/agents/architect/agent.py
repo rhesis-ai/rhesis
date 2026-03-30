@@ -116,6 +116,12 @@ class ArchitectAgent(BaseAgent):
         # UUID → entity name for resolving IDs in mapping tools
         self._id_to_name: Dict[str, str] = {}
 
+        # Async task waiting: when the agent calls await_task,
+        # the turn ends and the backend monitors the task.
+        self._pending_tasks: List[Dict[str, str]] = []
+        self._awaiting_task: bool = False
+        self._await_message: str = ""
+
         # Per-turn attachments (mentions + file text)
         self._attachments: Optional[Dict[str, Any]] = None
 
@@ -153,6 +159,9 @@ class ArchitectAgent(BaseAgent):
         """Async version of chat()."""
         async with self._turn_lock:
             self._attachments = attachments
+            self._awaiting_task = False
+            self._await_message = ""
+            self._pending_tasks.clear()
             self._conversation_history.append(
                 {"role": Role.USER, "content": message}
             )
@@ -161,6 +170,11 @@ class ArchitectAgent(BaseAgent):
             # only the specific tools that were blocked.
             if self._needs_confirmation and self._confirming_tools:
                 self._creation_approved = True
+
+            # When auto-resumed after background tasks, mark the
+            # corresponding plan items as completed.
+            if message.startswith("[TASK_COMPLETED]") and self._plan:
+                await self._apply_task_completions(message)
 
             if self.verbose:
                 print(f"\n[Architect:{self._mode}] User: {message}")
@@ -229,6 +243,11 @@ class ArchitectAgent(BaseAgent):
             )
 
     @property
+    def pending_tasks(self) -> List[Dict[str, str]]:
+        """Tasks the agent is waiting for (generation, execution)."""
+        return self._pending_tasks
+
+    @property
     def discovery_state(self) -> Dict[str, Any]:
         """What the agent knows and still needs to learn."""
         return self._discovery_state
@@ -280,11 +299,47 @@ class ArchitectAgent(BaseAgent):
         self._attachments = None
         self._discovery_state = _default_discovery_state()
         self._id_to_name.clear()
+        self._pending_tasks.clear()
+        self._awaiting_task = False
+        self._await_message = ""
 
     # ── write-guard ──────────────────────────────────────────────
 
+    _AWAIT_TASK_TOOL: Dict[str, Any] = {
+        "name": InternalTool.AWAIT_TASK,
+        "description": (
+            "Pause this turn and wait for a background task to "
+            "complete (test generation or test execution). The "
+            "system will automatically resume when the task "
+            "finishes. Call this instead of polling get_job_status "
+            "or get_test_run in a loop."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Celery task IDs to wait for (from "
+                        "generate_test_set or execute_test_set "
+                        "responses)."
+                    ),
+                },
+                "message": {
+                    "type": "string",
+                    "description": (
+                        "Message to show the user while waiting."
+                    ),
+                },
+            },
+            "required": ["task_ids", "message"],
+        },
+        ToolMeta.READONLY_HINT: True,
+    }
+
     async def get_available_tools(self) -> List[Dict[str, Any]]:
-        """Override to inject save_plan and discover mutating tools.
+        """Override to inject internal tools and discover mutating ones.
 
         Classification priority:
         1. Explicit ``requires_confirmation`` flag
@@ -294,6 +349,7 @@ class ArchitectAgent(BaseAgent):
         """
         tools = await super().get_available_tools()
         tools.append(self._SAVE_PLAN_TOOL)
+        tools.append(self._AWAIT_TASK_TOOL)
 
         if self._mutating_tools is None:
             self._mutating_tools = self._classify_mutating(tools)
@@ -476,6 +532,7 @@ class ArchitectAgent(BaseAgent):
         """
         if not self._plan:
             return None
+
         if (
             tool_call.tool_name == "create_project"
             and not self._plan.project
@@ -485,6 +542,7 @@ class ArchitectAgent(BaseAgent):
                 "Skip create_project and proceed with the next "
                 "step in the plan."
             )
+
         if tool_call.tool_name == "create_metric":
             name = tool_call.arguments.get("name", "")
             if name and not any(
@@ -497,14 +555,105 @@ class ArchitectAgent(BaseAgent):
                     f"planned metric. Use the exact name from "
                     f"the plan: {planned}."
                 )
+
+        already = self._check_already_completed(tool_call)
+        if already:
+            return already
+
+        prereqs = self._check_execution_order(tool_call)
+        if prereqs:
+            return prereqs
+
+        return None
+
+    def _check_already_completed(
+        self, tool_call: ToolCall
+    ) -> Optional[str]:
+        """Reject creation of an entity that is already completed."""
+        plan = self._plan
+        if not plan:
+            return None
+
+        category = plan_category_for(tool_call.tool_name)
+        if not category:
+            return None
+
+        name = (tool_call.arguments.get("name") or "").lower()
+        if not name:
+            return None
+
+        items_map = {
+            "project": [plan.project] if plan.project else [],
+            "behavior": plan.behaviors,
+            "test_set": plan.test_sets,
+            "metric": plan.metrics,
+        }
+        items = items_map.get(category, [])
+
+        for item in items:
+            if (
+                item
+                and item.completed
+                and item.name.lower() == name
+            ):
+                return (
+                    f"'{item.name}' is already completed in the "
+                    f"plan. Skip this step and proceed to the "
+                    f"next item."
+                )
+
+        return None
+
+    def _check_execution_order(
+        self, tool_call: ToolCall
+    ) -> Optional[str]:
+        """Block test set creation while prerequisites are incomplete.
+
+        Behaviors, metrics, and mappings must all be completed
+        before generating test sets.
+        """
+        plan = self._plan
+        if not plan:
+            return None
+
+        if tool_call.tool_name not in (
+            "generate_test_set",
+            "create_test_set_bulk",
+        ):
+            return None
+
+        pending: List[str] = []
+        for b in plan.behaviors:
+            if not b.completed:
+                pending.append(f"behavior '{b.name}'")
+        for m in plan.metrics:
+            if not m.completed:
+                pending.append(f"metric '{m.name}'")
+        for mp in plan.behavior_metric_mappings:
+            if not mp.completed:
+                pending.append(
+                    f"mapping '{mp.behavior}' → "
+                    f"{', '.join(mp.metrics)}"
+                )
+
+        if pending:
+            return (
+                "Cannot generate test sets yet. Complete these "
+                "plan items first: "
+                + "; ".join(pending)
+                + "."
+            )
         return None
 
     # ── tool execution ───────────────────────────────────────────
 
     async def execute_tool(self, tool_call: ToolCall) -> ToolResult:
-        """Intercept save_plan, validate args, enforce plan constraints."""
+        """Intercept internal tools, validate args, enforce constraints."""
         if tool_call.tool_name == InternalTool.SAVE_PLAN:
             return await self._execute_save_plan(tool_call)
+
+        if tool_call.tool_name == InternalTool.AWAIT_TASK:
+            return await self._execute_await_task(tool_call)
 
         error = (
             self._check_plan_constraints(tool_call)
@@ -577,6 +726,67 @@ class ArchitectAgent(BaseAgent):
                 error=f"Invalid plan data: {e}",
             )
 
+    # ── async task waiting ────────────────────────────────────────
+
+    async def _execute_await_task(
+        self, tool_call: ToolCall
+    ) -> ToolResult:
+        """Pause the turn to wait for background tasks."""
+        task_ids = tool_call.arguments.get("task_ids", [])
+        message = tool_call.arguments.get("message", "")
+        if not task_ids:
+            return ToolResult(
+                tool_name=InternalTool.AWAIT_TASK,
+                success=False,
+                error="task_ids is required.",
+            )
+        for tid in task_ids:
+            self._pending_tasks.append({"task_id": str(tid)})
+        self._awaiting_task = True
+        self._await_message = message
+        logger.info(
+            "[Architect] Awaiting %d task(s): %s",
+            len(task_ids),
+            task_ids,
+        )
+        return ToolResult(
+            tool_name=InternalTool.AWAIT_TASK,
+            success=True,
+            content=(
+                f"Turn paused. Waiting for {len(task_ids)} "
+                f"background task(s). The system will resume "
+                f"this conversation automatically."
+            ),
+        )
+
+    async def _execute_iteration(
+        self,
+        user_query: str,
+        available_tools: List[Dict[str, Any]],
+        iteration: int,
+    ) -> Tuple[ExecutionStep, bool]:
+        """Override to force-finish when await_task has been called."""
+        step, should_finish = await super()._execute_iteration(
+            user_query, available_tools, iteration
+        )
+        if self._awaiting_task and not should_finish:
+            step = ExecutionStep(
+                iteration=iteration,
+                reasoning="Pausing turn to wait for background tasks.",
+                action=Action.FINISH,
+                tool_calls=step.tool_calls,
+                tool_results=[
+                    ToolResult(
+                        tool_name=InternalTool.AWAIT_TASK,
+                        success=True,
+                        content=self._await_message,
+                    )
+                ],
+            )
+            should_finish = True
+            self._needs_confirmation = False
+        return step, should_finish
+
     async def _track_plan_progress(
         self, tool_call: ToolCall, result: ToolResult
     ) -> None:
@@ -606,7 +816,10 @@ class ArchitectAgent(BaseAgent):
             updated = self._mark_completed(plan.behaviors, name)
 
         elif category == "test_set" and name:
-            updated = self._mark_completed(plan.test_sets, name)
+            if tool_call.tool_name == "generate_test_set":
+                pass  # async — marked when [TASK_COMPLETED] arrives
+            else:
+                updated = self._mark_completed(plan.test_sets, name)
 
         elif category == "metric":
             updated = self._match_metric(plan, tool_call, name)
@@ -696,6 +909,32 @@ class ArchitectAgent(BaseAgent):
                 mapping.completed = True
                 return True
         return False
+
+    async def _apply_task_completions(self, message: str) -> None:
+        """Parse a [TASK_COMPLETED] message and mark plan items done."""
+        import re
+
+        plan = self._plan
+        if not plan:
+            return
+
+        updated = False
+        for line in message.splitlines():
+            match = re.search(
+                r"Test set '([^']+)' generated successfully", line
+            )
+            if match:
+                name = match.group(1).lower()
+                for ts in plan.test_sets:
+                    if not ts.completed and ts.name.lower() == name:
+                        ts.completed = True
+                        updated = True
+                        break
+
+        if updated:
+            await _emit(
+                self._event_handlers, "on_plan_update", plan=plan
+            )
 
     # ── transport lifecycle ──────────────────────────────────────
 

@@ -47,7 +47,12 @@ class WebSocketEventHandler:
         )
 
     async def on_tool_start(
-        self, *, tool_name: str, arguments: Dict[str, Any], reasoning: Optional[str] = None, **kw: Any
+        self,
+        *,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        reasoning: Optional[str] = None,
+        **kw: Any,
     ) -> None:
         payload = {
             "tool": tool_name,
@@ -175,7 +180,8 @@ def architect_chat_task(
             conversation_history = [
                 {"role": m.role, "content": m.content}
                 for m in db_session.messages
-                if m.role in ("user", "assistant") and m.content
+                if m.role in ("user", "assistant", "system")
+                and m.content
             ]
             # Remove the last user message (it's the one we're processing)
             if conversation_history and conversation_history[-1]["role"] == "user":
@@ -249,6 +255,9 @@ def architect_chat_task(
         if saved_agent_state.get("guard_state"):
             agent.guard_state = saved_agent_state["guard_state"]
 
+        if saved_agent_state.get("id_to_name"):
+            agent._id_to_name = saved_agent_state["id_to_name"]
+
         # Apply session-level auto-approve from the frontend toggle.
         # This overrides whatever was persisted in guard_state so the
         # user can toggle it on/off at any point in the session.
@@ -263,11 +272,32 @@ def architect_chat_task(
             except Exception:
                 logger.warning("Failed to restore plan from saved data")
 
-        # 3. Run the agent
+        # 3. Handle auto-resume: save the system message and notify
+        is_auto_resume = user_message.startswith("[TASK_COMPLETED]")
+        if is_auto_resume:
+            with get_db_with_tenant_variables(
+                org_id or "", user_id or ""
+            ) as db:
+                crud.create_architect_message(
+                    db=db,
+                    message=schemas.ArchitectMessageCreate(
+                        session_id=session_id,
+                        role="system",
+                        content=user_message,
+                    ),
+                    organization_id=org_id,
+                    user_id=user_id,
+                )
+            ws_handler._publish(
+                EventType.ARCHITECT_STREAM_START,
+                {"needs_confirmation": False},
+            )
+
+        # 4. Run the agent
         processed_attachments = _process_attachments(attachments)
         response = asyncio.run(agent.chat_async(user_message, attachments=processed_attachments))
 
-        # 4. Persist response + state
+        # 5. Persist response + state
         with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
             # Save assistant message
             crud.create_architect_message(
@@ -293,6 +323,8 @@ def architect_chat_task(
                 "max_iterations": agent.max_iterations,
                 "discovery_state": agent.discovery_state,
                 "guard_state": agent.guard_state,
+                "pending_tasks": agent.pending_tasks,
+                "id_to_name": dict(agent._id_to_name),
             }
 
             # Auto-generate title from first message if not set
@@ -313,7 +345,22 @@ def architect_chat_task(
                 user_id=user_id,
             )
 
-        # 5. Publish final response
+        # 6. If the agent is awaiting background tasks, register them
+        #    so the task_postrun signal auto-resumes when they finish.
+        if agent.pending_tasks:
+            from rhesis.backend.tasks.architect_monitor import (
+                register_awaiting_tasks,
+            )
+
+            register_awaiting_tasks(
+                session_id=session_id,
+                task_ids=[t["task_id"] for t in agent.pending_tasks],
+                org_id=org_id or "",
+                user_id=user_id or "",
+                auto_approve=agent.auto_approve_all,
+            )
+
+        # 7. Publish final response
         publish_event(
             WebSocketMessage(
                 type=EventType.ARCHITECT_RESPONSE,

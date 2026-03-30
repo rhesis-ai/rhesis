@@ -37,6 +37,7 @@ class InternalTool(StrEnum):
     FINISH = "finish"
     ERROR = "error"
     SAVE_PLAN = "save_plan"
+    AWAIT_TASK = "await_task"
 
 
 class AgentMode(StrEnum):
