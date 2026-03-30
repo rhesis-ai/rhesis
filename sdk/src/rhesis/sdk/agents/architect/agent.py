@@ -542,7 +542,8 @@ class ArchitectAgent(BaseAgent):
     ) -> Tuple[ExecutionStep, bool]:
         """Override to stream the final response token-by-token."""
         logger.info("[Architect] Streaming final response")
-        self._needs_confirmation = action.needs_confirmation
+        confirmation = action.needs_confirmation and not self._auto_approve_all
+        self._needs_confirmation = confirmation
 
         seed = action.final_answer or ""
         streaming_prompt = self._build_streaming_prompt(
@@ -554,7 +555,7 @@ class ArchitectAgent(BaseAgent):
             prompt=streaming_prompt,
             system_prompt="",
             fallback_content=seed,
-            needs_confirmation=action.needs_confirmation,
+            needs_confirmation=confirmation,
         )
 
         if self.verbose:

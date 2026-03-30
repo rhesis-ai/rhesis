@@ -286,7 +286,9 @@ export default function ArchitectChat({
                 !isLoading &&
                 index === messages.length - 1;
               const showActions =
-                isLastAssistant && !!message.needsConfirmation;
+                isLastAssistant &&
+                !!message.needsConfirmation &&
+                !autoApproveAll;
               return (
                 <ArchitectMessageBubble
                   key={message.id}
