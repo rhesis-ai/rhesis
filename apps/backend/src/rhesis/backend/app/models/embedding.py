@@ -6,14 +6,11 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Computed,
-    Enum,
     Float,
     ForeignKey,
     Index,
     String,
     Text,
-    UniqueConstraint,
-    select,
 )
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
@@ -118,22 +115,20 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
             "status_id",
             unique=True,
         ),
-        # Cross-entity-type search: model_id, config_hash, and status
+        # Cross-entity-type search: model_id, config_hash, and status_id
         Index(
             "idx_active_model_config",
             "model_id",
             "config_hash",
-            postgresql_where=Column("status_id")
-            == select(Status.id).where(Status.name == "Active").scalar_subquery(),
+            "status_id",
         ),
-        # Search within entity type: entity_type, model_id, config_hash, and status
+        # Search within entity type: entity_type, model_id, config_hash, and status_id
         Index(
             "idx_active_entity_model_config",
             "entity_type",
             "model_id",
             "config_hash",
-            postgresql_where=Column("status_id")
-            == select(Status.id).where(Status.name == "Active").scalar_subquery(),
+            "status_id",
         ),
     )
 
