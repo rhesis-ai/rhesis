@@ -88,7 +88,11 @@ export function renderScoreMetricsTooltip(
         const reason = resolveMetricReason(m);
         return (
           <Box key={name} sx={{ mb: 1 }}>
-            <Typography variant="caption" display="block" sx={{ whiteSpace: 'pre-wrap' }}>
+            <Typography
+              variant="caption"
+              display="block"
+              sx={{ whiteSpace: 'pre-wrap' }}
+            >
               <Box component="span" fontWeight={600}>
                 Name:{' '}
               </Box>

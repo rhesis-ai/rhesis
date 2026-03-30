@@ -3536,7 +3536,9 @@ export default function AdaptiveTestingDetail({
             </>
           ) : (
             <>
-              <Button onClick={handleSuggestionGuidanceBackToChoose}>Back</Button>
+              <Button onClick={handleSuggestionGuidanceBackToChoose}>
+                Back
+              </Button>
               <Button
                 variant="contained"
                 onClick={handleSuggestionGuidanceGenerateWithGuide}
