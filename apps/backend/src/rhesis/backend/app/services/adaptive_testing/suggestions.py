@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 
-from .evaluation import _EVAL_MAX_CONCURRENCY, _resolve_sdk_metrics, _run_metrics_on_text
+from .evaluation import (
+    _EVAL_MAX_CONCURRENCY,
+    _resolve_sdk_metrics,
+    _run_metrics_on_text,
+    build_metrics_summary_for_response,
+)
 from .utils import _build_eligible_tests, _get_test_set_tests_from_db
 
 logger = logging.getLogger(__name__)
@@ -37,6 +42,7 @@ def _build_suggestion_prompt(
     examples: List[Dict[str, str]],
     topic: str,
     num_suggestions: int,
+    user_feedback: str = "",
 ) -> str:
     """Build a prompt asking the LLM to generate new test inputs."""
     lines = [
@@ -56,6 +62,9 @@ def _build_suggestion_prompt(
             lines.append(f"{i}. [{ex_topic}] {ex_input}")
         else:
             lines.append(f"{i}. {ex_input}")
+
+    if user_feedback:
+        lines.append(f"\nAdditional guidance from the user:\n{user_feedback}\n")
 
     lines.append(
         f"\nGenerate exactly {num_suggestions} new, diverse test inputs. "
@@ -89,6 +98,7 @@ def generate_suggestions(
     topic: Optional[str] = None,
     num_examples: int = 10,
     num_suggestions: int = 20,
+    user_feedback: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Generate test suggestions using an LLM.
 
@@ -111,6 +121,8 @@ def generate_suggestions(
         Number of existing tests to sample as examples (default 10)
     num_suggestions : int
         Number of new tests to generate (default 20)
+    user_feedback : str, optional
+        Optional user guidance appended to the LLM prompt
 
     Returns
     -------
@@ -145,7 +157,10 @@ def generate_suggestions(
             }
         )
 
-    prompt_text = _build_suggestion_prompt(examples, topic or "", num_suggestions)
+    feedback_text = (user_feedback or "").strip()
+    prompt_text = _build_suggestion_prompt(
+        examples, topic or "", num_suggestions, user_feedback=feedback_text
+    )
 
     model = _get_generation_model(db, user_id)
 
@@ -284,7 +299,7 @@ async def evaluate_suggestions(
     -------
     dict
         - evaluated: count of successful evaluations
-        - results: list of {input, label, labeler, model_score, error}
+        - results: list of {input, label, labeler, model_score, metrics?, error}
     """
     sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
 
@@ -321,11 +336,22 @@ async def evaluate_suggestions(
             scores = [v.get("score", 0.0) for v in valid.values()]
             score = sum(scores) / len(scores) if scores else 0.0
 
+            metrics_summary = build_metrics_summary_for_response(valid)
+            logger.debug(
+                "Suggestion evaluation: %s",
+                {
+                    "input": input_text,
+                    "output": output_text,
+                    "metrics": metrics_summary,
+                },
+            )
+
             return {
                 "input": input_text,
                 "label": label,
                 "labeler": labeler,
                 "model_score": score,
+                "metrics": metrics_summary,
                 "error": None,
             }
 

@@ -70,6 +70,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import SuggestionsDialog from './SuggestionsDialog';
+import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 import { METRIC_SCOPES } from '@/constants/metric-scopes';
 
 // ============================================================================
@@ -1397,18 +1398,21 @@ function TestsList({
         if (params.row.id && pendingTestIds.has(params.row.id)) {
           return <CircularProgress size={16} />;
         }
-        const label = params.row.label;
+        const row = params.row as TestNode;
+        const label = row.label;
         const score = params.value;
         if (!label) {
           return <Chip label="N/A" size="small" variant="outlined" />;
         }
         return (
-          <Chip
-            label={score != null ? score.toFixed(2) : 'N/A'}
-            size="small"
-            color={score != null ? getScoreColor(score) : 'default'}
-            variant={score != null ? 'filled' : 'outlined'}
-          />
+          <ScoreMetricsTooltip metrics={row.metrics}>
+            <Chip
+              label={score != null ? score.toFixed(2) : 'N/A'}
+              size="small"
+              color={score != null ? getScoreColor(score) : 'default'}
+              variant={score != null ? 'filled' : 'outlined'}
+            />
+          </ScoreMetricsTooltip>
         );
       },
     },
@@ -1600,8 +1604,6 @@ export default function AdaptiveTestingDetail({
   );
   const [generateOutputsDialogOpen, setGenerateOutputsDialogOpen] =
     useState(false);
-  const [generateOutputsOverwrite, setGenerateOutputsOverwrite] =
-    useState(false);
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [endpointsLoading, setEndpointsLoading] = useState(false);
   const [generateSubmitting, setGenerateSubmitting] = useState(false);
@@ -1621,6 +1623,16 @@ export default function AdaptiveTestingDetail({
     useState(true);
 
   const [suggestionsDialogOpen, setSuggestionsDialogOpen] = useState(false);
+  const [suggestionGuidanceDialogOpen, setSuggestionGuidanceDialogOpen] =
+    useState(false);
+  const [suggestionGuidanceDraft, setSuggestionGuidanceDraft] = useState('');
+  /** choose: pick Generate vs Specify guide; guide: optional text field shown */
+  const [suggestionGuidanceStep, setSuggestionGuidanceStep] = useState<
+    'choose' | 'guide'
+  >('choose');
+  const [suggestionsUserFeedback, setSuggestionsUserFeedback] = useState<
+    string | null
+  >(null);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   /** True when dialog opened from Edit settings (not initial ?openSettings=1). */
   const [settingsReEvaluateWarning, setSettingsReEvaluateWarning] =
@@ -1804,7 +1816,6 @@ export default function AdaptiveTestingDetail({
       setGenerateOutputsTopic(null);
       setGenerateOutputsIncludeSubtopics(true);
     }
-    setGenerateOutputsOverwrite(false);
     setGenerateError(null);
     setGenerateOutputsDialogOpen(true);
   };
@@ -1813,7 +1824,6 @@ export default function AdaptiveTestingDetail({
     if (!generateSubmitting) {
       setGenerateOutputsDialogOpen(false);
       setGenerateError(null);
-      setGenerateOutputsOverwrite(false);
     }
   };
 
@@ -1826,7 +1836,7 @@ export default function AdaptiveTestingDetail({
       const result = await client.generateOutputs(testSetId, {
         topic: generateOutputsTopic ?? undefined,
         include_subtopics: generateOutputsIncludeSubtopics,
-        overwrite: generateOutputsOverwrite,
+        overwrite: true,
       });
       const [treeNodes, updatedTopics] = await Promise.all([
         client.getTree(testSetId),
@@ -1836,12 +1846,7 @@ export default function AdaptiveTestingDetail({
       setTopics(updatedTopics);
       setGenerateOutputsDialogOpen(false);
       const failedCount = result.failed?.length ?? 0;
-      if (result.skipped > 0 && result.generated === 0) {
-        notifications.show(
-          `All tests already have outputs. Enable 'Overwrite existing outputs' to regenerate.`,
-          { severity: 'warning' }
-        );
-      } else if (failedCount > 0) {
+      if (failedCount > 0) {
         notifications.show(
           `Generated ${result.generated} outputs${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}; ${failedCount} failed.`,
           { severity: 'warning' }
@@ -1886,12 +1891,6 @@ export default function AdaptiveTestingDetail({
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
     try {
-      const generateResult = await client.generateOutputs(testSetId, {
-        topic: evaluateTopic ?? undefined,
-        include_subtopics: evaluateIncludeSubtopics,
-        overwrite: true,
-      });
-
       const result = await client.evaluate(testSetId, {
         topic: evaluateTopic ?? undefined,
         include_subtopics: evaluateIncludeSubtopics,
@@ -1907,12 +1906,12 @@ export default function AdaptiveTestingDetail({
       const failedCount = result.failed?.length ?? 0;
       if (failedCount > 0) {
         notifications.show(
-          `Generated ${generateResult.generated} outputs. Evaluated ${result.evaluated} tests; ${failedCount} failed.`,
+          `Evaluated ${result.evaluated} tests${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}; ${failedCount} failed.`,
           { severity: 'warning' }
         );
       } else {
         notifications.show(
-          `Generated ${generateResult.generated} outputs. Evaluated ${result.evaluated} test(s) successfully.`,
+          `Evaluated ${result.evaluated} test(s) successfully${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}.`,
           { severity: 'success' }
         );
       }
@@ -2091,6 +2090,45 @@ export default function AdaptiveTestingDetail({
       }
     );
   }, [sessionToken, testSetId]);
+
+  const openSuggestionGuidance = useCallback(() => {
+    setSuggestionGuidanceDraft('');
+    setSuggestionGuidanceStep('choose');
+    setSuggestionGuidanceDialogOpen(true);
+  }, []);
+
+  const closeSuggestionGuidanceDialog = useCallback(() => {
+    setSuggestionGuidanceDialogOpen(false);
+    setSuggestionGuidanceStep('choose');
+  }, []);
+
+  /** Generate immediately without optional user guidance. */
+  const handleSuggestionGuidanceGenerateNow = useCallback(() => {
+    setSuggestionsUserFeedback(null);
+    closeSuggestionGuidanceDialog();
+    setSuggestionsDialogOpen(true);
+  }, [closeSuggestionGuidanceDialog]);
+
+  const handleSuggestionGuidanceSpecifyGuide = useCallback(() => {
+    setSuggestionGuidanceStep('guide');
+  }, []);
+
+  const handleSuggestionGuidanceBackToChoose = useCallback(() => {
+    setSuggestionGuidanceStep('choose');
+  }, []);
+
+  /** After user chose to specify guide: run generation with trimmed feedback (may be empty). */
+  const handleSuggestionGuidanceGenerateWithGuide = useCallback(() => {
+    const trimmed = suggestionGuidanceDraft.trim();
+    setSuggestionsUserFeedback(trimmed || null);
+    closeSuggestionGuidanceDialog();
+    setSuggestionsDialogOpen(true);
+  }, [suggestionGuidanceDraft, closeSuggestionGuidanceDialog]);
+
+  const handleSuggestionsDialogClose = useCallback(() => {
+    setSuggestionsDialogOpen(false);
+    setSuggestionsUserFeedback(null);
+  }, []);
 
   const handleEditTestOpen = (test: TestNode) => {
     setEditingTest(test);
@@ -2381,7 +2419,7 @@ export default function AdaptiveTestingDetail({
           }
         );
       }
-    } catch (err) {
+    } catch (_err) {
       // Complete failure fallback
       setTests(previousTests);
       notifications.show(
@@ -2829,11 +2867,19 @@ export default function AdaptiveTestingDetail({
               </Typography>
               <Button
                 size="small"
+                startIcon={<PlayArrowIcon />}
+                onClick={() => handleGenerateOutputsOpen(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                Generate outputs
+              </Button>
+              <Button
+                size="small"
                 startIcon={<GradingIcon />}
                 onClick={() => handleEvaluateOpen(true)}
                 sx={{ textTransform: 'none' }}
               >
-                Re-evaluate
+                Generate evaluations
               </Button>
               <Button
                 size="small"
@@ -2846,7 +2892,7 @@ export default function AdaptiveTestingDetail({
               <Button
                 size="small"
                 startIcon={<AutoAwesomeIcon />}
-                onClick={() => setSuggestionsDialogOpen(true)}
+                onClick={openSuggestionGuidance}
                 sx={{ textTransform: 'none' }}
               >
                 Suggest tests
@@ -2898,11 +2944,19 @@ export default function AdaptiveTestingDetail({
           >
             <Button
               size="small"
+              startIcon={<PlayArrowIcon />}
+              onClick={() => handleGenerateOutputsOpen(true)}
+              sx={{ textTransform: 'none' }}
+            >
+              Generate outputs
+            </Button>
+            <Button
+              size="small"
               startIcon={<GradingIcon />}
               onClick={() => handleEvaluateOpen(true)}
               sx={{ textTransform: 'none' }}
             >
-              Re-evaluate
+              Generate evaluations
             </Button>
             <Button
               size="small"
@@ -2915,7 +2969,7 @@ export default function AdaptiveTestingDetail({
             <Button
               size="small"
               startIcon={<AutoAwesomeIcon />}
-              onClick={() => setSuggestionsDialogOpen(true)}
+              onClick={openSuggestionGuidance}
               sx={{ textTransform: 'none' }}
             >
               Suggest tests
@@ -3188,25 +3242,6 @@ export default function AdaptiveTestingDetail({
               sx={{ display: 'block' }}
             />
           )}
-          <Box sx={{ mt: 1 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={generateOutputsOverwrite}
-                  onChange={e => setGenerateOutputsOverwrite(e.target.checked)}
-                />
-              }
-              label="Overwrite existing outputs"
-            />
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', ml: 4, mt: -0.5 }}
-            >
-              When unchecked, only tests without existing outputs will be
-              processed.
-            </Typography>
-          </Box>
         </DialogContent>
         <DialogActions>
           <Button
@@ -3239,11 +3274,12 @@ export default function AdaptiveTestingDetail({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Re-evaluate tests</DialogTitle>
+        <DialogTitle>Generate evaluations</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Generate outputs and evaluate all matching tests. This will
-            overwrite any existing outputs and evaluation results.
+            Run the metric configured in adaptive testing settings against each
+            test&apos;s stored input and output, and persist the evaluation
+            results in test metadata.
           </Typography>
           {evaluateError && (
             <Alert
@@ -3313,7 +3349,7 @@ export default function AdaptiveTestingDetail({
               )
             }
           >
-            {evaluateSubmitting ? 'Re-evaluating…' : 'Re-evaluate'}
+            {evaluateSubmitting ? 'Generating…' : 'Generate evaluations'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -3337,8 +3373,9 @@ export default function AdaptiveTestingDetail({
           </Typography>
           {settingsReEvaluateWarning && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              To keep results consistent with a new endpoint or metric,
-              Re-evaluate all tests in this set.
+              To keep results consistent with a new endpoint or metric, use
+              Generate outputs and Generate evaluations for all tests in this
+              set.
             </Alert>
           )}
           {settingsError && (
@@ -3442,13 +3479,85 @@ export default function AdaptiveTestingDetail({
         ) : null}
       </Dialog>
 
+      {/* Optional user guidance before generating suggestions */}
+      <Dialog
+        open={suggestionGuidanceDialogOpen}
+        onClose={closeSuggestionGuidanceDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Suggest tests</DialogTitle>
+        <DialogContent>
+          {suggestionGuidanceStep === 'choose' ? (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                New suggestions are generated from examples in this test set.
+                Choose whether to run generation now, or add guidance first for
+                how the model should shape suggestions.
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Describe how suggestions should be generated. This is sent to
+                the model together with your existing tests.
+              </Typography>
+              <TextField
+                autoFocus
+                multiline
+                minRows={3}
+                fullWidth
+                label="Generation guide"
+                placeholder="e.g., Focus on edge cases for date parsing..."
+                value={suggestionGuidanceDraft}
+                onChange={e => setSuggestionGuidanceDraft(e.target.value)}
+                inputProps={{ maxLength: 1000 }}
+                helperText="Up to 1000 characters."
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {suggestionGuidanceStep === 'choose' ? (
+            <>
+              <Button onClick={closeSuggestionGuidanceDialog}>Cancel</Button>
+              <Button
+                variant="outlined"
+                onClick={handleSuggestionGuidanceSpecifyGuide}
+              >
+                Specify guide
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSuggestionGuidanceGenerateNow}
+              >
+                Generate
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={handleSuggestionGuidanceBackToChoose}>
+                Back
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSuggestionGuidanceGenerateWithGuide}
+              >
+                Generate
+              </Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
+
       {/* Suggestions dialog */}
       <SuggestionsDialog
         open={suggestionsDialogOpen}
-        onClose={() => setSuggestionsDialogOpen(false)}
+        onClose={handleSuggestionsDialogClose}
         testSetId={testSetId}
         sessionToken={sessionToken}
         topic={selectedTopicForApi}
+        userFeedback={suggestionsUserFeedback}
         onTestAccepted={handleSuggestionAccepted}
       />
     </Box>

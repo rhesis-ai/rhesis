@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+} from 'react';
 import {
   Box,
   Typography,
@@ -14,19 +20,24 @@ import {
   Chip,
   Tooltip,
   IconButton,
+  TextField,
+  Collapse,
 } from '@mui/material';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
 import {
+  type AdaptiveMetricEvalDetail,
   SuggestedTest,
   TestNodeCreate,
 } from '@/utils/api-client/interfaces/adaptive-testing';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 
 interface SuggestionRow extends SuggestedTest {
   _id: string;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
 }
 
 type PipelineStep = 'suggestions' | 'outputs' | 'evaluate' | null;
@@ -52,6 +63,8 @@ interface SuggestionsDialogProps {
   testSetId: string;
   sessionToken: string;
   topic: string | null;
+  /** Optional user guidance passed to generate_suggestions (LLM prompt). */
+  userFeedback?: string | null;
   onTestAccepted: () => void;
 }
 
@@ -61,6 +74,7 @@ export default function SuggestionsDialog({
   testSetId,
   sessionToken,
   topic,
+  userFeedback = null,
   onTestAccepted,
 }: SuggestionsDialogProps) {
   const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
@@ -72,8 +86,18 @@ export default function SuggestionsDialog({
   const [currentStep, setCurrentStep] = useState<PipelineStep>(null);
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
   const hasStarted = useRef(false);
+  /** Guide text used for generate + regenerate (editable without closing dialog). */
+  const [regenerationGuide, setRegenerationGuide] = useState('');
+  const [guideEditorOpen, setGuideEditorOpen] = useState(false);
 
   const notifications = useNotifications();
+
+  useLayoutEffect(() => {
+    if (open) {
+      setRegenerationGuide(userFeedback ?? '');
+      setGuideEditorOpen(false);
+    }
+  }, [open, userFeedback]);
 
   const handleClose = () => {
     if (!loading && !outputsLoading && !evaluateLoading) {
@@ -89,10 +113,12 @@ export default function SuggestionsDialog({
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const client = clientFactory.getAdaptiveTestingClient();
+      const trimmedFeedback = regenerationGuide.trim();
       const suggestionsResult = await client.generateSuggestions(testSetId, {
         topic: topic ?? undefined,
         num_examples: 10,
         num_suggestions: 20,
+        ...(trimmedFeedback ? { user_feedback: trimmedFeedback } : {}),
       });
       const rows: SuggestionRow[] = suggestionsResult.suggestions.map(
         (s, idx) => ({
@@ -172,7 +198,12 @@ export default function SuggestionsDialog({
 
           const evalMap = new Map<
             string,
-            { label: string; labeler: string; model_score: number }
+            {
+              label: string;
+              labeler: string;
+              model_score: number;
+              metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+            }
           >();
           for (const r of evaluateResult.results) {
             if (!r.error) {
@@ -180,6 +211,7 @@ export default function SuggestionsDialog({
                 label: r.label,
                 labeler: r.labeler,
                 model_score: r.model_score,
+                metrics: r.metrics,
               });
             }
           }
@@ -228,8 +260,9 @@ export default function SuggestionsDialog({
       setOutputsLoading(false);
       setEvaluateLoading(false);
     }
+    // notifications.show is stable; omit to avoid unnecessary effect churn
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, testSetId, topic]);
+  }, [sessionToken, testSetId, topic, regenerationGuide]);
 
   useEffect(() => {
     if (open && !hasStarted.current) {
@@ -335,18 +368,21 @@ export default function SuggestionsDialog({
       align: 'center',
       headerAlign: 'center',
       renderCell: (params: GridRenderCellParams) => {
-        const label = params.row.label;
+        const row = params.row as SuggestionRow;
+        const label = row.label;
         const score = params.value;
         if (!label) {
           return <Chip label="N/A" size="small" variant="outlined" />;
         }
         return (
-          <Chip
-            label={score != null ? score.toFixed(2) : 'N/A'}
-            size="small"
-            color={score != null ? getScoreColor(score) : 'default'}
-            variant={score != null ? 'filled' : 'outlined'}
-          />
+          <ScoreMetricsTooltip metrics={row.metrics}>
+            <Chip
+              label={score != null ? score.toFixed(2) : 'N/A'}
+              size="small"
+              color={score != null ? getScoreColor(score) : 'default'}
+              variant={score != null ? 'filled' : 'outlined'}
+            />
+          </ScoreMetricsTooltip>
         );
       },
     },
@@ -449,6 +485,27 @@ export default function SuggestionsDialog({
           </Box>
         )}
 
+        <Collapse in={guideEditorOpen}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Optional text sent to the model with your examples. Used for the
+              next generate / regenerate run.
+            </Typography>
+            <TextField
+              multiline
+              minRows={3}
+              fullWidth
+              label="Generation guide"
+              placeholder="e.g., Focus on edge cases for date parsing..."
+              value={regenerationGuide}
+              onChange={e => setRegenerationGuide(e.target.value)}
+              inputProps={{ maxLength: 1000 }}
+              helperText="Up to 1000 characters."
+              disabled={isProcessing}
+            />
+          </Box>
+        </Collapse>
+
         <BaseDataGrid
           columns={columns}
           rows={suggestions}
@@ -463,14 +520,23 @@ export default function SuggestionsDialog({
           persistState={false}
         />
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
         <Button onClick={handleClose} disabled={isProcessing}>
           Close
         </Button>
         <Button
           variant="outlined"
+          onClick={() => setGuideEditorOpen(v => !v)}
+          disabled={isProcessing}
+          sx={{ textTransform: 'none' }}
+        >
+          {guideEditorOpen ? 'Hide guide' : 'Generation guide'}
+        </Button>
+        <Button
+          variant="outlined"
           onClick={handleGenerate}
           disabled={isProcessing}
+          sx={{ textTransform: 'none' }}
         >
           Regenerate
         </Button>

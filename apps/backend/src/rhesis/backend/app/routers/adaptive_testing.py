@@ -650,6 +650,7 @@ async def evaluate_tests(
                 label=r["label"],
                 labeler=r["labeler"],
                 model_score=r["model_score"],
+                metrics=r.get("metrics"),
             )
             for r in result["results"]
         ],
@@ -691,6 +692,7 @@ def generate_suggestions_endpoint(
             topic=body.topic,
             num_examples=body.num_examples,
             num_suggestions=body.num_suggestions,
+            user_feedback=body.user_feedback,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -804,6 +806,7 @@ async def evaluate_suggestions_endpoint(
                 label=r["label"],
                 labeler=r["labeler"],
                 model_score=r["model_score"],
+                metrics=r.get("metrics"),
                 error=r.get("error"),
             )
             for r in result["results"]

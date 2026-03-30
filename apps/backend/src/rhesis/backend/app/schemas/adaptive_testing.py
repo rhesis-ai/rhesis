@@ -1,6 +1,6 @@
 """Schemas for adaptive testing API (generate outputs, evaluate, etc.)."""
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, Field
 
@@ -59,6 +59,15 @@ class EvaluateRequest(Base):
     overwrite: bool = False
 
 
+class AdaptiveMetricEvalDetail(BaseModel):
+    """Per-metric evaluation row (keyed by metric name on the parent model)."""
+
+    score: float
+    is_successful: bool
+    reason: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+
+
 class EvaluateResultItem(BaseModel):
     """One test that was evaluated successfully."""
 
@@ -66,6 +75,7 @@ class EvaluateResultItem(BaseModel):
     label: str
     labeler: str
     model_score: float
+    metrics: Optional[Dict[str, AdaptiveMetricEvalDetail]] = None
 
 
 class EvaluateFailedItem(BaseModel):
@@ -104,6 +114,11 @@ class GenerateSuggestionsRequest(Base):
         ge=1,
         le=100,
         description="Number of new test suggestions to generate",
+    )
+    user_feedback: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+        description="Optional user guidance to steer suggestion generation",
     )
 
 
@@ -185,6 +200,7 @@ class SuggestionEvalItem(BaseModel):
     label: str = ""
     labeler: str = ""
     model_score: float = 0.0
+    metrics: Optional[Dict[str, AdaptiveMetricEvalDetail]] = None
     error: Optional[str] = None
 
 

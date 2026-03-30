@@ -1,6 +1,6 @@
 import uuid
 from functools import cached_property
-from typing import Iterator, List, Literal, Optional
+from typing import Any, Dict, Iterator, List, Literal, Optional
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -14,6 +14,7 @@ class TestTreeNode(BaseModel):
     labeler: str = ""
     to_eval: bool = True
     model_score: float = 0.0
+    metrics: Optional[Dict[str, Any]] = None
 
 
 class TestTreeData:

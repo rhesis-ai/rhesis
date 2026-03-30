@@ -78,6 +78,9 @@ class TestEvaluateTestsForAdaptiveSet:
             assert "label" in item
             assert "labeler" in item
             assert "model_score" in item
+            assert "metrics" in item
+            assert item["metrics"]["TestMetric"]["score"] == 0.9
+            assert item["metrics"]["TestMetric"]["is_successful"] is True
             assert item["label"] in ("pass", "fail")
             assert item["labeler"] == metric.name
 
@@ -118,6 +121,8 @@ class TestEvaluateTestsForAdaptiveSet:
             assert meta["label"] == "fail"
             assert meta["labeler"] == "PersistMetric"
             assert meta["model_score"] == 0.3
+            assert meta["metrics"]["PersistMetric"]["score"] == 0.3
+            assert meta["metrics"]["PersistMetric"]["is_successful"] is False
 
     async def test_evaluate_metric_does_not_exist_raises(
         self,
