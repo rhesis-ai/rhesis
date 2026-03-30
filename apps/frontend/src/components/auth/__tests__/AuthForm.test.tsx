@@ -65,9 +65,7 @@ async function renderAndWaitForLoad(props: { isRegistration?: boolean } = {}) {
   mockFetch(makeProvidersResponse());
   render(<AuthForm {...props} />);
   await screen.findByText(
-    props.isRegistration
-      ? 'Create your account'
-      : 'All paws on deck for testing!'
+    props.isRegistration ? 'Create your account' : 'Welcome'
   );
 }
 
@@ -99,9 +97,7 @@ describe('AuthForm — loading and error states', () => {
 describe('AuthForm — login mode', () => {
   it('renders the login headline and primary buttons after loading', async () => {
     await renderAndWaitForLoad();
-    expect(
-      screen.getByText('All paws on deck for testing!')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Welcome')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /continue with email/i })
     ).toBeInTheDocument();
@@ -213,7 +209,7 @@ describe('AuthForm — login mode', () => {
       } as unknown as Response);
 
     render(<AuthForm />);
-    await screen.findByText('All paws on deck for testing!');
+    await screen.findByText('Welcome');
 
     await user.click(screen.getByRole('checkbox'));
     await user.click(
@@ -244,7 +240,7 @@ describe('AuthForm — login mode', () => {
       } as unknown as Response);
 
     render(<AuthForm />);
-    await screen.findByText('All paws on deck for testing!');
+    await screen.findByText('Welcome');
 
     await user.click(screen.getByRole('checkbox'));
     await user.click(
@@ -280,7 +276,7 @@ describe('AuthForm — login mode', () => {
       } as unknown as Response);
 
     render(<AuthForm />);
-    await screen.findByText('All paws on deck for testing!');
+    await screen.findByText('Welcome');
 
     await user.click(screen.getByRole('checkbox'));
     await user.click(

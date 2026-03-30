@@ -8,3 +8,9 @@ variable "region" {
   type        = string
 }
 
+variable "gke_deletion_protection" {
+  description = "Enable deletion protection for GKE cluster"
+  type        = bool
+  default     = false
+}
+

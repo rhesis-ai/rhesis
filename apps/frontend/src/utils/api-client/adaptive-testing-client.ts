@@ -83,6 +83,16 @@ export class AdaptiveTestingClient extends BaseApiClient {
   }
 
   /**
+   * Delete a test set configured for adaptive testing.
+   * @param testSetId The test set identifier (UUID, nano_id, or slug)
+   */
+  async deleteAdaptiveTestSet(testSetId: string): Promise<void> {
+    return this.fetch<void>(`${API_ENDPOINTS.adaptiveTesting}/${testSetId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /**
    * Get the full adaptive testing tree for a test set.
    * Returns all nodes including both test nodes and topic markers.
    * @param testSetId The test set identifier (UUID, nano_id, or slug)

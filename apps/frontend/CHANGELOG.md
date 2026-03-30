@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10] - 2026-03-23
+
+### Added
+
+- Redesigned login and register pages with a white-dominant design, floating auth card, decorative SVG background, top nav bar, and hero copy.
+- Added the ability to delete adaptive testing test sets.
+- Added an "Attachments" column to the tests grid, displaying the number of file attachments for each test.
+- Added overwrite functionality for test generation and evaluation in adaptive testing.
+- Added bulk delete functionality for tests in the AdaptiveTestingDetail component.
+- Added evaluate endpoint and UI for adaptive testing.
+- Added suggestion generation and evaluation endpoints for adaptive testing.
+- Added file attachments to conversation message bubbles in test runs.
+- Added NIST-aligned password hardening with zxcvbn strength scoring, context-specific word blocking, and HaveIBeenPwned breach checks.
+- Added E2E test coverage for playground, metrics CRUD, test run result actions, and onboarding.
+- Added E2E test coverage across 16 new spec files.
+
+### Changed
+
+- Updated password policy to align with NIST guidelines, requiring a minimum password length of 12 characters and a minimum strength score.
+- Improved error handling for rate-limit and registration errors.
+- Updated vulnerable dependencies to address security alerts.
+- Enhanced adaptive testing output generation and evaluation with overwrite options.
+- Improved metric evaluation and scope filtering in adaptive testing.
+- Centralized enum constants and fixed migration syntax.
+- Refactored adaptive testing code for improved readability and consistency.
+- Consolidated API calls and removed redundant fetches to optimize backend performance.
+- Replaced complex SQLAlchemy queries with PostgreSQL views for improved performance.
+- Reverted to the original single-row layout for the SearchAndFilterBar.
+
+### Fixed
+
+- Fixed a bug where advanced filters showed metrics from all linked behaviors instead of those evaluated in the current test run.
+- Fixed a bug where selecting a metric in advanced filters produced 0 results due to a name mismatch.
+- Fixed test run stats display, ensuring accurate reporting even with partial API responses.
+- Fixed "no runs yet" flicker on the test-runs page.
+- Fixed search functionality on the test run detail page.
+- Fixed Garak dynamic import dialog auto-closing on completion.
+- Fixed an issue where calculating the pass rate for a test run relied on `first()` returning the correct `Status` record.
+- Fixed counts including soft-deleted records.
+- Fixed MCP auth to use the system default model and corrected credential testing for HTTP providers.
+- Fixed Notion integration link to the internal integrations page.
+- Fixed tests grid random reordering with stable secondary sort.
+- Fixed onboarding StaleDataError caused by RLS session variable loss after db.commit().
+- Fixed broken filter layout on the metrics overview page.
+- Fixed an issue where the TraceDrawer opened with the wrong turn selected in test runs.
+- Fixed a Jinja2 rendering issue where `file_contents` was rendered as the string "None" instead of Python None.
+- Fixed a potential TypeError in TestRunCharts data generators by adding defensive null checks.
+- Fixed a potential ValueError in `get_test_run_metrics` by guarding the organization_id UUID conversion.
+- Fixed a potential issue where the debounced sync effect in OnboardingContext could schedule a redundant DB write.
+- Fixed a potential issue where the initialSelectedTestId deep-link page was overridden on mount.
+
+### Removed
+
+- Removed assignee and owner fields from the test run configuration.
+
 ## [0.6.9] - 2026-03-12
 
 ### Added

@@ -9,6 +9,8 @@ echo "BROKER_URL exists: $(if [ ! -z "$BROKER_URL" ]; then echo "yes"; else echo
 echo "CELERY_RESULT_BACKEND exists: $(if [ ! -z "$CELERY_RESULT_BACKEND" ]; then echo "yes"; else echo "no"; fi)"
 echo "SQLALCHEMY_DATABASE_URL exists: $(if [ ! -z "$SQLALCHEMY_DATABASE_URL" ]; then echo "yes"; else echo "no"; fi)"
 echo "Worker environment: ${WORKER_ENV:-not_set}"
+echo "Git branch: ${GIT_BRANCH:-unknown}"
+echo "Git commit: ${GIT_COMMIT:-unknown}"
 echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
 echo "Celery worker max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500}"
 

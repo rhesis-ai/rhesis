@@ -447,6 +447,82 @@ class TestCreateAdaptiveTestSetEndpoint:
 
 @pytest.mark.integration
 @pytest.mark.routes
+class TestDeleteAdaptiveTestSetEndpoint:
+    """Test DELETE /adaptive_testing/{test_set_identifier}"""
+
+    def test_delete_existing_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """DELETE returns 200 and TestSet schema."""
+        create_resp = authenticated_client.post(
+            "/adaptive_testing",
+            json={"name": "Delete Me Set", "description": "x"},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        created_id = create_resp.json()["id"]
+
+        response = authenticated_client.delete(f"/adaptive_testing/{created_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["id"] == created_id
+        assert data["name"] == "Delete Me Set"
+
+    def test_deleted_set_not_in_list(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """After DELETE, set is absent from GET /adaptive_testing."""
+        create_resp = authenticated_client.post(
+            "/adaptive_testing",
+            json={"name": "Gone From List", "description": None},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        created_id = create_resp.json()["id"]
+
+        del_resp = authenticated_client.delete(f"/adaptive_testing/{created_id}")
+        assert del_resp.status_code == status.HTTP_200_OK
+
+        list_resp = authenticated_client.get("/adaptive_testing")
+        assert list_resp.status_code == status.HTTP_200_OK
+        ids = {item["id"] for item in list_resp.json()}
+        assert created_id not in ids
+
+    def test_delete_nonexistent_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Unknown UUID returns 404."""
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.delete(f"/adaptive_testing/{fake_id}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_unauthenticated(
+        self,
+        client: TestClient,
+    ):
+        """Unauthenticated DELETE is rejected."""
+        fake_id = str(uuid.uuid4())
+        response = client.delete(f"/adaptive_testing/{fake_id}")
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
+
+    def test_delete_non_adaptive_test_set(
+        self,
+        authenticated_client: TestClient,
+        adaptive_and_regular_test_sets,
+    ):
+        """Regular test set cannot be deleted via adaptive endpoint."""
+        regular_id = str(adaptive_and_regular_test_sets["regular"].id)
+        response = authenticated_client.delete(f"/adaptive_testing/{regular_id}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.integration
+@pytest.mark.routes
 class TestAdaptiveTestingTreeEndpoint:
     """Test GET /adaptive_testing/{test_set_id}/tree"""
 

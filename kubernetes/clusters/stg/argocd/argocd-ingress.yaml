@@ -1,0 +1,26 @@
+# Exposes the ArgoCD dashboard UI. TLS is terminated at the ingress; ArgoCD server runs HTTP (server.insecure).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-ingress
+  namespace: argocd
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: internal
+  tls:
+    - hosts:
+        - argocd.stg.rhesis.ai
+      secretName: argocd-tls
+  rules:
+    - host: argocd.stg.rhesis.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80
