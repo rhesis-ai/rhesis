@@ -83,9 +83,10 @@ describe('AdaptiveTestingClient', () => {
 
     await client.getAdaptiveSettings(TEST_SET_ID);
 
-    const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/adaptive_testing/${TEST_SET_ID}/settings`);
-    expect(opts.method).toBe('GET');
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/settings`),
+      expect.objectContaining({ cache: 'no-store' })
+    );
   });
 
   it('updates adaptive settings for a test set', async () => {

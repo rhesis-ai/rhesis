@@ -1894,15 +1894,17 @@ class TestEvaluateEndpoint:
             status.HTTP_403_FORBIDDEN,
         ]
 
-    def test_evaluate_missing_metric_names_validation(
+    def test_evaluate_no_metrics_when_unconfigured_returns_400(
         self,
         authenticated_client: TestClient,
         adaptive_test_set,
     ):
-        """POST without metric_names returns 422 validation error."""
+        """POST with no metric_names falls back to test set metrics; 400 if none."""
         response = authenticated_client.post(
             f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
             json={},
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        detail = response.json().get("detail", "").lower()
+        assert "metric" in detail
