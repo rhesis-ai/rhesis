@@ -42,33 +42,64 @@ def upgrade() -> None:
         )
     )
 
-    # 1. Add status_id column to embedding
+    # 1. Drop partial indexes that reference the legacy 'status' string column before dropping it.
+    # PostgreSQL forbids dropping a column that is referenced by an index.
+    op.drop_index("idx_active_model_config", table_name="embedding")
+    op.drop_index("idx_active_entity_model_config", table_name="embedding")
+
+    # 2. Add status_id column to embedding
     op.add_column(
         "embedding",
         sa.Column("status_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
     )
     op.create_foreign_key("fk_embedding_status_id", "embedding", "status", ["status_id"], ["id"])
 
-    # 2. Make status_id non-nullable and drop legacy string status column
+    # 3. Make status_id non-nullable and drop legacy string status column
     # (No data backfill is needed because the table is guaranteed to be empty at this point)
     op.alter_column("embedding", "status_id", nullable=False)
     op.drop_column("embedding", "status")
 
+    # 4. Recreate as composite indexes including status_id.
+    # Partial indexes with subqueries are forbidden by PostgreSQL; status_id is now a FK UUID
+    # that varies per organization, so we include it as a regular index column instead.
+    op.create_index(
+        "idx_active_model_config", "embedding", ["model_id", "config_hash", "status_id"]
+    )
+    op.create_index(
+        "idx_active_entity_model_config",
+        "embedding",
+        ["entity_type", "model_id", "config_hash", "status_id"],
+    )
+
 
 def downgrade() -> None:
-    # 1. Add back the legacy string status column
+    # 1. Drop composite indexes before restoring the legacy string status column
+    op.drop_index("idx_active_model_config", table_name="embedding")
+    op.drop_index("idx_active_entity_model_config", table_name="embedding")
+
+    # 2. Add back the legacy string status column
     op.add_column(
         "embedding",
         sa.Column("status", sa.String(length=20), server_default="active", nullable=True),
     )
 
-    # 2. Make string status non-nullable
+    # 3. Make string status non-nullable
     # (No data backfill is needed because the table is guaranteed to be empty at this point)
     op.alter_column("embedding", "status", nullable=False)
 
-    # 3. Drop status_id column
+    # 4. Drop status_id column
     op.drop_constraint("fk_embedding_status_id", "embedding", type_="foreignkey")
     op.drop_column("embedding", "status_id")
+
+    # 5. Recreate original partial indexes referencing the restored string status column
+    op.execute(
+        "CREATE INDEX idx_active_model_config ON embedding (model_id, config_hash)"
+        " WHERE status = 'active'"
+    )
+    op.execute(
+        "CREATE INDEX idx_active_entity_model_config ON embedding"
+        " (entity_type, model_id, config_hash) WHERE status = 'active'"
+    )
 
     op.execute(
         load_cleanup_status_template(
