@@ -73,7 +73,7 @@ def _get_test_set_tests_from_db(
             skip=skip,
             limit=page_size,
             sort_by="created_at",
-            sort_order="asc",
+            sort_order="desc",
         )
         all_tests.extend(items)
 
