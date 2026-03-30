@@ -1635,9 +1635,9 @@ export default function AdaptiveTestingDetail({
     endpointName: string | null;
     metrics: { id: string; name: string; hasDetailPage: boolean }[];
   } | null>(null);
-  const [metricEditorMetricId, setMetricEditorMetricId] = useState<string | null>(
-    null
-  );
+  const [metricEditorMetricId, setMetricEditorMetricId] = useState<
+    string | null
+  >(null);
 
   const theme = useTheme();
   const notifications = useNotifications();
@@ -2652,9 +2652,7 @@ export default function AdaptiveTestingDetail({
                     mb: 1.25,
                   }}
                 >
-                  <GradingIcon
-                    sx={{ fontSize: 20, color: 'text.secondary' }}
-                  />
+                  <GradingIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
                   <Typography
                     variant="overline"
                     color="text.secondary"
@@ -2684,7 +2682,10 @@ export default function AdaptiveTestingDetail({
                             py: 0.75,
                             maxWidth: { xs: '100%', sm: 'calc(100% - 140px)' },
                             fontWeight: 500,
-                            borderColor: alpha(theme.palette.primary.main, 0.35),
+                            borderColor: alpha(
+                              theme.palette.primary.main,
+                              0.35
+                            ),
                             bgcolor: alpha(theme.palette.primary.main, 0.06),
                             '& .MuiChip-label': {
                               whiteSpace: 'normal',
