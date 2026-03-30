@@ -107,14 +107,15 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
             name="ck_embedding_exactly_one_embedding",
         ),
         # Unique constraint: one embedding per entity/text/config/status combination
-        UniqueConstraint(
+        Index(
+            "uq_embedding_dedup",
             "organization_id",
             "entity_id",
             "entity_type",
             "config_hash",
             "text_hash",
             "status_id",
-            name="uq_embedding_dedup",
+            unique=True,
         ),
         # Cross-entity-type search: model_id, config_hash, and status
         Index(
