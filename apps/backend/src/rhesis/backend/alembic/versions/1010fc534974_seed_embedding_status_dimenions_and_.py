@@ -54,12 +54,28 @@ def upgrade() -> None:
     )
     op.create_foreign_key("fk_embedding_status_id", "embedding", "status", ["status_id"], ["id"])
 
-    # 3. Make status_id non-nullable and drop legacy string status column
-    # (No data backfill is needed because the table is guaranteed to be empty at this point)
+    # 3. Backfill status_id from legacy status string column
+    # Map legacy string values to new Status records
+    op.execute("""
+        UPDATE embedding
+        SET status_id = (
+            SELECT s.id
+            FROM status s
+            WHERE s.entity_type = 'Embedding'
+            AND s.name = CASE
+                WHEN embedding.status = 'active' THEN 'Active'
+                WHEN embedding.status = 'stale' THEN 'Stale'
+                ELSE 'Active'  -- Default fallback
+            END
+        )
+        WHERE status_id IS NULL
+    """)
+
+    # 4. Make status_id non-nullable and drop legacy string status column
     op.alter_column("embedding", "status_id", nullable=False)
     op.drop_column("embedding", "status")
 
-    # 4. Recreate as composite indexes including status_id.
+    # 5. Recreate as composite indexes including status_id.
     # Partial indexes with subqueries are forbidden by PostgreSQL; status_id is now a FK UUID
     # that varies per organization, so we include it as a regular index column instead.
     op.create_index(
@@ -83,15 +99,26 @@ def downgrade() -> None:
         sa.Column("status", sa.String(length=20), server_default="active", nullable=True),
     )
 
-    # 3. Make string status non-nullable
-    # (No data backfill is needed because the table is guaranteed to be empty at this point)
+    # 3. Backfill legacy status column from status_id relationship
+    op.execute("""
+        UPDATE embedding
+        SET status = CASE
+            WHEN s.name = 'Active' THEN 'active'
+            WHEN s.name = 'Stale' THEN 'stale'
+            ELSE 'active'  -- Default fallback
+        END
+        FROM status s
+        WHERE embedding.status_id = s.id AND embedding.status IS NULL
+    """)
+
+    # 4. Make string status non-nullable
     op.alter_column("embedding", "status", nullable=False)
 
-    # 4. Drop status_id column
+    # 5. Drop status_id column
     op.drop_constraint("fk_embedding_status_id", "embedding", type_="foreignkey")
     op.drop_column("embedding", "status_id")
 
-    # 5. Recreate original partial indexes referencing the restored string status column
+    # 6. Recreate original partial indexes referencing the restored string status column
     op.execute(
         "CREATE INDEX idx_active_model_config ON embedding (model_id, config_hash)"
         " WHERE status = 'active'"
