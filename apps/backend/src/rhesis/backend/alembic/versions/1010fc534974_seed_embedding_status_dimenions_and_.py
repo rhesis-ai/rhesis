@@ -1,7 +1,9 @@
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
+import rhesis.backend.app.models.guid
 from rhesis.backend.alembic.utils.template_loader import (
     load_cleanup_status_template,
     load_cleanup_type_lookup_template,
@@ -11,7 +13,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 
 # revision identifiers, used by Alembic.
 revision: str = "1010fc534974"
-down_revision: Union[str, None] = "8993eecbb913"
+down_revision: Union[str, None] = "c5f354e261ce"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -40,8 +42,34 @@ def upgrade() -> None:
         )
     )
 
+    # 1. Add status_id column to embedding
+    op.add_column(
+        "embedding",
+        sa.Column("status_id", rhesis.backend.app.models.guid.GUID(), nullable=True),
+    )
+    op.create_foreign_key("fk_embedding_status_id", "embedding", "status", ["status_id"], ["id"])
+
+    # 2. Make status_id non-nullable and drop legacy string status column
+    # (No data backfill is needed because the table is guaranteed to be empty at this point)
+    op.alter_column("embedding", "status_id", nullable=False)
+    op.drop_column("embedding", "status")
+
 
 def downgrade() -> None:
+    # 1. Add back the legacy string status column
+    op.add_column(
+        "embedding",
+        sa.Column("status", sa.String(length=20), server_default="active", nullable=True),
+    )
+
+    # 2. Make string status non-nullable
+    # (No data backfill is needed because the table is guaranteed to be empty at this point)
+    op.alter_column("embedding", "status", nullable=False)
+
+    # 3. Drop status_id column
+    op.drop_constraint("fk_embedding_status_id", "embedding", type_="foreignkey")
+    op.drop_column("embedding", "status_id")
+
     op.execute(
         load_cleanup_status_template(
             type_name="EntityType",
