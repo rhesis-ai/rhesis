@@ -1018,7 +1018,7 @@ class TestArchitectArgumentValidation:
         agent = _make_agent(mock_model)
         from rhesis.sdk.agents.schemas import ToolCall
 
-        huge = {"data": "x" * (agent.MAX_PAYLOAD_BYTES + 1)}
+        huge = {"data": "x" * (agent._cfg.max_payload_bytes + 1)}
         tc = ToolCall(tool_name="create_test_set_bulk", arguments=json.dumps(huge))
         error = agent._validate_tool_arguments(tc)
         assert error is not None
@@ -1030,7 +1030,7 @@ class TestArchitectArgumentValidation:
 
         tc = ToolCall(
             tool_name="create_behavior",
-            arguments=json.dumps({"description": "y" * (agent.MAX_STRING_VALUE_LEN + 1)}),
+            arguments=json.dumps({"description": "y" * (agent._cfg.max_string_value_len + 1)}),
         )
         error = agent._validate_tool_arguments(tc)
         assert error is not None
@@ -1040,7 +1040,7 @@ class TestArchitectArgumentValidation:
         agent = _make_agent(mock_model)
         from rhesis.sdk.agents.schemas import ToolCall
 
-        items = [{"prompt": {"content": f"test {i}"}} for i in range(agent.MAX_ARRAY_ITEMS + 1)]
+        items = [{"prompt": {"content": f"test {i}"}} for i in range(agent._cfg.max_array_items + 1)]
         tc = ToolCall(
             tool_name="create_test_set_bulk",
             arguments=json.dumps({"tests": items}),
@@ -1074,7 +1074,7 @@ class TestArchitectArgumentValidation:
         agent = _make_agent(mock_model, tools=[tool])
         from rhesis.sdk.agents.schemas import ToolCall
 
-        huge = {"data": "x" * (agent.MAX_PAYLOAD_BYTES + 1)}
+        huge = {"data": "x" * (agent._cfg.max_payload_bytes + 1)}
         tc = ToolCall(tool_name="dummy", arguments=json.dumps(huge))
         result = await agent.execute_tool(tc)
         assert result.success is False

@@ -36,3 +36,13 @@ class InternalTool(StrEnum):
 
     FINISH = "finish"
     ERROR = "error"
+    SAVE_PLAN = "save_plan"
+
+
+class AgentMode(StrEnum):
+    """Lifecycle phases for the ArchitectAgent."""
+
+    DISCOVERY = "discovery"
+    PLANNING = "planning"
+    CREATING = "creating"
+    EXECUTING = "executing"

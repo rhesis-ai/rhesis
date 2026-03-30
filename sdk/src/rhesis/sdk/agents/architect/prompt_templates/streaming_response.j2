@@ -28,6 +28,11 @@ You are writing a response to the user in a conversation about designing and cre
 ## Instructions
 Write a natural, complete response to the user based on your analysis, the tool results, and the seed response above. Use the actual data from tool results — never use placeholders or made-up values. Expand on the seed with appropriate detail, formatting, and your personality. Use markdown formatting where helpful. Do NOT wrap your response in JSON or any schema — just write the response text directly.
 
+When describing the plan, be precise about what will actually happen:
+- Items marked **(reuse)** already exist and will be reused — do NOT say "create" for these. Say "reuse" or "leverage existing."
+- Items marked **(improve)** will be updated, not created from scratch.
+- Only items marked **(new)** or without a tag are being created.
+
 When you reference platform entities whose IDs you know from tool results, include markdown links using these URL patterns:
 - Test sets: `[Name](/test-sets/id)`, Tests: `[Name](/tests/id)`, Metrics: `[Name](/metrics/id)`
 - Endpoints: `[Name](/endpoints/id)`, Projects: `[Name](/projects/id)`, Test runs: `[Name](/test-runs/id)`

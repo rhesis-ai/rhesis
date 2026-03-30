@@ -11,20 +11,27 @@ from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
-from rhesis.sdk.agents.constants import Action, InternalTool, Role, ToolMeta
+from rhesis.sdk.agents.constants import (
+    Action,
+    AgentMode,
+    InternalTool,
+    Role,
+    ToolMeta,
+)
 from rhesis.sdk.agents.events import AgentEventHandler, _emit
-from rhesis.sdk.agents.schemas import AgentAction, ExecutionStep, ToolCall, ToolResult
+from rhesis.sdk.agents.schemas import (
+    AgentAction,
+    ExecutionStep,
+    ToolCall,
+    ToolResult,
+)
 from rhesis.sdk.models.base import BaseLLM
 
-from .plan import ArchitectPlan
+from .config import ArchitectConfig, _default_discovery_state
+from .plan import ArchitectPlan, build_save_plan_tool
+from .tool_registry import mode_for, plan_category_for
 
 logger = logging.getLogger(__name__)
-
-# HTTP methods that are considered read-only.  Used as a fallback
-# when a tool definition lacks an explicit ``requires_confirmation``
-# flag — tools whose HTTP method is not in this set are treated as
-# requiring confirmation.
-_READONLY_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 class ArchitectAgent(BaseAgent):
@@ -49,45 +56,52 @@ class ArchitectAgent(BaseAgent):
         response = architect.chat("Looks good, create everything")
     """
 
+    _SAVE_PLAN_TOOL = build_save_plan_tool()
+
     def __init__(
         self,
         model: Optional[Union[str, BaseLLM]] = None,
         tools: Optional[List[Union[BaseTool, MCPTool]]] = None,
-        max_iterations: int = 15,
+        config: Optional[ArchitectConfig] = None,
+        max_iterations: Optional[int] = None,
         max_tool_executions: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
         history_window: Optional[int] = None,
         verbose: bool = False,
         event_handlers: Optional[List[AgentEventHandler]] = None,
     ):
+        self._cfg = config or ArchitectConfig()
         super().__init__(
             model=model,
             tools=tools,
-            max_iterations=max_iterations,
+            max_iterations=max_iterations or self._cfg.max_iterations,
             max_tool_executions=max_tool_executions,
             timeout_seconds=timeout_seconds,
             history_window=history_window,
             verbose=verbose,
             event_handlers=event_handlers,
-            prompt_templates_dir=(Path(__file__).parent / "prompt_templates"),
+            prompt_templates_dir=(
+                Path(__file__).parent / "prompt_templates"
+            ),
         )
         self._conversation_history: List[Dict[str, Any]] = []
         self._plan: Optional[ArchitectPlan] = None
-        self._mode: str = "discovery"
+        self._mode: AgentMode = AgentMode.DISCOVERY
 
         # ── write-guard state ────────────────────────────────────
         # Two-layer defense:
-        #  Layer 1 (prompt): The system prompt tells the LLM to present
-        #    a plan and ask for confirmation before creating entities.
-        #  Layer 2 (structural): This guard intercepts mutating tool
-        #    calls if the LLM ignores the prompt.  It is a safety net,
-        #    not a replacement for prompt-based control.
+        #  Layer 1 (prompt): The system prompt tells the LLM to
+        #    present a plan and ask for confirmation before
+        #    creating entities.
+        #  Layer 2 (structural): This guard intercepts mutating
+        #    tool calls if the LLM ignores the prompt. It is a
+        #    safety net, not a replacement for prompt-based control.
         #
-        # _confirming_tools: the specific tools that were blocked and
-        #   presented for confirmation.  Only these are unlocked when
-        #   the user replies — not all mutating tools.
-        # _creation_approved: True for the turn immediately after a
-        #   confirmation prompt, False otherwise.
+        # _confirming_tools: specific tools that were blocked and
+        #   presented for confirmation. Only these are unlocked
+        #   when the user replies.
+        # _creation_approved: True for the turn immediately after
+        #   a confirmation prompt, False otherwise.
         # _mutating_tools: lazily built from tool metadata on first
         #   call to get_available_tools().
         self._creation_approved: bool = False
@@ -95,20 +109,14 @@ class ArchitectAgent(BaseAgent):
         self._mutating_tools: Optional[FrozenSet[str]] = None
         self._auto_approve_all: bool = False
 
-        # ── discovery state ───────────────────────────────────────
-        self._discovery_state: Dict[str, Any] = {
-            "endpoint_id": None,
-            "endpoint_name": None,
-            "explored": False,
-            "observations": [],
-            "user_confirmed_areas": [],
-            "open_questions": [],
-        }
+        self._discovery_state: Dict[str, Any] = (
+            _default_discovery_state()
+        )
 
-        # ── per-turn attachments (mentions + file text) ──────────
+        # Per-turn attachments (mentions + file text)
         self._attachments: Optional[Dict[str, Any]] = None
 
-    # ── public API ──────────────────────────────────────────────────
+    # ── public API ───────────────────────────────────────────────
 
     def chat(
         self,
@@ -130,7 +138,9 @@ class ArchitectAgent(BaseAgent):
         Returns:
             The agent's response text.
         """
-        return asyncio.run(self.chat_async(message, attachments=attachments))
+        return asyncio.run(
+            self.chat_async(message, attachments=attachments)
+        )
 
     async def chat_async(
         self,
@@ -140,14 +150,12 @@ class ArchitectAgent(BaseAgent):
         """Async version of chat()."""
         async with self._turn_lock:
             self._attachments = attachments
-            self._conversation_history.append({"role": Role.USER, "content": message})
+            self._conversation_history.append(
+                {"role": Role.USER, "content": message}
+            )
 
             # If the previous turn asked for confirmation, unlock
-            # only the specific tools that were blocked — not all
-            # mutating tools.  The LLM decides whether the user's
-            # message is an approval or a change request; the guard
-            # just ensures at least one confirmation round-trip
-            # happened before any write operation.
+            # only the specific tools that were blocked.
             if self._needs_confirmation and self._confirming_tools:
                 self._creation_approved = True
 
@@ -163,19 +171,25 @@ class ArchitectAgent(BaseAgent):
             try:
                 response = await self._run_loop(message)
 
-                self._conversation_history.append({"role": Role.ASSISTANT, "content": response})
+                self._conversation_history.append(
+                    {"role": Role.ASSISTANT, "content": response}
+                )
 
-                # Reset per-turn state — approval and attachments
-                # are valid for a single turn only.
+                # Reset per-turn state
                 self._creation_approved = False
                 self._attachments = None
 
                 if self.verbose:
-                    print(f"[Architect:{self._mode}] Response: {response[:200]}...")
+                    print(
+                        f"[Architect:{self._mode}] "
+                        f"Response: {response[:200]}..."
+                    )
 
                 return response
             finally:
                 await self._disconnect_tools()
+
+    # ── properties ───────────────────────────────────────────────
 
     @property
     def plan(self) -> Optional[ArchitectPlan]:
@@ -184,20 +198,22 @@ class ArchitectAgent(BaseAgent):
 
     @plan.setter
     def plan(self, value: ArchitectPlan) -> None:
-        """Set the plan and emit a plan_update event."""
+        """Set the plan (without emitting an event)."""
         self._plan = value
 
     async def set_plan_async(self, value: ArchitectPlan) -> None:
-        """Set the plan and emit a plan_update event (async)."""
+        """Set the plan and emit a plan_update event."""
         self._plan = value
-        await _emit(self._event_handlers, "on_plan_update", plan=value)
+        await _emit(
+            self._event_handlers, "on_plan_update", plan=value
+        )
 
     @property
     def mode(self) -> str:
         """Current agent mode."""
         return self._mode
 
-    async def set_mode_async(self, new_mode: str) -> None:
+    async def set_mode_async(self, new_mode: AgentMode) -> None:
         """Transition to a new mode and emit an event."""
         old_mode = self._mode
         if old_mode != new_mode:
@@ -211,7 +227,7 @@ class ArchitectAgent(BaseAgent):
 
     @property
     def discovery_state(self) -> Dict[str, Any]:
-        """Current discovery state (what the agent knows and needs to learn)."""
+        """What the agent knows and still needs to learn."""
         return self._discovery_state
 
     @discovery_state.setter
@@ -220,7 +236,7 @@ class ArchitectAgent(BaseAgent):
 
     @property
     def auto_approve_all(self) -> bool:
-        """Whether all mutating tools are auto-approved (no confirmation)."""
+        """Whether all mutating tools skip confirmation."""
         return self._auto_approve_all
 
     @auto_approve_all.setter
@@ -229,7 +245,7 @@ class ArchitectAgent(BaseAgent):
 
     @property
     def guard_state(self) -> Dict[str, Any]:
-        """Current state of the write-guard (confirmation flow)."""
+        """Snapshot of write-guard state (for serialisation)."""
         return {
             "needs_confirmation": self._needs_confirmation,
             "confirming_tools": list(self._confirming_tools),
@@ -238,78 +254,85 @@ class ArchitectAgent(BaseAgent):
 
     @guard_state.setter
     def guard_state(self, value: Dict[str, Any]) -> None:
-        self._needs_confirmation = value.get("needs_confirmation", False)
-        self._confirming_tools = frozenset(value.get("confirming_tools", []))
-        self._auto_approve_all = value.get("auto_approve_all", False)
+        self._needs_confirmation = value.get(
+            "needs_confirmation", False
+        )
+        self._confirming_tools = frozenset(
+            value.get("confirming_tools", [])
+        )
+        self._auto_approve_all = value.get(
+            "auto_approve_all", False
+        )
 
     def reset(self) -> None:
         """Reset all state for a fresh conversation."""
         self._conversation_history.clear()
         self._execution_history.clear()
         self._plan = None
-        self._mode = "discovery"
+        self._mode = AgentMode.DISCOVERY
         self._creation_approved = False
         self._confirming_tools = frozenset()
         self._mutating_tools = None
         self._auto_approve_all = False
         self._attachments = None
-        self._discovery_state = {
-            "endpoint_id": None,
-            "endpoint_name": None,
-            "explored": False,
-            "observations": [],
-            "user_confirmed_areas": [],
-            "open_questions": [],
-        }
+        self._discovery_state = _default_discovery_state()
 
-    # ── write-guard ────────────────────────────────────────────────
+    # ── write-guard ──────────────────────────────────────────────
 
     async def get_available_tools(self) -> List[Dict[str, Any]]:
-        """Override to discover which tools require confirmation.
+        """Override to inject save_plan and discover mutating tools.
 
         Classification priority:
-        1. Explicit ``requires_confirmation`` flag (from YAML / MCP annotations)
-        2. MCP ``readOnlyHint`` annotation — if True the tool is read-only
-        3. MCP ``destructiveHint`` annotation — if True the tool is mutating
-        4. ``http_method`` (set by LocalToolProvider) — GET/HEAD/OPTIONS are
-           read-only, everything else requires confirmation
+        1. Explicit ``requires_confirmation`` flag
+        2. MCP ``readOnlyHint`` annotation
+        3. MCP ``destructiveHint`` annotation
+        4. ``http_method`` fallback (GET/HEAD/OPTIONS are read-only)
         """
         tools = await super().get_available_tools()
+        tools.append(self._SAVE_PLAN_TOOL)
 
         if self._mutating_tools is None:
-            mutating: Set[str] = set()
-            for t in tools:
-                rc = t.get(ToolMeta.REQUIRES_CONFIRMATION)
-                if rc is not None:
-                    if rc:
-                        mutating.add(t["name"])
-                elif t.get(ToolMeta.READONLY_HINT) is True:
-                    pass
-                elif t.get(ToolMeta.DESTRUCTIVE_HINT) is True:
-                    mutating.add(t["name"])
-                else:
-                    method = t.get(ToolMeta.HTTP_METHOD, "POST").upper()
-                    if method not in _READONLY_HTTP_METHODS:
-                        mutating.add(t["name"])
-            self._mutating_tools = frozenset(mutating)
+            self._mutating_tools = self._classify_mutating(tools)
             logger.debug(
-                "[Architect] Discovered %d tools requiring confirmation: %s",
+                "[Architect] %d tools require confirmation: %s",
                 len(self._mutating_tools),
                 sorted(self._mutating_tools),
             )
         return tools
 
+    def _classify_mutating(
+        self, tools: List[Dict[str, Any]]
+    ) -> FrozenSet[str]:
+        """Build the set of tools that require user confirmation."""
+        cfg = self._cfg
+        mutating: Set[str] = set()
+        for t in tools:
+            rc = t.get(ToolMeta.REQUIRES_CONFIRMATION)
+            if rc is not None:
+                if rc:
+                    mutating.add(t["name"])
+            elif t.get(ToolMeta.READONLY_HINT) is True:
+                pass
+            elif t.get(ToolMeta.DESTRUCTIVE_HINT) is True:
+                mutating.add(t["name"])
+            else:
+                method = t.get(
+                    ToolMeta.HTTP_METHOD, "POST"
+                ).upper()
+                if method not in cfg.readonly_http_methods:
+                    mutating.add(t["name"])
+        return frozenset(mutating)
+
     def _is_mutating(self, tool_name: str) -> bool:
-        """Check if a tool requires user confirmation before execution."""
+        """Check if a tool requires user confirmation."""
         if self._mutating_tools is None:
-            # Tools not yet discovered — be conservative
             return True
         return tool_name in self._mutating_tools
 
     async def _handle_tool_calls(
         self, action: AgentAction, iteration: int
     ) -> Tuple[ExecutionStep, bool]:
-        """Override to block mutating tools until the user confirms.
+        """Block mutating tools until the user confirms.
 
         If the LLM tries to call a tool that requires confirmation
         without prior user approval, the call is intercepted and
@@ -318,15 +341,17 @@ class ArchitectAgent(BaseAgent):
 
         When ``auto_approve_all`` is set, all tools are allowed
         without confirmation (session-level override).
-
-        When a block occurs, ALL mutating tools are placed in the
-        confirming set so that the user's approval covers the full
-        plan — not just the first batch of blocked tools.
         """
         if self._auto_approve_all:
-            return await super()._handle_tool_calls(action, iteration)
+            return await super()._handle_tool_calls(
+                action, iteration
+            )
 
-        mutating = [tc for tc in action.tool_calls if self._is_mutating(tc.tool_name)]
+        mutating = [
+            tc
+            for tc in action.tool_calls
+            if self._is_mutating(tc.tool_name)
+        ]
 
         if mutating and not self._is_approved(mutating):
             blocked_names = [tc.tool_name for tc in mutating]
@@ -335,13 +360,18 @@ class ArchitectAgent(BaseAgent):
                 blocked_names,
             )
 
-            # Unlock ALL mutating tools on approval so the full plan
-            # can execute without re-blocking on subsequent tool types.
-            self._confirming_tools = self._mutating_tools or frozenset(blocked_names)
+            # Unlock ALL mutating tools so the full plan can
+            # execute without re-blocking on subsequent types.
+            self._confirming_tools = (
+                self._mutating_tools or frozenset(blocked_names)
+            )
 
-            # Allow read-only tools to still execute (e.g. list_metrics
-            # called alongside create_metric)
-            read_only = [tc for tc in action.tool_calls if not self._is_mutating(tc.tool_name)]
+            # Still allow read-only tools to execute
+            read_only = [
+                tc
+                for tc in action.tool_calls
+                if not self._is_mutating(tc.tool_name)
+            ]
             if read_only:
                 read_results = await self._execute_tools(read_only)
                 self._execution_history.append(
@@ -354,7 +384,6 @@ class ArchitectAgent(BaseAgent):
                     )
                 )
 
-            # Convert to a finish action that asks for confirmation
             finish_action = AgentAction(
                 reasoning=(
                     f"{action.reasoning}\n\n"
@@ -363,70 +392,82 @@ class ArchitectAgent(BaseAgent):
                     f"Present the plan and ask the user to confirm."
                 ),
                 action=Action.FINISH,
-                final_answer=action.final_answer or action.reasoning,
+                final_answer=(
+                    action.final_answer or action.reasoning
+                ),
                 needs_confirmation=True,
             )
-            return await self._handle_finish_action(finish_action, iteration)
+            return await self._handle_finish_action(
+                finish_action, iteration
+            )
 
-        # No mutating tools, or approved — proceed normally
         return await super()._handle_tool_calls(action, iteration)
 
     def _is_approved(self, tool_calls: list) -> bool:
-        """Check if the requested tool calls are approved.
-
-        Returns True if session-level auto-approve is on, or if
-        the user approved and the requested tools are in the
-        confirming set (which now includes all mutating tools
-        after any plan-level approval).
-        """
+        """Check if the requested tool calls are approved."""
         if self._auto_approve_all:
             return True
         if not self._creation_approved:
             return False
-        return all(tc.tool_name in self._confirming_tools for tc in tool_calls)
+        return all(
+            tc.tool_name in self._confirming_tools
+            for tc in tool_calls
+        )
 
-    # ── argument validation (structural defense) ───────────────────
+    # ── argument validation ──────────────────────────────────────
 
-    MAX_PAYLOAD_BYTES = 100_000  # 100 KB per tool call
-    MAX_STRING_VALUE_LEN = 10_000  # 10 KB per individual string value
-    MAX_ARRAY_ITEMS = 100  # max items in any single array argument
-
-    def _validate_tool_arguments(self, tool_call: ToolCall) -> Optional[str]:
-        """Validate tool arguments before execution.
+    def _validate_tool_arguments(
+        self, tool_call: ToolCall
+    ) -> Optional[str]:
+        """Structural defense against oversized/malformed payloads.
 
         Returns an error message if validation fails, None if ok.
-        This is a structural defense — prevents oversized payloads,
-        excessively long strings, and unreasonable array sizes
-        regardless of what the LLM generates.
         """
+        cfg = self._cfg
         args = tool_call.arguments
         try:
             serialized = json.dumps(args, default=str)
         except (TypeError, ValueError):
             return "Tool arguments could not be serialized"
 
-        if len(serialized.encode("utf-8")) > self.MAX_PAYLOAD_BYTES:
+        payload_size = len(serialized.encode("utf-8"))
+        if payload_size > cfg.max_payload_bytes:
+            limit_kb = cfg.max_payload_bytes // 1000
             return (
-                f"Tool arguments exceed the {self.MAX_PAYLOAD_BYTES // 1000} KB "
-                f"payload limit. Break the operation into smaller calls."
+                f"Tool arguments exceed the {limit_kb} KB "
+                f"payload limit. Break the operation into "
+                f"smaller calls."
             )
 
         for key, value in args.items():
-            if isinstance(value, str) and len(value) > self.MAX_STRING_VALUE_LEN:
+            if (
+                isinstance(value, str)
+                and len(value) > cfg.max_string_value_len
+            ):
+                limit_kb = cfg.max_string_value_len // 1000
                 return (
                     f"Argument '{key}' exceeds the "
-                    f"{self.MAX_STRING_VALUE_LEN // 1000} KB string limit."
+                    f"{limit_kb} KB string limit."
                 )
-            if isinstance(value, list) and len(value) > self.MAX_ARRAY_ITEMS:
+            if (
+                isinstance(value, list)
+                and len(value) > cfg.max_array_items
+            ):
                 return (
-                    f"Argument '{key}' contains {len(value)} items "
-                    f"(max {self.MAX_ARRAY_ITEMS}). Split into multiple calls."
+                    f"Argument '{key}' contains {len(value)} "
+                    f"items (max {cfg.max_array_items}). "
+                    f"Split into multiple calls."
                 )
 
         return None
 
+    # ── tool execution ───────────────────────────────────────────
+
     async def execute_tool(self, tool_call: ToolCall) -> ToolResult:
-        """Override to validate arguments before execution."""
+        """Intercept save_plan, validate args, track plan progress."""
+        if tool_call.tool_name == InternalTool.SAVE_PLAN:
+            return await self._execute_save_plan(tool_call)
+
         error = self._validate_tool_arguments(tool_call)
         if error:
             logger.warning(
@@ -439,18 +480,167 @@ class ArchitectAgent(BaseAgent):
                 success=False,
                 error=error,
             )
-        return await super().execute_tool(tool_call)
 
-    # ── transport lifecycle ─────────────────────────────────────────
+        target_mode = mode_for(tool_call.tool_name)
+        if target_mode is not None:
+            await self.set_mode_async(target_mode)
+
+        result = await super().execute_tool(tool_call)
+        if result.success and self._plan:
+            await self._track_plan_progress(tool_call, result)
+        return result
+
+    # ── plan management ──────────────────────────────────────────
+
+    async def _execute_save_plan(
+        self, tool_call: ToolCall
+    ) -> ToolResult:
+        """Parse LLM-provided plan data and store it."""
+        try:
+            plan = ArchitectPlan.model_validate(tool_call.arguments)
+            for b in plan.behaviors:
+                if b.reuse_status == "reuse":
+                    b.completed = True
+            for m in plan.metrics:
+                if m.reuse_status == "reuse":
+                    m.completed = True
+            await self.set_mode_async(AgentMode.PLANNING)
+            await self.set_plan_async(plan)
+            logger.info(
+                "[Architect] Plan saved: %d behaviors, "
+                "%d test sets, %d metrics",
+                len(plan.behaviors),
+                len(plan.test_sets),
+                len(plan.metrics),
+            )
+            project_label = (
+                f"{plan.project.name} — " if plan.project else ""
+            )
+            return ToolResult(
+                tool_name=InternalTool.SAVE_PLAN,
+                success=True,
+                content=(
+                    f"Plan saved: {project_label}"
+                    f"{len(plan.behaviors)} behaviors, "
+                    f"{len(plan.test_sets)} test sets, "
+                    f"{len(plan.metrics)} metrics"
+                ),
+            )
+        except Exception as e:
+            logger.warning(
+                "[Architect] Failed to parse plan: %s", e
+            )
+            return ToolResult(
+                tool_name=InternalTool.SAVE_PLAN,
+                success=False,
+                error=f"Invalid plan data: {e}",
+            )
+
+    async def _track_plan_progress(
+        self, tool_call: ToolCall, result: ToolResult
+    ) -> None:
+        """Mark plan items as completed after successful tool calls."""
+        plan = self._plan
+        if not plan:
+            return
+
+        category = plan_category_for(tool_call.tool_name)
+        if not category:
+            return
+
+        name = (tool_call.arguments.get("name") or "").lower()
+        updated = False
+
+        if (
+            category == "project"
+            and plan.project
+            and not plan.project.completed
+        ):
+            plan.project.completed = True
+            updated = True
+
+        elif category == "behavior" and name:
+            updated = self._mark_completed(plan.behaviors, name)
+
+        elif category == "test_set" and name:
+            updated = self._mark_completed(plan.test_sets, name)
+
+        elif category == "metric":
+            updated = self._match_metric(plan, tool_call, name)
+
+        elif category == "mapping":
+            updated = self._match_mapping(plan, tool_call)
+
+        if updated:
+            await _emit(
+                self._event_handlers, "on_plan_update", plan=plan
+            )
+
+    @staticmethod
+    def _mark_completed(items: list, name: str) -> bool:
+        """Mark the first matching incomplete item as completed."""
+        for item in items:
+            if not item.completed and item.name.lower() == name:
+                item.completed = True
+                return True
+        return False
+
+    @staticmethod
+    def _match_metric(
+        plan: ArchitectPlan,
+        tool_call: ToolCall,
+        name: str,
+    ) -> bool:
+        """Match a metric by name or by generation prompt."""
+        if not name and tool_call.arguments.get("prompt"):
+            prompt_lower = tool_call.arguments["prompt"].lower()
+            for m in plan.metrics:
+                if (
+                    not m.completed
+                    and m.name.lower() in prompt_lower
+                ):
+                    m.completed = True
+                    return True
+        if name:
+            for m in plan.metrics:
+                if not m.completed and m.name.lower() == name:
+                    m.completed = True
+                    return True
+        return False
+
+    @staticmethod
+    def _match_mapping(
+        plan: ArchitectPlan,
+        tool_call: ToolCall,
+    ) -> bool:
+        """Mark a mapping as completed when add_behavior_to_metric succeeds."""
+        behavior = (
+            tool_call.arguments.get("behavior_name") or ""
+        ).lower()
+        metric = (
+            tool_call.arguments.get("metric_name")
+            or tool_call.arguments.get("name")
+            or ""
+        ).lower()
+        if not behavior and not metric:
+            return False
+        for mapping in plan.behavior_metric_mappings:
+            if mapping.completed:
+                continue
+            if behavior and mapping.behavior.lower() == behavior:
+                mapping.completed = True
+                return True
+            if metric and any(
+                m.lower() == metric for m in mapping.metrics
+            ):
+                mapping.completed = True
+                return True
+        return False
+
+    # ── transport lifecycle ──────────────────────────────────────
 
     async def _disconnect_tools(self) -> None:
-        """Disconnect all MCP tool transports.
-
-        Called at the end of each ``chat_async()`` turn so that the
-        transport's async generators are properly closed before
-        ``asyncio.run()`` destroys the event loop. The auto-reconnect
-        in ``MCPTool._ensure_connected()`` handles the next call.
-        """
+        """Close MCP tool transports at end of each turn."""
         for tool in self._tools:
             if isinstance(tool, MCPTool):
                 try:
@@ -458,7 +648,7 @@ class ArchitectAgent(BaseAgent):
                 except Exception:
                     pass
 
-    # ── prompt building (overrides) ────────────────────────────────
+    # ── prompt building ──────────────────────────────────────────
 
     def _build_prompt(
         self,
@@ -468,17 +658,19 @@ class ArchitectAgent(BaseAgent):
         tools_text = self._format_tools(available_tools)
         history_text = self._format_history()
         plan_text = self._plan.to_markdown() if self._plan else ""
-        discovery_state_text = self._format_discovery_state()
+        discovery_text = self._format_discovery_state()
         attachments_text = self._format_attachments()
 
-        template = self._jinja_env.get_template("iteration_prompt.j2")
+        template = self._jinja_env.get_template(
+            "iteration_prompt.j2"
+        )
         return template.render(
             mode=self._mode,
             user_query=user_query,
             tools_text=tools_text,
             history_text=history_text,
             plan_text=plan_text,
-            discovery_state_text=discovery_state_text,
+            discovery_state_text=discovery_text,
             attachments_text=attachments_text,
         )
 
@@ -490,59 +682,69 @@ class ArchitectAgent(BaseAgent):
 
         parts: List[str] = []
         if ds.get("endpoint_name"):
-            parts.append(f"Endpoint: {ds['endpoint_name']} (id: {ds['endpoint_id']})")
-        if ds.get("explored"):
-            parts.append("Explored: yes")
-        else:
-            parts.append("Explored: not yet")
-        if ds.get("observations"):
-            parts.append("Observations:")
-            for obs in ds["observations"]:
-                parts.append(f"  - {obs}")
-        if ds.get("user_confirmed_areas"):
-            parts.append("User-confirmed testing areas:")
-            for area in ds["user_confirmed_areas"]:
-                parts.append(f"  - {area}")
-        if ds.get("open_questions"):
-            parts.append("Open questions:")
-            for q in ds["open_questions"]:
-                parts.append(f"  - {q}")
+            parts.append(
+                f"Endpoint: {ds['endpoint_name']} "
+                f"(id: {ds['endpoint_id']})"
+            )
+        parts.append(
+            "Explored: yes" if ds.get("explored") else "Explored: not yet"
+        )
+        for label, key in [
+            ("Observations", "observations"),
+            ("User-confirmed testing areas", "user_confirmed_areas"),
+            ("Open questions", "open_questions"),
+        ]:
+            items = ds.get(key)
+            if items:
+                parts.append(f"{label}:")
+                for item in items:
+                    parts.append(f"  - {item}")
         return "\n".join(parts)
 
-    # ── attachment formatting ────────────────────────────────────
-
     def _format_attachments(self) -> str:
-        """Format per-turn attachments (mentions and files) for the prompt."""
+        """Format per-turn attachments for the prompt."""
         if not self._attachments:
             return ""
 
+        cfg = self._cfg
         parts: List[str] = []
 
         mentions = self._attachments.get("mentions")
         if mentions:
             parts.append("Resolved entity references:")
             for m in mentions:
-                parts.append(f"  - @{m['type']}:{m['display']} (id: {m['id']})")
+                parts.append(
+                    f"  - @{m['type']}:{m['display']} "
+                    f"(id: {m['id']})"
+                )
 
         files = self._attachments.get("files")
         if files:
             for f in files:
                 filename = f.get("filename", "unknown")
                 content = f.get("content", "")
-                if len(content) > 20000:
-                    content = content[:20000] + "\n\n[... truncated ...]"
-                parts.append(f"Attached file: {filename}\n```\n{content}\n```")
+                if len(content) > cfg.max_attachment_chars:
+                    content = (
+                        content[: cfg.max_attachment_chars]
+                        + "\n\n[... truncated ...]"
+                    )
+                parts.append(
+                    f"Attached file: {filename}\n"
+                    f"```\n{content}\n```"
+                )
 
         return "\n".join(parts)
 
-    # ── streaming finish (Phase 2 LLM call) ─────────────────────
+    # ── streaming finish (Phase 2 LLM call) ──────────────────────
 
     async def _handle_finish_action(
         self, action: AgentAction, iteration: int
     ) -> Tuple[ExecutionStep, bool]:
-        """Override to stream the final response token-by-token."""
+        """Stream the final response token-by-token."""
         logger.info("[Architect] Streaming final response")
-        confirmation = action.needs_confirmation and not self._auto_approve_all
+        confirmation = (
+            action.needs_confirmation and not self._auto_approve_all
+        )
         self._needs_confirmation = confirmation
 
         seed = action.final_answer or ""
@@ -585,13 +787,17 @@ class ArchitectAgent(BaseAgent):
         final_answer: str,
     ) -> str:
         """Build the prompt for the streaming Phase 2 LLM call."""
-        conv_window = self._conversation_history[-self._history_window :]
+        conv_window = self._conversation_history[
+            -self._history_window :
+        ]
         plan_text = self._plan.to_markdown() if self._plan else ""
+        tool_results_text = (
+            self._format_tool_results_for_streaming()
+        )
 
-        # Include tool results so the LLM can reference actual data
-        tool_results_text = self._format_tool_results_for_streaming()
-
-        template = self._jinja_env.get_template("streaming_response.j2")
+        template = self._jinja_env.get_template(
+            "streaming_response.j2"
+        )
         return template.render(
             conversation_history=conv_window,
             plan_text=plan_text,
@@ -601,52 +807,91 @@ class ArchitectAgent(BaseAgent):
         )
 
     def _format_tool_results_for_streaming(self) -> str:
-        """Format tool results from the current turn for the streaming prompt."""
+        """Format tool results from the current turn."""
         if not self._execution_history:
             return ""
+        cfg = self._cfg
         parts: List[str] = []
         for step in self._execution_history:
             if step.tool_results:
                 for tr in step.tool_results:
+                    preview = cfg.tool_result_preview_chars
                     if tr.success and tr.content:
-                        parts.append(f"[{tr.tool_name}]: {tr.content[:4000]}")
+                        parts.append(
+                            f"[{tr.tool_name}]: "
+                            f"{tr.content[:preview]}"
+                        )
                     elif tr.error:
-                        parts.append(f"[{tr.tool_name}] Error: {tr.error}")
+                        parts.append(
+                            f"[{tr.tool_name}] Error: {tr.error}"
+                        )
         return "\n\n".join(parts)
 
-    # ── history formatting ─────────────────────────────────────────
+    # ── history formatting ───────────────────────────────────────
 
     def _format_history(self) -> str:
         parts: List[str] = []
+        cfg = self._cfg
 
-        # Conversation history -- windowed
-        conv_window = self._conversation_history[-self._history_window :]
+        conv_window = self._conversation_history[
+            -self._history_window :
+        ]
         if len(self._conversation_history) > self._history_window:
-            omitted = len(self._conversation_history) - self._history_window
-            parts.append(f"[... {omitted} earlier messages omitted ...]")
-        for msg in conv_window:
+            omitted = (
+                len(self._conversation_history) - self._history_window
+            )
+            parts.append(
+                f"[... {omitted} earlier messages omitted ...]"
+            )
+
+        recent_start = max(
+            0, len(conv_window) - cfg.recent_msg_limit
+        )
+        for i, msg in enumerate(conv_window):
             role = msg["role"].capitalize()
             content = msg["content"]
-            if len(content) > 500:
-                content = content[:500] + "..."
+            max_chars = (
+                cfg.recent_msg_max_chars
+                if i >= recent_start
+                else cfg.older_msg_max_chars
+            )
+            if len(content) > max_chars:
+                content = content[:max_chars] + "..."
             parts.append(f"{role}: {content}")
 
-        # Execution history -- windowed
-        exec_window = self._execution_history[-self._history_window :]
+        exec_window = self._execution_history[
+            -self._history_window :
+        ]
         if len(self._execution_history) > self._history_window:
-            omitted = len(self._execution_history) - self._history_window
-            parts.append(f"[... {omitted} earlier tool steps omitted ...]")
+            omitted = (
+                len(self._execution_history) - self._history_window
+            )
+            parts.append(
+                f"[... {omitted} earlier tool steps omitted ...]"
+            )
         for step in exec_window:
-            parts.append(f"[Tool iteration {step.iteration}] Reasoning: {step.reasoning[:200]}")
+            reasoning_preview = step.reasoning[
+                : cfg.reasoning_preview_chars
+            ]
+            parts.append(
+                f"[Tool iteration {step.iteration}] "
+                f"Reasoning: {reasoning_preview}"
+            )
             if step.tool_calls:
                 for tc in step.tool_calls:
                     parts.append(f"  Called: {tc.tool_name}")
             if step.tool_results:
                 for tr in step.tool_results:
+                    preview = cfg.tool_result_preview_chars
                     if tr.success:
-                        content_preview = tr.content[:4000]
-                        parts.append(f"  Result ({tr.tool_name}): {content_preview}")
+                        parts.append(
+                            f"  Result ({tr.tool_name}): "
+                            f"{tr.content[:preview]}"
+                        )
                     else:
-                        parts.append(f"  Error ({tr.tool_name}): {tr.error}")
+                        parts.append(
+                            f"  Error ({tr.tool_name}): "
+                            f"{tr.error}"
+                        )
 
         return "\n".join(parts) if parts else ""

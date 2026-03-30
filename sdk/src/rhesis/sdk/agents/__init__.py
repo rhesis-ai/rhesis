@@ -9,7 +9,9 @@ from typing import List, Optional
 
 from rhesis.sdk.agents.architect import (
     ArchitectAgent,
+    ArchitectConfig,
     ArchitectPlan,
+    BehaviorSpec,
     MetricSpec,
     ProjectSpec,
     TestSetSpec,
@@ -80,7 +82,9 @@ __all__ = [
     "ToolExecutor",
     # Architect agent
     "ArchitectAgent",
+    "ArchitectConfig",
     "ArchitectPlan",
+    "BehaviorSpec",
     "ProjectSpec",
     "TestSetSpec",
     "MetricSpec",
