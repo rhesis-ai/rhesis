@@ -41,9 +41,9 @@ export default function ImportAdaptiveTestSetDialog({
   const [inputValue, setInputValue] = React.useState<string>('');
   const [isSearching, setIsSearching] = React.useState(false);
   const notifications = useNotifications();
-  const searchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  );
+  const searchTimeoutRef = React.useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
 
   const createSearchFilter = React.useCallback(
     (search: string): string | undefined => {
@@ -86,7 +86,9 @@ export default function ImportAdaptiveTestSetDialog({
         }
 
         const response = await testSetsClient.getTestSets(queryParams);
-        const filtered = response.data.filter(ts => !isAdaptiveTestingTestSet(ts));
+        const filtered = response.data.filter(
+          ts => !isAdaptiveTestingTestSet(ts)
+        );
         setTestSets(filtered);
       } catch (_error) {
         notifications.show('Failed to load test sets', {

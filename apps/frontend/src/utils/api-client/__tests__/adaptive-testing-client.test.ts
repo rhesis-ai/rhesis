@@ -106,7 +106,8 @@ describe('AdaptiveTestingClient', () => {
       })
     );
 
-    const result = await client.exportRegularTestSetFromAdaptive('adaptive-ts-1');
+    const result =
+      await client.exportRegularTestSetFromAdaptive('adaptive-ts-1');
 
     expect(result.exported).toBe(2);
     expect(result.skipped).toBe(2);
