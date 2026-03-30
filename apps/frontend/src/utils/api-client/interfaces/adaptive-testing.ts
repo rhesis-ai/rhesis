@@ -25,6 +25,14 @@ export interface AdaptiveTestSet {
 // Test Node Interfaces
 // =============================================================================
 
+/** Per-metric evaluation row (tree/API key is metric name). */
+export interface AdaptiveMetricEvalDetail {
+  score: number;
+  is_successful: boolean;
+  reason?: string | null;
+  details?: Record<string, unknown> | null;
+}
+
 export interface TestNode {
   id: string;
   topic: string;
@@ -34,6 +42,7 @@ export interface TestNode {
   labeler: string;
   to_eval: boolean;
   model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
 }
 
 export interface TestNodeCreate {
@@ -157,6 +166,7 @@ export interface EvaluateResultItem {
   label: string;
   labeler: string;
   model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
 }
 
 export interface EvaluateFailedItem {
@@ -264,6 +274,7 @@ export interface SuggestionEvalItem {
   label: string;
   labeler: string;
   model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
   error?: string | null;
 }
 

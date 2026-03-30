@@ -70,6 +70,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import SuggestionsDialog from './SuggestionsDialog';
+import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 import { METRIC_SCOPES } from '@/constants/metric-scopes';
 
 // ============================================================================
@@ -1397,18 +1398,21 @@ function TestsList({
         if (params.row.id && pendingTestIds.has(params.row.id)) {
           return <CircularProgress size={16} />;
         }
-        const label = params.row.label;
+        const row = params.row as TestNode;
+        const label = row.label;
         const score = params.value;
         if (!label) {
           return <Chip label="N/A" size="small" variant="outlined" />;
         }
         return (
-          <Chip
-            label={score != null ? score.toFixed(2) : 'N/A'}
-            size="small"
-            color={score != null ? getScoreColor(score) : 'default'}
-            variant={score != null ? 'filled' : 'outlined'}
-          />
+          <ScoreMetricsTooltip metrics={row.metrics}>
+            <Chip
+              label={score != null ? score.toFixed(2) : 'N/A'}
+              size="small"
+              color={score != null ? getScoreColor(score) : 'default'}
+              variant={score != null ? 'filled' : 'outlined'}
+            />
+          </ScoreMetricsTooltip>
         );
       },
     },

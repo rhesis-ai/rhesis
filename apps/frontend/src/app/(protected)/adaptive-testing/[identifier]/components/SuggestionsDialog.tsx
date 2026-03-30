@@ -27,14 +27,17 @@ import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
 import {
+  type AdaptiveMetricEvalDetail,
   SuggestedTest,
   TestNodeCreate,
 } from '@/utils/api-client/interfaces/adaptive-testing';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 
 interface SuggestionRow extends SuggestedTest {
   _id: string;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
 }
 
 type PipelineStep = 'suggestions' | 'outputs' | 'evaluate' | null;
@@ -195,7 +198,12 @@ export default function SuggestionsDialog({
 
           const evalMap = new Map<
             string,
-            { label: string; labeler: string; model_score: number }
+            {
+              label: string;
+              labeler: string;
+              model_score: number;
+              metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+            }
           >();
           for (const r of evaluateResult.results) {
             if (!r.error) {
@@ -203,6 +211,7 @@ export default function SuggestionsDialog({
                 label: r.label,
                 labeler: r.labeler,
                 model_score: r.model_score,
+                metrics: r.metrics,
               });
             }
           }
@@ -359,18 +368,21 @@ export default function SuggestionsDialog({
       align: 'center',
       headerAlign: 'center',
       renderCell: (params: GridRenderCellParams) => {
-        const label = params.row.label;
+        const row = params.row as SuggestionRow;
+        const label = row.label;
         const score = params.value;
         if (!label) {
           return <Chip label="N/A" size="small" variant="outlined" />;
         }
         return (
-          <Chip
-            label={score != null ? score.toFixed(2) : 'N/A'}
-            size="small"
-            color={score != null ? getScoreColor(score) : 'default'}
-            variant={score != null ? 'filled' : 'outlined'}
-          />
+          <ScoreMetricsTooltip metrics={row.metrics}>
+            <Chip
+              label={score != null ? score.toFixed(2) : 'N/A'}
+              size="small"
+              color={score != null ? getScoreColor(score) : 'default'}
+              variant={score != null ? 'filled' : 'outlined'}
+            />
+          </ScoreMetricsTooltip>
         );
       },
     },
