@@ -24,7 +24,7 @@ function SmartLink({
 }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   if (isInternalPath(href)) {
     return (
-      <Link component={NextLink} href={href!} {...props}>
+      <Link component={NextLink} href={href!} target="_blank" {...props}>
         {children}
       </Link>
     );
