@@ -12,3 +12,8 @@ resources:
   - ingress-nginx-internal.yaml
   - internal-dns.yaml
   - cnpg-operator.yaml
+  # Monitoring stack (order matters for initial CRD availability)
+  - grafana-operator.yaml
+  - kube-prometheus-stack.yaml
+  - loki.yaml
+  - alloy.yaml
