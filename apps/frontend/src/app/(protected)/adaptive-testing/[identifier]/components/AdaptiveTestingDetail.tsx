@@ -31,7 +31,9 @@ import {
   Checkbox,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
-import { useTheme } from '@mui/material/styles';
+import ApiOutlinedIcon from '@mui/icons-material/ApiOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { alpha, useTheme } from '@mui/material/styles';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
   GridColDef,
@@ -1613,7 +1615,13 @@ export default function AdaptiveTestingDetail({
   const [settingsMetric, setSettingsMetric] = useState<MetricDetail | null>(
     null
   );
+  /** Resolved labels for on-page display; null means initial load not finished */
+  const [adaptiveConfigSummary, setAdaptiveConfigSummary] = useState<{
+    endpointName: string | null;
+    metricNames: string[];
+  } | null>(null);
 
+  const theme = useTheme();
   const notifications = useNotifications();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1664,18 +1672,28 @@ export default function AdaptiveTestingDetail({
   const loadAdaptiveSettings = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
     const adaptiveClient = clientFactory.getAdaptiveTestingClient();
-    const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
-    setSettingsEndpoint(
-      endpoints.find(
-        endpoint => endpoint.id === settings.default_endpoint?.id
-      ) ?? null
-    );
-    const firstMetricId = settings.metrics[0]?.id;
-    setSettingsMetric(
-      firstMetricId
-        ? (metrics.find(metric => metric.id === firstMetricId) ?? null)
-        : null
-    );
+    try {
+      const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
+      const resolvedEndpoint =
+        endpoints.find(e => e.id === settings.default_endpoint?.id) ?? null;
+      setSettingsEndpoint(resolvedEndpoint);
+      const endpointName =
+        resolvedEndpoint?.name ?? settings.default_endpoint?.name ?? null;
+      const metricNames = settings.metrics.map(m => {
+        const full = metrics.find(mm => mm.id === m.id);
+        return full?.name ?? m.name;
+      });
+      setAdaptiveConfigSummary({ endpointName, metricNames });
+
+      const firstMetricId = settings.metrics[0]?.id;
+      setSettingsMetric(
+        firstMetricId
+          ? (metrics.find(metric => metric.id === firstMetricId) ?? null)
+          : null
+      );
+    } catch {
+      setAdaptiveConfigSummary({ endpointName: null, metricNames: [] });
+    }
   }, [endpoints, metrics, sessionToken, testSetId]);
 
   useEffect(() => {
@@ -2366,6 +2384,13 @@ export default function AdaptiveTestingDetail({
         default_endpoint_id: settingsEndpoint.id,
         metric_ids: [settingsMetric.id],
       });
+      setAdaptiveConfigSummary({
+        endpointName: settingsEndpoint.name ?? null,
+        metricNames:
+          settingsMetric.name != null && settingsMetric.name !== ''
+            ? [settingsMetric.name]
+            : [],
+      });
       notifications.show('Adaptive testing settings saved.', {
         severity: 'success',
       });
@@ -2424,16 +2449,214 @@ export default function AdaptiveTestingDetail({
         </Paper>
       </Box>
 
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-start' }}>
-        <Button
-          size="small"
-          startIcon={<SettingsIcon />}
-          onClick={() => setSettingsDialogOpen(true)}
-          sx={{ textTransform: 'none' }}
+      <Paper
+        variant="outlined"
+        sx={{
+          mb: 2,
+          borderRadius: 2,
+          overflow: 'hidden',
+          background:
+            theme.palette.mode === 'dark'
+              ? alpha(theme.palette.primary.main, 0.07)
+              : alpha(theme.palette.primary.main, 0.025),
+          borderColor: alpha(theme.palette.primary.main, 0.15),
+        }}
+      >
+        <Box
+          sx={{
+            px: 2.5,
+            py: 2,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: alpha(theme.palette.background.paper, 0.55),
+          }}
         >
-          Settings
-        </Button>
-      </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 40,
+                height: 40,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                color: 'primary.main',
+              }}
+            >
+              <TuneOutlinedIcon sx={{ fontSize: 22 }} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600} component="div">
+                Adaptive configuration
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Endpoint and metrics for generation and evaluation
+              </Typography>
+            </Box>
+          </Box>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<SettingsIcon />}
+            onClick={() => setSettingsDialogOpen(true)}
+            sx={{ textTransform: 'none', flexShrink: 0 }}
+          >
+            Edit settings
+          </Button>
+        </Box>
+
+        <Box sx={{ p: 2.5 }}>
+          {adaptiveConfigSummary === null ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="text.secondary">
+                Loading settings…
+              </Typography>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 1.25,
+                  }}
+                >
+                  <ApiOutlinedIcon
+                    sx={{ fontSize: 20, color: 'text.secondary' }}
+                  />
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
+                  >
+                    Default endpoint
+                  </Typography>
+                </Box>
+                {adaptiveConfigSummary.endpointName ? (
+                  <Chip
+                    label={adaptiveConfigSummary.endpointName}
+                    size="medium"
+                    variant="outlined"
+                    sx={{
+                      height: 'auto',
+                      py: 0.75,
+                      maxWidth: '100%',
+                      fontWeight: 500,
+                      borderColor: alpha(theme.palette.primary.main, 0.35),
+                      bgcolor: alpha(theme.palette.primary.main, 0.06),
+                      '& .MuiChip-label': {
+                        whiteSpace: 'normal',
+                        display: 'block',
+                        py: 0.25,
+                      },
+                    }}
+                  />
+                ) : (
+                  <Chip
+                    label="Not set — use Edit settings"
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      borderStyle: 'dashed',
+                      color: 'text.secondary',
+                      bgcolor: alpha(theme.palette.action.hover, 0.04),
+                    }}
+                  />
+                )}
+              </Box>
+
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 1.25,
+                  }}
+                >
+                  <GradingIcon
+                    sx={{ fontSize: 20, color: 'text.secondary' }}
+                  />
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
+                  >
+                    Default metrics
+                  </Typography>
+                </Box>
+                {adaptiveConfigSummary.metricNames.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                    {adaptiveConfigSummary.metricNames.map((name, i) => (
+                      <Chip
+                        key={`${name}-${i}`}
+                        label={name}
+                        size="medium"
+                        variant="outlined"
+                        sx={{
+                          height: 'auto',
+                          py: 0.75,
+                          maxWidth: '100%',
+                          fontWeight: 500,
+                          borderColor: alpha(theme.palette.primary.main, 0.35),
+                          bgcolor: alpha(theme.palette.primary.main, 0.06),
+                          '& .MuiChip-label': {
+                            whiteSpace: 'normal',
+                            display: 'block',
+                            py: 0.25,
+                          },
+                        }}
+                      />
+                    ))}
+                  </Box>
+                ) : (
+                  <Chip
+                    label="Not set — use Edit settings"
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      borderStyle: 'dashed',
+                      color: 'text.secondary',
+                      bgcolor: alpha(theme.palette.action.hover, 0.04),
+                    }}
+                  />
+                )}
+              </Box>
+            </Box>
+          )}
+        </Box>
+      </Paper>
 
       {/* View Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
