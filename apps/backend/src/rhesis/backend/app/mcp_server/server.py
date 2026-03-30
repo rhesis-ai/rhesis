@@ -120,6 +120,14 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
             if param.get("in") == "query" and param["name"] in arguments:
                 query[param["name"]] = arguments.pop(param["name"])
 
+        # 2b. Apply default query params (e.g. $select) when the
+        # agent didn't supply them.  This keeps response payloads
+        # small by default — the agent can still override by
+        # providing its own value.
+        for key, value in op.get("default_query", {}).items():
+            if key not in query:
+                query[key] = value
+
         # 3. Remaining arguments = request body
         body = arguments if arguments else None
 

@@ -96,6 +96,7 @@ def build_tools_and_operations(
             "path": path_template,
             "parameters": operation.get("parameters", []),
             "has_body": "requestBody" in operation,
+            "default_query": tc.get("default_query", {}),
         }
 
     return tools, operation_map

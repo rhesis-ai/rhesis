@@ -111,7 +111,7 @@ tools:
     label: Running test set
     method: POST
     path: /test_sets/{test_set_identifier}/execute/{endpoint_id}
-    requires_confirmation: true
+    requires_confirmation: false
     description: >
       Run a complete test set against an endpoint. The backend
       automatically creates the internal test configuration and queues
@@ -130,10 +130,12 @@ tools:
     label: Listing tests
     method: GET
     path: /tests/
+    default_query:
+      $select: "id,prompt,behavior,category,topic,test_set"
     description: >
       List tests in the organization. Each test defines a prompt,
-      expected response behavior, and optional metadata. Use $select to
-      request only the fields you need.
+      expected response behavior, and optional metadata. By default
+      only core fields are returned. Add fields to $select if needed.
 
   # ── Test Runs ─────────────────────────────────────────────
   - name: list_test_runs
@@ -153,25 +155,28 @@ tools:
     method: GET
     path: /test_runs/{test_run_id}
     description: >
-      Get details of a specific test run. Use this to monitor execution
-      progress after calling execute_test_set. Status progression:
-      Queued → Running → Completed (or Failed). Poll this endpoint
-      until the status is Completed or Failed. The response includes
-      timing, status, and summary information.
+      Get details of a specific test run including its status, timing,
+      test configuration, endpoint, and test set information.
+      The attributes field contains summary stats (total_tests,
+      execution_mode, started_at). Always use this for accurate
+      test counts rather than counting items from list_test_results.
 
   # ── Test Results ──────────────────────────────────────────
   - name: list_test_results
     label: Retrieving test results
     method: GET
     path: /test_results/
+    default_query:
+      $select: "id,status,prompt,behavior,metric_scores"
     description: >
       List test results. Each result contains the prompt sent, the
       response received, status (Passed/Failed), and evaluation scores.
-      Filter by test run: $filter=test_run_id eq '<uuid>'. Use $select
-      to keep responses small (e.g. $select=id,status,prompt,response,
-      behavior,metric_scores). Key fields: status (Passed/Failed),
-      prompt (the input), response (the output), metric_scores (array
-      of score objects with metric name, score, and threshold).
+      Filter by test run: $filter=test_run_id eq '<uuid>'. By default
+      only lightweight fields are returned (id, status, prompt, behavior,
+      metric_scores). To include the full response text, add 'response'
+      to $select explicitly. Key fields: status (Passed/Failed),
+      prompt (the input), metric_scores (array of score objects with
+      metric name, score, and threshold).
 
   - name: get_test_result
     label: Retrieving test result
@@ -251,11 +256,14 @@ tools:
     label: Checking existing metrics
     method: GET
     path: /metrics/
+    default_query:
+      $select: "id,name,description,score_type,threshold,metric_scope"
     description: >
       List available metrics for evaluating test results. Metrics
       define how endpoint responses are scored (e.g., accuracy,
-      safety compliance, response quality). Use $select to request
-      only the fields you need.
+      safety compliance, response quality). By default only summary
+      fields are returned (excludes evaluation_prompt). Add fields
+      to $select if you need the full evaluation prompt.
 
   - name: create_metric
     label: Creating metric
