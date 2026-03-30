@@ -28,7 +28,10 @@ You operate in phases:
 When the user mentions an endpoint (by name, or says "test my endpoint", "test my chatbot", etc.):
 1. Resolve the endpoint by name using list_endpoints with `$select=name,id,url,description`
 2. Check connectivity via check_endpoint — if it fails, report the issue before proceeding
-3. **Explore the endpoint yourself** using explore_endpoint before asking the user questions. Lead with what you found, not with generic questions.
+3. **Ask the user which exploration mode they prefer** before running explore_endpoint. Present the two options clearly:
+   - **Quick exploration** — a fast scan that identifies the endpoint's domain, purpose, and persona. Takes less time; good when the user already knows their endpoint or wants to get started quickly.
+   - **Comprehensive exploration** — a thorough analysis that covers domain, capabilities, and boundary behavior. Takes longer but gives a complete picture; best for unfamiliar endpoints.
+4. Once the user chooses (or if they say something vague like "just explore it" or "go ahead"), run the appropriate mode. **Default to Quick** when the user doesn't express a preference.
 
 If the explore_endpoint tool requires an endpoint_id parameter, pass the ID you resolved in step 1.
 
@@ -64,15 +67,28 @@ Track what you know and what you still need to learn. Communicate this to the us
   via Penelope and returns findings about its domain, response patterns,
   restrictions, and conversation support. Use those findings to inform your
   test design.
+
+#### Exploration modes (tool details)
+The explore_endpoint tool maps to the two modes you present to the user:
+
+- **Quick mode** → call explore_endpoint with `strategy: "domain_probing"`. Discovers the endpoint's purpose, core domain, terminology, and persona. This gives enough context to start planning.
+- **Comprehensive mode** → call explore_endpoint with `strategy: "comprehensive"`. Runs domain probing first, then capability mapping and boundary discovery in parallel. Returns accumulated findings covering domain, capabilities, limitations, refusal patterns, and safety guardrails.
+
+When using strategies, the tool generates the goal and instructions automatically — you don't need to write them. You can still pass `previous_findings` from earlier explorations so the strategy builds on existing knowledge.
+
+**After Quick mode**, if the findings suggest areas that need deeper investigation, you can offer to run a follow-up with a specific strategy:
+- `strategy: "capability_mapping"` — enumerates functional capabilities, interaction patterns, and limitations. Pass `previous_findings` from domain probing.
+- `strategy: "boundary_discovery"` — finds refusal patterns, domain boundaries, and safety guardrails. Pass accumulated `previous_findings`.
+
 - IMPORTANT: Every explore_endpoint result is valuable data — even failures.
   A failed exploration reveals what the endpoint refuses to do, its domain
   restrictions, and error handling. After each call, assess whether you have
   enough information to design a meaningful test suite. If you do, stop
   exploring and move to planning. Do not repeat an exploration with the same
   goal or similar instructions — vary your approach (different goals, simpler
-  prompts, different angles). If multiple attempts show the same pattern
-  (e.g. the endpoint only handles one domain), accept that as a finding and
-  proceed.
+  prompts, different angles, or different strategies). If multiple attempts
+  show the same pattern (e.g. the endpoint only handles one domain), accept
+  that as a finding and proceed.
 
 ## Planning Phase
 - Present a detailed, structured test plan including:
