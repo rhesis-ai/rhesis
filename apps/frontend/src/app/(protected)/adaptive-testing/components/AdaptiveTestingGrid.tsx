@@ -22,7 +22,12 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { AdaptiveTestSet } from '@/utils/api-client/interfaces/adaptive-testing';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import type {
+  AdaptiveTestSet,
+  ImportAdaptiveTestSetResponse,
+} from '@/utils/api-client/interfaces/adaptive-testing';
+import ImportAdaptiveTestSetDialog from './ImportAdaptiveTestSetDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -55,6 +60,7 @@ export default function AdaptiveTestingGrid({
   const [description, setDescription] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   useEffect(() => {
     setRows(initialTestSets);
@@ -170,6 +176,24 @@ export default function AdaptiveTestingGrid({
     setDeleteModalOpen(false);
   };
 
+  const handleImportedAdaptiveSet = useCallback(
+    (result: ImportAdaptiveTestSetResponse) => {
+      const { imported, skipped, test_set: created } = result;
+      const parts = [`Imported ${imported} test(s)`];
+      if (skipped > 0) {
+        parts.push(`skipped ${skipped}`);
+      }
+      notifications.show(parts.join(', '), {
+        severity: 'success',
+        autoHideDuration: 5000,
+      });
+      setImportDialogOpen(false);
+      router.refresh();
+      router.push(`/adaptive-testing/${created.id}?openSettings=1`);
+    },
+    [notifications, router]
+  );
+
   const handleDeleteConfirm = async () => {
     if (selectedRows.length === 0) return;
 
@@ -228,6 +252,13 @@ export default function AdaptiveTestingGrid({
         onClick: handleOpenDialog,
         disabled: !authToken,
       },
+      {
+        label: 'Import test set',
+        icon: <UploadFileIcon />,
+        variant: 'outlined' as const,
+        onClick: () => setImportDialogOpen(true),
+        disabled: !authToken,
+      },
     ];
 
     if (selectedRows.length > 0) {
@@ -251,14 +282,24 @@ export default function AdaptiveTestingGrid({
             No adaptive testing test sets found. Create a test set with the
             &quot;Adaptive Testing&quot; behavior to get started.
           </Typography>
-          <Button
-            variant="contained"
-            onClick={handleOpenDialog}
-            disabled={!authToken}
-            startIcon={<AddIcon />}
-          >
-            Add test set
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+            <Button
+              variant="contained"
+              onClick={handleOpenDialog}
+              disabled={!authToken}
+              startIcon={<AddIcon />}
+            >
+              Add test set
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setImportDialogOpen(true)}
+              disabled={!authToken}
+              startIcon={<UploadFileIcon />}
+            >
+              Import test set
+            </Button>
+          </Box>
         </Box>
       ) : (
         <BaseDataGrid
@@ -337,6 +378,14 @@ export default function AdaptiveTestingGrid({
           </Button>
         </DialogActions>
       </Dialog>
+      {authToken ? (
+        <ImportAdaptiveTestSetDialog
+          open={importDialogOpen}
+          onClose={() => setImportDialogOpen(false)}
+          onImported={handleImportedAdaptiveSet}
+          sessionToken={authToken}
+        />
+      ) : null}
     </Box>
   );
 }

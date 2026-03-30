@@ -76,6 +76,26 @@ describe('AdaptiveTestingClient', () => {
     expect(opts.method).toBe('DELETE');
   });
 
+  it('imports from a source test set with POST /import/{id}', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        test_set: { id: 'new-adaptive', name: 'Source (Adaptive)' },
+        imported: 3,
+        skipped: 1,
+        skipped_test_ids: ['skip-1'],
+      })
+    );
+
+    const result = await client.importAdaptiveTestSetFromSource('source-ts-1');
+
+    expect(result.imported).toBe(3);
+    expect(result.skipped).toBe(1);
+    expect(result.test_set.id).toBe('new-adaptive');
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/adaptive_testing/import/source-ts-1');
+    expect(opts.method).toBe('POST');
+  });
+
   it('fetches adaptive settings for a test set', async () => {
     fetchMock.mockResolvedValue(
       makeFetch({ default_endpoint: null, metrics: [] })

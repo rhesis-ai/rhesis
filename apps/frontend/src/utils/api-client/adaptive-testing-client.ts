@@ -2,6 +2,7 @@ import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import {
   AdaptiveTestSet,
+  ImportAdaptiveTestSetResponse,
   TestNode,
   TestNodeCreate,
   TestNodeUpdate,
@@ -92,6 +93,20 @@ export class AdaptiveTestingClient extends BaseApiClient {
     return this.fetch<void>(`${API_ENDPOINTS.adaptiveTesting}/${testSetId}`, {
       method: 'DELETE',
     });
+  }
+
+  /**
+   * Create a new adaptive test set by importing from an existing regular test set.
+   * @param sourceTestSetId Source test set identifier (UUID, nano_id, or slug)
+   */
+  async importAdaptiveTestSetFromSource(
+    sourceTestSetId: string
+  ): Promise<ImportAdaptiveTestSetResponse> {
+    const encoded = encodeURIComponent(sourceTestSetId);
+    return this.fetch<ImportAdaptiveTestSetResponse>(
+      `${API_ENDPOINTS.adaptiveTesting}/import/${encoded}`,
+      { method: 'POST' }
+    );
   }
 
   async getAdaptiveSettings(testSetId: string): Promise<AdaptiveSettings> {

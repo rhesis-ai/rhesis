@@ -26,6 +26,7 @@ from .tests import (
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    import_adaptive_test_set_from_source,
     update_test_node,
 )
 from .topics import (
@@ -49,6 +50,7 @@ __all__ = [
     "get_tree_nodes",
     "get_tree_tests",
     "get_tree_topics",
+    "import_adaptive_test_set_from_source",
     "invoke_endpoint_for_suggestions",
     "remove_topic_node",
     "resolve_endpoint_id",

@@ -23,6 +23,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.adaptive_testing import (
     AdaptiveSettingsResponse,
     AdaptiveSettingsUpdate,
+    ImportAdaptiveTestSetResponse,
     EvaluateFailedItem,
     EvaluateRequest,
     EvaluateResponse,
@@ -56,6 +57,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    import_adaptive_test_set_from_source,
     invoke_endpoint_for_suggestions,
     remove_topic_node,
     resolve_endpoint_id,
@@ -106,6 +108,44 @@ def create_adaptive_test_set_endpoint(
         user_id=str(user_id),
         name=body.name,
         description=body.description,
+    )
+
+
+@router.post(
+    "/import/{source_test_set_identifier}",
+    response_model=ImportAdaptiveTestSetResponse,
+    status_code=201,
+)
+def import_adaptive_test_set_endpoint(
+    source_test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new adaptive test set by importing from an existing test set.
+
+    Copies single-turn tests with prompts into the adaptive tree (topics and
+    markers). Skips topic markers and tests without prompt content.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        result = import_adaptive_test_set_from_source(
+            db=db,
+            source_test_set_identifier=source_test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return ImportAdaptiveTestSetResponse(
+        test_set=result["test_set"],
+        imported=result["imported"],
+        skipped=result["skipped"],
+        skipped_test_ids=result["skipped_test_ids"],
     )
 
 
