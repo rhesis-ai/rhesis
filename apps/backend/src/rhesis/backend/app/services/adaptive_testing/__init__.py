@@ -22,10 +22,12 @@ from .tests import (
     create_test_node,
     delete_adaptive_test_set,
     delete_test_node,
+    export_regular_test_set_from_adaptive,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    import_adaptive_test_set_from_source,
     update_test_node,
 )
 from .topics import (
@@ -40,6 +42,7 @@ __all__ = [
     "create_topic_node",
     "delete_adaptive_test_set",
     "delete_test_node",
+    "export_regular_test_set_from_adaptive",
     "evaluate_suggestions",
     "evaluate_tests_for_adaptive_set",
     "generate_outputs_for_tests",
@@ -49,6 +52,7 @@ __all__ = [
     "get_tree_nodes",
     "get_tree_tests",
     "get_tree_topics",
+    "import_adaptive_test_set_from_source",
     "invoke_endpoint_for_suggestions",
     "remove_topic_node",
     "resolve_endpoint_id",

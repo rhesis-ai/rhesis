@@ -64,6 +64,10 @@ class TestSetType(Enum):
         return None
 
 
+# Display name stored in test_set.attributes["metadata"]["behaviors"] for adaptive testing sets
+ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
+
+
 # Error messages
 ERROR_INVALID_UUID = "Invalid UUID format in input parameters: {error}"
 ERROR_TEST_SET_NOT_FOUND = "Test set with ID {test_set_id} not found"

@@ -5,6 +5,30 @@ from typing import Any, Dict, List, Optional
 from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.test_set import TestSet as TestSetSchema
+
+# ---------------------------------------------------------------------------
+# Import from existing test set
+# ---------------------------------------------------------------------------
+
+
+class ImportAdaptiveTestSetResponse(Base):
+    """Response for POST /adaptive_testing/import/{source_test_set_id}."""
+
+    test_set: TestSetSchema
+    imported: int = 0
+    skipped: int = 0
+    skipped_test_ids: List[str] = Field(default_factory=list)
+
+
+class ExportAdaptiveTestSetResponse(Base):
+    """Response for POST /adaptive_testing/export/{source_test_set_id}."""
+
+    test_set: TestSetSchema
+    exported: int = 0
+    skipped: int = 0
+    skipped_test_ids: List[str] = Field(default_factory=list)
+
 
 # ---------------------------------------------------------------------------
 # Generate outputs

@@ -3,16 +3,18 @@ import uuid
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models
+from rhesis.backend.app import crud, models
 from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
     create_test_node,
     delete_adaptive_test_set,
     delete_test_node,
+    export_regular_test_set_from_adaptive,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    import_adaptive_test_set_from_source,
     update_test_node,
 )
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
@@ -852,3 +854,195 @@ class TestDeleteTestNode:
         )
 
         assert result is False
+
+
+# ============================================================================
+# Tests for import_adaptive_test_set_from_source
+# ============================================================================
+
+
+@pytest.mark.service
+class TestImportAdaptiveTestSetFromSource:
+    """Test import_adaptive_test_set_from_source."""
+
+    def test_imports_tests_and_skips_markers_and_empty_prompts(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+        regular_test_set_for_import,
+    ):
+        src = regular_test_set_for_import
+        result = import_adaptive_test_set_from_source(
+            db=test_db,
+            source_test_set_identifier=str(src.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["imported"] == 2
+        assert result["skipped"] == 1
+        new_set = result["test_set"]
+        assert "Adaptive Testing" in (
+            (new_set.attributes or {}).get("metadata") or {}
+        ).get("behaviors", [])
+
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=new_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert len(tests) == 2
+        inputs = {t.input for t in tests}
+        assert "Prompt one" in inputs
+        assert "Prompt two" in inputs
+
+    def test_raises_when_source_is_adaptive(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        adaptive = create_adaptive_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name="Already adaptive",
+        )
+        test_db.commit()
+
+        with pytest.raises(ValueError, match="already configured for adaptive"):
+            import_adaptive_test_set_from_source(
+                db=test_db,
+                source_test_set_identifier=str(adaptive.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+    def test_raises_when_source_missing(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        with pytest.raises(ValueError, match="not found"):
+            import_adaptive_test_set_from_source(
+                db=test_db,
+                source_test_set_identifier=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+
+# ============================================================================
+# Tests for export_regular_test_set_from_adaptive
+# ============================================================================
+
+
+@pytest.mark.service
+class TestExportRegularTestSetFromAdaptive:
+    """Test export_regular_test_set_from_adaptive."""
+
+    def test_exports_tests_skips_markers_and_preserves_topics(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        adaptive = create_adaptive_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name=f"Export source {uuid.uuid4().hex[:8]}",
+            description="adaptive source",
+        )
+        test_db.flush()
+        create_test_node(
+            db=test_db,
+            test_set_id=adaptive.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Alpha/Beta",
+            input="First prompt",
+            output="o1",
+            labeler="human",
+            label="pass",
+            model_score=1.0,
+        )
+        create_test_node(
+            db=test_db,
+            test_set_id=adaptive.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Alpha/Beta",
+            input="Second prompt",
+            output="o2",
+            labeler="model",
+            label="fail",
+            model_score=0.1,
+        )
+        test_db.commit()
+
+        result = export_regular_test_set_from_adaptive(
+            db=test_db,
+            source_test_set_identifier=str(adaptive.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result["exported"] == 2
+        assert result["skipped"] == 2
+        new_set = result["test_set"]
+        assert "(Exported)" in new_set.name
+        meta_behaviors = (
+            (new_set.attributes or {}).get("metadata") or {}
+        ).get("behaviors") or []
+        assert "Adaptive Testing" not in meta_behaviors
+        assert (new_set.attributes or {}).get("adaptive_settings") is None
+
+        items, total = crud.get_test_set_tests(
+            db=test_db,
+            test_set_id=new_set.id,
+            skip=0,
+            limit=100,
+            sort_by="created_at",
+            sort_order="asc",
+        )
+        assert total == 2
+        for t in items:
+            assert (t.test_metadata or {}).get("label") != "topic_marker"
+            assert t.topic is not None
+            assert t.topic.name == "Alpha/Beta"
+        inputs = {(t.prompt.content or "").strip() for t in items if t.prompt}
+        assert inputs == {"First prompt", "Second prompt"}
+
+    def test_raises_when_source_is_not_adaptive(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+        regular_test_set_for_import,
+    ):
+        src = regular_test_set_for_import
+        with pytest.raises(ValueError, match="not configured for adaptive"):
+            export_regular_test_set_from_adaptive(
+                db=test_db,
+                source_test_set_identifier=str(src.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+    def test_raises_when_source_missing(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        with pytest.raises(ValueError, match="not found"):
+            export_regular_test_set_from_adaptive(
+                db=test_db,
+                source_test_set_identifier=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )

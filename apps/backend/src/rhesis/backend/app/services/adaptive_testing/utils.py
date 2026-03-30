@@ -5,11 +5,10 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
 
 logger = logging.getLogger(__name__)
-
-ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
 
 
 def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:

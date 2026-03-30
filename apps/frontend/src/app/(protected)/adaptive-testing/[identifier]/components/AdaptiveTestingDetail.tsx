@@ -33,6 +33,7 @@ import {
   Stack,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
+import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import ApiOutlinedIcon from '@mui/icons-material/ApiOutlined';
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { alpha, useTheme } from '@mui/material/styles';
@@ -1653,6 +1654,7 @@ export default function AdaptiveTestingDetail({
   const [metricEditorMetricId, setMetricEditorMetricId] = useState<
     string | null
   >(null);
+  const [exportSubmitting, setExportSubmitting] = useState(false);
 
   const theme = useTheme();
   const notifications = useNotifications();
@@ -2494,6 +2496,35 @@ export default function AdaptiveTestingDetail({
     }
   };
 
+  const handleExportToTestSet = useCallback(async () => {
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+    setExportSubmitting(true);
+    try {
+      const result = await client.exportRegularTestSetFromAdaptive(testSetId);
+      const { exported, skipped, test_set: created } = result;
+      const parts = [
+        `Created "${created.name}"`,
+        `exported ${exported} test(s)`,
+      ];
+      if (skipped > 0) {
+        parts.push(`skipped ${skipped}`);
+      }
+      notifications.show(parts.join('. '), {
+        severity: 'success',
+        autoHideDuration: 6000,
+      });
+      router.push(`/test-sets/${created.id}`);
+    } catch (err) {
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to export test set.',
+        { severity: 'error', autoHideDuration: 6000 }
+      );
+    } finally {
+      setExportSubmitting(false);
+    }
+  }, [sessionToken, testSetId, notifications, router]);
+
   return (
     <Box>
       {/* Summary Stats */}
@@ -2590,18 +2621,30 @@ export default function AdaptiveTestingDetail({
               </Typography>
             </Box>
           </Box>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<SettingsIcon />}
-            onClick={() => {
-              setSettingsReEvaluateWarning(true);
-              setSettingsDialogOpen(true);
-            }}
-            sx={{ textTransform: 'none', flexShrink: 0 }}
-          >
-            Edit settings
-          </Button>
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<IosShareOutlinedIcon />}
+              onClick={() => void handleExportToTestSet()}
+              disabled={exportSubmitting}
+              sx={{ textTransform: 'none' }}
+            >
+              {exportSubmitting ? 'Exporting…' : 'Export to test set'}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<SettingsIcon />}
+              onClick={() => {
+                setSettingsReEvaluateWarning(true);
+                setSettingsDialogOpen(true);
+              }}
+              sx={{ textTransform: 'none' }}
+            >
+              Edit settings
+            </Button>
+          </Stack>
         </Box>
 
         <Box sx={{ p: 2.5 }}>
