@@ -16,11 +16,62 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 | 08 | `08-test-execution-and-analysis.md` | In progress |
 | 09 | `09-prompt-hardening.md` | Done |
 | 10 | `10-permission-management.md` | Done |
-| 11 | `11-advanced-exploration.md` | In progress |
+| 11 | `11-advanced-exploration.md` | Done |
+| 12 | Plan-aware execution | Done |
+| 13 | Architect refactoring | Done |
 
-## What was done (Phase 11 in progress)
+## What was done (Phase 13: Architect refactoring)
 
-### Advanced exploration strategies (Phase 11)
+Significant refactoring of the `sdk/src/rhesis/sdk/agents/architect/` module to reduce complexity, eliminate duplication, and centralize configuration:
+
+- **`ArchitectConfig` dataclass** (`config.py`) — consolidated all magic numbers (payload limits, truncation thresholds, iteration caps, history window sizes) into a single config object. Agent reads `self._cfg.*` instead of class-level constants.
+- **`AgentMode` enum** (`constants.py`) — replaced scattered string literals (`"discovery"`, `"planning"`, `"creating"`, `"executing"`) with a `StrEnum`. Mode transitions now go through `set_mode_async()` which emits `on_mode_change` events.
+- **Unified tool registry** (`tool_registry.py`) — single `TOOL_REGISTRY` dict mapping tool names to `ToolEntry(mode, plan_category)`. Replaced separate `_CREATING_TOOLS`, `_EXECUTING_TOOLS`, `_TOOL_TO_PLAN_CATEGORY` dicts. Provides `tools_for_mode()`, `plan_category_for()`, `mode_for()` helpers.
+- **Auto-generated `save_plan` schema** (`plan.py`) — `build_save_plan_tool()` uses `ArchitectPlan.model_json_schema()` to generate the tool's JSON schema, stripping internal fields like `completed` and inlining `$ref`s. Eliminated a 125-line hand-maintained dict.
+- **Discovery state factory** — extracted `_default_discovery_state()` to avoid duplicated initialization in `__init__` and `reset()`.
+- Reduced `agent.py` line count by extracting helpers: `_classify_mutating()`, `_mark_completed()`, `_match_metric()`, `_match_mapping()`, `_collect_id_names()`.
+- Updated `__init__.py` exports for `ArchitectConfig`, `AgentMode`, `BehaviorSpec`, `MappingSpec`.
+
+## What was done (Phase 12: Plan-aware execution)
+
+Made the agent structurally follow its generated plan rather than relying solely on prompt instructions:
+
+### Structured plan model
+- **`ArchitectPlan`** Pydantic model (`plan.py`) with `ProjectSpec`, `BehaviorSpec`, `TestSetSpec`, `MetricSpec`, `MappingSpec` — each with a `completed: bool` field for tracking progress
+- **`ReuseStatus`** type (`Literal["reuse", "improve", "new"]`) on behaviors and metrics — the plan explicitly records whether an entity should be reused, improved, or created new
+- **`MappingSpec`** model for behavior-metric mappings (replaces the old `Dict[str, List[str]]` format), with its own `completed` field
+- **`@field_validator`** for backward compatibility — coerces old dict-format mappings to `List[MappingSpec]`
+- **`to_markdown()`** renders plans with GFM task list checkboxes (`- [x]`/`- [ ]`) and reuse status tags
+
+### Plan persistence and tracking
+- **`save_plan` internal tool** — the agent calls this after formulating its plan; the tool parses and validates the plan via `ArchitectPlan.model_validate()`, sets initial completion status for reused items, and emits a `ARCHITECT_PLAN_UPDATE` WebSocket event
+- **Automatic progress tracking** — `_track_plan_progress()` runs after every successful tool call, matching tool results against plan items by name and marking them `completed=True`
+- **ID-to-name resolution** — `_collect_id_names()` extracts UUID-to-name pairs from tool results (including OData `{value: [...]}` wrappers). When `add_behavior_to_metric` fires with UUIDs, `_match_mapping()` resolves them to names via this lookup before matching against the plan.
+
+### Structural guards (Layer 2 defense)
+- **`_check_plan_constraints()`** runs before every tool execution:
+  - Rejects `create_project` when the plan has no project — prevents the LLM from creating projects the user didn't ask for
+  - Rejects `create_metric` when the metric name doesn't match any planned metric — prevents name mismatches from `generate_metric`
+- System prompt updated to enforce `create_metric` with exact plan names (not `generate_metric` which produces its own names)
+
+### Entity reuse
+- Agent calls `list_behaviors` and `list_metrics` during planning to discover existing entities
+- Plan distinguishes `(reuse)`, `(improve)`, and `(new)` items — the agent's summary response uses matching language ("leveraging existing" vs "creating new")
+- `streaming_response.j2` template includes explicit instructions for reuse-aware language
+
+### Test synthesizer integration
+- **`generate_test_set` tool** — wraps `POST /test_sets/generate`, takes generation config (prompt, behaviors, categories, topics), num_tests, test_type, and name. Returns a `task_id` for async monitoring via `get_job_status`.
+- System prompt updated with generation workflow: plan includes `test_type` and `generation_prompt` per test set, agent uses `generate_test_set` instead of `create_test_set_bulk` for AI-generated tests
+- Renamed from `synthesize_tests` to `generate_test_set` for consistency with the endpoint
+
+### Frontend plan display
+- **`PlanDisplay.tsx`** — collapsible panel showing the current plan with a progress bar (`done/total`), GFM checkboxes that update in real-time as tools complete, and a green "Plan Complete" indicator when all items are done
+- **Mode chip** — `Chip` component in `ArchitectChat.tsx` reflects the agent's current phase (`Discovery` / `Planning` / `Creating` / `Executing`) with color coding, updated via `ARCHITECT_MODE_CHANGE` WebSocket events
+- **Session state management** — mode and plan reset when creating a new conversation; restored from `session.mode` and `session.plan_data` when loading an existing one
+
+## What was done (Phase 11: Advanced exploration)
+
+### Advanced exploration strategies
 - Created a target-agnostic strategy framework in `penelope/src/rhesis/penelope/strategies/`:
   - `PenelopeStrategy` — abstract base class with `build_goal()`, `build_instructions()`, `format_findings()` interface; uses `target_name`/`target_description` so strategies work across endpoint, LangChain, LangGraph, and future target types
   - `ExplorationStrategy(PenelopeStrategy)` — intermediate class for exploration-specific defaults, shared previous-findings formatting, and common findings extraction
@@ -31,13 +82,14 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 - Enhanced `ExploreEndpointTool` with:
   - `strategy` parameter — pass a strategy name (e.g. `"domain_probing"`) to auto-generate goal and instructions
   - `previous_findings` parameter — structured findings from a prior run, forwarded to the strategy and to Penelope's `context`
-  - `"comprehensive"` mode — runs all three strategies in sequence, chaining findings from each into the next
+  - `"comprehensive"` mode — runs all three strategies in parallel (`asyncio.gather`), chaining findings from each into the next. Deferred goal evaluation for performance.
+  - Quick vs Comprehensive modes presented to the user in the system prompt
   - Goal is now optional when a strategy is specified
   - Backward-compatible: existing callers that pass `goal` without `strategy` continue to work unchanged
 - Updated Architect's `system_prompt.j2` Discovery Phase with strategy-based exploration guidance
 - Tests: 33 strategy unit tests, 29 tool tests (expanded from 12)
 
-## What was done (Phase 08 in progress)
+## What was done (Phases 08-10)
 
 ### TODOs
 - [x] Adjust the `c4d8e2f1a3b5_add_architect_tables.py` migration's `down_revision` to point to the current latest migration in `main` before merging — rebased to `e1f2a3b4c5d6` (origin/main head).
@@ -80,6 +132,16 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 - Removed `execute_tests` from MCP tools — a synchronous dev endpoint that doesn't persist results, confused with `execute_test_set`
 - Added execution monitoring guidance to the system prompt: poll `get_test_run` for status, fetch results via `list_test_results` with `$filter`, present structured summaries
 - Improved `list_test_runs`, `get_test_run`, `list_test_results`, and `execute_test_set` tool descriptions with status values, field names, and usage patterns
+
+### UI/UX improvements (cross-phase)
+- **Tool call list** — active tools render first; completed tools collapse when any tool is running
+- **Auto-approve wiring** — toggle correctly suppresses confirmation prompts end-to-end (frontend filter + SDK write guard)
+- **Markdown links** — added `normalizeMarkdownLinks` preprocessor to fix LLM-generated broken links; internal links open in new tab
+- **OData filter navigation** — system prompt now guides agent to use `status/name eq 'Failed'` instead of filtering by `status_id`
+- **Streaming message backfill** — when agent completes without streaming text (e.g. after tool execution), content is backfilled from the response payload so the message is always displayed
+- **Empty confirmation bubble** — messages with `needsConfirmation` but no content are no longer rendered as empty bubbles; Accept/Change buttons attach to the last content-bearing message
+- **Chat input focus** — clicking "Change" (rejecting a plan) moves focus to the text input via `forwardRef`/`useImperativeHandle`
+- **Tool execution duration** — server-side duration tracking with `duration_ms` in `on_tool_end` events
 
 ### Robustness & Safety Fixes
 - Fixed a context scope bug in `architect.py` that caused `DetachedInstanceError` when accessing DB session properties out of bounds.
@@ -329,14 +391,25 @@ confirm/deny outcomes.
 
 | File | Purpose |
 |------|---------|
+| `sdk/src/rhesis/sdk/agents/architect/agent.py` | Core ArchitectAgent — conversation loop, plan tracking, tool execution |
+| `sdk/src/rhesis/sdk/agents/architect/plan.py` | ArchitectPlan Pydantic model, MappingSpec, auto-generated save_plan schema |
+| `sdk/src/rhesis/sdk/agents/architect/config.py` | ArchitectConfig dataclass — centralized constants and thresholds |
+| `sdk/src/rhesis/sdk/agents/architect/tool_registry.py` | Unified tool-to-mode and tool-to-plan-category registry |
 | `sdk/src/rhesis/sdk/agents/architect/prompt_templates/system_prompt.j2` | Agent behavior — this is where most tuning happens |
+| `sdk/src/rhesis/sdk/agents/architect/prompt_templates/streaming_response.j2` | Streaming final response template with reuse-aware language |
 | `sdk/src/rhesis/sdk/agents/architect/prompt_templates/personality.j2` | Telemachus character definition |
 | `sdk/src/rhesis/sdk/agents/architect/prompt_templates/iteration_prompt.j2` | Per-iteration prompt with mode and history |
+| `sdk/src/rhesis/sdk/agents/constants.py` | AgentMode enum, InternalTool enum, shared constants |
 | `sdk/src/rhesis/sdk/agents/schemas.py` | AgentAction/AgentResult schemas (needs_confirmation) |
+| `sdk/src/rhesis/sdk/agents/base.py` | Tool formatting, server-managed field filtering |
+| `sdk/src/rhesis/sdk/metrics/synthesizer.py` | MetricSynthesizer (generate + improve) |
 | `apps/backend/src/rhesis/backend/app/mcp_server/mcp_tools.yaml` | Tool descriptions and labels the agent sees |
 | `apps/backend/src/rhesis/backend/app/mcp_server/local_tools.py` | In-process tool provider for Celery worker |
 | `apps/backend/src/rhesis/backend/app/utils/odata.py` | OData filter and $select utilities |
 | `apps/backend/src/rhesis/backend/app/auth/token_utils.py` | JWT verification (delegation token support) |
-| `apps/backend/src/rhesis/backend/tasks/architect.py` | Celery task that runs the agent |
-| `sdk/src/rhesis/sdk/agents/base.py` | Tool formatting, server-managed field filtering |
-| `sdk/src/rhesis/sdk/metrics/synthesizer.py` | MetricSynthesizer (generate + improve) |
+| `apps/backend/src/rhesis/backend/tasks/architect.py` | Celery task — runs agent, persists plan/mode, emits WS events |
+| `apps/frontend/src/app/(protected)/architect/components/ArchitectChat.tsx` | Chat UI — mode chip, plan restore, session management |
+| `apps/frontend/src/app/(protected)/architect/components/PlanDisplay.tsx` | Plan panel — progress bar, GFM checkboxes, completion indicator |
+| `apps/frontend/src/app/(protected)/architect/components/ToolCallList.tsx` | Streaming tool call progress display |
+| `apps/frontend/src/hooks/useArchitectChat.ts` | React hook — WS events, state management, streaming |
+| `apps/frontend/src/components/common/MarkdownContent.tsx` | Markdown renderer with link normalization and task list styling |
