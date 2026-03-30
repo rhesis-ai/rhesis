@@ -1,5 +1,6 @@
 'use client';
 
+import type { UUID } from 'crypto';
 import {
   useState,
   useMemo,
@@ -29,9 +30,12 @@ import {
   Alert,
   FormControlLabel,
   Checkbox,
+  Stack,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
-import { useTheme } from '@mui/material/styles';
+import ApiOutlinedIcon from '@mui/icons-material/ApiOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { alpha, useTheme } from '@mui/material/styles';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
   GridColDef,
@@ -53,6 +57,8 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import GradingIcon from '@mui/icons-material/GradingOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import OpenInNewOutlinedIcon from '@mui/icons-material/OpenInNewOutlined';
+import { MetricDetailView } from '@/app/(protected)/metrics/[identifier]/MetricDetailView';
 import {
   TestNode,
   TestNodeCreate,
@@ -117,6 +123,17 @@ function getLabelColor(label: string): 'success' | 'error' | 'default' {
   if (label === 'pass') return 'success';
   if (label === 'fail') return 'error';
   return 'default';
+}
+
+/**
+ * Matches /metrics/[identifier] — only rhesis and custom backend types have a
+ * configuration detail page; other types redirect away.
+ */
+function metricSupportsDetailPage(metric: {
+  backend_type?: { type_value?: string | null } | null;
+}): boolean {
+  const v = metric.backend_type?.type_value?.toLowerCase();
+  return v === 'rhesis' || v === 'custom';
 }
 
 /**
@@ -1605,6 +1622,9 @@ export default function AdaptiveTestingDetail({
 
   const [suggestionsDialogOpen, setSuggestionsDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  /** True when dialog opened from Edit settings (not initial ?openSettings=1). */
+  const [settingsReEvaluateWarning, setSettingsReEvaluateWarning] =
+    useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsEndpoint, setSettingsEndpoint] = useState<Endpoint | null>(
@@ -1613,7 +1633,16 @@ export default function AdaptiveTestingDetail({
   const [settingsMetric, setSettingsMetric] = useState<MetricDetail | null>(
     null
   );
+  /** Resolved labels for on-page display; null means initial load not finished */
+  const [adaptiveConfigSummary, setAdaptiveConfigSummary] = useState<{
+    endpointName: string | null;
+    metrics: { id: string; name: string; hasDetailPage: boolean }[];
+  } | null>(null);
+  const [metricEditorMetricId, setMetricEditorMetricId] = useState<
+    string | null
+  >(null);
 
+  const theme = useTheme();
   const notifications = useNotifications();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -1664,18 +1693,49 @@ export default function AdaptiveTestingDetail({
   const loadAdaptiveSettings = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
     const adaptiveClient = clientFactory.getAdaptiveTestingClient();
-    const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
-    setSettingsEndpoint(
-      endpoints.find(
-        endpoint => endpoint.id === settings.default_endpoint?.id
-      ) ?? null
-    );
-    const firstMetricId = settings.metrics[0]?.id;
-    setSettingsMetric(
-      firstMetricId
-        ? (metrics.find(metric => metric.id === firstMetricId) ?? null)
-        : null
-    );
+    const metricsClient = clientFactory.getMetricsClient();
+    try {
+      const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
+      const resolvedEndpoint =
+        endpoints.find(e => e.id === settings.default_endpoint?.id) ?? null;
+      setSettingsEndpoint(resolvedEndpoint);
+      const endpointName =
+        resolvedEndpoint?.name ?? settings.default_endpoint?.name ?? null;
+
+      const metricsSummary = await Promise.all(
+        settings.metrics.map(async m => {
+          const full = metrics.find(mm => mm.id === m.id);
+          const name = full?.name ?? m.name;
+          if (full) {
+            return {
+              id: m.id,
+              name,
+              hasDetailPage: metricSupportsDetailPage(full),
+            };
+          }
+          try {
+            const detail = await metricsClient.getMetric(m.id as UUID);
+            return {
+              id: m.id,
+              name,
+              hasDetailPage: metricSupportsDetailPage(detail),
+            };
+          } catch {
+            return { id: m.id, name, hasDetailPage: false };
+          }
+        })
+      );
+      setAdaptiveConfigSummary({ endpointName, metrics: metricsSummary });
+
+      const firstMetricId = settings.metrics[0]?.id;
+      setSettingsMetric(
+        firstMetricId
+          ? (metrics.find(metric => metric.id === firstMetricId) ?? null)
+          : null
+      );
+    } catch {
+      setAdaptiveConfigSummary({ endpointName: null, metrics: [] });
+    }
   }, [endpoints, metrics, sessionToken, testSetId]);
 
   useEffect(() => {
@@ -1685,6 +1745,7 @@ export default function AdaptiveTestingDetail({
 
   useEffect(() => {
     if (searchParams.get('openSettings') !== '1') return;
+    setSettingsReEvaluateWarning(false);
     setSettingsDialogOpen(true);
     const next = new URLSearchParams(searchParams.toString());
     next.delete('openSettings');
@@ -2366,10 +2427,26 @@ export default function AdaptiveTestingDetail({
         default_endpoint_id: settingsEndpoint.id,
         metric_ids: [settingsMetric.id],
       });
+      setAdaptiveConfigSummary({
+        endpointName: settingsEndpoint.name ?? null,
+        metrics:
+          settingsMetric?.id &&
+          settingsMetric.name != null &&
+          settingsMetric.name !== ''
+            ? [
+                {
+                  id: settingsMetric.id,
+                  name: settingsMetric.name,
+                  hasDetailPage: metricSupportsDetailPage(settingsMetric),
+                },
+              ]
+            : [],
+      });
       notifications.show('Adaptive testing settings saved.', {
         severity: 'success',
       });
       setSettingsDialogOpen(false);
+      setSettingsReEvaluateWarning(false);
     } catch (err) {
       setSettingsError(
         err instanceof Error ? err.message : 'Failed to save settings.'
@@ -2424,16 +2501,240 @@ export default function AdaptiveTestingDetail({
         </Paper>
       </Box>
 
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-start' }}>
-        <Button
-          size="small"
-          startIcon={<SettingsIcon />}
-          onClick={() => setSettingsDialogOpen(true)}
-          sx={{ textTransform: 'none' }}
+      <Paper
+        variant="outlined"
+        sx={{
+          mb: 2,
+          borderRadius: theme.shape.borderRadius * 2,
+          overflow: 'hidden',
+          background:
+            theme.palette.mode === 'dark'
+              ? alpha(theme.palette.primary.main, 0.07)
+              : alpha(theme.palette.primary.main, 0.025),
+          borderColor: alpha(theme.palette.primary.main, 0.15),
+        }}
+      >
+        <Box
+          sx={{
+            px: 2.5,
+            py: 2,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: alpha(theme.palette.background.paper, 0.55),
+          }}
         >
-          Settings
-        </Button>
-      </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 40,
+                height: 40,
+                borderRadius: theme.shape.borderRadius * 2,
+                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                color: 'primary.main',
+              }}
+            >
+              <TuneOutlinedIcon sx={{ fontSize: 22 }} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600} component="div">
+                Adaptive configuration
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Endpoint and metrics for generation and evaluation
+              </Typography>
+            </Box>
+          </Box>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<SettingsIcon />}
+            onClick={() => {
+              setSettingsReEvaluateWarning(true);
+              setSettingsDialogOpen(true);
+            }}
+            sx={{ textTransform: 'none', flexShrink: 0 }}
+          >
+            Edit settings
+          </Button>
+        </Box>
+
+        <Box sx={{ p: 2.5 }}>
+          {adaptiveConfigSummary === null ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="text.secondary">
+                Loading settings…
+              </Typography>
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
+              }}
+            >
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: theme.shape.borderRadius * 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 1.25,
+                  }}
+                >
+                  <ApiOutlinedIcon
+                    sx={{ fontSize: 20, color: 'text.secondary' }}
+                  />
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
+                  >
+                    Selected endpoint
+                  </Typography>
+                </Box>
+                {adaptiveConfigSummary.endpointName ? (
+                  <Chip
+                    label={adaptiveConfigSummary.endpointName}
+                    size="medium"
+                    variant="outlined"
+                    sx={{
+                      height: 'auto',
+                      py: 0.75,
+                      maxWidth: '100%',
+                      fontWeight: 500,
+                      borderColor: alpha(theme.palette.primary.main, 0.35),
+                      bgcolor: alpha(theme.palette.primary.main, 0.06),
+                      '& .MuiChip-label': {
+                        whiteSpace: 'normal',
+                        display: 'block',
+                        py: 0.25,
+                      },
+                    }}
+                  />
+                ) : (
+                  <Chip
+                    label="Not set — use Edit settings"
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      borderStyle: 'dashed',
+                      color: 'text.secondary',
+                      bgcolor: alpha(theme.palette.action.hover, 0.04),
+                    }}
+                  />
+                )}
+              </Box>
+
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: theme.shape.borderRadius * 2,
+                  border: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 1.25,
+                  }}
+                >
+                  <GradingIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
+                  >
+                    Selected metric
+                  </Typography>
+                </Box>
+                {adaptiveConfigSummary.metrics.length > 0 ? (
+                  <Stack spacing={1.25}>
+                    {adaptiveConfigSummary.metrics.map(m => (
+                      <Box
+                        key={m.id}
+                        sx={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          gap: 1,
+                        }}
+                      >
+                        <Chip
+                          label={m.name}
+                          size="medium"
+                          variant="outlined"
+                          sx={{
+                            height: 'auto',
+                            py: 0.75,
+                            maxWidth: { xs: '100%', sm: 'calc(100% - 140px)' },
+                            fontWeight: 500,
+                            borderColor: alpha(
+                              theme.palette.primary.main,
+                              0.35
+                            ),
+                            bgcolor: alpha(theme.palette.primary.main, 0.06),
+                            '& .MuiChip-label': {
+                              whiteSpace: 'normal',
+                              display: 'block',
+                              py: 0.25,
+                            },
+                          }}
+                        />
+                        {m.hasDetailPage ? (
+                          <Button
+                            size="small"
+                            variant="text"
+                            endIcon={
+                              <OpenInNewOutlinedIcon sx={{ fontSize: 18 }} />
+                            }
+                            sx={{ textTransform: 'none', flexShrink: 0 }}
+                            onClick={() => setMetricEditorMetricId(m.id)}
+                          >
+                            Go to metric
+                          </Button>
+                        ) : null}
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Chip
+                    label="Not set — use Edit settings"
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      borderStyle: 'dashed',
+                      color: 'text.secondary',
+                      bgcolor: alpha(theme.palette.action.hover, 0.04),
+                    }}
+                  />
+                )}
+              </Box>
+            </Box>
+          )}
+        </Box>
+      </Paper>
 
       {/* View Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
@@ -3023,6 +3324,7 @@ export default function AdaptiveTestingDetail({
           if (!settingsSaving) {
             setSettingsDialogOpen(false);
             setSettingsError(null);
+            setSettingsReEvaluateWarning(false);
           }
         }}
         maxWidth="sm"
@@ -3031,9 +3333,14 @@ export default function AdaptiveTestingDetail({
         <DialogTitle>Adaptive testing settings</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select the default endpoint and metric used by adaptive testing
-            actions.
+            Select the endpoint and metric used by adaptive testing actions.
           </Typography>
+          {settingsReEvaluateWarning && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              To keep results consistent with a new endpoint or metric,
+              Re-evaluate all tests in this set.
+            </Alert>
+          )}
           {settingsError && (
             <Alert
               severity="error"
@@ -3052,7 +3359,7 @@ export default function AdaptiveTestingDetail({
             renderInput={params => (
               <TextField
                 {...params}
-                label="Default endpoint"
+                label="Endpoint"
                 placeholder="Select endpoint"
               />
             )}
@@ -3067,7 +3374,7 @@ export default function AdaptiveTestingDetail({
             renderInput={params => (
               <TextField
                 {...params}
-                label="Default metric (single-turn)"
+                label="Metric (single-turn)"
                 placeholder="Select metric"
               />
             )}
@@ -3078,6 +3385,7 @@ export default function AdaptiveTestingDetail({
             onClick={() => {
               setSettingsDialogOpen(false);
               setSettingsError(null);
+              setSettingsReEvaluateWarning(false);
             }}
             disabled={settingsSaving}
           >
@@ -3091,6 +3399,47 @@ export default function AdaptiveTestingDetail({
             {settingsSaving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={metricEditorMetricId != null}
+        onClose={() => setMetricEditorMetricId(null)}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            m: { xs: 0, sm: 2 },
+            width: { xs: '100%', sm: 'min(1100px, 98vw)' },
+            maxHeight: { xs: '100%', sm: '94vh' },
+            height: { xs: '100%', sm: 'min(900px, 94vh)' },
+            borderRadius: { xs: 0, sm: 2 },
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          },
+        }}
+      >
+        {metricEditorMetricId ? (
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <MetricDetailView
+              key={metricEditorMetricId}
+              metricId={metricEditorMetricId}
+              mode="embedded"
+              onClose={() => setMetricEditorMetricId(null)}
+              onSaved={() => {
+                void loadAdaptiveSettings();
+              }}
+            />
+          </Box>
+        ) : null}
       </Dialog>
 
       {/* Suggestions dialog */}
