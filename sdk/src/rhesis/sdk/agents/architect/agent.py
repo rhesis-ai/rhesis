@@ -113,6 +113,9 @@ class ArchitectAgent(BaseAgent):
             _default_discovery_state()
         )
 
+        # UUID → entity name for resolving IDs in mapping tools
+        self._id_to_name: Dict[str, str] = {}
+
         # Per-turn attachments (mentions + file text)
         self._attachments: Optional[Dict[str, Any]] = None
 
@@ -276,6 +279,7 @@ class ArchitectAgent(BaseAgent):
         self._auto_approve_all = False
         self._attachments = None
         self._discovery_state = _default_discovery_state()
+        self._id_to_name.clear()
 
     # ── write-guard ──────────────────────────────────────────────
 
@@ -461,14 +465,51 @@ class ArchitectAgent(BaseAgent):
 
         return None
 
+    # ── plan constraints ──────────────────────────────────────────
+
+    def _check_plan_constraints(
+        self, tool_call: ToolCall
+    ) -> Optional[str]:
+        """Reject tool calls that contradict the saved plan.
+
+        Returns an error message if the call is invalid, None if ok.
+        """
+        if not self._plan:
+            return None
+        if (
+            tool_call.tool_name == "create_project"
+            and not self._plan.project
+        ):
+            return (
+                "The saved plan does not include a project. "
+                "Skip create_project and proceed with the next "
+                "step in the plan."
+            )
+        if tool_call.tool_name == "create_metric":
+            name = tool_call.arguments.get("name", "")
+            if name and not any(
+                m.name.lower() == name.lower()
+                for m in self._plan.metrics
+            ):
+                planned = [m.name for m in self._plan.metrics]
+                return (
+                    f"Metric name '{name}' does not match any "
+                    f"planned metric. Use the exact name from "
+                    f"the plan: {planned}."
+                )
+        return None
+
     # ── tool execution ───────────────────────────────────────────
 
     async def execute_tool(self, tool_call: ToolCall) -> ToolResult:
-        """Intercept save_plan, validate args, track plan progress."""
+        """Intercept save_plan, validate args, enforce plan constraints."""
         if tool_call.tool_name == InternalTool.SAVE_PLAN:
             return await self._execute_save_plan(tool_call)
 
-        error = self._validate_tool_arguments(tool_call)
+        error = (
+            self._check_plan_constraints(tool_call)
+            or self._validate_tool_arguments(tool_call)
+        )
         if error:
             logger.warning(
                 "[Architect] Rejected tool %s: %s",
@@ -540,6 +581,8 @@ class ArchitectAgent(BaseAgent):
         self, tool_call: ToolCall, result: ToolResult
     ) -> None:
         """Mark plan items as completed after successful tool calls."""
+        self._collect_id_names(result)
+
         plan = self._plan
         if not plan:
             return
@@ -569,7 +612,9 @@ class ArchitectAgent(BaseAgent):
             updated = self._match_metric(plan, tool_call, name)
 
         elif category == "mapping":
-            updated = self._match_mapping(plan, tool_call)
+            updated = self._match_mapping(
+                plan, tool_call, self._id_to_name
+            )
 
         if updated:
             await _emit(
@@ -608,20 +653,35 @@ class ArchitectAgent(BaseAgent):
                     return True
         return False
 
+    def _collect_id_names(self, result: ToolResult) -> None:
+        """Extract id→name pairs from tool results for later lookup."""
+        if not result.success or not result.content:
+            return
+        try:
+            data = json.loads(result.content)
+        except (json.JSONDecodeError, TypeError):
+            return
+        if isinstance(data, dict) and "value" in data:
+            data = data["value"]
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            if isinstance(item, dict):
+                eid = item.get("id")
+                ename = item.get("name")
+                if eid and ename:
+                    self._id_to_name[str(eid)] = ename
+
     @staticmethod
     def _match_mapping(
         plan: ArchitectPlan,
         tool_call: ToolCall,
+        id_to_name: Dict[str, str],
     ) -> bool:
         """Mark a mapping as completed when add_behavior_to_metric succeeds."""
-        behavior = (
-            tool_call.arguments.get("behavior_name") or ""
-        ).lower()
-        metric = (
-            tool_call.arguments.get("metric_name")
-            or tool_call.arguments.get("name")
-            or ""
-        ).lower()
+        behavior_id = tool_call.arguments.get("behavior_id", "")
+        metric_id = tool_call.arguments.get("metric_id", "")
+        behavior = id_to_name.get(behavior_id, "").lower()
+        metric = id_to_name.get(metric_id, "").lower()
         if not behavior and not metric:
             return False
         for mapping in plan.behavior_metric_mappings:

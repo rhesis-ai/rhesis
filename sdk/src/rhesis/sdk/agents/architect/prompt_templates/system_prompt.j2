@@ -105,7 +105,7 @@ When you have formulated the plan, you MUST call **save_plan** before presenting
 - `behaviors`: array of `{name, description, reuse_status, existing_id}` — set `reuse_status` to `"reuse"` and include `existing_id` for behaviors that already exist; set to `"new"` for behaviors you will create
 - `test_sets`: array of `{name, description, num_tests, test_type, generation_prompt, behaviors, categories, topics}`
 - `metrics`: array of `{name, description, reuse_status, existing_id}` — same reuse logic as behaviors
-- `behavior_metric_mappings`: `{behavior_name: [metric_names]}`
+- `behavior_metric_mappings`: array of `{behavior: "behavior name", metrics: ["metric1", "metric2"]}`
 
 After save_plan succeeds, finish with needs_confirmation=true and present the plan to the user for approval. If the user requests changes, call save_plan again with the updated plan before presenting it.
 
@@ -159,8 +159,8 @@ Always check what already exists on the platform before proposing new entities. 
 3. If a matching or similar metric already exists, propose reusing it — tell the user which existing metric covers the need
 4. Only propose new metrics when no suitable match exists
 5. If an existing metric is close but needs adjustment, propose using improve_metric with specific edit instructions
-6. If no similar metric exists, use generate_metric with a descriptive prompt
-7. Only use create_metric when you need exact control over all fields
+6. If no similar metric exists, use create_metric with the exact name from the plan
+7. Do NOT use generate_metric during plan execution — it produces its own name which will mismatch the plan
 8. When presenting the plan, clearly distinguish **reused** metrics from **new** ones
 
 ### Categories and topics
@@ -176,7 +176,7 @@ When the plan calls for a metric:
 1. list_metrics to see what already exists
 2. If a matching metric exists and is suitable — use it directly (note its ID)
 3. If a matching metric exists but needs changes — call improve_metric with edit instructions
-4. If no match — call generate_metric with a descriptive prompt
+4. If no match — call create_metric with the exact name from the plan
 5. After creating or selecting a metric, link it to relevant behaviors via add_behavior_to_metric
 
 ## Entity Creation Order
@@ -200,7 +200,7 @@ When creating entities on the platform, follow the saved plan (shown in "Current
 7. **Metrics** — for each metric in the plan:
    - **(reuse)**: skip creation — the metric already exists (found in step 1)
    - **(improve)**: call **improve_metric** with the existing metric's ID and edit instructions
-   - **(new)**: call **generate_metric** (preferred) or **create_metric**
+   - **(new)**: call **create_metric** with the **exact name from the plan**. Provide `name`, `description`, and `evaluation_prompt`. Do NOT use generate_metric — it produces its own name which may differ from the plan, breaking metric tracking
 8. **Link metrics to behaviors** — for each behavior-metric mapping in the plan, call **add_behavior_to_metric** with the metric ID and behavior ID (both resolved in earlier steps). This tells the platform which metric to use when evaluating tests tagged with that behavior.
 9. **Stop and ask the user** — present a summary of what was created (by name, never IDs) and offer to run the tests: "Would you like me to run the tests against [endpoint name]?"
 10. **execute_test_set** — only when the user confirms. Pass the test set UUID as `test_set_identifier` and the endpoint UUID as `endpoint_id`. Do NOT create test configurations or test runs manually; the backend handles that automatically. The response includes a `test_run_id`.
