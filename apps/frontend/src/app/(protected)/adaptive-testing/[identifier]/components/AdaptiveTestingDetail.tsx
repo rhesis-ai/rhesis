@@ -1,5 +1,6 @@
 'use client';
 
+import type { UUID } from 'crypto';
 import {
   useState,
   useMemo,
@@ -29,6 +30,7 @@ import {
   Alert,
   FormControlLabel,
   Checkbox,
+  Stack,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/SettingsOutlined';
 import ApiOutlinedIcon from '@mui/icons-material/ApiOutlined';
@@ -55,6 +57,8 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import GradingIcon from '@mui/icons-material/GradingOutlined';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import OpenInNewOutlinedIcon from '@mui/icons-material/OpenInNewOutlined';
+import { MetricDetailView } from '@/app/(protected)/metrics/[identifier]/MetricDetailView';
 import {
   TestNode,
   TestNodeCreate,
@@ -119,6 +123,17 @@ function getLabelColor(label: string): 'success' | 'error' | 'default' {
   if (label === 'pass') return 'success';
   if (label === 'fail') return 'error';
   return 'default';
+}
+
+/**
+ * Matches /metrics/[identifier] — only rhesis and custom backend types have a
+ * configuration detail page; other types redirect away.
+ */
+function metricSupportsDetailPage(metric: {
+  backend_type?: { type_value?: string | null } | null;
+}): boolean {
+  const v = metric.backend_type?.type_value?.toLowerCase();
+  return v === 'rhesis' || v === 'custom';
 }
 
 /**
@@ -1618,8 +1633,11 @@ export default function AdaptiveTestingDetail({
   /** Resolved labels for on-page display; null means initial load not finished */
   const [adaptiveConfigSummary, setAdaptiveConfigSummary] = useState<{
     endpointName: string | null;
-    metricNames: string[];
+    metrics: { id: string; name: string; hasDetailPage: boolean }[];
   } | null>(null);
+  const [metricEditorMetricId, setMetricEditorMetricId] = useState<string | null>(
+    null
+  );
 
   const theme = useTheme();
   const notifications = useNotifications();
@@ -1672,6 +1690,7 @@ export default function AdaptiveTestingDetail({
   const loadAdaptiveSettings = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
     const adaptiveClient = clientFactory.getAdaptiveTestingClient();
+    const metricsClient = clientFactory.getMetricsClient();
     try {
       const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
       const resolvedEndpoint =
@@ -1679,11 +1698,31 @@ export default function AdaptiveTestingDetail({
       setSettingsEndpoint(resolvedEndpoint);
       const endpointName =
         resolvedEndpoint?.name ?? settings.default_endpoint?.name ?? null;
-      const metricNames = settings.metrics.map(m => {
-        const full = metrics.find(mm => mm.id === m.id);
-        return full?.name ?? m.name;
-      });
-      setAdaptiveConfigSummary({ endpointName, metricNames });
+
+      const metricsSummary = await Promise.all(
+        settings.metrics.map(async m => {
+          const full = metrics.find(mm => mm.id === m.id);
+          const name = full?.name ?? m.name;
+          if (full) {
+            return {
+              id: m.id,
+              name,
+              hasDetailPage: metricSupportsDetailPage(full),
+            };
+          }
+          try {
+            const detail = await metricsClient.getMetric(m.id as UUID);
+            return {
+              id: m.id,
+              name,
+              hasDetailPage: metricSupportsDetailPage(detail),
+            };
+          } catch {
+            return { id: m.id, name, hasDetailPage: false };
+          }
+        })
+      );
+      setAdaptiveConfigSummary({ endpointName, metrics: metricsSummary });
 
       const firstMetricId = settings.metrics[0]?.id;
       setSettingsMetric(
@@ -1692,7 +1731,7 @@ export default function AdaptiveTestingDetail({
           : null
       );
     } catch {
-      setAdaptiveConfigSummary({ endpointName: null, metricNames: [] });
+      setAdaptiveConfigSummary({ endpointName: null, metrics: [] });
     }
   }, [endpoints, metrics, sessionToken, testSetId]);
 
@@ -2386,9 +2425,17 @@ export default function AdaptiveTestingDetail({
       });
       setAdaptiveConfigSummary({
         endpointName: settingsEndpoint.name ?? null,
-        metricNames:
-          settingsMetric.name != null && settingsMetric.name !== ''
-            ? [settingsMetric.name]
+        metrics:
+          settingsMetric?.id &&
+          settingsMetric.name != null &&
+          settingsMetric.name !== ''
+            ? [
+                {
+                  id: settingsMetric.id,
+                  name: settingsMetric.name,
+                  hasDetailPage: metricSupportsDetailPage(settingsMetric),
+                },
+              ]
             : [],
       });
       notifications.show('Adaptive testing settings saved.', {
@@ -2616,30 +2663,52 @@ export default function AdaptiveTestingDetail({
                     Default metrics
                   </Typography>
                 </Box>
-                {adaptiveConfigSummary.metricNames.length > 0 ? (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                    {adaptiveConfigSummary.metricNames.map((name, i) => (
-                      <Chip
-                        key={`${name}-${i}`}
-                        label={name}
-                        size="medium"
-                        variant="outlined"
+                {adaptiveConfigSummary.metrics.length > 0 ? (
+                  <Stack spacing={1.25}>
+                    {adaptiveConfigSummary.metrics.map(m => (
+                      <Box
+                        key={m.id}
                         sx={{
-                          height: 'auto',
-                          py: 0.75,
-                          maxWidth: '100%',
-                          fontWeight: 500,
-                          borderColor: alpha(theme.palette.primary.main, 0.35),
-                          bgcolor: alpha(theme.palette.primary.main, 0.06),
-                          '& .MuiChip-label': {
-                            whiteSpace: 'normal',
-                            display: 'block',
-                            py: 0.25,
-                          },
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          gap: 1,
                         }}
-                      />
+                      >
+                        <Chip
+                          label={m.name}
+                          size="medium"
+                          variant="outlined"
+                          sx={{
+                            height: 'auto',
+                            py: 0.75,
+                            maxWidth: { xs: '100%', sm: 'calc(100% - 140px)' },
+                            fontWeight: 500,
+                            borderColor: alpha(theme.palette.primary.main, 0.35),
+                            bgcolor: alpha(theme.palette.primary.main, 0.06),
+                            '& .MuiChip-label': {
+                              whiteSpace: 'normal',
+                              display: 'block',
+                              py: 0.25,
+                            },
+                          }}
+                        />
+                        {m.hasDetailPage ? (
+                          <Button
+                            size="small"
+                            variant="text"
+                            endIcon={
+                              <OpenInNewOutlinedIcon sx={{ fontSize: 18 }} />
+                            }
+                            sx={{ textTransform: 'none', flexShrink: 0 }}
+                            onClick={() => setMetricEditorMetricId(m.id)}
+                          >
+                            Go to metric
+                          </Button>
+                        ) : null}
+                      </Box>
                     ))}
-                  </Box>
+                  </Stack>
                 ) : (
                   <Chip
                     label="Not set — use Edit settings"
@@ -3314,6 +3383,47 @@ export default function AdaptiveTestingDetail({
             {settingsSaving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={metricEditorMetricId != null}
+        onClose={() => setMetricEditorMetricId(null)}
+        maxWidth={false}
+        fullWidth
+        PaperProps={{
+          sx: {
+            m: { xs: 0, sm: 2 },
+            width: { xs: '100%', sm: 'min(1100px, 98vw)' },
+            maxHeight: { xs: '100%', sm: '94vh' },
+            height: { xs: '100%', sm: 'min(900px, 94vh)' },
+            borderRadius: { xs: 0, sm: 2 },
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          },
+        }}
+      >
+        {metricEditorMetricId ? (
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <MetricDetailView
+              key={metricEditorMetricId}
+              metricId={metricEditorMetricId}
+              mode="embedded"
+              onClose={() => setMetricEditorMetricId(null)}
+              onSaved={() => {
+                void loadAdaptiveSettings();
+              }}
+            />
+          </Box>
+        ) : null}
       </Dialog>
 
       {/* Suggestions dialog */}
