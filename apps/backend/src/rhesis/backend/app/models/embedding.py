@@ -19,7 +19,8 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 
 from .base import Base
-from .enums import EmbeddingOrigin, EmbeddingStatus
+from .enums import EmbeddingOrigin
+from .guid import GUID
 from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin
 from .status import Status
 
