@@ -24,6 +24,7 @@ class EntityType(Enum):
     TASK = "Task"
     PROJECT = "Project"
     SOURCE = "Source"
+    CHUNK = "Chunk"
     TRACE = "Trace"
 
     @classmethod
@@ -78,6 +79,10 @@ class MetricType:
     """Values for the MetricType type_lookup used on metrics."""
 
     CUSTOM_PROMPT = "custom-prompt"
+
+
+# Display name stored in test_set.attributes["metadata"]["behaviors"] for adaptive testing sets
+ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
 
 
 # Error messages

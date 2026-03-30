@@ -162,6 +162,11 @@
         },
         {
             "name": "Active",
+            "description": "Chunk is active and usable",
+            "entity_type": "Chunk"
+        },
+        {
+            "name": "Active",
             "description": "Tool is configured and ready",
             "entity_type": "Tool"
         },
@@ -261,6 +266,11 @@
             "type_name": "EntityType",
             "type_value": "Embedding",
             "description": "Entity type for vector embeddings"
+        },
+        {
+            "type_name": "EntityType",
+            "type_value": "Chunk",
+            "description": "Entity type for chunks"
         },
         {
             "type_name": "ResponsePatternType",

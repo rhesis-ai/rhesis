@@ -76,6 +76,81 @@ describe('AdaptiveTestingClient', () => {
     expect(opts.method).toBe('DELETE');
   });
 
+  it('imports from a source test set with POST /import/{id}', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        test_set: { id: 'new-adaptive', name: 'Source (Adaptive)' },
+        imported: 3,
+        skipped: 1,
+        skipped_test_ids: ['skip-1'],
+      })
+    );
+
+    const result = await client.importAdaptiveTestSetFromSource('source-ts-1');
+
+    expect(result.imported).toBe(3);
+    expect(result.skipped).toBe(1);
+    expect(result.test_set.id).toBe('new-adaptive');
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/adaptive_testing/import/source-ts-1');
+    expect(opts.method).toBe('POST');
+  });
+
+  it('exports to a regular test set with POST /export/{id}', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        test_set: { id: 'new-regular', name: 'Adaptive (Exported)' },
+        exported: 2,
+        skipped: 2,
+        skipped_test_ids: ['m1', 'm2'],
+      })
+    );
+
+    const result =
+      await client.exportRegularTestSetFromAdaptive('adaptive-ts-1');
+
+    expect(result.exported).toBe(2);
+    expect(result.skipped).toBe(2);
+    expect(result.test_set.id).toBe('new-regular');
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/adaptive_testing/export/adaptive-ts-1');
+    expect(opts.method).toBe('POST');
+  });
+
+  it('fetches adaptive settings for a test set', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({ default_endpoint: null, metrics: [] })
+    );
+
+    await client.getAdaptiveSettings(TEST_SET_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/settings`),
+      expect.objectContaining({ cache: 'no-store' })
+    );
+  });
+
+  it('updates adaptive settings for a test set', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        default_endpoint: { id: 'ep1', name: 'Endpoint 1' },
+        metrics: [{ id: 'm1', name: 'metric1' }],
+      })
+    );
+
+    await client.updateAdaptiveSettings(TEST_SET_ID, {
+      default_endpoint_id: 'ep1',
+      metric_ids: ['m1'],
+    });
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain(`/adaptive_testing/${TEST_SET_ID}/settings`);
+    expect(opts.method).toBe('PUT');
+    const body = JSON.parse(opts.body);
+    expect(body.default_endpoint_id).toBe('ep1');
+    expect(body.metric_ids).toEqual(['m1']);
+  });
+
   // -------------------------------------------------------------------------
   // Tree
   // -------------------------------------------------------------------------

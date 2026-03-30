@@ -1,15 +1,14 @@
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
 
 logger = logging.getLogger(__name__)
-
-ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
 
 
 def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
@@ -18,7 +17,7 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
     Maps DB fields to the SDK node format:
     - test.topic.name -> node.topic
     - test.prompt.content -> node.input
-    - test.test_metadata -> output, label, labeler, model_score
+    - test.test_metadata -> output, label, labeler, model_score, metrics
 
     Returns None for tests without prompts (unless they are topic markers).
     """
@@ -34,6 +33,11 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
     if db_test.topic:
         topic_name = db_test.topic.name if hasattr(db_test.topic, "name") else ""
 
+    raw_metrics = meta.get("metrics")
+    metrics: Optional[Dict[str, Any]] = None
+    if isinstance(raw_metrics, dict):
+        metrics = raw_metrics
+
     return TestTreeNode(
         id=str(db_test.id),
         topic=topic_name,
@@ -42,6 +46,7 @@ def _db_test_to_node(db_test: models.Test) -> TestTreeNode | None:
         label=meta.get("label", ""),
         labeler=meta.get("labeler", "imported"),
         model_score=meta.get("model_score", 0.0),
+        metrics=metrics,
     )
 
 
@@ -67,7 +72,7 @@ def _get_test_set_tests_from_db(
             skip=skip,
             limit=page_size,
             sort_by="created_at",
-            sort_order="asc",
+            sort_order="desc",
         )
         all_tests.extend(items)
 

@@ -231,6 +231,330 @@ def delete_adaptive_test_set(
     return deleted
 
 
+def _unique_adaptive_import_name(db: Session, organization_id: str, base_name: str) -> str:
+    """Pick a test set name that does not collide within the organization."""
+    candidate = base_name
+    counter = 0
+    while True:
+        existing = (
+            db.query(models.TestSet)
+            .filter(
+                models.TestSet.organization_id == organization_id,
+                models.TestSet.name == candidate,
+            )
+            .first()
+        )
+        if existing is None:
+            return candidate
+        counter += 1
+        candidate = f"{base_name} ({counter})"
+
+
+def import_adaptive_test_set_from_source(
+    db: Session,
+    source_test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+) -> dict:
+    """Create a new adaptive test set by copying tests from a regular test set.
+
+    Topic hierarchy is rebuilt via topic markers. Tests without prompt content
+    (e.g. multi-turn-only) and topic-marker rows are skipped.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    source_test_set_identifier : str
+        UUID, nano_id, or slug of the source test set
+    organization_id : str
+        Tenant organization id
+    user_id : str
+        Acting user id
+
+    Returns
+    -------
+    dict
+        ``test_set`` (``models.TestSet``), ``imported``, ``skipped``,
+        ``skipped_test_ids``
+
+    Raises
+    ------
+    ValueError
+        If the source set is missing, or already configured for adaptive testing.
+    """
+    db_source = crud.resolve_test_set(source_test_set_identifier, db, organization_id)
+    if db_source is None:
+        raise ValueError("Test set not found with provided identifier")
+
+    if _is_adaptive_test_set(db_source):
+        raise ValueError("Source test set is already configured for adaptive testing")
+
+    base_name = f"{db_source.name} (Adaptive)"
+    new_name = _unique_adaptive_import_name(db, organization_id, base_name)
+
+    new_set = create_adaptive_test_set(
+        db=db,
+        organization_id=organization_id,
+        user_id=user_id,
+        name=new_name,
+        description=db_source.description,
+    )
+    db.flush()
+    db.refresh(new_set)
+
+    # Copy adaptive_settings from source (e.g. default endpoint) if present
+    src_attrs = db_source.attributes or {}
+    adaptive_src = src_attrs.get("adaptive_settings")
+    if adaptive_src and isinstance(adaptive_src, dict):
+        attrs = dict(new_set.attributes or {})
+        attrs["adaptive_settings"] = dict(adaptive_src)
+        new_set.attributes = attrs
+        db.add(new_set)
+        db.flush()
+
+    imported = 0
+    skipped = 0
+    skipped_test_ids: List[str] = []
+    # Must stay within crud.get_test_set_tests pagination max (100).
+    batch_size = 100
+    skip = 0
+
+    while True:
+        items, total = crud.get_test_set_tests(
+            db=db,
+            test_set_id=db_source.id,
+            skip=skip,
+            limit=batch_size,
+            sort_by="created_at",
+            sort_order="asc",
+        )
+        if not items:
+            break
+
+        for db_test in items:
+            meta = db_test.test_metadata or {}
+            if meta.get("label") == "topic_marker":
+                skipped += 1
+                skipped_test_ids.append(str(db_test.id))
+                continue
+
+            prompt = db_test.prompt
+            content = (prompt.content or "").strip() if prompt else ""
+            if not content:
+                skipped += 1
+                skipped_test_ids.append(str(db_test.id))
+                continue
+
+            topic_name = ""
+            if db_test.topic is not None and getattr(db_test.topic, "name", None):
+                topic_name = str(db_test.topic.name) or ""
+
+            label_raw = meta.get("label", "") or ""
+            label = label_raw if label_raw in ("", "pass", "fail") else ""
+
+            output_val = meta.get("output", "") or ""
+            labeler_val = meta.get("labeler", "imported") or "imported"
+            try:
+                model_score_val = float(meta.get("model_score", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                model_score_val = 0.0
+
+            create_test_node(
+                db=db,
+                test_set_id=new_set.id,
+                organization_id=organization_id,
+                user_id=user_id,
+                topic=topic_name,
+                input=content,
+                output=str(output_val),
+                labeler=str(labeler_val),
+                label=label,
+                model_score=model_score_val,
+            )
+            imported += 1
+
+        skip += len(items)
+        if skip >= total:
+            break
+
+    db.refresh(new_set)
+    return {
+        "test_set": new_set,
+        "imported": imported,
+        "skipped": skipped,
+        "skipped_test_ids": skipped_test_ids,
+    }
+
+
+def export_regular_test_set_from_adaptive(
+    db: Session,
+    source_test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+) -> dict:
+    """Create a new regular test set by copying tests from an adaptive test set.
+
+    Skips topic-marker rows and tests without prompt content. Does not copy
+    adaptive-only test set metadata (behaviors, adaptive_settings). Preserves
+    each real test's topic via ``topic_id`` (and prompt / metadata fields
+    compatible with regular test sets).
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    source_test_set_identifier : str
+        UUID, nano_id, or slug of the adaptive source test set
+    organization_id : str
+        Tenant organization id
+    user_id : str
+        Acting user id
+
+    Returns
+    -------
+    dict
+        ``test_set`` (``models.TestSet``), ``exported``, ``skipped``,
+        ``skipped_test_ids``
+
+    Raises
+    ------
+    ValueError
+        If the source set is missing, or is not configured for adaptive testing.
+    """
+    db_source = crud.resolve_test_set(source_test_set_identifier, db, organization_id)
+    if db_source is None:
+        raise ValueError("Test set not found with provided identifier")
+
+    if not _is_adaptive_test_set(db_source):
+        raise ValueError("Source test set is not configured for adaptive testing")
+
+    base_name = f"{db_source.name} (Exported)"
+    new_name = _unique_adaptive_import_name(db, organization_id, base_name)
+
+    test_set_type_lookup = get_or_create_type_lookup(
+        db=db,
+        type_name="TestType",
+        type_value="Single-Turn",
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    test_set_data = schemas.TestSetCreate(
+        name=new_name,
+        description=db_source.description,
+        attributes=None,
+        test_set_type_id=test_set_type_lookup.id,
+    )
+    new_set = crud.create_test_set(
+        db=db,
+        test_set=test_set_data,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    db.flush()
+    db.refresh(new_set)
+
+    exported = 0
+    skipped = 0
+    skipped_test_ids: List[str] = []
+    batch_size = 100
+    skip = 0
+
+    while True:
+        items, total = crud.get_test_set_tests(
+            db=db,
+            test_set_id=db_source.id,
+            skip=skip,
+            limit=batch_size,
+            sort_by="created_at",
+            sort_order="asc",
+        )
+        if not items:
+            break
+
+        for db_test in items:
+            meta = db_test.test_metadata or {}
+            if meta.get("label") == "topic_marker":
+                skipped += 1
+                skipped_test_ids.append(str(db_test.id))
+                continue
+
+            prompt = db_test.prompt
+            content = (prompt.content or "").strip() if prompt else ""
+            if not content:
+                skipped += 1
+                skipped_test_ids.append(str(db_test.id))
+                continue
+
+            topic_id = db_test.topic_id
+            if topic_id is None:
+                topic_name = ""
+                if db_test.topic is not None and getattr(db_test.topic, "name", None):
+                    topic_name = str(db_test.topic.name) or ""
+                if topic_name:
+                    db_topic = get_or_create_topic(
+                        db=db,
+                        name=topic_name,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
+                    topic_id = db_topic.id
+
+            label_raw = meta.get("label", "") or ""
+            label = label_raw if label_raw in ("", "pass", "fail") else ""
+
+            output_val = meta.get("output", "") or ""
+            labeler_val = meta.get("labeler", "exported") or "exported"
+            try:
+                model_score_val = float(meta.get("model_score", 0.0) or 0.0)
+            except (TypeError, ValueError):
+                model_score_val = 0.0
+
+            db_prompt = models.Prompt(
+                content=content,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            db.add(db_prompt)
+            db.flush()
+
+            new_test = models.Test(
+                topic_id=topic_id,
+                prompt_id=db_prompt.id,
+                test_metadata={
+                    "output": str(output_val),
+                    "label": label,
+                    "labeler": str(labeler_val),
+                    "model_score": model_score_val,
+                },
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            db.add(new_test)
+            db.flush()
+
+            create_test_set_associations(
+                db=db,
+                test_set_id=str(new_set.id),
+                test_ids=[str(new_test.id)],
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            exported += 1
+
+        skip += len(items)
+        if skip >= total:
+            break
+
+    db.refresh(new_set)
+    return {
+        "test_set": new_set,
+        "exported": exported,
+        "skipped": skipped,
+        "skipped_test_ids": skipped_test_ids,
+    }
+
+
 def create_test_node(
     db: Session,
     test_set_id: UUID,

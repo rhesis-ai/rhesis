@@ -2,6 +2,8 @@ import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import {
   AdaptiveTestSet,
+  ExportAdaptiveTestSetResponse,
+  ImportAdaptiveTestSetResponse,
   TestNode,
   TestNodeCreate,
   TestNodeUpdate,
@@ -22,6 +24,8 @@ import {
   GenerateSuggestionOutputsResponse,
   EvaluateSuggestionsRequest,
   EvaluateSuggestionsResponse,
+  AdaptiveSettings,
+  AdaptiveSettingsUpdateRequest,
 } from './interfaces/adaptive-testing';
 
 /**
@@ -89,6 +93,53 @@ export class AdaptiveTestingClient extends BaseApiClient {
   async deleteAdaptiveTestSet(testSetId: string): Promise<void> {
     return this.fetch<void>(`${API_ENDPOINTS.adaptiveTesting}/${testSetId}`, {
       method: 'DELETE',
+    });
+  }
+
+  /**
+   * Create a new adaptive test set by importing from an existing regular test set.
+   * @param sourceTestSetId Source test set identifier (UUID, nano_id, or slug)
+   */
+  async importAdaptiveTestSetFromSource(
+    sourceTestSetId: string
+  ): Promise<ImportAdaptiveTestSetResponse> {
+    const encoded = encodeURIComponent(sourceTestSetId);
+    return this.fetch<ImportAdaptiveTestSetResponse>(
+      `${API_ENDPOINTS.adaptiveTesting}/import/${encoded}`,
+      { method: 'POST' }
+    );
+  }
+
+  /**
+   * Create a new regular test set by exporting from an adaptive test set.
+   * @param adaptiveTestSetId Adaptive test set identifier (UUID, nano_id, or slug)
+   */
+  async exportRegularTestSetFromAdaptive(
+    adaptiveTestSetId: string
+  ): Promise<ExportAdaptiveTestSetResponse> {
+    const encoded = encodeURIComponent(adaptiveTestSetId);
+    return this.fetch<ExportAdaptiveTestSetResponse>(
+      `${API_ENDPOINTS.adaptiveTesting}/export/${encoded}`,
+      { method: 'POST' }
+    );
+  }
+
+  async getAdaptiveSettings(testSetId: string): Promise<AdaptiveSettings> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<AdaptiveSettings>(`${basePath}/settings`, {
+      cache: 'no-store',
+    });
+  }
+
+  async updateAdaptiveSettings(
+    testSetId: string,
+    body: AdaptiveSettingsUpdateRequest
+  ): Promise<AdaptiveSettings> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<AdaptiveSettings>(`${basePath}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 

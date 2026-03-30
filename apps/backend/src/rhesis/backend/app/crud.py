@@ -10,11 +10,12 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, desc, func, text
+from sqlalchemy import and_, cast, desc, func, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR, TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
@@ -537,6 +538,21 @@ def get_test_sets(
 
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
+    # Exclude test sets used for adaptive testing (they use the dedicated adaptive_testing API)
+    adaptive_marker = cast([ADAPTIVE_TESTING_BEHAVIOR], JSONB)
+    behaviors_json = models.TestSet.attributes["metadata"]["behaviors"]
+
+    def exclude_adaptive_test_sets(query):
+        return query.filter(
+            or_(
+                models.TestSet.attributes.is_(None),
+                behaviors_json.is_(None),
+                ~behaviors_json.contains(adaptive_marker),
+            )
+        )
+
+    query_builder = query_builder.with_custom_filter(exclude_adaptive_test_sets)
+
     return query_builder.all()
 
 
@@ -940,6 +956,42 @@ def delete_source(
 ) -> Optional[models.Source]:
     """Delete source."""
     return delete_item(db, models.Source, source_id, organization_id, user_id)
+
+
+def create_chunk(
+    db: Session, chunk: schemas.ChunkCreate, organization_id: str = None, user_id: str = None
+) -> models.Chunk:
+    """Create chunk."""
+    return create_item(db, models.Chunk, chunk, organization_id=organization_id, user_id=user_id)
+
+
+def update_chunk(
+    db: Session,
+    chunk_id: uuid.UUID,
+    chunk: schemas.ChunkUpdate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.Chunk]:
+    """Update chunk."""
+    return update_item(
+        db, models.Chunk, chunk_id, chunk, organization_id=organization_id, user_id=user_id
+    )
+
+
+def delete_chunk(
+    db: Session, chunk_id: uuid.UUID, organization_id: str, user_id: str
+) -> Optional[models.Chunk]:
+    """Delete chunk."""
+    return delete_item(db, models.Chunk, chunk_id, organization_id=organization_id, user_id=user_id)
+
+
+def get_chunk(
+    db: Session, chunk_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Chunk]:
+    """Get chunk."""
+    return get_item_detail(
+        db, models.Chunk, chunk_id, organization_id=organization_id, user_id=user_id
+    )
 
 
 # Topic CRUD

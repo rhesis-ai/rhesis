@@ -175,3 +175,56 @@ def adaptive_test_set(test_db: Session, test_org_id, authenticated_user_id):
     test_db.refresh(test_set)
 
     return test_set
+
+
+@pytest.fixture
+def regular_test_set_for_import(test_db: Session, test_org_id, authenticated_user_id):
+    """Non-adaptive test set with two prompt tests and one without prompt."""
+    test_set = models.TestSet(
+        name=f"Service Import Source {uuid.uuid4().hex[:8]}",
+        description="Source for import service tests",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        attributes={"metadata": {"behaviors": ["Safety"]}},
+    )
+    test_db.add(test_set)
+    test_db.flush()
+
+    t1 = _create_test_with_metadata(
+        db=test_db,
+        topic_name="T1/T2",
+        prompt_content="Prompt one",
+        metadata={"label": "pass", "output": "o1", "labeler": "u", "model_score": 0.5},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    t2 = _create_test_with_metadata(
+        db=test_db,
+        topic_name="T1/T2",
+        prompt_content=None,
+        metadata={"label": "topic_marker", "output": "", "labeler": "system"},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    t3 = _create_test_with_metadata(
+        db=test_db,
+        topic_name="T1/T2",
+        prompt_content="Prompt two",
+        metadata={"label": "", "output": "o2", "labeler": "imported", "model_score": 0.0},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+
+    for t in (t1, t2, t3):
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=t.id,
+                test_set_id=test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+
+    test_db.commit()
+    test_db.refresh(test_set)
+    return test_set
