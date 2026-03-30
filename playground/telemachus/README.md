@@ -16,7 +16,26 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 | 08 | `08-test-execution-and-analysis.md` | In progress |
 | 09 | `09-prompt-hardening.md` | Done |
 | 10 | `10-permission-management.md` | Done |
-| 11 | `11-advanced-exploration.md` | Planned |
+| 11 | `11-advanced-exploration.md` | In progress |
+
+## What was done (Phase 11 in progress)
+
+### Advanced exploration strategies (Phase 11)
+- Created a target-agnostic strategy framework in `penelope/src/rhesis/penelope/strategies/`:
+  - `PenelopeStrategy` — abstract base class with `build_goal()`, `build_instructions()`, `format_findings()` interface; uses `target_name`/`target_description` so strategies work across endpoint, LangChain, LangGraph, and future target types
+  - `ExplorationStrategy(PenelopeStrategy)` — intermediate class for exploration-specific defaults, shared previous-findings formatting, and common findings extraction
+  - `DomainProbingStrategy` — discovers domain, purpose, persona, terminology, topic coverage
+  - `CapabilityMappingStrategy` — enumerates features, interaction patterns, multi-turn support, limitations
+  - `BoundaryDiscoveryStrategy` — finds refusal patterns, domain boundaries, safety guardrails, enforcement consistency
+  - Global strategy registry with `register_strategy()`, `get_strategy()`, `list_strategies()`
+- Enhanced `ExploreEndpointTool` with:
+  - `strategy` parameter — pass a strategy name (e.g. `"domain_probing"`) to auto-generate goal and instructions
+  - `previous_findings` parameter — structured findings from a prior run, forwarded to the strategy and to Penelope's `context`
+  - `"comprehensive"` mode — runs all three strategies in sequence, chaining findings from each into the next
+  - Goal is now optional when a strategy is specified
+  - Backward-compatible: existing callers that pass `goal` without `strategy` continue to work unchanged
+- Updated Architect's `system_prompt.j2` Discovery Phase with strategy-based exploration guidance
+- Tests: 33 strategy unit tests, 29 tool tests (expanded from 12)
 
 ## What was done (Phase 08 in progress)
 

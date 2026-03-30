@@ -20,6 +20,17 @@ logger = logging.getLogger(__name__)
 TargetFactory = Callable[[str], Target]
 """``(endpoint_id) -> Target`` — creates a Target for the given endpoint."""
 
+COMPREHENSIVE_STRATEGY_SEQUENCE = [
+    "domain_probing",
+    "capability_mapping",
+    "boundary_discovery",
+]
+"""Strategies used in comprehensive exploration.
+
+``domain_probing`` runs first (other strategies depend on its findings).
+``capability_mapping`` and ``boundary_discovery`` then run in parallel.
+"""
+
 
 class ExploreEndpointTool(BaseTool):
     """Explore a Rhesis endpoint's capabilities using Penelope.
@@ -41,6 +52,13 @@ class ExploreEndpointTool(BaseTool):
     instead. The LLM passes ``endpoint_id`` at call time and the
     factory creates the appropriate target.  This avoids SDK REST
     client dependencies in server-side contexts.
+
+    **Strategy support**: pass ``strategy`` to use a named Penelope
+    exploration strategy (e.g. ``"domain_probing"``) or
+    ``"comprehensive"`` to run all strategies in sequence. Strategies
+    generate the goal and instructions automatically; the calling
+    agent can still provide ``previous_findings`` so each strategy
+    builds on earlier results.
 
     Args:
         endpoint_id: UUID of the endpoint to explore (bound mode).
@@ -67,6 +85,20 @@ class ExploreEndpointTool(BaseTool):
         tool = ExploreEndpointTool(
             target_factory=my_factory,
             model=model,
+        )
+
+    Example (with strategy)::
+
+        result = await tool.execute(
+            endpoint_id="...",
+            strategy="domain_probing",
+        )
+
+    Example (comprehensive — all strategies in sequence)::
+
+        result = await tool.execute(
+            endpoint_id="...",
+            strategy="comprehensive",
         )
     """
 
@@ -140,7 +172,9 @@ class ExploreEndpointTool(BaseTool):
                     "What you want to learn about the endpoint. "
                     "Example: 'Understand the endpoint's domain, "
                     "capabilities, restrictions, and response "
-                    "patterns.'"
+                    "patterns.' "
+                    "Optional when a strategy is specified (the "
+                    "strategy generates the goal automatically)."
                 ),
             },
             "instructions": {
@@ -166,8 +200,30 @@ class ExploreEndpointTool(BaseTool):
                     "should not do, to verify during exploration."
                 ),
             },
+            "strategy": {
+                "type": "string",
+                "description": (
+                    "Optional exploration strategy name. Use "
+                    "'domain_probing' to discover the endpoint's "
+                    "domain and purpose, 'capability_mapping' to "
+                    "enumerate features and interaction patterns, "
+                    "'boundary_discovery' to find refusal patterns "
+                    "and limits, or 'comprehensive' to run all "
+                    "three strategies in sequence. When a strategy "
+                    "is set, goal and instructions are generated "
+                    "automatically (but can still be overridden)."
+                ),
+            },
+            "previous_findings": {
+                "type": "object",
+                "description": (
+                    "Optional structured findings from a prior "
+                    "exploration run. Passed to the strategy so it "
+                    "can build on earlier results."
+                ),
+            },
         }
-        required = ["goal"]
+        required: List[str] = []
 
         if self._endpoint is None:
             properties["endpoint_id"] = {
@@ -192,26 +248,31 @@ class ExploreEndpointTool(BaseTool):
         instructions: Optional[str] = None,
         scenario: Optional[str] = None,
         restrictions: Optional[str] = None,
+        strategy: Optional[str] = None,
+        previous_findings: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> ToolResult:
         """Run a multi-turn exploration of the endpoint via Penelope.
 
         Args:
-            goal: What to learn about the endpoint.
+            goal: What to learn about the endpoint. Optional when a
+                strategy is specified (the strategy generates it).
             endpoint_id: UUID of the endpoint (required in unbound mode).
             instructions: How to probe (optional).
             scenario: Persona or situational context (optional).
             restrictions: Constraints to verify (optional).
+            strategy: Named exploration strategy or ``"comprehensive"``.
+            previous_findings: Structured findings from a prior run.
             **kwargs: Ignored (forward-compatibility).
 
         Returns:
             ``ToolResult`` with conversation summary and findings.
         """
-        if not goal or not goal.strip():
+        if not strategy and (not goal or not goal.strip()):
             return ToolResult(
                 tool_name=self.name,
                 success=False,
-                error="Goal cannot be empty",
+                error="Goal cannot be empty (or provide a strategy)",
             )
 
         resolved_id = endpoint_id or self._endpoint_id
@@ -240,7 +301,9 @@ class ExploreEndpointTool(BaseTool):
         except RuntimeError:
             loop = None
 
-        def _on_tool_start(tool_name: str, arguments: Dict[str, Any], reasoning: str) -> None:
+        def _on_tool_start(
+            tool_name: str, arguments: Dict[str, Any], reasoning: str
+        ) -> None:
             if not handlers or not loop:
                 return
             asyncio.run_coroutine_threadsafe(
@@ -257,7 +320,6 @@ class ExploreEndpointTool(BaseTool):
         def _on_tool_end(tool_name: str, result: Any) -> None:
             if not handlers or not loop:
                 return
-            # Convert penelope ToolResult to SDK ToolResult
             sdk_result = ToolResult(
                 tool_name=tool_name,
                 success=getattr(result, "success", False) if result else False,
@@ -274,6 +336,42 @@ class ExploreEndpointTool(BaseTool):
                 loop,
             )
 
+        if strategy == "comprehensive":
+            return await self._run_comprehensive(
+                target=target,
+                target_name=self._target_name(),
+                target_description=self._target_description(),
+                previous_findings=previous_findings,
+                scenario=scenario,
+                restrictions=restrictions,
+                on_tool_start=_on_tool_start,
+                on_tool_end=_on_tool_end,
+            )
+
+        if strategy:
+            resolved = self._resolve_strategy(strategy)
+            if resolved is None:
+                return ToolResult(
+                    tool_name=self.name,
+                    success=False,
+                    error=(
+                        f"Unknown strategy '{strategy}'. Available: "
+                        "domain_probing, capability_mapping, "
+                        "boundary_discovery, comprehensive"
+                    ),
+                )
+            return await self._run_with_strategy(
+                target=target,
+                strategy_obj=resolved,
+                goal_override=goal if goal and goal.strip() else None,
+                instructions_override=instructions,
+                previous_findings=previous_findings,
+                scenario=scenario,
+                restrictions=restrictions,
+                on_tool_start=_on_tool_start,
+                on_tool_end=_on_tool_end,
+            )
+
         try:
             result = await asyncio.to_thread(
                 self._run_exploration,
@@ -282,6 +380,7 @@ class ExploreEndpointTool(BaseTool):
                 instructions=instructions,
                 scenario=scenario,
                 restrictions=restrictions,
+                context=previous_findings,
                 on_tool_start=_on_tool_start,
                 on_tool_end=_on_tool_end,
             )
@@ -324,6 +423,219 @@ class ExploreEndpointTool(BaseTool):
 
         raise ValueError("No endpoint or target_factory available")
 
+    def _target_name(self) -> str:
+        """Human-readable name for the current endpoint."""
+        if self._endpoint is not None:
+            return getattr(self._endpoint, "name", None) or self._endpoint_id or "endpoint"
+        return self._endpoint_id or "endpoint"
+
+    def _target_description(self) -> str:
+        """Description of the current endpoint (may be empty)."""
+        if self._endpoint is not None:
+            return getattr(self._endpoint, "description", None) or ""
+        return ""
+
+    @staticmethod
+    def _resolve_strategy(name: str) -> Optional[Any]:
+        """Look up a strategy by name, returning ``None`` on miss."""
+        try:
+            from rhesis.penelope.strategies import get_strategy
+
+            return get_strategy(name)
+        except (ImportError, KeyError):
+            return None
+
+    async def _run_with_strategy(
+        self,
+        target: Target,
+        strategy_obj: Any,
+        goal_override: Optional[str],
+        instructions_override: Optional[str],
+        previous_findings: Optional[Dict[str, Any]],
+        scenario: Optional[str],
+        restrictions: Optional[str],
+        on_tool_start: Optional[Any] = None,
+        on_tool_end: Optional[Any] = None,
+    ) -> ToolResult:
+        """Execute a single named strategy against the target."""
+        t_name = self._target_name()
+        t_desc = self._target_description()
+
+        goal = goal_override or strategy_obj.build_goal(
+            target_name=t_name,
+            target_description=t_desc,
+            previous_findings=previous_findings,
+        )
+        instructions = instructions_override or strategy_obj.build_instructions(
+            target_name=t_name,
+            target_description=t_desc,
+            previous_findings=previous_findings,
+        )
+
+        max_turns = min(strategy_obj.recommended_max_turns, self._max_turns)
+
+        try:
+            result = await asyncio.to_thread(
+                self._run_exploration,
+                target=target,
+                goal=goal,
+                instructions=instructions,
+                scenario=scenario,
+                restrictions=restrictions,
+                context=previous_findings,
+                max_turns_override=max_turns,
+                on_tool_start=on_tool_start,
+                on_tool_end=on_tool_end,
+            )
+        except Exception as e:
+            logger.error(
+                "Strategy '%s' exploration failed: %s",
+                strategy_obj.name,
+                e,
+                exc_info=True,
+            )
+            return ToolResult(
+                tool_name=self.name,
+                success=False,
+                error=f"Strategy '{strategy_obj.name}' exploration failed: {e}",
+            )
+
+        raw = self._format_result(result)
+        findings = strategy_obj.format_findings(raw)
+        self._record_performance(strategy_obj.name, findings)
+        content = {**raw, "strategy_findings": findings}
+        return ToolResult(
+            tool_name=self.name,
+            success=True,
+            content=json.dumps(content),
+        )
+
+    async def _run_comprehensive(
+        self,
+        target: Target,
+        target_name: str,
+        target_description: str,
+        previous_findings: Optional[Dict[str, Any]],
+        scenario: Optional[str],
+        restrictions: Optional[str],
+        on_tool_start: Optional[Any] = None,
+        on_tool_end: Optional[Any] = None,
+    ) -> ToolResult:
+        """Run all exploration strategies, parallelising where possible.
+
+        Domain probing runs first (other strategies depend on its
+        findings).  Capability mapping and boundary discovery then run
+        concurrently — they both depend on domain findings but not on
+        each other.
+        """
+        accumulated_findings: Dict[str, Any] = dict(previous_findings or {})
+        strategy_results: List[Dict[str, Any]] = []
+        all_conversations: List[dict] = []
+        total_turns = 0
+
+        async def _execute_strategy(
+            name: str,
+            findings_snapshot: Dict[str, Any],
+        ) -> Optional[tuple]:
+            """Run one strategy and return (name, raw, findings) or None."""
+            strategy_obj = self._resolve_strategy(name)
+            if strategy_obj is None:
+                logger.warning("Skipping unknown strategy '%s'", name)
+                return None
+
+            goal = strategy_obj.build_goal(
+                target_name=target_name,
+                target_description=target_description,
+                previous_findings=findings_snapshot,
+            )
+            instructions = strategy_obj.build_instructions(
+                target_name=target_name,
+                target_description=target_description,
+                previous_findings=findings_snapshot,
+            )
+            max_t = min(strategy_obj.recommended_max_turns, self._max_turns)
+
+            try:
+                result = await asyncio.to_thread(
+                    self._run_exploration,
+                    target=target,
+                    goal=goal,
+                    instructions=instructions,
+                    scenario=scenario,
+                    restrictions=restrictions,
+                    context=findings_snapshot if findings_snapshot else None,
+                    max_turns_override=max_t,
+                    on_tool_start=on_tool_start,
+                    on_tool_end=on_tool_end,
+                )
+            except Exception as e:
+                logger.error(
+                    "Comprehensive: strategy '%s' failed: %s",
+                    name, e, exc_info=True,
+                )
+                return (name, None, {"strategy": name, "error": str(e)})
+
+            raw = self._format_result(result)
+            findings = strategy_obj.format_findings(raw)
+            self._record_performance(name, findings)
+            return (name, raw, findings)
+
+        def _merge_findings(findings: Dict[str, Any]) -> None:
+            for key, value in findings.items():
+                if key in ("strategy", "status", "raw_findings", "raw_findings_text"):
+                    continue
+                if value and value != "" and value != []:
+                    accumulated_findings[key] = value
+
+        def _collect(outcome: Optional[tuple]) -> None:
+            if outcome is None:
+                return
+            _, raw, findings = outcome
+            strategy_results.append(findings)
+            if raw is not None:
+                _merge_findings(findings)
+                all_conversations.extend(raw.get("conversation", []))
+                nonlocal total_turns
+                total_turns += raw.get("turns_used", 0)
+
+        # Phase 1: domain probing (sequential — others depend on it)
+        outcome = await _execute_strategy("domain_probing", accumulated_findings)
+        _collect(outcome)
+
+        # Phase 2: capability mapping + boundary discovery (parallel)
+        snapshot = dict(accumulated_findings)
+        parallel_outcomes = await asyncio.gather(
+            _execute_strategy("capability_mapping", snapshot),
+            _execute_strategy("boundary_discovery", snapshot),
+        )
+        for out in parallel_outcomes:
+            _collect(out)
+
+        content: Dict[str, Any] = {
+            "status": "completed",
+            "mode": "comprehensive",
+            "strategies_run": [r.get("strategy", "?") for r in strategy_results],
+            "total_turns_used": total_turns,
+            "accumulated_findings": accumulated_findings,
+            "per_strategy_findings": strategy_results,
+            "conversation": all_conversations,
+        }
+        return ToolResult(
+            tool_name=self.name,
+            success=True,
+            content=json.dumps(content),
+        )
+
+    @staticmethod
+    def _record_performance(strategy_name: str, raw_result: Dict[str, Any]) -> None:
+        """Record strategy run performance if the strategies module is available."""
+        try:
+            from rhesis.penelope.strategies import record_strategy_run
+
+            record_strategy_run(strategy_name, raw_result)
+        except ImportError:
+            pass
+
     def _run_exploration(
         self,
         target: Target,
@@ -331,6 +643,8 @@ class ExploreEndpointTool(BaseTool):
         instructions: Optional[str],
         scenario: Optional[str],
         restrictions: Optional[str],
+        context: Optional[Dict[str, Any]] = None,
+        max_turns_override: Optional[int] = None,
         on_tool_start: Optional[Any] = None,
         on_tool_end: Optional[Any] = None,
     ) -> Any:
@@ -342,7 +656,7 @@ class ExploreEndpointTool(BaseTool):
 
         agent = PenelopeAgent(
             model=self._model,
-            max_turns=self._max_turns,
+            max_turns=max_turns_override or self._max_turns,
         )
         return agent.execute_test(
             target=target,
@@ -350,6 +664,7 @@ class ExploreEndpointTool(BaseTool):
             instructions=instructions,
             scenario=scenario,
             restrictions=restrictions,
+            context=context,
             on_tool_start=on_tool_start,
             on_tool_end=on_tool_end,
         )

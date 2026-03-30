@@ -8,6 +8,7 @@ Following Anthropic's agent design principles:
 """
 
 import logging
+import math
 from typing import Any, Dict, List, Optional, Union
 
 from rhesis.penelope.config import PenelopeConfig
@@ -597,6 +598,17 @@ class PenelopeAgent:
         # Create stopping conditions
         conditions = self._create_stopping_conditions(max_turns=max_turns, min_turns=min_turns)
 
+        # Compute the earliest turn where goal evaluation can influence
+        # stopping.  GoalAchievedCondition ignores the judge result for
+        # turns below its early-stop floor, so calling the expensive
+        # judge LLM on those turns is wasted work.
+        effective_max = max_turns if max_turns is not None else self.max_turns
+        if min_turns is not None:
+            goal_eval_floor = min(min_turns, effective_max)
+        else:
+            threshold = PenelopeConfig.get_early_stop_threshold()
+            goal_eval_floor = max(1, math.ceil(effective_max * threshold))
+
         # Main agent loop
         instructions_length = len(instructions) if instructions else 0
         logger.info(f"Starting test execution (instructions length: {instructions_length} chars)")
@@ -633,11 +645,25 @@ class PenelopeAgent:
 
                 return result
 
-            # Evaluate all SDK metrics
+            # Evaluate SDK metrics
             conversation = state.get_conversation()
+            current_turns = len(state.turns)
+
             for metric in self.metrics:
                 if metric == self.goal_metric:
-                    # Evaluate goal achievement directly
+                    # Defer the expensive goal-achievement LLM call until
+                    # early stopping is actually possible.  Before the
+                    # floor, GoalAchievedCondition.should_stop() returns
+                    # continue_() regardless, so the result would be
+                    # discarded.
+                    if current_turns < goal_eval_floor:
+                        logger.debug(
+                            "Skipping goal evaluation: turn %d < floor %d",
+                            current_turns,
+                            goal_eval_floor,
+                        )
+                        continue
+
                     if len(conversation) < 1:
                         metric_result = MetricResult(
                             score=0.0,
@@ -654,13 +680,11 @@ class PenelopeAgent:
                             instructions=instructions or "",
                         )
 
-                    # Update all conditions that care about evaluation results
                     for condition in conditions:
                         condition.update_result(metric_result)
                 else:
                     metric_result = metric.evaluate(conversation, goal=goal)
 
-                # Store metric property in result details for robust detection
                 if hasattr(metric, "is_goal_achievement_metric"):
                     metric_result.details["is_goal_achievement_metric"] = (
                         metric.is_goal_achievement_metric
