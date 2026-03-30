@@ -317,7 +317,7 @@ class ExploreEndpointTool(BaseTool):
                 loop,
             )
 
-        def _on_tool_end(tool_name: str, result: Any) -> None:
+        def _on_tool_end(tool_name: str, result: Any, duration_ms: int = 0) -> None:
             if not handlers or not loop:
                 return
             sdk_result = ToolResult(
