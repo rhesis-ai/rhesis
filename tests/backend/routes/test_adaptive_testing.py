@@ -1734,12 +1734,26 @@ class TestEvaluateEndpoint:
                     "label": "pass",
                     "labeler": "MyMetric",
                     "model_score": 0.9,
+                    "metrics": {
+                        "MyMetric": {
+                            "score": 0.9,
+                            "is_successful": True,
+                            "reason": "ok",
+                            "details": {"note": "detail"},
+                        }
+                    },
                 },
                 {
                     "test_id": "tid-2",
                     "label": "fail",
                     "labeler": "MyMetric",
                     "model_score": 0.3,
+                    "metrics": {
+                        "MyMetric": {
+                            "score": 0.3,
+                            "is_successful": False,
+                        }
+                    },
                 },
             ],
             "failed": [],
@@ -1757,6 +1771,10 @@ class TestEvaluateEndpoint:
         assert data["results"][0]["label"] == "pass"
         assert data["results"][0]["labeler"] == "MyMetric"
         assert data["results"][0]["model_score"] == 0.9
+        assert data["results"][0]["metrics"]["MyMetric"]["score"] == 0.9
+        assert data["results"][0]["metrics"]["MyMetric"]["is_successful"] is True
+        assert data["results"][0]["metrics"]["MyMetric"]["details"]["note"] == "detail"
+        assert data["results"][1]["metrics"]["MyMetric"]["is_successful"] is False
         assert len(data["failed"]) == 0
 
         mock_evaluate.assert_called_once()
