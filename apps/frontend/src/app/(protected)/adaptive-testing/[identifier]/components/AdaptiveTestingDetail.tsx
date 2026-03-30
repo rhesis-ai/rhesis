@@ -1622,6 +1622,9 @@ export default function AdaptiveTestingDetail({
 
   const [suggestionsDialogOpen, setSuggestionsDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  /** True when dialog opened from Edit settings (not initial ?openSettings=1). */
+  const [settingsReEvaluateWarning, setSettingsReEvaluateWarning] =
+    useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsEndpoint, setSettingsEndpoint] = useState<Endpoint | null>(
@@ -1742,6 +1745,7 @@ export default function AdaptiveTestingDetail({
 
   useEffect(() => {
     if (searchParams.get('openSettings') !== '1') return;
+    setSettingsReEvaluateWarning(false);
     setSettingsDialogOpen(true);
     const next = new URLSearchParams(searchParams.toString());
     next.delete('openSettings');
@@ -2442,6 +2446,7 @@ export default function AdaptiveTestingDetail({
         severity: 'success',
       });
       setSettingsDialogOpen(false);
+      setSettingsReEvaluateWarning(false);
     } catch (err) {
       setSettingsError(
         err instanceof Error ? err.message : 'Failed to save settings.'
@@ -2500,7 +2505,7 @@ export default function AdaptiveTestingDetail({
         variant="outlined"
         sx={{
           mb: 2,
-          borderRadius: 2,
+          borderRadius: theme.shape.borderRadius * 2,
           overflow: 'hidden',
           background:
             theme.palette.mode === 'dark'
@@ -2531,7 +2536,7 @@ export default function AdaptiveTestingDetail({
                 justifyContent: 'center',
                 width: 40,
                 height: 40,
-                borderRadius: 2,
+                borderRadius: theme.shape.borderRadius * 2,
                 bgcolor: alpha(theme.palette.primary.main, 0.12),
                 color: 'primary.main',
               }}
@@ -2551,7 +2556,10 @@ export default function AdaptiveTestingDetail({
             variant="outlined"
             size="small"
             startIcon={<SettingsIcon />}
-            onClick={() => setSettingsDialogOpen(true)}
+            onClick={() => {
+              setSettingsReEvaluateWarning(true);
+              setSettingsDialogOpen(true);
+            }}
             sx={{ textTransform: 'none', flexShrink: 0 }}
           >
             Edit settings
@@ -2577,7 +2585,7 @@ export default function AdaptiveTestingDetail({
               <Box
                 sx={{
                   p: 2,
-                  borderRadius: 2,
+                  borderRadius: theme.shape.borderRadius * 2,
                   border: 1,
                   borderColor: 'divider',
                   bgcolor: 'background.paper',
@@ -2599,7 +2607,7 @@ export default function AdaptiveTestingDetail({
                     color="text.secondary"
                     sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
                   >
-                    Default endpoint
+                    Selected endpoint
                   </Typography>
                 </Box>
                 {adaptiveConfigSummary.endpointName ? (
@@ -2638,7 +2646,7 @@ export default function AdaptiveTestingDetail({
               <Box
                 sx={{
                   p: 2,
-                  borderRadius: 2,
+                  borderRadius: theme.shape.borderRadius * 2,
                   border: 1,
                   borderColor: 'divider',
                   bgcolor: 'background.paper',
@@ -2658,7 +2666,7 @@ export default function AdaptiveTestingDetail({
                     color="text.secondary"
                     sx={{ letterSpacing: 0.6, lineHeight: 1.2 }}
                   >
-                    Default metrics
+                    Selected metric
                   </Typography>
                 </Box>
                 {adaptiveConfigSummary.metrics.length > 0 ? (
@@ -3316,6 +3324,7 @@ export default function AdaptiveTestingDetail({
           if (!settingsSaving) {
             setSettingsDialogOpen(false);
             setSettingsError(null);
+            setSettingsReEvaluateWarning(false);
           }
         }}
         maxWidth="sm"
@@ -3324,9 +3333,14 @@ export default function AdaptiveTestingDetail({
         <DialogTitle>Adaptive testing settings</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select the default endpoint and metric used by adaptive testing
-            actions.
+            Select the endpoint and metric used by adaptive testing actions.
           </Typography>
+          {settingsReEvaluateWarning && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              To keep results consistent with a new endpoint or metric,
+              Re-evaluate all tests in this set.
+            </Alert>
+          )}
           {settingsError && (
             <Alert
               severity="error"
@@ -3345,7 +3359,7 @@ export default function AdaptiveTestingDetail({
             renderInput={params => (
               <TextField
                 {...params}
-                label="Default endpoint"
+                label="Endpoint"
                 placeholder="Select endpoint"
               />
             )}
@@ -3360,7 +3374,7 @@ export default function AdaptiveTestingDetail({
             renderInput={params => (
               <TextField
                 {...params}
-                label="Default metric (single-turn)"
+                label="Metric (single-turn)"
                 placeholder="Select metric"
               />
             )}
@@ -3371,6 +3385,7 @@ export default function AdaptiveTestingDetail({
             onClick={() => {
               setSettingsDialogOpen(false);
               setSettingsError(null);
+              setSettingsReEvaluateWarning(false);
             }}
             disabled={settingsSaving}
           >
