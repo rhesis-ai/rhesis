@@ -89,16 +89,25 @@ describe('ToolCallList', () => {
     expect(screen.getByText('Need to check capabilities')).toBeVisible();
   });
 
-  it('shows active tools alongside collapsed completed', () => {
+  it('collapses all completed tools when active tools are running', () => {
     const done = makeDone(4);
     const active: ActiveTool[] = [
       { tool: 'send_msg', description: 'Sending message' },
     ];
     render(<ToolCallList completedTools={done} activeTools={active} />);
 
+    expect(screen.getByText('4 completed')).toBeInTheDocument();
+    expect(screen.queryByText('Tool 2 done')).not.toBeVisible();
+    expect(screen.queryByText('Tool 3 done')).not.toBeVisible();
+    expect(screen.getByText('Sending message')).toBeInTheDocument();
+  });
+
+  it('shows recent completed tools once all active tools finish', () => {
+    const done = makeDone(4);
+    render(<ToolCallList completedTools={done} activeTools={[]} />);
+
     expect(screen.getByText('2 completed')).toBeInTheDocument();
     expect(screen.getByText('Tool 2 done')).toBeInTheDocument();
     expect(screen.getByText('Tool 3 done')).toBeInTheDocument();
-    expect(screen.getByText('Sending message')).toBeInTheDocument();
   });
 });

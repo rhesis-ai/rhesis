@@ -91,7 +91,8 @@ export default function ToolCallList({
   const hasTools = completedTools.length > 0 || activeTools.length > 0;
   if (!hasTools) return null;
 
-  const collapsedCount = completedTools.length - VISIBLE_COMPLETED;
+  const visibleCount = activeTools.length > 0 ? 0 : VISIBLE_COMPLETED;
+  const collapsedCount = completedTools.length - visibleCount;
   const shouldCollapse = collapsedCount > 0;
   const hiddenTools = shouldCollapse
     ? completedTools.slice(0, collapsedCount)
@@ -180,45 +181,7 @@ export default function ToolCallList({
 
   return (
     <Box sx={{ ml: 2.5, borderLeft: 2, borderColor: 'divider', pl: 1 }}>
-      {/* Collapsed summary for older completed tools */}
-      {shouldCollapse && (
-        <ButtonBase
-          onClick={() => setExpandedCompleted((prev) => !prev)}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            mb: 0.25,
-            py: 0.125,
-            borderRadius: 0.5,
-            '&:hover': { bgcolor: 'action.hover' },
-          }}
-        >
-          <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
-          <Typography variant="caption" color="text.secondary">
-            {collapsedCount} completed
-          </Typography>
-          {expandedCompleted ? (
-            <ExpandLessIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-          ) : (
-            <ExpandMoreIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-          )}
-        </ButtonBase>
-      )}
-
-      {/* Hidden completed tools (expandable) */}
-      <Collapse in={expandedCompleted} timeout={200}>
-        <Box sx={{ ml: 1, borderLeft: 1, borderColor: 'divider', pl: 1 }}>
-          {hiddenTools.map((tool, idx) => renderCompletedTool(tool, idx))}
-        </Box>
-      </Collapse>
-
-      {/* Always-visible recent completed tools */}
-      {visibleCompleted.map((tool, idx) =>
-        renderCompletedTool(tool, collapsedCount + idx)
-      )}
-
-      {/* Active tools -- always fully visible with reasoning */}
+      {/* Active tools first — the user cares about what's running now */}
       {activeTools.map((tool, idx) => (
         <Collapse
           key={`active-${tool.tool}-${idx}`}
@@ -262,6 +225,44 @@ export default function ToolCallList({
           </Box>
         </Collapse>
       ))}
+
+      {/* Collapsed summary for completed tools */}
+      {shouldCollapse && (
+        <ButtonBase
+          onClick={() => setExpandedCompleted((prev) => !prev)}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            mb: 0.25,
+            py: 0.125,
+            borderRadius: 0.5,
+            '&:hover': { bgcolor: 'action.hover' },
+          }}
+        >
+          <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+          <Typography variant="caption" color="text.secondary">
+            {collapsedCount} completed
+          </Typography>
+          {expandedCompleted ? (
+            <ExpandLessIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+          ) : (
+            <ExpandMoreIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+          )}
+        </ButtonBase>
+      )}
+
+      {/* Hidden completed tools (expandable) */}
+      <Collapse in={expandedCompleted} timeout={200}>
+        <Box sx={{ ml: 1, borderLeft: 1, borderColor: 'divider', pl: 1 }}>
+          {hiddenTools.map((tool, idx) => renderCompletedTool(tool, idx))}
+        </Box>
+      </Collapse>
+
+      {/* Recent completed tools (visible when nothing is running) */}
+      {visibleCompleted.map((tool, idx) =>
+        renderCompletedTool(tool, collapsedCount + idx)
+      )}
     </Box>
   );
 }
