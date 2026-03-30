@@ -34,10 +34,12 @@ tools:
     path: /test_sets/bulk
     requires_confirmation: true
     description: >
-      Create a test set with its tests in a single operation. The "tests"
-      array is REQUIRED and must contain at least one test object.
-      Do NOT send server-managed fields (id, user_id, organization_id,
-      created_at, updated_at).
+      Create a test set with manually specified tests. Prefer
+      generate_test_set for AI-generated test content — use this tool
+      only when importing specific, user-provided test prompts that
+      must be used verbatim. The "tests" array is REQUIRED and must
+      contain at least one test object. Do NOT send server-managed
+      fields (id, user_id, organization_id, created_at, updated_at).
     parameters:
       name:
         description: "Test set name (required, string)"
@@ -59,6 +61,51 @@ tools:
           plain-text names (not UUIDs) — the server resolves or creates
           them automatically. Use list_behaviors, list_categories, and
           list_topics to discover existing values first.
+
+  - name: generate_test_set
+    label: Generating test set
+    method: POST
+    path: /test_sets/generate
+    requires_confirmation: true
+    description: >
+      Generate a test set using the Rhesis synthesizer. An LLM creates
+      diverse, well-structured test prompts based on the generation config
+      you provide. The tests are persisted to the database automatically.
+      This runs as a background task — the response includes a task_id.
+      Poll get_job_status with that task_id until status is "SUCCESS",
+      then extract test_set_id from the result.
+      Supports both single-turn and multi-turn test generation via the
+      test_type parameter.
+    parameters:
+      config:
+        description: >
+          REQUIRED. Object with generation parameters:
+          - generation_prompt (string): Describe WHAT to test and HOW
+            (e.g. "Generate tests that verify the travel agent provides
+            accurate destination info, handles ambiguous queries, and
+            refuses off-topic requests"). Be specific — the synthesizer
+            uses this to craft test prompts.
+          - behaviors (list of strings): REQUIRED. Behavior names the
+            tests should target (e.g. ["Provides Accurate Information",
+            "Refuses Off-Topic Requests"]). At least one is required.
+          - categories (list of strings): Optional category names
+            (e.g. ["Functional", "Safety"]).
+          - topics (list of strings): Optional topic names
+            (e.g. ["Travel advisory", "Booking"]).
+      num_tests:
+        description: >
+          Number of tests to generate (integer, default 5). Typical
+          range: 3–20 per test set.
+      test_type:
+        description: >
+          "Single-Turn" or "Multi-Turn". Single-turn tests send one
+          prompt and evaluate the response. Multi-turn tests generate
+          a goal and instructions for a multi-turn conversation.
+          Default: "Single-Turn".
+      name:
+        description: >
+          Name for the generated test set (string). Use the test set
+          name from your plan.
 
   - name: execute_test_set
     label: Running test set
@@ -360,3 +407,21 @@ tools:
         description: "REQUIRED. UUID of the endpoint to check."
       input:
         description: "A simple test message string (e.g. 'hello')."
+
+  # ── Background Jobs ─────────────────────────────────────
+  - name: get_job_status
+    label: Checking job status
+    method: GET
+    path: /jobs/{task_id}
+    requires_confirmation: false
+    description: >
+      Check the status of a background job (e.g. test set generation
+      started by generate_test_set). Poll this endpoint until the status
+      is "SUCCESS" or "FAILURE". Status values: PENDING → STARTED →
+      PROGRESS → SUCCESS (or FAILURE). When SUCCESS, the "result"
+      field contains job-specific data — for test generation this
+      includes "test_set_id" (the UUID of the created test set).
+      If FAILURE, the "error" field describes what went wrong.
+    parameters:
+      task_id:
+        description: "REQUIRED. The task ID returned by generate_test_set (path parameter)."

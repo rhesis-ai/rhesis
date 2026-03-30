@@ -6,7 +6,12 @@ from sqlalchemy.orm import Query
 
 
 def apply_odata_filter(query: Query, model: Type, filter_expr: str | None) -> Query:
-    """Apply OData filter to query if provided"""
+    """Apply OData filter to query if provided.
+
+    The model parameter is unused here — ``apply_odata_query`` infers
+    the mapped class from the query object. The parameter is kept for
+    API compatibility with callers that pass it alongside the query.
+    """
     if filter_expr:
         try:
             return apply_odata_query(query, filter_expr)

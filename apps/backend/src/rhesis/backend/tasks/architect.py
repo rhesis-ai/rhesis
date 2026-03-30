@@ -204,6 +204,7 @@ def architect_chat_task(
             get_user_generation_model,
         )
         from rhesis.sdk.agents.architect.agent import ArchitectAgent
+        from rhesis.sdk.agents.constants import AgentMode
 
         with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
             user = crud.get_user_by_id(db, user_id)
@@ -236,7 +237,10 @@ def architect_chat_task(
         )
 
         # Restore state
-        agent._mode = saved_mode
+        try:
+            agent._mode = AgentMode(saved_mode)
+        except ValueError:
+            agent._mode = AgentMode.DISCOVERY
         agent._conversation_history = conversation_history
 
         if saved_agent_state.get("discovery_state"):
