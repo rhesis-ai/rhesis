@@ -76,7 +76,7 @@ class TestAsyncServiceWorkerCheck:
     @patch("rhesis.backend.worker.app.control.inspect")
     def test_check_workers_available_cache_hit(self, mock_inspect, service):
         """Test worker availability check uses cache within TTL."""
-        AsyncService._worker_cache = {"available": True, "checked_at": time.time()}
+        AsyncService._worker_cache = {"available": True, "checked_at": time.monotonic()}
 
         assert service._check_workers_available() is True
         mock_inspect.assert_not_called()
@@ -89,7 +89,7 @@ class TestAsyncServiceWorkerCheck:
 
         AsyncService._worker_cache = {
             "available": False,
-            "checked_at": time.time() - AsyncService._worker_cache_ttl - 1,
+            "checked_at": time.monotonic() - AsyncService._worker_cache_ttl - 1,
         }
 
         assert service._check_workers_available() is True

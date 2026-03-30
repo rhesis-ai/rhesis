@@ -131,12 +131,10 @@ def ingest_trace(
         )
 
         # Enqueue post-ingestion work (linking + enrichment) as a background task.
-        from rhesis.backend.app.services.telemetry.enrichment import (
-            check_workers_available,
-        )
+        enrichment_service = EnrichmentService(db)
 
         _stage = "worker_check"
-        _workers_available = check_workers_available()
+        _workers_available = enrichment_service._check_workers_available()
         logger.info(f"Worker availability for trace_id={trace_id}: {_workers_available}")
 
         _dispatched_async = False
@@ -213,7 +211,6 @@ def ingest_trace(
                 )
 
             try:
-                enrichment_service = EnrichmentService(db)
                 enrichment_service.enrich_traces(
                     set(unique_trace_ids),
                     str(project_id),

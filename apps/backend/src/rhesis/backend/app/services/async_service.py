@@ -39,31 +39,25 @@ class AsyncService(ABC, Generic[T]):
 
     def _check_workers_available(self) -> bool:
         """
-        Check if Celery workers are available.
+        Check if Celery workers are available, with per-subclass TTL caching.
 
-        Uses ping with 3 second timeout - more reliable for solo pool workers.
-        Solo pool workers process tasks sequentially, so stats() may timeout
-        while ping() is faster and gets prioritized.
+        Uses monotonic time (immune to clock adjustments) and a 1-second ping
+        timeout (faster than the default 3s, avoids blocking request handling).
 
         Returns:
             True if workers are available, False otherwise
         """
-        current_time = time.time()
-
-        # 1. Check if we have a valid cached result
+        now = time.monotonic()
         cache = self.__class__._worker_cache
-        if (
-            cache["available"] is not None
-            and current_time - cache["checked_at"] < self._worker_cache_ttl
-        ):
+
+        if cache["available"] is not None and now - cache["checked_at"] < self._worker_cache_ttl:
             return cache["available"]
 
-        # 2. If not, perform the actual ping
         is_available = False
         try:
             from rhesis.backend.worker import app as celery_app
 
-            inspect = celery_app.control.inspect(timeout=3.0)
+            inspect = celery_app.control.inspect(timeout=1.0)
             ping_result = inspect.ping()
 
             if ping_result:
@@ -75,9 +69,8 @@ class AsyncService(ABC, Generic[T]):
         except Exception as e:
             logger.debug(f"Worker availability check failed: {e}")
 
-        # 3. Update the cache
         cache["available"] = is_available
-        cache["checked_at"] = current_time
+        cache["checked_at"] = time.monotonic()
 
         return is_available
 

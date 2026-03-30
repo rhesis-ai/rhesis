@@ -4,7 +4,6 @@ Handles the coordination between async and sync enrichment strategies.
 """
 
 import logging
-import time
 from typing import TYPE_CHECKING, Any, List, Set
 
 from sqlalchemy.orm import Session
@@ -18,55 +17,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache for worker availability to avoid repeated ~3s Celery pings.
-# Each inspect.ping() call takes ~3s even when workers are available. Caching the
-# result avoids paying that cost on every single endpoint invocation.
-_worker_cache: dict = {"available": None, "checked_at": 0.0}
-_WORKER_CACHE_TTL = 300.0  # seconds
-
-
-def are_workers_recently_available() -> bool:
-    """Return True if a recent worker-availability check was positive (cache-only, no ping)."""
-    now = time.monotonic()
-    age = now - _worker_cache["checked_at"]
-    return _worker_cache["available"] is True and age < _WORKER_CACHE_TTL
-
-
-def check_workers_available() -> bool:
-    """Check worker availability, using cached result when fresh (TTL=300s).
-
-    Unlike ``are_workers_recently_available`` this will perform a Celery
-    ping when the cache is cold or expired, so callers can rely on an
-    accurate result even on a freshly started process.
-    """
-    now = time.monotonic()
-    age = now - _worker_cache["checked_at"]
-
-    if _worker_cache["available"] is not None and age < _WORKER_CACHE_TTL:
-        return _worker_cache["available"]
-
-    try:
-        from rhesis.backend.celery.core import app as celery_app
-
-        inspect = celery_app.control.inspect(timeout=1.0)
-        ping_result = inspect.ping()
-
-        if not ping_result:
-            _worker_cache["available"] = False
-            _worker_cache["checked_at"] = time.monotonic()
-            return False
-
-        logger.debug(f"Found {len(ping_result)} available worker(s): {list(ping_result.keys())}")
-        _worker_cache["available"] = True
-        _worker_cache["checked_at"] = time.monotonic()
-        return True
-
-    except Exception as e:
-        logger.debug(f"Worker availability check failed: {e}")
-        _worker_cache["available"] = False
-        _worker_cache["checked_at"] = time.monotonic()
-        return False
-
 
 class EnrichmentService(AsyncService[dict | None]):
     """Service for orchestrating trace enrichment with async/sync fallback."""
@@ -75,14 +25,6 @@ class EnrichmentService(AsyncService[dict | None]):
         """Initialize the enrichment service."""
         super().__init__()
         self.db = db
-
-    def _check_workers_available(self) -> bool:
-        """Check if Celery workers are available to process telemetry tasks.
-
-        Delegates to the module-level ``check_workers_available()`` which
-        uses a TTL-cached Celery ping.
-        """
-        return check_workers_available()
 
     def _execute_sync(
         self,
@@ -146,8 +88,7 @@ class EnrichmentService(AsyncService[dict | None]):
         )
         result = workflow.apply_async()
         logger.debug(
-            f"Enqueued async pipeline (enrich -> evaluate) "
-            f"for trace {trace_id} (task: {result.id})"
+            f"Enqueued async pipeline (enrich -> evaluate) for trace {trace_id} (task: {result.id})"
         )
         return result
 
