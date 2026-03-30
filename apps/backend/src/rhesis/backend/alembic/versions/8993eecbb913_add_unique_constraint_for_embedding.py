@@ -4,7 +4,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "8993eecbb913"
-down_revision: Union[str, None] = "c5f354e261ce"
+down_revision: Union[str, None] = "1010fc534974"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
