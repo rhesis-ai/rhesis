@@ -6,20 +6,22 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Computed,
+    Enum,
     Float,
     ForeignKey,
     Index,
     String,
     Text,
     UniqueConstraint,
+    select,
 )
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 
 from .base import Base
 from .enums import EmbeddingOrigin, EmbeddingStatus
-from .guid import GUID
 from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin
+from .status import Status
 
 
 class EmbeddingConfig:
@@ -86,11 +88,8 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
         server_default=EmbeddingOrigin.USER.value,
         doc="Origin of the content: 'user', 'generated', 'imported'",
     )
-    status = Column(
-        String(20),
-        server_default=EmbeddingStatus.ACTIVE.value,
-        doc="Lifecycle status of the embedding (internal-only, not user-facing)",
-    )
+    status_id = Column(GUID(), ForeignKey("status.id"), nullable=False)
+    status = relationship("Status", back_populates="embeddings")
 
     # Multiple embedding columns for different dimensions
     embedding_384 = Column(Vector(384), nullable=True)
@@ -114,7 +113,7 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
             "entity_type",
             "config_hash",
             "text_hash",
-            "status",
+            "status_id",
             name="uq_embedding_dedup",
         ),
         # Cross-entity-type search: model_id, config_hash, and status
@@ -122,7 +121,8 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
             "idx_active_model_config",
             "model_id",
             "config_hash",
-            postgresql_where=Column("status") == EmbeddingStatus.ACTIVE.value,
+            postgresql_where=Column("status_id")
+            == select(Status.id).where(Status.name == "Active").scalar_subquery(),
         ),
         # Search within entity type: entity_type, model_id, config_hash, and status
         Index(
@@ -130,7 +130,8 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
             "entity_type",
             "model_id",
             "config_hash",
-            postgresql_where=Column("status") == EmbeddingStatus.ACTIVE.value,
+            postgresql_where=Column("status_id")
+            == select(Status.id).where(Status.name == "Active").scalar_subquery(),
         ),
     )
 
@@ -260,5 +261,5 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
         dim = self.active_dimension or "none"
         return (
             f"<Embedding(id={self.id}, entity_type={self.entity_type}, "
-            f"entity_id={self.entity_id}, dimension={dim}, status={self.status})>"
+            f"entity_id={self.entity_id}, dimension={dim}, status={self.status.name if self.status else 'None'})>"
         )

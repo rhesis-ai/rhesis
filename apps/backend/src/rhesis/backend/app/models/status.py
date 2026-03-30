@@ -34,3 +34,4 @@ class Status(Base, OrganizationAndUserMixin):
     tasks = relationship("Task", back_populates="status")
     sources = relationship("Source", back_populates="status")
     tools = relationship("Tool", back_populates="status")
+    embeddings = relationship("Embedding", back_populates="status")
