@@ -256,7 +256,8 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
     def __repr__(self) -> str:
         """String representation for debugging"""
         dim = self.active_dimension or "none"
+        status_str = self.status.name.lower() if self.status else "None"
         return (
             f"<Embedding(id={self.id}, entity_type={self.entity_type}, "
-            f"entity_id={self.entity_id}, dimension={dim}, status={self.status.name if self.status else 'None'})>"
+            f"entity_id={self.entity_id}, dimension={dim}, status={status_str})>"
         )
