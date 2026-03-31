@@ -26,6 +26,7 @@ import {
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
+import { useTheme } from '@mui/material/styles';
 import {
   type AdaptiveMetricEvalDetail,
   SuggestedTest,
@@ -45,6 +46,87 @@ interface SuggestionRow extends SuggestedTest {
 }
 
 type PipelineStep = 'suggestions' | 'outputs' | 'evaluate' | null;
+
+type PhaseStatus = 'idle' | 'running' | 'done';
+
+function clamp01(value: number): number {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function SegmentedProgressBar({
+  segments,
+}: {
+  segments: Array<{
+    label: string;
+    fraction: number;
+    active?: boolean;
+  }>;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Box sx={{ width: '100%', pt: '2px' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          height: 8,
+          width: '100%',
+        }}
+        aria-label="Adaptive testing generation progress"
+      >
+        {segments.map(seg => (
+          <Box
+            key={seg.label}
+            sx={{
+              position: 'relative',
+              flex: 1,
+              height: '100%',
+              borderRadius: 999,
+              overflow: 'hidden',
+              backgroundColor: theme.palette.action.disabledBackground,
+              // Inset ring so focus/active state is not clipped by DialogContent overflow
+              boxShadow: seg.active
+                ? `inset 0 0 0 1px ${theme.palette.primary.main}`
+                : 'none',
+            }}
+            aria-label={seg.label}
+          >
+            <Box
+              sx={{
+                height: '100%',
+                width: `${clamp01(seg.fraction) * 100}%`,
+                backgroundColor: theme.palette.primary.main,
+                transition: 'width 120ms linear',
+              }}
+            />
+          </Box>
+        ))}
+      </Box>
+      <Box
+        sx={{
+          mt: 0.5,
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
+        {segments.map(seg => (
+          <Typography
+            key={`${seg.label}-caption`}
+            variant="caption"
+            color={seg.active ? 'text.primary' : 'text.secondary'}
+            sx={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap' }}
+          >
+            {seg.label}
+          </Typography>
+        ))}
+      </Box>
+    </Box>
+  );
+}
 
 function getLabelColor(label: string): 'success' | 'error' | 'default' {
   if (label === 'pass') return 'success';
@@ -81,6 +163,17 @@ export default function SuggestionsDialog({
   const [currentStep, setCurrentStep] = useState<PipelineStep>(null);
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
   const hasStarted = useRef(false);
+  const [testGenStatus, setTestGenStatus] = useState<PhaseStatus>('idle');
+
+  const [outputsStatus, setOutputsStatus] = useState<PhaseStatus>('idle');
+  const [outputsCompleted, setOutputsCompleted] = useState(0);
+  const [outputsTotal, setOutputsTotal] = useState(0);
+  const seenOutputIndices = useRef<Set<number>>(new Set());
+
+  const [metricsStatus, setMetricsStatus] = useState<PhaseStatus>('idle');
+  const [metricsCompleted, setMetricsCompleted] = useState(0);
+  const [metricsTotal, setMetricsTotal] = useState(0);
+  const seenMetricIndices = useRef<Set<number>>(new Set());
   /** Guide text used for generate + regenerate (editable without closing dialog). */
   const [regenerationGuide, setRegenerationGuide] = useState('');
   const [guideEditorOpen, setGuideEditorOpen] = useState(false);
@@ -105,6 +198,15 @@ export default function SuggestionsDialog({
     setLoading(true);
     setError(null);
     setCurrentStep('suggestions');
+    setTestGenStatus('running');
+    setOutputsStatus('idle');
+    setOutputsCompleted(0);
+    setOutputsTotal(0);
+    seenOutputIndices.current = new Set();
+    setMetricsStatus('idle');
+    setMetricsCompleted(0);
+    setMetricsTotal(0);
+    seenMetricIndices.current = new Set();
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const client = clientFactory.getAdaptiveTestingClient();
@@ -123,13 +225,17 @@ export default function SuggestionsDialog({
       );
       setSuggestions(rows);
       if (rows.length === 0) {
+        setTestGenStatus('idle');
         setError('No suggestions were generated. The test set may be empty.');
         return;
       }
+      setTestGenStatus('done');
       setLoading(false);
 
       const eligibleForOutputs = rows.filter(s => s.input.trim());
       let rowsWithOutputs = rows;
+      setOutputsTotal(eligibleForOutputs.length);
+      setOutputsStatus(eligibleForOutputs.length > 0 ? 'running' : 'done');
       if (eligibleForOutputs.length > 0) {
         setCurrentStep('outputs');
         setOutputsLoading(true);
@@ -156,6 +262,10 @@ export default function SuggestionsDialog({
             {
               onEvent: event => {
                 if (event.type === 'item') {
+                  if (!seenOutputIndices.current.has(event.index)) {
+                    seenOutputIndices.current.add(event.index);
+                    setOutputsCompleted(prev => prev + 1);
+                  }
                   const targetId = eligibleIds[event.index];
                   if (!targetId) return;
                   if (event.error) {
@@ -198,12 +308,15 @@ export default function SuggestionsDialog({
           );
         } finally {
           setOutputsLoading(false);
+          setOutputsStatus('done');
         }
       }
 
       const eligibleForEvaluation = rowsWithOutputs.filter(
         s => s.input.trim() && s.output.trim() && s.output !== '[no output]'
       );
+      setMetricsTotal(eligibleForEvaluation.length);
+      setMetricsStatus(eligibleForEvaluation.length > 0 ? 'running' : 'done');
       if (eligibleForEvaluation.length > 0) {
         setCurrentStep('evaluate');
         setEvaluateLoading(true);
@@ -231,6 +344,10 @@ export default function SuggestionsDialog({
             {
               onEvent: event => {
                 if (event.type === 'item') {
+                  if (!seenMetricIndices.current.has(event.index)) {
+                    seenMetricIndices.current.add(event.index);
+                    setMetricsCompleted(prev => prev + 1);
+                  }
                   const targetId = eligibleEvalIds[event.index];
                   if (!targetId) return;
 
@@ -278,6 +395,7 @@ export default function SuggestionsDialog({
           );
         } finally {
           setEvaluateLoading(false);
+          setMetricsStatus('done');
         }
       } else {
         notifications.show('No suggestions with outputs to evaluate.', {
@@ -285,6 +403,7 @@ export default function SuggestionsDialog({
         });
       }
     } catch (err) {
+      setTestGenStatus('idle');
       setError(
         err instanceof Error ? err.message : 'Failed to generate suggestions.'
       );
@@ -305,6 +424,15 @@ export default function SuggestionsDialog({
     }
     if (!open) {
       hasStarted.current = false;
+      setTestGenStatus('idle');
+      setOutputsStatus('idle');
+      setOutputsCompleted(0);
+      setOutputsTotal(0);
+      seenOutputIndices.current = new Set();
+      setMetricsStatus('idle');
+      setMetricsCompleted(0);
+      setMetricsTotal(0);
+      seenMetricIndices.current = new Set();
     }
   }, [open, handleGenerate]);
 
@@ -452,6 +580,43 @@ export default function SuggestionsDialog({
   ];
 
   const isProcessing = loading || outputsLoading || evaluateLoading;
+  const progressSegments = [
+    {
+      label: 'Test generation',
+      active: currentStep === 'suggestions',
+      fraction: testGenStatus === 'done' ? 1 : 0,
+    },
+    {
+      label:
+        outputsStatus !== 'idle' && outputsTotal > 0
+          ? `Output generation (${outputsCompleted}/${outputsTotal})`
+          : 'Output generation',
+      active: currentStep === 'outputs',
+      fraction:
+        outputsStatus === 'idle'
+          ? 0
+          : outputsStatus === 'done'
+            ? 1
+            : outputsTotal > 0
+              ? outputsCompleted / outputsTotal
+              : 1,
+    },
+    {
+      label:
+        metricsStatus !== 'idle' && metricsTotal > 0
+          ? `Metric generation (${metricsCompleted}/${metricsTotal})`
+          : 'Metric generation',
+      active: currentStep === 'evaluate',
+      fraction:
+        metricsStatus === 'idle'
+          ? 0
+          : metricsStatus === 'done'
+            ? 1
+            : metricsTotal > 0
+              ? metricsCompleted / metricsTotal
+              : 1,
+    },
+  ];
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
@@ -491,14 +656,17 @@ export default function SuggestionsDialog({
         )}
 
         {isProcessing && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <CircularProgress size={20} />
-            <Typography variant="body2" color="text.secondary">
-              {currentStep === 'suggestions' &&
-                'Step 1/3: Generating suggestions...'}
-              {currentStep === 'outputs' && 'Step 2/3: Getting outputs...'}
-              {currentStep === 'evaluate' && 'Step 3/3: Evaluating...'}
-            </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 2,
+              mb: 2,
+              pt: 0.5,
+            }}
+          >
+            <CircularProgress size={20} sx={{ mt: 0.25 }} />
+            <SegmentedProgressBar segments={progressSegments} />
           </Box>
         )}
 
