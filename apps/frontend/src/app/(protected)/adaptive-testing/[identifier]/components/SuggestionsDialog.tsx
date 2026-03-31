@@ -84,7 +84,7 @@ function SegmentedProgressBar({
               position: 'relative',
               flex: 1,
               height: '100%',
-              borderRadius: 999,
+              borderRadius: theme.spacing(1),
               overflow: 'hidden',
               backgroundColor: theme.palette.action.disabledBackground,
               // Inset ring so focus/active state is not clipped by DialogContent overflow
