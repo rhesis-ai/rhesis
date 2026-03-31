@@ -1,7 +1,7 @@
 """add architect session and message tables
 
 Revision ID: c4d8e2f1a3b5
-Revises: e1f2a3b4c5d6
+Revises: d22819b0aa66
 Create Date: 2026-03-07
 
 """
@@ -17,7 +17,7 @@ import rhesis.backend
 
 # revision identifiers, used by Alembic.
 revision: str = "c4d8e2f1a3b5"
-down_revision: Union[str, None] = "e1f2a3b4c5d6"
+down_revision: Union[str, None] = "d22819b0aa66"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
