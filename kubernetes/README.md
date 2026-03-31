@@ -71,6 +71,8 @@ kubernetes/
         ├── external-secrets/      # Kustomize overlay (env-specific values)
         ├── cnpg-operator.yaml     # Argo CD Application for CNPG stack (path + Git ref per env)
         ├── grafana-operator/      # Grafana Operator + Grafana instance (monitoring ns)
+        ├── grafana-operator/      # Grafana Operator Helm app only (monitoring ns)
+        ├── grafana-resources/     # Grafana CR, ingress, Prometheus/Loki datasources (after CRDs)
         ├── kube-prometheus-stack/ # Prometheus Operator stack (Grafana disabled)
         ├── loki/                  # Loki singleBinary
         ├── alloy/                 # Grafana Alloy (logs to Loki)
