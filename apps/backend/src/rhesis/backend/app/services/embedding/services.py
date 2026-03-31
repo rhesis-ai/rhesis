@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.mixins import EmbeddableMixin
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.services.base import AsyncService
+from rhesis.backend.app.services.async_service import AsyncService
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.embedding import generate_embedding_task
 

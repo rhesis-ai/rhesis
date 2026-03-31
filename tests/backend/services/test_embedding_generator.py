@@ -8,8 +8,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.models.embedding import EmbeddingStatus
-from rhesis.backend.app.models.enums import ModelType
+from rhesis.backend.app.models.enums import EmbeddingStatus, ModelType
 from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
 
 
