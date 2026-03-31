@@ -7,8 +7,9 @@ resources:
 configMapGenerator:
   - name: grafana-config
     literals:
-      - grafana-hostname=grafana.dev.rhesis.ai
-      - grafana-root-url=https://grafana.dev.rhesis.ai
+      # Dev testing: zone must match dev external-dns domainFilters (internal-example.com)
+      - grafana-hostname=grafana.dev.internal-example.com
+      - grafana-root-url=https://grafana.dev.internal-example.com
     options:
       annotations:
         config.kubernetes.io/local-config: "true"
