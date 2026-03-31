@@ -68,7 +68,8 @@ kubernetes/
         ├── cert-manager/          # TLS certificates
         ├── external-dns/          # DNS automation
         ├── external-secrets/      # Kustomize overlay (env-specific values)
-        ├── grafana-operator/      # Grafana Operator + Grafana instance (monitoring ns)
+        ├── grafana-operator/      # Grafana Operator Helm app only (monitoring ns)
+        ├── grafana-resources/     # Grafana CR, ingress, Prometheus/Loki datasources (after CRDs)
         ├── kube-prometheus-stack/ # Prometheus Operator stack (Grafana disabled)
         ├── loki/                  # Loki singleBinary
         ├── alloy/                 # Grafana Alloy (logs to Loki)
