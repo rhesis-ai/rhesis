@@ -208,8 +208,7 @@ export default function SuggestionsDialog({
     }
   }, [open, userFeedback]);
 
-  const pipelineProcessing =
-    loading || outputsLoading || evaluateLoading;
+  const pipelineProcessing = loading || outputsLoading || evaluateLoading;
   const acceptInFlight = acceptAllInProgress || acceptingIds.size > 0;
   const isBusy = pipelineProcessing || acceptInFlight;
 
