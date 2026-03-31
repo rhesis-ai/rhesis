@@ -199,51 +199,6 @@ class TestEmbeddingModelUnit:
 class TestSearchableTextUnit:
     """📝 Test to_searchable_text() implementations (without DB)"""
 
-    def test_source_to_searchable_text_full(self):
-        """Test Source.to_searchable_text() with all fields"""
-        source = Source(
-            title="AI Safety Research",
-            description="Study on AI alignment",
-            content="In this paper we explore..." * 100,
-            citation="Smith et al. 2024",
-            url="https://example.com/paper",
-            organization_id="org_id",
-            user_id="user_id",
-        )
-
-        text = source.to_searchable_text()
-
-        assert "AI Safety Research" in text
-        assert "Study on AI alignment" in text
-        assert "In this paper we explore" in text
-        assert "Smith et al. 2024" in text
-        assert "https://example.com/paper" in text
-
-    def test_source_to_searchable_text_truncation(self):
-        """Test that content is truncated to 20000 chars"""
-        # Create content longer than 20000 chars
-        long_content = "A" * 25000
-
-        source = Source(
-            title="Test",
-            content=long_content,
-            organization_id="org_id",
-            user_id="user_id",
-        )
-
-        text = source.to_searchable_text()
-
-        # Should be truncated (20000 chars + title + spaces)
-        assert len(text) < 25000
-        assert "Test" in text
-
-    def test_source_to_searchable_text_partial(self):
-        """Test Source.to_searchable_text() with missing fields"""
-        source = Source(title="Test Source", organization_id="org_id", user_id="user_id")
-
-        text = source.to_searchable_text()
-
-        assert text == "Test Source"
 
     def test_test_result_to_searchable_text(self):
         """Test TestResult.to_searchable_text() extracts relevant fields"""
@@ -493,7 +448,7 @@ class TestEmbeddingConstraints:
 
 @pytest.mark.integration
 class TestEmbeddingRelationships:
-    """🔗 Test polymorphic relationships with Test and Source models"""
+    """🔗 Test polymorphic relationships with Test, Trace and Chunk models"""
 
     def test_test_embeddings_relationship(
         self,
@@ -547,47 +502,119 @@ class TestEmbeddingRelationships:
         assert all(emb.entity_id == test.id for emb in embeddings)
         assert all(emb.entity_type == "Test" for emb in embeddings)
 
-    def test_source_embeddings_relationship(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
+    def test_trace_embeddings_relationship(
+        self,
+        test_db: Session,
+        db_project,
+        test_org_id: str,
+        authenticated_user_id: str,
+        test_model,
+        db_status,
     ):
-        """Test loading embeddings from Source model"""
-        # Create a source
-        source = Source(
-            title="Test Source",
-            content="Source content",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-        test_db.add(source)
-        test_db.commit()
-        test_db.refresh(source)
+        """Test loading embeddings from Trace model"""
+        from datetime import datetime, timezone
+        from rhesis.backend.app.models import Trace
 
-        # Create embedding for the source
+        trace = Trace(
+            trace_id="test_trace_id_123",
+            span_id="test_span_id_123",
+            project_id=db_project.id,
+            organization_id=test_org_id,
+            environment="test",
+            span_name="test_span",
+            span_kind="INTERNAL",
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc),
+            duration_ms=10.0,
+            status_code="OK",
+        )
+        test_db.add(trace)
+        test_db.commit()
+        test_db.refresh(trace)
+
+        # Create embeddings for the trace
         embedding = Embedding(
-            entity_id=source.id,
-            entity_type="Source",
+            entity_id=trace.id,
+            entity_type="Trace",
             model_id=test_model.id,
-            embedding_config={"dimension": 1024, "model": "test-model"},
+            embedding_config={"dimension": 768, "model": "model-1"},
             config_hash="hash1",
-            searchable_text="source content",
+            searchable_text="test content 1",
             text_hash="text_hash1",
             status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        embedding.embedding = [0.3] * 1024
+        embedding.embedding = [0.1] * 768
 
         test_db.add(embedding)
         test_db.commit()
 
         # Refresh and access relationship
-        test_db.refresh(source)
-        embeddings = source.embeddings
+        test_db.refresh(trace)
+        embeddings = trace.embeddings
 
         assert len(embeddings) == 1
-        assert embeddings[0].entity_id == source.id
-        assert embeddings[0].entity_type == "Source"
-        assert embeddings[0].active_dimension == 1024
+        assert embeddings[0].entity_id == trace.id
+        assert embeddings[0].entity_type == "Trace"
+
+    def test_chunk_embeddings_relationship(
+        self,
+        test_db: Session,
+        test_org_id: str,
+        authenticated_user_id: str,
+        test_model,
+        db_status,
+    ):
+        """Test loading embeddings from Chunk model"""
+        from rhesis.backend.app.models import Chunk, Source
+
+        source = Source(
+            title="Test Source",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            status_id=db_status.id,
+        )
+        test_db.add(source)
+        test_db.commit()
+
+        chunk = Chunk(
+            source_id=source.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            content="test chunk content",
+            chunk_index=0,
+            token_count=3,
+        )
+        test_db.add(chunk)
+        test_db.commit()
+        test_db.refresh(chunk)
+
+        # Create embeddings for the chunk
+        embedding = Embedding(
+            entity_id=chunk.id,
+            entity_type="Chunk",
+            model_id=test_model.id,
+            embedding_config={"dimension": 768, "model": "model-1"},
+            config_hash="hash1",
+            searchable_text="test content 1",
+            text_hash="text_hash1",
+            status_id=db_status.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        embedding.embedding = [0.1] * 768
+
+        test_db.add(embedding)
+        test_db.commit()
+
+        # Refresh and access relationship
+        test_db.refresh(chunk)
+        embeddings = chunk.embeddings
+
+        assert len(embeddings) == 1
+        assert embeddings[0].entity_id == chunk.id
+        assert embeddings[0].entity_type == "Chunk"
 
 
 @pytest.mark.integration
