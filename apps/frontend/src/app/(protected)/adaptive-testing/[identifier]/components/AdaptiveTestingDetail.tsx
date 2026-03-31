@@ -2205,15 +2205,15 @@ export default function AdaptiveTestingDetail({
     }
   };
 
-  const handleSuggestionAccepted = useCallback(() => {
+  const handleSuggestionAccepted = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
-    Promise.all([client.getTree(testSetId), client.getTopics(testSetId)]).then(
-      ([treeNodes, updatedTopics]) => {
-        setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
-        setTopics(updatedTopics);
-      }
-    );
+    const [treeNodes, updatedTopics] = await Promise.all([
+      client.getTree(testSetId),
+      client.getTopics(testSetId),
+    ]);
+    setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+    setTopics(updatedTopics);
   }, [sessionToken, testSetId]);
 
   const openSuggestionGuidance = useCallback(() => {

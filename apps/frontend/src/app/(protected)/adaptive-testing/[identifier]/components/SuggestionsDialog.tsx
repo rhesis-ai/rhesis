@@ -134,6 +134,25 @@ function getLabelColor(label: string): 'success' | 'error' | 'default' {
   return 'default';
 }
 
+function buildTestNodeCreateFromSuggestion(row: SuggestionRow): TestNodeCreate {
+  const data: TestNodeCreate = {
+    input: row.input,
+    output: row.output || undefined,
+    labeler: 'suggestion',
+  };
+  if (row.topic) {
+    data.topic = row.topic;
+  }
+  if (
+    (row.label === 'pass' || row.label === 'fail') &&
+    row.model_score != null
+  ) {
+    data.label = row.label;
+    data.model_score = row.model_score;
+  }
+  return data;
+}
+
 interface SuggestionsDialogProps {
   open: boolean;
   onClose: () => void;
@@ -142,7 +161,8 @@ interface SuggestionsDialogProps {
   topic: string | null;
   /** Optional user guidance passed to generate_suggestions (LLM prompt). */
   userFeedback?: string | null;
-  onTestAccepted: () => void;
+  /** Refresh tree/topics after tests are persisted (await for batch flows). */
+  onTestAccepted: () => Promise<void>;
 }
 
 export default function SuggestionsDialog({
@@ -162,6 +182,7 @@ export default function SuggestionsDialog({
   const [evaluateLoading, setEvaluateLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<PipelineStep>(null);
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
+  const [acceptAllInProgress, setAcceptAllInProgress] = useState(false);
   const hasStarted = useRef(false);
   const [testGenStatus, setTestGenStatus] = useState<PhaseStatus>('idle');
 
@@ -187,8 +208,13 @@ export default function SuggestionsDialog({
     }
   }, [open, userFeedback]);
 
+  const pipelineProcessing =
+    loading || outputsLoading || evaluateLoading;
+  const acceptInFlight = acceptAllInProgress || acceptingIds.size > 0;
+  const isBusy = pipelineProcessing || acceptInFlight;
+
   const handleClose = () => {
-    if (!loading && !outputsLoading && !evaluateLoading) {
+    if (!isBusy) {
       onClose();
     }
   };
@@ -441,24 +467,12 @@ export default function SuggestionsDialog({
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const client = clientFactory.getAdaptiveTestingClient();
-      const data: TestNodeCreate = {
-        input: row.input,
-        output: row.output || undefined,
-        labeler: 'suggestion',
-      };
-      if (row.topic) {
-        data.topic = row.topic;
-      }
-      if (
-        (row.label === 'pass' || row.label === 'fail') &&
-        row.model_score != null
-      ) {
-        data.label = row.label;
-        data.model_score = row.model_score;
-      }
-      await client.createTest(testSetId, data);
+      await client.createTest(
+        testSetId,
+        buildTestNodeCreateFromSuggestion(row)
+      );
       setSuggestions(prev => prev.filter(s => s._id !== row._id));
-      onTestAccepted();
+      await onTestAccepted();
       notifications.show('Test added successfully.', { severity: 'success' });
     } catch (err) {
       notifications.show(
@@ -475,10 +489,73 @@ export default function SuggestionsDialog({
   };
 
   const handleAcceptAll = async () => {
-    if (suggestions.length === 0) return;
+    if (suggestions.length === 0 || acceptAllInProgress) return;
     const toAccept = [...suggestions];
-    for (const row of toAccept) {
-      await handleAccept(row);
+    setAcceptAllInProgress(true);
+    setAcceptingIds(prev => {
+      const next = new Set(prev);
+      toAccept.forEach(r => next.add(r._id));
+      return next;
+    });
+    let shouldCloseAfterAcceptAll = false;
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const client = clientFactory.getAdaptiveTestingClient();
+      const results = await Promise.allSettled(
+        toAccept.map(row =>
+          client.createTest(testSetId, buildTestNodeCreateFromSuggestion(row))
+        )
+      );
+      const succeededIds = new Set<string>();
+      let failCount = 0;
+      let firstRejection: unknown;
+      results.forEach((result, index) => {
+        const row = toAccept[index];
+        if (result.status === 'fulfilled') {
+          succeededIds.add(row._id);
+        } else {
+          failCount += 1;
+          if (firstRejection === undefined) {
+            firstRejection = result.reason;
+          }
+        }
+      });
+      setSuggestions(prev => prev.filter(s => !succeededIds.has(s._id)));
+      setAcceptingIds(prev => {
+        const next = new Set(prev);
+        toAccept.forEach(r => next.delete(r._id));
+        return next;
+      });
+      const successCount = succeededIds.size;
+      if (successCount > 0) {
+        await onTestAccepted();
+      }
+      if (failCount === 0) {
+        notifications.show(
+          successCount === 1
+            ? 'Test added successfully.'
+            : `Added ${successCount} tests successfully.`,
+          { severity: 'success' }
+        );
+        shouldCloseAfterAcceptAll = successCount > 0;
+      } else if (successCount > 0) {
+        notifications.show(
+          `Added ${successCount} test(s). ${failCount} failed.`,
+          { severity: 'warning' }
+        );
+      } else {
+        const message =
+          firstRejection instanceof Error
+            ? firstRejection.message
+            : 'Failed to accept tests.';
+        notifications.show(message, { severity: 'error' });
+      }
+    } finally {
+      setAcceptAllInProgress(false);
+      // Only auto-close when all accepts succeeded, so failures remain retryable.
+      if (shouldCloseAfterAcceptAll) {
+        onClose();
+      }
     }
   };
 
@@ -579,7 +656,6 @@ export default function SuggestionsDialog({
     },
   ];
 
-  const isProcessing = loading || outputsLoading || evaluateLoading;
   const progressSegments = [
     {
       label: 'Test generation',
@@ -639,7 +715,11 @@ export default function SuggestionsDialog({
               size="small"
               variant="outlined"
               onClick={handleAcceptAll}
-              disabled={isProcessing}
+              disabled={
+                pipelineProcessing ||
+                acceptAllInProgress ||
+                acceptingIds.size > 0
+              }
               startIcon={<CheckIcon />}
               sx={{ textTransform: 'none' }}
             >
@@ -655,7 +735,7 @@ export default function SuggestionsDialog({
           </Alert>
         )}
 
-        {isProcessing && (
+        {pipelineProcessing && (
           <Box
             sx={{
               display: 'flex',
@@ -667,6 +747,23 @@ export default function SuggestionsDialog({
           >
             <CircularProgress size={20} sx={{ mt: 0.25 }} />
             <SegmentedProgressBar segments={progressSegments} />
+          </Box>
+        )}
+
+        {acceptAllInProgress && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              mb: 2,
+              pt: 0.5,
+            }}
+          >
+            <CircularProgress size={20} />
+            <Typography variant="body2" color="text.secondary">
+              Accepting suggestions…
+            </Typography>
           </Box>
         )}
 
@@ -686,7 +783,7 @@ export default function SuggestionsDialog({
               onChange={e => setRegenerationGuide(e.target.value)}
               inputProps={{ maxLength: 1000 }}
               helperText="Up to 1000 characters."
-              disabled={isProcessing}
+              disabled={pipelineProcessing}
             />
           </Box>
         </Collapse>
@@ -694,7 +791,7 @@ export default function SuggestionsDialog({
         <BaseDataGrid
           columns={columns}
           rows={suggestions}
-          loading={false}
+          loading={acceptAllInProgress}
           getRowId={row => row._id}
           showToolbar={false}
           paginationModel={{ page: 0, pageSize: 25 }}
@@ -706,13 +803,13 @@ export default function SuggestionsDialog({
         />
       </DialogContent>
       <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
-        <Button onClick={handleClose} disabled={isProcessing}>
+        <Button onClick={handleClose} disabled={isBusy}>
           Close
         </Button>
         <Button
           variant="outlined"
           onClick={() => setGuideEditorOpen(v => !v)}
-          disabled={isProcessing}
+          disabled={isBusy}
           sx={{ textTransform: 'none' }}
         >
           {guideEditorOpen ? 'Hide guide' : 'Generation guide'}
@@ -720,7 +817,7 @@ export default function SuggestionsDialog({
         <Button
           variant="outlined"
           onClick={handleGenerate}
-          disabled={isProcessing}
+          disabled={isBusy}
           sx={{ textTransform: 'none' }}
         >
           Regenerate
