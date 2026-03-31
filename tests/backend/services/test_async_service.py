@@ -3,7 +3,7 @@ Tests for the AsyncService base class.
 """
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -203,3 +203,51 @@ class TestAsyncServiceBatchExecute:
         # Check workers_available argument in both calls
         assert mock_execute.call_args_list[0].kwargs["workers_available"] is True
         assert mock_execute.call_args_list[1].kwargs["workers_available"] is False
+
+
+@pytest.mark.integration
+@pytest.mark.services
+class TestAsyncServiceIntegration:
+    """Integration tests for the AsyncService base class."""
+
+    def test_check_workers_available_real_broker(self):
+        """Test worker availability check against the real configured broker."""
+        # Reset cache to force a real check
+        AsyncService._worker_cache = {"available": None, "checked_at": 0.0}
+
+        service = ConcreteAsyncService()
+
+        # Since no Celery workers are running in the backend test environment,
+        # this should successfully connect to Redis but return False
+        is_available = service._check_workers_available()
+
+        assert is_available is False
+        assert AsyncService._worker_cache["available"] is False
+
+    def test_execute_with_fallback_real_broker(self):
+        """Test execute_with_fallback using the real broker connection."""
+        # Reset cache
+        AsyncService._worker_cache = {"available": None, "checked_at": 0.0}
+
+        service = ConcreteAsyncService()
+
+        # Will check real broker, find no workers, and fallback to sync
+        was_async, result = service.execute_with_fallback()
+
+        assert was_async is False
+        assert result == "sync_result"
+
+    def test_batch_execute_real_broker(self):
+        """Test batch_execute using the real broker connection."""
+        # Reset cache
+        AsyncService._worker_cache = {"available": None, "checked_at": 0.0}
+
+        service = ConcreteAsyncService()
+
+        items = [((), {}), ((), {})]
+
+        # Will check real broker once, find no workers, and execute all sync
+        async_count, sync_count = service.batch_execute(items)
+
+        assert async_count == 0
+        assert sync_count == 2
