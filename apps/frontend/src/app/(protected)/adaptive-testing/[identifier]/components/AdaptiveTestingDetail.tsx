@@ -1410,30 +1410,10 @@ function TestsList({
             <Chip
               label={score != null ? score.toFixed(2) : 'N/A'}
               size="small"
-              color={score != null ? getScoreColor(score) : 'default'}
+              color={getLabelColor(label)}
               variant={score != null ? 'filled' : 'outlined'}
             />
           </ScoreMetricsTooltip>
-        );
-      },
-    },
-    {
-      field: 'label',
-      headerName: 'Label',
-      width: 100,
-      renderCell: params => {
-        if (params.row.id && pendingTestIds.has(params.row.id)) {
-          return <CircularProgress size={16} />;
-        }
-        const label = params.value;
-        if (!label) return <Chip label="N/A" size="small" variant="outlined" />;
-        return (
-          <Chip
-            label={label}
-            size="small"
-            color={getLabelColor(label)}
-            variant="outlined"
-          />
         );
       },
     },
@@ -1900,15 +1880,22 @@ export default function AdaptiveTestingDetail({
     }
   };
 
-  const handleGenerateOutputsSubmit = async () => {
+  const handleGenerateOutputsSubmit = async (options?: {
+    topic: string | null;
+    includeSubtopics: boolean;
+    closeDialog?: boolean;
+  }) => {
     setGenerateSubmitting(true);
     setGenerateError(null);
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
+    const effectiveTopic = options?.topic ?? generateOutputsTopic;
+    const effectiveIncludeSubtopics =
+      options?.includeSubtopics ?? generateOutputsIncludeSubtopics;
     try {
       const result = await client.generateOutputs(testSetId, {
-        topic: generateOutputsTopic ?? undefined,
-        include_subtopics: generateOutputsIncludeSubtopics,
+        topic: effectiveTopic ?? undefined,
+        include_subtopics: effectiveIncludeSubtopics,
         overwrite: true,
       });
       const [treeNodes, updatedTopics] = await Promise.all([
@@ -1917,7 +1904,9 @@ export default function AdaptiveTestingDetail({
       ]);
       setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
       setTopics(updatedTopics);
-      setGenerateOutputsDialogOpen(false);
+      if (options?.closeDialog ?? generateOutputsDialogOpen) {
+        setGenerateOutputsDialogOpen(false);
+      }
       const failedCount = result.failed?.length ?? 0;
       if (failedCount > 0) {
         notifications.show(
@@ -1939,6 +1928,18 @@ export default function AdaptiveTestingDetail({
     }
   };
 
+  const handleGenerateOutputsInline = (fromTable?: boolean) => {
+    const topic =
+      fromTable && activeTab === 0 && selectedTopicForApi
+        ? selectedTopicForApi
+        : null;
+    void handleGenerateOutputsSubmit({
+      topic,
+      includeSubtopics: true,
+      closeDialog: false,
+    });
+  };
+
   const handleEvaluateOpen = (fromTable?: boolean) => {
     if (fromTable && activeTab === 0 && selectedTopicForApi) {
       setEvaluateTopic(selectedTopicForApi);
@@ -1958,15 +1959,22 @@ export default function AdaptiveTestingDetail({
     }
   };
 
-  const handleEvaluateSubmit = async () => {
+  const handleEvaluateSubmit = async (options?: {
+    topic: string | null;
+    includeSubtopics: boolean;
+    closeDialog?: boolean;
+  }) => {
     setEvaluateSubmitting(true);
     setEvaluateError(null);
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
+    const effectiveTopic = options?.topic ?? evaluateTopic;
+    const effectiveIncludeSubtopics =
+      options?.includeSubtopics ?? evaluateIncludeSubtopics;
     try {
       const result = await client.evaluate(testSetId, {
-        topic: evaluateTopic ?? undefined,
-        include_subtopics: evaluateIncludeSubtopics,
+        topic: effectiveTopic ?? undefined,
+        include_subtopics: effectiveIncludeSubtopics,
         overwrite: true,
       });
       const [treeNodes, updatedTopics] = await Promise.all([
@@ -1975,7 +1983,9 @@ export default function AdaptiveTestingDetail({
       ]);
       setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
       setTopics(updatedTopics);
-      setEvaluateDialogOpen(false);
+      if (options?.closeDialog ?? evaluateDialogOpen) {
+        setEvaluateDialogOpen(false);
+      }
       const failedCount = result.failed?.length ?? 0;
       if (failedCount > 0) {
         notifications.show(
@@ -1995,6 +2005,18 @@ export default function AdaptiveTestingDetail({
     } finally {
       setEvaluateSubmitting(false);
     }
+  };
+
+  const handleEvaluateInline = (fromTable?: boolean) => {
+    const topic =
+      fromTable && activeTab === 0 && selectedTopicForApi
+        ? selectedTopicForApi
+        : null;
+    void handleEvaluateSubmit({
+      topic,
+      includeSubtopics: true,
+      closeDialog: false,
+    });
   };
 
   const handleAddTopicOpen = (parentTopic: string | null) => {
@@ -2050,29 +2072,59 @@ export default function AdaptiveTestingDetail({
 
     // Optimistically add to local state
     setTests(prev => [...prev, optimisticTest]);
+    setPendingTestIds(prev => {
+      const next = new Set(prev);
+      next.add(tempId);
+      return next;
+    });
 
-    // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
 
-    client
-      .createTest(testSetId, data)
-      .then(async () => {
-        // Refresh to get the real test with server ID
-        const [treeNodes, updatedTopics] = await Promise.all([
-          client.getTree(testSetId),
-          client.getTopics(testSetId),
-        ]);
-        setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
-        setTopics(updatedTopics);
-      })
-      .catch(() => {
-        // Rollback: remove the optimistic test
-        setTests(prev => prev.filter(t => t.id !== tempId));
-        notifications.show('Failed to add test. Change has been reverted.', {
-          severity: 'error',
-        });
+    try {
+      const created = await client.createTest(testSetId, data);
+      setTests(prev => prev.map(test => (test.id === tempId ? created : test)));
+      setPendingTestIds(prev => {
+        const next = new Set(prev);
+        next.delete(tempId);
+        next.add(created.id);
+        return next;
       });
+
+      const outputProvided = Boolean(data.output && data.output.trim());
+      if (!outputProvided) {
+        await client.generateOutputs(testSetId, {
+          test_ids: [created.id],
+          overwrite: true,
+        });
+      }
+
+      await client.evaluate(testSetId, {
+        test_ids: [created.id],
+        overwrite: true,
+      });
+
+      // Refresh to pick up outputs + evaluation
+      const [treeNodes, updatedTopics] = await Promise.all([
+        client.getTree(testSetId),
+        client.getTopics(testSetId),
+      ]);
+      setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+      setTopics(updatedTopics);
+    } catch (err) {
+      // Rollback: remove the optimistic test
+      setTests(prev => prev.filter(t => t.id !== tempId));
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to add and evaluate test.',
+        { severity: 'error' }
+      );
+    } finally {
+      setPendingTestIds(prev => {
+        const next = new Set(prev);
+        next.delete(tempId);
+        return next;
+      });
+    }
   };
 
   const handleInlineAddTest = async (input: string) => {
@@ -3067,7 +3119,8 @@ export default function AdaptiveTestingDetail({
               <Button
                 size="small"
                 startIcon={<PlayArrowIcon />}
-                onClick={() => handleGenerateOutputsOpen(true)}
+                onClick={() => handleGenerateOutputsInline(true)}
+                disabled={generateSubmitting || evaluateSubmitting}
                 sx={{ textTransform: 'none' }}
               >
                 Get outputs
@@ -3075,7 +3128,8 @@ export default function AdaptiveTestingDetail({
               <Button
                 size="small"
                 startIcon={<GradingIcon />}
-                onClick={() => handleEvaluateOpen(true)}
+                onClick={() => handleEvaluateInline(true)}
+                disabled={generateSubmitting || evaluateSubmitting}
                 sx={{ textTransform: 'none' }}
               >
                 Evaluate
@@ -3110,6 +3164,33 @@ export default function AdaptiveTestingDetail({
                 </Button>
               )}
             </Box>
+            {(generateSubmitting ||
+              evaluateSubmitting ||
+              generateError ||
+              evaluateError) && (
+              <Stack sx={{ mb: 1 }} spacing={1}>
+                {generateSubmitting && (
+                  <Alert severity="info" onClose={() => setGenerateError(null)}>
+                    Getting outputs…
+                  </Alert>
+                )}
+                {evaluateSubmitting && (
+                  <Alert severity="info" onClose={() => setEvaluateError(null)}>
+                    Evaluating…
+                  </Alert>
+                )}
+                {generateError && (
+                  <Alert severity="error" onClose={() => setGenerateError(null)}>
+                    {generateError}
+                  </Alert>
+                )}
+                {evaluateError && (
+                  <Alert severity="error" onClose={() => setEvaluateError(null)}>
+                    {evaluateError}
+                  </Alert>
+                )}
+              </Stack>
+            )}
             <Paper variant="outlined" sx={{ p: 1 }}>
               <TestsList
                 tests={filteredTests}
@@ -3144,7 +3225,8 @@ export default function AdaptiveTestingDetail({
             <Button
               size="small"
               startIcon={<PlayArrowIcon />}
-              onClick={() => handleGenerateOutputsOpen(true)}
+              onClick={() => handleGenerateOutputsInline(true)}
+              disabled={generateSubmitting || evaluateSubmitting}
               sx={{ textTransform: 'none' }}
             >
               Get outputs
@@ -3152,7 +3234,8 @@ export default function AdaptiveTestingDetail({
             <Button
               size="small"
               startIcon={<GradingIcon />}
-              onClick={() => handleEvaluateOpen(true)}
+              onClick={() => handleEvaluateInline(true)}
+              disabled={generateSubmitting || evaluateSubmitting}
               sx={{ textTransform: 'none' }}
             >
               Evaluate
@@ -3187,6 +3270,33 @@ export default function AdaptiveTestingDetail({
               </Button>
             )}
           </Box>
+          {(generateSubmitting ||
+            evaluateSubmitting ||
+            generateError ||
+            evaluateError) && (
+            <Stack sx={{ mb: 1 }} spacing={1}>
+              {generateSubmitting && (
+                <Alert severity="info" onClose={() => setGenerateError(null)}>
+                  Getting outputs…
+                </Alert>
+              )}
+              {evaluateSubmitting && (
+                <Alert severity="info" onClose={() => setEvaluateError(null)}>
+                  Evaluating…
+                </Alert>
+              )}
+              {generateError && (
+                <Alert severity="error" onClose={() => setGenerateError(null)}>
+                  {generateError}
+                </Alert>
+              )}
+              {evaluateError && (
+                <Alert severity="error" onClose={() => setEvaluateError(null)}>
+                  {evaluateError}
+                </Alert>
+              )}
+            </Stack>
+          )}
           <Paper variant="outlined" sx={{ p: 2 }}>
             <TestsList
               tests={tests}
@@ -3451,7 +3561,9 @@ export default function AdaptiveTestingDetail({
           </Button>
           <Button
             variant="contained"
-            onClick={handleGenerateOutputsSubmit}
+            onClick={() => {
+              void handleGenerateOutputsSubmit();
+            }}
             disabled={generateSubmitting}
             startIcon={
               generateSubmitting ? (
@@ -3538,7 +3650,9 @@ export default function AdaptiveTestingDetail({
           </Button>
           <Button
             variant="contained"
-            onClick={handleEvaluateSubmit}
+            onClick={() => {
+              void handleEvaluateSubmit();
+            }}
             disabled={evaluateSubmitting}
             startIcon={
               evaluateSubmitting ? (

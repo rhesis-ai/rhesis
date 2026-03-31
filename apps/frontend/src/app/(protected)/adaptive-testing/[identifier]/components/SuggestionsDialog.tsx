@@ -42,15 +42,6 @@ interface SuggestionRow extends SuggestedTest {
 
 type PipelineStep = 'suggestions' | 'outputs' | 'evaluate' | null;
 
-function getScoreColor(
-  score: number | null
-): 'success' | 'warning' | 'error' | 'default' {
-  if (score === null) return 'default';
-  if (score >= 0.7) return 'error';
-  if (score >= 0.3) return 'warning';
-  return 'success';
-}
-
 function getLabelColor(label: string): 'success' | 'error' | 'default' {
   if (label === 'pass') return 'success';
   if (label === 'fail') return 'error';
@@ -379,27 +370,10 @@ export default function SuggestionsDialog({
             <Chip
               label={score != null ? score.toFixed(2) : 'N/A'}
               size="small"
-              color={score != null ? getScoreColor(score) : 'default'}
+              color={getLabelColor(label)}
               variant={score != null ? 'filled' : 'outlined'}
             />
           </ScoreMetricsTooltip>
-        );
-      },
-    },
-    {
-      field: 'label',
-      headerName: 'Label',
-      width: 100,
-      renderCell: (params: GridRenderCellParams) => {
-        const label = params.value;
-        if (!label) return <Chip label="N/A" size="small" variant="outlined" />;
-        return (
-          <Chip
-            label={label}
-            size="small"
-            color={getLabelColor(label)}
-            variant="outlined"
-          />
         );
       },
     },
