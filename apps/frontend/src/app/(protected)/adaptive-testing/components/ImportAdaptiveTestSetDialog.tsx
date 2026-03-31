@@ -168,7 +168,7 @@ export default function ImportAdaptiveTestSetDialog({
         },
       }}
     >
-      <DialogTitle>Import test set</DialogTitle>
+      <DialogTitle>Load Test Set</DialogTitle>
       <DialogContent>
         <Autocomplete
           options={testSets}
@@ -238,7 +238,7 @@ export default function ImportAdaptiveTestSetDialog({
           variant="contained"
           disabled={!selectedTestSet || submitting}
         >
-          {submitting ? 'Importing…' : 'Import'}
+          {submitting ? 'Loading…' : 'Load'}
         </Button>
       </DialogActions>
     </Dialog>

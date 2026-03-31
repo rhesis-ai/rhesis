@@ -1,9 +1,11 @@
 import asyncio
+import json
 import logging
 import random
 import re
 from typing import Any, Dict, List, Optional
 
+import anyio
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -36,6 +38,15 @@ def _get_generation_model(db: Session, user_id: str):
     from rhesis.sdk.models.factory import get_model
 
     return get_model(DEFAULT_GENERATION_MODEL)
+
+
+def _resolve_llm_model(model_or_provider: Any):
+    """Ensure we have an SDK BaseLLM instance (not a string id)."""
+    from rhesis.sdk.models.factory import get_model
+
+    if isinstance(model_or_provider, str):
+        return get_model(model_or_provider, model_type="language")
+    return model_or_provider
 
 
 def _build_suggestion_prompt(
@@ -162,10 +173,10 @@ def generate_suggestions(
         examples, topic or "", num_suggestions, user_feedback=feedback_text
     )
 
-    model = _get_generation_model(db, user_id)
+    model = _resolve_llm_model(_get_generation_model(db, user_id))
 
     try:
-        raw_output = model.generate(prompt_text)
+        raw_output = model.generate(prompt=prompt_text)
     except Exception as e:
         logger.error(f"LLM generation failed: {e}", exc_info=True)
         raise ValueError(f"LLM generation failed: {e}") from e
@@ -268,6 +279,76 @@ async def invoke_endpoint_for_suggestions(
     )
 
     return {"generated": generated, "results": results}
+
+
+async def invoke_endpoint_for_suggestions_stream(
+    db: Session,
+    endpoint_id: str,
+    suggestions: List[Any],
+    organization_id: str,
+    user_id: str,
+):
+    """Stream outputs for non-persisted suggestions as NDJSON bytes.
+
+    Emits per-item events in completion order and finishes with a summary event.
+
+    Event shapes (one JSON object per line):
+      - {"type": "item", "index": int, "input": str, "output": str, "error": str|null}
+      - {"type": "summary", "generated": int, "total": int}
+    """
+    from rhesis.backend.app.database import (
+        get_db_with_tenant_variables,
+    )
+    from rhesis.backend.app.dependencies import get_endpoint_service
+    from rhesis.backend.tasks.execution.executors.results import (
+        process_endpoint_result,
+    )
+
+    svc = get_endpoint_service()
+    semaphore = asyncio.Semaphore(10)
+
+    async def _invoke_one(index: int, input_text: str) -> tuple:
+        async with semaphore:
+            try:
+                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                    result = await svc.invoke_endpoint(
+                        db=task_db,
+                        endpoint_id=endpoint_id,
+                        input_data={"input": input_text},
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
+                processed = process_endpoint_result(result)
+                output = (processed.get("output") or "").strip() or "[no output]"
+                return (index, input_text, output, None)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Suggestion output generation failed: {e}")
+                return (index, input_text, "", str(e))
+
+    total = len(suggestions)
+    tasks = [
+        asyncio.create_task(_invoke_one(i, s.input))  # type: ignore[attr-defined]
+        for i, s in enumerate(suggestions)
+    ]
+
+    generated = 0
+    for fut in asyncio.as_completed(tasks):
+        index, input_text, output, error = await fut
+        if error is None:
+            generated += 1
+
+        event = {
+            "type": "item",
+            "index": index,
+            "input": input_text,
+            "output": output,
+            "error": error,
+        }
+        yield (json.dumps(event) + "\n").encode("utf-8")
+        await anyio.sleep(0)
+
+    summary = {"type": "summary", "generated": generated, "total": total}
+    yield (json.dumps(summary) + "\n").encode("utf-8")
 
 
 async def evaluate_suggestions(
@@ -384,3 +465,123 @@ async def evaluate_suggestions(
     )
 
     return {"evaluated": evaluated, "results": all_results}
+
+
+async def evaluate_suggestions_stream(
+    db: Session,
+    organization_id: str,
+    user_id: str,
+    metric_names: List[str],
+    suggestions: List[Dict[str, str]],
+):
+    """Stream evaluation results for non-persisted suggestions as NDJSON bytes.
+
+    Emits per-item events in completion order and finishes with a summary event.
+
+    Event shapes (one JSON object per line):
+      - {"type": "item", "index": int, "input": str, "label": str, "labeler": str,
+         "model_score": float, "metrics": dict|null, "error": str|null}
+      - {"type": "summary", "evaluated": int, "total": int}
+    """
+    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+
+    async def _evaluate_one(index: int, item: Dict[str, str]) -> tuple:
+        input_text = item["input"]
+        output_text = item["output"]
+
+        if not output_text or output_text == "[no output]":
+            return (
+                index,
+                {
+                    "input": input_text,
+                    "label": "",
+                    "labeler": "",
+                    "model_score": 0.0,
+                    "metrics": None,
+                    "error": "no output to evaluate",
+                },
+            )
+
+        try:
+            metric_results = await _run_metrics_on_text(sdk_metrics, input_text, output_text)
+
+            valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
+
+            if not valid:
+                return (
+                    index,
+                    {
+                        "input": input_text,
+                        "label": "",
+                        "labeler": "",
+                        "model_score": 0.0,
+                        "metrics": None,
+                        "error": "no metric results",
+                    },
+                )
+
+            all_passed = all(v.get("is_successful", False) for v in valid.values())
+            label = "pass" if all_passed else "fail"
+            labeler = ", ".join(metric_names)
+            scores = [v.get("score", 0.0) for v in valid.values()]
+            score = sum(scores) / len(scores) if scores else 0.0
+            metrics_summary = build_metrics_summary_for_response(valid)
+
+            return (
+                index,
+                {
+                    "input": input_text,
+                    "label": label,
+                    "labeler": labeler,
+                    "model_score": score,
+                    "metrics": metrics_summary,
+                    "error": None,
+                },
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f"Suggestion evaluation failed: {e}",
+                exc_info=True,
+            )
+            return (
+                index,
+                {
+                    "input": input_text,
+                    "label": "error",
+                    "labeler": ", ".join(metric_names),
+                    "model_score": 0.0,
+                    "metrics": None,
+                    "error": str(e),
+                },
+            )
+
+    semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
+
+    async def _bounded(index: int, item: Dict[str, str]) -> tuple:
+        async with semaphore:
+            return await _evaluate_one(index, item)
+
+    total = len(suggestions)
+    tasks = [asyncio.create_task(_bounded(i, s)) for i, s in enumerate(suggestions)]
+
+    evaluated = 0
+    for fut in asyncio.as_completed(tasks):
+        index, result = await fut
+        if result.get("label") in ("pass", "fail"):
+            evaluated += 1
+
+        event = {
+            "type": "item",
+            "index": index,
+            "input": result.get("input", ""),
+            "label": result.get("label", ""),
+            "labeler": result.get("labeler", ""),
+            "model_score": result.get("model_score", 0.0),
+            "metrics": result.get("metrics"),
+            "error": result.get("error"),
+        }
+        yield (json.dumps(event) + "\n").encode("utf-8")
+        await anyio.sleep(0)
+
+    summary = {"type": "summary", "evaluated": evaluated, "total": total}
+    yield (json.dumps(summary) + "\n").encode("utf-8")

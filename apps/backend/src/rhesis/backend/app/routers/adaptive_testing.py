@@ -11,6 +11,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
@@ -23,25 +24,21 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.adaptive_testing import (
     AdaptiveSettingsResponse,
     AdaptiveSettingsUpdate,
-    ExportAdaptiveTestSetResponse,
-    ImportAdaptiveTestSetResponse,
     EvaluateFailedItem,
     EvaluateRequest,
     EvaluateResponse,
     EvaluateResultItem,
     EvaluateSuggestionsRequest,
-    EvaluateSuggestionsResponse,
+    ExportAdaptiveTestSetResponse,
     GenerateOutputsFailedItem,
     GenerateOutputsRequest,
     GenerateOutputsResponse,
     GenerateOutputsUpdatedItem,
     GenerateSuggestionOutputsRequest,
-    GenerateSuggestionOutputsResponse,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
+    ImportAdaptiveTestSetResponse,
     SuggestedTest,
-    SuggestionEvalItem,
-    SuggestionOutputItem,
 )
 from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
@@ -49,9 +46,9 @@ from rhesis.backend.app.services.adaptive_testing import (
     create_topic_node,
     delete_adaptive_test_set,
     delete_test_node,
-    export_regular_test_set_from_adaptive,
-    evaluate_suggestions,
+    evaluate_suggestions_stream,
     evaluate_tests_for_adaptive_set,
+    export_regular_test_set_from_adaptive,
     generate_outputs_for_tests,
     generate_suggestions,
     get_adaptive_settings,
@@ -60,7 +57,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_tests,
     get_tree_topics,
     import_adaptive_test_set_from_source,
-    invoke_endpoint_for_suggestions,
+    invoke_endpoint_for_suggestions_stream,
     remove_topic_node,
     resolve_endpoint_id,
     resolve_metric_names,
@@ -785,7 +782,6 @@ def generate_suggestions_endpoint(
 
 @router.post(
     "/{test_set_identifier}/generate_suggestion_outputs",
-    response_model=GenerateSuggestionOutputsResponse,
 )
 async def generate_suggestion_outputs_endpoint(
     test_set_identifier: str,
@@ -802,19 +798,10 @@ async def generate_suggestion_outputs_endpoint(
     organization_id, user_id = tenant_context
     db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
-    inputs = [{"input": s.input, "topic": s.topic} for s in body.suggestions]
-
     try:
         endpoint_id = resolve_endpoint_id(
             test_set=db_test_set,
             request_endpoint_id=body.endpoint_id,
-        )
-        result = await invoke_endpoint_for_suggestions(
-            db=db,
-            endpoint_id=endpoint_id,
-            inputs=inputs,
-            organization_id=str(organization_id),
-            user_id=str(user_id),
         )
     except ValueError as e:
         msg = str(e).lower()
@@ -822,22 +809,22 @@ async def generate_suggestion_outputs_endpoint(
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
-    return GenerateSuggestionOutputsResponse(
-        generated=result["generated"],
-        results=[
-            SuggestionOutputItem(
-                input=r["input"],
-                output=r["output"],
-                error=r.get("error"),
-            )
-            for r in result["results"]
-        ],
-    )
+    async def _stream():
+        # NDJSON stream: one JSON object per line.
+        async for chunk in invoke_endpoint_for_suggestions_stream(
+            db=db,
+            endpoint_id=str(endpoint_id),
+            suggestions=body.suggestions,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
 
 @router.post(
     "/{test_set_identifier}/evaluate_suggestions",
-    response_model=EvaluateSuggestionsResponse,
 )
 async def evaluate_suggestions_endpoint(
     test_set_identifier: str,
@@ -854,21 +841,12 @@ async def evaluate_suggestions_endpoint(
     organization_id, user_id = tenant_context
     db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
-    items = [{"input": s.input, "output": s.output} for s in body.suggestions]
-
     try:
         metric_names = resolve_metric_names(
             test_set=db_test_set,
             db=db,
             organization_id=str(organization_id),
             request_metric_names=body.metric_names,
-        )
-        result = await evaluate_suggestions(
-            db=db,
-            organization_id=str(organization_id),
-            user_id=str(user_id),
-            metric_names=metric_names,
-            suggestions=items,
         )
     except ValueError as e:
         msg = str(e).lower()
@@ -878,17 +856,16 @@ async def evaluate_suggestions_endpoint(
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
 
-    return EvaluateSuggestionsResponse(
-        evaluated=result["evaluated"],
-        results=[
-            SuggestionEvalItem(
-                input=r["input"],
-                label=r["label"],
-                labeler=r["labeler"],
-                model_score=r["model_score"],
-                metrics=r.get("metrics"),
-                error=r.get("error"),
-            )
-            for r in result["results"]
-        ],
-    )
+    items = [{"input": s.input, "output": s.output} for s in body.suggestions]
+
+    async def _stream():
+        async for chunk in evaluate_suggestions_stream(
+            db=db,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            metric_names=metric_names,
+            suggestions=items,
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")

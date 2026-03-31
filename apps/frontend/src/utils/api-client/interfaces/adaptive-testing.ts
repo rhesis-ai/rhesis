@@ -247,6 +247,24 @@ export interface GenerateSuggestionOutputsResponse {
   results: SuggestionOutputItem[];
 }
 
+export interface SuggestionOutputStreamItemEvent {
+  type: 'item';
+  index: number;
+  input: string;
+  output: string;
+  error: string | null;
+}
+
+export interface SuggestionOutputStreamSummaryEvent {
+  type: 'summary';
+  generated: number;
+  total: number;
+}
+
+export type SuggestionOutputStreamEvent =
+  | SuggestionOutputStreamItemEvent
+  | SuggestionOutputStreamSummaryEvent;
+
 // =============================================================================
 // Evaluate Suggestions (non-persisted)
 // =============================================================================
@@ -260,6 +278,27 @@ export interface EvaluateSuggestionsRequest {
   metric_names?: string[] | null;
   suggestions: SuggestionForEval[];
 }
+
+export interface SuggestionEvalStreamItemEvent {
+  type: 'item';
+  index: number;
+  input: string;
+  label: string;
+  labeler: string;
+  model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  error: string | null;
+}
+
+export interface SuggestionEvalStreamSummaryEvent {
+  type: 'summary';
+  evaluated: number;
+  total: number;
+}
+
+export type SuggestionEvalStreamEvent =
+  | SuggestionEvalStreamItemEvent
+  | SuggestionEvalStreamSummaryEvent;
 
 // =============================================================================
 // Adaptive Settings

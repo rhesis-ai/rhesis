@@ -295,7 +295,7 @@ export default function AdaptiveTestingGrid({
         disabled: !authToken,
       },
       {
-        label: 'Import test set',
+        label: 'Load Test Set',
         icon: <UploadFileIcon />,
         variant: 'outlined' as const,
         onClick: () => setImportDialogOpen(true),
@@ -305,7 +305,7 @@ export default function AdaptiveTestingGrid({
 
     if (selectedRows.length === 1) {
       buttons.push({
-        label: 'Export to test set',
+        label: 'Save to Test Set',
         icon: <IosShareOutlinedIcon />,
         variant: 'outlined' as const,
         onClick: () => void handleExportSelected(),
@@ -349,7 +349,7 @@ export default function AdaptiveTestingGrid({
               disabled={!authToken}
               startIcon={<UploadFileIcon />}
             >
-              Import test set
+              Load Test Set
             </Button>
           </Box>
         </Box>
