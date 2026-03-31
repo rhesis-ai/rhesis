@@ -1,16 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: stg-grafana-operator
+  name: dev-grafana-resources
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "10"
+    # After grafana-operator Helm installs CRDs and other monitoring apps create deps
+    argocd.argoproj.io/sync-wave: "20"
 spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
-    path: kubernetes/clusters/stg/grafana-operator
+    targetRevision: fix/deployment-automation-test
+    path: kubernetes/clusters/dev/grafana-resources
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
