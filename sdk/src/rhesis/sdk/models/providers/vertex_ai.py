@@ -381,25 +381,15 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         """
         kwargs["vertex_ai_project"] = self.model["project"]
         kwargs["vertex_ai_location"] = self.model["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
 
-        credentials_path = self._ensure_credentials_file()
-
-        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-
-        try:
-            return await super().a_generate(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                schema=schema,
-                *args,
-                **kwargs,
-            )
-        finally:
-            if original_credentials:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
-            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        return await super().a_generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            schema=schema,
+            *args,
+            **kwargs,
+        )
 
     def generate_batch(
         self,
@@ -429,30 +419,16 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         # Inject Vertex AI-specific parameters
         kwargs["vertex_ai_project"] = self.model["project"]
         kwargs["vertex_ai_location"] = self.model["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
 
-        # Ensure credentials file exists
-        credentials_path = self._ensure_credentials_file()
-
-        # Set credentials via environment variable for LiteLLM
-        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-
-        try:
-            # Call parent generate_batch method
-            return super().generate_batch(
-                prompts=prompts,
-                system_prompt=system_prompt,
-                schema=schema,
-                n=n,
-                *args,
-                **kwargs,
-            )
-        finally:
-            # Restore original credentials environment variable
-            if original_credentials:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
-            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        return super().generate_batch(
+            prompts=prompts,
+            system_prompt=system_prompt,
+            schema=schema,
+            n=n,
+            *args,
+            **kwargs,
+        )
 
     def __del__(self):
         """
@@ -550,22 +526,9 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
         # Inject Vertex AI-specific parameters
         kwargs["vertex_project"] = self._vertex_config["project"]
         kwargs["vertex_location"] = self._vertex_config["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
 
-        # Ensure credentials file exists
-        credentials_path = self._ensure_credentials_file()
-
-        # Set credentials via environment variable for LiteLLM
-        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-
-        try:
-            return func(*args, **kwargs)
-        finally:
-            # Restore original credentials environment variable
-            if original_credentials:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
-            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        return func(*args, **kwargs)
 
     def generate(self, text: str, **kwargs) -> Embedding:
         """Generate embedding for a single text using Vertex AI.
