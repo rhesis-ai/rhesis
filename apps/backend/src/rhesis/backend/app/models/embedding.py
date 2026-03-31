@@ -83,7 +83,7 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
     weight = Column(Float, nullable=False, server_default="1.0")
     origin = Column(
         String(20),
-        server_default=EmbeddingOrigin.USER.value,
+        default=EmbeddingOrigin.USER.value,
         doc="Origin of the content: 'user', 'generated', 'imported'",
     )
     status_id = Column(GUID(), ForeignKey("status.id"), nullable=False)
