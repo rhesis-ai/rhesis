@@ -49,7 +49,7 @@ class Source(
     # Metadata as JSONB object (only applicable for sources of type 'Document')
     source_metadata = Column(
         JSONB
-        )  # Should contain file_path, file_type, file_size, file_hash, original_filename
+    )  # Should contain file_path, file_type, file_size, file_hash, original_filename
 
     # Relationships
     source_type = relationship("TypeLookup", back_populates="sources")
