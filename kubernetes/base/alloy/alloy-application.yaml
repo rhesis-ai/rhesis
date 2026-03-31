@@ -71,4 +71,5 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=false
+      # Ensure monitoring exists before Helm rbac reconcile; sibling apps sync in parallel
+      - CreateNamespace=true
