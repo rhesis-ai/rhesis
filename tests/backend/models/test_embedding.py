@@ -252,6 +252,58 @@ class TestSearchableTextUnit:
         assert "weather_api" in text
         assert "You are a helpful assistant" not in text
 
+    def test_test_result_to_searchable_text(self):
+        """Test TestResult.to_searchable_text() extracts relevant fields"""
+        from rhesis.backend.app.models import Status, TestResult
+
+        status = Status(name="Failed")
+        test_result = TestResult(
+            status=status,
+            test_output={"response": "I don't know the answer to that."},
+            test_metrics={
+                "metric_1": {"reason": "The model failed to answer the question."},
+                "metric_2": {"reasoning": "Hallucinated information."}
+            }
+        )
+
+        text = test_result.to_searchable_text()
+
+        assert "Failed" in text
+        assert "I don't know the answer to that." in text
+        assert "The model failed to answer the question." in text
+        assert "Hallucinated information." in text
+
+    def test_trace_to_searchable_text(self):
+        """Test Trace.to_searchable_text() extracts span data but filters system prompts"""
+        from rhesis.backend.app.constants import AISpanAttributes
+        from rhesis.backend.app.models import Trace
+
+        trace = Trace(
+            span_name="llm_call",
+            status_code="OK",
+            status_message="Success",
+            attributes={
+                AISpanAttributes.OPERATION_TYPE: "completion",
+                AISpanAttributes.MODEL_NAME: "gpt-4",
+                "gen_ai.prompt": "User query here",
+                "gen_ai.system.message": "You are a helpful assistant",  # Should be filtered
+                "gen_ai.completion": "Assistant response here",
+                "gen_ai.tool.calls": "weather_api",
+            }
+        )
+
+        text = trace.to_searchable_text()
+
+        assert "llm_call" in text
+        assert "OK" in text
+        assert "Success" in text
+        assert "completion" in text
+        assert "gpt-4" in text
+        assert "User query here" in text
+        assert "Assistant response here" in text
+        assert "weather_api" in text
+        assert "You are a helpful assistant" not in text
+
     def test_embeddable_mixin_not_implemented(self):
         """Test that EmbeddableMixin raises NotImplementedError"""
         from rhesis.backend.app.models.mixins import EmbeddableMixin
