@@ -15,6 +15,7 @@ from .guid import GUID
 from .mixins import (
     CommentsMixin,
     CountsMixin,
+    EmbeddableMixin,
     FilesMixin,
     ReviewsMixin,
     TagsMixin,
@@ -22,7 +23,16 @@ from .mixins import (
 )
 
 
-class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesMixin, ReviewsMixin):
+class TestResult(
+    Base,
+    EmbeddableMixin,
+    TagsMixin,
+    CommentsMixin,
+    TasksMixin,
+    CountsMixin,
+    FilesMixin,
+    ReviewsMixin,
+):
     __tablename__ = "test_result"
 
     _reviews_column_name = "test_reviews"
@@ -45,3 +55,35 @@ class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesM
     status = relationship("Status", back_populates="test_results")
     organization = relationship("Organization", back_populates="test_results")
     test = relationship("Test", back_populates="test_results")
+
+    def to_searchable_text(self) -> str:
+        """
+        Generate searchable text from test result fields for embeddings and full-text search.
+        Extracts relevant information from test_output, status, and evaluator reasoning.
+        """
+        content = []
+
+        if self.status:
+            content.append(self.status.name)
+
+        if self.test_output:
+            if isinstance(self.test_output, dict):
+                # Extract common output fields
+                output_text = self.test_output.get("response") or self.test_output.get("output")
+                if output_text:
+                    content.append(str(output_text))
+                else:
+                    # Fallback: stringify all values if known keys are missing
+                    content.append(" ".join(str(v) for v in self.test_output.values() if v))
+            else:
+                content.append(str(self.test_output))
+
+        if self.test_metrics and isinstance(self.test_metrics, dict):
+            # Extract evaluator reasoning from metrics (e.g. LLM judge explaining why it failed)
+            for metric_data in self.test_metrics.values():
+                if isinstance(metric_data, dict):
+                    reason = metric_data.get("reason") or metric_data.get("reasoning")
+                    if reason:
+                        content.append(str(reason))
+
+        return " ".join(filter(None, content)).strip()
