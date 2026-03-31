@@ -45,7 +45,7 @@ def check_workers_available() -> bool:
         return _worker_cache["available"]
 
     try:
-        from rhesis.backend.worker import app as celery_app
+        from rhesis.backend.celery.core import app as celery_app
 
         inspect = celery_app.control.inspect(timeout=1.0)
         ping_result = inspect.ping()

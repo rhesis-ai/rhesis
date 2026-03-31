@@ -3,6 +3,7 @@
 import logging
 from typing import Any, Callable, Dict, Optional, TypeVar, Union
 
+from rhesis.backend.celery.core import app
 from rhesis.backend.notifications import email_service
 
 # Import all task modules to ensure they're registered with Celery
@@ -41,7 +42,6 @@ from rhesis.backend.tasks.execution.results import collect_results
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
 from rhesis.backend.tasks.test_set import count_test_sets
 from rhesis.backend.tasks.utils import increment_test_run_progress
-from rhesis.backend.worker import app
 
 logger = logging.getLogger(__name__)
 

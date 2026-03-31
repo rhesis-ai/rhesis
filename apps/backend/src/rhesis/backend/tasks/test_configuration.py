@@ -8,6 +8,7 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.celery.core import app
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.tasks.execution.config import get_test_configuration
@@ -23,7 +24,6 @@ from rhesis.backend.tasks.utils import (
     update_test_run_with_error,
     validate_task_parameters,
 )
-from rhesis.backend.worker import app
 
 
 @app.task(

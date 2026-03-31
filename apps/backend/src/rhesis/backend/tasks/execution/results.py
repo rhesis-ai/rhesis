@@ -8,10 +8,10 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import BaseTask, email_notification
 from rhesis.backend.tasks.execution.result_processor import TestRunProcessor
-from rhesis.backend.worker import app
 
 
 @email_notification(

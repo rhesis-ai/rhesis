@@ -16,6 +16,7 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
+from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import (
     BaseTask,
@@ -27,7 +28,6 @@ from rhesis.backend.tasks.execution.modes import (
     get_mode_description,
     set_execution_mode,
 )
-from rhesis.backend.worker import app
 
 logger = logging.getLogger(__name__)
 
