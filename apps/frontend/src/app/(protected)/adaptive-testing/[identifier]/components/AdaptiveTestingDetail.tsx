@@ -2981,7 +2981,7 @@ export default function AdaptiveTestingDetail({
               sx={{
                 px: 1,
                 py: 0.5,
-                borderRadius: 999,
+                borderRadius: theme.shape.borderRadius * 2,
                 border: 1,
                 borderColor: 'divider',
                 bgcolor: 'background.paper',
@@ -3003,7 +3003,7 @@ export default function AdaptiveTestingDetail({
             sx={{
               px: 1,
               py: 0.5,
-              borderRadius: 999,
+              borderRadius: theme.shape.borderRadius * 2,
               border: 1,
               borderColor: alpha(theme.palette.success.main, 0.35),
               bgcolor: alpha(theme.palette.success.main, 0.06),
@@ -3015,7 +3015,11 @@ export default function AdaptiveTestingDetail({
             <Typography variant="caption" color="text.secondary">
               Pass
             </Typography>
-            <Typography variant="subtitle2" fontWeight={700} color="success.main">
+            <Typography
+              variant="subtitle2"
+              fontWeight={700}
+              color="success.main"
+            >
               {passCount}
             </Typography>
           </Box>
@@ -3024,7 +3028,7 @@ export default function AdaptiveTestingDetail({
             sx={{
               px: 1,
               py: 0.5,
-              borderRadius: 999,
+              borderRadius: theme.shape.borderRadius * 2,
               border: 1,
               borderColor: alpha(theme.palette.error.main, 0.35),
               bgcolor: alpha(theme.palette.error.main, 0.06),
@@ -3180,12 +3184,18 @@ export default function AdaptiveTestingDetail({
                   </Alert>
                 )}
                 {generateError && (
-                  <Alert severity="error" onClose={() => setGenerateError(null)}>
+                  <Alert
+                    severity="error"
+                    onClose={() => setGenerateError(null)}
+                  >
                     {generateError}
                   </Alert>
                 )}
                 {evaluateError && (
-                  <Alert severity="error" onClose={() => setEvaluateError(null)}>
+                  <Alert
+                    severity="error"
+                    onClose={() => setEvaluateError(null)}
+                  >
                     {evaluateError}
                   </Alert>
                 )}
@@ -3686,8 +3696,8 @@ export default function AdaptiveTestingDetail({
           </Typography>
           {settingsReEvaluateWarning && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              To keep results consistent with a new endpoint or metric, use
-              Get outputs and Evaluate for all tests in this set.
+              To keep results consistent with a new endpoint or metric, use Get
+              outputs and Evaluate for all tests in this set.
             </Alert>
           )}
           {settingsError && (

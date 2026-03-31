@@ -442,7 +442,10 @@ export class AdaptiveTestingClient extends BaseApiClient {
     }
   ): Promise<void> {
     const basePath = this.getBasePath(testSetId);
-    const url = joinUrl(this.baseUrl, `${basePath}/generate_suggestion_outputs`);
+    const url = joinUrl(
+      this.baseUrl,
+      `${basePath}/generate_suggestion_outputs`
+    );
     const headers = this.getHeaders();
 
     const response = await fetch(url, {
@@ -558,11 +561,14 @@ export class AdaptiveTestingClient extends BaseApiClient {
     });
 
     if (!response.ok) {
-      await this.fetch<EvaluateSuggestionsResponse>(`${basePath}/evaluate_suggestions`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      await this.fetch<EvaluateSuggestionsResponse>(
+        `${basePath}/evaluate_suggestions`,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
       return;
     }
 
