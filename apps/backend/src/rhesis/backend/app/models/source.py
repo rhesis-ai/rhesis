@@ -46,10 +46,10 @@ class Source(
         String(5), comment="Language in IETF language tag format"
     )  # Language of the source (e.g., 'en-US')
 
-    # File metadata as JSONB object
+    # Metadata as JSONB object (only applicable for sources of type 'Document')
     source_metadata = Column(
-        JSONB, default=dict
-    )  # Should contain file_path, file_type, file_size, file_hash, original_filename
+        JSONB
+        )  # Should contain file_path, file_type, file_size, file_hash, original_filename
 
     # Relationships
     source_type = relationship("TypeLookup", back_populates="sources")
