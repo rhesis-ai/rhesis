@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.models.embedding import EmbeddingStatus
+from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.models.model import Model
 from rhesis.backend.app.utils.crud_utils import get_item
 
