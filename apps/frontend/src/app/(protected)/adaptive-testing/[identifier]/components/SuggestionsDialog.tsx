@@ -166,7 +166,7 @@ export default function SuggestionsDialog({
           const failedCount = outputsResult.results.filter(r => r.error).length;
           if (failedCount > 0) {
             notifications.show(
-              `Generated ${outputsResult.generated} outputs; ${failedCount} failed.`,
+              `Got ${outputsResult.generated} outputs; ${failedCount} failed.`,
               { severity: 'warning' }
             );
           }
@@ -174,7 +174,7 @@ export default function SuggestionsDialog({
           notifications.show(
             err instanceof Error
               ? err.message
-              : 'Failed to generate suggestion outputs.',
+              : 'Failed to get suggestion outputs.',
             { severity: 'error' }
           );
         } finally {
@@ -479,7 +479,7 @@ export default function SuggestionsDialog({
             <Typography variant="body2" color="text.secondary">
               {currentStep === 'suggestions' &&
                 'Step 1/3: Generating suggestions...'}
-              {currentStep === 'outputs' && 'Step 2/3: Generating outputs...'}
+              {currentStep === 'outputs' && 'Step 2/3: Getting outputs...'}
               {currentStep === 'evaluate' && 'Step 3/3: Evaluating...'}
             </Typography>
           </Box>

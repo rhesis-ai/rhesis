@@ -38,6 +38,15 @@ def _get_generation_model(db: Session, user_id: str):
     return get_model(DEFAULT_GENERATION_MODEL)
 
 
+def _resolve_llm_model(model_or_provider: Any):
+    """Ensure we have an SDK BaseLLM instance (not a string id)."""
+    from rhesis.sdk.models.factory import get_model
+
+    if isinstance(model_or_provider, str):
+        return get_model(model_or_provider, model_type="language")
+    return model_or_provider
+
+
 def _build_suggestion_prompt(
     examples: List[Dict[str, str]],
     topic: str,
@@ -162,10 +171,10 @@ def generate_suggestions(
         examples, topic or "", num_suggestions, user_feedback=feedback_text
     )
 
-    model = _get_generation_model(db, user_id)
+    model = _resolve_llm_model(_get_generation_model(db, user_id))
 
     try:
-        raw_output = model.generate(prompt_text)
+        raw_output = model.generate(prompt=prompt_text)
     except Exception as e:
         logger.error(f"LLM generation failed: {e}", exc_info=True)
         raise ValueError(f"LLM generation failed: {e}") from e
