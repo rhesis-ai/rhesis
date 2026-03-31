@@ -18,7 +18,7 @@ class Chunk(
     content = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     token_count = Column(Integer, nullable=False)
-    chunk_metadata = Column(JSONB, default=dict)
+    chunk_metadata = Column(JSONB)
     status_id = Column(GUID(), ForeignKey("status.id"))
 
     # Relationships
