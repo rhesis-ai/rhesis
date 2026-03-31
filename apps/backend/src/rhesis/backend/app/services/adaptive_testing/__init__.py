@@ -14,8 +14,10 @@ from .settings import (
 )
 from .suggestions import (
     evaluate_suggestions,
+    evaluate_suggestions_stream,
     generate_suggestions,
     invoke_endpoint_for_suggestions,
+    invoke_endpoint_for_suggestions_stream,
 )
 from .tests import (
     create_adaptive_test_set,
@@ -44,6 +46,7 @@ __all__ = [
     "delete_test_node",
     "export_regular_test_set_from_adaptive",
     "evaluate_suggestions",
+    "evaluate_suggestions_stream",
     "evaluate_tests_for_adaptive_set",
     "generate_outputs_for_tests",
     "generate_suggestions",
@@ -54,6 +57,7 @@ __all__ = [
     "get_tree_topics",
     "import_adaptive_test_set_from_source",
     "invoke_endpoint_for_suggestions",
+    "invoke_endpoint_for_suggestions_stream",
     "remove_topic_node",
     "resolve_endpoint_id",
     "resolve_metric_names",
