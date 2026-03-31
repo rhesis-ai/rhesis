@@ -61,7 +61,10 @@ def upgrade() -> None:
         SET status_id = (
             SELECT s.id
             FROM status s
-            WHERE s.entity_type = 'Embedding'
+            JOIN type_lookup tl ON s.entity_type_id = tl.id
+            WHERE tl.type_name = 'EntityType'
+            AND tl.type_value = 'Embedding'
+            AND s.organization_id = embedding.organization_id
             AND s.name = CASE
                 WHEN embedding.status = 'active' THEN 'Active'
                 WHEN embedding.status = 'stale' THEN 'Stale'
