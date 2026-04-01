@@ -413,9 +413,11 @@ class LocalStrategy:
         if incomplete_metrics:
             logger.error(f"⚠ {len(incomplete_metrics)} metrics incomplete: {incomplete_metrics}")
 
+            # Build O(1) lookup once rather than calling list.index() (O(n)) per key.
+            key_to_task = {key: metric_tasks[i] for i, key in enumerate(metric_keys)}
+
             for key in incomplete_metrics:
-                idx = metric_keys.index(key)
-                class_name, _, metric_config, backend = metric_tasks[idx]
+                class_name, _, metric_config, backend = key_to_task[key]
 
                 results[key] = MetricResultBuilder.timeout(
                     backend=backend,

@@ -93,7 +93,7 @@ class ConnectorStrategy:
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
     ) -> Dict[str, Any]:
-        """Async evaluate calling the async connector sender directly."""
+        """Async evaluate — dispatches all connector calls concurrently via asyncio.gather."""
         if not configs:
             return {}
         if not self._connector_metric_sender:
@@ -102,20 +102,19 @@ class ConnectorStrategy:
             )
             return _build_sender_not_configured_results(configs)
 
-        results: Dict[str, Any] = {}
-        for config in configs:
+        inputs = {
+            "input": input_text,
+            "output": output_text,
+            "expected_output": expected_output or "",
+            "context": context or [],
+        }
+
+        async def _call_one(config: MetricConfig) -> tuple:
             metric_name = config.name or ""
             class_name = config.class_name or metric_name
             description = config.description or f"Connector metric: {class_name}"
             threshold = config.threshold if config.threshold is not None else 0.0
-
             metric_run_id = str(uuid.uuid4())
-            inputs = {
-                "input": input_text,
-                "output": output_text,
-                "expected_output": expected_output or "",
-                "context": context or [],
-            }
 
             try:
                 raw_result = await self._connector_metric_sender(
@@ -125,13 +124,12 @@ class ConnectorStrategy:
                     raw_result, config, metric_name, class_name,
                     description, threshold, self._score_evaluator,
                 )
-                results[metric_name or class_name] = result
             except Exception as e:
                 logger.error(
                     f"Async connector metric '{class_name}' error: {e}",
                     exc_info=True,
                 )
-                results[metric_name or class_name] = MetricResultBuilder.error(
+                result = MetricResultBuilder.error(
                     reason=f"Connector metric evaluation failed: {e}",
                     backend="sdk",
                     name=metric_name,
@@ -141,8 +139,10 @@ class ConnectorStrategy:
                     error_type=type(e).__name__,
                     threshold=threshold,
                 )
+            return metric_name or class_name, result
 
-        return results
+        pairs = await asyncio.gather(*(_call_one(c) for c in configs))
+        return dict(pairs)
 
 
 # ============================================================================
