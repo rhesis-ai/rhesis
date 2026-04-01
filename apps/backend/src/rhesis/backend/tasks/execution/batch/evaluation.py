@@ -1,6 +1,7 @@
 """
 Metric evaluation for batch tests.
 """
+
 import logging
 from typing import Any, Dict
 
@@ -9,6 +10,7 @@ from rhesis.backend.tasks.execution.batch.context import ExecutionContext
 from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS
 
 logger = logging.getLogger(__name__)
+
 
 async def evaluate_metrics(
     ctx: ExecutionContext,
@@ -25,13 +27,15 @@ async def evaluate_metrics(
     metrics_results = dict(penelope_metrics)
     try:
         if is_multi_turn:
-            metrics_results.update(
-                await _evaluate_multi_turn_metrics(ctx, evaluator, test, output)
-            )
+            metrics_results.update(await _evaluate_multi_turn_metrics(ctx, evaluator, test, output))
         else:
             metrics_results.update(
                 await _evaluate_single_turn_metrics(
-                    ctx, evaluator, output, prompt_content, expected_response,
+                    ctx,
+                    evaluator,
+                    output,
+                    prompt_content,
+                    expected_response,
                 )
             )
     except Exception as e:
@@ -50,9 +54,7 @@ async def _evaluate_multi_turn_metrics(
 
     conversation_summary = output.get(CONVERSATION_SUMMARY_KEY, [])
     conversation_history = _build_conversation_history(conversation_summary)
-    conversation_text = (
-        conversation_history.format_conversation() if conversation_history else ""
-    )
+    conversation_text = conversation_history.format_conversation() if conversation_history else ""
 
     test_config_data = test.test_configuration or {}
     goal = test_config_data.get("goal", "")

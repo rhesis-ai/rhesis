@@ -76,9 +76,7 @@ def prefetch_execution_context(
 
     test_set = get_test_set(session, str(test_config.test_set_id))
 
-    endpoint = (
-        session.query(Endpoint).filter(Endpoint.id == test_config.endpoint_id).first()
-    )
+    endpoint = session.query(Endpoint).filter(Endpoint.id == test_config.endpoint_id).first()
     if not endpoint:
         raise ValueError(f"Endpoint {test_config.endpoint_id} not found")
 

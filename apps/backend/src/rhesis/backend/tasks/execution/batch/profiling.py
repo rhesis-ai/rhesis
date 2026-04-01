@@ -86,14 +86,8 @@ def log_batch_report(
     test_run_id: str = "",
 ) -> None:
     """Write a structured report to profiling.log and the standard logger."""
-    failed = sum(
-        1 for r in results
-        if isinstance(r, dict) and r.get("status") == "failed"
-    )
-    skipped = sum(
-        1 for r in results
-        if isinstance(r, dict) and r.get("status") == "skipped"
-    )
+    failed = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "failed")
+    skipped = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "skipped")
     succeeded = total_tests - failed - skipped
 
     user = round(after.user_cpu_s - before.user_cpu_s, 2)

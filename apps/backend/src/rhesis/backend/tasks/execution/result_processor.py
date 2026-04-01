@@ -443,8 +443,19 @@ class TestRunProcessor:
                 f"Test run {test_run_id} is already Cancelled — skipping status update",
             )
             return build_summary_data(
-                test_run_id, "cancelled", "Cancelled",
-                0, 0, 0, 0, None, "", "", "", "", completion_time,
+                test_run_id,
+                "cancelled",
+                "Cancelled",
+                0,
+                0,
+                0,
+                0,
+                None,
+                "",
+                "",
+                "",
+                "",
+                completion_time,
             )
 
         # Calculate test statistics using SQL aggregation

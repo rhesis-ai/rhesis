@@ -81,7 +81,9 @@ __all__ = [
 ]
 
 
-def task_launcher(task: T, *args: Any, current_user=None, task_id: Optional[str] = None, **kwargs: Any):
+def task_launcher(
+    task: T, *args: Any, current_user=None, task_id: Optional[str] = None, **kwargs: Any
+):
     """
     Launch a task with proper context from a FastAPI route.
 

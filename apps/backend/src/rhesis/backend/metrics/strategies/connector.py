@@ -97,9 +97,7 @@ class ConnectorStrategy:
         if not configs:
             return {}
         if not self._connector_metric_sender:
-            logger.warning(
-                "Cannot evaluate connector metrics (async): no connector_metric_sender"
-            )
+            logger.warning("Cannot evaluate connector metrics (async): no connector_metric_sender")
             return _build_sender_not_configured_results(configs)
 
         inputs = {
@@ -117,12 +115,15 @@ class ConnectorStrategy:
             metric_run_id = str(uuid.uuid4())
 
             try:
-                raw_result = await self._connector_metric_sender(
-                    metric_run_id, class_name, inputs
-                )
+                raw_result = await self._connector_metric_sender(metric_run_id, class_name, inputs)
                 result = _connector_response_to_result(
-                    raw_result, config, metric_name, class_name,
-                    description, threshold, self._score_evaluator,
+                    raw_result,
+                    config,
+                    metric_name,
+                    class_name,
+                    description,
+                    threshold,
+                    self._score_evaluator,
                 )
             except Exception as e:
                 logger.error(

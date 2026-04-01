@@ -140,16 +140,22 @@ class LocalStrategy:
         ) -> Tuple[str, Dict[str, Any]]:
             async with sem:
                 return await self._a_eval_one_with_retry(
-                    unique_key, class_name, metric, metric_config, backend,
-                    input_text, output_text, expected_output, context,
+                    unique_key,
+                    class_name,
+                    metric,
+                    metric_config,
+                    backend,
+                    input_text,
+                    output_text,
+                    expected_output,
+                    context,
                     conversation_history=conversation_history,
                     metadata=metadata,
                     tool_calls=tool_calls,
                 )
 
         coros = [
-            _eval_one(key, cn, m, mc, b)
-            for (cn, m, mc, b), key in zip(metric_tasks, metric_keys)
+            _eval_one(key, cn, m, mc, b) for (cn, m, mc, b), key in zip(metric_tasks, metric_keys)
         ]
 
         try:
@@ -158,9 +164,7 @@ class LocalStrategy:
                 timeout=METRIC_OVERALL_TIMEOUT,
             )
         except asyncio.TimeoutError:
-            logger.error(
-                f"Overall async metric timeout ({METRIC_OVERALL_TIMEOUT}s) reached"
-            )
+            logger.error(f"Overall async metric timeout ({METRIC_OVERALL_TIMEOUT}s) reached")
             eval_results = []
 
         for item in eval_results:
@@ -205,9 +209,7 @@ class LocalStrategy:
                     tool_calls=tool_calls,
                 )
                 result = await metric.a_evaluate(**kwargs)
-                description = (
-                    metric_config.description or f"{class_name} evaluation metric"
-                )
+                description = metric_config.description or f"{class_name} evaluation metric"
 
                 if (
                     "is_successful" in result.details
@@ -256,9 +258,7 @@ class LocalStrategy:
                 )
             except Exception as e:
                 last_exc = e
-                logger.error(
-                    f"Async metric '{class_name}' failed: {e}", exc_info=True
-                )
+                logger.error(f"Async metric '{class_name}' failed: {e}", exc_info=True)
                 break
 
         return unique_key, MetricResultBuilder.error(
@@ -266,16 +266,10 @@ class LocalStrategy:
             backend=backend,
             name=metric_config.name or class_name,
             class_name=class_name,
-            description=(
-                metric_config.description or f"{class_name} evaluation metric"
-            ),
+            description=(metric_config.description or f"{class_name} evaluation metric"),
             error=str(last_exc),
             error_type=type(last_exc).__name__,
-            threshold=(
-                metric_config.threshold
-                if metric_config.threshold is not None
-                else 0.0
-            ),
+            threshold=(metric_config.threshold if metric_config.threshold is not None else 0.0),
         )
 
     # ============================================================================

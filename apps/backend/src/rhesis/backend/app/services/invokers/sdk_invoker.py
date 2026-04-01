@@ -98,9 +98,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return use_rpc, context_type
 
-    def _prepare_function_kwargs(
-        self, function_name: str
-    ) -> Dict[str, Any]:
+    def _prepare_function_kwargs(self, function_name: str) -> Dict[str, Any]:
         """Prepare function kwargs from input data using request mapping.
 
         Args:
@@ -278,9 +276,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return None
 
-    def _map_sdk_response(
-        self, result: Dict[str, Any], function_name: str
-    ) -> Dict[str, Any]:
+    def _map_sdk_response(self, result: Dict[str, Any], function_name: str) -> Dict[str, Any]:
         """Map SDK output to standardized response format.
 
         Args:
@@ -504,9 +500,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 context = TestExecutionContext(**test_execution_context)
                 function_kwargs[TestContextConstants.CONTEXT_KEY] = context.model_dump(mode="json")
 
-            conversation_id = self._inject_conversation_context(
-                conversation_field, function_kwargs
-            )
+            conversation_id = self._inject_conversation_context(conversation_field, function_kwargs)
 
             logger.info(
                 f"Invoking SDK function: {function_name} "

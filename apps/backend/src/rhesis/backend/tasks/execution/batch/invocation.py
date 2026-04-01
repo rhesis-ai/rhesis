@@ -1,6 +1,7 @@
 """
 Test invocation for batch tests (single-turn and multi-turn).
 """
+
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional
@@ -21,9 +22,7 @@ def is_multi_turn_test(test: Optional[Test]) -> bool:
     return get_test_type(test) == TestType.MULTI_TURN
 
 
-async def load_input_files_lazy(
-    ctx: ExecutionContext, test_id: str
-) -> Optional[List]:
+async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional[List]:
     """Load input files on demand (inside the semaphore) to avoid holding all
     base64-encoded attachments in memory for the full batch duration."""
     cached = ctx.input_files.get(test_id)
@@ -62,11 +61,19 @@ async def run_test(
     """Run a single test (endpoint invocation or Penelope conversation)."""
     if is_multi_turn:
         return await _run_multi_turn(
-            ctx, test, test_id, test_execution_context,
-            deferred_traces, penelope_agent,
+            ctx,
+            test,
+            test_id,
+            test_execution_context,
+            deferred_traces,
+            penelope_agent,
         )
     return await _run_single_turn(
-        ctx, test_id, prompt_content, test_execution_context, deferred_traces,
+        ctx,
+        test_id,
+        prompt_content,
+        test_execution_context,
+        deferred_traces,
     )
 
 

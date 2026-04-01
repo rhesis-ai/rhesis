@@ -75,13 +75,20 @@ def execute_tests_as_batch(
     total_tests = len(tests)
 
     update_test_run_start(
-        session, test_run, ExecutionMode.PARALLEL, total_tests, start_time,
+        session,
+        test_run,
+        ExecutionMode.PARALLEL,
+        total_tests,
+        start_time,
         batch_mode=True,
     )
 
     # Phase 1: Pre-fetch all shared data while we still have a DB session.
     ctx = prefetch_execution_context(
-        session, test_config, test_run, tests,
+        session,
+        test_config,
+        test_run,
+        tests,
         reference_test_run_id=reference_test_run_id,
         trace_id=trace_id,
     )
@@ -128,7 +135,10 @@ def execute_tests_as_batch(
         trigger_results_collection(test_config, str(test_run.id), results)
 
     return create_execution_result(
-        test_run, test_config, total_tests, ExecutionMode.PARALLEL,
+        test_run,
+        test_config,
+        total_tests,
+        ExecutionMode.PARALLEL,
         execution_time_total=wall_time_ms,
         batch_mode=True,
     )

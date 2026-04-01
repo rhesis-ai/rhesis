@@ -123,9 +123,7 @@ async def run_batch(
     for test_id, result in zip(test_ids, results):
         if isinstance(result, asyncio.CancelledError):
             logger.info(f"[BATCH] Test {test_id} cancelled mid-flight")
-            final_results.append(
-                {"test_id": test_id, "status": "cancelled", "execution_time": 0}
-            )
+            final_results.append({"test_id": test_id, "status": "cancelled", "execution_time": 0})
         elif isinstance(result, Exception):
             logger.error(f"[BATCH] Test {test_id} raised exception: {result}")
             final_results.append(

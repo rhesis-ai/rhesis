@@ -199,10 +199,7 @@ class MetricEvaluator:
             )
 
         backend_results = await asyncio.gather(
-            *[
-                _run_backend(bv, bc)
-                for bv, bc in configs_by_backend.items()
-            ],
+            *[_run_backend(bv, bc) for bv, bc in configs_by_backend.items()],
             return_exceptions=True,
         )
 

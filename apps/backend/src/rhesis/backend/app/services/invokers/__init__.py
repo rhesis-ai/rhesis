@@ -17,8 +17,6 @@ INVOKERS: Dict[str, Type[BaseEndpointInvoker]] = {
 }
 
 
-
-
 def create_invoker(context: InvocationContext) -> BaseEndpointInvoker:
     """
     Create an appropriate invoker instance based on the endpoint's connection_type.

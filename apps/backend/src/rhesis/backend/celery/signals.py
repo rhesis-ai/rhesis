@@ -30,9 +30,7 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
                 if new_status == RunStatus.FAILED:
                     from rhesis.backend.tasks.utils import update_test_run_with_error
 
-                    update_test_run_with_error(
-                        db, test_run, error_message or "Unknown error"
-                    )
+                    update_test_run_with_error(db, test_run, error_message or "Unknown error")
                 else:
                     update_test_run_status(db, test_run, new_status.value)
                 db.commit()
@@ -45,8 +43,14 @@ def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: 
 
 @task_failure.connect
 def handle_task_failure(
-    sender=None, task_id=None, exception=None, args=None, kwargs=None,
-    traceback=None, einfo=None, **kw
+    sender=None,
+    task_id=None,
+    exception=None,
+    args=None,
+    kwargs=None,
+    traceback=None,
+    einfo=None,
+    **kw,
 ):
     task_name = getattr(sender, "name", str(sender))
     if task_name == _EXECUTE_TEST_CONFIGURATION_TASK:

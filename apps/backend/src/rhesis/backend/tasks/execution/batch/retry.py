@@ -45,9 +45,7 @@ def _make_wait(min_wait: float, max_wait: float) -> Callable[[RetryCallState], f
     def _wait(retry_state: RetryCallState) -> float:
         exc = retry_state.outcome.exception() if retry_state.outcome else None
         if isinstance(exc, EndpointInvocationError) and exc.retry_after is not None:
-            logger.debug(
-                "Honouring Retry-After=%.1fs from endpoint", exc.retry_after
-            )
+            logger.debug("Honouring Retry-After=%.1fs from endpoint", exc.retry_after)
             return exc.retry_after
         return _exp_jitter(retry_state)
 
@@ -56,6 +54,7 @@ def _make_wait(min_wait: float, max_wait: float) -> Callable[[RetryCallState], f
 
 def _log_before_retry(label: str) -> Callable[[RetryCallState], None]:
     """Return a tenacity ``before_sleep`` callback that logs retry info."""
+
     def _callback(retry_state: RetryCallState) -> None:
         exc = retry_state.outcome.exception() if retry_state.outcome else None
         attempt = retry_state.attempt_number
@@ -63,15 +62,21 @@ def _log_before_retry(label: str) -> Callable[[RetryCallState], None]:
 
         if isinstance(exc, EndpointInvocationError):
             logger.warning(
-                "[%s] transient failure (attempt %d), retrying in %.1fs: %s "
-                "(status=%s, type=%s)",
-                label, attempt, wait, exc,
-                exc.status_code, exc.error_type,
+                "[%s] transient failure (attempt %d), retrying in %.1fs: %s (status=%s, type=%s)",
+                label,
+                attempt,
+                wait,
+                exc,
+                exc.status_code,
+                exc.error_type,
             )
         else:
             logger.warning(
                 "[%s] transient failure (attempt %d), retrying in %.1fs: %s",
-                label, attempt, wait, exc,
+                label,
+                attempt,
+                wait,
+                exc,
             )
 
     return _callback
