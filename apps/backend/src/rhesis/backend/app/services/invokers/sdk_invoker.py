@@ -35,12 +35,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         super().__init__(context)
 
     def _validate_and_extract_metadata(self) -> tuple[str, str, str]:
-        endpoint = self.context.endpoint
-        """
-        Validate endpoint and extract SDK metadata.
-
-        Args:
-            endpoint: The SDK endpoint
+        """Validate endpoint and extract SDK metadata.
 
         Returns:
             Tuple of (function_name, project_id, environment)
@@ -48,6 +43,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Raises:
             HTTPException: If metadata is missing or invalid
         """
+        endpoint = self.context.endpoint
         if not endpoint.endpoint_metadata:
             raise HTTPException(
                 status_code=500,
@@ -105,19 +101,16 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
     def _prepare_function_kwargs(
         self, function_name: str
     ) -> Dict[str, Any]:
-        endpoint = self.context.endpoint
-        input_data = self.context.input_data
-        """
-        Prepare function kwargs from input data using request mapping.
+        """Prepare function kwargs from input data using request mapping.
 
         Args:
-            endpoint: The SDK endpoint
-            input_data: Raw input data
             function_name: Name of the function (for logging)
 
         Returns:
             Transformed function kwargs ready to send to SDK
         """
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
         # Prepare conversation context
         template_context, _ = self._prepare_conversation_context(endpoint, input_data)
 
@@ -288,18 +281,16 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
     def _map_sdk_response(
         self, result: Dict[str, Any], function_name: str
     ) -> Dict[str, Any]:
-        endpoint = self.context.endpoint
-        """
-        Map SDK output to standardized response format.
+        """Map SDK output to standardized response format.
 
         Args:
             result: Raw result from SDK
-            endpoint: The SDK endpoint
             function_name: Name of the function (for logging)
 
         Returns:
             Mapped response dictionary
         """
+        endpoint = self.context.endpoint
         raw_output = result.get("output", {})
         logger.debug(f"Raw SDK output: {raw_output}")
 
@@ -316,7 +307,6 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         mapped_response: Dict[str, Any],
         conversation_field: Optional[str],
     ) -> None:
-        input_data = self.context.input_data
         """Ensure the conversation tracking field is present in the response.
 
         If the response_mapping already extracted a value, keep it.
@@ -326,8 +316,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Args:
             mapped_response: Mapped response dictionary (mutated in place)
             conversation_field: Field name for conversation tracking
-            input_data: Original input data (may contain conversation_id)
         """
+        input_data = self.context.input_data
         if not conversation_field:
             return
 
@@ -346,10 +336,6 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         conversation_field: Optional[str],
         function_kwargs: Dict[str, Any],
     ) -> Optional[str]:
-        db = self.context.db
-        endpoint = self.context.endpoint
-        input_data = self.context.input_data
-        trace_id = self.context.trace_id
         """Build and inject conversation context into function kwargs.
 
         Looks up the conversation ID from input_data (using the field name
@@ -365,6 +351,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         Returns the resolved conversation_id (or None for first turn).
         """
+        db = self.context.db
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
+        trace_id = self.context.trace_id
+
         from .conversation import find_conversation_id
 
         # Prefer the endpoint's configured field name (from response_mapping),
@@ -427,7 +418,6 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         result: Dict[str, Any],
         mapped_response: Dict[str, Any],
     ) -> None:
-        endpoint = self.context.endpoint
         """Park the response-mapped output for injection at span ingest time.
 
         The SDK tracer sets ``rhesis.conversation.input`` per-span, but cannot
@@ -436,6 +426,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         the span's attributes when the SDK exports it to the telemetry ingest
         endpoint — before storage.
         """
+        endpoint = self.context.endpoint
         raw_output = mapped_response.get("output", "")
         if isinstance(raw_output, (dict, list)):
             mapped_output = json.dumps(raw_output)
@@ -455,8 +446,6 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         self,
         result: Dict[str, Any],
     ) -> None:
-        endpoint = self.context.endpoint
-        input_data = self.context.input_data
         """Park input files for creation when SDK spans arrive.
 
         Files are available at invocation time but the SDK trace record
@@ -465,6 +454,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         records will be created and linked to the stored Trace when
         the spans arrive at the telemetry ingest endpoint — after storage.
         """
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
         files = input_data.get("files")
         if result.get("trace_id") and endpoint.project_id and files:
             from rhesis.backend.app.services.telemetry.conversation_linking import (
@@ -478,25 +469,16 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             )
 
     async def invoke(self) -> Union[Dict[str, Any], ErrorResponse]:
+        """Invoke SDK function through WebSocket connection.
+
+        Returns:
+            Standardized response dict with output and metadata, or ErrorResponse for errors
+        """
         db = self.context.db
         endpoint = self.context.endpoint
         input_data = self.context.input_data
         test_execution_context = self.context.test_execution_context
         trace_id = self.context.trace_id
-        """
-        Invoke SDK function through WebSocket connection.
-
-        Args:
-            db: Database session
-            endpoint: The SDK endpoint to invoke
-            input_data: Standardized input data
-                (input, conversation_id, context, metadata, tool_calls)
-            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
-                                   for linking traces to test executions
-
-        Returns:
-            Standardized response dict with output and metadata, or ErrorResponse for errors
-        """
         try:
             # Step 1: Validate and extract metadata
             function_name, project_id, environment = self._validate_and_extract_metadata()

@@ -13,7 +13,7 @@ Public API:
 import asyncio
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -71,7 +71,7 @@ def execute_tests_as_batch(
         update_test_run_start,
     )
 
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     total_tests = len(tests)
 
     update_test_run_start(
@@ -105,7 +105,7 @@ def execute_tests_as_batch(
     results = _run_async(run_batch(ctx, test_ids))
 
     # Phase 3: Trigger results collection.
-    wall_time_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+    wall_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
     snap_after = ResourceSnapshot.take()
 
     log_batch_report(

@@ -126,8 +126,6 @@ _TRANSIENT_STATUS_CODES = frozenset({408, 429, 502, 503, 504})
 _TRANSIENT_ERROR_TYPES = frozenset(
     {
         "network_error",
-        "timeout_error",
-        "connection_error",
         "websocket_error",
     }
 )

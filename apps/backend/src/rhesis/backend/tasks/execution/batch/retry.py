@@ -31,6 +31,29 @@ def _is_transient(exc: BaseException) -> bool:
     return isinstance(exc, (TimeoutError, ConnectionError, OSError))
 
 
+def _make_wait(min_wait: float, max_wait: float) -> Callable[[RetryCallState], float]:
+    """Return a tenacity wait callable that honours ``Retry-After`` headers.
+
+    When the failed attempt raised an ``EndpointInvocationError`` that
+    carries a ``retry_after`` value (parsed from the endpoint's
+    ``Retry-After`` response header), that value is used as-is.
+    Otherwise falls back to exponential backoff with jitter so that
+    callers don't all hammer the endpoint at the same moment.
+    """
+    _exp_jitter = wait_exponential_jitter(initial=min_wait, max=max_wait, jitter=min_wait)
+
+    def _wait(retry_state: RetryCallState) -> float:
+        exc = retry_state.outcome.exception() if retry_state.outcome else None
+        if isinstance(exc, EndpointInvocationError) and exc.retry_after is not None:
+            logger.debug(
+                "Honouring Retry-After=%.1fs from endpoint", exc.retry_after
+            )
+            return exc.retry_after
+        return _exp_jitter(retry_state)
+
+    return _wait
+
+
 def _log_before_retry(label: str) -> Callable[[RetryCallState], None]:
     """Return a tenacity ``before_sleep`` callback that logs retry info."""
     def _callback(retry_state: RetryCallState) -> None:
@@ -76,6 +99,11 @@ async def invoke_with_retry(
     and raised as ``EndpointInvocationError`` so the same retry logic
     applies.
 
+    When the endpoint responds with a ``Retry-After`` header (e.g. on
+    HTTP 429), the parsed value on ``EndpointInvocationError.retry_after``
+    is used as the wait duration instead of the default exponential
+    backoff, so callers respect the endpoint's rate-limit window.
+
     Returns:
         The value returned by the coroutine on success.
 
@@ -86,7 +114,7 @@ async def invoke_with_retry(
     retrier = AsyncRetrying(
         retry=retry_if_exception(_is_transient),
         stop=stop_after_attempt(max_attempts),
-        wait=wait_exponential_jitter(initial=min_wait, max=max_wait, jitter=min_wait),
+        wait=_make_wait(min_wait, max_wait),
         before_sleep=_log_before_retry(label),
         reraise=True,
     )
