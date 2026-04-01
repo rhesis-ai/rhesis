@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.services.embedding.services import EmbeddingService
+from rhesis.backend.app.models import Behavior, Category, Prompt, Test, TypeLookup, Topic
+from rhesis.backend.app.constants import TestType
 
 
 @pytest.fixture
@@ -59,14 +61,64 @@ def test_entity(
     test_org_id: str,
     authenticated_user_id: str,
     db_status,
-    db_test_types,
-    db_topic,
-    db_behavior,
-    db_category,
 ):
     """Create a test entity that implements to_searchable_text."""
-    prompt = models.Prompt(
+    from rhesis.backend.app.models import Behavior, Category, Prompt, Test, TypeLookup, Topic
+    from rhesis.backend.app.constants import TestType
+
+    # Create TypeLookup entries
+    single_turn_type = TypeLookup(
+        type_name="TestType",
+        type_value=TestType.SINGLE_TURN,
+        description="Single request-response test type",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    test_db.add(single_turn_type)
+    test_db.flush()
+    test_db.refresh(single_turn_type)
+
+    # Create Topic
+    topic = Topic(
+        name="Test Topic",
+        description="A test topic",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        status_id=db_status.id,
+        entity_type_id=single_turn_type.id,
+    )
+    test_db.add(topic)
+    test_db.flush()
+    test_db.refresh(topic)
+
+    # Create Behavior
+    behavior = Behavior(
+        name="Test Behavior",
+        description="A test behavior",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        status_id=db_status.id,
+    )
+    test_db.add(behavior)
+    test_db.flush()
+    test_db.refresh(behavior)
+
+    # Create Category
+    category = Category(
+        name="Test Category",
+        description="A test category",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        status_id=db_status.id,
+        entity_type_id=single_turn_type.id,
+    )
+    test_db.add(category)
+    test_db.flush()
+    test_db.refresh(category)
+
+    prompt = Prompt(
         content="What is the capital of France?",
+        expected_response="Paris",
         language_code="en-US",
         status_id=db_status.id,
         organization_id=test_org_id,
@@ -76,19 +128,18 @@ def test_entity(
     test_db.commit()
     test_db.refresh(prompt)
 
-    test = models.Test(
+    test = Test(
         prompt_id=prompt.id,
-        expected_response="Paris",
-        test_type_id=db_test_types["single_turn"].id,
-        topic_id=db_topic.id,
-        behavior_id=db_behavior.id,
-        category_id=db_category.id,
+        test_type_id=single_turn_type.id,
+        topic_id=topic.id,
+        behavior_id=behavior.id,
+        category_id=category.id,
         status_id=db_status.id,
         organization_id=test_org_id,
         user_id=authenticated_user_id,
     )
     test_db.add(test)
-    test_db.commit()
+    test_db.flush()
     test_db.refresh(test)
     return test
 
@@ -118,7 +169,7 @@ class TestEmbeddingService:
         service = EmbeddingService(test_db)
         assert service.db == test_db
 
-    @patch("rhesis.backend.app.services.embedding.services.EmbeddingGenerator")
+    @patch("rhesis.backend.app.services.embedding.generator.EmbeddingGenerator")
     def test_execute_sync(
         self,
         mock_generator_class,
@@ -157,7 +208,7 @@ class TestEmbeddingService:
     ):
         """Test asynchronous task enqueuing."""
         service = EmbeddingService(test_db)
-        service._enqueue_async(str(test_entity.id), "Test", str(embedding_model.id), db_user)
+        service._enqueue_async(test_entity, str(embedding_model.id), db_user)
 
         mock_launcher.assert_called_once_with(
             mock_task,
@@ -215,6 +266,9 @@ class TestEmbeddingService:
         mock_workers.return_value = False
         mock_execute.return_value = {"status": "success"}
 
+        test_entity.user_id = user_with_embedding_model.id
+        test_db.commit()
+
         service = EmbeddingService(test_db)
         result = service.enqueue_embedding(test_entity, user_with_embedding_model)
 
@@ -236,6 +290,9 @@ class TestEmbeddingService:
     ):
         """Test enqueue_embedding with async execution when workers available."""
         mock_workers.return_value = True
+
+        test_entity.user_id = user_with_embedding_model.id
+        test_db.commit()
 
         service = EmbeddingService(test_db)
         result = service.enqueue_embedding(test_entity, user_with_embedding_model)
@@ -260,6 +317,9 @@ class TestEmbeddingService:
         mock_workers.return_value = True
         mock_enqueue.side_effect = Exception("Celery error")
         mock_execute.return_value = {"status": "success"}
+
+        test_entity.user_id = user_with_embedding_model.id
+        test_db.commit()
 
         service = EmbeddingService(test_db)
         result = service.enqueue_embedding(test_entity, user_with_embedding_model)
@@ -397,6 +457,9 @@ class TestEmbeddingServiceIntegration:
         mock_embedder = Mock()
         mock_embedder.generate.return_value = [0.1] * 768
         mock_get_model.return_value = mock_embedder
+
+        test_entity.user_id = user_with_embedding_model.id
+        test_db.commit()
 
         service = EmbeddingService(test_db)
         result = service.enqueue_embedding(test_entity, user_with_embedding_model)

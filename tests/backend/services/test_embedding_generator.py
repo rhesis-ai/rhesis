@@ -61,14 +61,64 @@ def test_entity(
     test_org_id: str,
     authenticated_user_id: str,
     db_status,
-    db_test_types,
-    db_topic,
-    db_behavior,
-    db_category,
 ):
     """Create a test entity that implements to_searchable_text."""
-    prompt = models.Prompt(
+    from rhesis.backend.app.models import Behavior, Category, Prompt, Test, TypeLookup, Topic
+    from rhesis.backend.app.constants import TestType
+
+    # Create TypeLookup entries
+    single_turn_type = TypeLookup(
+        type_name="TestType",
+        type_value=TestType.SINGLE_TURN,
+        description="Single request-response test type",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    test_db.add(single_turn_type)
+    test_db.flush()
+    test_db.refresh(single_turn_type)
+
+    # Create Topic
+    topic = Topic(
+        name="Test Topic",
+        description="A test topic",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        status_id=db_status.id,
+        entity_type_id=single_turn_type.id,
+    )
+    test_db.add(topic)
+    test_db.flush()
+    test_db.refresh(topic)
+
+    # Create Behavior
+    behavior = Behavior(
+        name="Test Behavior",
+        description="A test behavior",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        status_id=db_status.id,
+    )
+    test_db.add(behavior)
+    test_db.flush()
+    test_db.refresh(behavior)
+
+    # Create Category
+    category = Category(
+        name="Test Category",
+        description="A test category",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        status_id=db_status.id,
+        entity_type_id=single_turn_type.id,
+    )
+    test_db.add(category)
+    test_db.flush()
+    test_db.refresh(category)
+
+    prompt = Prompt(
         content="What is the capital of France?",
+        expected_response="Paris",
         language_code="en-US",
         status_id=db_status.id,
         organization_id=test_org_id,
@@ -78,19 +128,18 @@ def test_entity(
     test_db.commit()
     test_db.refresh(prompt)
 
-    test = models.Test(
+    test = Test(
         prompt_id=prompt.id,
-        expected_response="Paris",
-        test_type_id=db_test_types["single_turn"].id,
-        topic_id=db_topic.id,
-        behavior_id=db_behavior.id,
-        category_id=db_category.id,
+        test_type_id=single_turn_type.id,
+        topic_id=topic.id,
+        behavior_id=behavior.id,
+        category_id=category.id,
         status_id=db_status.id,
         organization_id=test_org_id,
         user_id=authenticated_user_id,
     )
     test_db.add(test)
-    test_db.commit()
+    test_db.flush()
     test_db.refresh(test)
     return test
 
@@ -244,9 +293,9 @@ class TestEmbeddingGenerator:
 
         embedding = test_db.query(models.Embedding).filter_by(id=result["embedding_id"]).first()
         assert embedding is not None
-        assert embedding.entity_id == str(test_entity.id)
+        assert str(embedding.entity_id) == str(test_entity.id)
         assert embedding.entity_type == "Test"
-        assert embedding.status == EmbeddingStatus.ACTIVE.value
+        assert embedding.status.name.lower() == EmbeddingStatus.ACTIVE.value.lower()
         assert embedding.dimension == 768
         assert len(embedding.embedding) == 768
 
@@ -357,12 +406,12 @@ class TestEmbeddingGenerator:
         old_embedding = test_db.query(models.Embedding).filter_by(
             id=result1["embedding_id"]
         ).first()
-        assert old_embedding.status == EmbeddingStatus.STALE.value
+        assert old_embedding.status.name.lower() == EmbeddingStatus.STALE.value.lower()
 
         new_embedding = test_db.query(models.Embedding).filter_by(
             id=result2["embedding_id"]
         ).first()
-        assert new_embedding.status == EmbeddingStatus.ACTIVE.value
+        assert new_embedding.status.name.lower() == EmbeddingStatus.ACTIVE.value.lower()
 
     def test_generate_entity_without_to_searchable_text(
         self, test_db, test_org_id, authenticated_user_id, embedding_model, db_status
