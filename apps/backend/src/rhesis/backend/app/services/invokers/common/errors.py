@@ -127,6 +127,8 @@ _TRANSIENT_ERROR_TYPES = frozenset(
     {
         "network_error",
         "websocket_error",
+        "timeout_error",
+        "connection_error",
     }
 )
 
