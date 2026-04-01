@@ -6,6 +6,7 @@ the use of Garak's vulnerability detection capabilities within
 the Rhesis evaluation framework.
 """
 
+import asyncio
 import importlib
 import logging
 import math
@@ -293,6 +294,20 @@ class GarakDetectorMetric(BaseMetric):
                     "reason": f"Detector evaluation failed: {str(e)}",
                 },
             )
+
+    async def a_evaluate(
+        self,
+        input: str = "",
+        output: str = "",
+        expected_output: str = "",
+        context: Optional[List[str]] = None,
+        notes: Optional[dict] = None,
+        **kwargs,
+    ) -> MetricResult:
+        """Async evaluate wrapping the sync detector in to_thread."""
+        return await asyncio.to_thread(
+            self.evaluate, input, output, expected_output, context, notes, **kwargs
+        )
 
     def __repr__(self) -> str:
         return f"GarakDetectorMetric(detector={self.detector_class_path})"

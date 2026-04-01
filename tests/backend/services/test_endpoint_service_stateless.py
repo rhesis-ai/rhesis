@@ -168,7 +168,7 @@ class TestStatelessConversationManagement:
         assert r2["output"] == "I'm great, thanks!"
 
         # Verify messages were built correctly for the second call
-        call2_input = mock_invoker.invoke.call_args_list[1].args[2]
+        call2_input = mock_create.call_args_list[1][0][0].input_data
         messages = call2_input["messages"]
         assert len(messages) == 4  # system + user + assistant + user
         assert messages[3] == {"role": "user", "content": "How are you?"}
@@ -471,7 +471,7 @@ class TestStatelessConversationManagement:
                 },
             )
 
-        call2_input = mock_invoker.invoke.call_args_list[1].args[2]
+        call2_input = mock_create.call_args_list[1][0][0].input_data
         messages = call2_input["messages"]
         assistant_msg = [m for m in messages if m["role"] == "assistant"][0]
         assert assistant_msg["tool_calls"] == tool_calls

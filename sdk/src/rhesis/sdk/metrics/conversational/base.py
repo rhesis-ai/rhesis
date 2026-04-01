@@ -1,5 +1,6 @@
 """Base class for conversational (multi-turn) metrics."""
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
@@ -94,3 +95,20 @@ class ConversationalMetricBase(ABC):
             MetricResult with score and detailed evaluation
         """
         pass
+
+    async def a_evaluate(
+        self,
+        conversation_history: ConversationHistory,
+        goal: Optional[str] = None,
+        instructions: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> MetricResult:
+        """
+        Async version of evaluate with a default to_thread fallback.
+
+        Subclasses with native async implementations should override this.
+        """
+        return await asyncio.to_thread(
+            self.evaluate, conversation_history, goal, instructions, context, **kwargs
+        )

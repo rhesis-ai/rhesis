@@ -4,6 +4,7 @@ Base target interface for Penelope.
 A Target represents any system that Penelope can test through interaction.
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -91,6 +92,24 @@ class Target(ABC):
             Tuple of (is_valid, error_message)
         """
         pass
+
+    async def a_send_message(
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        files: Optional[List[Dict[str, str]]] = None,
+        **kwargs,
+    ) -> TargetResponse:
+        """
+        Async version of send_message with a default to_thread fallback.
+
+        Targets that have native async implementations (like BackendEndpointTarget)
+        should override this method. Others automatically get async support via
+        the thread pool fallback.
+        """
+        return await asyncio.to_thread(
+            self.send_message, message, conversation_id, files, **kwargs
+        )
 
     def get_tool_documentation(self) -> str:
         """
