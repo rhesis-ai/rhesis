@@ -79,33 +79,46 @@ def _build_suggestion_prompt(
     user_feedback: str = "",
 ) -> str:
     """Build a prompt asking the LLM to generate new test inputs."""
-    lines = [
-        "You are a test generation assistant. "
-        "Given example test inputs for an AI system, "
-        "generate new diverse test inputs.\n"
-    ]
-
+    intro = """You are a test generation assistant.
+Given example test inputs for an AI system, generate new diverse test inputs."""
     if topic:
-        lines.append(f"Topic: {topic}\n")
+        intro += f"\nTarget topic: {topic}"
 
-    lines.append("Example test inputs:")
+    example_lines = []
     for i, ex in enumerate(examples, 1):
-        ex_topic = ex.get("topic", "")
-        ex_input = ex.get("input", "")
-        if ex_topic:
-            lines.append(f"{i}. [{ex_topic}] {ex_input}")
+        example_input = ex.get("input", "")
+        example_topic = ex.get("topic", "")
+        if example_topic and not topic:
+            example_lines.append(
+                f"{i}. [topic: {example_topic}] {json.dumps(example_input, ensure_ascii=False)}"
+            )
         else:
-            lines.append(f"{i}. {ex_input}")
+            example_lines.append(f"{i}. {json.dumps(example_input, ensure_ascii=False)}")
+
+    prompt = f"""{intro}
+
+Example test inputs:
+{chr(10).join(example_lines)}"""
 
     if user_feedback:
-        lines.append(f"\nAdditional guidance from the user:\n{user_feedback}\n")
+        prompt += f"""
 
-    lines.append(
-        f"\nProduce exactly {num_suggestions} new, diverse test inputs. "
-        "Each must be a distinct scenario or phrasing."
-    )
+Additional guidance from the user:
+{user_feedback}"""
 
-    return "\n".join(lines)
+    prompt += f"""
+
+Produce exactly {num_suggestions} new test inputs that follow the same overall domain.
+Requirements:
+- Stay consistent with the target topic when one is provided.
+- Do not repeat or lightly paraphrase the example inputs.
+- Make each suggestion meaningfully different in scenario, intent, wording, tone, or difficulty.
+- Prefer realistic and specific user inputs over generic placeholders.
+- Follow the user's additional guidance when possible, but do not break
+  the topic or count requirements.
+- Return only the requested structured output, with one new input per item."""
+
+    return prompt
 
 
 def generate_suggestions(
