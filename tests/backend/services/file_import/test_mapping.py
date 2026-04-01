@@ -101,6 +101,27 @@ class TestAutoMapColumns:
         assert result["mapping"].get("min turns") == "min_turns"
         assert result["mapping"].get("max turns") == "max_turns"
 
+    def test_turn_config_maps_to_max_turns(self):
+        """'Turn Config' (from xlsx) should map to max_turns."""
+        result = auto_map_columns(["Turn Config"])
+        assert result["mapping"].get("Turn Config") == "max_turns"
+
+    def test_turn_config_underscore_maps_to_max_turns(self):
+        result = auto_map_columns(["turn_config"])
+        assert result["mapping"].get("turn_config") == "max_turns"
+
+    def test_turns_alias_maps_to_max_turns(self):
+        result = auto_map_columns(["turns"])
+        assert result["mapping"].get("turns") == "max_turns"
+
+    def test_num_turns_alias_maps_to_max_turns(self):
+        result = auto_map_columns(["num_turns"])
+        assert result["mapping"].get("num_turns") == "max_turns"
+
+    def test_number_of_turns_alias_maps_to_max_turns(self):
+        result = auto_map_columns(["number of turns"])
+        assert result["mapping"].get("number of turns") == "max_turns"
+
 
 # ── is_llm_available ─────────────────────────────────────────────
 
