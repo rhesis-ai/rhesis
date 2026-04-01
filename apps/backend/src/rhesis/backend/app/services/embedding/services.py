@@ -20,7 +20,7 @@ class EmbeddingService(AsyncService):
         super().__init__()
         self.db = db
 
-    def _execute_sync(self, entity: EmbeddableMixin, model_id: str, current_user: User):
+    def _execute_sync(self, entity: EmbeddableMixin, model_id: str, current_user: User, **kwargs):
         from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
 
         generator = EmbeddingGenerator(self.db)
@@ -33,7 +33,9 @@ class EmbeddingService(AsyncService):
             entity=entity,
         )
 
-    def _enqueue_async(self, entity_id: str, entity_type: str, model_id: str, current_user: User):
+    def _enqueue_async(self, entity: EmbeddableMixin, model_id: str, current_user: User, **kwargs):
+        entity_id = kwargs.get("entity_id", str(entity.id))
+        entity_type = kwargs.get("entity_type", entity.__class__.__name__)
         task_launcher(
             generate_embedding_task,
             entity_id=entity_id,
@@ -47,7 +49,7 @@ class EmbeddingService(AsyncService):
 
         # 1. Use explicit model_id if provided
         if model_id:
-            return model_id
+            return str(model_id)
 
         # 2. Query user settings
         user = self.db.query(User).filter(User.id == user_id).first()
@@ -55,7 +57,7 @@ class EmbeddingService(AsyncService):
         if user and user.settings and user.settings.models and user.settings.models.embedding:
             resolved_model_id = user.settings.models.embedding.model_id
             if resolved_model_id:
-                return resolved_model_id
+                return str(resolved_model_id)
 
         raise ValueError(f"No embedding model found for user {user_id}")
 
