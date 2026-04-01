@@ -257,6 +257,19 @@ def evaluate_turn_trace_metrics(
             logger.warning(f"No root span found for trace {trace_id}")
             return {"status": "no_root_span", "trace_id": trace_id}
 
+        # Skip if turn metrics were already evaluated for this specific span.
+        # We use trace_metrics_processed_at as the guard (only set after a real
+        # evaluation, not after a no_io/skipped result) so that spans whose
+        # input/output attributes hadn't arrived yet still get a second chance.
+        if root_span.trace_metrics_processed_at and (root_span.trace_metrics or {}).get(
+            "turn_metrics"
+        ):
+            logger.debug(
+                f"Turn metrics already evaluated for span {root_span.id} "
+                f"(trace {trace_id}), skipping"
+            )
+            return {"status": "already_evaluated", "trace_id": trace_id}
+
         input_text = (root_span.attributes or {}).get(CONVERSATION_INPUT_KEY, "")
         output_text = (root_span.attributes or {}).get(CONVERSATION_OUTPUT_KEY, "")
         if not input_text and not output_text:
