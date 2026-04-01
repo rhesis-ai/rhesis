@@ -114,6 +114,7 @@ def ingest_trace(
         logger.debug("Pending output injection traceback:", exc_info=True)
 
     # Store spans, then enqueue linking + enrichment as a background task.
+    _stage = "span_storage"
     try:
         stored_spans = crud.create_trace_spans(db, trace_batch.spans, organization_id)
 
@@ -134,11 +135,18 @@ def ingest_trace(
             check_workers_available,
         )
 
+        _stage = "worker_check"
+        _workers_available = check_workers_available()
+        logger.info(
+            f"Worker availability for trace_id={trace_id}: {_workers_available}"
+        )
+
         _dispatched_async = False
-        if check_workers_available():
+        if _workers_available:
             from rhesis.backend.tasks.telemetry.post_ingest import post_ingest_link
 
             first_span = stored_spans[0]
+            _stage = "async_dispatch"
             try:
                 post_ingest_link.delay(
                     stored_span_ids=stored_span_ids,
@@ -152,13 +160,23 @@ def ingest_trace(
                     ),
                 )
                 _dispatched_async = True
+                logger.info(f"Dispatched post_ingest_link for trace_id={trace_id}")
             except Exception as broker_err:
                 logger.warning(
-                    f"Failed to dispatch post_ingest_link task for trace_id={trace_id} "
-                    f"(broker unavailable?): {broker_err}. Falling back to synchronous processing."
+                    f"Failed to dispatch post_ingest_link for trace_id={trace_id} | "
+                    f"error_type={type(broker_err).__name__} | "
+                    f"error={broker_err} | "
+                    f"falling back to synchronous processing",
+                    exc_info=True,
                 )
 
         if not _dispatched_async:
+            _stage = "sync_fallback"
+            logger.warning(
+                f"Running synchronous post-ingestion fallback for trace_id={trace_id} | "
+                f"workers_available={_workers_available}"
+            )
+
             # Sync fallback: run linking in-request, enrichment via service
             from rhesis.backend.app.services.telemetry.conversation_linking import (
                 apply_pending_conversation_links,
@@ -175,28 +193,39 @@ def ingest_trace(
                     organization_id=organization_id,
                 )
             except Exception as link_error:
-                logger.warning(f"Failed to link traces for trace_id={trace_id}: {link_error}")
+                logger.warning(
+                    f"Failed to link traces for trace_id={trace_id}: {link_error}",
+                    exc_info=True,
+                )
 
             try:
                 apply_pending_conversation_links(db, stored_spans)
             except Exception as conv_error:
                 logger.warning(
-                    f"Failed to apply conversation links for trace_id={trace_id}: {conv_error}"
+                    f"Failed to apply conversation links for trace_id={trace_id}: {conv_error}",
+                    exc_info=True,
                 )
 
             try:
                 apply_pending_files(db, stored_spans)
             except Exception as file_error:
                 logger.warning(
-                    f"Failed to apply pending files for trace_id={trace_id}: {file_error}"
+                    f"Failed to apply pending files for trace_id={trace_id}: {file_error}",
+                    exc_info=True,
                 )
 
-            enrichment_service = EnrichmentService(db)
-            enrichment_service.enrich_traces(
-                set(unique_trace_ids),
-                str(project_id),
-                organization_id,
-            )
+            try:
+                enrichment_service = EnrichmentService(db)
+                enrichment_service.enrich_traces(
+                    set(unique_trace_ids),
+                    str(project_id),
+                    organization_id,
+                )
+            except Exception as enrich_error:
+                logger.warning(
+                    f"Failed to enrich traces for trace_id={trace_id}: {enrich_error}",
+                    exc_info=True,
+                )
 
         return TraceResponse(
             status="received",
@@ -205,7 +234,16 @@ def ingest_trace(
         )
 
     except Exception as e:
-        logger.error(f"Failed to store trace {trace_id}: {e}", exc_info=True)
+        logger.error(
+            f"Trace ingestion failed | "
+            f"stage={_stage} | "
+            f"trace_id={trace_id} | "
+            f"org={organization_id} | "
+            f"project={project_id} | "
+            f"error_type={type(e).__name__} | "
+            f"error={e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to store trace spans",
