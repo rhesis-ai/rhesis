@@ -13,49 +13,20 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Cache for session variables to avoid unnecessary re-setting
-# Key format: (connection_id, organization_id, user_id) for security
-_session_variable_cache = {}
-
-
-def _set_session_variables_raw(cursor, organization_id: str = "", user_id: str = ""):
-    """
-    Set PostgreSQL session variables using a raw database cursor.
-
-    This is a low-level utility function used by connection event handlers
-    and other functions that need to set session variables.
-
-    Args:
-        cursor: Database cursor (psycopg2 or similar)
-        organization_id: Organization ID (defaults to empty string)
-        user_id: User ID (defaults to empty string)
-    """
-    cursor.execute("SELECT set_config('app.current_organization', %s, false)", (organization_id,))
-    cursor.execute("SELECT set_config('app.current_user', %s, false)", (user_id,))
-
 
 def _set_session_variables(db: Session, organization_id: str = "", user_id: str = ""):
     """
     Set PostgreSQL session variables using SQLAlchemy session.
 
-    This function handles cases where the variables might not exist yet by
-    gracefully creating them. It's optimized to minimize database round trips.
-    Uses caching to avoid re-setting variables if they're already correct.
+    Always executes the SET call — the cost of a single ``set_config``
+    round-trip is negligible compared to any query that follows.
 
     Args:
         db: SQLAlchemy session
         organization_id: Organization ID (defaults to empty string)
         user_id: User ID (defaults to empty string)
     """
-    # Security: Use connection ID + org + user as cache key to prevent cross-tenant leaks
-    connection_id = id(db.connection())
-    cache_key = (connection_id, organization_id, user_id)
-
-    if cache_key in _session_variable_cache:
-        return
-
     try:
-        # Set both variables in a single SQL statement for efficiency
         db.execute(
             text("""
                 SELECT 
@@ -67,13 +38,8 @@ def _set_session_variables(db: Session, organization_id: str = "", user_id: str 
 
         logger.debug(f"Session variables set: org={organization_id}, user={user_id}")
 
-        # Cache the values for this specific connection + user/org combination
-        _session_variable_cache[cache_key] = True
-
     except Exception as e:
-        # Handle case where session variables don't exist yet
         logger.debug(f"Session variables set with potential creation: {e}")
-        # Re-raise only if it's a serious error, not just "variable doesn't exist"
         if "unrecognized configuration parameter" not in str(e).lower():
             raise
 
@@ -255,11 +221,6 @@ def is_soft_delete_disabled() -> bool:
     return _soft_delete_disabled.get(False)
 
 
-def init_db():
-    """Initialize the database by creating all tables."""
-    Base.metadata.create_all(bind=engine)
-
-
 @contextmanager
 def get_db() -> Generator[Session, None, None]:
     """
@@ -279,18 +240,6 @@ def get_db() -> Generator[Session, None, None]:
             db.rollback()
         raise
     finally:
-        # Clean up session variable cache for this connection
-        try:
-            connection_id = id(db.connection()) if hasattr(db, "connection") else None
-            if connection_id:
-                keys_to_remove = [
-                    key for key in _session_variable_cache.keys() if key[0] == connection_id
-                ]
-                for key in keys_to_remove:
-                    del _session_variable_cache[key]
-        except Exception as e:
-            logger.debug(f"Cache cleanup error (non-critical): {e}")
-
         db.close()
 
 

@@ -81,6 +81,69 @@ class ConnectorStrategy:
             self._score_evaluator,
         )
 
+    async def a_evaluate(
+        self,
+        configs: List[MetricConfig],
+        input_text: str,
+        output_text: str,
+        expected_output: str,
+        context: List[str],
+        *,
+        conversation_history: Any = None,
+        metadata: Dict[str, Any] | None = None,
+        tool_calls: List[Dict[str, Any]] | None = None,
+    ) -> Dict[str, Any]:
+        """Async evaluate calling the async connector sender directly."""
+        if not configs:
+            return {}
+        if not self._connector_metric_sender:
+            logger.warning(
+                "Cannot evaluate connector metrics (async): no connector_metric_sender"
+            )
+            return _build_sender_not_configured_results(configs)
+
+        results: Dict[str, Any] = {}
+        for config in configs:
+            metric_name = config.name or ""
+            class_name = config.class_name or metric_name
+            description = config.description or f"Connector metric: {class_name}"
+            threshold = config.threshold if config.threshold is not None else 0.0
+
+            metric_run_id = str(uuid.uuid4())
+            inputs = {
+                "input": input_text,
+                "output": output_text,
+                "expected_output": expected_output or "",
+                "context": context or [],
+            }
+
+            try:
+                raw_result = await self._connector_metric_sender(
+                    metric_run_id, class_name, inputs
+                )
+                result = _connector_response_to_result(
+                    raw_result, config, metric_name, class_name,
+                    description, threshold, self._score_evaluator,
+                )
+                results[metric_name or class_name] = result
+            except Exception as e:
+                logger.error(
+                    f"Async connector metric '{class_name}' error: {e}",
+                    exc_info=True,
+                )
+                results[metric_name or class_name] = MetricResultBuilder.error(
+                    reason=f"Connector metric evaluation failed: {e}",
+                    backend="sdk",
+                    name=metric_name,
+                    class_name=class_name,
+                    description=description,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    threshold=threshold,
+                )
+
+        return results
+
 
 # ============================================================================
 # MODULE-LEVEL HELPERS (connector evaluation pipeline)

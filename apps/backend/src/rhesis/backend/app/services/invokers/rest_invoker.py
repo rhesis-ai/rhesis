@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import httpx
 from fastapi import HTTPException
@@ -17,6 +17,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 
 from .base import BaseEndpointInvoker, ResponseMapper, TemplateRenderer
 from .common.schemas import ErrorResponse
+from .context import InvocationContext
 
 logger = logging.getLogger(__name__)
 
@@ -27,18 +28,17 @@ class RestEndpointInvoker(BaseEndpointInvoker):
     # REST endpoints do not automatically generate traces
     automatic_tracing: bool = False
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, context: "InvocationContext"):
+        super().__init__(context)
         self.template_renderer = TemplateRenderer()
         self.response_mapper = ResponseMapper()
 
-    async def invoke(
-        self,
-        db: Session,
-        endpoint: Endpoint,
-        input_data: Dict[str, Any],
-        test_execution_context: Optional[Dict[str, str]] = None,
-    ) -> Union[Dict[str, Any], ErrorResponse]:
+    async def invoke(self) -> Union[Dict[str, Any], ErrorResponse]:
+        db = self.context.db
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
+        test_execution_context = self.context.test_execution_context
+        trace_id = self.context.trace_id
         """
         Invoke the REST endpoint with proper authentication.
 

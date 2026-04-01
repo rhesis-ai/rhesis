@@ -8,10 +8,10 @@ import requests
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
-
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
+
+logger = logging.getLogger(__name__)
 
 
 class AuthenticationManager:

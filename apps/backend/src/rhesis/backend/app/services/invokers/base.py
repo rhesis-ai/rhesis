@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Union
+
+if TYPE_CHECKING:
+    from .context import InvocationContext
 
 from sqlalchemy.orm import Session
 
@@ -24,7 +27,8 @@ class BaseEndpointInvoker(ABC):
     # but must NOT appear in the wire request body sent to the endpoint.
     RESERVED_META_KEYS: set = {"system_prompt"}
 
-    def __init__(self):
+    def __init__(self, context: "InvocationContext"):
+        self.context = context
         self.template_renderer = TemplateRenderer()
         self.response_mapper = ResponseMapper()
         self.auth_manager = AuthenticationManager()
@@ -52,13 +56,7 @@ class BaseEndpointInvoker(ABC):
         return rendered_body
 
     @abstractmethod
-    async def invoke(
-        self,
-        db: Session,
-        endpoint: Endpoint,
-        input_data: Dict[str, Any],
-        test_execution_context: Optional[Dict[str, str]] = None,
-    ) -> Union[Dict[str, Any], ErrorResponse]:
+    async def invoke(self) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke the endpoint with the given input data.
 

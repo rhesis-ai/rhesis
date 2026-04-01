@@ -6,6 +6,7 @@ MetricFactory.  Owns the parallel execution pipeline that was previously
 part of MetricEvaluator.
 """
 
+import asyncio
 import concurrent.futures
 import dataclasses
 import logging
@@ -95,6 +96,186 @@ class LocalStrategy:
             conversation_history=conversation_history,
             metadata=metadata,
             tool_calls=tool_calls,
+        )
+
+    async def a_evaluate(
+        self,
+        configs: List[MetricConfig],
+        input_text: str,
+        output_text: str,
+        expected_output: str,
+        context: List[str],
+        *,
+        max_workers: int = 5,
+        conversation_history: Any = None,
+        metadata: Dict[str, Any] | None = None,
+        tool_calls: List[Dict[str, Any]] | None = None,
+    ) -> Dict[str, Any]:
+        """Async evaluate using asyncio.gather over metric.a_evaluate().
+
+        Mirrors the sync path's resilience: bounded concurrency via semaphore,
+        per-metric retry for transient failures, and an overall timeout.
+        """
+        metric_tasks = prepare_metrics(
+            configs,
+            expected_output,
+            context,
+            model=self._model,
+            db=self._db,
+            organization_id=self._organization_id,
+        )
+        if not metric_tasks:
+            logger.warning("No metrics to evaluate (async)")
+            return {}
+
+        metric_keys, results = self._generate_unique_metric_keys(metric_tasks)
+        sem = asyncio.Semaphore(max_workers)
+
+        async def _eval_one(
+            unique_key: str,
+            class_name: str,
+            metric: BaseMetric,
+            metric_config: MetricConfig,
+            backend: str,
+        ) -> Tuple[str, Dict[str, Any]]:
+            async with sem:
+                return await self._a_eval_one_with_retry(
+                    unique_key, class_name, metric, metric_config, backend,
+                    input_text, output_text, expected_output, context,
+                    conversation_history=conversation_history,
+                    metadata=metadata,
+                    tool_calls=tool_calls,
+                )
+
+        coros = [
+            _eval_one(key, cn, m, mc, b)
+            for (cn, m, mc, b), key in zip(metric_tasks, metric_keys)
+        ]
+
+        try:
+            eval_results = await asyncio.wait_for(
+                asyncio.gather(*coros, return_exceptions=True),
+                timeout=METRIC_OVERALL_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.error(
+                f"Overall async metric timeout ({METRIC_OVERALL_TIMEOUT}s) reached"
+            )
+            eval_results = []
+
+        for item in eval_results:
+            if isinstance(item, Exception):
+                logger.error(f"Unexpected gather exception: {item}")
+                continue
+            key, val = item
+            results[key] = val
+
+        self._handle_incomplete_metrics(results, metric_keys, metric_tasks)
+        self._log_evaluation_summary(results)
+        return results
+
+    async def _a_eval_one_with_retry(
+        self,
+        unique_key: str,
+        class_name: str,
+        metric: BaseMetric,
+        metric_config: MetricConfig,
+        backend: str,
+        input_text: str,
+        output_text: str,
+        expected_output: str,
+        context: List[str],
+        *,
+        conversation_history: Any = None,
+        metadata: Dict[str, Any] | None = None,
+        tool_calls: List[Dict[str, Any]] | None = None,
+    ) -> Tuple[str, Dict[str, Any]]:
+        """Evaluate a single metric with retry for transient errors."""
+        last_exc: Optional[Exception] = None
+        for attempt in range(1, METRIC_MAX_RETRIES + 2):
+            try:
+                kwargs = build_metric_evaluate_params(
+                    metric,
+                    input_text,
+                    output_text,
+                    expected_output,
+                    context,
+                    conversation_history=conversation_history,
+                    metadata=metadata,
+                    tool_calls=tool_calls,
+                )
+                result = await metric.a_evaluate(**kwargs)
+                description = (
+                    metric_config.description or f"{class_name} evaluation metric"
+                )
+
+                if (
+                    "is_successful" in result.details
+                    and result.details["is_successful"] is not None
+                ):
+                    is_successful = result.details["is_successful"]
+                else:
+                    is_successful = self._score_evaluator.evaluate_score(
+                        score=result.score,
+                        threshold=metric_config.threshold,
+                        threshold_operator=metric_config.threshold_operator,
+                        reference_score=metric_config.reference_score,
+                        categories=metric_config.categories,
+                        passing_categories=metric_config.passing_categories,
+                    )
+
+                return unique_key, MetricResultBuilder.success(
+                    score=result.score,
+                    reason=result.details.get("reason", f"Score: {result.score}"),
+                    is_successful=is_successful,
+                    backend=backend,
+                    name=metric_config.name or class_name,
+                    class_name=class_name,
+                    description=description,
+                    threshold=metric_config.threshold,
+                    reference_score=metric_config.reference_score,
+                )
+            except (TimeoutError, ConnectionError, OSError) as e:
+                last_exc = e
+                if attempt <= METRIC_MAX_RETRIES:
+                    wait = min(
+                        METRIC_RETRY_MAX_WAIT,
+                        METRIC_RETRY_MIN_WAIT * (2 ** (attempt - 1)),
+                    )
+                    logger.warning(
+                        f"Async metric '{class_name}' transient error "
+                        f"(attempt {attempt}/{METRIC_MAX_RETRIES + 1}), "
+                        f"retrying in {wait}s: {e}"
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                logger.error(
+                    f"Async metric '{class_name}' failed after "
+                    f"{METRIC_MAX_RETRIES + 1} attempts: {e}",
+                    exc_info=True,
+                )
+            except Exception as e:
+                last_exc = e
+                logger.error(
+                    f"Async metric '{class_name}' failed: {e}", exc_info=True
+                )
+                break
+
+        return unique_key, MetricResultBuilder.error(
+            reason=f"Evaluation failed: {str(last_exc)}",
+            backend=backend,
+            name=metric_config.name or class_name,
+            class_name=class_name,
+            description=(
+                metric_config.description or f"{class_name} evaluation metric"
+            ),
+            error=str(last_exc),
+            error_type=type(last_exc).__name__,
+            threshold=(
+                metric_config.threshold
+                if metric_config.threshold is not None
+                else 0.0
+            ),
         )
 
     # ============================================================================
