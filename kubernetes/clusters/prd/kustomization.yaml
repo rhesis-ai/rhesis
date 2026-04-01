@@ -11,3 +11,4 @@ resources:
   - ingress-nginx-external.yaml
   - ingress-nginx-internal.yaml
   - internal-dns.yaml
+  - cnpg-operator.yaml
