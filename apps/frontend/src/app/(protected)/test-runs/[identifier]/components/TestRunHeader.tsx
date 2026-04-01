@@ -12,14 +12,16 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import BlockIcon from '@mui/icons-material/Block';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -199,7 +201,7 @@ export default function TestRunHeader({
     ) {
       const start = new Date(startedAt).getTime();
       const end = new Date(completedAt).getTime();
-      const diffMs = end - start;
+      const diffMs = Math.abs(end - start);
       const diffMins = Math.floor(diffMs / 60000);
       const diffSecs = Math.floor((diffMs % 60000) / 1000);
       duration = `${diffMins}m ${diffSecs}s`;
@@ -208,15 +210,25 @@ export default function TestRunHeader({
     }
 
     // Determine status from testRun.status or calculate it
-    let status: 'completed' | 'in_progress' | 'failed' | 'partial' =
+    let status: 'completed' | 'in_progress' | 'failed' | 'partial' | 'cancelled' | 'queued' =
       'completed';
-    let statusColor: 'success' | 'info' | 'error' | 'warning' = 'success';
+    let statusColor: 'success' | 'info' | 'error' | 'warning' | 'default' = 'success';
     let statusLabel = 'Completed';
 
     // Use backend status if available
     const backendStatus = testRun.status?.name?.toLowerCase();
 
-    if (backendStatus === 'progress') {
+    if (backendStatus === 'cancelled') {
+      status = 'cancelled';
+      statusColor = 'default';
+      statusLabel = 'Cancelled';
+      if (startedAt) duration = 'Cancelled';
+    } else if (backendStatus === 'queued') {
+      status = 'queued';
+      statusColor = 'default';
+      statusLabel = 'Queued';
+      duration = 'Queued';
+    } else if (backendStatus === 'progress') {
       status = 'in_progress';
       statusColor = 'info';
       statusLabel = 'In Progress';
@@ -404,16 +416,18 @@ export default function TestRunHeader({
                   label={stats.statusLabel}
                   color={stats.statusColor}
                   icon={
-                    stats.status === 'in_progress' ? (
+                    stats.status === 'cancelled' ? (
+                      <BlockIcon />
+                    ) : stats.status === 'queued' ? (
+                      <HourglassEmptyIcon />
+                    ) : stats.status === 'in_progress' ? (
                       <PlayCircleOutlineIcon />
                     ) : stats.status === 'partial' ? (
                       <WarningAmberOutlinedIcon />
                     ) : stats.status === 'failed' ? (
                       <CancelOutlinedIcon />
-                    ) : stats.statusColor === 'success' ? (
-                      <CheckCircleOutlineIcon />
                     ) : (
-                      <CancelOutlinedIcon />
+                      <CheckCircleOutlineIcon />
                     )
                   }
                   size="medium"
