@@ -14,7 +14,7 @@ from rhesis.sdk.metrics.providers.native.conversational_judge import (
     ConversationalJudge,
 )
 from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
-from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
 

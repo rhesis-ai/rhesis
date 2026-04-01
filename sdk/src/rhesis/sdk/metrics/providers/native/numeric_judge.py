@@ -10,7 +10,7 @@ from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.configs import NumericJudgeConfig
 from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
-from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
 

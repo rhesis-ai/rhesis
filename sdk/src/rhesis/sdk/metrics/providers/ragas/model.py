@@ -7,7 +7,7 @@ from langchain_core.callbacks.manager import (
 from langchain_core.language_models.llms import LLM
 
 from rhesis.sdk.async_utils import run_sync
-from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 
 class CustomLLM(LLM):
