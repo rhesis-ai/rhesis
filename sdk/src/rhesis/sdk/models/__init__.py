@@ -66,9 +66,7 @@ def __getattr__(name: str):
             mod = importlib.import_module("rhesis.sdk.models.providers.huggingface")
             return mod.HuggingFaceLLM
         except ImportError as exc:
-            raise AttributeError(
-                f"module {__name__!r} has no attribute {name!r}"
-            ) from exc
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
     spec = _LAZY_EXPORTS.get(name)
     if spec is not None:
         module_name, attr_name = spec
