@@ -129,6 +129,35 @@ class EmbeddingGenerator:
         config_hash = self._compute_hash(config)
         text_hash = self._compute_hash(searchable_text)
 
+        # Get status IDs
+        active_status = (
+            self.db.query(models.Status)
+            .filter(
+                models.Status.name.ilike(EmbeddingStatus.ACTIVE.value),
+                models.Status.organization_id == organization_id,
+            )
+            .first()
+        )
+        if not active_status:
+            active_status = self.db.query(models.Status).first()
+            if not active_status:
+                raise ValueError("No statuses exist in the database.")
+
+        stale_status = (
+            self.db.query(models.Status)
+            .filter(
+                models.Status.name.ilike(EmbeddingStatus.STALE.value),
+                models.Status.organization_id == organization_id,
+            )
+            .first()
+        )
+        if not stale_status:
+            stale_status = (
+                self.db.query(models.Status).filter(models.Status.id != active_status.id).first()
+            )
+            if not stale_status:
+                stale_status = active_status
+
         # Check if embedding already exists (same text/config)
         existing_embedding = (
             self.db.query(models.Embedding)
@@ -138,7 +167,7 @@ class EmbeddingGenerator:
                 models.Embedding.organization_id == organization_id,
                 models.Embedding.config_hash == config_hash,
                 models.Embedding.text_hash == text_hash,
-                models.Embedding.status == EmbeddingStatus.ACTIVE.value,
+                models.Embedding.status_id == active_status.id,
             )
             .first()
         )
@@ -159,9 +188,9 @@ class EmbeddingGenerator:
                 models.Embedding.entity_id == entity_id,
                 models.Embedding.entity_type == entity_type,
                 models.Embedding.organization_id == organization_id,
-                models.Embedding.status == EmbeddingStatus.ACTIVE.value,
+                models.Embedding.status_id == active_status.id,
             )
-            .update({"status": EmbeddingStatus.STALE.value})
+            .update({"status_id": stale_status.id})
         )
 
         if stale_count > 0:
@@ -178,7 +207,7 @@ class EmbeddingGenerator:
             text_hash=text_hash,
             organization_id=organization_id,
             user_id=user_id,
-            status=EmbeddingStatus.ACTIVE.value,
+            status_id=active_status.id,
         )
 
         # Use the property setter which automatically selects the right column
