@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
+    targetRevision: fix/deployment-automation-test
     path: kubernetes/clusters/dev/cnpg-system
   destination:
     server: https://kubernetes.default.svc
