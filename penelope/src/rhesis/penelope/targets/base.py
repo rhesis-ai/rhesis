@@ -107,9 +107,7 @@ class Target(ABC):
         should override this method. Others automatically get async support via
         the thread pool fallback.
         """
-        return await asyncio.to_thread(
-            self.send_message, message, conversation_id, files, **kwargs
-        )
+        return await asyncio.to_thread(self.send_message, message, conversation_id, files, **kwargs)
 
     def get_tool_documentation(self) -> str:
         """

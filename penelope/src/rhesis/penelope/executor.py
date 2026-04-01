@@ -608,9 +608,7 @@ class TurnExecutor:
 
                     if isinstance(tool, AnalysisTool):
                         context = self.workflow_manager.state.get_analysis_context()
-                        filtered_params = {
-                            k: v for k, v in action_params.items() if k != "context"
-                        }
+                        filtered_params = {k: v for k, v in action_params.items() if k != "context"}
                         tool_result = await asyncio.to_thread(
                             tool.execute_with_validation, context, **filtered_params
                         )
@@ -621,8 +619,7 @@ class TurnExecutor:
             if tool_result is None:
                 available_tools = [tool.name for tool in tools]
                 error_msg = (
-                    f"Unknown tool: {action_name}. "
-                    f"Available tools: {', '.join(available_tools)}"
+                    f"Unknown tool: {action_name}. Available tools: {', '.join(available_tools)}"
                 )
                 if action_name == "send_message":
                     error_msg += ". Did you mean 'send_message_to_target'?"
