@@ -210,9 +210,15 @@ export default function TestRunHeader({
     }
 
     // Determine status from testRun.status or calculate it
-    let status: 'completed' | 'in_progress' | 'failed' | 'partial' | 'cancelled' | 'queued' =
-      'completed';
-    let statusColor: 'success' | 'info' | 'error' | 'warning' | 'default' = 'success';
+    let status:
+      | 'completed'
+      | 'in_progress'
+      | 'failed'
+      | 'partial'
+      | 'cancelled'
+      | 'queued' = 'completed';
+    let statusColor: 'success' | 'info' | 'error' | 'warning' | 'default' =
+      'success';
     let statusLabel = 'Completed';
 
     // Use backend status if available

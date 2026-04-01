@@ -466,7 +466,13 @@ function TestRunsTable({
       setIsCancelling(false);
       setCancelModalOpen(false);
     }
-  }, [cancellableSelectedRuns, sessionToken, notifications, paginationModel, fetchTestRuns]);
+  }, [
+    cancellableSelectedRuns,
+    sessionToken,
+    notifications,
+    paginationModel,
+    fetchTestRuns,
+  ]);
 
   const handleCancelClose = useCallback(() => {
     setCancelModalOpen(false);
@@ -515,7 +521,13 @@ function TestRunsTable({
     }
 
     return buttons;
-  }, [selectedRows, cancellableSelectedRuns, handleCreateTestRun, handleCancelSelected, handleDeleteSelected]);
+  }, [
+    selectedRows,
+    cancellableSelectedRuns,
+    handleCreateTestRun,
+    handleCancelSelected,
+    handleDeleteSelected,
+  ]);
 
   return (
     <>
