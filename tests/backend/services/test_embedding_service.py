@@ -98,13 +98,11 @@ def user_with_embedding_model(
     test_db: Session, db_user, embedding_model
 ):
     """Create a user with embedding model configured in settings."""
-    from rhesis.backend.app.schemas.user import ModelSettings, ModelsSettings, UserSettings
-
-    db_user.settings = UserSettings(
-        models=ModelsSettings(
-            embedding=ModelSettings(model_id=str(embedding_model.id))
-        )
-    )
+    db_user.settings.update({
+        "models": {
+            "embedding": {"model_id": str(embedding_model.id)}
+        }
+    })
     test_db.commit()
     test_db.refresh(db_user)
     return db_user
@@ -365,6 +363,10 @@ class TestEmbeddingServiceWorkerDetection:
         mock_celery_app.control.inspect.return_value = mock_inspect
 
         service = EmbeddingService(test_db)
+        # Clear cache before testing caching functionality
+        if "checked_at" in EmbeddingService._worker_cache:
+            EmbeddingService._worker_cache["checked_at"] = 0
+            EmbeddingService._worker_cache["available"] = None
 
         result1 = service._check_workers_available()
         result2 = service._check_workers_available()
@@ -379,7 +381,7 @@ class TestEmbeddingServiceWorkerDetection:
 class TestEmbeddingServiceIntegration:
     """Integration tests for EmbeddingService with real generator."""
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     @patch.object(EmbeddingService, "_check_workers_available")
     def test_full_sync_flow(
         self,

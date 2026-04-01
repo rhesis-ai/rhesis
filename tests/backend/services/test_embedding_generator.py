@@ -160,7 +160,7 @@ class TestEmbeddingGenerator:
                 "00000000-0000-0000-0000-000000000000", "InvalidType", test_org_id
             )
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     def test_generate_embedding_vector_success(self, mock_get_model, test_db):
         """Test successful embedding vector generation."""
         generator = EmbeddingGenerator(test_db)
@@ -181,7 +181,7 @@ class TestEmbeddingGenerator:
         assert all(isinstance(x, float) for x in result)
         mock_embedder.generate.assert_called_once_with("Test text")
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     def test_generate_embedding_vector_model_creation_error(self, mock_get_model, test_db):
         """Test error when embedding model creation fails."""
         generator = EmbeddingGenerator(test_db)
@@ -196,7 +196,7 @@ class TestEmbeddingGenerator:
                 dimension=768,
             )
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     def test_generate_embedding_vector_generation_error(self, mock_get_model, test_db):
         """Test error when embedding generation fails."""
         generator = EmbeddingGenerator(test_db)
@@ -214,7 +214,7 @@ class TestEmbeddingGenerator:
                 dimension=768,
             )
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     def test_generate_creates_new_embedding(
         self,
         mock_get_model,
@@ -250,7 +250,7 @@ class TestEmbeddingGenerator:
         assert embedding.dimension == 768
         assert len(embedding.embedding) == 768
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     def test_generate_with_entity_provided(
         self,
         mock_get_model,
@@ -279,7 +279,7 @@ class TestEmbeddingGenerator:
         assert result["status"] == "success"
         assert "embedding_id" in result
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     def test_generate_returns_existing_embedding(
         self,
         mock_get_model,
@@ -315,7 +315,7 @@ class TestEmbeddingGenerator:
         assert result1["embedding_id"] == result2["embedding_id"]
         assert mock_embedder.generate.call_count == 1
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     def test_generate_marks_old_embeddings_stale(
         self,
         mock_get_model,
@@ -368,9 +368,10 @@ class TestEmbeddingGenerator:
         self, test_db, test_org_id, authenticated_user_id, embedding_model, db_status
     ):
         """Test error when entity doesn't support embedding."""
+        import uuid
         user = models.User(
             name="Test User",
-            email="test@example.com",
+            email=f"test_{uuid.uuid4()}@example.com",
             organization_id=test_org_id,
         )
         test_db.add(user)
@@ -403,7 +404,7 @@ class TestEmbeddingGenerator:
                 model_id="00000000-0000-0000-0000-000000000000",
             )
 
-    @patch("rhesis.backend.app.services.embedding.generator.get_embedding_model")
+    @patch("rhesis.sdk.models.factory.get_embedding_model")
     def test_generate_different_dimensions(
         self,
         mock_get_model,
