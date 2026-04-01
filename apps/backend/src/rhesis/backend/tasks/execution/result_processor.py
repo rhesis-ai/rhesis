@@ -433,6 +433,20 @@ class TestRunProcessor:
         Returns:
             Dictionary containing test execution summary
         """
+        # Never overwrite a terminal Cancelled status.  This guards against
+        # a race where collect_results is dispatched just before or during
+        # cancellation and would otherwise set the status to Failed/Completed.
+        current_status = test_run.status.name if test_run.status else None
+        if current_status == RunStatus.CANCELLED.value:
+            self.logger_func(
+                "info",
+                f"Test run {test_run_id} is already Cancelled — skipping status update",
+            )
+            return build_summary_data(
+                test_run_id, "cancelled", "Cancelled",
+                0, 0, 0, 0, None, "", "", "", "", completion_time,
+            )
+
         # Calculate test statistics using SQL aggregation
         total_tests, tests_passed, tests_failed, execution_errors = get_test_statistics(
             test_run, db

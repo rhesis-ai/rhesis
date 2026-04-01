@@ -51,6 +51,8 @@ class ExecutionContext:
     invoke_max_attempts: int = DEFAULT_INVOKE_MAX_ATTEMPTS
     invoke_retry_min_wait: float = DEFAULT_INVOKE_RETRY_MIN_WAIT
     invoke_retry_max_wait: float = DEFAULT_INVOKE_RETRY_MAX_WAIT
+    # Celery task ID for cooperative cancellation checks inside the async loop.
+    celery_task_id: Optional[str] = None
 
 
 def prefetch_execution_context(

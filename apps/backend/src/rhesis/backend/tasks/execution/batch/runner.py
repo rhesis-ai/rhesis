@@ -18,6 +18,56 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Cooperative cancellation helper
+# ---------------------------------------------------------------------------
+
+
+def _is_task_revoked(task_id: str | None) -> bool:
+    """Return True if the Celery task has been revoked.
+
+    Checks the worker-process in-memory revoke set — a pure dict lookup with
+    no I/O.  Safe to call from any thread or coroutine running inside the
+    worker.  Returns False if called outside a worker (e.g. in tests).
+    """
+    if not task_id:
+        return False
+    try:
+        from celery.worker.state import revoked as _revoked  # noqa: PLC0415
+
+        return task_id in _revoked
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Cancellation watchdog
+# ---------------------------------------------------------------------------
+
+
+async def _cancellation_watchdog(
+    task_id: str | None,
+    tasks: List[asyncio.Task],
+    poll_interval: float = 1.0,
+) -> None:
+    """Poll the Celery revoke set and cancel all batch tasks when triggered.
+
+    Runs as a sibling asyncio Task alongside the test fan-out.  When the
+    Celery task is revoked, each test Task receives a CancelledError at its
+    next await point (i.e. mid HTTP call, mid metric evaluation, etc.).
+    The watchdog exits as soon as it fires or is itself cancelled by run_batch
+    after the tests finish naturally.
+    """
+    while True:
+        await asyncio.sleep(poll_interval)
+        if _is_task_revoked(task_id):
+            pending = [t for t in tasks if not t.done()]
+            logger.info(f"[BATCH] Revoke detected — cancelling {len(pending)} in-flight tasks")
+            for t in pending:
+                t.cancel()
+            return
+
+
+# ---------------------------------------------------------------------------
 # Top-level batch runner
 # ---------------------------------------------------------------------------
 
@@ -33,8 +83,7 @@ async def run_batch(
     # per-test state is created fresh inside a_execute_test).
     penelope_agent = None
     has_multi_turn = any(
-        is_multi_turn_test(ctx.test_data.get(tid, {}).get("test"))
-        for tid in test_ids
+        is_multi_turn_test(ctx.test_data.get(tid, {}).get("test")) for tid in test_ids
     )
     if has_multi_turn:
         from rhesis.penelope import PenelopeAgent
@@ -55,24 +104,39 @@ async def run_batch(
             connector_metric_sender=ctx.connector_metric_sender,
         )
 
-    coros = [
-        _execute_single_test(ctx, test_id, semaphore, penelope_agent, evaluator)
+    tasks = [
+        asyncio.create_task(
+            _execute_single_test(ctx, test_id, semaphore, penelope_agent, evaluator)
+        )
         for test_id in test_ids
     ]
 
-    results = await asyncio.gather(*coros, return_exceptions=True)
+    watchdog = asyncio.create_task(_cancellation_watchdog(ctx.celery_task_id, tasks))
+
+    try:
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+    finally:
+        watchdog.cancel()
+        await asyncio.gather(watchdog, return_exceptions=True)
 
     final_results: List[Dict[str, Any]] = []
     for test_id, result in zip(test_ids, results):
-        if isinstance(result, Exception):
+        if isinstance(result, asyncio.CancelledError):
+            logger.info(f"[BATCH] Test {test_id} cancelled mid-flight")
+            final_results.append(
+                {"test_id": test_id, "status": "cancelled", "execution_time": 0}
+            )
+        elif isinstance(result, Exception):
             logger.error(f"[BATCH] Test {test_id} raised exception: {result}")
-            final_results.append({
-                "test_id": test_id,
-                "status": "failed",
-                "error": str(result),
-                "execution_time": 0,
-                "exception_type": type(result).__name__,
-            })
+            final_results.append(
+                {
+                    "test_id": test_id,
+                    "status": "failed",
+                    "error": str(result),
+                    "execution_time": 0,
+                    "exception_type": type(result).__name__,
+                }
+            )
         else:
             final_results.append(result)
 
@@ -82,6 +146,7 @@ async def run_batch(
 # ---------------------------------------------------------------------------
 # Per-test coroutine
 # ---------------------------------------------------------------------------
+
 
 async def _execute_single_test(
     ctx: ExecutionContext,
@@ -127,17 +192,21 @@ async def _execute_single_test(
             # --- Run the test ---
             try:
                 coro = run_test(
-                    ctx, test, test_id, prompt_content, test_execution_context,
-                    is_multi_turn, deferred_traces, penelope_agent,
+                    ctx,
+                    test,
+                    test_id,
+                    prompt_content,
+                    test_execution_context,
+                    is_multi_turn,
+                    deferred_traces,
+                    penelope_agent,
                 )
                 result = await asyncio.wait_for(coro, timeout=ctx.per_test_timeout)
                 output = result.get("output", {})
                 penelope_metrics = result.get("penelope_metrics", {})
                 deferred_traces = result.get("deferred_traces", deferred_traces)
             except asyncio.TimeoutError:
-                logger.error(
-                    f"[BATCH] Test {test_id} timed out after {ctx.per_test_timeout}s"
-                )
+                logger.error(f"[BATCH] Test {test_id} timed out after {ctx.per_test_timeout}s")
                 return {
                     "test_id": test_id,
                     "status": "failed",
@@ -158,9 +227,15 @@ async def _execute_single_test(
             metrics_results = dict(penelope_metrics)
             if evaluator and ctx.metric_configs:
                 metrics_results = await evaluate_metrics(
-                    ctx, evaluator, test, test_id, output,
-                    prompt_content, expected_response,
-                    is_multi_turn, penelope_metrics,
+                    ctx,
+                    evaluator,
+                    test,
+                    test_id,
+                    output,
+                    prompt_content,
+                    expected_response,
+                    is_multi_turn,
+                    penelope_metrics,
                 )
 
             execution_time = (time.monotonic() - start_time) * 1000
@@ -171,13 +246,17 @@ async def _execute_single_test(
 
                 await asyncio.to_thread(
                     persist_result,
-                    ctx, test_id, test, output, metrics_results,
-                    deferred_traces, execution_time, is_multi_turn,
+                    ctx,
+                    test_id,
+                    test,
+                    output,
+                    metrics_results,
+                    deferred_traces,
+                    execution_time,
+                    is_multi_turn,
                 )
             except Exception as e:
-                logger.error(
-                    f"[BATCH] Persist failed for {test_id}: {e}", exc_info=True
-                )
+                logger.error(f"[BATCH] Persist failed for {test_id}: {e}", exc_info=True)
                 return {
                     "test_id": test_id,
                     "status": "failed",

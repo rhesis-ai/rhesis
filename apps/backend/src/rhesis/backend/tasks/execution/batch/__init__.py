@@ -85,6 +85,8 @@ def execute_tests_as_batch(
         reference_test_run_id=reference_test_run_id,
         trace_id=trace_id,
     )
+    # Capture the Celery task ID for cooperative cancellation in the async loop.
+    ctx.celery_task_id = (test_run.attributes or {}).get("task_id")
 
     # Flush any pending writes (e.g. auth token refresh) and release the DB
     # connection back to the pool.  All needed data lives in ctx (models are
@@ -118,7 +120,12 @@ def execute_tests_as_batch(
         test_run_id=str(test_run.id),
     )
 
-    trigger_results_collection(test_config, str(test_run.id), results)
+    # Skip results collection if the entire run was cancelled — there are no
+    # persisted test results to aggregate and calling collect_results would
+    # erroneously overwrite the Cancelled status (total_tests == 0 -> FAILED).
+    all_cancelled = results and all(r.get("status") == "cancelled" for r in results)
+    if not all_cancelled:
+        trigger_results_collection(test_config, str(test_run.id), results)
 
     return create_execution_result(
         test_run, test_config, total_tests, ExecutionMode.PARALLEL,
