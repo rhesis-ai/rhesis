@@ -11,6 +11,11 @@ TURN_CONTEXT_KEY = "context"
 TURN_METADATA_KEY = "metadata"
 TURN_TOOL_CALLS_KEY = "tool_calls"
 
+# Metric class names that Penelope evaluates internally.
+# These must be excluded from the post-execution metric pass to avoid
+# double-counting.
+PENELOPE_EVALUATED_METRICS = frozenset({"GoalAchievementJudge"})
+
 # Canonical definition lives in schemas.metric; re-export for convenience.
 from rhesis.backend.app.schemas.metric import MetricScope
 
@@ -21,5 +26,6 @@ __all__ = [
     "TURN_CONTEXT_KEY",
     "TURN_METADATA_KEY",
     "TURN_TOOL_CALLS_KEY",
+    "PENELOPE_EVALUATED_METRICS",
     "MetricScope",
 ]

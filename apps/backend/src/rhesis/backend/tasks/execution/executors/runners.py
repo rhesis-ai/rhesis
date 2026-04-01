@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.metrics.evaluator import MetricEvaluator
-from rhesis.backend.tasks.execution.constants import MetricScope
+from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
 from rhesis.backend.tasks.execution.evaluation import (
     evaluate_multi_turn_metrics,
     evaluate_single_turn_metrics,
@@ -373,7 +373,7 @@ class MultiTurnRunner(BaseRunner):
                 model=model,
                 test_set=test_set,
                 test_configuration=test_configuration,
-                exclude_class_names={"GoalAchievementJudge"},
+                exclude_class_names=PENELOPE_EVALUATED_METRICS,
                 project_id=ep_project_id,
                 environment=ep_environment,
             )

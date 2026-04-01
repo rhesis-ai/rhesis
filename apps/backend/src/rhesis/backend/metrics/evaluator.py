@@ -78,6 +78,18 @@ class MetricEvaluator:
             for strategy in extra_strategies:
                 self._strategies[strategy.backend_value()] = strategy
 
+    @staticmethod
+    def _group_by_backend(
+        metric_configs: List[MetricConfig],
+    ) -> "Dict[str, List[MetricConfig]]":
+        """Group validated MetricConfig objects by their backend identifier."""
+        groups: Dict[str, List[MetricConfig]] = {}
+        for config in metric_configs:
+            raw = getattr(config.backend, "value", config.backend)
+            backend_val: str = raw if isinstance(raw, str) else "__local__"
+            groups.setdefault(backend_val, []).append(config)
+        return groups
+
     def evaluate(
         self,
         input_text: str,
@@ -125,11 +137,7 @@ class MetricEvaluator:
             return {}
 
         # Step 2: group configs by backend
-        configs_by_backend: Dict[str, List[MetricConfig]] = {}
-        for config in metric_configs:
-            raw = getattr(config.backend, "value", config.backend)
-            backend_val: str = raw if isinstance(raw, str) else "__local__"
-            configs_by_backend.setdefault(backend_val, []).append(config)
+        configs_by_backend = self._group_by_backend(metric_configs)
 
         # Step 3: dispatch each group to the matching strategy
         results: Dict[str, Any] = {}
@@ -175,11 +183,7 @@ class MetricEvaluator:
             logger.warning("No valid metrics found after parsing (async)")
             return invalid_metric_results or {}
 
-        configs_by_backend: Dict[str, List[MetricConfig]] = {}
-        for config in metric_configs:
-            raw = getattr(config.backend, "value", config.backend)
-            backend_val: str = raw if isinstance(raw, str) else "__local__"
-            configs_by_backend.setdefault(backend_val, []).append(config)
+        configs_by_backend = self._group_by_backend(metric_configs)
 
         async def _run_backend(backend_val: str, backend_configs: list) -> Dict[str, Any]:
             strategy = self._strategies.get(backend_val, self._local_strategy)

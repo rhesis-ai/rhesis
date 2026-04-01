@@ -184,6 +184,35 @@ class BackendEndpointTarget(Target):
 
         return True, None
 
+    # ------------------------------------------------------------------
+    # Shared helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _validate_message(message: str) -> Optional["TargetResponse"]:
+        """Return an error TargetResponse if the message is invalid, else None."""
+        if not message or not message.strip():
+            return TargetResponse(success=False, content="", error="Message cannot be empty")
+        if len(message) > 10000:
+            return TargetResponse(
+                success=False,
+                content="",
+                error="Message too long (max 10000 characters)",
+            )
+        return None
+
+    @staticmethod
+    def _extract_response_metadata(response_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract optional fields (metadata, context, tool_calls) from a response dict."""
+        metadata: Dict[str, Any] = {}
+        if response_data.get("metadata") is not None:
+            metadata["endpoint_metadata"] = response_data["metadata"]
+        if response_data.get("context"):
+            metadata["context"] = response_data["context"]
+        if response_data.get("tool_calls"):
+            metadata["tool_calls"] = response_data["tool_calls"]
+        return metadata
+
     def send_message(
         self,
         message: str,
@@ -209,20 +238,9 @@ class BackendEndpointTarget(Target):
         Returns:
             TargetResponse with the endpoint's response and conversation_id
         """
-        # Validate input
-        if not message or not message.strip():
-            return TargetResponse(
-                success=False,
-                content="",
-                error="Message cannot be empty",
-            )
-
-        if len(message) > 10000:
-            return TargetResponse(
-                success=False,
-                content="",
-                error="Message too long (max 10000 characters)",
-            )
+        err = self._validate_message(message)
+        if err:
+            return err
 
         try:
             # Prepare input data -- same shape for stateless and stateful
@@ -288,16 +306,8 @@ class BackendEndpointTarget(Target):
                 "message_sent": message,
                 "input_conversation_id": conversation_id,
                 "extracted_conversation_id": response_conversation_id,
+                **self._extract_response_metadata(response_data),
             }
-
-            if "metadata" in response_data and response_data["metadata"] is not None:
-                response_metadata["endpoint_metadata"] = response_data["metadata"]
-
-            if "context" in response_data and response_data["context"]:
-                response_metadata["context"] = response_data["context"]
-
-            if "tool_calls" in response_data and response_data["tool_calls"]:
-                response_metadata["tool_calls"] = response_data["tool_calls"]
 
             logger.debug(
                 "BackendEndpointTarget received response from %s, response_len=%d",
@@ -343,19 +353,9 @@ class BackendEndpointTarget(Target):
         Uses pre-fetched endpoint and deferred tracing. Trace_ids are tracked
         as instance state across turns for multi-turn conversations.
         """
-        if not message or not message.strip():
-            return TargetResponse(
-                success=False,
-                content="",
-                error="Message cannot be empty",
-            )
-
-        if len(message) > 10000:
-            return TargetResponse(
-                success=False,
-                content="",
-                error="Message too long (max 10000 characters)",
-            )
+        err = self._validate_message(message)
+        if err:
+            return err
 
         try:
             input_data: Dict[str, Any] = {"input": message}
@@ -416,14 +416,7 @@ class BackendEndpointTarget(Target):
             if not response_conversation_id:
                 response_conversation_id = conversation_id
 
-            response_metadata: Dict[str, Any] = {}
-
-            if "metadata" in response_data and response_data["metadata"] is not None:
-                response_metadata["endpoint_metadata"] = response_data["metadata"]
-            if "context" in response_data and response_data["context"]:
-                response_metadata["context"] = response_data["context"]
-            if "tool_calls" in response_data and response_data["tool_calls"]:
-                response_metadata["tool_calls"] = response_data["tool_calls"]
+            response_metadata = self._extract_response_metadata(response_data)
 
             return TargetResponse(
                 success=True,

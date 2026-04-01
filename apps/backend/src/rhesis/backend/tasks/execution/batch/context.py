@@ -179,29 +179,19 @@ def prefetch_execution_context(
     except Exception as e:
         logger.warning(f"Failed to build connector metric sender: {e}")
 
-    # Read concurrency config
-    batch_concurrency = DEFAULT_BATCH_CONCURRENCY
-    if test_config.attributes:
-        batch_concurrency = test_config.attributes.get("batch_concurrency", batch_concurrency)
-    batch_concurrency = int(os.environ.get("BATCH_CONCURRENCY", batch_concurrency))
+    # Read concurrency / retry config from test_config.attributes with env override.
+    attrs = test_config.attributes or {}
 
-    per_test_timeout = DEFAULT_PER_TEST_TIMEOUT
-    if test_config.attributes:
-        per_test_timeout = test_config.attributes.get("per_test_timeout", per_test_timeout)
-
-    invoke_max_attempts = DEFAULT_INVOKE_MAX_ATTEMPTS
-    invoke_retry_min_wait = DEFAULT_INVOKE_RETRY_MIN_WAIT
-    invoke_retry_max_wait = DEFAULT_INVOKE_RETRY_MAX_WAIT
-    if test_config.attributes:
-        invoke_max_attempts = int(
-            test_config.attributes.get("invoke_max_attempts", invoke_max_attempts)
+    batch_concurrency = int(
+        os.environ.get(
+            "BATCH_CONCURRENCY",
+            attrs.get("batch_concurrency", DEFAULT_BATCH_CONCURRENCY),
         )
-        invoke_retry_min_wait = float(
-            test_config.attributes.get("invoke_retry_min_wait", invoke_retry_min_wait)
-        )
-        invoke_retry_max_wait = float(
-            test_config.attributes.get("invoke_retry_max_wait", invoke_retry_max_wait)
-        )
+    )
+    per_test_timeout = attrs.get("per_test_timeout", DEFAULT_PER_TEST_TIMEOUT)
+    invoke_max_attempts = int(attrs.get("invoke_max_attempts", DEFAULT_INVOKE_MAX_ATTEMPTS))
+    invoke_retry_min_wait = float(attrs.get("invoke_retry_min_wait", DEFAULT_INVOKE_RETRY_MIN_WAIT))
+    invoke_retry_max_wait = float(attrs.get("invoke_retry_max_wait", DEFAULT_INVOKE_RETRY_MAX_WAIT))
 
     # Expunge models for safe cross-context use
     session.expunge(endpoint)

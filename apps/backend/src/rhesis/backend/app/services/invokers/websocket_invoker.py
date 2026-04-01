@@ -20,9 +20,6 @@ logger = logging.getLogger(__name__)
 class WebSocketEndpointInvoker(BaseEndpointInvoker):
     """WebSocket endpoint invoker with support for different auth types."""
 
-    # WebSocket endpoints do not automatically generate traces
-    automatic_tracing: bool = False
-
     def __init__(self, context: "InvocationContext"):
         super().__init__(context)
 

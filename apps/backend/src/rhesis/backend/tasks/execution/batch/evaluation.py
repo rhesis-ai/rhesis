@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.tasks.execution.batch.context import ExecutionContext
+from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ async def _evaluate_multi_turn_metrics(
     goal = test_config_data.get("goal", "")
 
     filtered_configs = [
-        mc for mc in ctx.metric_configs if mc.class_name != "GoalAchievementJudge"
+        mc for mc in ctx.metric_configs if mc.class_name not in PENELOPE_EVALUATED_METRICS
     ]
 
     if not filtered_configs:
