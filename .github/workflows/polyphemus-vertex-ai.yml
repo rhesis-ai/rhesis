@@ -41,6 +41,13 @@ on:
           - auto
           - outlines
           #- lm-format-enforcer
+      vllm_logging_level:
+        description: >
+          vLLM log level inside the Vertex serving container (e.g. DEBUG).
+          Empty uses repo variable VLLM_LOGGING_LEVEL if set, else vLLM default.
+        required: false
+        default: ''
+        type: string
 
 env:
   SA_KEY_PATH: 'gcp-sa-key.json'
@@ -141,6 +148,14 @@ jobs:
             echo "ACCELERATOR_COUNT=${{ secrets.ACCELERATOR_COUNT }}" >> $GITHUB_ENV
           fi
 
+          # vLLM logs in Cloud Logging (Vertex endpoint replica / container logs)
+          VLLM_LVL="${{ github.event.inputs.vllm_logging_level || '' }}"
+          if [ -n "$VLLM_LVL" ]; then
+            echo "VLLM_LOGGING_LEVEL=$VLLM_LVL" >> $GITHUB_ENV
+          elif [ -n "${{ vars.VLLM_LOGGING_LEVEL }}" ]; then
+            echo "VLLM_LOGGING_LEVEL=${{ vars.VLLM_LOGGING_LEVEL }}" >> $GITHUB_ENV
+          fi
+
       - name: Build deployment arguments
         id: build_args
         run: |
@@ -177,6 +192,7 @@ jobs:
           echo "Project: ${{ env.GCP_PROJECT_ID }}"
           echo "Region: ${{ env.GCP_REGION }}"
           echo "Arguments: ${{ env.DEPLOY_ARGS }}"
+          echo "VLLM_LOGGING_LEVEL (serving container): ${VLLM_LOGGING_LEVEL:-<unset>}"
           
           uv run python -m model_deployment.deploy ${{ env.DEPLOY_ARGS }}
 
@@ -197,6 +213,7 @@ jobs:
           - **Enable LoRA**: \`${{ github.event.inputs.enable_lora || 'false' }}\`
           - **Enforce Eager**: \`${{ github.event.inputs.enforce_eager || 'false' }}\`
           - **Guided Decoding Backend**: \`${{ github.event.inputs.guided_decoding_backend || 'auto' }}\`
+          - **VLLM_LOGGING_LEVEL** (Vertex container): \`${{ env.VLLM_LOGGING_LEVEL || 'unset (vLLM default)' }}\`
           
           ## Model Loading
           Models can be loaded from:
