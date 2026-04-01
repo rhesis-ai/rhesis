@@ -2,10 +2,10 @@ import asyncio
 import json
 import logging
 import random
-import re
 from typing import Any, Dict, List, Optional
 
 import anyio
+from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -19,6 +19,29 @@ from .evaluation import (
 from .utils import _build_eligible_tests, _get_test_set_tests_from_db
 
 logger = logging.getLogger(__name__)
+
+
+class _GeneratedTestSuggestionItem(BaseModel):
+    """One LLM-generated test input (shape enforced via structured output)."""
+
+    input: str = Field(..., min_length=1, description="A new diverse test input text")
+
+
+def _suggestions_response_model(num_suggestions: int) -> type[BaseModel]:
+    """Response type requiring exactly ``num_suggestions`` items."""
+    return create_model(
+        "GeneratedTestSuggestionsResponse",
+        __base__=BaseModel,
+        suggestions=(
+            list[_GeneratedTestSuggestionItem],
+            Field(
+                ...,
+                min_length=num_suggestions,
+                max_length=num_suggestions,
+                description="New test inputs; count must match the requested number.",
+            ),
+        ),
+    )
 
 
 def _get_generation_model(db: Session, user_id: str):
@@ -78,27 +101,11 @@ def _build_suggestion_prompt(
         lines.append(f"\nAdditional guidance from the user:\n{user_feedback}\n")
 
     lines.append(
-        f"\nGenerate exactly {num_suggestions} new, diverse test inputs. "
-        "Each test input should be on its own line, "
-        "prefixed with its number (e.g. '1. ...'). "
-        "Output only the numbered list, nothing else."
+        f"\nProduce exactly {num_suggestions} new, diverse test inputs. "
+        "Each must be a distinct scenario or phrasing."
     )
 
     return "\n".join(lines)
-
-
-def _parse_suggestions(raw_text: str, topic: str) -> List[Dict[str, str]]:
-    """Parse LLM output into individual suggestion dicts."""
-    suggestions: List[Dict[str, str]] = []
-    for line in raw_text.strip().splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        cleaned = re.sub(r"^\d+[\.\)]\s*", "", line).strip()
-        if not cleaned:
-            continue
-        suggestions.append({"topic": topic or "", "input": cleaned})
-    return suggestions
 
 
 def generate_suggestions(
@@ -174,14 +181,22 @@ def generate_suggestions(
     )
 
     model = _resolve_llm_model(_get_generation_model(db, user_id))
+    response_model = _suggestions_response_model(num_suggestions)
+    topic_value = topic or ""
 
     try:
-        raw_output = model.generate(prompt=prompt_text)
+        raw_output = model.generate(prompt=prompt_text, schema=response_model)
     except Exception as e:
         logger.error(f"LLM generation failed: {e}", exc_info=True)
         raise ValueError(f"LLM generation failed: {e}") from e
 
-    suggestions = _parse_suggestions(raw_output, topic or "")
+    if not isinstance(raw_output, dict):
+        raise ValueError("LLM returned unexpected response type (expected structured object)")
+
+    rows = raw_output.get("suggestions") or []
+    suggestions = [
+        {"topic": topic_value, "input": str(row.get("input", "")).strip()} for row in rows
+    ]
 
     logger.info(
         f"Generated {len(suggestions)} suggestions for "
@@ -193,92 +208,6 @@ def generate_suggestions(
         "suggestions": suggestions,
         "num_examples_used": sample_size,
     }
-
-
-async def invoke_endpoint_for_suggestions(
-    db: Session,
-    endpoint_id: str,
-    inputs: List[Dict[str, str]],
-    organization_id: str,
-    user_id: str,
-) -> Dict[str, Any]:
-    """Invoke an endpoint for non-persisted suggestion inputs.
-
-    Similar to generate_outputs_for_tests but operates on raw
-    input strings and does not persist results to the database.
-
-    Parameters
-    ----------
-    db : Session
-        Database session
-    endpoint_id : str
-        Endpoint UUID to invoke
-    inputs : list of dict
-        Each dict has 'input' (str) and optionally 'topic' (str)
-    organization_id : str
-        Organization ID for tenant isolation
-    user_id : str
-        User ID for tenant isolation
-
-    Returns
-    -------
-    dict
-        - generated: count of successful invocations
-        - results: list of {input, output, error}
-    """
-    from rhesis.backend.app.database import (
-        get_db_with_tenant_variables,
-    )
-    from rhesis.backend.app.dependencies import get_endpoint_service
-    from rhesis.backend.tasks.execution.executors.results import (
-        process_endpoint_result,
-    )
-
-    svc = get_endpoint_service()
-    semaphore = asyncio.Semaphore(10)
-
-    async def _invoke_one(
-        input_text: str,
-    ) -> tuple:
-        async with semaphore:
-            try:
-                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
-                    result = await svc.invoke_endpoint(
-                        db=task_db,
-                        endpoint_id=endpoint_id,
-                        input_data={"input": input_text},
-                        organization_id=organization_id,
-                        user_id=user_id,
-                    )
-                processed = process_endpoint_result(result)
-                output = (processed.get("output") or "").strip() or "[no output]"
-                return (input_text, output, None)
-            except Exception as e:  # noqa: BLE001
-                logger.warning(f"Suggestion output generation failed: {e}")
-                return (input_text, "", str(e))
-
-    tasks = [_invoke_one(item["input"]) for item in inputs]
-    raw_results = await asyncio.gather(*tasks)
-
-    results = []
-    generated = 0
-    for input_text, output, error in raw_results:
-        results.append(
-            {
-                "input": input_text,
-                "output": output,
-                "error": error,
-            }
-        )
-        if error is None:
-            generated += 1
-
-    logger.info(
-        f"Suggestion outputs: endpoint={endpoint_id}, "
-        f"generated={generated}, failed={len(inputs) - generated}"
-    )
-
-    return {"generated": generated, "results": results}
 
 
 async def invoke_endpoint_for_suggestions_stream(
@@ -349,122 +278,6 @@ async def invoke_endpoint_for_suggestions_stream(
 
     summary = {"type": "summary", "generated": generated, "total": total}
     yield (json.dumps(summary) + "\n").encode("utf-8")
-
-
-async def evaluate_suggestions(
-    db: Session,
-    organization_id: str,
-    user_id: str,
-    metric_names: List[str],
-    suggestions: List[Dict[str, str]],
-) -> Dict[str, Any]:
-    """Evaluate non-persisted suggestion input/output pairs.
-
-    Uses SDK metric instances directly via ``a_evaluate`` and processes
-    up to ``_EVAL_MAX_CONCURRENCY`` suggestions concurrently.
-
-    Parameters
-    ----------
-    db : Session
-        Database session
-    organization_id : str
-        Organization ID for tenant isolation
-    user_id : str
-        User ID for tenant isolation
-    metric_names : list of str
-        Metric names to evaluate
-    suggestions : list of dict
-        Each dict has 'input' and 'output' strings
-
-    Returns
-    -------
-    dict
-        - evaluated: count of successful evaluations
-        - results: list of {input, label, labeler, model_score, metrics?, error}
-    """
-    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
-
-    async def _evaluate_item(item: Dict[str, str]) -> Dict[str, Any]:
-        input_text = item["input"]
-        output_text = item["output"]
-
-        if not output_text or output_text == "[no output]":
-            return {
-                "input": input_text,
-                "label": "",
-                "labeler": "",
-                "model_score": 0.0,
-                "error": "no output to evaluate",
-            }
-
-        try:
-            metric_results = await _run_metrics_on_text(sdk_metrics, input_text, output_text)
-
-            valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
-
-            if not valid:
-                return {
-                    "input": input_text,
-                    "label": "",
-                    "labeler": "",
-                    "model_score": 0.0,
-                    "error": "no metric results",
-                }
-
-            all_passed = all(v.get("is_successful", False) for v in valid.values())
-            label = "pass" if all_passed else "fail"
-            labeler = ", ".join(metric_names)
-            scores = [v.get("score", 0.0) for v in valid.values()]
-            score = sum(scores) / len(scores) if scores else 0.0
-
-            metrics_summary = build_metrics_summary_for_response(valid)
-            logger.debug(
-                "Suggestion evaluation: %s",
-                {
-                    "input": input_text,
-                    "output": output_text,
-                    "metrics": metrics_summary,
-                },
-            )
-
-            return {
-                "input": input_text,
-                "label": label,
-                "labeler": labeler,
-                "model_score": score,
-                "metrics": metrics_summary,
-                "error": None,
-            }
-
-        except Exception as e:
-            logger.warning(
-                f"Suggestion evaluation failed: {e}",
-                exc_info=True,
-            )
-            return {
-                "input": input_text,
-                "label": "error",
-                "labeler": ", ".join(metric_names),
-                "model_score": 0.0,
-                "error": str(e),
-            }
-
-    semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
-
-    async def _bounded(item):
-        async with semaphore:
-            return await _evaluate_item(item)
-
-    all_results = list(await asyncio.gather(*(_bounded(s) for s in suggestions)))
-
-    evaluated = sum(1 for r in all_results if r.get("label") in ("pass", "fail"))
-
-    logger.info(
-        f"Suggestion evaluation: metrics={metric_names!r}, "
-        f"evaluated={evaluated}, total={len(suggestions)}"
-    )
-
-    return {"evaluated": evaluated, "results": all_results}
 
 
 async def evaluate_suggestions_stream(
