@@ -27,6 +27,8 @@ The following are the target fields that the source columns should map to:
 - **restrictions**: Forbidden behaviors for the target system (optional)
 - **scenario**: Contextual framing for the test (optional)
 - **test_configuration**: Alternative to separate fields - a nested object with goal, instructions, restrictions, scenario
+- **max_turns**: Maximum number of conversation turns. A column named "Turn Config", "Turns", "Num Turns", or similar that contains a single integer should be mapped here — the system will automatically use the same value for min_turns as well.
+- **min_turns**: Minimum number of conversation turns. Only map here if the column explicitly represents a minimum (e.g. "Min Turns"). If the source has a range like "2-5", still map to max_turns — the system parses the range automatically.
 
 ## Source File Headers
 
@@ -51,7 +53,8 @@ Row {{ loop.index }}:
 3. If a target field has no matching source column, omit it.
 4. Consider the actual data values (not just column names) when making mapping decisions.
 5. For multi-turn tests, map goal/instructions/restrictions/scenario if present as separate columns.
-6. Return your confidence (0.0-1.0) in the overall mapping quality.
+6. For turn count columns (e.g. "Turn Config", "Turns", "Num Turns"), map to max_turns. The system will derive min_turns automatically.
+7. Return your confidence (0.0-1.0) in the overall mapping quality.
 
 ## Important Notes
 
