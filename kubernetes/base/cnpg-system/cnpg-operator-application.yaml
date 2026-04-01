@@ -24,3 +24,6 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=false
+      # CNPG CRDs (especially poolers.postgresql.cnpg.io) exceed client-side apply
+      # annotation limits; SSA is required for Argo CD. See cloudnative-pg/charts#544.
+      - ServerSideApply=true
