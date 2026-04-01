@@ -3,7 +3,6 @@ This module contains the main entry point for test configuration execution,
 with detailed implementation in the execution/ directory modules.
 """
 
-from datetime import datetime
 from uuid import UUID
 
 from rhesis.backend.app import crud
@@ -80,10 +79,26 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
                 if test_run is None:
                     raise ValueError(f"Test run {test_run_id} not found")
 
-                # Transition Queued -> Progress and record task_id
-                test_run.attributes = test_run.attributes or {}
+                # The run may have been cancelled while sitting in the queue.
+                # Bail out immediately so we don't overwrite the Cancelled status.
+                current_status = test_run.status.name if test_run.status else None
+                if current_status == RunStatus.CANCELLED.value:
+                    self.log_with_context(
+                        "info",
+                        f"Test run {test_run_id} was cancelled before execution started, skipping",
+                    )
+                    return create_task_result(
+                        self.request.id,
+                        test_configuration_id,
+                        test_run_id=test_run_id,
+                        status="cancelled",
+                    )
+
+                # Transition Queued -> Progress.
+                # task_id was already embedded at dispatch time by the router;
+                # confirm it here as a no-op safety net.
+                test_run.attributes = dict(test_run.attributes or {})
                 test_run.attributes["task_id"] = self.request.id
-                test_run.attributes["started_at"] = datetime.utcnow().isoformat()
                 update_test_run_status(db, test_run, RunStatus.PROGRESS.value)
                 db.commit()
                 self.log_with_context(
