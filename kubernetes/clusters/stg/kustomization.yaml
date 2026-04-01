@@ -17,3 +17,4 @@ resources:
   - loki.yaml
   - alloy.yaml
   - grafana-resources.yaml
+  - cnpg-operator.yaml
