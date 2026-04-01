@@ -457,9 +457,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
             )
             logger.debug("VertexAI credentials pre-warmed (LiteLLM cache populated)")
         except Exception as e:
-            logger.warning(
-                f"VertexAI credential pre-warm failed (non-fatal, proceeding): {e}"
-            )
+            logger.warning(f"VertexAI credential pre-warm failed (non-fatal, proceeding): {e}")
 
     def __del__(self):
         """
