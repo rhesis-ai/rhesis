@@ -10,16 +10,16 @@ Runs after spans are stored in the database. Handles:
 import logging
 from typing import List, Optional
 
-from celery import shared_task
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.database import SessionLocal, set_session_variables
+from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+@app.task(bind=True, max_retries=3, default_retry_delay=30)
 def post_ingest_link(
     self,
     stored_span_ids: List[str],

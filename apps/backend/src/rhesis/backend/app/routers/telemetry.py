@@ -134,22 +134,31 @@ def ingest_trace(
             check_workers_available,
         )
 
+        _dispatched_async = False
         if check_workers_available():
             from rhesis.backend.tasks.telemetry.post_ingest import post_ingest_link
 
             first_span = stored_spans[0]
-            post_ingest_link.delay(
-                stored_span_ids=stored_span_ids,
-                unique_trace_ids=unique_trace_ids,
-                organization_id=organization_id,
-                project_id=str(project_id),
-                test_run_id=str(first_span.test_run_id) if first_span.test_run_id else None,
-                test_id=str(first_span.test_id) if first_span.test_id else None,
-                test_configuration_id=first_span.attributes.get(
-                    "rhesis.test.test_configuration_id"
-                ),
-            )
-        else:
+            try:
+                post_ingest_link.delay(
+                    stored_span_ids=stored_span_ids,
+                    unique_trace_ids=unique_trace_ids,
+                    organization_id=organization_id,
+                    project_id=str(project_id),
+                    test_run_id=str(first_span.test_run_id) if first_span.test_run_id else None,
+                    test_id=str(first_span.test_id) if first_span.test_id else None,
+                    test_configuration_id=first_span.attributes.get(
+                        "rhesis.test.test_configuration_id"
+                    ),
+                )
+                _dispatched_async = True
+            except Exception as broker_err:
+                logger.warning(
+                    f"Failed to dispatch post_ingest_link task for trace_id={trace_id} "
+                    f"(broker unavailable?): {broker_err}. Falling back to synchronous processing."
+                )
+
+        if not _dispatched_async:
             # Sync fallback: run linking in-request, enrichment via service
             from rhesis.backend.app.services.telemetry.conversation_linking import (
                 apply_pending_conversation_links,
