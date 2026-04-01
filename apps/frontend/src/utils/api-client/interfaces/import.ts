@@ -61,6 +61,10 @@ export interface ParseResponse {
   total_rows: number;
   validation_summary: ValidationSummary;
   preview: PreviewPage;
+  /** Present when the file content looks like a different test type than the user selected. */
+  test_type_warning?: string | null;
+  /** The test type detected from the file content (may differ from what the user selected). */
+  detected_test_type?: string | null;
 }
 
 // ── Confirm (Step 3) ──────────────────────────────────────────────
