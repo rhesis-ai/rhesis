@@ -127,11 +127,12 @@ def execute_tests_as_batch(
         test_run_id=str(test_run.id),
     )
 
-    # Skip results collection if the entire run was cancelled — there are no
-    # persisted test results to aggregate and calling collect_results would
-    # erroneously overwrite the Cancelled status (total_tests == 0 -> FAILED).
-    all_cancelled = results and all(r.get("status") == "cancelled" for r in results)
-    if not all_cancelled:
+    # Skip results collection if the entire run was cancelled or the batch was
+    # empty — there are no persisted test results to aggregate and calling
+    # collect_results would erroneously overwrite the Cancelled status
+    # (total_tests == 0 -> FAILED).
+    skip_collection = not results or all(r.get("status") == "cancelled" for r in results)
+    if not skip_collection:
         trigger_results_collection(test_config, str(test_run.id), results)
 
     return create_execution_result(

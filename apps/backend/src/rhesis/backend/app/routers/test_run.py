@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EnrichedDataKeys
-from rhesis.backend.tasks.enums import RunStatus
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -25,6 +24,7 @@ from rhesis.backend.app.services.test_run import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.tasks.enums import RunStatus
 
 # Create the detailed schema for TestRun
 TestRunDetailSchema = create_detailed_schema(
@@ -416,9 +416,11 @@ def cancel_test_run(
 ):
     """Cancel a queued or in-progress test run.
 
-    Revokes the underlying Celery task (SIGTERM) when a task_id is present in
-    the run's attributes, then immediately sets the status to Cancelled so the
-    caller sees the new state without waiting for the worker signal handler.
+    Adds the underlying Celery task to the broker's revoke set when a task_id
+    is present in the run's attributes (no signal is sent; the worker checks the
+    revoke set cooperatively via the cancellation watchdog).  The status is
+    immediately set to Cancelled so the caller sees the new state without
+    waiting for the worker to acknowledge.
     """
     from rhesis.backend.celery.core import app as celery_app
     from rhesis.backend.tasks.execution.run import update_test_run_status

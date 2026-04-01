@@ -16,9 +16,8 @@ from tenacity import (
 
 from rhesis.backend.app.models.endpoint import Endpoint
 
-from .base import BaseEndpointInvoker, ResponseMapper, TemplateRenderer
+from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
-from .context import InvocationContext
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +41,28 @@ def _get_http_client() -> httpx.AsyncClient:
         client = httpx.AsyncClient(timeout=_HTTP_TIMEOUT)
         _tls.http_client = client
     return client
+
+
+def _close_thread_local_client() -> None:
+    """Close the thread-local AsyncClient if one exists.
+
+    Called from the Celery worker-shutdown signal so sockets are released
+    cleanly rather than relying on process-exit garbage collection.
+    """
+    client: httpx.AsyncClient | None = getattr(_tls, "http_client", None)
+    if client is not None and not client.is_closed:
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(client.aclose())
+            else:
+                loop.run_until_complete(client.aclose())
+        except Exception:
+            pass
+        finally:
+            _tls.http_client = None
 
 
 class RestEndpointInvoker(BaseEndpointInvoker):

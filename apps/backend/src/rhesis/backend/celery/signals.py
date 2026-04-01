@@ -1,6 +1,6 @@
 import logging
 
-from celery.signals import task_failure, task_revoked
+from celery.signals import task_failure, task_revoked, worker_shutdown
 
 from rhesis.backend.tasks.enums import RunStatus
 
@@ -11,7 +11,6 @@ _EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.tasks.execute_test_configurat
 
 def _update_test_run_status(task_id: str, new_status: RunStatus, error_message: str = None):
     try:
-        from rhesis.backend.app import crud
         from rhesis.backend.app.database import SessionLocal, set_session_variables
         from rhesis.backend.tasks.execution.run import update_test_run_status
         from rhesis.backend.tasks.utils import get_test_run_by_task_id
@@ -64,6 +63,19 @@ def handle_task_failure(
         )
 
 
+@worker_shutdown.connect
+def handle_worker_shutdown(sender=None, **kw):
+    """Release thread-local httpx clients on clean worker shutdown."""
+    try:
+        from rhesis.backend.app.services.invokers.rest_invoker import (
+            _close_thread_local_client,
+        )
+
+        _close_thread_local_client()
+    except Exception as e:
+        logger.debug(f"Could not close thread-local HTTP client on shutdown: {e}")
+
+
 @task_revoked.connect
 def handle_task_revoked(sender=None, request=None, **kw):
     if request:
@@ -71,6 +83,7 @@ def handle_task_revoked(sender=None, request=None, **kw):
         task_name = request.task
         if task_name == _EXECUTE_TEST_CONFIGURATION_TASK:
             logger.info(
-                f"Task revoked caught for {task_name} (ID: {task_id}). Setting TestRun to Cancelled."
+                f"Task revoked caught for {task_name} (ID: {task_id}). "
+                f"Setting TestRun to Cancelled."
             )
             _update_test_run_status(task_id, RunStatus.CANCELLED)
