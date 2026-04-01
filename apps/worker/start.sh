@@ -11,8 +11,8 @@ echo "SQLALCHEMY_DATABASE_URL exists: $(if [ ! -z "$SQLALCHEMY_DATABASE_URL" ]; 
 echo "Worker environment: ${WORKER_ENV:-not_set}"
 echo "Git branch: ${GIT_BRANCH:-unknown}"
 echo "Git commit: ${GIT_COMMIT:-unknown}"
-echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
-echo "Celery worker max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500}"
+echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
+echo "Celery worker pool: threads"
 
 # Set log level based on worker environment
 if [ "${WORKER_ENV}" = "development" ]; then
@@ -258,16 +258,17 @@ WORKER_UUID=$(python3 -c "import uuid; print(str(uuid.uuid4())[:8])")
 export CELERY_WORKER_NAME="worker@$(hostname)-${WORKER_UUID}"
 echo "Worker context identifier: $CELERY_WORKER_NAME"
 
-# Build the complete command with memory optimizations
-# Uses prefork pool (default) with concurrency from CELERY_WORKER_CONCURRENCY.
-# -E enables events for worker discovery by backend enrichment service
-CELERY_CMD="celery -A rhesis.backend.worker.app worker --queues=celery,execution,telemetry --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-8} --max-tasks-per-child=${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500} --optimization=fair -E ${CELERY_WORKER_OPTS}"
+# Build the Celery worker command.
+# Uses the threads pool: no fork(), so no fork-safety issues with native
+# libraries (SSL, gRPC, Kerberos/CoreFoundation). Works well for I/O-bound
+# work (LLM API calls, DB queries). -E enables events for Flower/monitoring.
+CELERY_CMD="celery -A rhesis.backend.worker.app worker --pool threads --queues=celery,execution,telemetry --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --optimization=fair -E ${CELERY_WORKER_OPTS}"
 
 echo "Command: $CELERY_CMD"
 echo "Queues: celery,execution,telemetry"
-echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-8}"
+echo "Pool: threads"
+echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
 echo "Log level: ${CELERY_WORKER_LOGLEVEL}"
-echo "Max tasks per child: ${CELERY_WORKER_MAX_TASKS_PER_CHILD:-500}"
 echo "Additional opts: ${CELERY_WORKER_OPTS:-none}"
 
 # Run celery worker in background

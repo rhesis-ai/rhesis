@@ -94,6 +94,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: CELERY_WORKER_CONCURRENCY
+        - name: BATCH_CONCURRENCY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: BATCH_CONCURRENCY
         - name: GEMINI_API_KEY
           valueFrom:
             secretKeyRef:
@@ -225,7 +230,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: rhesis-worker-secrets
-              key: worker_env
+              key: WORKER_ENV
               optional: true
         # Storage service configuration
         - name: STORAGE_SERVICE_URI

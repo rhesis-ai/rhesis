@@ -17,6 +17,7 @@ import atexit
 import base64
 import hashlib
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -31,6 +32,8 @@ from rhesis.sdk.models.defaults import (
     model_name_from_id,
 )
 from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
+
+logger = logging.getLogger(__name__)
 
 # Track temp files created by this process for cleanup
 _temp_credential_files: Set[str] = set()
@@ -429,6 +432,34 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
             *args,
             **kwargs,
         )
+
+    async def warmup(self) -> None:
+        """Pre-warm LiteLLM's VertexAI credential cache before concurrent use.
+
+        LiteLLM's module-level ``vertex_chat_completion`` singleton fetches an OAuth
+        token on the first call via ``_ensure_access_token_async``.  Without a warm-up,
+        every coroutine in an ``asyncio.gather`` batch races to fetch the token
+        simultaneously, each spawning its own thread and making redundant HTTPS calls.
+
+        One sequential warm-up call here populates ``_credentials_project_mapping`` in
+        the singleton so every subsequent concurrent call returns the cached token
+        immediately.
+        """
+        try:
+            from litellm.main import vertex_chat_completion
+
+            credentials_path = self._ensure_credentials_file()
+            project = (self.model or {}).get("project")
+            await vertex_chat_completion._ensure_access_token_async(
+                credentials=credentials_path,
+                project_id=project,
+                custom_llm_provider="vertex_ai",
+            )
+            logger.debug("VertexAI credentials pre-warmed (LiteLLM cache populated)")
+        except Exception as e:
+            logger.warning(
+                f"VertexAI credential pre-warm failed (non-fatal, proceeding): {e}"
+            )
 
     def __del__(self):
         """
