@@ -176,7 +176,10 @@ async def run_batch(
 
     # Snapshot test data before the main pass so recovery rounds can restore it
     # for tests whose data was popped in the finally block of _execute_single_test.
+    # Also stored on ctx so execute_tests_as_batch can persist error records for
+    # tests that fail without ever writing a DB row.
     test_data_snapshot = dict(ctx.test_data)
+    ctx.test_data_snapshot = test_data_snapshot
 
     # --- Main pass ---
     results = await _run_gather(ctx, test_ids, semaphore, penelope_agent, evaluator)

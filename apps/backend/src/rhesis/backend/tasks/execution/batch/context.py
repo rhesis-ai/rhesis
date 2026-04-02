@@ -22,7 +22,7 @@ from rhesis.backend.app.models.test_set import TestSet
 logger = logging.getLogger(__name__)
 
 DEFAULT_BATCH_CONCURRENCY = 10
-DEFAULT_PER_TEST_TIMEOUT = 300
+DEFAULT_PER_TEST_TIMEOUT = 1800  # 30 min — accommodates multi-turn tests with slow endpoints
 DEFAULT_INVOKE_MAX_ATTEMPTS = 4
 DEFAULT_INVOKE_RETRY_MIN_WAIT = 1.0
 DEFAULT_INVOKE_RETRY_MAX_WAIT = 30.0
@@ -58,6 +58,9 @@ class ExecutionContext:
     celery_task_id: Optional[str] = None
     # How many recovery passes to run after the main batch (0 = no retries).
     recovery_rounds: int = DEFAULT_RECOVERY_ROUNDS
+    # Snapshot of test_data taken before the main pass, used to persist error
+    # records after the batch for tests that failed without a DB row.
+    test_data_snapshot: Dict[str, Any] = field(default_factory=dict)
 
 
 def prefetch_execution_context(

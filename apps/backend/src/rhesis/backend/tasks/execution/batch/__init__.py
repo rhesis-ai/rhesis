@@ -56,6 +56,70 @@ def _run_async(coro):
     return loop.run_until_complete(coro)
 
 
+def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any]]) -> None:
+    """Write error TestResult rows for tests that failed without ever being persisted.
+
+    Called after all recovery rounds complete.  We query the DB first so that
+    tests which failed on the invocation path but were later retried and
+    persisted by a recovery round don't get a duplicate row.
+    """
+    from uuid import UUID
+
+    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.models.test_result import TestResult
+    from rhesis.backend.tasks.execution.batch.persist import persist_result
+
+    failed = [r for r in results if r.get("status") == "failed"]
+    if not failed:
+        return
+
+    failed_ids = [r["test_id"] for r in failed]
+
+    try:
+        with get_db_with_tenant_variables(ctx.organization_id, ctx.user_id or "") as db:
+            existing = {
+                str(row.test_id)
+                for row in db.query(TestResult.test_id)
+                .filter(
+                    TestResult.test_run_id == UUID(str(ctx.test_run.id)),
+                    TestResult.test_id.in_([UUID(tid) for tid in failed_ids]),
+                    TestResult.deleted_at.is_(None),
+                )
+                .all()
+            }
+    except Exception as e:
+        logger.warning(f"[BATCH] Could not check existing error records: {e}")
+        return
+
+    for result in failed:
+        tid = result["test_id"]
+        if tid in existing:
+            continue
+
+        snapshot = ctx.test_data_snapshot.get(tid)
+        if not snapshot:
+            logger.warning(f"[BATCH] Cannot persist error record for {tid}: no snapshot data")
+            continue
+
+        try:
+            persist_result(
+                ctx,
+                tid,
+                snapshot["test"],
+                {"error": result.get("error", "Execution failed")},
+                {},
+                [],
+                result.get("execution_time", 0),
+                False,
+            )
+            logger.info(
+                f"[BATCH] Persisted error record for failed test {tid}: "
+                f"{result.get('error', '')}"
+            )
+        except Exception as e:
+            logger.warning(f"[BATCH] Failed to persist error record for {tid}: {e}")
+
+
 def execute_tests_as_batch(
     session: Session,
     test_config: TestConfiguration,
@@ -112,6 +176,11 @@ def execute_tests_as_batch(
     # Phase 2: Async execution (DB-free, uses deferred tracing).
     test_ids = [str(t.id) for t in tests if str(t.id) in ctx.test_data]
     results = _run_async(run_batch(ctx, test_ids))
+
+    # Write error TestResult rows for tests that failed without being persisted
+    # (e.g. invocation exceptions, timeouts).  Must run before trigger_results_collection
+    # so the DB count includes those rows.
+    _persist_failed_results(ctx, results)
 
     # Phase 3: Trigger results collection.
     wall_time_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
