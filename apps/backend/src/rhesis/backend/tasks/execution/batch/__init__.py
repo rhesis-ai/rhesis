@@ -113,8 +113,7 @@ def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any
                 False,
             )
             logger.info(
-                f"[BATCH] Persisted error record for failed test {tid}: "
-                f"{result.get('error', '')}"
+                f"[BATCH] Persisted error record for failed test {tid}: {result.get('error', '')}"
             )
         except Exception as e:
             logger.warning(f"[BATCH] Failed to persist error record for {tid}: {e}")

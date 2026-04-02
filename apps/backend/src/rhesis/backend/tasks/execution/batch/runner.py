@@ -206,7 +206,9 @@ async def run_batch(
                     logger.warning(f"[BATCH] Recovery pass: no snapshot data for {tid}, skipping")
                     retry_ids = [t for t in retry_ids if t != tid]
 
-            recovery_results = await _run_gather(ctx, retry_ids, semaphore, penelope_agent, evaluator)
+            recovery_results = await _run_gather(
+                ctx, retry_ids, semaphore, penelope_agent, evaluator
+            )
 
             recovered = 0
             for recovery_result in recovery_results:
