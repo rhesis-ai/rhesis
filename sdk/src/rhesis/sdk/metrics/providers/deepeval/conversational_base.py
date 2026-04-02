@@ -1,5 +1,7 @@
 """Base class for DeepEval conversational metrics."""
 
+import asyncio
+import copy
 from typing import Any, Dict, Optional, Union
 
 from deepeval.test_case import ConversationalTestCase
@@ -136,5 +138,44 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
                 # DeepEval-specific details
                 "verdicts": getattr(self._metric, "verdicts", []),
                 "window_size": getattr(self._metric, "window_size", None),
+            },
+        )
+
+    async def a_evaluate(
+        self,
+        conversation_history: ConversationHistory,
+        goal: Optional[str] = None,
+        instructions: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+        chatbot_role: Optional[str] = None,
+        **kwargs: Any,
+    ) -> MetricResult:
+        """Async evaluate using DeepEval's a_measure if available, else to_thread.
+
+        Uses a shallow copy of self._metric so concurrent evaluations don't
+        clobber each other's mutable score/reason state.
+        """
+        if self._metric is None:
+            raise ValueError("DeepEval metric not initialized. Child class must set self._metric")
+
+        metric_copy = copy.copy(self._metric)
+
+        test_case = self._to_deepeval_format(
+            conversation_history, chatbot_role=chatbot_role, **kwargs
+        )
+
+        if hasattr(metric_copy, "a_measure"):
+            await metric_copy.a_measure(test_case)
+        else:
+            await asyncio.to_thread(metric_copy.measure, test_case)
+
+        return MetricResult(
+            score=metric_copy.score,
+            details={
+                "reason": getattr(metric_copy, "reason", ""),
+                "is_successful": metric_copy.is_successful(),
+                "threshold": getattr(metric_copy, "threshold", None),
+                "verdicts": getattr(metric_copy, "verdicts", []),
+                "window_size": getattr(metric_copy, "window_size", None),
             },
         )

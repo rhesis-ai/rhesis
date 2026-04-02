@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.metrics.evaluator import MetricEvaluator
-from rhesis.backend.tasks.execution.constants import MetricScope
+from rhesis.backend.tasks.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
 from rhesis.backend.tasks.execution.evaluation import (
     evaluate_multi_turn_metrics,
     evaluate_single_turn_metrics,
@@ -60,23 +60,17 @@ def _build_connector_metric_sender(
         return None
 
     async def _send(metric_run_id, metric_name, inputs):
-        from rhesis.backend.app.services.connector.rpc_client import (
-            SDKRpcClient,
-        )
+        from rhesis.backend.app.services.connector.rpc_client import get_rpc_client
 
-        rpc = SDKRpcClient()
-        try:
-            await rpc.initialize()
-            return await rpc.send_and_await_metric_result(
-                project_id=project_id,
-                environment=environment,
-                metric_run_id=metric_run_id,
-                metric_name=metric_name,
-                inputs=inputs,
-                timeout=30.0,
-            )
-        finally:
-            await rpc.close()
+        rpc = await get_rpc_client()
+        return await rpc.send_and_await_metric_result(
+            project_id=project_id,
+            environment=environment,
+            metric_run_id=metric_run_id,
+            metric_name=metric_name,
+            inputs=inputs,
+            timeout=30.0,
+        )
 
     return _send
 
@@ -373,7 +367,7 @@ class MultiTurnRunner(BaseRunner):
                 model=model,
                 test_set=test_set,
                 test_configuration=test_configuration,
-                exclude_class_names={"GoalAchievementJudge"},
+                exclude_class_names=PENELOPE_EVALUATED_METRICS,
                 project_id=ep_project_id,
                 environment=ep_environment,
             )

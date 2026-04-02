@@ -76,6 +76,11 @@
             "entity_type": "TestRun"
         },
         {
+            "name": "Cancelled",
+            "description": "Describes a cancelled test run",
+            "entity_type": "TestRun"
+        },
+        {
             "name": "New",
             "description": "Describes a new test set",
             "entity_type": "TestSet"

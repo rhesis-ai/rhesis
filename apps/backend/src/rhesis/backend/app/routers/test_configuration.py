@@ -1,3 +1,4 @@
+import uuid as uuid_lib
 from typing import List
 from uuid import UUID
 
@@ -191,23 +192,32 @@ def execute_test_configuration_endpoint(
         if db_test_configuration is None:
             raise HTTPException(status_code=404, detail="Test configuration not found")
 
+        # Pre-generate the Celery task ID so it can be stored in the test
+        # run record before the task is dispatched.  This guarantees the
+        # cancel endpoint always has a task_id to revoke, even if the
+        # request is cancelled before the worker starts executing.
+        celery_task_id = str(uuid_lib.uuid4())
+
         # Create the test run immediately with Queued status so the user
-        # can see it in the UI even before a worker picks up the task
+        # can see it in the UI even before a worker picks up the task.
+        # Pass task_id so it is persisted atomically with the record.
         test_run = create_test_run(
             db,
             db_test_configuration,
+            task_info={"id": celery_task_id},
             current_user_id=str(current_user.id) if current_user else None,
         )
         db.commit()
 
-        # Submit the celery task with the test_run_id so the worker
-        # transitions it from Queued to Progress
+        # Dispatch the task using the same pre-generated ID so Celery
+        # registers it under the known UUID.
         try:
             task = task_launcher(
                 execute_test_configuration,
                 str(test_configuration_id),
                 test_run_id=str(test_run.id),
                 current_user=current_user,
+                task_id=celery_task_id,
             )
         except Exception as exc:
             # Mark the queued test run as failed so it doesn't stay stuck

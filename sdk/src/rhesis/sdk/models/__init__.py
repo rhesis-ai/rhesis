@@ -17,6 +17,12 @@ from rhesis.sdk.models.factory import (
     get_model,
 )
 
+# Provider classes are loaded lazily via __getattr__ so that importing
+# ``rhesis.sdk.models`` does not transitively pull in heavy dependencies
+# (litellm → gRPC) at module-import time.  This matters in Celery workers
+# that use prefork: any native extension loaded before fork() can corrupt
+# child-process state and cause SIGSEGV.
+
 if TYPE_CHECKING:
     from rhesis.sdk.models.providers.azure_ai import AzureAILLM
     from rhesis.sdk.models.providers.azure_openai import AzureOpenAILLM

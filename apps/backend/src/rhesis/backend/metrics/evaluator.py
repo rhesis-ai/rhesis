@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional, Union
 
@@ -77,6 +78,18 @@ class MetricEvaluator:
             for strategy in extra_strategies:
                 self._strategies[strategy.backend_value()] = strategy
 
+    @staticmethod
+    def _group_by_backend(
+        metric_configs: List[MetricConfig],
+    ) -> "Dict[str, List[MetricConfig]]":
+        """Group validated MetricConfig objects by their backend identifier."""
+        groups: Dict[str, List[MetricConfig]] = {}
+        for config in metric_configs:
+            raw = getattr(config.backend, "value", config.backend)
+            backend_val: str = raw if isinstance(raw, str) else "__local__"
+            groups.setdefault(backend_val, []).append(config)
+        return groups
+
     def evaluate(
         self,
         input_text: str,
@@ -124,11 +137,7 @@ class MetricEvaluator:
             return {}
 
         # Step 2: group configs by backend
-        configs_by_backend: Dict[str, List[MetricConfig]] = {}
-        for config in metric_configs:
-            raw = getattr(config.backend, "value", config.backend)
-            backend_val: str = raw if isinstance(raw, str) else "__local__"
-            configs_by_backend.setdefault(backend_val, []).append(config)
+        configs_by_backend = self._group_by_backend(metric_configs)
 
         # Step 3: dispatch each group to the matching strategy
         results: Dict[str, Any] = {}
@@ -150,4 +159,56 @@ class MetricEvaluator:
         # Step 4: merge invalid metric results
         results.update(invalid_metric_results)
 
+        return results
+
+    async def a_evaluate(
+        self,
+        input_text: str,
+        output_text: str,
+        expected_output: str,
+        context: List[str],
+        metrics: List[Union[Dict[str, Any], MetricConfig, MetricModel]],
+        conversation_history: Optional[ConversationHistory] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Async version of evaluate — dispatches backends concurrently."""
+        if not metrics:
+            logger.warning("No metrics provided for async evaluation")
+            return {}
+
+        metric_configs, invalid_metric_results = validate_metric_configs(metrics)
+
+        if not metric_configs:
+            logger.warning("No valid metrics found after parsing (async)")
+            return invalid_metric_results or {}
+
+        configs_by_backend = self._group_by_backend(metric_configs)
+
+        async def _run_backend(backend_val: str, backend_configs: list) -> Dict[str, Any]:
+            strategy = self._strategies.get(backend_val, self._local_strategy)
+            return await strategy.a_evaluate(
+                backend_configs,
+                input_text,
+                output_text,
+                expected_output,
+                context,
+                conversation_history=conversation_history,
+                metadata=metadata,
+                tool_calls=tool_calls,
+            )
+
+        backend_results = await asyncio.gather(
+            *[_run_backend(bv, bc) for bv, bc in configs_by_backend.items()],
+            return_exceptions=True,
+        )
+
+        results: Dict[str, Any] = {}
+        for bv, br in zip(configs_by_backend.keys(), backend_results):
+            if isinstance(br, Exception):
+                logger.error(f"Backend '{bv}' async evaluation failed: {br}")
+                continue
+            results.update(br)
+
+        results.update(invalid_metric_results)
         return results

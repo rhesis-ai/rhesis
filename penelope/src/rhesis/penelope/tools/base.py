@@ -10,6 +10,7 @@ AnalyzeResponseParams, ExtractInformationParams) which are part of the ToolCall
 structured output schema.
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 
@@ -90,3 +91,12 @@ class Tool(ABC):
             ToolResult with execution outcome
         """
         pass
+
+    async def a_execute(self, **kwargs: Any) -> ToolResult:
+        """
+        Async version of execute with a default to_thread fallback.
+
+        Tools with native async implementations (like TargetInteractionTool)
+        should override this. Others get async support via the thread pool.
+        """
+        return await asyncio.to_thread(self.execute, **kwargs)

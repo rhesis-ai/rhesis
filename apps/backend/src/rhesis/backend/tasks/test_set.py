@@ -1,21 +1,19 @@
 import logging
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, TestSetType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
-from rhesis.backend.app.services.generation import get_source_specifications
 from rhesis.backend.app.services.test_set import bulk_create_test_set
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import BaseTask, email_notification
-from rhesis.backend.worker import app
 
-# Import SDK components for test generation
-from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers import ConfigSynthesizer, MultiTurnSynthesizer
+# SDK components (BaseLLM, ConfigSynthesizer, MultiTurnSynthesizer) are
+# imported lazily inside task functions to avoid pulling litellm → gRPC
+# into the Celery main process before forking (gRPC is not fork-safe).
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -55,16 +53,16 @@ def count_test_sets(self):
             # Get counts by visibility
             public_count = db.query(TestSet).filter(TestSet.visibility == "public").count()
             private_count = db.query(TestSet).filter(TestSet.visibility == "private").count()
+
+            published_count = db.query(TestSet).filter(TestSet.is_published).count()
+            unpublished_count = db.query(TestSet).filter(~TestSet.is_published).count()
+
         self.log_with_context(
             "info",
             "Visibility counts retrieved",
             public_count=public_count,
             private_count=private_count,
         )
-
-        # Get counts by published status
-        published_count = db.query(TestSet).filter(TestSet.is_published).count()
-        unpublished_count = db.query(TestSet).filter(~TestSet.is_published).count()
         self.log_with_context(
             "info",
             "Published status counts retrieved",
@@ -179,7 +177,7 @@ def _save_test_set_to_database(
     return db_test_set
 
 
-def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
+def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, Any]:
     """
     Fetch user's configured generation model from database.
 
@@ -192,9 +190,10 @@ def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
     """
     self.log_with_context("info", "Fetching user's configured generation model")
     with get_db_with_tenant_variables(org_id, user_id) as db:
-        # Get the user from database (user_id from context is already a UUID string)
         user = crud.get_user(db, user_id=user_id)
         if user:
+            from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+
             model = get_user_generation_model(db, user)
             self.log_with_context(
                 "info",
@@ -289,6 +288,8 @@ def generate_and_save_test_set(
 
     if sources:
         with self.get_db_session() as db:
+            from rhesis.backend.app.services.generation import get_source_specifications
+
             source_specifications = get_source_specifications(
                 sources=[SourceData(**s) for s in sources],
                 db=db,
@@ -329,6 +330,8 @@ def generate_and_save_test_set(
             valid = [t.value for t in TestSetType]
             raise ValueError(f"Unsupported test_type {test_type!r}. Valid values: {valid}")
         test_type = resolved_type.value
+
+        from rhesis.sdk.synthesizers import ConfigSynthesizer, MultiTurnSynthesizer
 
         # Create synthesizer with full config
         if test_type == TestSetType.SINGLE_TURN.value:

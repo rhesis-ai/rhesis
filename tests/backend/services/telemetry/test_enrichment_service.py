@@ -35,7 +35,7 @@ class TestEnrichmentService:
         service = EnrichmentService(mock_db)
         assert service.db == mock_db
 
-    @patch("rhesis.backend.worker.app")
+    @patch("rhesis.backend.celery.core.app")
     def test_check_workers_available_success(self, mock_celery_app, enrichment_service):
         """Test worker availability check when workers are available"""
         # Clear module-level cache so the mock is used (cache can hold False from other tests)
@@ -55,7 +55,7 @@ class TestEnrichmentService:
         mock_celery_app.control.inspect.assert_called_once_with(timeout=1.0)
         mock_inspect.ping.assert_called_once()
 
-    @patch("rhesis.backend.worker.app")
+    @patch("rhesis.backend.celery.core.app")
     def test_check_workers_available_no_active_workers(self, mock_celery_app, enrichment_service):
         """Test worker availability check when no active workers"""
         enrichment_service_module._worker_cache["available"] = None
@@ -70,7 +70,7 @@ class TestEnrichmentService:
 
         assert result is False
 
-    @patch("rhesis.backend.worker.app")
+    @patch("rhesis.backend.celery.core.app")
     def test_check_workers_available_empty_response(self, mock_celery_app, enrichment_service):
         """Test worker availability check when ping returns empty dict"""
         enrichment_service_module._worker_cache["available"] = None
@@ -85,7 +85,7 @@ class TestEnrichmentService:
 
         assert result is False
 
-    @patch("rhesis.backend.worker.app")
+    @patch("rhesis.backend.celery.core.app")
     def test_check_workers_available_exception(self, mock_celery_app, enrichment_service):
         """Test worker availability check when exception occurs"""
         enrichment_service_module._worker_cache["available"] = None

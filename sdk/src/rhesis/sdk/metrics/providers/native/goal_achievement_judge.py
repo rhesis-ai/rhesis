@@ -290,6 +290,24 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             },
         )
 
+    async def a_evaluate(
+        self,
+        conversation_history: ConversationHistory,
+        goal: Optional[str] = None,
+        instructions: Optional[str] = None,
+    ) -> MetricResult:
+        """Async evaluate using the existing async evaluation pattern."""
+        self._validate_evaluate_inputs(conversation_history, goal)
+        prompt = self._get_prompt_template(conversation_history, goal, instructions=instructions)
+        return await self._a_execute_numeric_evaluation(
+            prompt=prompt,
+            response_schema=GoalAchievementScoreResponse,
+            additional_details={
+                "turn_count": self._count_turns(conversation_history),
+                "goal": goal or GOAL_DEFAULT,
+            },
+        )
+
     @classmethod
     def from_dict(cls, config: Dict[str, Any]) -> "GoalAchievementJudge":
         """Create a metric from a dictionary."""

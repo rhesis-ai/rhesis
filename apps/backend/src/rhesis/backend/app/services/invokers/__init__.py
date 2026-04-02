@@ -4,6 +4,7 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointConnectionType
 
 from .base import BaseEndpointInvoker
+from .context import InvocationContext
 from .rest_invoker import RestEndpointInvoker
 from .sdk_invoker import SdkEndpointInvoker
 from .websocket_invoker import WebSocketEndpointInvoker
@@ -16,12 +17,12 @@ INVOKERS: Dict[str, Type[BaseEndpointInvoker]] = {
 }
 
 
-def create_invoker(endpoint: Endpoint) -> BaseEndpointInvoker:
+def create_invoker(context: InvocationContext) -> BaseEndpointInvoker:
     """
     Create an appropriate invoker instance based on the endpoint's connection_type.
 
     Args:
-        endpoint: The endpoint configuration
+        context: The invocation context containing endpoint and payload
 
     Returns:
         An instance of the appropriate invoker
@@ -29,8 +30,10 @@ def create_invoker(endpoint: Endpoint) -> BaseEndpointInvoker:
     Raises:
         ValueError: If no invoker is found for the endpoint's connection_type
     """
-    invoker_class = INVOKERS.get(endpoint.connection_type)
+    invoker_class = INVOKERS.get(context.endpoint.connection_type)
     if not invoker_class:
-        raise ValueError(f"No invoker found for connection_type: {endpoint.connection_type}")
+        raise ValueError(
+            f"No invoker found for connection_type: {context.endpoint.connection_type}"
+        )
 
-    return invoker_class()
+    return invoker_class(context)
