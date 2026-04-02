@@ -26,6 +26,9 @@ DEFAULT_PER_TEST_TIMEOUT = 300
 DEFAULT_INVOKE_MAX_ATTEMPTS = 4
 DEFAULT_INVOKE_RETRY_MIN_WAIT = 1.0
 DEFAULT_INVOKE_RETRY_MAX_WAIT = 30.0
+# Number of mop-up passes after the main batch.  Each pass retries tests whose
+# failure looks transient (not timeouts, not missing data, not cancellations).
+DEFAULT_MOP_UP_ROUNDS = 1
 
 
 @dataclass
@@ -53,6 +56,8 @@ class ExecutionContext:
     invoke_retry_max_wait: float = DEFAULT_INVOKE_RETRY_MAX_WAIT
     # Celery task ID for cooperative cancellation checks inside the async loop.
     celery_task_id: Optional[str] = None
+    # How many mop-up rounds to run after the main batch (0 = no retries).
+    mop_up_rounds: int = DEFAULT_MOP_UP_ROUNDS
 
 
 def prefetch_execution_context(
@@ -192,6 +197,9 @@ def prefetch_execution_context(
     invoke_max_attempts = int(attrs.get("invoke_max_attempts", DEFAULT_INVOKE_MAX_ATTEMPTS))
     invoke_retry_min_wait = float(attrs.get("invoke_retry_min_wait", DEFAULT_INVOKE_RETRY_MIN_WAIT))
     invoke_retry_max_wait = float(attrs.get("invoke_retry_max_wait", DEFAULT_INVOKE_RETRY_MAX_WAIT))
+    mop_up_rounds = int(
+        os.environ.get("MOP_UP_ROUNDS", attrs.get("mop_up_rounds", DEFAULT_MOP_UP_ROUNDS))
+    )
 
     # Expunge models for safe cross-context use
     session.expunge(endpoint)
@@ -223,4 +231,5 @@ def prefetch_execution_context(
         invoke_max_attempts=invoke_max_attempts,
         invoke_retry_min_wait=invoke_retry_min_wait,
         invoke_retry_max_wait=invoke_retry_max_wait,
+        mop_up_rounds=mop_up_rounds,
     )

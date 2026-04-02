@@ -68,6 +68,71 @@ async def _cancellation_watchdog(
 
 
 # ---------------------------------------------------------------------------
+# Mop-up helpers
+# ---------------------------------------------------------------------------
+
+
+def _is_retriable_failure(result: Dict[str, Any]) -> bool:
+    """Return True for transient failures that are worth retrying.
+
+    Excluded from retries:
+    - ``cancelled``  — deliberately stopped, don't re-invoke
+    - ``skipped``    — idempotency guard, no-op on retry
+    - ``succeeded``  — already done
+    - Timeout        — the endpoint was too slow; a retry will likely timeout again
+    - Missing data   — pre-fetch issue, won't resolve on retry
+    """
+    if result.get("status") != "failed":
+        return False
+    error = result.get("error", "")
+    if error.startswith("Timeout after") or error.startswith("Test data not pre-fetched"):
+        return False
+    return True
+
+
+async def _run_gather(
+    ctx: ExecutionContext,
+    test_ids: List[str],
+    semaphore: asyncio.Semaphore,
+    penelope_agent: Any,
+    evaluator: Any,
+) -> List[Dict[str, Any]]:
+    """Fan out test_ids as asyncio Tasks and gather results."""
+    tasks = [
+        asyncio.create_task(
+            _execute_single_test(ctx, test_id, semaphore, penelope_agent, evaluator)
+        )
+        for test_id in test_ids
+    ]
+    watchdog = asyncio.create_task(_cancellation_watchdog(ctx.celery_task_id, tasks))
+    try:
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+    finally:
+        watchdog.cancel()
+        await asyncio.gather(watchdog, return_exceptions=True)
+
+    results: List[Dict[str, Any]] = []
+    for test_id, result in zip(test_ids, raw):
+        if isinstance(result, asyncio.CancelledError):
+            logger.info(f"[BATCH] Test {test_id} cancelled mid-flight")
+            results.append({"test_id": test_id, "status": "cancelled", "execution_time": 0})
+        elif isinstance(result, Exception):
+            logger.error(f"[BATCH] Test {test_id} raised exception: {result}")
+            results.append(
+                {
+                    "test_id": test_id,
+                    "status": "failed",
+                    "error": str(result),
+                    "execution_time": 0,
+                    "exception_type": type(result).__name__,
+                }
+            )
+        else:
+            results.append(result)
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Top-level batch runner
 # ---------------------------------------------------------------------------
 
@@ -76,7 +141,12 @@ async def run_batch(
     ctx: ExecutionContext,
     test_ids: List[str],
 ) -> List[Dict[str, Any]]:
-    """Async entry point: run all tests with semaphore-gated concurrency."""
+    """Async entry point: run all tests with semaphore-gated concurrency.
+
+    After the main pass, up to ``ctx.mop_up_rounds`` additional passes are run
+    for tests whose failure looks transient (network errors, unexpected
+    exceptions, persist failures).  Timeouts and cancellations are not retried.
+    """
     semaphore = asyncio.Semaphore(ctx.batch_concurrency)
 
     # Create a single PenelopeAgent for the batch (model + metrics are shared;
@@ -104,41 +174,60 @@ async def run_batch(
             connector_metric_sender=ctx.connector_metric_sender,
         )
 
-    tasks = [
-        asyncio.create_task(
-            _execute_single_test(ctx, test_id, semaphore, penelope_agent, evaluator)
-        )
-        for test_id in test_ids
-    ]
+    # Snapshot test data before the main pass so mop-up rounds can restore it
+    # for tests whose data was popped in the finally block of _execute_single_test.
+    test_data_snapshot = dict(ctx.test_data)
 
-    watchdog = asyncio.create_task(_cancellation_watchdog(ctx.celery_task_id, tasks))
+    # --- Main pass ---
+    results = await _run_gather(ctx, test_ids, semaphore, penelope_agent, evaluator)
 
-    try:
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-    finally:
-        watchdog.cancel()
-        await asyncio.gather(watchdog, return_exceptions=True)
+    # --- Mop-up passes ---
+    if ctx.mop_up_rounds > 0:
+        result_map: Dict[str, Dict[str, Any]] = {r["test_id"]: r for r in results}
 
-    final_results: List[Dict[str, Any]] = []
-    for test_id, result in zip(test_ids, results):
-        if isinstance(result, asyncio.CancelledError):
-            logger.info(f"[BATCH] Test {test_id} cancelled mid-flight")
-            final_results.append({"test_id": test_id, "status": "cancelled", "execution_time": 0})
-        elif isinstance(result, Exception):
-            logger.error(f"[BATCH] Test {test_id} raised exception: {result}")
-            final_results.append(
-                {
-                    "test_id": test_id,
-                    "status": "failed",
-                    "error": str(result),
-                    "execution_time": 0,
-                    "exception_type": type(result).__name__,
-                }
+        for mop_round in range(ctx.mop_up_rounds):
+            retry_ids = [tid for tid in test_ids if _is_retriable_failure(result_map.get(tid, {}))]
+            if not retry_ids:
+                break
+
+            logger.info(
+                f"[BATCH] Mop-up round {mop_round + 1}/{ctx.mop_up_rounds}: "
+                f"retrying {len(retry_ids)} failed test(s): {retry_ids}"
             )
-        else:
-            final_results.append(result)
 
-    return final_results
+            # Restore pre-fetched data so _execute_single_test can run again.
+            for tid in retry_ids:
+                if tid in test_data_snapshot:
+                    ctx.test_data[tid] = test_data_snapshot[tid]
+                else:
+                    logger.warning(f"[BATCH] Mop-up: no snapshot data for {tid}, skipping")
+                    retry_ids = [t for t in retry_ids if t != tid]
+
+            mop_results = await _run_gather(ctx, retry_ids, semaphore, penelope_agent, evaluator)
+
+            recovered = 0
+            for mop_result in mop_results:
+                tid = mop_result["test_id"]
+                prev_status = result_map.get(tid, {}).get("status")
+                result_map[tid] = mop_result
+                if mop_result.get("status") == "succeeded":
+                    recovered += 1
+                    logger.info(f"[BATCH] Mop-up recovered test {tid} (was: {prev_status})")
+                else:
+                    logger.warning(
+                        f"[BATCH] Mop-up test {tid} still {mop_result.get('status')}: "
+                        f"{mop_result.get('error', '')}"
+                    )
+
+            logger.info(
+                f"[BATCH] Mop-up round {mop_round + 1} complete: "
+                f"{recovered}/{len(retry_ids)} recovered"
+            )
+
+        # Preserve original ordering.
+        results = [result_map[tid] for tid in test_ids]
+
+    return results
 
 
 # ---------------------------------------------------------------------------
