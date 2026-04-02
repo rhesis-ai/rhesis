@@ -68,7 +68,7 @@ async def _cancellation_watchdog(
 
 
 # ---------------------------------------------------------------------------
-# Mop-up helpers
+# Recovery pass helpers
 # ---------------------------------------------------------------------------
 
 
@@ -143,7 +143,7 @@ async def run_batch(
 ) -> List[Dict[str, Any]]:
     """Async entry point: run all tests with semaphore-gated concurrency.
 
-    After the main pass, up to ``ctx.mop_up_rounds`` additional passes are run
+    After the main pass, up to ``ctx.recovery_rounds`` additional passes are run
     for tests whose failure looks transient (network errors, unexpected
     exceptions, persist failures).  Timeouts and cancellations are not retried.
     """
@@ -174,24 +174,24 @@ async def run_batch(
             connector_metric_sender=ctx.connector_metric_sender,
         )
 
-    # Snapshot test data before the main pass so mop-up rounds can restore it
+    # Snapshot test data before the main pass so recovery rounds can restore it
     # for tests whose data was popped in the finally block of _execute_single_test.
     test_data_snapshot = dict(ctx.test_data)
 
     # --- Main pass ---
     results = await _run_gather(ctx, test_ids, semaphore, penelope_agent, evaluator)
 
-    # --- Mop-up passes ---
-    if ctx.mop_up_rounds > 0:
+    # --- Recovery pass passes ---
+    if ctx.recovery_rounds > 0:
         result_map: Dict[str, Dict[str, Any]] = {r["test_id"]: r for r in results}
 
-        for mop_round in range(ctx.mop_up_rounds):
+        for recovery_round in range(ctx.recovery_rounds):
             retry_ids = [tid for tid in test_ids if _is_retriable_failure(result_map.get(tid, {}))]
             if not retry_ids:
                 break
 
             logger.info(
-                f"[BATCH] Mop-up round {mop_round + 1}/{ctx.mop_up_rounds}: "
+                f"[BATCH] Recovery pass {recovery_round + 1}/{ctx.recovery_rounds}: "
                 f"retrying {len(retry_ids)} failed test(s): {retry_ids}"
             )
 
@@ -200,27 +200,27 @@ async def run_batch(
                 if tid in test_data_snapshot:
                     ctx.test_data[tid] = test_data_snapshot[tid]
                 else:
-                    logger.warning(f"[BATCH] Mop-up: no snapshot data for {tid}, skipping")
+                    logger.warning(f"[BATCH] Recovery pass: no snapshot data for {tid}, skipping")
                     retry_ids = [t for t in retry_ids if t != tid]
 
-            mop_results = await _run_gather(ctx, retry_ids, semaphore, penelope_agent, evaluator)
+            recovery_results = await _run_gather(ctx, retry_ids, semaphore, penelope_agent, evaluator)
 
             recovered = 0
-            for mop_result in mop_results:
-                tid = mop_result["test_id"]
+            for recovery_result in recovery_results:
+                tid = recovery_result["test_id"]
                 prev_status = result_map.get(tid, {}).get("status")
-                result_map[tid] = mop_result
-                if mop_result.get("status") == "succeeded":
+                result_map[tid] = recovery_result
+                if recovery_result.get("status") == "succeeded":
                     recovered += 1
-                    logger.info(f"[BATCH] Mop-up recovered test {tid} (was: {prev_status})")
+                    logger.info(f"[BATCH] Recovery pass recovered test {tid} (was: {prev_status})")
                 else:
                     logger.warning(
-                        f"[BATCH] Mop-up test {tid} still {mop_result.get('status')}: "
-                        f"{mop_result.get('error', '')}"
+                        f"[BATCH] Recovery pass test {tid} still {recovery_result.get('status')}: "
+                        f"{recovery_result.get('error', '')}"
                     )
 
             logger.info(
-                f"[BATCH] Mop-up round {mop_round + 1} complete: "
+                f"[BATCH] Recovery pass {recovery_round + 1} complete: "
                 f"{recovered}/{len(retry_ids)} recovered"
             )
 
