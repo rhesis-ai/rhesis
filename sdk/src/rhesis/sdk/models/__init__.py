@@ -73,9 +73,7 @@ def __getattr__(name: str):
         except ImportError as exc:
             if _HF_MISSING_DEPS_MARKER not in str(exc):
                 raise
-            raise AttributeError(
-                f"module {__name__!r} has no attribute {name!r}"
-            ) from exc
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
     spec = _LAZY_EXPORTS.get(name)
     if spec is not None:
         module_name, attr_name = spec
@@ -98,7 +96,6 @@ __all__ = [
     "GeminiEmbedder",
     "GeminiLLM",
     "HUGGINGFACE_AVAILABLE",
-    *(["HuggingFaceLLM"] if HUGGINGFACE_AVAILABLE else []),
     "LiteLLM",
     "LiteLLMProxy",
     "OpenAIEmbedder",
@@ -115,3 +112,7 @@ __all__ = [
     "get_language_model",
     "get_model",
 ]
+
+if HUGGINGFACE_AVAILABLE:
+    # Keep optional HuggingFace export discoverable when deps are installed.
+    __all__.append("HuggingFaceLLM")  # pyright: ignore[reportUnsupportedDunderAll]
