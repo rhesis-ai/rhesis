@@ -34,7 +34,7 @@ spec:
                 key: tsig-secret
         domainFilters:
           - PLACEHOLDER
-        policy: upsert-only
+        policy: sync
         txtOwnerId: PLACEHOLDER
         sources:
           - service

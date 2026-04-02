@@ -8,8 +8,8 @@ configMapGenerator:
   - name: external-dns-config
     literals:
       - cloudflare-api-token-gcp-secret=cloudflare-api-token-dev
-      - domain-filter=example.com # need to change to the actual domain
-      - txt-owner-id=dev-external-dns # need to change to the actual owner id
+      - domain-filter=rhesis.ai
+      - txt-owner-id=dev-external-dns
     options:
       annotations:
         config.kubernetes.io/local-config: "true"
