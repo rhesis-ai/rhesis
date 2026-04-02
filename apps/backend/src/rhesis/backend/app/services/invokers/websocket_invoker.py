@@ -21,44 +21,44 @@ logger = logging.getLogger(__name__)
 # every call to _normalize_unicode_text.
 _UNICODE_REPLACEMENTS: dict[str, str] = {
     # Quotation marks
-    "\u2018": "'",   # Left single quotation mark
-    "\u2019": "'",   # Right single quotation mark
-    "\u201a": "'",   # Single low-9 quotation mark
-    "\u201b": "'",   # Single high-reversed-9 quotation mark
-    "\u201c": '"',   # Left double quotation mark
-    "\u201d": '"',   # Right double quotation mark
-    "\u201e": '"',   # Double low-9 quotation mark
-    "\u201f": '"',   # Double high-reversed-9 quotation mark
+    "\u2018": "'",  # Left single quotation mark
+    "\u2019": "'",  # Right single quotation mark
+    "\u201a": "'",  # Single low-9 quotation mark
+    "\u201b": "'",  # Single high-reversed-9 quotation mark
+    "\u201c": '"',  # Left double quotation mark
+    "\u201d": '"',  # Right double quotation mark
+    "\u201e": '"',  # Double low-9 quotation mark
+    "\u201f": '"',  # Double high-reversed-9 quotation mark
     # Dashes
-    "\u2010": "-",   # Hyphen
-    "\u2011": "-",   # Non-breaking hyphen
-    "\u2012": "-",   # Figure dash
-    "\u2013": "-",   # En dash
-    "\u2014": "-",   # Em dash
-    "\u2015": "-",   # Horizontal bar
+    "\u2010": "-",  # Hyphen
+    "\u2011": "-",  # Non-breaking hyphen
+    "\u2012": "-",  # Figure dash
+    "\u2013": "-",  # En dash
+    "\u2014": "-",  # Em dash
+    "\u2015": "-",  # Horizontal bar
     # Spaces
-    "\u00a0": " ",   # Non-breaking space
-    "\u2000": " ",   # En quad
-    "\u2001": " ",   # Em quad
-    "\u2002": " ",   # En space
-    "\u2003": " ",   # Em space
-    "\u2004": " ",   # Three-per-em space
-    "\u2005": " ",   # Four-per-em space
-    "\u2006": " ",   # Six-per-em space
-    "\u2007": " ",   # Figure space
-    "\u2008": " ",   # Punctuation space
-    "\u2009": " ",   # Thin space
-    "\u200a": " ",   # Hair space
-    "\u202f": " ",   # Narrow no-break space
-    "\u205f": " ",   # Medium mathematical space
+    "\u00a0": " ",  # Non-breaking space
+    "\u2000": " ",  # En quad
+    "\u2001": " ",  # Em quad
+    "\u2002": " ",  # En space
+    "\u2003": " ",  # Em space
+    "\u2004": " ",  # Three-per-em space
+    "\u2005": " ",  # Four-per-em space
+    "\u2006": " ",  # Six-per-em space
+    "\u2007": " ",  # Figure space
+    "\u2008": " ",  # Punctuation space
+    "\u2009": " ",  # Thin space
+    "\u200a": " ",  # Hair space
+    "\u202f": " ",  # Narrow no-break space
+    "\u205f": " ",  # Medium mathematical space
     # Other common symbols
-    "\u2026": "...", # Horizontal ellipsis
-    "\u2022": "*",   # Bullet
-    "\u2023": "*",   # Triangular bullet
-    "\u2024": ".",   # One dot leader
+    "\u2026": "...",  # Horizontal ellipsis
+    "\u2022": "*",  # Bullet
+    "\u2023": "*",  # Triangular bullet
+    "\u2024": ".",  # One dot leader
     "\u2025": "..",  # Two dot leader
-    "\u2032": "'",   # Prime
-    "\u2033": '"',   # Double prime
+    "\u2032": "'",  # Prime
+    "\u2033": '"',  # Double prime
 }
 
 
