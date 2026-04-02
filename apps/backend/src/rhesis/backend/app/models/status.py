@@ -35,3 +35,4 @@ class Status(Base, OrganizationAndUserMixin):
     sources = relationship("Source", back_populates="status")
     chunks = relationship("Chunk", back_populates="status")
     tools = relationship("Tool", back_populates="status")
+    embeddings = relationship("Embedding", back_populates="status")

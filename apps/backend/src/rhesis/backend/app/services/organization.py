@@ -1294,6 +1294,12 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
                         except Exception as task_error:
                             print(f"Error deleting task {task.id}: {task_error}")
 
+                    # Also delete embeddings that reference this status
+                    db.query(models.Embedding).filter(
+                        models.Embedding.status_id == entity.id,
+                        models.Embedding.organization_id == organization_id,
+                    ).delete(synchronize_session="fetch")
+
                     db.flush()
 
                 _delete_entity_associations(db, entity)
