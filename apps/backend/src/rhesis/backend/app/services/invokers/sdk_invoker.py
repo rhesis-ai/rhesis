@@ -30,7 +30,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
     # SDK endpoints automatically generate traces via instrumentation
     automatic_tracing: bool = True
 
-    def __init__(self, context: InvocationContext):
+    def __init__(self, context: "InvocationContext | None" = None):
         """Initialize SDK invoker."""
         super().__init__(context)
 
@@ -464,12 +464,31 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 organization_id=str(endpoint.organization_id),
             )
 
-    async def invoke(self) -> Union[Dict[str, Any], ErrorResponse]:
+    async def invoke(
+        self,
+        db=None,
+        endpoint=None,
+        input_data=None,
+        *,
+        test_execution_context=None,
+        trace_id=None,
+    ) -> Union[Dict[str, Any], ErrorResponse]:
         """Invoke SDK function through WebSocket connection.
 
         Returns:
             Standardized response dict with output and metadata, or ErrorResponse for errors
         """
+        # Backward-compat: callers that pass positional args build a temporary context.
+        if db is not None or endpoint is not None:
+            from .context import InvocationContext
+
+            self.context = InvocationContext(
+                db=db,
+                endpoint=endpoint,
+                input_data=input_data or {},
+                test_execution_context=test_execution_context,
+                trace_id=trace_id,
+            )
         db = self.context.db
         endpoint = self.context.endpoint
         input_data = self.context.input_data

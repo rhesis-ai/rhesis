@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class WebSocketEndpointInvoker(BaseEndpointInvoker):
     """WebSocket endpoint invoker with support for different auth types."""
 
-    def __init__(self, context: "InvocationContext"):
+    def __init__(self, context: "InvocationContext | None" = None):
         super().__init__(context)
 
     def _normalize_unicode_text(self, text: str) -> str:
@@ -89,7 +89,26 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
         return normalized
 
-    async def invoke(self) -> Union[Dict[str, Any], ErrorResponse]:
+    async def invoke(
+        self,
+        db=None,
+        endpoint=None,
+        input_data=None,
+        *,
+        test_execution_context=None,
+        trace_id=None,
+    ) -> Union[Dict[str, Any], ErrorResponse]:
+        # Backward-compat: callers that pass positional args build a temporary context.
+        if db is not None or endpoint is not None:
+            from .context import InvocationContext
+
+            self.context = InvocationContext(
+                db=db,
+                endpoint=endpoint,
+                input_data=input_data or {},
+                test_execution_context=test_execution_context,
+                trace_id=trace_id,
+            )
         db = self.context.db
         endpoint = self.context.endpoint
         input_data = self.context.input_data

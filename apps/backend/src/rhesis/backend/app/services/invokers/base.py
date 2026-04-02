@@ -27,7 +27,7 @@ class BaseEndpointInvoker(ABC):
     # but must NOT appear in the wire request body sent to the endpoint.
     RESERVED_META_KEYS: set = {"system_prompt"}
 
-    def __init__(self, context: "InvocationContext"):
+    def __init__(self, context: "InvocationContext | None" = None):
         self.context = context
         self.template_renderer = TemplateRenderer()
         self.response_mapper = ResponseMapper()
