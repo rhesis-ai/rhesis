@@ -15,6 +15,20 @@ from .common.schemas import ErrorResponse
 from .conversation import ConversationTracker
 from .templating import ResponseMapper, TemplateRenderer
 
+# ---------------------------------------------------------------------------
+# Module-level singletons for stateless helpers
+# ---------------------------------------------------------------------------
+# All helper classes below are stateless: they hold no per-invocation or
+# per-thread mutable state.  Sharing a single instance eliminates the cost of
+# constructing a new Jinja2 Environment (TemplateRenderer) and companion
+# objects on every test invocation.
+_template_renderer = TemplateRenderer()
+_response_mapper = ResponseMapper()
+_auth_manager = AuthenticationManager()
+_error_builder = ErrorResponseBuilder()
+_header_manager = HeaderManager()
+_conversation_tracker = ConversationTracker()
+
 
 class BaseEndpointInvoker(ABC):
     """Base class for endpoint invokers with shared functionality."""
@@ -29,12 +43,12 @@ class BaseEndpointInvoker(ABC):
 
     def __init__(self, context: "InvocationContext | None" = None):
         self.context = context
-        self.template_renderer = TemplateRenderer()
-        self.response_mapper = ResponseMapper()
-        self.auth_manager = AuthenticationManager()
-        self.error_builder = ErrorResponseBuilder()
-        self.header_manager = HeaderManager()
-        self.conversation_tracker = ConversationTracker()
+        self.template_renderer = _template_renderer
+        self.response_mapper = _response_mapper
+        self.auth_manager = _auth_manager
+        self.error_builder = _error_builder
+        self.header_manager = _header_manager
+        self.conversation_tracker = _conversation_tracker
 
     def _strip_meta_keys(self, rendered_body: Any) -> Any:
         """Remove reserved meta keys from a rendered request body.

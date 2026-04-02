@@ -59,9 +59,11 @@ class SDKRpcClient:
             raise RuntimeError(f"Redis connection failed: {e}")
 
     async def close(self):
-        """Close Redis connection."""
+        """Close Redis connection and reset state so get_rpc_client() will reinitialize."""
         if self._redis:
-            await self._redis.close()
+            await self._redis.aclose()
+            self._redis = None
+        _tls.rpc_client = None
 
     async def is_connected(self, project_id: str, environment: str) -> bool:
         """

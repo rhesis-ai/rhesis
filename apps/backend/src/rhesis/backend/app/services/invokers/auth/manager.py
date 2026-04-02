@@ -13,6 +13,10 @@ from rhesis.backend.app.models.enums import EndpointAuthType
 
 logger = logging.getLogger(__name__)
 
+# Shared session so TCP+TLS connections to token URLs are pooled across
+# token refreshes rather than re-established on every expiry.
+_token_session = requests.Session()
+
 
 class AuthenticationManager:
     """Handles authentication token management for endpoints."""
@@ -84,8 +88,7 @@ class AuthenticationManager:
             payload.update(endpoint.extra_payload)
 
         try:
-            # Make token request
-            response = requests.post(endpoint.token_url, json=payload)
+            response = _token_session.post(endpoint.token_url, json=payload)
             response.raise_for_status()
             token_data = response.json()
 

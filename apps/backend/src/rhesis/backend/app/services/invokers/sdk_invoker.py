@@ -166,30 +166,27 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 request_details=self._safe_request_details(locals(), "SDK"),
             )
 
-        try:
-            # Check connection via RPC client (checks Redis)
-            is_connected = await rpc_client.is_connected(project_id, environment)
+        # Check connection via RPC client (checks Redis)
+        is_connected = await rpc_client.is_connected(project_id, environment)
 
-            if not is_connected:
-                logger.warning(f"SDK not connected: {project_id}:{environment}")
-                return self._create_error_response(
-                    error_type="sdk_not_connected",
-                    output_message=f"SDK not connected: {project_id} in {environment}",
-                    message="SDK client is not currently connected",
-                    request_details=self._safe_request_details(locals(), "SDK"),
-                )
-
-            # Send request via RPC
-            return await rpc_client.send_and_await_result(
-                project_id=project_id,
-                environment=environment,
-                test_run_id=test_run_id,
-                function_name=function_name,
-                inputs=function_kwargs,
-                timeout=SDK_FUNCTION_TIMEOUT,
+        if not is_connected:
+            logger.warning(f"SDK not connected: {project_id}:{environment}")
+            return self._create_error_response(
+                error_type="sdk_not_connected",
+                output_message=f"SDK not connected: {project_id} in {environment}",
+                message="SDK client is not currently connected",
+                request_details=self._safe_request_details(locals(), "SDK"),
             )
-        finally:
-            await rpc_client.close()
+
+        # Send request via RPC — client is thread-local and stays open for reuse
+        return await rpc_client.send_and_await_result(
+            project_id=project_id,
+            environment=environment,
+            test_run_id=test_run_id,
+            function_name=function_name,
+            inputs=function_kwargs,
+            timeout=SDK_FUNCTION_TIMEOUT,
+        )
 
     async def _execute_via_websocket(
         self,
