@@ -151,11 +151,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Returns:
             Result dictionary from SDK, or ErrorResponse if RPC unavailable or not connected
         """
-        from rhesis.backend.app.services.connector.rpc_client import SDKRpcClient
+        from rhesis.backend.app.services.connector.rpc_client import get_rpc_client
 
         try:
-            rpc_client = SDKRpcClient()
-            await rpc_client.initialize()
+            rpc_client = await get_rpc_client()
         except RuntimeError as e:
             logger.error(f"Failed to initialize RPC client: {e}")
             return self._create_error_response(

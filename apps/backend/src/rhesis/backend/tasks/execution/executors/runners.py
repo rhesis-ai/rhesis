@@ -60,23 +60,17 @@ def _build_connector_metric_sender(
         return None
 
     async def _send(metric_run_id, metric_name, inputs):
-        from rhesis.backend.app.services.connector.rpc_client import (
-            SDKRpcClient,
-        )
+        from rhesis.backend.app.services.connector.rpc_client import get_rpc_client
 
-        rpc = SDKRpcClient()
-        try:
-            await rpc.initialize()
-            return await rpc.send_and_await_metric_result(
-                project_id=project_id,
-                environment=environment,
-                metric_run_id=metric_run_id,
-                metric_name=metric_name,
-                inputs=inputs,
-                timeout=30.0,
-            )
-        finally:
-            await rpc.close()
+        rpc = await get_rpc_client()
+        return await rpc.send_and_await_metric_result(
+            project_id=project_id,
+            environment=environment,
+            metric_run_id=metric_run_id,
+            metric_name=metric_name,
+            inputs=inputs,
+            timeout=30.0,
+        )
 
     return _send
 
