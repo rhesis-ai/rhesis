@@ -43,6 +43,11 @@ def _huggingface_deps_installed() -> bool:
 HUGGINGFACE_AVAILABLE = _huggingface_deps_installed()
 
 
+# Substring from huggingface provider when torch/transformers are absent; used to
+# map only that case to AttributeError (import *) without hiding other ImportErrors.
+_HF_MISSING_DEPS_MARKER = "HuggingFace dependencies are not installed"
+
+
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "AzureAILLM": ("rhesis.sdk.models.providers.azure_ai", "AzureAILLM"),
     "AzureOpenAILLM": ("rhesis.sdk.models.providers.azure_openai", "AzureOpenAILLM"),
@@ -66,7 +71,11 @@ def __getattr__(name: str):
             mod = importlib.import_module("rhesis.sdk.models.providers.huggingface")
             return mod.HuggingFaceLLM
         except ImportError as exc:
-            raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+            if _HF_MISSING_DEPS_MARKER not in str(exc):
+                raise
+            raise AttributeError(
+                f"module {__name__!r} has no attribute {name!r}"
+            ) from exc
     spec = _LAZY_EXPORTS.get(name)
     if spec is not None:
         module_name, attr_name = spec
@@ -89,7 +98,7 @@ __all__ = [
     "GeminiEmbedder",
     "GeminiLLM",
     "HUGGINGFACE_AVAILABLE",
-    "HuggingFaceLLM",
+    *(["HuggingFaceLLM"] if HUGGINGFACE_AVAILABLE else []),
     "LiteLLM",
     "LiteLLMProxy",
     "OpenAIEmbedder",
