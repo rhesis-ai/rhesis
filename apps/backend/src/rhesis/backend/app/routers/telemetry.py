@@ -137,9 +137,7 @@ def ingest_trace(
 
         _stage = "worker_check"
         _workers_available = check_workers_available()
-        logger.info(
-            f"Worker availability for trace_id={trace_id}: {_workers_available}"
-        )
+        logger.info(f"Worker availability for trace_id={trace_id}: {_workers_available}")
 
         _dispatched_async = False
         if _workers_available:
