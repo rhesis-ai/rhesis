@@ -9,7 +9,7 @@ from rhesis.sdk.metrics.providers.native.shared_utils import (
     handle_evaluation_error,
     setup_jinja_environment,
 )
-from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 # Type variable for generic return types
 T = TypeVar("T", bound="JudgeBase")
