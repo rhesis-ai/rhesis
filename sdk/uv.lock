@@ -4312,6 +4312,34 @@ wheels = [
 ]
 
 [[package]]
+name = "rhesis"
+version = "0.7.0"
+source = { directory = "../packages/rhesis" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "requests" },
+]
+
+[package.optional-dependencies]
+telemetry = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp-proto-http" },
+    { name = "opentelemetry-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "opentelemetry-api", marker = "extra == 'telemetry'", specifier = ">=1.32.1" },
+    { name = "opentelemetry-exporter-otlp-proto-http", marker = "extra == 'telemetry'", specifier = ">=1.32.1" },
+    { name = "opentelemetry-sdk", marker = "extra == 'telemetry'", specifier = ">=1.32.1" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "requests", specifier = ">=2.31.0" },
+    { name = "rhesis", extras = ["telemetry", "sdk"], marker = "extra == 'all'" },
+    { name = "rhesis-sdk", marker = "extra == 'sdk'" },
+]
+provides-extras = ["telemetry", "sdk", "all"]
+
+[[package]]
 name = "rhesis-sdk"
 version = "0.6.11"
 source = { editable = "." }
@@ -4337,9 +4365,6 @@ dependencies = [
     { name = "mcp" },
     { name = "nest-asyncio" },
     { name = "numpy" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp-proto-http" },
-    { name = "opentelemetry-sdk" },
     { name = "pandas" },
     { name = "pillow" },
     { name = "pydantic" },
@@ -4347,6 +4372,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "ragas" },
     { name = "requests" },
+    { name = "rhesis", extra = ["telemetry"] },
     { name = "scikit-learn" },
     { name = "tenacity" },
     { name = "tiktoken" },
@@ -4462,9 +4488,6 @@ requires-dist = [
     { name = "mcp", specifier = ">=1.23.0" },
     { name = "nest-asyncio" },
     { name = "numpy" },
-    { name = "opentelemetry-api", specifier = ">=1.32.1" },
-    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.32.1" },
-    { name = "opentelemetry-sdk", specifier = ">=1.32.1" },
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "pillow", specifier = ">=12.1.1" },
     { name = "pyautogen", marker = "extra == 'all'", specifier = ">=0.2.0" },
@@ -4475,6 +4498,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "ragas", specifier = ">=0.3.7" },
     { name = "requests", specifier = ">=2.31.0" },
+    { name = "rhesis", extras = ["telemetry"], directory = "../packages/rhesis" },
     { name = "scikit-learn" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },

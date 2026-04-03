@@ -15,14 +15,14 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.trace import SpanContext, SpanKind, Status, StatusCode, TraceFlags
 
-from rhesis.sdk.telemetry.constants import ConversationContext as ConvCtx
+from rhesis.telemetry.constants import ConversationContext as ConvCtx
 from rhesis.sdk.telemetry.context import (
     get_conversation_id,
     get_conversation_trace_id,
     set_conversation_id,
     set_conversation_trace_id,
 )
-from rhesis.sdk.telemetry.exporter import RhesisOTLPExporter
+from rhesis.telemetry.exporter import RhesisOTLPExporter
 from rhesis.sdk.telemetry.tracer import Tracer
 
 # ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ class TestExporterConversation:
         batch = exporter._convert_spans([span])
         assert batch.spans[0].conversation_id is None
 
-    @patch("rhesis.sdk.telemetry.exporter.requests.Session.post")
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_conversation_span_export_roundtrip(self, mock_post):
         """Conversation span exports successfully with conversation_id in payload."""
         mock_response = MagicMock()

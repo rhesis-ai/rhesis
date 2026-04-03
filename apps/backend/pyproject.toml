@@ -125,6 +125,7 @@ torch = [
 ]
 rhesis-sdk = { path = "../../sdk", editable = true }
 rhesis-penelope = { path = "../../penelope", editable = true }
+rhesis = { path = "../../packages/rhesis" }
 
 [tool.hatch.build.targets.wheel]
 packages = [

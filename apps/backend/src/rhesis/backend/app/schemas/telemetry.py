@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 # Import canonical schemas from SDK (source of truth)
-from rhesis.sdk.telemetry.schemas import (
+from rhesis.telemetry.schemas import (
     AILLMAttributes,
     AIOperationType,
     AIToolAttributes,

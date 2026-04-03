@@ -239,7 +239,7 @@ The FastAPI example shows **production-ready patterns**:
 Always use constants from `AIOperationType`:
 
 ```python
-from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.telemetry.schemas import AIOperationType
 
 @observe(span_name=AIOperationType.LLM_INVOKE)  # ✅ Good
 # Not: @observe(span_name="ai.llm.invoke")      # ❌ Bad

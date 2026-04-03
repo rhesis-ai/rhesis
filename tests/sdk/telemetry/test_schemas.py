@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from rhesis.sdk.telemetry.schemas import (
+from rhesis.telemetry.schemas import (
     FORBIDDEN_SPAN_DOMAINS,
     AILLMAttributes,
     AIOperationType,

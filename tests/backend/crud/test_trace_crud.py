@@ -7,7 +7,7 @@ import pytest
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
-from rhesis.sdk.telemetry.schemas import SpanKind, StatusCode
+from rhesis.telemetry.schemas import SpanKind, StatusCode
 
 
 class TestUpdateTracesWithTestResultId:

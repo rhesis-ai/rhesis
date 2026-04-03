@@ -196,7 +196,7 @@ class RhesisClient:
         logger = logging.getLogger(__name__)
 
         try:
-            from rhesis.sdk.telemetry.provider import get_tracer_provider
+            from rhesis.telemetry.provider import get_tracer_provider
 
             # Initialize OTEL provider with current client config
             provider = get_tracer_provider(

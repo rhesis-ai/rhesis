@@ -59,7 +59,7 @@ Use `@observe` with the `ai.agent.invoke` span name to instrument any agent func
 
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import RhesisClient, observe
-from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.telemetry.schemas import AIOperationType
 from rhesis.sdk.telemetry.attributes import AIAttributes
 
 client = RhesisClient(api_key="your-api-key", project_id="your-project-id")
@@ -85,7 +85,7 @@ def analyst_agent(findings: str) -> str:
 To explicitly record when one agent hands off to another, create a handoff span around the transition:
 
 <CodeBlock filename="app.py" language="python">
-{`from rhesis.sdk.telemetry.schemas import AIOperationType
+{`from rhesis.telemetry.schemas import AIOperationType
 from rhesis.sdk.telemetry.attributes import AIAttributes
 
 @observe(
@@ -103,7 +103,7 @@ def handoff_to_analyst(findings: str) -> str:
 
 <CodeBlock filename="multi_agent.py" language="python">
 {`from rhesis.sdk import RhesisClient, endpoint, observe
-from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.telemetry.schemas import AIOperationType
 from rhesis.sdk.telemetry.attributes import AIAttributes
 
 client = RhesisClient(api_key="your-api-key", project_id="your-project-id")

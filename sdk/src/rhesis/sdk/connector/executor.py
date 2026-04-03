@@ -11,8 +11,6 @@ from typing import Any
 
 from rhesis.sdk.connector.schemas import TestStatus
 from rhesis.sdk.connector.serializer import TypeSerializer
-from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
-from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.sdk.telemetry.context import (
     get_root_trace_id,
     set_conversation_id,
@@ -23,6 +21,8 @@ from rhesis.sdk.telemetry.context import (
     set_tracing_disabled,
 )
 from rhesis.sdk.telemetry.tracer import pop_result_trace_id
+from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
+from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
 
 logger = logging.getLogger(__name__)
 

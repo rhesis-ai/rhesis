@@ -11,7 +11,7 @@ from fastapi import HTTPException
 
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
-from rhesis.sdk.telemetry.constants import ConversationContext as ConversationConstants
+from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse

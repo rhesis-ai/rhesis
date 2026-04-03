@@ -9,7 +9,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.sdk.telemetry.context import is_llm_observation_active, is_tracing_disabled
-from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.telemetry.schemas import AIOperationType
 
 from .extractors import (
     MAX_CONTENT_LENGTH,

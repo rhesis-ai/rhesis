@@ -9,8 +9,8 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 
-from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
-from rhesis.sdk.telemetry.schemas import OTELSpan, OTELTraceBatch, SpanEvent, SpanLink
+from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
+from rhesis.telemetry.schemas import OTELSpan, OTELTraceBatch, SpanEvent, SpanLink
 
 logger = logging.getLogger(__name__)
 

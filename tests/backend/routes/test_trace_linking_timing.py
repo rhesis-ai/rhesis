@@ -21,7 +21,7 @@ from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 from rhesis.backend.app.services.telemetry.linking_service import TraceLinkingService
-from rhesis.sdk.telemetry.schemas import SpanKind, StatusCode
+from rhesis.telemetry.schemas import SpanKind, StatusCode
 
 fake = Faker()
 

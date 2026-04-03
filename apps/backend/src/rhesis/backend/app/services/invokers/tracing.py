@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
-from rhesis.sdk.telemetry.constants import ConversationContext as ConversationConstants
-from rhesis.sdk.telemetry.schemas import OTELSpan, SpanKind, StatusCode
+from rhesis.telemetry.constants import ConversationContext as ConversationConstants
+from rhesis.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
 logger = logging.getLogger(__name__)
 

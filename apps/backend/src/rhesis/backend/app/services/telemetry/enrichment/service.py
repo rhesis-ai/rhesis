@@ -13,7 +13,7 @@ from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnri
 
 if TYPE_CHECKING:
     from rhesis.backend.app import models
-    from rhesis.sdk.telemetry.schemas import OTELSpanCreate
+    from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 
 logger = logging.getLogger(__name__)
 

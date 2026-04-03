@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.trace import SpanContext, SpanKind, Status, StatusCode
 
-from rhesis.sdk.telemetry.exporter import RhesisOTLPExporter
+from rhesis.telemetry.exporter import RhesisOTLPExporter
 
 
 class TestRhesisOTLPExporter:
@@ -51,7 +51,7 @@ class TestRhesisOTLPExporter:
 
         assert exporter.endpoint == "https://api.rhesis.ai/telemetry/traces"
 
-    @patch("rhesis.sdk.telemetry.exporter.requests.Session.post")
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_export_success(self, mock_post):
         """Test successful span export."""
         # Mock successful HTTP response
@@ -91,7 +91,7 @@ class TestRhesisOTLPExporter:
         assert result == SpanExportResult.SUCCESS
         assert mock_post.called
 
-    @patch("rhesis.sdk.telemetry.exporter.requests.Session.post")
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_export_empty_spans(self, mock_post):
         """Test export with empty span list returns success."""
         exporter = RhesisOTLPExporter(
@@ -106,7 +106,7 @@ class TestRhesisOTLPExporter:
         assert result == SpanExportResult.SUCCESS
         assert not mock_post.called
 
-    @patch("rhesis.sdk.telemetry.exporter.requests.Session.post")
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_export_timeout(self, mock_post):
         """Test export handles timeout."""
         from requests.exceptions import Timeout
@@ -144,7 +144,7 @@ class TestRhesisOTLPExporter:
 
         assert result == SpanExportResult.FAILURE
 
-    @patch("rhesis.sdk.telemetry.exporter.requests.Session.post")
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_export_validation_error(self, mock_post):
         """Test export handles validation errors (422)."""
         from requests.exceptions import HTTPError
@@ -230,7 +230,7 @@ class TestRhesisOTLPExporter:
         assert exporter.endpoint == "http://localhost:8080/telemetry/traces"
         assert isinstance(exporter.endpoint, str)
 
-    @patch("rhesis.sdk.telemetry.exporter.requests.Session.post")
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_export_spans_with_datetime_serialization(self, mock_post):
         """Test that datetime objects are properly serialized during export."""
         from datetime import datetime, timezone

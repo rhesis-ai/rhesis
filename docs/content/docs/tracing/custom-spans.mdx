@@ -121,7 +121,7 @@ Create your own convenience decorators by wrapping `@observe`:
 <CodeBlock filename="decorators.py" language="python">
 {`from rhesis.sdk import observe
 from rhesis.sdk.telemetry import AIAttributes
-from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.telemetry.schemas import AIOperationType
 
 def my_custom_llm(provider: str, model: str, **extra):
     """Custom decorator for your specific LLM setup."""
@@ -146,7 +146,7 @@ def generate(prompt: str) -> str:
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import RhesisClient, observe
 from rhesis.sdk.telemetry import AIAttributes, AIEvents
-from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.telemetry.schemas import AIOperationType
 
 client = RhesisClient(
     api_key="your-api-key",
