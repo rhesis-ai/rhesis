@@ -2,12 +2,20 @@
 
 import logging
 from datetime import datetime, timezone
+from http import HTTPStatus
 from typing import Optional, Sequence
 
 import requests
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
+from tenacity import (
+    Retrying,
+    retry_if_exception_type,
+    retry_if_result,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
 from rhesis.telemetry.schemas import OTELSpan, OTELTraceBatch, SpanEvent, SpanLink
@@ -29,6 +37,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         project_id: str,
         environment: str,
         timeout: int = 10,
+        max_retries: int = 3,
     ):
         """
         Initialize exporter with Rhesis configuration.
@@ -39,6 +48,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             project_id: Project ID
             environment: Environment name
             timeout: Request timeout in seconds
+            max_retries: Max retry attempts for transient failures
         """
         # Convert ws:// → http://, wss:// → https://
         if base_url.startswith("ws://"):
@@ -61,6 +71,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         self.project_id = project_id
         self.environment = environment
         self._timeout = timeout  # Store timeout for use in export method
+        self._max_retries = max_retries
 
         # Add authentication headers
         self._session.headers.update(
@@ -68,6 +79,24 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             }
+        )
+
+        # Retry configuration for transient failures
+        self._retryer = Retrying(
+            wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=2, max=10),
+            stop=stop_after_attempt(max_retries),
+            retry=(
+                retry_if_exception_type(
+                    (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
+                )
+                | retry_if_result(
+                    lambda r: (
+                        r.status_code
+                        in {HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE}
+                    )
+                )
+            ),
+            before_sleep=self._log_retry,
         )
 
         # Failure tracking to alert users of persistent issues
@@ -105,13 +134,8 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                 f"{spans[0].context.trace_id if spans else 'unknown'}"
             )
 
-            # Serialize via Pydantic (mode='json' ensures datetime serialization)
-            response = self._session.post(
-                self.endpoint,
-                json=batch.model_dump(mode="json"),  # SDK schema serialization with JSON mode
-                timeout=self._timeout,
-            )
-
+            # Serialize via Pydantic and send with retry on transient failures
+            response = self._retryer(self._post, batch.model_dump(mode="json"))
             response.raise_for_status()
 
             logger.debug(f"Successfully exported {len(spans)} span(s)")
@@ -205,6 +229,18 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                 f"⚠️  TELEMETRY ALERT: {self._consecutive_failures} consecutive failures! "
                 f"Traces are NOT being sent to backend."
             )
+
+    def _post(self, payload: dict) -> requests.Response:
+        """POST payload to the telemetry endpoint."""
+        return self._session.post(self.endpoint, json=payload, timeout=self._timeout)
+
+    def _log_retry(self, retry_state) -> None:
+        """Log retry attempts for transient export failures."""
+        logger.warning(
+            f"Transient export failure, "
+            f"retry {retry_state.attempt_number}/{self._max_retries} "
+            f"in {retry_state.idle_for:.1f}s"
+        )
 
     def _convert_spans(self, spans: Sequence[ReadableSpan]) -> OTELTraceBatch:
         """
