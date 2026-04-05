@@ -44,7 +44,7 @@ dependencies = [
     "websockets>=12.0",
     "ipython>=8.37.0",
     "ipykernel>=7.1.0",
-    "rhesis[telemetry]>=0.7.0",
+    "rhesis[telemetry]",
     "aiohttp",
     "aiohttp_security",
     "aiohttp_session",

@@ -1,6 +1,6 @@
 [project]
 name = "rhesis"
-version = "0.7.0"
+dynamic = ["version"]
 description = "Rhesis - Testing and validation platform for LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -55,6 +55,10 @@ all = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "../../sdk/pyproject.toml"
+pattern = '''version\s*=\s*["'](?P<version>[^"']+)["']'''
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhesis"]

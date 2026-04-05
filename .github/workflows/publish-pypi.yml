@@ -1,7 +1,7 @@
 name: Publish to PyPI
 
-# Publishes both rhesis-sdk and rhesis packages to PyPI
-# rhesis is an alias for rhesis-sdk with the same version
+# Publishes both rhesis and rhesis-sdk packages to PyPI
+# rhesis must be published first since rhesis-sdk depends on rhesis[telemetry]
 
 on:
   push:
@@ -11,33 +11,7 @@ on:
   workflow_call:
 
 jobs:
-  publish-sdk:
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/rhesis-sdk
-    permissions:
-      contents: read   # Required for actions/checkout
-      id-token: write  # Required for trusted publishing
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Python build environment
-      uses: ./.github/actions/setup-python-build
-    
-    - name: Build SDK
-      working-directory: ./sdk
-      run: python -m build
-    
-    - name: Publish rhesis-sdk to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        packages-dir: ./sdk/dist/
-
   publish-rhesis:
-    needs: publish-sdk
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -45,19 +19,45 @@ jobs:
     permissions:
       contents: read   # Required for actions/checkout
       id-token: write  # Required for trusted publishing
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Setup Python build environment
       uses: ./.github/actions/setup-python-build
-    
+
     - name: Build rhesis
       working-directory: ./packages/rhesis
       run: python -m build
-    
+
     - name: Publish rhesis to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         packages-dir: ./packages/rhesis/dist/
+
+  publish-sdk:
+    needs: publish-rhesis
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rhesis-sdk
+    permissions:
+      contents: read   # Required for actions/checkout
+      id-token: write  # Required for trusted publishing
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python build environment
+      uses: ./.github/actions/setup-python-build
+
+    - name: Build SDK
+      working-directory: ./sdk
+      run: python -m build
+
+    - name: Publish rhesis-sdk to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: ./sdk/dist/
