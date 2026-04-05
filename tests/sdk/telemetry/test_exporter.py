@@ -3,10 +3,10 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from opentelemetry.sdk.trace import ReadableSpan
+import requests
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.trace import SpanContext, SpanKind, Status, StatusCode
-
 from rhesis.telemetry.exporter import RhesisOTLPExporter
 
 
@@ -284,3 +284,95 @@ class TestRhesisOTLPExporter:
         assert "spans" in json_data
         # The datetime should have been serialized to ISO format string
         assert isinstance(json_data["spans"][0]["start_time"], str)
+
+
+class TestExporterRetryLogic:
+    """Tests for the retry logic in RhesisOTLPExporter."""
+
+    def setup_method(self):
+        """Create a shared exporter and span for each test."""
+        self.exporter = RhesisOTLPExporter(
+            api_key="k", base_url="http://localhost", project_id="p", environment="t"
+        )
+        self.exporter._retryer.wait = lambda *a, **kw: 0
+
+        tracer = TracerProvider().get_tracer("test")
+        with tracer.start_as_current_span("ai.llm.invoke") as span:
+            pass  # span ends when context exits
+        self.span = span._readable_span()
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_retry_on_connection_error_then_succeed(self, mock_post):
+        """Retry on ConnectionError, succeed on 2nd attempt."""
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [requests.exceptions.ConnectionError(), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_retry_on_timeout_then_succeed(self, mock_post):
+        """Retry on Timeout, succeed on 2nd attempt."""
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [requests.exceptions.Timeout(), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_retry_on_429_then_succeed(self, mock_post):
+        """Retry on 429 Too Many Requests, succeed on 2nd attempt."""
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [MagicMock(status_code=429), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_retry_on_503_then_succeed(self, mock_post):
+        """Retry on 503 Service Unavailable, succeed on 2nd attempt."""
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [MagicMock(status_code=503), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_exhaust_retries_on_persistent_connection_error(self, mock_post):
+        """Give up after max_retries on persistent ConnectionError."""
+        mock_post.side_effect = requests.exceptions.ConnectionError()
+
+        assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        assert mock_post.call_count == 3
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_exhaust_retries_on_persistent_429(self, mock_post):
+        """Give up after max_retries on persistent 429 Too Many Requests."""
+        resp = MagicMock(status_code=429)
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
+        mock_post.return_value = resp
+
+        assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        assert mock_post.call_count == 3
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_no_retry_on_422(self, mock_post):
+        """Do not retry on 422 validation error — fail immediately."""
+        resp = MagicMock(status_code=422)
+        resp.json.return_value = {"detail": "Invalid span"}
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
+        mock_post.return_value = resp
+
+        assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        assert mock_post.call_count == 1
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_no_retry_on_401(self, mock_post):
+        """Do not retry on 401 auth error — fail immediately."""
+        resp = MagicMock(status_code=401)
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
+        mock_post.return_value = resp
+
+        assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        assert mock_post.call_count == 1
+
