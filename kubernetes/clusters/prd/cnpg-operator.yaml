@@ -7,11 +7,8 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
+    # Same ref as stg after sign-off; manual sync only (no automated block below).
+    targetRevision: release/v1.2.3
     path: kubernetes/clusters/prd/cnpg-system
   destination:
     server: https://kubernetes.default.svc
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
