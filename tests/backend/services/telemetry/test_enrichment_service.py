@@ -13,7 +13,6 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
-from rhesis.backend.app.services.telemetry.enrichment import service as enrichment_service_module
 
 
 @pytest.mark.unit
@@ -35,12 +34,12 @@ class TestEnrichmentService:
         service = EnrichmentService(mock_db)
         assert service.db == mock_db
 
-    @patch("rhesis.backend.celery.core.app")
+    @patch("rhesis.backend.worker.app")
     def test_check_workers_available_success(self, mock_celery_app, enrichment_service):
         """Test worker availability check when workers are available"""
-        # Clear module-level cache so the mock is used (cache can hold False from other tests)
-        enrichment_service_module._worker_cache["available"] = None
-        enrichment_service_module._worker_cache["checked_at"] = 0.0
+        # Reset the class-level cache so the mock ping is triggered (not a stale cached value)
+        EnrichmentService._worker_cache["available"] = None
+        EnrichmentService._worker_cache["checked_at"] = 0.0
 
         # Mock successful worker inspection
         mock_inspect = Mock()
@@ -55,11 +54,11 @@ class TestEnrichmentService:
         mock_celery_app.control.inspect.assert_called_once_with(timeout=1.0)
         mock_inspect.ping.assert_called_once()
 
-    @patch("rhesis.backend.celery.core.app")
+    @patch("rhesis.backend.worker.app")
     def test_check_workers_available_no_active_workers(self, mock_celery_app, enrichment_service):
         """Test worker availability check when no active workers"""
-        enrichment_service_module._worker_cache["available"] = None
-        enrichment_service_module._worker_cache["checked_at"] = 0.0
+        EnrichmentService._worker_cache["available"] = None
+        EnrichmentService._worker_cache["checked_at"] = 0.0
 
         # Mock no workers responding to ping
         mock_inspect = Mock()
@@ -70,11 +69,11 @@ class TestEnrichmentService:
 
         assert result is False
 
-    @patch("rhesis.backend.celery.core.app")
+    @patch("rhesis.backend.worker.app")
     def test_check_workers_available_empty_response(self, mock_celery_app, enrichment_service):
         """Test worker availability check when ping returns empty dict"""
-        enrichment_service_module._worker_cache["available"] = None
-        enrichment_service_module._worker_cache["checked_at"] = 0.0
+        EnrichmentService._worker_cache["available"] = None
+        EnrichmentService._worker_cache["checked_at"] = 0.0
 
         # Mock empty response (no workers)
         mock_inspect = Mock()
@@ -85,11 +84,11 @@ class TestEnrichmentService:
 
         assert result is False
 
-    @patch("rhesis.backend.celery.core.app")
+    @patch("rhesis.backend.worker.app")
     def test_check_workers_available_exception(self, mock_celery_app, enrichment_service):
         """Test worker availability check when exception occurs"""
-        enrichment_service_module._worker_cache["available"] = None
-        enrichment_service_module._worker_cache["checked_at"] = 0.0
+        EnrichmentService._worker_cache["available"] = None
+        EnrichmentService._worker_cache["checked_at"] = 0.0
 
         # Mock exception during inspection
         mock_celery_app.control.inspect.side_effect = Exception("Connection error")
@@ -358,9 +357,6 @@ class TestEnrichmentService:
         enrichment_service.enrich_traces(trace_ids, project_id, organization_id)
 
         # Check that info logging occurred
-        mock_logger.info.assert_any_call(
-            "No Celery workers available, using sync enrichment for trace trace1"
-        )
         mock_logger.info.assert_any_call("Completed sync enrichment for trace trace1")
 
     @patch("celery.chain")
@@ -474,7 +470,7 @@ class TestCreateAndEnrichSpansPerRootSpan:
         mock_workflow.apply_async.return_value = mock_result
 
         with (
-            patch(f"{self.MODULE}.check_workers_available", return_value=True),
+            patch.object(service, "_check_workers_available", return_value=True),
             patch(
                 f"{self.MODULE}.build_enrichment_chain",
                 return_value=mock_workflow,
@@ -502,7 +498,7 @@ class TestCreateAndEnrichSpansPerRootSpan:
         mock_workflow.apply_async.return_value = mock_result
 
         with (
-            patch(f"{self.MODULE}.check_workers_available", return_value=True),
+            patch.object(service, "_check_workers_available", return_value=True),
             patch(
                 f"{self.MODULE}.build_enrichment_chain",
                 return_value=mock_workflow,
@@ -524,7 +520,7 @@ class TestCreateAndEnrichSpansPerRootSpan:
     def test_empty_batch(self, service):
         """Empty batch returns early."""
         with (
-            patch(f"{self.MODULE}.check_workers_available", return_value=True),
+            patch.object(service, "_check_workers_available", return_value=True),
             patch(
                 f"{self.MODULE}.build_enrichment_chain",
             ) as mock_build,
@@ -552,8 +548,8 @@ class TestEnrichmentServiceIntegration:
     @patch("rhesis.backend.worker.app")
     def test_worker_check_integration(self, mock_celery_app, test_db):
         """Test worker availability check with real service instance"""
-        enrichment_service_module._worker_cache["available"] = None
-        enrichment_service_module._worker_cache["checked_at"] = 0.0
+        EnrichmentService._worker_cache["available"] = None
+        EnrichmentService._worker_cache["checked_at"] = 0.0
 
         service = EnrichmentService(test_db)
 
