@@ -46,8 +46,14 @@ on:
           vLLM log level inside the Vertex serving container (e.g. DEBUG).
           Empty uses repo variable VLLM_LOGGING_LEVEL if set, else vLLM default.
         required: false
-        default: ''
-        type: string
+        default: 'INFO'
+        type: choice
+        options:
+          - DEBUG
+          - INFO
+          - WARNING
+          - ERROR
+          - CRITICAL
 
 env:
   SA_KEY_PATH: 'gcp-sa-key.json'
