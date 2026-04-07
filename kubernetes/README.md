@@ -56,6 +56,7 @@ Open http://localhost:8080 — login with user `admin` and the password above.
 ```
 kubernetes/
 ├── base/
+│   ├── cnpg-system/               # CNPG namespace, AppProject, nested Argo CD Application
 │   └── external-secrets/          # Kustomize base (shared templates with placeholders)
 ├── bootstrap/argocd/              # ArgoCD installation (Kustomize)
 └── clusters/
@@ -73,10 +74,18 @@ kubernetes/
         ├── kube-prometheus-stack/ # Prometheus Operator stack (Grafana disabled)
         ├── loki/                  # Loki singleBinary
         ├── alloy/                 # Grafana Alloy (logs to Loki)
+        ├── cnpg-operator.yaml     # Argo CD Application for CNPG stack (path + Git ref per env)
         └── rhesis/                # Application manifests
 ```
 
-Any YAML added under `clusters/<env>/` and pushed to `main` is automatically deployed.
+Any YAML added under `clusters/<env>/` and pushed to `main` is automatically deployed by the root `*-base` Application (unless you change that Application’s sync policy).
+
+### CloudNativePG operator (`cnpg-system`)
+
+- **Dev** (`kubernetes/clusters/dev/cnpg-operator.yaml`): Git ref `main`; the parent Application uses automated sync. The nested `cnpg-operator` Application auto-syncs the Helm chart (see `clusters/dev/cnpg-system/cnpg-operator-automated-sync.yaml`).
+- **Stg and prd** (`kubernetes/clusters/stg/cnpg-operator.yaml` and `kubernetes/clusters/prd/cnpg-operator.yaml`): `spec.source.targetRevision` points at a **release branch** (for example `release/v1.2.3`). Create that branch from the commit you intend to ship before syncing. **Automated sync is disabled** on the nested `cnpg-operator` Application: use **manual Sync** in Argo CD after the Git ref is updated. **Promotion:** validate on stg, then bump `targetRevision` on prd to the same ref and sync prd.
+- **Chart version per environment:** edit `kubernetes/clusters/<env>/cnpg-system/cnpg-operator-helm-chart.yaml` (e.g. upgrade stg first, then prd).
+- **AppProject:** `cnpg-system` restricts sources and destinations for the CNPG Helm Application (`kubernetes/base/cnpg-system/argocd-project.yaml`).
 
 Before syncing the monitoring stack, create the Grafana admin password in GCP Secret Manager per environment — see [`monitoring/PREREQUISITES.md`](monitoring/PREREQUISITES.md).
 

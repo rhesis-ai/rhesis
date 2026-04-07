@@ -3,3 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../../base/cnpg-system
+
+patches:
+  - path: cnpg-operator-automated-sync.yaml
+  - path: cnpg-operator-helm-chart.yaml

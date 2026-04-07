@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
+  - argocd-project.yaml
   - cnpg-operator-application.yaml
