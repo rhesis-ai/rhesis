@@ -9,7 +9,7 @@ from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.utils.status import get_or_create_status
 from rhesis.sdk.services.chunker import ChunkingService as SDKChunkingService
-from rhesis.sdk.services.chunker import ChunkingStrategy
+from rhesis.sdk.services.chunker import ChunkingStrategy, RecursiveChunker
 from rhesis.sdk.services.extractor import ExtractedSource, SourceType
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class ChunkingService:
 
         # Content already extracted; wrap in ExtractedSource to satisfy SDK interface
         extracted_source = ExtractedSource(
-            type=SourceType.DOCUMENT, # TODO: map from source type; does not affect chunking
+            type=SourceType.DOCUMENT,  # TODO: map from source type; does not affect chunking
             name=source.title,
             description=source.description,
             metadata=source.source_metadata or {},
@@ -95,3 +95,20 @@ class ChunkingService:
         logger.info(f"Created {len(db_chunks)} chunks for source {source_id}")
 
         return db_chunks
+
+
+def auto_chunk_source(
+    db: Session,
+    source_id: UUID4,
+    organization_id: str,
+    user_id: str,
+    strategy: ChunkingStrategy | None = None,
+) -> list:
+    """Run chunking for a source; logs and swallows failures so callers are not blocked."""
+    strategy = strategy or RecursiveChunker(chunk_size=1500)
+    try:
+        service = ChunkingService(db=db, strategy=strategy)
+        return service.chunk_source(source_id, organization_id, user_id)
+    except Exception:
+        logger.exception("Auto-chunking failed for source %s", source_id)
+        return []
