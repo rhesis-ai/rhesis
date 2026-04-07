@@ -21,9 +21,9 @@ class AsyncService(ABC, Generic[T]):
     Abstract base service for orchestrating async/sync task execution.
 
     Provides common patterns for:
-    - Checking Celery worker availability
+    - Checking Celery worker availability (shared TTL cache across subclasses)
     - Enqueuing async tasks with fallback to sync
-    - Batch processing with single worker check
+    - Batch processing with a single worker check per batch (or caller-supplied flag)
 
     Subclasses must implement:
     - _execute_sync(): Synchronous fallback implementation
@@ -39,7 +39,7 @@ class AsyncService(ABC, Generic[T]):
 
     def _check_workers_available(self) -> bool:
         """
-        Check if Celery workers are available, with per-subclass TTL caching.
+        Check if Celery workers are available, with shared TTL caching.
 
         Uses monotonic time (immune to clock adjustments) and a 1-second ping
         timeout (faster than the default 3s, avoids blocking request handling).
@@ -152,16 +152,22 @@ class AsyncService(ABC, Generic[T]):
             raise
 
     def batch_execute(
-        self, items: list[tuple[tuple, dict]], swallow_exceptions: bool = False
+        self,
+        items: list[tuple[tuple, dict]],
+        swallow_exceptions: bool = False,
+        workers_available: bool | None = None,
     ) -> tuple[int, int]:
         """
         Execute multiple tasks using async/sync fallback strategy.
 
-        Checks worker availability once before the loop to avoid N×3 second
-        timeout when workers are unavailable (prevents batch delays).
+        Checks worker availability once before the loop (unless ``workers_available``
+        is provided) to avoid N×ping cost when workers are unavailable.
 
         Args:
             items: List of (args_tuple, kwargs_dict) for each task
+            swallow_exceptions: If True, sync failures return (False, None) per item
+            workers_available: If set, skip an extra ping; use for callers that
+                already resolved availability (e.g. telemetry ingest orchestration).
 
         Returns:
             Tuple of (async_count, sync_count)
@@ -169,8 +175,8 @@ class AsyncService(ABC, Generic[T]):
         async_count = 0
         sync_count = 0
 
-        # Single worker check for entire batch
-        workers_available = self._check_workers_available()
+        if workers_available is None:
+            workers_available = self._check_workers_available()
 
         for args, kwargs in items:
             was_async, _ = self.execute_with_fallback(

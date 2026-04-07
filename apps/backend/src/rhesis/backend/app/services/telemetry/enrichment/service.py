@@ -137,21 +137,38 @@ class EnrichmentService(AsyncService[dict | None]):
             return False
 
     def enrich_traces(
-        self, trace_ids: Set[str], project_id: str, organization_id: str
+        self,
+        trace_ids: Set[str],
+        project_id: str,
+        organization_id: str,
+        *,
+        workers_available: bool | None = None,
     ) -> tuple[int, int]:
         """
         Enrich multiple traces using async/sync fallback strategy.
+
+        Resolves worker availability once for the whole batch (TTL-cached).
+        Pass ``workers_available`` to skip a redundant ping when the caller
+        already checked (e.g. the telemetry ingest router).
 
         Args:
             trace_ids: Set of trace IDs to enrich
             project_id: Project ID for access control
             organization_id: Organization ID for multi-tenant security
+            workers_available: Optional precomputed flag to skip an extra ping.
 
         Returns:
             Tuple of (async_count, sync_count)
         """
+        if not trace_ids:
+            return 0, 0
+
         items = [((trace_id, project_id, organization_id), {}) for trace_id in trace_ids]
-        return self.batch_execute(items, swallow_exceptions=True)
+        return self.batch_execute(
+            items,
+            swallow_exceptions=True,
+            workers_available=workers_available,
+        )
 
     def create_and_enrich_spans(
         self,

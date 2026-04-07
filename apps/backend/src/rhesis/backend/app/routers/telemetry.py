@@ -215,6 +215,7 @@ def ingest_trace(
                     set(unique_trace_ids),
                     str(project_id),
                     organization_id,
+                    workers_available=_workers_available,
                 )
             except Exception as enrich_error:
                 logger.warning(
