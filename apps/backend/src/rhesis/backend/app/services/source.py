@@ -7,6 +7,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.services.chunking import auto_chunk_source
 from rhesis.backend.app.services.handlers import get_source_handler
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,41 @@ def get_source_type_by_value(
     )
 
 
-async def upload_and_create_source(
+def update_source(
+    db: Session,
+    source_id: uuid.UUID,
+    source: schemas.SourceUpdate,
+    organization_id: str,
+    user_id: str,
+) -> Optional[models.Source]:
+    """
+    Update a source and re-chunk when text content is supplied in the payload.
+
+    If ``content`` is present and non-empty after stripping, runs ``auto_chunk_source``
+    so chunks stay aligned with the stored body text.
+    """
+    payload = source.model_dump(exclude_unset=True)
+    content_in_request = "content" in payload
+
+    updated = crud.update_source(
+        db=db,
+        source_id=source_id,
+        source=source,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    if updated is None:
+        return None
+
+    if content_in_request:
+        new_content = payload.get("content")
+        if new_content is not None and str(new_content).strip():
+            auto_chunk_source(db, source_id, organization_id, user_id)
+
+    return updated
+
+
+async def refresh_source_content(
     db: Session,
     file: UploadFile,
     organization_id: str,
@@ -108,6 +143,8 @@ async def upload_and_create_source(
     created_source = crud.create_source(
         db=db, source=source_data, organization_id=organization_id, user_id=user_id
     )
+    if extracted_content and extracted_content.strip():
+        auto_chunk_source(db, created_source.id, organization_id, user_id)
 
     return created_source
 
@@ -199,6 +236,9 @@ async def extract_source_content(
         organization_id=organization_id,
         user_id=user_id,
     )
+
+    if content and content.strip():
+        auto_chunk_source(db, source_id, organization_id, user_id)
 
     return {
         "source_id": str(source_id),
