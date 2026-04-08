@@ -160,7 +160,7 @@ class OTELSpan(BaseModel):
         - ai.<domain>.<action> (e.g., ai.llm.invoke, ai.tool.invoke)
         - function.<name> (for generic functions)
 
-        Forbidden: Framework concepts (agent, chain, workflow, pipeline)
+        Forbidden: Framework concepts (chain, workflow, pipeline)
         """
         # Allow function.* pattern for generic functions
         if v.startswith("function."):
@@ -196,7 +196,7 @@ class OTELSpan(BaseModel):
 class OTELTraceBatch(BaseModel):
     """Batch of spans for ingestion."""
 
-    spans: List[OTELSpan] = Field(..., min_length=1, max_length=1000)
+    spans: List[OTELSpan] = Field(..., min_length=1)
 
 
 class TraceIngestResponse(BaseModel):

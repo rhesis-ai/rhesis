@@ -18,10 +18,10 @@ from rhesis.backend.app.schemas.telemetry import (
 )
 
 # Verify that backend schemas are imported from SDK
-from rhesis.sdk.telemetry.schemas import (
+from rhesis.telemetry.schemas import (
     OTELSpan as SDKOTELSpan,
 )
-from rhesis.sdk.telemetry.schemas import (
+from rhesis.telemetry.schemas import (
     OTELTraceBatch as SDKOTELTraceBatch,
 )
 

@@ -170,7 +170,7 @@ class ObserveDecorator:
         # Import here to avoid circular imports
         from rhesis.sdk.telemetry.attributes import AIAttributes
         from rhesis.sdk.telemetry.context import set_llm_observation_active
-        from rhesis.sdk.telemetry.schemas import AIOperationType
+        from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
             AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
@@ -238,7 +238,7 @@ class ObserveDecorator:
                 return requests.get(f"api/{city}").json()
         """
         from rhesis.sdk.telemetry.attributes import AIAttributes
-        from rhesis.sdk.telemetry.schemas import AIOperationType
+        from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
             AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_TOOL_INVOKE,
@@ -274,7 +274,7 @@ class ObserveDecorator:
                 return vector_db.search(query, k=5)
         """
         from rhesis.sdk.telemetry.attributes import AIAttributes
-        from rhesis.sdk.telemetry.schemas import AIOperationType
+        from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
             AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_RETRIEVAL,
@@ -312,7 +312,7 @@ class ObserveDecorator:
                 return embedding_model.encode(texts)
         """
         from rhesis.sdk.telemetry.attributes import AIAttributes
-        from rhesis.sdk.telemetry.schemas import AIOperationType
+        from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
             AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_EMBEDDING_CREATE,
@@ -350,7 +350,7 @@ class ObserveDecorator:
                 return reranker.rerank(query, docs, top_n=10)
         """
         from rhesis.sdk.telemetry.attributes import AIAttributes
-        from rhesis.sdk.telemetry.schemas import AIOperationType
+        from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
             AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_RERANK,
@@ -388,7 +388,7 @@ class ObserveDecorator:
                 return evaluator.score_relevance(query, response)
         """
         from rhesis.sdk.telemetry.attributes import AIAttributes
-        from rhesis.sdk.telemetry.schemas import AIOperationType
+        from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
             AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_EVALUATION,
@@ -425,7 +425,7 @@ class ObserveDecorator:
                 return safety_checker.is_safe(text)
         """
         from rhesis.sdk.telemetry.attributes import AIAttributes
-        from rhesis.sdk.telemetry.schemas import AIOperationType
+        from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
             AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_GUARDRAIL,
@@ -462,7 +462,7 @@ class ObserveDecorator:
                 return clean_and_normalize(text)
         """
         from rhesis.sdk.telemetry.attributes import AIAttributes
-        from rhesis.sdk.telemetry.schemas import AIOperationType
+        from rhesis.telemetry.schemas import AIOperationType
 
         attributes = {
             AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_TRANSFORM,

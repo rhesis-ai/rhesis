@@ -8,7 +8,7 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-from rhesis.sdk.telemetry.exporter import RhesisOTLPExporter
+from rhesis.telemetry.exporter import RhesisOTLPExporter
 
 logger = logging.getLogger(__name__)
 

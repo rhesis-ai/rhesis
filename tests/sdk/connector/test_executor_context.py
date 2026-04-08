@@ -3,7 +3,7 @@
 import pytest
 
 from rhesis.sdk.connector.executor import TestExecutor
-from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
+from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.sdk.telemetry.context import get_test_execution_context
 
 

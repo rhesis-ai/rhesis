@@ -1114,7 +1114,7 @@ class TestCrossOrganizationSecurity:
         import uuid
 
         from rhesis.backend.app import crud
-        from rhesis.sdk.telemetry.schemas import OTELSpan
+        from rhesis.telemetry.schemas import OTELSpan
 
         # Create test organization and project IDs
         org_id = uuid.uuid4()

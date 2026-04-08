@@ -7,6 +7,7 @@ and extracting metadata from traces. Used by both sync and async paths.
 import logging
 from typing import List, Optional
 
+from rhesis.telemetry.schemas import StatusCode
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import get_trace_by_id, mark_trace_processed
@@ -17,7 +18,6 @@ from rhesis.backend.app.services.telemetry.enrichment.core import (
     detect_anomalies,
     extract_metadata,
 )
-from rhesis.sdk.telemetry.schemas import StatusCode
 
 logger = logging.getLogger(__name__)
 

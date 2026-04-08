@@ -12,12 +12,14 @@ from rhesis.sdk.telemetry.attributes import (
 
 # Auto-instrumentation
 from rhesis.sdk.telemetry.observer import auto_instrument, disable_auto_instrument
+from rhesis.sdk.telemetry.tracer import Tracer
 
-# Infrastructure
-from rhesis.sdk.telemetry.provider import get_tracer_provider, shutdown_tracer_provider
+# Re-export from rhesis.telemetry (lightweight foundation)
+from rhesis.telemetry.exporter import RhesisOTLPExporter
+from rhesis.telemetry.provider import get_tracer_provider, shutdown_tracer_provider
 
-# Schemas (for backend to import)
-from rhesis.sdk.telemetry.schemas import (
+# Schemas (re-exported for backward compatibility)
+from rhesis.telemetry.schemas import (
     FORBIDDEN_SPAN_DOMAINS,
     AILLMAttributes,
     AIOperationType,
@@ -30,7 +32,6 @@ from rhesis.sdk.telemetry.schemas import (
     StatusCode,
     TraceIngestResponse,
 )
-from rhesis.sdk.telemetry.tracer import Tracer
 
 __all__ = [
     # Auto-instrumentation
@@ -50,7 +51,8 @@ __all__ = [
     "SpanLink",
     "AILLMAttributes",
     "AIToolAttributes",
-    # Infrastructure
+    # Infrastructure (re-exported from rhesis.telemetry)
+    "RhesisOTLPExporter",
     "get_tracer_provider",
     "shutdown_tracer_provider",
     # Helpers

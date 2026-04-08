@@ -3,7 +3,7 @@
 from contextvars import ContextVar
 from typing import Optional
 
-from rhesis.sdk.telemetry.schemas import TestExecutionContext
+from rhesis.telemetry.schemas import TestExecutionContext
 
 # Context variable to thread test execution context through call stack
 # This avoids polluting function signatures with internal parameters

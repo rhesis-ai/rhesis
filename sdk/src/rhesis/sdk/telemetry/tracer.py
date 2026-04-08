@@ -12,8 +12,6 @@ from opentelemetry import trace
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from rhesis.sdk.telemetry.attributes import AIAttributes
-from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
-from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.sdk.telemetry.context import (
     get_conversation_id,
     get_conversation_mapped_input,
@@ -23,8 +21,10 @@ from rhesis.sdk.telemetry.context import (
     is_tracing_disabled,
     set_root_trace_id,
 )
-from rhesis.sdk.telemetry.provider import get_tracer_provider
-from rhesis.sdk.telemetry.schemas import TestExecutionContext
+from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
+from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
+from rhesis.telemetry.provider import get_tracer_provider
+from rhesis.telemetry.schemas import TestExecutionContext
 
 logger = logging.getLogger(__name__)
 

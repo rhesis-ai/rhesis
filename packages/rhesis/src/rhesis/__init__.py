@@ -1,11 +1,10 @@
 # Rhesis - Testing and validation platform for LLM applications
 #
-# This package is an alias for rhesis-sdk.
-# Installing 'rhesis' is equivalent to installing 'rhesis-sdk' at the same version.
-#
-# Usage:
-#   pip install rhesis
-#   from rhesis.sdk import RhesisClient
+# Lightweight foundation package with telemetry support.
+#   pip install rhesis                → base (pydantic, requests)
+#   pip install rhesis[telemetry]     → + OpenTelemetry trace export
+#   pip install rhesis[sdk]           → + full SDK (rhesis-sdk)
+#   pip install rhesis[all]           → everything
 #
 # Documentation: https://docs.rhesis.ai
 
