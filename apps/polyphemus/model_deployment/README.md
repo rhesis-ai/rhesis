@@ -232,11 +232,7 @@ Configure these GitHub secrets for automated deployment:
 - `POLYPHEMUS_DEFAULT_MODEL` - Model folder name (e.g. your-model-name)
 - `HUGGINGFACE_TOKEN` - HuggingFace token for private models
 
-**Optional (Vertex replica / cost)** — see `model_deployment/config.py` for defaults:
-
-- `SCALE_TO_ZERO` - `true` / `false` — when `true`, `min_replica_count=0` so idle endpoints can scale to zero (Vertex preview; first request pays cold-start latency).
-- `MAX_REPLICA_COUNT` - Autoscaling maximum replicas (default `1` in code).
-- `SPOT_VM` - `true` / `false` — schedule inference on Spot VMs for lower cost (preemption possible; supported for many GPU machine types including `a3-highgpu-*`).
+Vertex replica scaling (`SCALE_TO_ZERO`, `MAX_REPLICA_COUNT`, `SPOT_VM`) uses the defaults in `model_deployment/config.py` unless you set those environment variables locally when running the deploy script (they are not GitHub secrets).
 
 #### Deployment Methods
 

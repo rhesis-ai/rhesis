@@ -152,15 +152,6 @@ jobs:
           if [ -n "${{ secrets.ACCELERATOR_COUNT }}" ]; then
             echo "ACCELERATOR_COUNT=${{ secrets.ACCELERATOR_COUNT }}" >> $GITHUB_ENV
           fi
-          if [ -n "${{ secrets.SCALE_TO_ZERO }}" ]; then
-            echo "SCALE_TO_ZERO=${{ secrets.SCALE_TO_ZERO }}" >> $GITHUB_ENV
-          fi
-          if [ -n "${{ secrets.MAX_REPLICA_COUNT }}" ]; then
-            echo "MAX_REPLICA_COUNT=${{ secrets.MAX_REPLICA_COUNT }}" >> $GITHUB_ENV
-          fi
-          if [ -n "${{ secrets.SPOT_VM }}" ]; then
-            echo "SPOT_VM=${{ secrets.SPOT_VM }}" >> $GITHUB_ENV
-          fi
 
           # vLLM logs in Cloud Logging (Vertex endpoint replica / container logs)
           VLLM_LVL="${{ github.event.inputs.vllm_logging_level || '' }}"
