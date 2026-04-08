@@ -108,8 +108,10 @@ def auto_chunk_source(
     """Run chunking for a source; logs and swallows failures so callers are not blocked."""
     strategy = strategy or RecursiveChunker(chunk_size=1500)
     try:
-        service = ChunkingService(db=db, strategy=strategy)
-        return service.chunk_source(source_id, organization_id, user_id)
+        # Create a sub-transaction to protect the main session from errors inside this block
+        with db.begin_nested():
+            service = ChunkingService(db=db, strategy=strategy)
+            return service.chunk_source(source_id, organization_id, user_id)
     except Exception:
         logger.exception("Auto-chunking failed for source %s", source_id)
         return []
