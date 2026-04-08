@@ -30,6 +30,25 @@ class RhesisOTLPExporter(OTLPSpanExporter):
     Converts OTEL ReadableSpan → SDK OTELSpan → JSON
     """
 
+    # HTTP status codes that indicate a transient failure worth retrying.
+    # - 408 Request Timeout: server says we took too long; usually transient.
+    # - 429 Too Many Requests: rate limited; backoff and retry.
+    # - 502 Bad Gateway: proxy got a bad response from upstream backend.
+    # - 503 Service Unavailable: backend temporarily unavailable.
+    # - 504 Gateway Timeout: proxy gave up waiting for upstream backend.
+    # Note: ConnectionError/Timeout are handled separately via exception
+    # retries — those fire before any HTTP response is received, while these
+    # codes are reported by the server (often an intermediate proxy).
+    _RETRYABLE_STATUSES = frozenset(
+        {
+            HTTPStatus.REQUEST_TIMEOUT,
+            HTTPStatus.TOO_MANY_REQUESTS,
+            HTTPStatus.BAD_GATEWAY,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            HTTPStatus.GATEWAY_TIMEOUT,
+        }
+    )
+
     def __init__(
         self,
         api_key: str,
@@ -81,7 +100,18 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             }
         )
 
-        # Retry configuration for transient failures
+        # Retry configuration for transient failures.
+        #
+        # On retry exhaustion tenacity would, by default, raise its own
+        # tenacity.RetryError — which export() does not catch, so failures
+        # would fall into the generic "This is a bug" branch. We install a
+        # retry_error_callback that calls Future.result() on the last attempt:
+        #   - If the last attempt failed with an exception (persistent
+        #     ConnectionError/Timeout), .result() re-raises it so the matching
+        #     except branch in export() catches it.
+        #   - If the last attempt returned a result (persistent 429/503),
+        #     .result() returns the Response and export() then converts it
+        #     to HTTPError via raise_for_status().
         self._retryer = Retrying(
             wait=wait_exponential_jitter(initial=1, exp_base=2, jitter=2, max=10),
             stop=stop_after_attempt(max_retries),
@@ -89,14 +119,10 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                 retry_if_exception_type(
                     (requests.exceptions.ConnectionError, requests.exceptions.Timeout)
                 )
-                | retry_if_result(
-                    lambda r: (
-                        r.status_code
-                        in {HTTPStatus.TOO_MANY_REQUESTS, HTTPStatus.SERVICE_UNAVAILABLE}
-                    )
-                )
+                | retry_if_result(lambda r: r.status_code in self._RETRYABLE_STATUSES)
             ),
             before_sleep=self._log_retry,
+            retry_error_callback=lambda state: state.outcome.result(),
         )
 
         # Failure tracking to alert users of persistent issues
@@ -150,29 +176,20 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             return SpanExportResult.SUCCESS
 
         except requests.exceptions.ConnectionError as e:
-            self._failed_exports += 1
-            self._consecutive_failures += 1
             logger.error(
                 f"❌ Failed to connect to backend at {self.endpoint}. "
                 f"Make sure the backend is running (docker compose up -d). Error: {e}"
             )
-            self._log_persistent_failure_warning()
-            return SpanExportResult.FAILURE
+            return self._record_failure()
 
         except requests.exceptions.Timeout:
-            self._failed_exports += 1
-            self._consecutive_failures += 1
             logger.error(
                 f"❌ Timeout exporting spans to {self.endpoint}. "
                 f"Backend might be overloaded or unreachable."
             )
-            self._log_persistent_failure_warning()
-            return SpanExportResult.FAILURE
+            return self._record_failure()
 
         except requests.exceptions.HTTPError as e:
-            self._failed_exports += 1
-            self._consecutive_failures += 1
-
             # Log validation errors from backend
             if e.response.status_code == 422:
                 try:
@@ -193,18 +210,26 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             else:
                 logger.error(f"❌ HTTP error exporting spans: {e}")
 
-            self._log_persistent_failure_warning()
-            return SpanExportResult.FAILURE
+            return self._record_failure()
 
         except Exception as e:
-            self._failed_exports += 1
-            self._consecutive_failures += 1
             logger.error(
                 f"❌ Unexpected error exporting spans: {e}. This is a bug - please report it.",
                 exc_info=True,
             )
-            self._log_persistent_failure_warning()
-            return SpanExportResult.FAILURE
+            return self._record_failure()
+
+    def _record_failure(self) -> SpanExportResult:
+        """Update failure counters and emit persistent-failure warning.
+
+        Centralized so every except branch in export() does the same
+        bookkeeping — adding a new branch only requires logging the message
+        and returning self._record_failure().
+        """
+        self._failed_exports += 1
+        self._consecutive_failures += 1
+        self._log_persistent_failure_warning()
+        return SpanExportResult.FAILURE
 
     def _log_persistent_failure_warning(self) -> None:
         """Log warning if exports are repeatedly failing."""

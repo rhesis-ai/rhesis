@@ -338,22 +338,93 @@ class TestExporterRetryLogic:
         assert mock_post.call_count == 2
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
-    def test_exhaust_retries_on_persistent_connection_error(self, mock_post):
+    def test_retry_on_408_then_succeed(self, mock_post):
+        """Retry on 408 Request Timeout, succeed on 2nd attempt."""
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [MagicMock(status_code=408), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_retry_on_502_then_succeed(self, mock_post):
+        """Retry on 502 Bad Gateway, succeed on 2nd attempt."""
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [MagicMock(status_code=502), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_retry_on_504_then_succeed(self, mock_post):
+        """Retry on 504 Gateway Timeout, succeed on 2nd attempt."""
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [MagicMock(status_code=504), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_no_retry_on_500(self, mock_post):
+        """Do not retry on 500 (not in retryable set) — fail immediately."""
+        resp = MagicMock(status_code=500)
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
+        mock_post.return_value = resp
+
+        assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        assert mock_post.call_count == 1
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_exhaust_retries_on_persistent_connection_error(self, mock_post, caplog):
         """Give up after max_retries on persistent ConnectionError."""
         mock_post.side_effect = requests.exceptions.ConnectionError()
 
-        assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        with caplog.at_level("ERROR", logger="rhesis.telemetry.exporter"):
+            assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
         assert mock_post.call_count == 3
+        # Must hit the ConnectionError branch (not the generic "This is a bug" path)
+        assert any("Failed to connect to backend" in r.message for r in caplog.records)
+        assert not any("This is a bug" in r.message for r in caplog.records)
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
-    def test_exhaust_retries_on_persistent_429(self, mock_post):
+    def test_exhaust_retries_on_persistent_timeout(self, mock_post, caplog):
+        """Give up after max_retries on persistent Timeout."""
+        mock_post.side_effect = requests.exceptions.Timeout()
+
+        with caplog.at_level("ERROR", logger="rhesis.telemetry.exporter"):
+            assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        assert mock_post.call_count == 3
+        # Must hit the Timeout branch (not the generic "This is a bug" path)
+        assert any("Timeout exporting spans" in r.message for r in caplog.records)
+        assert not any("This is a bug" in r.message for r in caplog.records)
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_exhaust_retries_on_persistent_503(self, mock_post, caplog):
+        """Give up after max_retries on persistent 503 Service Unavailable."""
+        resp = MagicMock(status_code=503)
+        resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
+        mock_post.return_value = resp
+
+        with caplog.at_level("ERROR", logger="rhesis.telemetry.exporter"):
+            assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        assert mock_post.call_count == 3
+        # Must hit the HTTPError branch (not the generic "This is a bug" path)
+        assert any("HTTP error exporting spans" in r.message for r in caplog.records)
+        assert not any("This is a bug" in r.message for r in caplog.records)
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_exhaust_retries_on_persistent_429(self, mock_post, caplog):
         """Give up after max_retries on persistent 429 Too Many Requests."""
         resp = MagicMock(status_code=429)
         resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
         mock_post.return_value = resp
 
-        assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        with caplog.at_level("ERROR", logger="rhesis.telemetry.exporter"):
+            assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
         assert mock_post.call_count == 3
+        # Must hit the HTTPError branch (not the generic "This is a bug" path)
+        assert any("HTTP error exporting spans" in r.message for r in caplog.records)
+        assert not any("This is a bug" in r.message for r in caplog.records)
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_no_retry_on_422(self, mock_post):
