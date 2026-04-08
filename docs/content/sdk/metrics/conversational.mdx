@@ -105,6 +105,64 @@ print(conversation.get_assistant_tool_calls())`}
   These fields are optional. If they are omitted for a turn, helper methods return `None` for that position.
 </Callout>
 
+### Formatting a conversation transcript (v0.6.10+)
+
+Use `ConversationHistory.format_conversation()` when you want a structured, numbered transcript that keeps
+assistant `context`, `metadata`, and `tool_calls` attached to the correct turn.
+
+This is especially useful for custom conversational judges and prompt templates.
+
+<CodeBlock filename="format_conversation.py" language="python">
+{`from rhesis.sdk.metrics import ConversationHistory
+
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "Find policy details for claim #A-123."},
+    {
+        "role": "assistant",
+        "content": None,
+        "tool_calls": [{"id": "call_1", "function": {"name": "lookup_claim"}}],
+        "metadata": {"latency_ms": 420, "model": "rhesis-default"},
+        "context": [{"source": "claims_db", "id": "A-123"}],
+    },
+    {"role": "assistant", "content": "I found the claim and policy summary."},
+])
+
+print(conversation.format_conversation())`}
+</CodeBlock>
+
+Expected output shape:
+
+<CodeBlock filename="formatted_output.txt" language="text">
+{`Turn 1:
+  User: Find policy details for claim #A-123.
+  Context: [
+    {
+      "source": "claims_db",
+      "id": "A-123"
+    }
+  ]
+  Metadata: {
+    "latency_ms": 420,
+    "model": "rhesis-default"
+  }
+  Tool Calls: [
+    {
+      "id": "call_1",
+      "function": {
+        "name": "lookup_claim"
+      }
+    }
+  ]
+
+Turn 2:
+  Assistant: I found the claim and policy summary.`}
+</CodeBlock>
+
+<Callout type="info">
+  `to_text()` returns a simpler role-prefixed transcript and excludes `metadata`, `context`, and `tool_calls`.
+  Use `format_conversation()` when those fields must be visible to the evaluating model.
+</Callout>
+
 ## Quick Start
 
 ### Turn Relevancy
