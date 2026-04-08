@@ -23,15 +23,13 @@ class ChunkingService:
         self.strategy = strategy
         self.encoding = tiktoken.get_encoding("cl100k_base")
 
-    def _soft_delete_existing_chunks(self, source_id: UUID4, organization_id: str, user_id: str):
+    def _soft_delete_existing_chunks(self, source_id: UUID4):
         from datetime import datetime, timezone
 
         from rhesis.backend.app.models.chunk import Chunk
 
         self.db.query(Chunk).filter(
             Chunk.source_id == source_id,
-            Chunk.organization_id == organization_id,
-            Chunk.user_id == user_id,
             Chunk.deleted_at.is_(None),
         ).update({"deleted_at": datetime.now(timezone.utc)})
 
@@ -70,10 +68,10 @@ class ChunkingService:
             logger.warning(f"No chunks generated for source {source_id}")
             return []
 
-        self._soft_delete_existing_chunks(source.id, organization_id, user_id)
+        self._soft_delete_existing_chunks(source.id)
 
         active_status = get_or_create_status(
-            self.db, "Active", EntityType.CHUNK, organization_id, user_id
+            self.db, "Active", EntityType.CHUNK, source.organization_id, source.user_id
         )
 
         db_chunks = []
@@ -88,7 +86,10 @@ class ChunkingService:
                 status_id=active_status.id if active_status else None,
             )
             db_chunk = crud.create_chunk(
-                db=self.db, chunk=chunk_create, organization_id=organization_id, user_id=user_id
+                db=self.db,
+                chunk=chunk_create,
+                organization_id=source.organization_id,
+                user_id=source.user_id,
             )
             db_chunks.append(db_chunk)
 
