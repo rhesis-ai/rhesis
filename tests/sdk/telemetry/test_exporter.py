@@ -368,13 +368,7 @@ class TestExporterRetryLogic:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_retry_on_500_then_succeed(self, mock_post):
-        """Retry on 500 Internal Server Error, succeed on 2nd attempt.
-
-        500 is part of the broadened 5xx retryable set that mirrors upstream
-        OTLPSpanExporter's _is_retryable() (408 + every 5xx). Servers commonly
-        return 500 during deploys, restarts, and transient backend pressure
-        — all cases where a retry is the right call.
-        """
+        """Retry on 500 (part of the broadened 5xx set), succeed on 2nd attempt."""
         ok = MagicMock(status_code=200)
         mock_post.side_effect = [MagicMock(status_code=500), ok]
 
@@ -402,19 +396,7 @@ class TestExporterRetryLogic:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_no_retry_on_missing_schema(self, mock_post):
-        """MissingSchema is a RequestException not in our retryable types.
-
-        It's a code/config bug (URL has no scheme like 'http://'), not a
-        transient network failure. The retry= predicate only matches
-        ConnectionError + Timeout exceptions and our retryable status set,
-        so MissingSchema falls through to the catch-all "unexpected error"
-        branch and is not retried.
-
-        Note: SSLError, despite intuitively being a "permanent" failure,
-        IS retried because requests.exceptions.SSLError is a subclass of
-        ConnectionError. That matches upstream OTLPSpanExporter behavior
-        and is intentional — a brief TLS handshake glitch can be transient.
-        """
+        """MissingSchema (URL config bug) isn't in the retry predicate — fail fast."""
         mock_post.side_effect = requests.exceptions.MissingSchema("Invalid URL: no scheme")
 
         assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
@@ -422,12 +404,7 @@ class TestExporterRetryLogic:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_ssl_error_is_retried_as_connection_error(self, mock_post):
-        """Document that SSLError is retried via the ConnectionError predicate.
-
-        Regression guard: if someone narrows the retry types and SSLError
-        stops being retried, this test will fail and force a deliberate
-        decision rather than a silent behavior change.
-        """
+        """SSLError subclasses ConnectionError, so it gets retried (regression guard)."""
         ok = MagicMock(status_code=200)
         mock_post.side_effect = [requests.exceptions.SSLError("transient"), ok]
 
@@ -509,11 +486,7 @@ class TestExporterRetryLogic:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_recovery_resets_consecutive_failures(self, mock_post):
-        """A successful retry after failures clears the consecutive counter.
-
-        Covers the recovery log line in export() which was previously
-        uncovered by the test suite.
-        """
+        """A successful export after failures clears _consecutive_failures."""
         # Two failed exports first to bump _consecutive_failures
         mock_post.side_effect = requests.exceptions.ConnectionError()
         self.exporter.export([self.span])
@@ -540,12 +513,7 @@ class TestExporterDeadlineAndShutdown:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_deadline_stops_loop_before_attempt_cap(self, mock_post):
-        """stop_after_delay fires before stop_after_attempt when budget runs out.
-
-        With a 0.1s total budget and instant-failing posts, the deadline
-        predicate should terminate the loop after the first wait pushes
-        elapsed time past the budget — well before the 3-attempt cap.
-        """
+        """stop_after_delay fires before stop_after_attempt when budget is exhausted."""
         # Tight budget; do NOT skip the wait so the deadline check fires.
         exporter = RhesisOTLPExporter(
             api_key="k",
@@ -564,19 +532,11 @@ class TestExporterDeadlineAndShutdown:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_shutdown_aborts_in_flight_retry(self, mock_post):
-        """shutdown() pre-set should bail out at the next stop check.
-
-        Pre-setting the shutdown event before calling export() simulates a
-        BatchSpanProcessor.shutdown() that races with an in-flight retry.
-        The _stop_on_shutdown predicate should fire on the next stop check
-        and terminate the loop after the current attempt finishes.
-        """
+        """Pre-set shutdown event aborts retries after the current attempt."""
         exporter = RhesisOTLPExporter(
             api_key="k", base_url="http://localhost", project_id="p", environment="t"
         )
-        # Skip waits to keep test fast — the shutdown predicate is what we
-        # want to verify, not the wait interruption mechanism (which is
-        # covered separately by test_interruptible_sleep_unblocks_on_shutdown).
+        # Skip waits — sleep interruption is covered by test_interruptible_sleep_*.
         exporter._retryer.wait = lambda *a, **kw: 0
         mock_post.side_effect = requests.exceptions.ConnectionError()
 
@@ -600,12 +560,7 @@ class TestExporterDeadlineAndShutdown:
         assert exporter._shutdown_event.is_set()
 
     def test_interruptible_sleep_unblocks_on_shutdown(self):
-        """_interruptible_sleep returns immediately when event is set.
-
-        This is the mechanism by which a shutdown() called mid-backoff
-        unblocks the worker thread instead of letting it sleep for the
-        full backoff duration.
-        """
+        """_interruptible_sleep returns immediately once shutdown is set."""
         import time as _time
 
         exporter = RhesisOTLPExporter(
@@ -636,12 +591,7 @@ class TestExporterDeadlineAndShutdown:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_per_attempt_timeout_shrinks_with_remaining_budget(self, mock_post):
-        """Each attempt's request timeout reflects the remaining wall-time budget.
-
-        The closure in export() computes `remaining = deadline - time.monotonic()`
-        and passes that to `Session.post(timeout=...)`, so a slow first attempt
-        cannot allow a second attempt to overshoot the total budget.
-        """
+        """Per-attempt Session.post timeout shrinks with the remaining budget."""
         exporter = RhesisOTLPExporter(
             api_key="k",
             base_url="http://localhost",

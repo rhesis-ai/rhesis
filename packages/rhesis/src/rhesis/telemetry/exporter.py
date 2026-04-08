@@ -188,13 +188,8 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             return self._record_failure()
 
         except requests.exceptions.HTTPError as e:
-            # e.response is normally set (we only reach here via
-            # response.raise_for_status()), but HTTPError allows it to be
-            # None — guard so an AttributeError doesn't get reclassified as
-            # "This is a bug" by the catch-all below.
             status_code = e.response.status_code if e.response is not None else None
 
-            # Log validation errors from backend
             if status_code == 422:
                 try:
                     error_detail = e.response.json()
@@ -224,12 +219,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             return self._record_failure()
 
     def _record_failure(self) -> SpanExportResult:
-        """Update failure counters and emit persistent-failure warning.
-
-        Centralized so every except branch in export() does the same
-        bookkeeping — adding a new branch only requires logging the message
-        and returning self._record_failure().
-        """
+        """Increment failure counters and emit a warning if persistent."""
         self._failed_exports += 1
         self._consecutive_failures += 1
         self._log_persistent_failure_warning()
