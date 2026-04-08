@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models
+from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.models.model import Model
 from rhesis.backend.app.utils.crud_utils import get_item
@@ -105,7 +105,7 @@ class EmbeddingGenerator:
             raise ValueError(f"Entity {entity_type} does not support embedding")
 
         # Fetch model to get all configuration
-        model = self.db.query(Model).filter(Model.id == model_id).first()
+        model = crud.get_model(self.db, model_id, organization_id, user_id)
         if not model:
             raise ValueError(f"Model not found: {model_id}")
 
