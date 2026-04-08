@@ -419,22 +419,21 @@ class TestExporterDeadlineAndShutdown:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_deadline_stops_loop_before_attempt_cap(self, mock_post):
-        """stop_after_delay fires before stop_after_attempt when budget is exhausted."""
-        # Tight budget; do NOT skip the wait so the deadline check fires.
+        """timeout=0 budget halts retries before any post happens."""
         exporter = RhesisOTLPExporter(
             api_key="k",
             base_url="http://localhost",
             project_id="p",
             environment="t",
-            timeout=0,  # zero budget — stop_after_delay fires after first attempt
+            timeout=0,
         )
         mock_post.side_effect = requests.exceptions.ConnectionError()
 
         result = exporter.export([self._make_span()])
         assert result == SpanExportResult.FAILURE
-        # stop_after_delay(0) means no time budget, so we should bail after
-        # the first attempt completes — well below max_attempts=3.
-        assert mock_post.call_count < 3
+        # Closure deadline guard preempts the first post (remaining <= 0),
+        # so call_count is 0 — well below max_attempts=3.
+        assert mock_post.call_count == 0
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_shutdown_aborts_in_flight_retry(self, mock_post):

@@ -79,6 +79,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         self.project_id = project_id
         self.environment = environment
         self._max_attempts = max_attempts
+        self._timeout = timeout
 
         # Set by shutdown() to abort in-flight retries (checked by stop predicate + sleep).
         self._shutdown_event = threading.Event()
