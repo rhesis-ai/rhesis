@@ -367,9 +367,33 @@ class TestExporterRetryLogic:
         assert mock_post.call_count == 2
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
-    def test_no_retry_on_500(self, mock_post):
-        """Do not retry on 500 (not in retryable set) — fail immediately."""
-        resp = MagicMock(status_code=500)
+    def test_retry_on_500_then_succeed(self, mock_post):
+        """Retry on 500 Internal Server Error, succeed on 2nd attempt.
+
+        500 is part of the broadened 5xx retryable set that mirrors upstream
+        OTLPSpanExporter's _is_retryable() (408 + every 5xx). Servers commonly
+        return 500 during deploys, restarts, and transient backend pressure
+        — all cases where a retry is the right call.
+        """
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [MagicMock(status_code=500), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_retry_on_501_then_succeed(self, mock_post):
+        """Retry on 501 — covers a 5xx that the previous narrow set missed."""
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [MagicMock(status_code=501), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_no_retry_on_400(self, mock_post):
+        """400 Bad Request is not transient — fail immediately, no retry."""
+        resp = MagicMock(status_code=400)
         resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
         mock_post.return_value = resp
 
@@ -377,8 +401,42 @@ class TestExporterRetryLogic:
         assert mock_post.call_count == 1
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_no_retry_on_missing_schema(self, mock_post):
+        """MissingSchema is a RequestException not in our retryable types.
+
+        It's a code/config bug (URL has no scheme like 'http://'), not a
+        transient network failure. The retry= predicate only matches
+        ConnectionError + Timeout exceptions and our retryable status set,
+        so MissingSchema falls through to the catch-all "unexpected error"
+        branch and is not retried.
+
+        Note: SSLError, despite intuitively being a "permanent" failure,
+        IS retried because requests.exceptions.SSLError is a subclass of
+        ConnectionError. That matches upstream OTLPSpanExporter behavior
+        and is intentional — a brief TLS handshake glitch can be transient.
+        """
+        mock_post.side_effect = requests.exceptions.MissingSchema("Invalid URL: no scheme")
+
+        assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
+        assert mock_post.call_count == 1
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_ssl_error_is_retried_as_connection_error(self, mock_post):
+        """Document that SSLError is retried via the ConnectionError predicate.
+
+        Regression guard: if someone narrows the retry types and SSLError
+        stops being retried, this test will fail and force a deliberate
+        decision rather than a silent behavior change.
+        """
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = [requests.exceptions.SSLError("transient"), ok]
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_exhaust_retries_on_persistent_connection_error(self, mock_post, caplog):
-        """Give up after max_retries on persistent ConnectionError."""
+        """Give up after max_attempts on persistent ConnectionError."""
         mock_post.side_effect = requests.exceptions.ConnectionError()
 
         with caplog.at_level("ERROR", logger="rhesis.telemetry.exporter"):
@@ -390,7 +448,7 @@ class TestExporterRetryLogic:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_exhaust_retries_on_persistent_timeout(self, mock_post, caplog):
-        """Give up after max_retries on persistent Timeout."""
+        """Give up after max_attempts on persistent Timeout."""
         mock_post.side_effect = requests.exceptions.Timeout()
 
         with caplog.at_level("ERROR", logger="rhesis.telemetry.exporter"):
@@ -402,7 +460,7 @@ class TestExporterRetryLogic:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_exhaust_retries_on_persistent_503(self, mock_post, caplog):
-        """Give up after max_retries on persistent 503 Service Unavailable."""
+        """Give up after max_attempts on persistent 503 Service Unavailable."""
         resp = MagicMock(status_code=503)
         resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
         mock_post.return_value = resp
@@ -416,7 +474,7 @@ class TestExporterRetryLogic:
 
     @patch("rhesis.telemetry.exporter.requests.Session.post")
     def test_exhaust_retries_on_persistent_429(self, mock_post, caplog):
-        """Give up after max_retries on persistent 429 Too Many Requests."""
+        """Give up after max_attempts on persistent 429 Too Many Requests."""
         resp = MagicMock(status_code=429)
         resp.raise_for_status.side_effect = requests.exceptions.HTTPError(response=resp)
         mock_post.return_value = resp
@@ -448,3 +506,164 @@ class TestExporterRetryLogic:
 
         assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
         assert mock_post.call_count == 1
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_recovery_resets_consecutive_failures(self, mock_post):
+        """A successful retry after failures clears the consecutive counter.
+
+        Covers the recovery log line in export() which was previously
+        uncovered by the test suite.
+        """
+        # Two failed exports first to bump _consecutive_failures
+        mock_post.side_effect = requests.exceptions.ConnectionError()
+        self.exporter.export([self.span])
+        self.exporter.export([self.span])
+        assert self.exporter._consecutive_failures == 2
+
+        # Now a clean export — counter should reset to 0
+        ok = MagicMock(status_code=200)
+        mock_post.side_effect = None
+        mock_post.return_value = ok
+
+        assert self.exporter.export([self.span]) == SpanExportResult.SUCCESS
+        assert self.exporter._consecutive_failures == 0
+
+
+class TestExporterDeadlineAndShutdown:
+    """Tests for deadline-bounded retries and cooperative shutdown."""
+
+    def _make_span(self):
+        tracer = TracerProvider().get_tracer("test")
+        with tracer.start_as_current_span("ai.llm.invoke") as span:
+            pass
+        return span._readable_span()
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_deadline_stops_loop_before_attempt_cap(self, mock_post):
+        """stop_after_delay fires before stop_after_attempt when budget runs out.
+
+        With a 0.1s total budget and instant-failing posts, the deadline
+        predicate should terminate the loop after the first wait pushes
+        elapsed time past the budget — well before the 3-attempt cap.
+        """
+        # Tight budget; do NOT skip the wait so the deadline check fires.
+        exporter = RhesisOTLPExporter(
+            api_key="k",
+            base_url="http://localhost",
+            project_id="p",
+            environment="t",
+            timeout=0,  # zero budget — stop_after_delay fires after first attempt
+        )
+        mock_post.side_effect = requests.exceptions.ConnectionError()
+
+        result = exporter.export([self._make_span()])
+        assert result == SpanExportResult.FAILURE
+        # stop_after_delay(0) means no time budget, so we should bail after
+        # the first attempt completes — well below max_attempts=3.
+        assert mock_post.call_count < 3
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_shutdown_aborts_in_flight_retry(self, mock_post):
+        """shutdown() pre-set should bail out at the next stop check.
+
+        Pre-setting the shutdown event before calling export() simulates a
+        BatchSpanProcessor.shutdown() that races with an in-flight retry.
+        The _stop_on_shutdown predicate should fire on the next stop check
+        and terminate the loop after the current attempt finishes.
+        """
+        exporter = RhesisOTLPExporter(
+            api_key="k", base_url="http://localhost", project_id="p", environment="t"
+        )
+        # Skip waits to keep test fast — the shutdown predicate is what we
+        # want to verify, not the wait interruption mechanism (which is
+        # covered separately by test_interruptible_sleep_unblocks_on_shutdown).
+        exporter._retryer.wait = lambda *a, **kw: 0
+        mock_post.side_effect = requests.exceptions.ConnectionError()
+
+        # Pre-signal shutdown before export starts
+        exporter._shutdown_event.set()
+
+        result = exporter.export([self._make_span()])
+        assert result == SpanExportResult.FAILURE
+        # First attempt runs, then _stop_on_shutdown fires on the stop check
+        # (between attempts), so call_count should be exactly 1.
+        assert mock_post.call_count == 1
+
+    def test_shutdown_method_sets_event(self):
+        """shutdown() override sets the event before delegating to parent."""
+        exporter = RhesisOTLPExporter(
+            api_key="k", base_url="http://localhost", project_id="p", environment="t"
+        )
+        assert not exporter._shutdown_event.is_set()
+
+        exporter.shutdown()
+        assert exporter._shutdown_event.is_set()
+
+    def test_interruptible_sleep_unblocks_on_shutdown(self):
+        """_interruptible_sleep returns immediately when event is set.
+
+        This is the mechanism by which a shutdown() called mid-backoff
+        unblocks the worker thread instead of letting it sleep for the
+        full backoff duration.
+        """
+        import time as _time
+
+        exporter = RhesisOTLPExporter(
+            api_key="k", base_url="http://localhost", project_id="p", environment="t"
+        )
+
+        # First: confirm sleep without shutdown actually waits a small amount
+        start = _time.monotonic()
+        exporter._interruptible_sleep(0.05)
+        elapsed = _time.monotonic() - start
+        assert elapsed >= 0.04  # roughly the requested duration
+
+        # Now: with shutdown set, the same sleep should return ~immediately
+        exporter._shutdown_event.set()
+        start = _time.monotonic()
+        exporter._interruptible_sleep(5.0)  # would normally wait 5 seconds
+        elapsed = _time.monotonic() - start
+        assert elapsed < 0.1  # should be near-instant
+
+    def test_stop_on_shutdown_predicate(self):
+        """_stop_on_shutdown returns True iff the event is set."""
+        exporter = RhesisOTLPExporter(
+            api_key="k", base_url="http://localhost", project_id="p", environment="t"
+        )
+        assert exporter._stop_on_shutdown(None) is False
+        exporter._shutdown_event.set()
+        assert exporter._stop_on_shutdown(None) is True
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_per_attempt_timeout_shrinks_with_remaining_budget(self, mock_post):
+        """Each attempt's request timeout reflects the remaining wall-time budget.
+
+        The closure in export() computes `remaining = deadline - time.monotonic()`
+        and passes that to `Session.post(timeout=...)`, so a slow first attempt
+        cannot allow a second attempt to overshoot the total budget.
+        """
+        exporter = RhesisOTLPExporter(
+            api_key="k",
+            base_url="http://localhost",
+            project_id="p",
+            environment="t",
+            timeout=10,
+        )
+        exporter._retryer.wait = lambda *a, **kw: 0
+
+        # Capture the timeout passed to each Session.post call
+        timeouts_seen = []
+
+        def _capture(*args, **kwargs):
+            timeouts_seen.append(kwargs.get("timeout"))
+            raise requests.exceptions.ConnectionError()
+
+        mock_post.side_effect = _capture
+        exporter.export([self._make_span()])
+
+        # First attempt should get ~10s (full budget); subsequent attempts
+        # should see strictly less than the previous (budget shrinking).
+        assert len(timeouts_seen) >= 2
+        assert timeouts_seen[0] <= 10
+        for prev, curr in zip(timeouts_seen, timeouts_seen[1:]):
+            assert curr < prev, f"timeout did not shrink: {timeouts_seen}"
