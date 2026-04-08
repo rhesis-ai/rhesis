@@ -45,6 +45,8 @@ class ChunkingService:
         if not source:
             raise HTTPException(status_code=404, detail=f"Source {source_id} not found")
 
+        self._soft_delete_existing_chunks(source.id)
+
         if not source.content or not source.content.strip():
             logger.warning(f"Skipping chunking for source {source_id} - no content available")
             return []
@@ -67,8 +69,6 @@ class ChunkingService:
         if not sdk_chunks:
             logger.warning(f"No chunks generated for source {source_id}")
             return []
-
-        self._soft_delete_existing_chunks(source.id)
 
         active_status = get_or_create_status(
             self.db, "Active", EntityType.CHUNK, source.organization_id, source.user_id

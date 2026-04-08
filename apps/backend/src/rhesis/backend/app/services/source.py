@@ -61,9 +61,7 @@ def update_source(
         return None
 
     if content_in_request:
-        new_content = payload.get("content")
-        if new_content is not None and str(new_content).strip():
-            auto_chunk_source(db, source_id, organization_id, user_id)
+        auto_chunk_source(db, source_id, organization_id, user_id)
 
     return updated
 
