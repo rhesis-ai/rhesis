@@ -128,33 +128,27 @@ class EmbeddingGenerator:
         config_hash = self._compute_hash(config)
         text_hash = self._compute_hash(searchable_text)
 
-        # Get status IDs
-        active_statuses = crud.get_statuses(
-            self.db,
-            filter=f"tolower(name) eq '{EmbeddingStatus.ACTIVE.value.lower()}'",
-            organization_id=organization_id,
-        )
-        active_status = active_statuses[0] if active_statuses else None
+        from rhesis.backend.app.utils.status import get_or_create_status
 
+        active_status = get_or_create_status(
+            self.db,
+            status_name=EmbeddingStatus.ACTIVE.value,
+            entity_type="Embedding",
+            organization_id=organization_id,
+            user_id=user_id,
+        )
         if not active_status:
-            active_statuses = crud.get_statuses(self.db, limit=1)
-            active_status = active_statuses[0] if active_statuses else None
-            if not active_status:
-                raise ValueError("No statuses exist in the database.")
+            raise ValueError("Failed to create or retrieve Active status for Embedding.")
 
-        stale_statuses = crud.get_statuses(
+        stale_status = get_or_create_status(
             self.db,
-            filter=f"tolower(name) eq '{EmbeddingStatus.STALE.value.lower()}'",
+            status_name=EmbeddingStatus.STALE.value,
+            entity_type="Embedding",
             organization_id=organization_id,
+            user_id=user_id,
         )
-        stale_status = stale_statuses[0] if stale_statuses else None
-
         if not stale_status:
-            # Fallback to get any status that is not active_status
-            stale_statuses = crud.get_statuses(self.db, limit=2)
-            stale_status = next(
-                (s for s in stale_statuses if s.id != active_status.id), active_status
-            )
+            raise ValueError("Failed to create or retrieve Stale status for Embedding.")
 
         # Check if embedding already exists (same text/config)
         existing_embedding = crud.get_embedding_by_hash(
