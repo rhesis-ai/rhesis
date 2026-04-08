@@ -34,7 +34,7 @@ class EmbeddingService(AsyncService):
         )
 
     def _enqueue_async(self, entity: EmbeddableMixin, model_id: str, current_user: User, **kwargs):
-        entity_id = kwargs.get("entity_id", str(entity.id))
+        entity_id = str(kwargs.get("entity_id", entity.id))
         entity_type = kwargs.get("entity_type", entity.__class__.__name__)
         task_launcher(
             generate_embedding_task,
