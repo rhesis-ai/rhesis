@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Hint: Build this image with an expanded build context
 # `docker build -t rhesis-backend -f apps/backend/Dockerfile .`
 #
@@ -17,13 +18,18 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Install build dependencies including Rust (needed for base2048 via garak)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Cache apt archives and lists between builds (requires BuildKit: DOCKER_BUILDKIT=1)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    printf 'Binary::apt::APT::Keep-Downloaded-Packages "true";\n' \
+        > /etc/apt/apt.conf.d/keep-cache && \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     git \
     curl \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    && rm -rf /var/lib/apt/lists/*
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Add Rust to PATH for the build
 ENV PATH="/root/.cargo/bin:$PATH"
@@ -70,12 +76,16 @@ RUN ln -s /usr/local/bin/bunx /usr/local/bin/npx
 WORKDIR /app
 
 # Install only runtime dependencies (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    printf 'Binary::apt::APT::Keep-Downloaded-Packages "true";\n' \
+        > /etc/apt/apt.conf.d/keep-cache && \
+    apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     postgresql-client \
     curl \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+    git
 
 
 # Create non-root user first
