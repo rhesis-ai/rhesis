@@ -18,6 +18,8 @@ from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.test_set import TestSet
+from rhesis.backend.metrics.metric_config import metric_model_to_config
+from rhesis.sdk.metrics import MetricConfig
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,8 @@ class ExecutionContext:
     organization_id: str
     user_id: Optional[str]
     model: Any = None
-    metric_configs: List = field(default_factory=list)
+    # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
+    metric_configs: List[MetricConfig] = field(default_factory=list)
     test_data: Dict[str, Any] = field(default_factory=dict)
     input_files: Dict[str, List] = field(default_factory=dict)
     existing_result_ids: Set[str] = field(default_factory=set)
@@ -135,8 +138,10 @@ def prefetch_execution_context(
     # Input files are loaded lazily inside the semaphore (per-test) to avoid
     # holding all base64-encoded attachments in memory for the entire batch.
 
-    # Pre-fetch metrics
-    metric_configs: List = []
+    # Pre-fetch metrics: convert ORM -> MetricConfig before session closes.  Async
+    # evaluation runs after session.close(); detached Metric rows would raise on
+    # lazy loads (e.g. backend_type) in metric_model_to_config.
+    metric_configs: List[MetricConfig] = []
     try:
         sample_test = tests[0] if tests else None
         if sample_test:
@@ -152,7 +157,15 @@ def prefetch_execution_context(
                 prepare_metric_configs,
             )
 
-            metric_configs = prepare_metric_configs(metrics, str(sample_test.id))
+            metric_models = prepare_metric_configs(metrics, str(sample_test.id))
+            for m in metric_models:
+                try:
+                    metric_configs.append(metric_model_to_config(m))
+                except Exception as conv_err:
+                    logger.warning(
+                        f"Failed to convert metric {getattr(m, 'id', '?')} to "
+                        f"MetricConfig for test {sample_test.id}: {conv_err}"
+                    )
     except Exception as e:
         logger.warning(f"Failed to pre-fetch metrics: {e}")
 
