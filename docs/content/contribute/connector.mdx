@@ -46,7 +46,7 @@ graph LR
 
 **Initial Connection**:
 1. Target app starts → SDK initializes `RhesisClient` with `project_id` and `environment`
-2. SDK establishes WebSocket connection to backend (`/ws/connector`)
+2. SDK establishes WebSocket connection to backend (`/connector/ws`)
 3. SDK sends registration message with function metadata
 4. Backend stores connection and creates endpoint records
 
@@ -58,6 +58,19 @@ graph LR
 5. SDK sends result back via WebSocket
 6. Backend publishes result to Redis (`ws:rpc:response:{test_run_id}`)
 7. Worker subscribes and receives result
+
+### Connector hardening controls (v0.6.8+)
+
+The SDK connector WebSocket endpoint (`/connector/ws`) applies runtime safeguards configurable
+with backend environment variables:
+
+| Variable | Default | Behavior |
+|---|---|---|
+| `WS_MAX_MESSAGE_SIZE` | `1048576` (1 MiB) | Rejects oversized SDK connector WebSocket messages |
+| `WS_IDLE_TIMEOUT` | `300` seconds | Closes inactive SDK connector WebSocket sessions |
+| `WS_RATE_LIMIT` | `50` messages/second | Applies per-connection sliding-window rate limiting |
+
+These limits apply specifically to SDK connector traffic, not to all platform WebSocket usage.
 
 ## Backend Components
 
@@ -171,6 +184,9 @@ if await rpc_client.is_connected(project_id, environment):
   ]
 }`}
 </CodeBlock>
+
+`project_id` and `environment` are optional in register messages for metrics-only sessions.
+When they are omitted, the backend skips endpoint synchronization and still syncs registered SDK metrics.
 
 ## Endpoint Synchronization
 
