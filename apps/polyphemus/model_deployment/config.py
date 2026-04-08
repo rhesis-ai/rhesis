@@ -21,6 +21,10 @@ class ModelConfig(TypedDict, total=False):
     max_model_len: int
     hf_token: str  # Optional HuggingFace token for private models
     endpoint: Any  # aiplatform.Endpoint
+    # Vertex online prediction: min_replica_count=0 enables scale-to-zero (preview).
+    scale_to_zero: bool
+    max_replica_count: int  # Autoscaling ceiling; must be >= min replica count
+    spot: bool  # Spot VMs for lower cost (preemption possible; see GCP docs)
 
 
 # Environment variables
@@ -48,10 +52,25 @@ def _parse_int_env(name: str, default: str) -> int:
         raise ValueError(f"{name} must be a valid integer, got {raw!r}") from e
 
 
+def _parse_bool_env(name: str, default: str) -> bool:
+    """Parse env as bool (true/false/1/0/yes/no/on/off); empty uses default."""
+    raw = os.getenv(name)
+    if raw is None or not str(raw).strip():
+        raw = default
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
 MAX_MODEL_LEN = _parse_int_env("MAX_MODEL_LEN", "4096")
 MACHINE_TYPE = os.getenv("MACHINE_TYPE", "g2-standard-12")
 ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "NVIDIA_L4")
 ACCELERATOR_COUNT = _parse_int_env("ACCELERATOR_COUNT", "1")
+
+# Scale-to-zero: idle endpoints scale min replicas to 0 (Vertex preview feature).
+SCALE_TO_ZERO = _parse_bool_env("SCALE_TO_ZERO", "true")
+# Max replicas when traffic grows; must be >= min (0 if scale-to-zero, else 1).
+MAX_REPLICA_COUNT = _parse_int_env("MAX_REPLICA_COUNT", "1")
+# Spot VMs: lower cost, preemption possible (e.g. a3-highgpu-* on Vertex).
+SPOT_VM = _parse_bool_env("SPOT_VM", "false")
 
 # Derived: bucket URI (from POLYPHEMUS_MODEL_PATH or POLYPHEMUS_MODEL_BUCKET)
 # e.g. POLYPHEMUS_MODEL_PATH=gs://your-bucket-name/cache -> BUCKET_URI=gs://your-bucket-name
@@ -92,6 +111,9 @@ MODELS: list[ModelConfig] = [
         "accelerator_count": ACCELERATOR_COUNT,
         "max_model_len": MAX_MODEL_LEN,
         "hf_token": "",  # Optional: HuggingFace token for private models
+        "scale_to_zero": SCALE_TO_ZERO,
+        "max_replica_count": MAX_REPLICA_COUNT,
+        "spot": SPOT_VM,
     },
     # Example: Load from GCS bucket
     # {
