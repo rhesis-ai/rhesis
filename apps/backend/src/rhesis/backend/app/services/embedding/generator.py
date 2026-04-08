@@ -196,12 +196,35 @@ class EmbeddingGenerator:
             embedding=embedding_vector,
         )
 
-        new_embedding = crud.create_embedding(
-            self.db,
-            embedding=embedding_create,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
+        from sqlalchemy.exc import IntegrityError
+
+        try:
+            with self.db.begin_nested():
+                new_embedding = crud.create_embedding(
+                    self.db,
+                    embedding=embedding_create,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+        except IntegrityError:
+            # Race condition: another process might have created it
+            existing_embedding = crud.get_embedding_by_hash(
+                self.db,
+                entity_id=entity_id,
+                entity_type=entity_type,
+                organization_id=organization_id,
+                config_hash=config_hash,
+                text_hash=text_hash,
+                status_id=active_status.id,
+            )
+
+            if existing_embedding:
+                logger.info(
+                    f"Embedding already exists for {entity_type}:{entity_id} "
+                    "(found after race condition)"
+                )
+                return {"status": "success", "embedding_id": str(existing_embedding.id)}
+            raise
 
         logger.info(
             f"Successfully generated embedding for {entity_type}:{entity_id}, dimension={dimension}"
