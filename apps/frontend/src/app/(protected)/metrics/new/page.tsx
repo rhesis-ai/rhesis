@@ -792,7 +792,11 @@ export default function NewMetricPage() {
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {(
-              [TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN] as MetricScope[]
+              [
+                TEST_TYPES.SINGLE_TURN,
+                TEST_TYPES.MULTI_TURN,
+                'Trace',
+              ] as MetricScope[]
             ).map(scope => {
               const isSelected = formData.metric_scope.includes(scope);
 

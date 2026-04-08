@@ -83,7 +83,7 @@ class ExchangeRateService:
             response = httpx.get(
                 self._api_url,
                 params={"from": "USD", "to": "EUR"},
-                timeout=5.0,
+                timeout=2.0,
             )
             response.raise_for_status()
 

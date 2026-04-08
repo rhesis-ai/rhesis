@@ -19,6 +19,8 @@ import {
   Alert,
   ToggleButton,
   ToggleButtonGroup,
+  FormControlLabel,
+  Switch,
   CircularProgress,
   ListItemIcon,
   ListItemText,
@@ -221,6 +223,7 @@ export default function EndpointForm() {
     request_headers: '{}',
     request_mapping: '{}',
     response_mapping: '{}',
+    disable_tracing: false,
   });
 
   // Set project_id from URL parameter if provided
@@ -757,6 +760,28 @@ export default function EndpointForm() {
                   </ToggleButtonGroup>
                 </Grid>
               </Grid>
+            </Grid>
+
+            {/* Tracing control */}
+            <Grid size={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.disable_tracing ?? false}
+                    onChange={e =>
+                      setFormData(prev => ({
+                        ...prev,
+                        disable_tracing: e.target.checked,
+                      }))
+                    }
+                  />
+                }
+                label="Disable tracing"
+              />
+              <FormHelperText>
+                When enabled, invocations to this endpoint will not generate
+                traces or telemetry data
+              </FormHelperText>
             </Grid>
           </Grid>
         </TabPanel>

@@ -369,13 +369,6 @@ jobs:
       - name: Deploy to Cloud Run
         id: deploy
         run: |
-          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
-            AUTH_FLAGS="--allow-unauthenticated"
-          else
-            AUTH_FLAGS="--no-allow-unauthenticated"
-          fi
-          echo "🔐 Cloud Run auth: $AUTH_FLAGS (environment=${{ env.ENVIRONMENT }})"
-
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # Preview deployment with commit SHA
             IMAGE_TAG="${{ env.COMMIT_SHA }}"
@@ -389,7 +382,7 @@ jobs:
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.REGION }} \
               --platform=managed \
-              $AUTH_FLAGS \
+              --allow-unauthenticated \
               --memory=2Gi \
               --cpu=2 \
               --timeout=600 \
@@ -430,7 +423,7 @@ jobs:
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.REGION }} \
               --platform=managed \
-              $AUTH_FLAGS \
+              --allow-unauthenticated \
               --memory=2Gi \
               --cpu=2 \
               --timeout=600 \

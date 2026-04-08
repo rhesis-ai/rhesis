@@ -98,6 +98,9 @@ export default function FileImportDialog({
   );
   const [currentPage, setCurrentPage] = React.useState(1);
   const [loadingPage, setLoadingPage] = React.useState(false);
+  const [testTypeWarning, setTestTypeWarning] = React.useState<string | null>(
+    null
+  );
 
   // Step 3: Import
   const [testSetName, setTestSetName] = React.useState('');
@@ -286,6 +289,7 @@ export default function FileImportDialog({
       setParseResult(result);
       setPreviewPage(result.preview);
       setCurrentPage(1);
+      setTestTypeWarning(result.test_type_warning ?? null);
       setActiveStep(1);
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;
@@ -318,6 +322,7 @@ export default function FileImportDialog({
       setParseResult(result);
       setPreviewPage(result.preview);
       setCurrentPage(1);
+      setTestTypeWarning(result.test_type_warning ?? null);
       setActiveStep(1);
       return true;
     } catch {
@@ -709,6 +714,20 @@ export default function FileImportDialog({
     const summary = parseResult?.validation_summary;
     return (
       <Stack spacing={2}>
+        {/* Test-type mismatch warning */}
+        {testTypeWarning && (
+          <Alert
+            severity="warning"
+            action={
+              <Button color="inherit" size="small" onClick={handleBack}>
+                Go back
+              </Button>
+            }
+          >
+            {testTypeWarning}
+          </Alert>
+        )}
+
         {/* Validation summary */}
         {summary && (
           <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
@@ -882,6 +901,7 @@ export default function FileImportDialog({
       setParseResult(null);
       setPreviewPage(null);
       setCurrentPage(1);
+      setTestTypeWarning(null);
     }
     if (activeStep > 0) {
       setActiveStep(activeStep - 1);

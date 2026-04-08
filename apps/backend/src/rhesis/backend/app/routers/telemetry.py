@@ -1,16 +1,19 @@
 """Telemetry router for trace ingestion and queries."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
-from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.constants import EnrichedDataKeys
+from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.constants import EnrichedDataKeys, EntityType, TestResultStatus
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
     StatusCode,
@@ -23,6 +26,12 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
+from rhesis.backend.app.services.trace_review_override import (
+    apply_review_override as trace_apply_review_override,
+)
+from rhesis.backend.app.services.trace_review_override import (
+    revert_override as trace_revert_override,
+)
 
 # Legacy alias for backward compatibility
 TraceResponse = TraceIngestResponse
@@ -36,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.post("/traces", response_model=TraceResponse)
-async def ingest_trace(
+def ingest_trace(
     trace_batch: OTELTraceBatch,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -89,13 +98,8 @@ async def ingest_trace(
     )
 
     # Pre-storage: inject any parked mapped output into span attributes.
-    # The SDK tracer sets rhesis.conversation.input per-span but cannot
-    # set rhesis.conversation.output (it only has the raw function
-    # return value).  The backend parks the response-mapped output after
-    # invocation and injects it here — before the span is stored.
+    # Must happen before storage because it mutates span attributes in-place.
     from rhesis.backend.app.services.telemetry.conversation_linking import (
-        apply_pending_conversation_links,
-        apply_pending_files,
         inject_pending_output,
     )
 
@@ -109,70 +113,115 @@ async def ingest_trace(
         logger.warning(f"Failed to inject pending output for trace_id={trace_id}: {inject_error}")
         logger.debug("Pending output injection traceback:", exc_info=True)
 
-    # Store spans and trigger enrichment
+    # Store spans, then enqueue linking + enrichment as a background task.
+    _stage = "span_storage"
     try:
-        enrichment_service = EnrichmentService(db)
-        stored_spans, async_count, sync_count = enrichment_service.create_and_enrich_spans(
-            spans=trace_batch.spans,
-            organization_id=organization_id,
-            project_id=project_id,
-        )
+        stored_spans = crud.create_trace_spans(db, trace_batch.spans, organization_id)
 
-        unique_trace_count = len(set(s.trace_id for s in stored_spans))
+        if not stored_spans:
+            logger.warning(f"No spans were stored for trace_id={trace_id}")
+            return TraceResponse(status="received", span_count=0, trace_id=trace_id)
+
+        unique_trace_ids = list({s.trace_id for s in stored_spans})
+        stored_span_ids = [str(s.id) for s in stored_spans]
+
         logger.info(
             f"Ingested {len(stored_spans)} spans from "
-            f"{unique_trace_count} traces "
-            f"(async: {async_count}, sync: {sync_count})"
+            f"{len(unique_trace_ids)} trace(s) for trace_id={trace_id}"
         )
 
-        # Post-storage linking: apply deferred links now that spans
-        # are committed.  Each linking step is independent and must
-        # not fail the overall ingestion.
-        if stored_spans:
-            # 1. Test-result linking (traces <-> test results)
+        # Enqueue post-ingestion work (linking + enrichment) as a background task.
+        enrichment_service = EnrichmentService(db)
+
+        _stage = "worker_check"
+        _workers_available = enrichment_service._check_workers_available()
+        logger.info(f"Worker availability for trace_id={trace_id}: {_workers_available}")
+
+        _dispatched_async = False
+        if _workers_available:
+            from rhesis.backend.tasks.telemetry.post_ingest import post_ingest_link
+
+            first_span = stored_spans[0]
+            _stage = "async_dispatch"
+            try:
+                post_ingest_link.delay(
+                    stored_span_ids=stored_span_ids,
+                    unique_trace_ids=unique_trace_ids,
+                    organization_id=organization_id,
+                    project_id=str(project_id),
+                    test_run_id=str(first_span.test_run_id) if first_span.test_run_id else None,
+                    test_id=str(first_span.test_id) if first_span.test_id else None,
+                    test_configuration_id=first_span.attributes.get(
+                        "rhesis.test.test_configuration_id"
+                    ),
+                )
+                _dispatched_async = True
+                logger.info(f"Dispatched post_ingest_link for trace_id={trace_id}")
+            except Exception as broker_err:
+                logger.warning(
+                    f"Failed to dispatch post_ingest_link for trace_id={trace_id} | "
+                    f"error_type={type(broker_err).__name__} | "
+                    f"error={broker_err} | "
+                    f"falling back to synchronous processing",
+                    exc_info=True,
+                )
+
+        if not _dispatched_async:
+            _stage = "sync_fallback"
+            logger.warning(
+                f"Running synchronous post-ingestion fallback for trace_id={trace_id} | "
+                f"workers_available={_workers_available}"
+            )
+
+            # Sync fallback: run linking in-request, enrichment via service
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                apply_pending_conversation_links,
+                apply_pending_files,
+            )
             from rhesis.backend.app.services.telemetry.linking_service import (
                 TraceLinkingService,
             )
 
             linking_service = TraceLinkingService(db)
             try:
-                linked_count = linking_service.link_traces_for_incoming_batch(
+                linking_service.link_traces_for_incoming_batch(
                     spans=stored_spans,
                     organization_id=organization_id,
                 )
-                if linked_count > 0:
-                    logger.info(
-                        f"Linked {linked_count} traces to test result for trace_id={trace_id}"
-                    )
             except Exception as link_error:
-                logger.warning(f"Failed to link traces for trace_id={trace_id}: {link_error}")
-                logger.debug("Trace linking traceback:", exc_info=True)
-
-            # 2. Conversation-id linking (first-turn patching)
-            try:
-                conversation_linked = apply_pending_conversation_links(db, stored_spans)
-                if conversation_linked > 0:
-                    logger.info(
-                        f"Applied {conversation_linked} pending "
-                        f"conversation links for trace_id={trace_id}"
-                    )
-            except Exception as conversation_error:
                 logger.warning(
-                    f"Failed to apply conversation links for "
-                    f"trace_id={trace_id}: {conversation_error}"
+                    f"Failed to link traces for trace_id={trace_id}: {link_error}",
+                    exc_info=True,
                 )
-                logger.debug("Conversation linking traceback:", exc_info=True)
 
-            # 3. Input file linking (SDK turns with file attachments)
             try:
-                files_created = apply_pending_files(db, stored_spans)
-                if files_created > 0:
-                    logger.info(f"Created {files_created} pending file(s) for trace_id={trace_id}")
+                apply_pending_conversation_links(db, stored_spans)
+            except Exception as conv_error:
+                logger.warning(
+                    f"Failed to apply conversation links for trace_id={trace_id}: {conv_error}",
+                    exc_info=True,
+                )
+
+            try:
+                apply_pending_files(db, stored_spans)
             except Exception as file_error:
                 logger.warning(
-                    f"Failed to apply pending files for trace_id={trace_id}: {file_error}"
+                    f"Failed to apply pending files for trace_id={trace_id}: {file_error}",
+                    exc_info=True,
                 )
-                logger.debug("File linking traceback:", exc_info=True)
+
+            try:
+                enrichment_service.enrich_traces(
+                    set(unique_trace_ids),
+                    str(project_id),
+                    organization_id,
+                    workers_available=_workers_available,
+                )
+            except Exception as enrich_error:
+                logger.warning(
+                    f"Failed to enrich traces for trace_id={trace_id}: {enrich_error}",
+                    exc_info=True,
+                )
 
         return TraceResponse(
             status="received",
@@ -181,7 +230,16 @@ async def ingest_trace(
         )
 
     except Exception as e:
-        logger.error(f"❌ Failed to store trace {trace_id}: {e}", exc_info=True)
+        logger.error(
+            f"Trace ingestion failed | "
+            f"stage={_stage} | "
+            f"trace_id={trace_id} | "
+            f"org={organization_id} | "
+            f"project={project_id} | "
+            f"error_type={type(e).__name__} | "
+            f"error={e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to store trace spans",
@@ -189,7 +247,7 @@ async def ingest_trace(
 
 
 @router.get("/traces", response_model=TraceListResponse)
-async def list_traces(
+def list_traces(
     project_id: Optional[str] = Query(
         None, description="Project ID (optional - shows all projects if not specified)"
     ),
@@ -219,6 +277,10 @@ async def list_traces(
             "'multi_turn' (has conversation_id)"
         ),
     ),
+    trace_metrics_status: Optional[TestResultStatus] = Query(
+        None,
+        description="Filter by trace metrics evaluation status (Pass, Fail, Error)",
+    ),
     root_spans_only: bool = Query(
         True,
         description=("Return only root spans (one per trace). Set to false to return all spans."),
@@ -245,12 +307,15 @@ async def list_traces(
     **Filters**:
     - `environment`: Filter by environment (development, staging, production)
     - `span_name`: Filter by span name (e.g., "ai.llm.invoke")
-    - `status_code`: Filter by status (OK, ERROR)
+    - `status_code`: Filter by span status (OK, ERROR)
+    - `trace_metrics_status`: Filter by evaluation status (Pass, Fail, Error)
     - `start_time_after`: Filter by start time >= timestamp
     - `start_time_before`: Filter by start time <= timestamp
+    - `duration_min_ms` / `duration_max_ms`: Filter by duration range
     - `test_run_id`: Filter by test run ID (for test execution traces)
     - `test_result_id`: Filter by test result ID (for test execution traces)
     - `test_id`: Filter by test ID (for test execution traces)
+    - `conversation_id`: Filter by conversation ID (for multi-turn traces)
 
     **Pagination**:
     - `limit`: Number of results per page (default: 100, max: 1000)
@@ -282,6 +347,7 @@ async def list_traces(
             test_result_id=test_result_id,
             test_id=test_id,
             conversation_id=conversation_id,
+            trace_metrics_status=trace_metrics_status.value if trace_metrics_status else None,
             limit=limit,
             offset=offset,
         )
@@ -312,6 +378,18 @@ async def list_traces(
                 trace_endpoint_id = str(endpoint.id)
                 trace_endpoint_name = endpoint.name
 
+            # Get trace metrics status if available
+            trace_metrics_status_name = None
+            if hasattr(trace, "trace_metrics_status") and trace.trace_metrics_status:
+                trace_metrics_status_name = trace.trace_metrics_status.name
+
+            # Check review state
+            has_reviews = bool(
+                trace.trace_reviews
+                and isinstance(trace.trace_reviews, dict)
+                and trace.trace_reviews.get("reviews")
+            )
+
             summary = TraceSummary(
                 trace_id=trace.trace_id,
                 project_id=str(trace.project_id),
@@ -331,6 +409,10 @@ async def list_traces(
                 total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
                 total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
                 has_errors=has_errors,
+                trace_metrics_status=trace_metrics_status_name,
+                has_reviews=has_reviews,
+                last_review=trace.last_review,
+                matches_review=trace.matches_review,
             )
             summaries.append(summary)
 
@@ -361,19 +443,43 @@ async def list_traces(
             )
 
         # Log and return error for other database issues
-        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to list traces for org {organization_id}: {error_msg}",
+            f"Failed to list traces for org {organization_id}: {e}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve traces: {error_msg}",
+            detail="Failed to retrieve traces. Check server logs for details.",
         )
 
 
+@router.get("/spans/{span_db_id}/lookup")
+def lookup_span(
+    span_db_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """
+    Resolve a span's database UUID to its trace_id and project_id.
+
+    Used for navigation from tasks/comments linked to a Trace entity.
+    """
+    organization_id, _ = tenant_context
+    span = crud.get_trace_by_db_id(db, str(span_db_id), organization_id)
+    if not span:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Span {span_db_id} not found",
+        )
+    return {
+        "trace_id": span.trace_id,
+        "project_id": str(span.project_id),
+        "span_id": span.span_id,
+    }
+
+
 @router.get("/traces/{trace_id}", response_model=TraceDetailResponse)
-async def get_trace(
+def get_trace(
     trace_id: str,
     project_id: str = Query(..., description="Project ID"),
     db: Session = Depends(get_tenant_db_session),
@@ -507,9 +613,14 @@ async def get_trace(
 
         logger.info(f"Retrieved trace {trace_id} with {len(spans)} span(s)")
 
+        # Get trace metrics status if available
+        trace_metrics_status_name = None
+        if hasattr(first_span, "trace_metrics_status") and first_span.trace_metrics_status:
+            trace_metrics_status_name = first_span.trace_metrics_status.name
+
         return TraceDetailResponse(
             trace_id=first_span.trace_id,
-            project_id=str(first_span.project_id),  # Convert UUID to string
+            project_id=str(first_span.project_id),
             environment=first_span.environment,
             conversation_id=trace_conversation_id,
             start_time=min(span.start_time for span in spans),
@@ -520,7 +631,11 @@ async def get_trace(
             total_tokens=total_tokens,
             total_cost_usd=total_cost,
             root_spans=root_spans,
-            # Add relationship objects
+            trace_metrics_status=trace_metrics_status_name,
+            trace_reviews=first_span.trace_reviews,
+            last_review=first_span.last_review,
+            matches_review=first_span.matches_review,
+            review_summary=first_span.review_summary,
             project=project_obj,
             endpoint=endpoint_obj,
             test_run=test_run_obj,
@@ -547,14 +662,13 @@ async def get_trace(
             )
 
         # Log and return error for other database issues
-        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to retrieve trace {trace_id}: {error_msg}",
+            f"Failed to retrieve trace {trace_id}: {e}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve trace details: {error_msg}",
+            detail="Failed to retrieve trace details. Check server logs for details.",
         )
 
 
@@ -569,11 +683,13 @@ def list_span_files(
 ):
     """List files attached to a trace span."""
     organization_id, user_id = tenant_context
-    return crud.get_files_for_entity(db, span_db_id, "Trace", organization_id, user_id)
+    return crud.get_files_for_entity(
+        db, span_db_id, EntityType.TRACE.value, organization_id, user_id
+    )
 
 
 @router.get("/metrics", response_model=TraceMetricsResponse)
-async def get_metrics(
+def get_metrics(
     project_id: str = Query(..., description="Project ID"),
     environment: Optional[str] = Query(None, description="Environment filter"),
     start_time_after: Optional[datetime] = Query(None, description="Start time >= (ISO 8601)"),
@@ -607,91 +723,17 @@ async def get_metrics(
     organization_id, user_id = tenant_context
 
     try:
-        # Query all matching spans (no default time filter - controlled by frontend)
-        spans_with_counts = crud.query_traces(
+        result = crud.get_trace_metrics_aggregated(
             db=db,
             organization_id=organization_id,
             project_id=project_id,
-            root_spans_only=False,  # Metrics need all spans for accurate calculations
-            trace_source=TraceSource.ALL,  # Include all trace sources
             environment=environment,
             start_time_after=start_time_after,
             start_time_before=start_time_before,
-            limit=10000,  # Large limit for metrics calculation
-            offset=0,
         )
-
-        # Extract just the Trace objects (discard span_count and total)
-        spans = [row.trace for row in spans_with_counts]
-
-        if not spans:
-            return TraceMetricsResponse(
-                total_traces=0,
-                total_spans=0,
-                total_tokens=0,
-                total_cost_usd=0,
-                error_rate=0,
-                avg_duration_ms=0,
-                p50_duration_ms=0,
-                p95_duration_ms=0,
-                p99_duration_ms=0,
-                operation_breakdown={},
-            )
-
-        # Count unique traces
-        trace_ids = set(span.trace_id for span in spans)
-        total_traces = len(trace_ids)
-        total_spans = len(spans)
-
-        # Calculate token metrics (LLM spans only)
-        total_tokens = sum(span.total_tokens or 0 for span in spans)
-
-        # Calculate cost metrics
-        total_cost = 0.0
-        for span in spans:
-            costs = (span.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
-            if costs:
-                total_cost += costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
-
-        # Calculate error rate
-        error_count = sum(1 for span in spans if span.status_code == StatusCode.ERROR.value)
-        error_rate = error_count / total_spans if total_spans > 0 else 0
-
-        # Calculate latency percentiles
-        durations = sorted(span.duration_ms or 0.0 for span in spans)
-
-        def percentile(values: List[float], p: int) -> float:
-            if not values:
-                return 0.0
-            index = int((p / 100) * len(values))
-            index = min(index, len(values) - 1)
-            return values[index]
-
-        p50_duration = percentile(durations, 50)
-        p95_duration = percentile(durations, 95)
-        p99_duration = percentile(durations, 99)
-        avg_duration = sum(durations) / len(durations) if durations else 0
-
-        # Operation type breakdown
-        operation_breakdown = {}
-        for span in spans:
-            op_type = span.operation_type or "unknown"
-            operation_breakdown[op_type] = operation_breakdown.get(op_type, 0) + 1
 
         logger.info(f"Calculated metrics for project {project_id}")
-
-        return TraceMetricsResponse(
-            total_traces=total_traces,
-            total_spans=total_spans,
-            total_tokens=total_tokens,
-            total_cost_usd=round(total_cost, 6),
-            error_rate=round(error_rate, 4),
-            avg_duration_ms=round(avg_duration, 2),
-            p50_duration_ms=round(p50_duration, 2),
-            p95_duration_ms=round(p95_duration, 2),
-            p99_duration_ms=round(p99_duration, 2),
-            operation_breakdown=operation_breakdown,
-        )
+        return TraceMetricsResponse(**result)
 
     except Exception as e:
         # Check if it's a database permission error
@@ -710,12 +752,266 @@ async def get_metrics(
             )
 
         # Log and return error for other database issues
-        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to calculate metrics for project {project_id}: {error_msg}",
+            f"Failed to calculate metrics for project {project_id}: {e}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve trace metrics: {error_msg}",
+            detail="Failed to retrieve trace metrics. Check server logs for details.",
         )
+
+
+# ---------------------------------------------------------------------------
+# Trace review endpoints
+# ---------------------------------------------------------------------------
+
+
+def _get_status_details(db: Session, status_id: UUID, organization_id: str) -> dict:
+    """Fetch status details for a review."""
+    status_obj = (
+        db.query(models.Status)
+        .filter(
+            models.Status.id == status_id,
+            models.Status.organization_id == organization_id,
+        )
+        .first()
+    )
+    if not status_obj:
+        raise HTTPException(status_code=404, detail="Status not found")
+    return {"status_id": str(status_obj.id), "name": status_obj.name}
+
+
+def _update_review_metadata(reviews_data: dict, current_user: User, latest_status: dict) -> None:
+    """Update metadata when reviews change."""
+    now = datetime.now(timezone.utc).isoformat()
+    reviews_data["metadata"] = {
+        "last_updated_at": now,
+        "last_updated_by": {
+            "user_id": str(current_user.id),
+            "name": current_user.name or current_user.email,
+        },
+        "total_reviews": len(reviews_data.get("reviews", [])),
+        "latest_status": latest_status,
+        "summary": f"Last updated by {current_user.name or current_user.email}",
+    }
+
+
+@router.post(
+    "/traces/{trace_db_id}/reviews",
+    response_model=schemas.ReviewResponse,
+)
+def add_trace_review(
+    trace_db_id: UUID,
+    review: schemas.ReviewCreate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Add a new review to a trace span."""
+    organization_id, user_id = tenant_context
+
+    db_trace = crud.get_trace_by_db_id(
+        db, trace_db_id=str(trace_db_id), organization_id=organization_id
+    )
+    if db_trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    status_details = _get_status_details(db, review.status_id, organization_id)
+
+    if not db_trace.trace_reviews:
+        db_trace.trace_reviews = {"metadata": {}, "reviews": []}
+    elif not isinstance(db_trace.trace_reviews, dict):
+        db_trace.trace_reviews = {"metadata": {}, "reviews": []}
+    if "reviews" not in db_trace.trace_reviews:
+        db_trace.trace_reviews["reviews"] = []
+
+    now = datetime.now(timezone.utc).isoformat()
+    new_review = {
+        "review_id": str(uuid4()),
+        "status": status_details,
+        "user": {
+            "user_id": str(current_user.id),
+            "name": current_user.name or current_user.email,
+        },
+        "comments": review.comments,
+        "created_at": now,
+        "updated_at": now,
+        "target": {
+            "type": review.target.type,
+            "reference": review.target.reference,
+        },
+    }
+
+    db_trace.trace_reviews["reviews"].append(new_review)
+    _update_review_metadata(db_trace.trace_reviews, current_user, status_details)
+    flag_modified(db_trace, "trace_reviews")
+
+    trace_apply_review_override(
+        db_trace,
+        review.target.type,
+        review.target.reference,
+        status_details,
+        current_user,
+        new_review["review_id"],
+    )
+
+    db.flush()
+    db.refresh(db_trace)
+    db.commit()
+
+    return new_review
+
+
+@router.put(
+    "/traces/{trace_db_id}/reviews/{review_id}",
+    response_model=schemas.ReviewResponse,
+)
+def update_trace_review(
+    trace_db_id: UUID,
+    review_id: str,
+    review: schemas.ReviewUpdate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Update an existing trace review."""
+    organization_id, user_id = tenant_context
+
+    db_trace = crud.get_trace_by_db_id(
+        db, trace_db_id=str(trace_db_id), organization_id=organization_id
+    )
+    if db_trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    if not db_trace.trace_reviews or "reviews" not in db_trace.trace_reviews:
+        raise HTTPException(status_code=404, detail="No reviews found for this trace")
+
+    reviews = db_trace.trace_reviews["reviews"]
+    review_to_update = None
+    for rev in reviews:
+        if rev.get("review_id") == review_id:
+            review_to_update = rev
+            break
+    if review_to_update is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    old_target = review_to_update.get("target", {})
+    status_changed = False
+    if review.status_id is not None:
+        status_details = _get_status_details(db, review.status_id, organization_id)
+        review_to_update["status"] = status_details
+        status_changed = True
+
+    if review.comments is not None:
+        review_to_update["comments"] = review.comments
+
+    target_changed = False
+    if review.target is not None:
+        review_to_update["target"] = {
+            "type": review.target.type,
+            "reference": review.target.reference,
+        }
+        target_changed = True
+
+    review_to_update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    latest_status = review_to_update["status"]
+    _update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
+    flag_modified(db_trace, "trace_reviews")
+
+    if status_changed or target_changed:
+        if target_changed:
+            trace_revert_override(
+                db_trace,
+                old_target.get("type", ""),
+                old_target.get("reference"),
+                review_id,
+                [],
+            )
+        trace_apply_review_override(
+            db_trace,
+            review_to_update["target"]["type"],
+            review_to_update["target"].get("reference"),
+            review_to_update["status"],
+            current_user,
+            review_id,
+        )
+
+    db.flush()
+    db.refresh(db_trace)
+    db.commit()
+
+    return review_to_update
+
+
+@router.delete(
+    "/traces/{trace_db_id}/reviews/{review_id}",
+    response_model=dict,
+)
+def delete_trace_review(
+    trace_db_id: UUID,
+    review_id: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete a review from a trace."""
+    organization_id, user_id = tenant_context
+
+    db_trace = crud.get_trace_by_db_id(
+        db, trace_db_id=str(trace_db_id), organization_id=organization_id
+    )
+    if db_trace is None:
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    if not db_trace.trace_reviews or "reviews" not in db_trace.trace_reviews:
+        raise HTTPException(status_code=404, detail="No reviews found for this trace")
+
+    reviews = db_trace.trace_reviews["reviews"]
+    review_index = None
+    for idx, rev in enumerate(reviews):
+        if rev.get("review_id") == review_id:
+            review_index = idx
+            break
+    if review_index is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    deleted_review = reviews.pop(review_index)
+
+    if reviews:
+        latest_review = max(
+            reviews,
+            key=lambda r: r.get("updated_at", r.get("created_at", "")),
+        )
+        latest_status = latest_review.get("status", {"status_id": None, "name": "Unknown"})
+        _update_review_metadata(db_trace.trace_reviews, current_user, latest_status)
+    else:
+        db_trace.trace_reviews["metadata"] = {
+            "last_updated_at": datetime.now(timezone.utc).isoformat(),
+            "last_updated_by": {
+                "user_id": str(current_user.id),
+                "name": current_user.name or current_user.email,
+            },
+            "total_reviews": 0,
+            "latest_status": None,
+            "summary": "All reviews removed",
+        }
+
+    flag_modified(db_trace, "trace_reviews")
+
+    trace_revert_override(
+        db_trace,
+        deleted_review.get("target", {}).get("type", ""),
+        deleted_review.get("target", {}).get("reference"),
+        review_id,
+        reviews,
+    )
+
+    db.flush()
+    db.refresh(db_trace)
+    db.commit()
+
+    return {
+        "message": "Review deleted successfully",
+        "review_id": review_id,
+    }

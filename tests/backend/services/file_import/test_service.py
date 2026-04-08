@@ -5,15 +5,12 @@ from unittest.mock import patch
 
 import pytest
 
-from rhesis.backend.app.services.file_import.service import (
-    ImportService,
-    _apply_mapping,
-    _normalize_row,
-    _rows_to_test_data,
-)
+from rhesis.backend.app.services.file_import.builder import rows_to_test_data
+from rhesis.backend.app.services.file_import.service import ImportService
 from rhesis.backend.app.services.file_import.storage import (
     ImportSessionStore,
 )
+from rhesis.backend.app.services.file_import.transforms import apply_mapping, normalize_row
 
 
 @pytest.fixture(autouse=True)
@@ -32,31 +29,31 @@ def clear_sessions(tmp_path):
     ImportSessionStore._sessions.clear()
 
 
-# ── _apply_mapping ───────────────────────────────────────────────
+# ── apply_mapping ────────────────────────────────────────────────
 
 
 class TestApplyMapping:
     def test_renames_columns(self):
         rows = [{"Question": "hi", "Cat": "Safety"}]
         mapping = {"Question": "prompt_content", "Cat": "category"}
-        result = _apply_mapping(rows, mapping)
+        result = apply_mapping(rows, mapping)
         assert result[0]["prompt_content"] == "hi"
         assert result[0]["category"] == "Safety"
 
     def test_unmapped_preserved(self):
         rows = [{"prompt": {"content": "hi"}, "extra": "val"}]
         mapping = {}
-        result = _apply_mapping(rows, mapping)
+        result = apply_mapping(rows, mapping)
         assert result[0]["prompt"]["content"] == "hi"
         assert result[0]["extra"] == "val"
 
     def test_empty_mapping(self):
         rows = [{"a": 1}]
-        result = _apply_mapping(rows, {})
+        result = apply_mapping(rows, {})
         assert result == rows
 
 
-# ── _normalize_row ───────────────────────────────────────────────
+# ── normalize_row ────────────────────────────────────────────────
 
 
 class TestNormalizeRow:
@@ -67,7 +64,7 @@ class TestNormalizeRow:
             "language_code": "en",
             "category": "Safety",
         }
-        result = _normalize_row(row)
+        result = normalize_row(row)
         assert "prompt" in result
         assert result["prompt"]["content"] == "test prompt"
         assert result["prompt"]["expected_response"] == "response"
@@ -79,61 +76,49 @@ class TestNormalizeRow:
             "prompt": {"content": "already nested"},
             "category": "Safety",
         }
-        result = _normalize_row(row)
+        result = normalize_row(row)
         assert result["prompt"]["content"] == "already nested"
 
     def test_prompt_content_is_dict(self):
-        """When prompt_content is a dict like {"content": "text"},
-        it should be unwrapped to avoid double-nesting."""
         row = {
             "prompt_content": {"content": "actual text"},
             "category": "Safety",
         }
-        result = _normalize_row(row)
+        result = normalize_row(row)
         assert result["prompt"]["content"] == "actual text"
         assert isinstance(result["prompt"]["content"], str)
 
     def test_double_nested_prompt_content(self):
-        """Prompt dict with content that is itself a dict should flatten."""
         row = {
             "prompt": {"content": {"content": "actual text", "language_code": "fr"}},
             "category": "Safety",
         }
-        result = _normalize_row(row)
+        result = normalize_row(row)
         assert result["prompt"]["content"] == "actual text"
         assert result["prompt"]["language_code"] == "fr"
         assert isinstance(result["prompt"]["content"], str)
 
     def test_default_test_type(self):
         row = {"prompt_content": "test", "category": "Safety"}
-        result = _normalize_row(row)
+        result = normalize_row(row)
         assert result["test_type"] == "Single-Turn"
 
     def test_default_test_type_multi_turn(self):
         row = {"prompt_content": "test", "category": "Safety"}
-        result = _normalize_row(row, default_test_type="Multi-Turn")
+        result = normalize_row(row, default_test_type="Multi-Turn")
         assert result["test_type"] == "Multi-Turn"
 
     def test_preserves_test_type(self):
-        """Row-level test_type takes precedence over default."""
-        row = {
-            "prompt_content": "test",
-            "test_type": "Multi-Turn",
-        }
-        result = _normalize_row(row)
+        row = {"prompt_content": "test", "test_type": "Multi-Turn"}
+        result = normalize_row(row)
         assert result["test_type"] == "Multi-Turn"
 
     def test_row_test_type_overrides_default(self):
-        """Row-level test_type takes precedence over default."""
-        row = {
-            "prompt_content": "test",
-            "test_type": "Single-Turn",
-        }
-        result = _normalize_row(row, default_test_type="Multi-Turn")
+        row = {"prompt_content": "test", "test_type": "Single-Turn"}
+        result = normalize_row(row, default_test_type="Multi-Turn")
         assert result["test_type"] == "Single-Turn"
 
     def test_parses_test_configuration_json_string(self):
-        """test_configuration as JSON string (e.g. from CSV) is parsed to dict."""
         row = {
             "category": "Safety",
             "topic": "Content",
@@ -141,14 +126,14 @@ class TestNormalizeRow:
             "test_type": "Multi-Turn",
             "test_configuration": '{"goal": "Test goal", "instructions": "Do X"}',
         }
-        result = _normalize_row(row)
+        result = normalize_row(row)
         assert result["test_configuration"] == {
             "goal": "Test goal",
             "instructions": "Do X",
         }
 
 
-# ── _rows_to_test_data ──────────────────────────────────────────
+# ── rows_to_test_data ────────────────────────────────────────────
 
 
 class TestRowsToTestData:
@@ -161,7 +146,7 @@ class TestRowsToTestData:
                 "prompt": {"content": "test"},
             }
         ]
-        result = _rows_to_test_data(rows)
+        result = rows_to_test_data(rows)
         assert len(result) == 1
         assert result[0]["category"] == "Safety"
         assert result[0]["prompt"]["content"] == "test"
@@ -177,40 +162,32 @@ class TestRowsToTestData:
                 "prompt": {"content": "valid"},
             },
         ]
-        result = _rows_to_test_data(rows)
+        result = rows_to_test_data(rows)
         assert len(result) == 1
 
     def test_double_nested_prompt_flattened(self):
-        """Prompt with double-nested content dict should be flattened."""
         rows = [
             {
                 "category": "Safety",
                 "topic": "Content",
                 "behavior": "Refusal",
-                "prompt": {
-                    "content": {"content": "actual text"},
-                },
+                "prompt": {"content": {"content": "actual text"}},
             }
         ]
-        result = _rows_to_test_data(rows)
+        result = rows_to_test_data(rows)
         assert len(result) == 1
         assert result[0]["prompt"]["content"] == "actual text"
         assert isinstance(result[0]["prompt"]["content"], str)
 
     def test_defaults_for_missing(self):
-        rows = [
-            {
-                "prompt": {"content": "test"},
-            }
-        ]
-        result = _rows_to_test_data(rows)
+        rows = [{"prompt": {"content": "test"}}]
+        result = rows_to_test_data(rows)
         assert len(result) == 1
         assert result[0]["category"] == "Uncategorized"
         assert result[0]["topic"] == "General"
         assert result[0]["behavior"] == "Default"
 
     def test_test_configuration_json_string_parsed(self):
-        """test_configuration as JSON string (from CSV) is parsed to dict."""
         rows = [
             {
                 "category": "Safety",
@@ -220,7 +197,7 @@ class TestRowsToTestData:
                 "test_configuration": '{"goal": "Probe the model", "instructions": "Ask"}',
             }
         ]
-        result = _rows_to_test_data(rows)
+        result = rows_to_test_data(rows)
         assert len(result) == 1
         assert result[0]["test_configuration"] == {
             "goal": "Probe the model",
@@ -228,7 +205,6 @@ class TestRowsToTestData:
         }
 
     def test_includes_turn_fields_from_flat_rows(self):
-        """min_turns and max_turns from flat fields are included in test_configuration."""
         rows = [
             {
                 "category": "Safety",
@@ -240,7 +216,7 @@ class TestRowsToTestData:
                 "max_turns": 8,
             }
         ]
-        result = _rows_to_test_data(rows)
+        result = rows_to_test_data(rows)
         assert len(result) == 1
         config = result[0]["test_configuration"]
         assert config["goal"] == "Test goal"
@@ -248,7 +224,6 @@ class TestRowsToTestData:
         assert config["max_turns"] == 8
 
     def test_includes_turn_fields_from_csv_strings(self):
-        """min_turns and max_turns as strings (from CSV) are converted to int."""
         rows = [
             {
                 "category": "Safety",
@@ -260,14 +235,13 @@ class TestRowsToTestData:
                 "max_turns": "15",
             }
         ]
-        result = _rows_to_test_data(rows)
+        result = rows_to_test_data(rows)
         assert len(result) == 1
         config = result[0]["test_configuration"]
         assert config["min_turns"] == 2
         assert config["max_turns"] == 15
 
     def test_omits_empty_turn_fields(self):
-        """Empty string turn fields (from CSV) should not appear in config."""
         rows = [
             {
                 "category": "Safety",
@@ -279,7 +253,7 @@ class TestRowsToTestData:
                 "max_turns": "",
             }
         ]
-        result = _rows_to_test_data(rows)
+        result = rows_to_test_data(rows)
         assert len(result) == 1
         config = result[0]["test_configuration"]
         assert "min_turns" not in config

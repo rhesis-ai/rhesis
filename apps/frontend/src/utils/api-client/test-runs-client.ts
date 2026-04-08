@@ -115,6 +115,12 @@ export class TestRunsClient extends BaseApiClient {
     });
   }
 
+  async cancelTestRun(id: string): Promise<TestRun> {
+    return this.fetch<TestRun>(`${API_ENDPOINTS.testRuns}/${id}/cancel`, {
+      method: 'POST',
+    });
+  }
+
   async downloadTestRun(testRunId: string): Promise<Blob> {
     return this.fetchBlob(`${API_ENDPOINTS.testRuns}/${testRunId}/download`);
   }

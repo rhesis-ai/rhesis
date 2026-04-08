@@ -24,6 +24,7 @@ from rhesis.backend.app.services.test_run import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.tasks.enums import RunStatus
 
 # Create the detailed schema for TestRun
 TestRunDetailSchema = create_detailed_schema(
@@ -379,7 +380,14 @@ def delete_test_run(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Delete a test run"""
+    """Delete a test run.
+
+    If the run is still active (Queued or Progress) its Celery task is revoked
+    before the record is removed so the worker does not continue executing a
+    run that no longer exists in the database.
+    """
+    from rhesis.backend.celery.core import app as celery_app
+
     organization_id, user_id = tenant_context
     db_test_run = crud.get_test_run(
         db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
@@ -387,8 +395,64 @@ def delete_test_run(
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
 
+    active_statuses = {RunStatus.QUEUED.value, RunStatus.PROGRESS.value}
+    current_status = db_test_run.status.name if db_test_run.status else None
+    if current_status in active_statuses:
+        task_id = (db_test_run.attributes or {}).get("task_id")
+        if task_id:
+            celery_app.control.revoke(task_id)
+
     return crud.delete_test_run(
         db=db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
+
+
+@router.post("/{test_run_id}/cancel", response_model=schemas.TestRun)
+def cancel_test_run(
+    test_run_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Cancel a queued or in-progress test run.
+
+    Adds the underlying Celery task to the broker's revoke set when a task_id
+    is present in the run's attributes (no signal is sent; the worker checks the
+    revoke set cooperatively via the cancellation watchdog).  The status is
+    immediately set to Cancelled so the caller sees the new state without
+    waiting for the worker to acknowledge.
+    """
+    from rhesis.backend.celery.core import app as celery_app
+    from rhesis.backend.tasks.execution.run import update_test_run_status
+
+    organization_id, user_id = tenant_context
+    db_test_run = crud.get_test_run(
+        db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_test_run is None:
+        raise HTTPException(status_code=404, detail="Test run not found")
+
+    current_status = db_test_run.status.name if db_test_run.status else None
+    cancellable_statuses = {RunStatus.QUEUED.value, RunStatus.PROGRESS.value}
+    if current_status not in cancellable_statuses:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot cancel a test run with status '{current_status}'",
+        )
+
+    task_id = (db_test_run.attributes or {}).get("task_id")
+    if task_id:
+        # Broadcast revoke to all workers so the task is skipped if still
+        # queued. We do NOT pass terminate=True because the worker uses a
+        # thread pool — SIGTERM targets the whole process, not the thread.
+        # Cancellation of an already-running batch relies on the early-exit
+        # check at the top of execute_test_configuration.
+        celery_app.control.revoke(task_id)
+
+    update_test_run_status(db, db_test_run, RunStatus.CANCELLED.value)
+
+    return crud.get_test_run(
+        db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
 
 

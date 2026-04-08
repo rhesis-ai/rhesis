@@ -12,18 +12,61 @@ from rhesis.backend.app.models.endpoint import Endpoint
 
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
+from .context import InvocationContext
 
 logger = logging.getLogger(__name__)
+
+# Mapping of Unicode characters commonly produced by AI services to their
+# ASCII equivalents.  Defined once at module load rather than rebuilt on
+# every call to _normalize_unicode_text.
+_UNICODE_REPLACEMENTS: dict[str, str] = {
+    # Quotation marks
+    "\u2018": "'",  # Left single quotation mark
+    "\u2019": "'",  # Right single quotation mark
+    "\u201a": "'",  # Single low-9 quotation mark
+    "\u201b": "'",  # Single high-reversed-9 quotation mark
+    "\u201c": '"',  # Left double quotation mark
+    "\u201d": '"',  # Right double quotation mark
+    "\u201e": '"',  # Double low-9 quotation mark
+    "\u201f": '"',  # Double high-reversed-9 quotation mark
+    # Dashes
+    "\u2010": "-",  # Hyphen
+    "\u2011": "-",  # Non-breaking hyphen
+    "\u2012": "-",  # Figure dash
+    "\u2013": "-",  # En dash
+    "\u2014": "-",  # Em dash
+    "\u2015": "-",  # Horizontal bar
+    # Spaces
+    "\u00a0": " ",  # Non-breaking space
+    "\u2000": " ",  # En quad
+    "\u2001": " ",  # Em quad
+    "\u2002": " ",  # En space
+    "\u2003": " ",  # Em space
+    "\u2004": " ",  # Three-per-em space
+    "\u2005": " ",  # Four-per-em space
+    "\u2006": " ",  # Six-per-em space
+    "\u2007": " ",  # Figure space
+    "\u2008": " ",  # Punctuation space
+    "\u2009": " ",  # Thin space
+    "\u200a": " ",  # Hair space
+    "\u202f": " ",  # Narrow no-break space
+    "\u205f": " ",  # Medium mathematical space
+    # Other common symbols
+    "\u2026": "...",  # Horizontal ellipsis
+    "\u2022": "*",  # Bullet
+    "\u2023": "*",  # Triangular bullet
+    "\u2024": ".",  # One dot leader
+    "\u2025": "..",  # Two dot leader
+    "\u2032": "'",  # Prime
+    "\u2033": '"',  # Double prime
+}
 
 
 class WebSocketEndpointInvoker(BaseEndpointInvoker):
     """WebSocket endpoint invoker with support for different auth types."""
 
-    # WebSocket endpoints do not automatically generate traces
-    automatic_tracing: bool = False
-
-    def __init__(self):
-        super().__init__()
+    def __init__(self, context: "InvocationContext | None" = None):
+        super().__init__(context)
 
     def _normalize_unicode_text(self, text: str) -> str:
         """
@@ -42,62 +85,36 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         # This handles most Unicode normalization cases
         normalized = unicodedata.normalize("NFKC", text)
 
-        # Handle specific common Unicode characters that AI services often use
-        unicode_replacements = {
-            # Quotation marks
-            "\u2018": "'",  # Left single quotation mark
-            "\u2019": "'",  # Right single quotation mark
-            "\u201a": "'",  # Single low-9 quotation mark
-            "\u201b": "'",  # Single high-reversed-9 quotation mark
-            "\u201c": '"',  # Left double quotation mark
-            "\u201d": '"',  # Right double quotation mark
-            "\u201e": '"',  # Double low-9 quotation mark
-            "\u201f": '"',  # Double high-reversed-9 quotation mark
-            # Dashes
-            "\u2010": "-",  # Hyphen
-            "\u2011": "-",  # Non-breaking hyphen
-            "\u2012": "-",  # Figure dash
-            "\u2013": "-",  # En dash
-            "\u2014": "-",  # Em dash
-            "\u2015": "-",  # Horizontal bar
-            # Spaces
-            "\u00a0": " ",  # Non-breaking space
-            "\u2000": " ",  # En quad
-            "\u2001": " ",  # Em quad
-            "\u2002": " ",  # En space
-            "\u2003": " ",  # Em space
-            "\u2004": " ",  # Three-per-em space
-            "\u2005": " ",  # Four-per-em space
-            "\u2006": " ",  # Six-per-em space
-            "\u2007": " ",  # Figure space
-            "\u2008": " ",  # Punctuation space
-            "\u2009": " ",  # Thin space
-            "\u200a": " ",  # Hair space
-            "\u202f": " ",  # Narrow no-break space
-            "\u205f": " ",  # Medium mathematical space
-            # Other common symbols
-            "\u2026": "...",  # Horizontal ellipsis
-            "\u2022": "*",  # Bullet
-            "\u2023": "*",  # Triangular bullet
-            "\u2024": ".",  # One dot leader
-            "\u2025": "..",  # Two dot leader
-            "\u2032": "'",  # Prime
-            "\u2033": '"',  # Double prime
-        }
-
-        # Apply the replacements
-        for unicode_char, replacement in unicode_replacements.items():
+        for unicode_char, replacement in _UNICODE_REPLACEMENTS.items():
             normalized = normalized.replace(unicode_char, replacement)
 
         return normalized
 
     async def invoke(
         self,
-        db: Session,
-        endpoint: Endpoint,
-        input_data: Dict[str, Any],
-        test_execution_context: Optional[Dict[str, str]] = None,
+        db=None,
+        endpoint=None,
+        input_data=None,
+        *,
+        test_execution_context=None,
+        trace_id=None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
+        # Backward-compat: callers that pass positional args build a temporary context.
+        if db is not None or endpoint is not None:
+            from .context import InvocationContext
+
+            self.context = InvocationContext(
+                db=db,
+                endpoint=endpoint,
+                input_data=input_data or {},
+                test_execution_context=test_execution_context,
+                trace_id=trace_id,
+            )
+        db = self.context.db
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
+        test_execution_context = self.context.test_execution_context
+        trace_id = self.context.trace_id
         """
         Invoke the WebSocket endpoint with proper authentication.
 

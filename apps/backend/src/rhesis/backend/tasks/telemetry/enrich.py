@@ -2,16 +2,16 @@
 
 import logging
 
-from celery import shared_task
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.database import SessionLocal
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
+from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@app.task(bind=True, max_retries=3, default_retry_delay=60)
 def enrich_trace_async(self, trace_id: str, project_id: str, organization_id: str) -> dict:
     """
     Enrich trace asynchronously in background.

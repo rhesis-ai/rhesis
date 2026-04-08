@@ -10,8 +10,10 @@ Functions:
 - evaluate_prompt_response: Backward compatibility alias for evaluate_single_turn_metrics
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 from sqlalchemy.orm import Session
 
@@ -26,10 +28,12 @@ from rhesis.backend.tasks.execution.constants import (
     TURN_TOOL_CALLS_KEY,
     MetricScope,
 )
-from rhesis.sdk.metrics import MetricConfig
-from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 from .response_extractor import extract_response_with_fallback
+
+if TYPE_CHECKING:
+    from rhesis.sdk.metrics import MetricConfig
+    from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +69,11 @@ def _build_conversation_history(
             if assistant_tool_calls is not None:
                 asst_msg["tool_calls"] = assistant_tool_calls
             messages.append(asst_msg)
-    return ConversationHistory.from_messages(messages) if messages else None
+    if not messages:
+        return None
+    from rhesis.sdk.metrics.conversational.types import ConversationHistory
+
+    return ConversationHistory.from_messages(messages)
 
 
 def evaluate_single_turn_metrics(

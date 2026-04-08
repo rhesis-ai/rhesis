@@ -18,7 +18,7 @@ from rhesis.sdk.metrics.providers.native.shared_utils import (
     handle_evaluation_error,
     setup_jinja_environment,
 )
-from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 # Default value when goal is not specified
 GOAL_DEFAULT = "Infer from conversation"
@@ -273,6 +273,26 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         # Render the template
         prompt = template.render(**template_vars)
         return prompt
+
+    async def a_evaluate(
+        self,
+        conversation_history: ConversationHistory,
+        goal: Optional[str] = None,
+        instructions: Optional[str] = None,
+        context: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> MetricResult:
+        """Native async evaluate — calls _a_execute_numeric_evaluation directly."""
+        self._validate_evaluate_inputs(conversation_history, goal)
+        prompt = self._get_prompt_template(conversation_history, goal)
+        return await self._a_execute_numeric_evaluation(
+            prompt=prompt,
+            response_schema=ConversationalScoreResponse,
+            additional_details={
+                "turn_count": self._count_turns(conversation_history),
+                "goal": goal or GOAL_DEFAULT,
+            },
+        )
 
     def evaluate(
         self,

@@ -4,11 +4,11 @@ Handles the coordination between async and sync enrichment strategies.
 """
 
 import logging
-import time
-from typing import TYPE_CHECKING, List, Set
+from typing import TYPE_CHECKING, Any, List, Set
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.services.async_service import AsyncService
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 
 if TYPE_CHECKING:
@@ -17,66 +17,80 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache for worker availability to avoid repeated ~3s Celery pings.
-# Each inspect.ping() call takes ~3s even when workers are available. Caching the
-# result avoids paying that cost on every single endpoint invocation.
-_worker_cache: dict = {"available": None, "checked_at": 0.0}
-_WORKER_CACHE_TTL = 300.0  # seconds
 
-
-class EnrichmentService:
+class EnrichmentService(AsyncService[dict | None]):
     """Service for orchestrating trace enrichment with async/sync fallback."""
 
     def __init__(self, db: Session):
         """Initialize the enrichment service."""
+        super().__init__()
         self.db = db
 
-    def _check_workers_available(self) -> bool:
+    def _execute_sync(
+        self,
+        trace_id: str,
+        project_id: str,
+        organization_id: str,
+        root_span_id: str | None = None,
+    ) -> dict | None:
         """
-        Check if Celery workers are available to process telemetry tasks.
+        Synchronous enrichment (development fallback).
 
-        Uses a module-level cache (TTL=60s) to avoid the ~3s Celery
-        inspect.ping() cost on every endpoint invocation.
+        Metric evaluation (LLM calls) is skipped — it requires Celery workers
+        and should never run in-process.
+
+        Args:
+            trace_id: Trace ID to enrich
+            project_id: Project ID for access control
+            organization_id: Organization ID for multi-tenant security
+            root_span_id: Unused in sync path; accepted for interface compatibility
 
         Returns:
-            True if workers are available, False otherwise
+            Enriched trace data or None if enrichment failed
         """
-        now = time.monotonic()
-        age = now - _worker_cache["checked_at"]
-
-        # Return cached result if still fresh
-        if _worker_cache["available"] is not None and age < _WORKER_CACHE_TTL:
-            return _worker_cache["available"]
-
-        try:
-            from rhesis.backend.worker import app as celery_app
-
-            # Use ping with 3 second timeout - more reliable for solo pool workers
-            # Solo pool workers process tasks sequentially, so stats() may timeout
-            # while ping() is faster and gets prioritized
-            inspect = celery_app.control.inspect(timeout=3.0)
-
-            # Ping is faster and works better with solo pool
-            ping_result = inspect.ping()
-
-            if not ping_result:
-                _worker_cache["available"] = False
-                _worker_cache["checked_at"] = time.monotonic()
-                return False
-
-            # If we can ping workers, they're available
-            logger.debug(
-                f"Found {len(ping_result)} available worker(s): {list(ping_result.keys())}"
+        enricher = TraceEnricher(self.db)
+        enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
+        if enriched_data:
+            logger.info(f"Completed sync enrichment for trace {trace_id}")
+            logger.warning(
+                f"Trace metrics evaluation skipped for {trace_id} "
+                f"(requires Celery workers for async processing)"
             )
-            _worker_cache["available"] = True
-            _worker_cache["checked_at"] = time.monotonic()
-            return True
+        else:
+            logger.warning(f"Sync enrichment returned no data for trace {trace_id}")
+        return enriched_data
 
-        except Exception as e:
-            logger.debug(f"Worker availability check failed: {e}")
-            _worker_cache["available"] = False
-            _worker_cache["checked_at"] = time.monotonic()
-            return False
+    def _enqueue_async(
+        self,
+        trace_id: str,
+        project_id: str,
+        organization_id: str,
+        root_span_id: str | None = None,
+    ) -> Any:
+        """
+        Enqueue async enrichment + evaluation chain.
+
+        Args:
+            trace_id: Trace ID to enrich
+            project_id: Project ID for access control
+            organization_id: Organization ID for multi-tenant security
+            root_span_id: DB primary key of the root span passed through to
+                ``evaluate_turn_trace_metrics`` for multi-turn conversation accuracy
+
+        Returns:
+            Celery AsyncResult
+        """
+        workflow = build_enrichment_chain(
+            trace_id,
+            project_id,
+            organization_id,
+            root_span_id=root_span_id,
+        )
+        result = workflow.apply_async()
+        logger.debug(
+            f"Enqueued async pipeline (enrich -> evaluate) for trace {trace_id} (task: {result.id})"
+        )
+        return result
 
     def enqueue_enrichment(
         self,
@@ -84,6 +98,7 @@ class EnrichmentService:
         project_id: str,
         organization_id: str,
         workers_available: bool | None = None,
+        root_span_id: str | None = None,
     ) -> bool:
         """
         Try to enqueue async enrichment. Fall back to sync if workers unavailable.
@@ -99,74 +114,61 @@ class EnrichmentService:
             organization_id: Organization ID for multi-tenant security
             workers_available: Optional cached worker availability check result.
                              If None, will check on this call.
+            root_span_id: DB primary key of the root span that triggered
+                this enrichment.  Passed through to
+                ``evaluate_turn_trace_metrics`` so it evaluates the
+                correct span in multi-turn conversations.
 
         Returns:
             True if async task was enqueued, False if sync fallback was used
         """
-        # Check if workers are available (use cached result if provided)
-        if workers_available is None:
-            workers_available = self._check_workers_available()
-
-        if workers_available:
-            try:
-                from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
-
-                # Try to enqueue async task
-                result = enrich_trace_async.delay(trace_id, project_id, organization_id)
-                logger.debug(f"Enqueued async enrichment for trace {trace_id} (task: {result.id})")
-                return True
-
-            except Exception as e:
-                logger.warning(
-                    f"Async enrichment failed for trace {trace_id}, using sync fallback: {e}"
-                )
-        else:
-            logger.info(f"No Celery workers available, using sync enrichment for trace {trace_id}")
-
-        # Fall back to synchronous enrichment
         try:
-            enricher = TraceEnricher(self.db)
-            enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
-            if enriched_data:
-                logger.info(f"Completed sync enrichment for trace {trace_id}")
-            else:
-                logger.warning(f"Sync enrichment returned no data for trace {trace_id}")
-            return False
-        except Exception as sync_error:
-            # Log but don't fail the ingestion
-            logger.error(
-                f"Sync enrichment failed for trace {trace_id}: {sync_error}", exc_info=True
+            was_async, _ = self.execute_with_fallback(
+                trace_id,
+                project_id,
+                organization_id,
+                workers_available=workers_available,
+                root_span_id=root_span_id,
             )
+            return was_async
+        except Exception as e:
+            # Log but don't fail the ingestion
+            logger.error(f"Enrichment failed for trace {trace_id}: {e}", exc_info=True)
             return False
 
     def enrich_traces(
-        self, trace_ids: Set[str], project_id: str, organization_id: str
+        self,
+        trace_ids: Set[str],
+        project_id: str,
+        organization_id: str,
+        *,
+        workers_available: bool | None = None,
     ) -> tuple[int, int]:
         """
         Enrich multiple traces using async/sync fallback strategy.
+
+        Resolves worker availability once for the whole batch (TTL-cached).
+        Pass ``workers_available`` to skip a redundant ping when the caller
+        already checked (e.g. the telemetry ingest router).
 
         Args:
             trace_ids: Set of trace IDs to enrich
             project_id: Project ID for access control
             organization_id: Organization ID for multi-tenant security
+            workers_available: Optional precomputed flag to skip an extra ping.
 
         Returns:
             Tuple of (async_count, sync_count)
         """
-        async_count = 0
-        sync_count = 0
+        if not trace_ids:
+            return 0, 0
 
-        # Check worker availability once before the loop to avoid N×3 second timeout
-        # when workers are unavailable (prevents batch processing delays)
-        workers_available = self._check_workers_available()
-
-        for trace_id in trace_ids:
-            if self.enqueue_enrichment(trace_id, project_id, organization_id, workers_available):
-                async_count += 1
-            else:
-                sync_count += 1
-
-        return async_count, sync_count
+        items = [((trace_id, project_id, organization_id), {}) for trace_id in trace_ids]
+        return self.batch_execute(
+            items,
+            swallow_exceptions=True,
+            workers_available=workers_available,
+        )
 
     def create_and_enrich_spans(
         self,
@@ -177,10 +179,14 @@ class EnrichmentService:
         """
         Create trace spans and automatically trigger enrichment.
 
-        This helper consolidates the pattern of:
-        1. Creating spans in database
-        2. Extracting unique trace IDs
-        3. Triggering async/sync enrichment
+        Used by the endpoint invocation path (``services/invokers/tracing.py``),
+        **not** by the main telemetry ingestion router which handles storage and
+        enrichment dispatch separately.
+
+        Dispatches one enrichment chain **per root span** so that each turn
+        in a multi-turn conversation gets its own evaluation task keyed by
+        the root span's DB primary key.  Trace IDs that only contain child
+        spans in this batch still get an enrichment-only dispatch.
 
         Args:
             spans: List of OTEL spans to create
@@ -192,22 +198,74 @@ class EnrichmentService:
         """
         from rhesis.backend.app import crud
 
-        # Create spans in database
         stored_spans = crud.create_trace_spans(self.db, spans, organization_id)
 
         if not stored_spans:
             logger.warning("No spans were stored")
             return [], 0, 0
 
-        # Extract unique trace IDs
-        unique_traces: Set[str] = {span.trace_id for span in stored_spans}
+        workers_available = self._check_workers_available()
+        async_count = 0
+        sync_count = 0
+        dispatched_traces: Set[str] = set()
 
-        # Trigger enrichment (async preferred, sync fallback)
-        async_count, sync_count = self.enrich_traces(unique_traces, project_id, organization_id)
+        root_spans = [s for s in stored_spans if s.parent_span_id is None]
+        for root_span in root_spans:
+            if self.enqueue_enrichment(
+                root_span.trace_id,
+                project_id,
+                organization_id,
+                workers_available=workers_available,
+                root_span_id=str(root_span.id),
+            ):
+                async_count += 1
+            else:
+                sync_count += 1
+            dispatched_traces.add(root_span.trace_id)
+
+        child_only_traces = {s.trace_id for s in stored_spans} - dispatched_traces
+        for trace_id in child_only_traces:
+            if self.enqueue_enrichment(trace_id, project_id, organization_id, workers_available):
+                async_count += 1
+            else:
+                sync_count += 1
 
         logger.debug(
-            f"Created {len(stored_spans)} spans from {len(unique_traces)} traces "
-            f"(async enrichment: {async_count}, sync: {sync_count})"
+            f"Created {len(stored_spans)} spans, dispatched "
+            f"{len(root_spans)} root-span chains + "
+            f"{len(child_only_traces)} child-only enrichments "
+            f"(async: {async_count}, sync: {sync_count})"
         )
 
         return stored_spans, async_count, sync_count
+
+
+def build_enrichment_chain(
+    trace_id: str,
+    project_id: str,
+    organization_id: str,
+    root_span_id: str | None = None,
+):
+    """Build the Celery chain for trace enrichment followed by metric evaluation.
+
+    Args:
+        root_span_id: DB primary key of the root span to evaluate.
+            Threaded through to ``evaluate_turn_trace_metrics`` so it
+            targets the exact span rather than querying for the latest
+            root span by ``trace_id`` (which causes missed turns in
+            multi-turn conversations).
+    """
+    from celery import chain
+
+    from rhesis.backend.tasks.telemetry.enrich import enrich_trace_async
+    from rhesis.backend.tasks.telemetry.evaluate import evaluate_turn_trace_metrics
+
+    return chain(
+        enrich_trace_async.si(trace_id, project_id, organization_id),
+        evaluate_turn_trace_metrics.si(
+            trace_id,
+            project_id,
+            organization_id,
+            root_span_id=root_span_id,
+        ),
+    )

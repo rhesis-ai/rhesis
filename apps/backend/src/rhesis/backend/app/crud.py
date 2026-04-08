@@ -10,11 +10,12 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, desc, func, text
+from sqlalchemy import and_, cast, desc, func, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR, TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
@@ -537,6 +538,21 @@ def get_test_sets(
 
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
+    # Exclude test sets used for adaptive testing (they use the dedicated adaptive_testing API)
+    adaptive_marker = cast([ADAPTIVE_TESTING_BEHAVIOR], JSONB)
+    behaviors_json = models.TestSet.attributes["metadata"]["behaviors"]
+
+    def exclude_adaptive_test_sets(query):
+        return query.filter(
+            or_(
+                models.TestSet.attributes.is_(None),
+                behaviors_json.is_(None),
+                ~behaviors_json.contains(adaptive_marker),
+            )
+        )
+
+    query_builder = query_builder.with_custom_filter(exclude_adaptive_test_sets)
+
     return query_builder.all()
 
 
@@ -940,6 +956,42 @@ def delete_source(
 ) -> Optional[models.Source]:
     """Delete source."""
     return delete_item(db, models.Source, source_id, organization_id, user_id)
+
+
+def create_chunk(
+    db: Session, chunk: schemas.ChunkCreate, organization_id: str = None, user_id: str = None
+) -> models.Chunk:
+    """Create chunk."""
+    return create_item(db, models.Chunk, chunk, organization_id=organization_id, user_id=user_id)
+
+
+def update_chunk(
+    db: Session,
+    chunk_id: uuid.UUID,
+    chunk: schemas.ChunkUpdate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.Chunk]:
+    """Update chunk."""
+    return update_item(
+        db, models.Chunk, chunk_id, chunk, organization_id=organization_id, user_id=user_id
+    )
+
+
+def delete_chunk(
+    db: Session, chunk_id: uuid.UUID, organization_id: str, user_id: str
+) -> Optional[models.Chunk]:
+    """Delete chunk."""
+    return delete_item(db, models.Chunk, chunk_id, organization_id=organization_id, user_id=user_id)
+
+
+def get_chunk(
+    db: Session, chunk_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Chunk]:
+    """Get chunk."""
+    return get_item_detail(
+        db, models.Chunk, chunk_id, organization_id=organization_id, user_id=user_id
+    )
 
 
 # Topic CRUD
@@ -3381,36 +3433,28 @@ def create_trace_spans(
     Raises:
         Exception: If database operation fails
     """
+    from uuid import UUID as _UUID
+
+    def _safe_uuid(value: str | None, field_name: str) -> _UUID | None:
+        if not value:
+            return None
+        try:
+            return _UUID(value)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid UUID in test context {field_name}: {value}")
+            return None
+
     trace_models = []
 
     for span in spans:
-        # Calculate duration
         duration_ms = (span.end_time - span.start_time).total_seconds() * 1000
 
-        # Extract test execution context from span attributes
         test_run_id = span.attributes.get("rhesis.test.run_id")
         test_result_id = span.attributes.get("rhesis.test.result_id")
         test_id = span.attributes.get("rhesis.test.id")
 
-        # Convert to UUID if present, otherwise None
-        # Handle each UUID independently to preserve valid values
-        from uuid import UUID
-
-        def safe_uuid_convert(value: str | None, field_name: str) -> UUID | None:
-            """Convert string to UUID, handling errors independently."""
-            if not value:
-                return None
-            try:
-                return UUID(value)
-            except (ValueError, TypeError):
-                logger.warning(f"Invalid UUID in test context {field_name}: {value}")
-                return None
-
-        test_run_id_uuid = safe_uuid_convert(test_run_id, "test_run_id")
-        test_result_id_uuid = safe_uuid_convert(test_result_id, "test_result_id")
-        test_id_uuid = safe_uuid_convert(test_id, "test_id")
-
         trace_model = models.Trace(
+            id=uuid.uuid4(),
             trace_id=span.trace_id,
             span_id=span.span_id,
             parent_span_id=span.parent_span_id,
@@ -3429,25 +3473,46 @@ def create_trace_spans(
             events=[event.model_dump(mode="json") for event in span.events],
             links=[link.model_dump(mode="json") for link in span.links],
             resource=span.resource,
-            # Test execution context
-            test_run_id=test_run_id_uuid,
-            test_result_id=test_result_id_uuid,
-            test_id=test_id_uuid,
+            test_run_id=_safe_uuid(test_run_id, "test_run_id"),
+            test_result_id=_safe_uuid(test_result_id, "test_result_id"),
+            test_id=_safe_uuid(test_id, "test_id"),
         )
 
         db.add(trace_model)
         trace_models.append(trace_model)
 
-    # Bulk insert with single commit
+    prev_expire = db.expire_on_commit
     try:
+        db.expire_on_commit = False
         db.commit()
-        for trace_model in trace_models:
-            db.refresh(trace_model)
         return trace_models
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to create trace spans: {e}")
         raise
+    finally:
+        db.expire_on_commit = prev_expire
+
+
+def get_trace_by_db_id(
+    db: Session,
+    trace_db_id: str,
+    organization_id: str,
+) -> Optional[models.Trace]:
+    """Get a single trace span row by its database UUID."""
+    from uuid import UUID
+
+    return (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.id == UUID(trace_db_id),
+                models.Trace.organization_id == UUID(organization_id),
+                models.Trace.deleted_at.is_(None),
+            )
+        )
+        .first()
+    )
 
 
 def get_trace_by_id(
@@ -3582,6 +3647,7 @@ def query_traces(
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
+    trace_metrics_status: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> List[TraceRow]:
@@ -3758,6 +3824,16 @@ def query_traces(
         query = query.filter(models.Trace.conversation_id.isnot(None))
     elif trace_type == TraceType.SINGLE_TURN:
         query = query.filter(models.Trace.conversation_id.is_(None))
+
+    # Trace metrics evaluation status filter (Pass / Fail / Error)
+    # Uses an IN subquery instead of a scalar to handle orgs where the same
+    # status name exists for multiple entity types (e.g. multiple "Error" rows).
+    if trace_metrics_status:
+        matching_status_ids = select(models.Status.id).where(
+            models.Status.name == trace_metrics_status,
+            models.Status.organization_id == org_uuid,
+        )
+        query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
@@ -4090,3 +4166,172 @@ def delete_file(
 ) -> Optional[models.File]:
     """Soft-delete a file."""
     return delete_item(db, models.File, file_id, organization_id, user_id)
+
+
+# ---------------------------------------------------------------
+# Trace metrics CRUD helpers
+# ---------------------------------------------------------------
+
+
+def update_trace_turn_metrics(
+    db: Session,
+    span_id: str,
+    turn_metrics: dict,
+    status_id: Optional[str] = None,
+    processed_at: Optional[datetime] = None,
+) -> int:
+    """Update turn-level trace metrics on a single span row.
+
+    Merges turn_metrics into trace_metrics.turn_metrics without
+    overwriting conversation_metrics if already present.
+    """
+    span = db.query(models.Trace).filter(models.Trace.id == span_id).first()
+    if not span:
+        return 0
+
+    existing = span.trace_metrics or {}
+    existing["turn_metrics"] = turn_metrics
+    now = processed_at or datetime.utcnow()
+
+    update_values: Dict[str, Any] = {
+        "trace_metrics": existing,
+        "trace_metrics_processed_at": now,
+        "updated_at": datetime.utcnow(),
+    }
+    if status_id is not None:
+        update_values["trace_metrics_status_id"] = status_id
+
+    result = db.query(models.Trace).filter(models.Trace.id == span_id).update(update_values)
+    db.commit()
+    return result
+
+
+def update_trace_conversation_metrics(
+    db: Session,
+    trace_id: str,
+    conversation_metrics: dict,
+    status_id: Optional[str] = None,
+    processed_at: Optional[datetime] = None,
+) -> int:
+    """Update conversation-level trace metrics on all spans sharing a trace_id.
+
+    Writes conversation_metrics into trace_metrics.conversation_metrics on
+    every span row, re-derives status from combined turn + conversation results.
+    """
+    from sqlalchemy.orm.attributes import flag_modified
+
+    spans = db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
+    if not spans:
+        return 0
+
+    now = processed_at or datetime.utcnow()
+    count = 0
+    for span in spans:
+        existing = span.trace_metrics or {}
+        # Important: copy the dict so SQLAlchemy detects the change, or use flag_modified
+        new_metrics = dict(existing)
+        new_metrics["conversation_metrics"] = conversation_metrics
+        span.trace_metrics = new_metrics
+
+        # Explicitly flag the JSON column as modified
+        flag_modified(span, "trace_metrics")
+
+        span.trace_metrics_processed_at = now
+        span.updated_at = datetime.utcnow()
+        if status_id is not None:
+            span.trace_metrics_status_id = status_id
+        count += 1
+
+    db.commit()
+    return count
+
+
+def get_trace_metrics_aggregated(
+    db: Session,
+    organization_id: str,
+    project_id: str,
+    environment: Optional[str] = None,
+    start_time_after: Optional[datetime] = None,
+    start_time_before: Optional[datetime] = None,
+) -> dict:
+    """Compute trace metrics using SQL-level aggregation.
+
+    Uses PostgreSQL aggregate functions (COUNT, SUM, AVG, percentile_cont)
+    to avoid loading large result sets into Python memory.
+    """
+    from sqlalchemy import case, literal_column
+    from sqlalchemy.sql import functions as sqlfunc
+
+    from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
+
+    from uuid import UUID
+
+    T = models.Trace
+
+    filters = [
+        T.organization_id == UUID(organization_id),
+        T.project_id == UUID(project_id),
+        T.deleted_at.is_(None),
+    ]
+    if environment:
+        filters.append(T.environment == environment)
+    if start_time_after:
+        filters.append(T.start_time >= start_time_after)
+    if start_time_before:
+        filters.append(T.start_time <= start_time_before)
+
+    base = db.query(T).filter(*filters).subquery()
+
+    # JSONB extraction expressions for tokens and costs
+    tokens_expr = base.c.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()
+    cost_expr = base.c.enriched_data[EnrichedDataKeys.COSTS][
+        EnrichedDataKeys.TOTAL_COST_USD
+    ].as_float()
+
+    agg = db.query(
+        func.count(func.distinct(base.c.trace_id)).label("total_traces"),
+        func.count(base.c.id).label("total_spans"),
+        func.coalesce(func.sum(tokens_expr), 0).label("total_tokens"),
+        func.coalesce(func.sum(cost_expr), 0).label("total_cost_usd"),
+        func.count(case((base.c.status_code == "ERROR", 1))).label("error_count"),
+        func.coalesce(func.avg(base.c.duration_ms), 0).label("avg_duration_ms"),
+        func.coalesce(sqlfunc.percentile_cont(0.5).within_group(base.c.duration_ms), 0).label(
+            "p50_duration_ms"
+        ),
+        func.coalesce(sqlfunc.percentile_cont(0.95).within_group(base.c.duration_ms), 0).label(
+            "p95_duration_ms"
+        ),
+        func.coalesce(sqlfunc.percentile_cont(0.99).within_group(base.c.duration_ms), 0).label(
+            "p99_duration_ms"
+        ),
+    ).one()
+
+    total_spans = agg.total_spans or 0
+    error_count = agg.error_count or 0
+
+    # Operation breakdown as a separate grouped query
+    op_type_expr = func.coalesce(
+        base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string(),
+        literal_column("'unknown'"),
+    )
+    op_rows = (
+        db.query(
+            op_type_expr.label("op_type"),
+            func.count(base.c.id).label("cnt"),
+        )
+        .group_by(op_type_expr)
+        .all()
+    )
+
+    return {
+        "total_traces": agg.total_traces or 0,
+        "total_spans": total_spans,
+        "total_tokens": int(agg.total_tokens or 0),
+        "total_cost_usd": round(float(agg.total_cost_usd or 0), 6),
+        "error_rate": round(error_count / total_spans, 4) if total_spans else 0,
+        "avg_duration_ms": round(float(agg.avg_duration_ms or 0), 2),
+        "p50_duration_ms": round(float(agg.p50_duration_ms or 0), 2),
+        "p95_duration_ms": round(float(agg.p95_duration_ms or 0), 2),
+        "p99_duration_ms": round(float(agg.p99_duration_ms or 0), 2),
+        "operation_breakdown": {row.op_type: row.cnt for row in op_rows},
+    }

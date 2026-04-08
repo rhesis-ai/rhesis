@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { Box, Tooltip } from '@mui/material';
+import { Box, Chip, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
 import {
@@ -177,7 +177,21 @@ async function getNavigationItems(
           {
             kind: 'page' as const,
             segment: 'adaptive-testing',
-            title: 'Adaptive Testing',
+            title: (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box component="span">Adaptive Testing</Box>
+                <Chip
+                  label="beta"
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  sx={{
+                    height: 18,
+                    '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' },
+                  }}
+                />
+              </Box>
+            ),
             icon: <AccountTreeIcon key="adaptive-testing-icon" />,
           },
         ]

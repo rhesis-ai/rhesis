@@ -136,3 +136,60 @@ class TargetInteractionTool(Tool):
                 output={},
                 error=f"Unexpected error: {str(e)}",
             )
+
+    async def a_execute(
+        self, message: str = "", conversation_id: Optional[str] = None, **kwargs: Any
+    ) -> ToolResult:
+        """Async version that directly awaits target.a_send_message()."""
+        try:
+            from rhesis.penelope.conversation import (
+                CONVERSATION_FIELD_NAMES,
+                extract_conversation_id,
+            )
+
+            params = kwargs.copy()
+            if conversation_id:
+                params["conversation_id"] = conversation_id
+
+            final_conversation_id = extract_conversation_id(params)
+            files = params.pop("files", None)
+            target_params = {k: v for k, v in params.items() if k not in CONVERSATION_FIELD_NAMES}
+
+            response = await self.target.a_send_message(
+                message, final_conversation_id, files=files, **target_params
+            )
+
+            if response.success:
+                from rhesis.penelope.conversation import get_conversation_field_name
+
+                conv_field_name = get_conversation_field_name(params) or "conversation_id"
+                output = {
+                    "response": response.content,
+                    "metadata": response.metadata,
+                }
+                output[conv_field_name] = response.conversation_id
+
+                return ToolResult(
+                    success=True,
+                    output=output,
+                    metadata={
+                        "message_sent": message,
+                        "conversation_id_used": final_conversation_id,
+                        "conversation_field_name": conv_field_name,
+                        "target_type": self.target.target_type,
+                        "target_id": self.target.target_id,
+                    },
+                )
+            else:
+                return ToolResult(
+                    success=False,
+                    output={},
+                    error=response.error or "Target interaction failed",
+                )
+
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                output={},
+                error=f"Unexpected error: {str(e)}",
+            )

@@ -8,6 +8,65 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.11] - 2026-03-26
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.10**
+- **Frontend 0.6.11**
+- **SDK 0.6.11**
+
+### Summary
+
+This release introduces **live trace metrics and human trace reviews**, **project-level trace metric assignment in the UI**, and **SDK chunking upgrades using chonkie-backed strategies**. It also improves connector reliability during long-running executions.
+
+### Featured Capabilities
+
+**Trace Metrics + Human Trace Reviews**
+
+Live traces now support both automated evaluation and human override workflows:
+
+- **Trace Metrics pipeline**: Per-turn and debounced per-conversation trace metric evaluation
+- **Trace review targets**: Human reviews can target full traces, specific metrics, or specific turns
+- **Review-aware status**: Trace detail views surface review status and conflict indicators when human and automated verdicts differ
+- **Evaluation filtering**: Traces list supports evaluation-status filtering for faster triage
+
+**Project-Level Trace Metric Assignment**
+
+Projects can now define which trace metrics are assigned through the project detail experience:
+
+- **Bulk add/remove workflow**: Select trace-scoped metrics and manage assignment in one place
+- **Trace-only selection**: Project assignment UI filters to metrics with `Trace` scope
+- **Operational visibility**: Assigned metrics are displayed in a dedicated project section
+
+**SDK Chunking and Connector Improvements**
+
+SDK generation and execution workflows received key upgrades:
+
+- **Chonkie-backed chunkers**: Added `TokenChunker`, `SentenceChunker`, and `RecursiveChunker`
+- **SemanticChunker migration path**: Existing `SemanticChunker` usage now maps to recursive behavior via deprecation aliasing
+- **Non-blocking connector execution**: Test and metric execution handlers no longer block the primary WebSocket listener loop
+- **Judge input flexibility**: Base judge input validation now supports trace-driven conversational evaluation flows
+
+### Backend Highlights
+- Added trace metrics evaluation with immediate per-turn and debounced conversation phases
+- Added trace review APIs and override logic for trace, metric, and turn targets
+- Added SQL-level trace metrics aggregation for improved performance
+- Added trace metrics status tracking and trace review storage on trace records
+
+### Frontend Highlights
+- Added Trace Metrics and Reviews tabs in trace detail
+- Added trace review drawer with target inference and comment validation
+- Added project-level trace metrics assignment UI with bulk remove actions
+- Added dedicated trace detail route at `/traces/[identifier]` and improved trace filtering UX
+
+### SDK Highlights
+- Added chonkie-backed chunking strategies for source-driven synthesizers
+- Replaced custom chunking defaults with recursive chunking behavior
+- Improved connector stability for concurrent/long-running execution flows
+- Removed strict base-judge input assumptions to support conversational trace metrics
+
 ## [0.6.10] - 2026-03-23
 
 ### Platform Release

@@ -14,19 +14,38 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.backend.app.constants import AISpanAttributes
+from rhesis.backend.app.constants import REVIEW_TARGET_TRACE, AISpanAttributes
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
-from rhesis.backend.app.models.mixins import CommentsMixin, FilesMixin, TagsMixin
+from rhesis.backend.app.models.mixins import (
+    CommentsMixin,
+    EmbeddableMixin,
+    FilesMixin,
+    ReviewsMixin,
+    TagsMixin,
+    TasksMixin,
+)
 
 if TYPE_CHECKING:
     pass
 
 
-class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
+class Trace(
+    Base,
+    EmbeddableMixin,
+    TagsMixin,
+    CommentsMixin,
+    TasksMixin,
+    FilesMixin,
+    ReviewsMixin,
+):
     """OpenTelemetry trace span model."""
 
     __tablename__ = "trace"
+
+    _reviews_column_name = "trace_reviews"
+    _reviews_entity_type = REVIEW_TARGET_TRACE
+    _reviews_legacy_types = ()
 
     # OpenTelemetry identifiers
     trace_id = Column(String(32), nullable=False, index=True)
@@ -73,11 +92,24 @@ class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
     processed_at = Column(DateTime, nullable=True)
     enriched_data = Column(JSONB, default=dict)
 
+    # Trace metrics evaluation
+    trace_metrics = Column(JSONB, nullable=True)
+    trace_metrics_status_id = Column(GUID(), ForeignKey("status.id"), nullable=True, index=True)
+    trace_metrics_processed_at = Column(DateTime, nullable=True)
+
+    # Human reviews
+    trace_reviews = Column(JSONB, nullable=True)
+
+    def _get_status_id_for_match(self):
+        """Traces compare reviews against trace_metrics_status_id, not status_id."""
+        return self.trace_metrics_status_id
+
     # Relationships
     project = relationship("Project", back_populates="traces")
     test_run = relationship("TestRun", foreign_keys=[test_run_id], backref="traces")
     test_result = relationship("TestResult", foreign_keys=[test_result_id], backref="traces")
     test = relationship("Test", foreign_keys=[test_id], backref="traces")
+    trace_metrics_status = relationship("Status", foreign_keys=[trace_metrics_status_id])
 
     # Composite indexes
     __table_args__ = (
@@ -102,6 +134,11 @@ class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
             postgresql_using="gin",
             postgresql_ops={"attributes": "jsonb_path_ops"},
         ),
+        Index(
+            "idx_trace_metrics_unprocessed",
+            "created_at",
+            postgresql_where=(trace_metrics_processed_at.is_(None)),
+        ),
     )
 
     def __repr__(self) -> str:
@@ -124,3 +161,41 @@ class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
     def total_tokens(self) -> int | None:
         """Extract total tokens from attributes."""
         return self.attributes.get(AISpanAttributes.TOKENS_TOTAL)
+
+    def to_searchable_text(self) -> str:
+        """
+        Generate searchable text from trace fields for embeddings and full-text search.
+        Extracts span info, status, and relevant AI attributes (excluding system prompts).
+        """
+        content = [
+            self.span_name,
+            self.status_code,
+            self.status_message,
+            self.operation_type,
+            self.model_name,
+        ]
+
+        if self.attributes and isinstance(self.attributes, dict):
+            # Extract common prompt/completion/tool attributes if present
+            for key, value in self.attributes.items():
+                key_lower = key.lower()
+
+                # Exclude system prompts/messages
+                if "system" in key_lower:
+                    continue
+
+                if any(
+                    term in key_lower
+                    for term in [
+                        "prompt",
+                        "completion",
+                        "message",
+                        "content",
+                        "tool",
+                        "function",
+                        "call",
+                    ]
+                ):
+                    content.append(str(value))
+
+        return " ".join(filter(None, content)).strip()

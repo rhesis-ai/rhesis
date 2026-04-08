@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 from pydantic import BaseModel
 
@@ -9,19 +11,14 @@ from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.services.chunker import (
-    ChunkingService,
-    ChunkingStrategy,
-    RecursiveChunker,
-)
-from rhesis.sdk.services.extractor import (
-    ExtractionService,
-    SourceSpecification,
-)
 from rhesis.sdk.synthesizers.utils import (
     create_test_set,
     load_prompt_template,
 )
+
+if TYPE_CHECKING:
+    from rhesis.sdk.services.chunker import ChunkingStrategy
+    from rhesis.sdk.services.extractor import SourceSpecification
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +61,17 @@ class TestSetSynthesizer(ABC):
             batch_size: Maximum number of items to process in a single LLM call
             model: The model to use for generation (string name or BaseLLM instance)
             sources: Optional list of source specifications to extract content from
-            chunking_strategy: Strategy for chunking source content
-                (defaults to RecursiveChunker with 1500 chunk_size)
+            chunking_strategy: Strategy for chunking source content when using
+                ``sources`` (defaults to RecursiveChunker with 1500 chunk_size
+                on first document-backed generation; not loaded until then)
         """
         if batch_size < _MIN_BATCH_SIZE:
             raise ValueError(f"batch_size must be >= {_MIN_BATCH_SIZE}, got {batch_size}")
         self.batch_size = batch_size
         self.prompt_template = load_prompt_template(self.prompt_template_file)
         self.sources = sources
-        self.chunker = chunking_strategy or RecursiveChunker(chunk_size=1500)
+        # Default RecursiveChunker is applied in _generate_with_sources (lazy import).
+        self.chunker = chunking_strategy
 
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
@@ -115,13 +114,23 @@ class TestSetSynthesizer(ABC):
     def _generate_with_sources(
         self, num_tests: int, **kwargs: Any
     ) -> tuple[List[Dict[str, Any]], dict[str, Any]]:
+        from rhesis.sdk.services.chunker import (
+            ChunkingService,
+            ChunkingStrategy,
+            RecursiveChunker,
+        )
+        from rhesis.sdk.services.extractor import ExtractionService, SourceSpecification
+
+        if self.chunker is None:
+            self.chunker = RecursiveChunker(chunk_size=1500)
+
         # Process documents with source tracking
         if not isinstance(self.sources, list) or not all(
             isinstance(source, SourceSpecification) for source in self.sources
         ):
             raise ValueError("sources must be a list of SourceBase objects")
 
-        if self.chunker is None or not isinstance(self.chunker, ChunkingStrategy):
+        if not isinstance(self.chunker, ChunkingStrategy):
             raise ValueError("chunker must be a ChunkingStrategy object")
 
         logger.info(

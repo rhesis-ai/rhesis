@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, field_validator
@@ -94,6 +93,9 @@ class EndpointBase(Base):
     status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
+
+    # Tracing control
+    disable_tracing: bool = False
 
     auth_type: Optional[EndpointAuthType] = EndpointAuthType.BEARER_TOKEN
     auth_token: Optional[str] = None
@@ -206,6 +208,9 @@ class Endpoint(Base):
     status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
+
+    # Tracing control
+    disable_tracing: bool = False
 
     auth_type: Optional[EndpointAuthType] = None
     # Sensitive fields excluded from response:

@@ -9,7 +9,10 @@ from rhesis.backend.app.services.telemetry.enrichment.core import (
     extract_metadata,
 )
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
-from rhesis.backend.app.services.telemetry.enrichment.service import EnrichmentService
+from rhesis.backend.app.services.telemetry.enrichment.service import (
+    EnrichmentService,
+    build_enrichment_chain,
+)
 
 __all__ = [
     # core
@@ -20,4 +23,5 @@ __all__ = [
     "TraceEnricher",
     # service
     "EnrichmentService",
+    "build_enrichment_chain",
 ]

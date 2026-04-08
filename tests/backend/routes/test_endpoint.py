@@ -152,16 +152,15 @@ class TestEndpointInvocation(EndpointTestMixin, BaseEntityTests):
         mock_httpx_response.headers = {}
         mock_httpx_response.reason_phrase = "OK"
 
-        mock_client = Mock()
-        mock_client.post = AsyncMock(return_value=mock_httpx_response)
-
-        mock_async_client = Mock()
-        mock_async_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_async_client.__aexit__ = AsyncMock(return_value=None)
+        # The REST invoker uses a thread-local AsyncClient via _get_http_client().
+        # Patch that function directly so the mock is used regardless of TLS state.
+        mock_http_client = AsyncMock()
+        mock_http_client.post = AsyncMock(return_value=mock_httpx_response)
+        mock_http_client.is_closed = False
 
         with patch(
-            "rhesis.backend.app.services.invokers.rest_invoker.httpx.AsyncClient",
-            return_value=mock_async_client,
+            "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
+            return_value=mock_http_client,
         ):
             # Prepare input data
             input_data = {
@@ -181,8 +180,8 @@ class TestEndpointInvocation(EndpointTestMixin, BaseEntityTests):
             assert isinstance(data, dict)
 
             # Verify HTTP call was made to the external endpoint
-            mock_client.post.assert_called_once()
-            call_args = mock_client.post.call_args
+            mock_http_client.post.assert_called_once()
+            call_args = mock_http_client.post.call_args
             assert "https://api.example.com/v1/process" in str(call_args)
 
     def test_invoke_endpoint_missing_input_field(

@@ -1,13 +1,17 @@
 """A synthesizer that generates test cases based on a prompt using LLM."""
 
-from typing import List, Optional, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from pydantic import BaseModel
 
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.services.chunker import ChunkingStrategy
-from rhesis.sdk.services.extractor import SourceSpecification
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
+
+if TYPE_CHECKING:
+    from rhesis.sdk.services.chunker import ChunkingStrategy
+    from rhesis.sdk.services.extractor import SourceSpecification
 
 
 class GenerationConfig(BaseModel):

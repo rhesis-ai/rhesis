@@ -1,4 +1,5 @@
 from sqlalchemy import Boolean, Column, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -16,6 +17,7 @@ class Project(Base, ActivityTrackableMixin, TagsMixin):
 
     # Project settings
     is_active = Column(Boolean, default=True)
+    attributes = Column(JSONB, nullable=True)
 
     # Relationships - Foreign Keys
     user_id = Column(GUID(), ForeignKey("user.id"))

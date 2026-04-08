@@ -19,6 +19,8 @@ from rhesis.backend.app.models.enums import (
 )
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
+from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
+from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.conversation import (
     ConversationTracker,
     find_conversation_id,
@@ -51,25 +53,31 @@ class EndpointService:
 
     async def invoke_endpoint(
         self,
-        db: Session,
+        db: Optional[Session],
         endpoint_id: str,
         input_data: Dict[str, Any],
         organization_id: str = None,
         user_id: str = None,
         test_execution_context: Optional[Dict[str, str]] = None,
+        endpoint: Optional[Endpoint] = None,
+        deferred_trace: bool = False,
+        trace_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Invoke an endpoint with the given input data.
 
         Args:
-            db: Database session
+            db: Database session (can be None when endpoint is pre-fetched and
+                deferred_trace=True for DB-free batch mode)
             endpoint_id: ID of the endpoint to invoke
             input_data: Input data to be mapped to the endpoint's request template
             organization_id: Organization ID for security filtering (CRITICAL)
-            user_id: User ID for context injection (CRITICAL - injected into
-                headers, not from user input)
+            user_id: User ID for context injection (CRITICAL)
             test_execution_context: Optional dict with test_run_id, test_result_id, test_id
-                                   for linking traces to test executions
+            endpoint: Optional pre-fetched Endpoint model (skips DB lookup when provided)
+            deferred_trace: When True, trace data is collected in-memory and returned
+                in the result dict under '_deferred_trace' key
+            trace_id: Optional trace_id to reuse (for in-memory multi-turn tracking)
 
         Returns:
             Dict containing the mapped response from the endpoint
@@ -77,14 +85,11 @@ class EndpointService:
         Raises:
             HTTPException: If endpoint is not found or invocation fails
         """
-        # Fetch endpoint configuration with organization filtering (SECURITY CRITICAL)
-        endpoint = self._get_endpoint(db, endpoint_id, organization_id)
+        if endpoint is None:
+            endpoint = self._get_endpoint(db, endpoint_id, organization_id)
         logger.debug(f"Invoking endpoint {endpoint.name} ({endpoint.connection_type})")
 
         try:
-            # Create appropriate invoker based on connection_type
-            invoker = create_invoker(endpoint)
-
             # Inject organization_id and user_id into input_data for context
             # These are injected by the backend, NOT from user input (SECURITY CRITICAL)
             enriched_input_data = input_data.copy()
@@ -178,31 +183,45 @@ class EndpointService:
             # (session_id, thread_id, etc.).
             trace_conversation_id = stateless_conversation_id or find_conversation_id(input_data)
 
+            # Create appropriate invoker based on connection_type
+            context = InvocationContext(
+                db=db,
+                endpoint=endpoint,
+                input_data=enriched_input_data,
+                test_execution_context=test_execution_context,
+                trace_id=trace_id,
+            )
+            invoker = create_invoker(context)
+
             # Check if invoker needs explicit tracing (REST/WebSocket)
             if not invoker.automatic_tracing:
-                # Import here to avoid circular imports
-                from rhesis.backend.app.services.invokers.tracing import (
-                    create_invocation_trace,
-                )
-
-                # Wrap invocation with trace creation
-                async with create_invocation_trace(
-                    db,
-                    endpoint,
-                    organization_id,
-                    test_execution_context,
-                    conversation_id=trace_conversation_id,
-                    input_data=enriched_input_data,
-                ) as trace_ctx:
-                    result = await invoker.invoke(
-                        db, endpoint, enriched_input_data, test_execution_context
+                if endpoint.disable_tracing:
+                    result = await invoker.invoke()
+                else:
+                    from rhesis.backend.app.services.invokers.tracing import (
+                        create_invocation_trace,
                     )
-                    trace_ctx["result"] = result
+
+                    async with create_invocation_trace(
+                        db,
+                        endpoint,
+                        organization_id,
+                        test_execution_context,
+                        conversation_id=trace_conversation_id,
+                        input_data=enriched_input_data,
+                        deferred=deferred_trace,
+                        trace_id=trace_id,
+                    ) as trace_ctx:
+                        result = await invoker.invoke()
+                        trace_ctx["result"] = result
+
+                    if deferred_trace and isinstance(result, dict):
+                        deferred_data = trace_ctx.get("_deferred_trace")
+                        if deferred_data:
+                            result["_deferred_trace"] = deferred_data
             else:
                 # SDK invoker - handles tracing internally
-                result = await invoker.invoke(
-                    db, endpoint, enriched_input_data, test_execution_context
-                )
+                result = await invoker.invoke()
 
             # -------------------------------------------------------
             # Post-invocation: commit messages for stateless on success
@@ -252,30 +271,44 @@ class EndpointService:
             # -------------------------------------------------------
             # First-turn trace linking
             # -------------------------------------------------------
-            # For stateful endpoints, the first turn has no
-            # conversation_id at invocation time — the endpoint
-            # generates it in its response.  Now that we know the
-            # conversation_id from the response, stamp it onto the
-            # trace so future turns can find and reuse its trace_id.
             if not trace_conversation_id and isinstance(result, dict) and result.get("trace_id"):
                 response_conversation_id = find_conversation_id(result)
 
                 if response_conversation_id:
-                    self._link_first_turn_trace(
-                        db=db,
-                        trace_id=result["trace_id"],
-                        conversation_id=response_conversation_id,
-                        organization_id=organization_id,
-                    )
+                    if deferred_trace:
+                        deferred_data = result.get("_deferred_trace")
+                        if deferred_data:
+                            deferred_data.first_turn_link = {
+                                "trace_id": result["trace_id"],
+                                "conversation_id": response_conversation_id,
+                            }
+                    elif db:
+                        self._link_first_turn_trace(
+                            db=db,
+                            trace_id=result["trace_id"],
+                            conversation_id=response_conversation_id,
+                            organization_id=organization_id,
+                        )
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result
+        except EndpointInvocationError:
+            raise
         except ValueError as e:
             logger.error(f"ValueError invoking endpoint: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            raise EndpointInvocationError(
+                str(e), transient=False, status_code=400, error_type="validation_error"
+            )
+        except (TimeoutError, ConnectionError, OSError) as e:
+            logger.error(f"Transient error invoking endpoint: {e}", exc_info=True)
+            raise EndpointInvocationError(
+                str(e), transient=True, status_code=502, error_type="network_error"
+            )
         except Exception as e:
             logger.error(f"Exception invoking endpoint: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+            raise EndpointInvocationError(
+                str(e), transient=False, status_code=500, error_type="internal_error"
+            )
 
     @staticmethod
     def _link_first_turn_trace(
@@ -424,9 +457,6 @@ class EndpointService:
                 config_source=EndpointConfigSource.MANUAL.value,
             )
 
-            # Create appropriate invoker based on connection_type
-            invoker = create_invoker(endpoint)
-
             # Inject organization_id and user_id into input_data for context
             # These are injected by the backend, NOT from user input (SECURITY CRITICAL)
             enriched_input_data = test_config.input_data.copy()
@@ -452,8 +482,16 @@ class EndpointService:
                 enriched_input_data["messages"] = messages
                 enriched_input_data.pop("conversation_id", None)
 
+            # Create appropriate invoker based on connection_type
+            context = InvocationContext(
+                db=db,
+                endpoint=endpoint,
+                input_data=enriched_input_data,
+            )
+            invoker = create_invoker(context)
+
             # Invoke the endpoint
-            result = await invoker.invoke(db, endpoint, enriched_input_data)
+            result = await invoker.invoke()
             logger.debug("Endpoint test invocation completed")
             return result
         except ValueError as e:

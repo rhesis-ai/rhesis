@@ -206,9 +206,23 @@ async def check_rate_limit_chatbot(
     This ensures rate limiting is based on authenticated user/org identifiers
     instead of just IP addresses.
 
+    The "echo" use case is exempt from rate limiting.
+
     Returns the auth dict for downstream dependencies.
     """
+    import json
+
     from limits import parse
+
+    # The "echo" use case has no usage limitation
+    try:
+        body_bytes = await request.body()
+        body = json.loads(body_bytes) if body_bytes else {}
+        if body.get("use_case") == "echo":
+            logger.debug("⚡ Rate limit skipped for echo use case")
+            return auth
+    except Exception:
+        pass
 
     # Get the rate limit identifier and tier from request state (set by verify_api_key)
     identifier = request.state.rate_limit_id
@@ -306,14 +320,14 @@ def get_available_use_cases() -> List[str]:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         use_cases_dir = os.path.join(current_dir, "use_cases")
 
-        use_cases = []
+        use_cases = ["echo"]  # Built-in use cases (no prompt file required)
         for filename in os.listdir(use_cases_dir):
             if filename.endswith(".md"):
                 use_case_name = filename[:-3]  # Remove .md extension
                 use_cases.append(use_case_name)
         return sorted(use_cases)
     except Exception:
-        return ["insurance"]  # Default fallback
+        return ["echo", "insurance"]  # Default fallback
 
 
 class FileInput(BaseModel):
@@ -446,6 +460,18 @@ async def chat(
 
     logger.info(f"Rhesis context received: {rhesis}")
 
+    # Echo use case: return input directly without any LLM call
+    if use_case == "echo":
+        sessions[session_id].messages.append({"role": "user", "content": message})
+        sessions[session_id].messages.append({"role": "assistant", "content": message})
+        return ChatResponse(
+            message=message,
+            session_id=session_id,
+            context=[],
+            metadata={"use_case": "echo", "mode": mode},
+            tool_calls=[],
+        )
+
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
     response_generator = endpoint_module.get_response_generator(use_case)
@@ -560,8 +586,9 @@ async def chat_endpoint(
         )
 
         # Validate use case exists, default to insurance if not
+        # "echo" is a built-in use case that does not require a prompt file
         use_case = chat_request.use_case or "insurance"
-        available_use_cases = get_available_use_cases()
+        available_use_cases = get_available_use_cases() + ["echo"]
         if use_case not in available_use_cases:
             use_case = "insurance"
 

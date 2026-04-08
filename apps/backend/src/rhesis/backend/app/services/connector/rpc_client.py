@@ -4,11 +4,32 @@ import asyncio
 import json
 import logging
 import os
+import threading
 from typing import Any, Dict
 
 import redis.asyncio as redis
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Thread-local RPC client
+# ---------------------------------------------------------------------------
+# With the coroutine/thread Celery pool each worker thread owns its own event
+# loop (see batch/__init__.py:_thread_local).  redis.asyncio clients are tied
+# to the event loop they were created on, so one client per thread is both
+# correct and avoids the cost of creating a new connection + PING on every
+# single test invocation (the old per-call pattern).
+_tls = threading.local()
+
+
+async def get_rpc_client() -> "SDKRpcClient":
+    """Return the thread-local SDKRpcClient, initializing it on first access."""
+    client: "SDKRpcClient | None" = getattr(_tls, "rpc_client", None)
+    if client is None or client._redis is None:
+        client = SDKRpcClient()
+        await client.initialize()
+        _tls.rpc_client = client
+    return client
 
 
 class SDKRpcClient:
@@ -38,9 +59,11 @@ class SDKRpcClient:
             raise RuntimeError(f"Redis connection failed: {e}")
 
     async def close(self):
-        """Close Redis connection."""
+        """Close Redis connection and reset state so get_rpc_client() will reinitialize."""
         if self._redis:
-            await self._redis.close()
+            await self._redis.aclose()
+            self._redis = None
+        _tls.rpc_client = None
 
     async def is_connected(self, project_id: str, environment: str) -> bool:
         """

@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Any, Dict, Optional, Union
+import threading
+from typing import Any, Dict, Union
 
 import httpx
 from fastapi import HTTPException
@@ -15,30 +16,83 @@ from tenacity import (
 
 from rhesis.backend.app.models.endpoint import Endpoint
 
-from .base import BaseEndpointInvoker, ResponseMapper, TemplateRenderer
+from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Thread-local HTTP client
+# ---------------------------------------------------------------------------
+# In the async batch engine each Celery worker thread runs its own event loop
+# (see batch/__init__.py:_thread_local).  httpx.AsyncClient is tied to the
+# event loop it is first used on, so one client per thread is both correct
+# and optimal — connections are pooled across all tests executing in the same
+# worker thread (i.e. the same batch), avoiding the TCP handshake overhead of
+# creating a fresh client per invocation.
+_tls = threading.local()
+_HTTP_TIMEOUT = 30.0
+
+
+def _get_http_client() -> httpx.AsyncClient:
+    """Return the thread-local AsyncClient, creating it on first access."""
+    client: httpx.AsyncClient | None = getattr(_tls, "http_client", None)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(timeout=_HTTP_TIMEOUT)
+        _tls.http_client = client
+    return client
+
+
+def _close_thread_local_client() -> None:
+    """Close the thread-local AsyncClient if one exists.
+
+    Called from the Celery worker-shutdown signal so sockets are released
+    cleanly rather than relying on process-exit garbage collection.
+    """
+    client: httpx.AsyncClient | None = getattr(_tls, "http_client", None)
+    if client is not None and not client.is_closed:
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(client.aclose())
+            else:
+                loop.run_until_complete(client.aclose())
+        except Exception:
+            pass
+        finally:
+            _tls.http_client = None
 
 
 class RestEndpointInvoker(BaseEndpointInvoker):
     """REST endpoint invoker with support for different auth types."""
 
-    # REST endpoints do not automatically generate traces
-    automatic_tracing: bool = False
-
-    def __init__(self):
-        super().__init__()
-        self.template_renderer = TemplateRenderer()
-        self.response_mapper = ResponseMapper()
-
     async def invoke(
         self,
-        db: Session,
-        endpoint: Endpoint,
-        input_data: Dict[str, Any],
-        test_execution_context: Optional[Dict[str, str]] = None,
+        db=None,
+        endpoint=None,
+        input_data=None,
+        *,
+        test_execution_context=None,
+        trace_id=None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
+        # Backward-compat: callers that pass positional args build a temporary context.
+        if db is not None or endpoint is not None:
+            from .context import InvocationContext
+
+            self.context = InvocationContext(
+                db=db,
+                endpoint=endpoint,
+                input_data=input_data or {},
+                test_execution_context=test_execution_context,
+                trace_id=trace_id,
+            )
+        db = self.context.db
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
+        test_execution_context = self.context.test_execution_context
+        trace_id = self.context.trace_id
         """
         Invoke the REST endpoint with proper authentication.
 
@@ -153,16 +207,6 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             "url": url,
             "headers": self._sanitize_headers(headers),
             "body": body,
-        }
-
-    def _safe_request_details(self, local_vars: Dict, connection_type: str) -> Dict:
-        """Safely create request details from local variables with sanitized headers."""
-        return {
-            "connection_type": connection_type,
-            "method": local_vars.get("method", "UNKNOWN"),
-            "url": local_vars.get("url", "UNKNOWN"),
-            "headers": self._sanitize_headers(local_vars.get("headers", {})),
-            "body": local_vars.get("request_body"),
         }
 
     def _handle_http_error(
@@ -308,15 +352,19 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         headers: Dict[str, str],
         body: Any,
     ) -> httpx.Response:
-        """Make an async HTTP request. Retried on transient failures."""
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            if method == "GET":
-                return await client.get(url, headers=headers, params=body)
-            elif method == "POST":
-                return await client.post(url, headers=headers, json=body)
-            elif method == "PUT":
-                return await client.put(url, headers=headers, json=body)
-            elif method == "DELETE":
-                return await client.delete(url, headers=headers, json=body)
-            else:
-                raise ValueError(f"Unsupported HTTP method: {method}")
+        """Make an async HTTP request. Retried on transient failures.
+
+        Uses the thread-local AsyncClient so TCP connections are pooled
+        across all tests in the same worker-thread batch.
+        """
+        client = _get_http_client()
+        if method == "GET":
+            return await client.get(url, headers=headers, params=body)
+        elif method == "POST":
+            return await client.post(url, headers=headers, json=body)
+        elif method == "PUT":
+            return await client.put(url, headers=headers, json=body)
+        elif method == "DELETE":
+            return await client.delete(url, headers=headers, json=body)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")

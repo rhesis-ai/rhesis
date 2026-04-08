@@ -134,6 +134,15 @@ class BaseLLM(BaseModel):
         """
         pass
 
+    async def warmup(self) -> None:
+        """Pre-warm any provider-specific resources before concurrent use.
+
+        Called once sequentially before ``asyncio.gather`` so that expensive
+        one-time operations (e.g. fetching OAuth tokens, loading credentials)
+        happen upfront rather than being repeated by every concurrent coroutine.
+        The default implementation is a no-op; providers override as needed.
+        """
+
     def get_available_models(self) -> List[str]:
         raise NotImplementedError("Subclasses must implement this method")
 
