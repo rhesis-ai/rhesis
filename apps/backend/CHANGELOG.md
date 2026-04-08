@@ -7,6 +7,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10] - 2026-03-26
+
+### Added
+- Added trace metrics evaluation system with Celery tasks for per-turn and per-conversation metric evaluation, including configurable debounce for conversation-level evaluation.
+- Added trace review system with human review overrides for traces, turns, and individual metrics, including overall status recalculation.
+- Added SQL-level trace metrics aggregation (`get_trace_metrics_aggregated`) replacing Python-side processing for improved query performance.
+- Added Trace scope to MetricScope lookup type, enabling metrics to target traces.
+- Added `trace_metrics_status_id` column on Trace model for evaluation status tracking.
+- Added `trace_reviews` JSONB column on Trace model for storing human review data.
+- Added task and comment endpoints for traces via the telemetry router.
+- Added trace metrics cache service for caching project metric configurations.
+- Added `project.attributes` JSONB column for storing project-level trace metric assignments.
+
+### Changed
+- Consolidated review target constants into a `ReviewTarget(str, Enum)` for type safety across test result and trace review systems.
+- Consolidated `MetricScope` enum definition, removing duplication between app schemas and task constants.
+- Replaced hardcoded entity type strings with `EntityType` enum constants.
+- Replaced `datetime.utcnow()` with `datetime.now(timezone.utc)` across trace review and telemetry code.
+- Sanitized API error messages in telemetry endpoints to prevent internal details from leaking to clients.
+- Refined Celery retry strategy to only retry on transient errors (IOError, ConnectionError, SoftTimeLimitExceeded).
+- Added soft and hard time limits to trace evaluation Celery tasks.
+- Extracted shared `_prepare_evaluation` helper to reduce duplication in evaluation tasks.
+- Decoupled trace enrichment from evaluation into separate services.
+
+### Fixed
+- Fixed `recalculate_overall_status` to correctly account for turn overrides in overall pass/fail determination.
+- Fixed `rollback_initial_data` to nullify `trace_metrics_status_id` before deleting Status rows, preventing FK constraint violations.
+- Fixed multi-turn trace metric filtering to correctly scope metrics.
+- Fixed default evaluation model resolution for trace metrics.
+- Corrected docstring mismatch for worker cache TTL value.
+
+## [0.6.9] - 2026-03-23
+
+### Added
+- Added the ability to delete adaptive testing test sets.
+- Added a stats API for test runs and test results, accessible via the SDK.
+- Exposed test execution context (test_id, test_run_id, test_configuration_id) in request mapping templates.
+- Added an "overwrite" parameter for adaptive testing output generation and evaluation, allowing users to regenerate outputs/evaluations for existing tests.
+- Implemented NIST-aligned password hardening with zxcvbn strength scoring, context-specific word blocking, and HaveIBeenPwned breach checks. Minimum password length raised to 12 characters.
+- Added an attachments column to the tests grid, displaying the number of attached files.
+- Added dedicated documentation pages for importing test sets from CSV/Excel/JSON/JSONL files and from the Garak LLM vulnerability scanner.
+- Added a public `format_conversation` API to the metrics module for formatting conversation history.
+- Added SendGrid API key and email template ID variables to the service secrets configuration.
+- Added evaluate endpoint and UI for adaptive testing.
+- Added a GET /test_runs/{id}/metrics endpoint that returns the distinct metric names actually evaluated in a test run.
+- Added a public POST /feedback backend endpoint (no auth required).
+
+### Changed
+- Improved backend performance by replacing Python-side aggregation with SQL queries, adding database views and indexes, and reducing redundant work per request.
+- Refactored metric evaluation process using a strategy pattern for improved flexibility and maintainability.
+- Centralized enum constants and fixed migration syntax for test result statuses.
+- Updated Celery worker configuration to improve concurrency settings.
+- Refactored MetricEvaluator and utility functions for improved configuration handling.
+- Moved feedback and polyphemus emails to the backend EmailService.
+- Made `format_conversation` public and handle tool-call-only assistant messages.
+- Updated password policy UI and error handling to align with new backend policy.
+- Replaced ToxicCommentModel with PerspectiveToxicity for do-not-answer and toxicity detection.
+- Updated the adaptive testing evaluation process to utilize the MetricEvaluator class.
+- Improved format_conversation: public API and tool-call-only message support.
+- Refactored metric configuration handling in evaluator.
+- Transitioned to strategy pattern for metric evaluation.
+
+### Fixed
+- Fixed test run stats display by using `metadata.total_test_runs` for empty-state check.
+- Fixed `result_distribution` to count actual test results instead of execution status.
+- Fixed "no runs yet" flicker on test-runs page.
+- Fixed the issue where calculating the pass rate for a test run relied on `first()` returning the correct `Status` record.
+- Fixed welcome email not being sent on email/password and magic link sign-up.
+- Fixed metadata rendering in multi-turn metric evaluation.
+- Fixed the filter layout on the metrics overview page.
+- Fixed counts including soft-deleted records.
+- Fixed MCP auth to use the system default model.
+- Fixed onboarding StaleDataError caused by RLS session variable loss after db.commit().
+- Fixed tests grid random reordering with stable secondary sort.
+- Fixed a bug where advanced filters showed metrics from all linked behaviors, not just those evaluated in the current test run.
+- Fixed a bug where selecting a metric produced 0 results because the name from behavior_metric_association did not match the JSONB key used at evaluation time.
+- Fixed a bug where the format_number filter was never registered, causing a Jinja2 FilterError on every render.
+- Fixed a bug where the backend `SessionMiddleware` was still referencing `AUTH0_SECRET_KEY`.
+- Fixed a bug where the test_run_id metadata was not being added to TasksAndCommentsWrapper in TestResultDrawer.
+- Fixed a bug where the ToxicCommentModel was not being substituted with PerspectiveToxicity in the SDK.
+- Fixed a bug where the test_run_id metadata was not being added to TasksAndCommentsWrapper in TestResultDrawer.
+- Fixed a bug where the Notion integration link was pointing to the external integrations page.
+- Fixed a bug where the backend `SessionMiddleware` was still referencing `AUTH0_SECRET_KEY`.
+- Fixed a bug where the test_run_id metadata was not being added to TasksAndCommentsWrapper in TestResultDrawer.
+
+### Removed
+- Removed Assignee and Owner from Test Run Configuration.
+- Removed obsolete test_metric.py script.
+- Removed temporary debug tooling for onboarding emails.
+
+### Security
+- Implemented dedicated SESSION_SECRET_KEY to adhere to the cryptographic key separation principle.
+- Prevented fallback session secret in production.
+- Hardened password policy with NIST-aligned guidelines.
+- Updated vulnerable dependencies, including `next`, `PyJWT`, `pyasn1`, `orjson`, `tornado`, `langgraph`, and `mcp-atlassian`.
+
+
 ## [0.6.8] - 2026-03-12
 
 ### Added

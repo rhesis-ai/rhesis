@@ -29,7 +29,7 @@ class Task(Base, ActivityTrackableMixin, OrganizationAndUserMixin, TagsMixin):
     completed_at = Column(DateTime, nullable=True)
 
     # Metadata
-    task_metadata = Column(JSON, default=dict)
+    task_metadata = Column(JSON)
 
     # Relationships
     assignee = relationship("User", foreign_keys=[assignee_id], back_populates="assigned_tasks")

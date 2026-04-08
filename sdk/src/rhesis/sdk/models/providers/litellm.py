@@ -12,6 +12,11 @@ from rhesis.sdk.models.utils import validate_llm_response
 litellm.suppress_debug_info = True
 
 
+def _unique_ordered_model_ids(models: List[str]) -> List[str]:
+    """Remove repeated model ids while keeping first-seen order (LiteLLM can repeat ids)."""
+    return list(dict.fromkeys(models))
+
+
 class LiteLLM(BaseLLM):
     PROVIDER: str
 
@@ -189,6 +194,7 @@ class LiteLLM(BaseLLM):
         # Remove video models from the list
         models_list = [model for model in models_list if "video" not in model]
 
+        models_list = _unique_ordered_model_ids(models_list)
         return models_list
 
 
@@ -291,4 +297,5 @@ class LiteLLMEmbedder(BaseEmbedder):
         # Keep ONLY embedding models (opposite of LiteLLM filtering)
         models_list = [model for model in models_list if "embedding" in model.lower()]
 
+        models_list = _unique_ordered_model_ids(models_list)
         return models_list

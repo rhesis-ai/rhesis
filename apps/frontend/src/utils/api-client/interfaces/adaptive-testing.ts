@@ -21,9 +21,33 @@ export interface AdaptiveTestSet {
   updated_at?: string;
 }
 
+/** Response from POST /adaptive_testing/import/{source_test_set_id} */
+export interface ImportAdaptiveTestSetResponse {
+  test_set: AdaptiveTestSet;
+  imported: number;
+  skipped: number;
+  skipped_test_ids: string[];
+}
+
+/** Response from POST /adaptive_testing/export/{source_test_set_id} */
+export interface ExportAdaptiveTestSetResponse {
+  test_set: AdaptiveTestSet;
+  exported: number;
+  skipped: number;
+  skipped_test_ids: string[];
+}
+
 // =============================================================================
 // Test Node Interfaces
 // =============================================================================
+
+/** Per-metric evaluation row (tree/API key is metric name). */
+export interface AdaptiveMetricEvalDetail {
+  score: number;
+  is_successful: boolean;
+  reason?: string | null;
+  details?: Record<string, unknown> | null;
+}
 
 export interface TestNode {
   id: string;
@@ -34,6 +58,7 @@ export interface TestNode {
   labeler: string;
   to_eval: boolean;
   model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
 }
 
 export interface TestNodeCreate {
@@ -116,7 +141,7 @@ export interface DeleteTestResponse {
 // =============================================================================
 
 export interface GenerateOutputsRequest {
-  endpoint_id: string;
+  endpoint_id?: string | null;
   test_ids?: string[] | null;
   topic?: string | null;
   include_subtopics?: boolean;
@@ -145,7 +170,7 @@ export interface GenerateOutputsResponse {
 // =============================================================================
 
 export interface EvaluateRequest {
-  metric_names: string[];
+  metric_names?: string[] | null;
   test_ids?: string[] | null;
   topic?: string | null;
   include_subtopics?: boolean;
@@ -157,6 +182,7 @@ export interface EvaluateResultItem {
   label: string;
   labeler: string;
   model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
 }
 
 export interface EvaluateFailedItem {
@@ -179,6 +205,7 @@ export interface GenerateSuggestionsRequest {
   topic?: string | null;
   num_examples?: number;
   num_suggestions?: number;
+  user_feedback?: string | null;
 }
 
 export interface SuggestedTest {
@@ -205,7 +232,7 @@ export interface SuggestionInput {
 }
 
 export interface GenerateSuggestionOutputsRequest {
-  endpoint_id: string;
+  endpoint_id?: string | null;
   suggestions: SuggestionInput[];
 }
 
@@ -220,6 +247,24 @@ export interface GenerateSuggestionOutputsResponse {
   results: SuggestionOutputItem[];
 }
 
+export interface SuggestionOutputStreamItemEvent {
+  type: 'item';
+  index: number;
+  input: string;
+  output: string;
+  error: string | null;
+}
+
+export interface SuggestionOutputStreamSummaryEvent {
+  type: 'summary';
+  generated: number;
+  total: number;
+}
+
+export type SuggestionOutputStreamEvent =
+  | SuggestionOutputStreamItemEvent
+  | SuggestionOutputStreamSummaryEvent;
+
 // =============================================================================
 // Evaluate Suggestions (non-persisted)
 // =============================================================================
@@ -230,8 +275,53 @@ export interface SuggestionForEval {
 }
 
 export interface EvaluateSuggestionsRequest {
-  metric_names: string[];
+  metric_names?: string[] | null;
   suggestions: SuggestionForEval[];
+}
+
+export interface SuggestionEvalStreamItemEvent {
+  type: 'item';
+  index: number;
+  input: string;
+  label: string;
+  labeler: string;
+  model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  error: string | null;
+}
+
+export interface SuggestionEvalStreamSummaryEvent {
+  type: 'summary';
+  evaluated: number;
+  total: number;
+}
+
+export type SuggestionEvalStreamEvent =
+  | SuggestionEvalStreamItemEvent
+  | SuggestionEvalStreamSummaryEvent;
+
+// =============================================================================
+// Adaptive Settings
+// =============================================================================
+
+export interface AdaptiveSettingsMetric {
+  id: string;
+  name: string;
+}
+
+export interface AdaptiveSettingsEndpoint {
+  id: string;
+  name: string;
+}
+
+export interface AdaptiveSettings {
+  default_endpoint: AdaptiveSettingsEndpoint | null;
+  metrics: AdaptiveSettingsMetric[];
+}
+
+export interface AdaptiveSettingsUpdateRequest {
+  default_endpoint_id?: string | null;
+  metric_ids?: string[] | null;
 }
 
 export interface SuggestionEvalItem {
@@ -239,6 +329,7 @@ export interface SuggestionEvalItem {
   label: string;
   labeler: string;
   model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
   error?: string | null;
 }
 

@@ -32,15 +32,7 @@ def create_tag(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create tag with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new tag."""
     organization_id, user_id = tenant_context
     return crud.create_tag(db=db, tag=tag, organization_id=organization_id, user_id=user_id)
 
@@ -79,15 +71,7 @@ def read_tag(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get tag with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a tag by ID."""
     organization_id, user_id = tenant_context
     db_tag = crud.get_tag(db, tag_id=tag_id, organization_id=organization_id, user_id=user_id)
     if db_tag is None:
@@ -102,15 +86,7 @@ def delete_tag(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete tag with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete a tag by ID."""
     organization_id, user_id = tenant_context
     db_tag = crud.delete_tag(db, tag_id=tag_id, organization_id=organization_id, user_id=user_id)
     if db_tag is None:
@@ -126,15 +102,7 @@ def update_tag(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update tag with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a tag by ID."""
     organization_id, user_id = tenant_context
     db_tag = crud.update_tag(
         db, tag_id=tag_id, tag=tag, organization_id=organization_id, user_id=user_id

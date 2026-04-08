@@ -42,7 +42,10 @@ class TestAuthenticationManager:
         }
         mock_response.raise_for_status = Mock()
 
-        with patch("requests.post", return_value=mock_response):
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ):
             token = manager.get_valid_token(mock_db, sample_endpoint_oauth)
 
         assert token == "new-access-token"
@@ -79,7 +82,10 @@ class TestAuthenticationManager:
         }
         mock_response.raise_for_status = Mock()
 
-        with patch("requests.post", return_value=mock_response) as mock_post:
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ) as mock_post:
             token = manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
             # Verify correct payload was sent
@@ -105,7 +111,10 @@ class TestAuthenticationManager:
         }
         mock_response.raise_for_status = Mock()
 
-        with patch("requests.post", return_value=mock_response) as mock_post:
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ) as mock_post:
             manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
             payload = mock_post.call_args[1]["json"]
@@ -123,7 +132,10 @@ class TestAuthenticationManager:
         }
         mock_response.raise_for_status = Mock()
 
-        with patch("requests.post", return_value=mock_response) as mock_post:
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ) as mock_post:
             manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
             payload = mock_post.call_args[1]["json"]
@@ -144,7 +156,10 @@ class TestAuthenticationManager:
         """Test OAuth flow handles request failures."""
         manager = AuthenticationManager()
 
-        with patch("requests.post", side_effect=Exception("Network error")):
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            side_effect=Exception("Network error"),
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
@@ -158,7 +173,10 @@ class TestAuthenticationManager:
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = Exception("401 Unauthorized")
 
-        with patch("requests.post", return_value=mock_response):
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
@@ -181,7 +199,10 @@ class TestAuthenticationManager:
         }
         mock_response.raise_for_status = Mock()
 
-        with patch("requests.post", return_value=mock_response):
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ):
             token = manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
         assert token == "fresh-token"

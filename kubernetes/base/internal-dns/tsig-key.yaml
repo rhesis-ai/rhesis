@@ -1,0 +1,20 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: internal-dns-tsig-key
+  namespace: external-dns
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: gcp-secret-manager
+    kind: ClusterSecretStore
+  target:
+    name: internal-dns-tsig-key
+    creationPolicy: Owner
+  data:
+    - secretKey: tsig-secret
+      remoteRef:
+        key: PLACEHOLDER

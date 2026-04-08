@@ -1,5 +1,6 @@
 """Authentication management for endpoint invokers."""
 
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -9,6 +10,12 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
+
+logger = logging.getLogger(__name__)
+
+# Shared session so TCP+TLS connections to token URLs are pooled across
+# token refreshes rather than re-established on every expiry.
+_token_session = requests.Session()
 
 
 class AuthenticationManager:
@@ -81,8 +88,7 @@ class AuthenticationManager:
             payload.update(endpoint.extra_payload)
 
         try:
-            # Make token request
-            response = requests.post(endpoint.token_url, json=payload)
+            response = _token_session.post(endpoint.token_url, json=payload)
             response.raise_for_status()
             token_data = response.json()
 
@@ -95,6 +101,8 @@ class AuthenticationManager:
 
             return endpoint.last_token
         except Exception as e:
+            logger.error(f"Failed to get client credentials token: {str(e)}")
             raise HTTPException(
-                status_code=500, detail=f"Failed to get client credentials token: {str(e)}"
+                status_code=500,
+                detail="Failed to get client credentials token",
             )

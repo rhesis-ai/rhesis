@@ -25,7 +25,7 @@ class TestRunStatusEnum:
         assert RunStatus.PROGRESS.value == "Progress"
 
     def test_all_statuses_present(self):
-        expected = {"Queued", "Progress", "Completed", "Partial", "Failed"}
+        expected = {"Queued", "Progress", "Completed", "Partial", "Failed", "Cancelled"}
         actual = {s.value for s in RunStatus}
         assert actual == expected
 

@@ -172,8 +172,8 @@ def db_test_run(
 @pytest.fixture
 def db_test_results(test_db, test_org_id, authenticated_user_id, db_test_run):
     """Create test results for the test run."""
-    passed_status = _get_or_create_status(test_db, "Passed", test_org_id, authenticated_user_id)
-    failed_status = _get_or_create_status(test_db, "Failed", test_org_id, authenticated_user_id)
+    passed_status = _get_or_create_status(test_db, "Pass", test_org_id, authenticated_user_id)
+    failed_status = _get_or_create_status(test_db, "Fail", test_org_id, authenticated_user_id)
 
     results = []
     for i in range(3):

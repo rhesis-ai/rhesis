@@ -31,15 +31,7 @@ def create_type_lookup(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create type lookup with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new type lookup."""
     organization_id, user_id = tenant_context
     return crud.create_type_lookup(
         db=db, type_lookup=type_lookup, organization_id=organization_id, user_id=user_id
@@ -80,15 +72,7 @@ def read_type_lookup(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get type_lookup with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a type lookup by ID."""
     organization_id, user_id = tenant_context
     db_type_lookup = crud.get_type_lookup(
         db, type_lookup_id=type_lookup_id, organization_id=organization_id, user_id=user_id
@@ -105,15 +89,7 @@ def delete_type_lookup(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete type_lookup with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete a type lookup by ID."""
     organization_id, user_id = tenant_context
     db_type_lookup = crud.delete_type_lookup(
         db, type_lookup_id=type_lookup_id, organization_id=organization_id, user_id=user_id
@@ -131,15 +107,7 @@ def update_type_lookup(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update type_lookup with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a type lookup by ID."""
     organization_id, user_id = tenant_context
     db_type_lookup = crud.update_type_lookup(
         db,

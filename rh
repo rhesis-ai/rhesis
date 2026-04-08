@@ -896,15 +896,11 @@ start_worker() {
     export CELERY_WORKER_NAME="worker@$(hostname)-${WORKER_UUID}"
     echo -e "${GREEN}✅ CELERY_WORKER_NAME set to: ${CELERY_WORKER_NAME}${NC}"
 
-    # Run in foreground - using uv run handles the virtual environment automatically
-    # Using --logfile parameter to write logs directly
-    # Using -E to enable events for worker discovery
-    # Configuration matches apps/worker/start.sh for consistency
     exec uv run celery -A rhesis.backend.worker.app worker \
+        --pool threads \
         --loglevel=DEBUG \
         --queues=celery,execution,telemetry \
-        --concurrency=8 \
-        --max-tasks-per-child=500 \
+        --concurrency=${CELERY_WORKER_CONCURRENCY:-2} \
         --optimization=fair \
         -E 
 }

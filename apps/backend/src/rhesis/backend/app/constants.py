@@ -24,6 +24,7 @@ class EntityType(Enum):
     TASK = "Task"
     PROJECT = "Project"
     SOURCE = "Source"
+    CHUNK = "Chunk"
     TRACE = "Trace"
 
     @classmethod
@@ -63,6 +64,10 @@ class TestSetType(Enum):
         return None
 
 
+# Display name stored in test_set.attributes["metadata"]["behaviors"] for adaptive testing sets
+ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
+
+
 # Error messages
 ERROR_INVALID_UUID = "Invalid UUID format in input parameters: {error}"
 ERROR_TEST_SET_NOT_FOUND = "Test set with ID {test_set_id} not found"
@@ -88,9 +93,11 @@ DEFAULT_GENERATION_MODEL = os.getenv(
 DEFAULT_EVALUATION_MODEL = os.getenv(
     "DEFAULT_EVALUATION_MODEL", "rhesis/rhesis-default"
 )  # Default model for evaluation (language-model-as-a-judge)
-DEFAULT_EMBEDDING_MODEL = os.getenv(
-    "DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005"
-)  # Default model for embedding generation
+DEFAULT_EMBEDDING_MODEL = os.getenv("DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005")
+
+DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(
+    os.getenv("DEFAULT_CONVERSATION_DEBOUNCE_SECONDS", "300")
+)  # Seconds to wait before evaluating conversation-level metrics
 
 # Rhesis API configuration
 # Required for Rhesis system models to work
@@ -118,48 +125,90 @@ TEST_RESULT_STATUS_ERROR = frozenset(
     ]
 )
 
-# Status Category Constants
-# Use these constants instead of magic strings when checking status categories
-STATUS_CATEGORY_PASSED = "passed"
-STATUS_CATEGORY_FAILED = "failed"
-STATUS_CATEGORY_ERROR = "error"
+
+class TestResultStatus(str, Enum):
+    """Exact DB status names for test results (written to the status table)."""
+
+    PASS = "Pass"
+    FAIL = "Fail"
+    ERROR = "Error"
+
+
+class ReviewTarget(str, Enum):
+    """Review target types shared by TestResult and Trace review systems.
+
+    Using str mixin so values work directly in string comparisons and JSON.
+    """
+
+    TEST_RESULT = "test_result"
+    TRACE = "trace"
+    TURN = "turn"
+    METRIC = "metric"
+
+
+LEGACY_TARGET_TEST = "test"
+
+# Backward-compatible aliases used across the codebase
+REVIEW_TARGET_TEST_RESULT = ReviewTarget.TEST_RESULT
+REVIEW_TARGET_TRACE = ReviewTarget.TRACE
+REVIEW_TARGET_TURN = ReviewTarget.TURN
+REVIEW_TARGET_METRIC = ReviewTarget.METRIC
+VALID_TARGET_TYPES = tuple(ReviewTarget)
+
+
+class TestType(str, Enum):
+    """Reserved test type values in the TypeLookup table.
+
+    - SINGLE_TURN: Traditional single request-response tests
+    - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
+    """
+
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+
+
+class OverallTestResult(str, Enum):
+    """Aggregated result categories used in stats views and reporting.
+
+    Multiple DB status names collapse into each bucket via the frozensets
+    above and categorize_test_result_status(). A str enum so values work
+    directly in SQL f-strings, ORM filters, and dict keys.
+    """
+
+    PASSED = "passed"
+    FAILED = "failed"
+    PENDING = "pending"
+    ERROR = "error"
+
+
+# Test Run Status Mappings (execution-level: did the run finish?)
+# A "passed" run completed execution; "failed" means execution itself failed.
+TEST_RUN_STATUS_PASSED = frozenset(
+    ["completed", "complete", "finished", "done", "success", "successful"]
+)
+TEST_RUN_STATUS_FAILED = frozenset(["failed", "fail", "error", "aborted"])
 
 
 def categorize_test_result_status(status_name: str) -> str:
-    """
-    Categorize a test result status name into passed/failed/error.
-
-    This function provides a centralized way to categorize test result statuses
-    across the application, ensuring consistency in how test results are counted
-    and reported.
+    """Categorize a test result status name into an OverallTestResult bucket.
 
     Args:
         status_name: The status name (case-insensitive)
 
     Returns:
-        'passed', 'failed', or 'error'
-
-    Examples:
-        >>> categorize_test_result_status('Pass')
-        'passed'
-        >>> categorize_test_result_status('FAILED')
-        'failed'
-        >>> categorize_test_result_status('Review')
-        'error'
-        >>> categorize_test_result_status(None)
-        'error'
+        One of OverallTestResult.PASSED, .FAILED, or .ERROR
     """
     if not status_name:
-        return STATUS_CATEGORY_ERROR
+        return OverallTestResult.ERROR
 
     status_lower = status_name.lower()
 
     if status_lower in TEST_RESULT_STATUS_PASSED:
-        return STATUS_CATEGORY_PASSED
+        return OverallTestResult.PASSED
     elif status_lower in TEST_RESULT_STATUS_FAILED:
-        return STATUS_CATEGORY_FAILED
+        return OverallTestResult.FAILED
     else:
-        return STATUS_CATEGORY_ERROR
+        return OverallTestResult.ERROR
 
 
 # OpenTelemetry Semantic Convention attribute keys for AI/LLM spans.

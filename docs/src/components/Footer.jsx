@@ -35,8 +35,8 @@ const footerData = {
     title: 'Docs',
     links: [
       { name: 'Getting started', href: '/deployment/self-hosting' },
-      { name: 'Test Generation', href: '/platform/tests-generation' },
-      { name: 'Metrics', href: '/platform/metrics' },
+      { name: 'Test Generation', href: '/docs/tests-generation' },
+      { name: 'Metrics', href: '/docs/metrics' },
     ],
   },
   company: {

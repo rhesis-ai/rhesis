@@ -183,14 +183,14 @@ class TestMultiTurnOutput:
             "max_turns": 3,
         }
 
-        # PenelopeAgent is imported lazily; BackendEndpointTarget needs mocking too
+        # Both imports are lazy (inside get_output); patch at their source modules
         with (
             patch(
                 "rhesis.penelope.PenelopeAgent",
                 mock_agent_class,
             ),
             patch(
-                "rhesis.backend.tasks.execution.executors.output_providers.BackendEndpointTarget",
+                "rhesis.backend.tasks.execution.penelope_target.BackendEndpointTarget",
             ),
         ):
             provider = MultiTurnOutput(model="gpt-4")
@@ -226,14 +226,14 @@ class TestMultiTurnOutput:
         mock_test = MagicMock()
         mock_test.test_configuration = {"goal": "Test goal"}
 
-        # PenelopeAgent is imported lazily; BackendEndpointTarget needs mocking too
+        # Both imports are lazy (inside get_output); patch at their source modules
         with (
             patch(
                 "rhesis.penelope.PenelopeAgent",
                 mock_agent_class,
             ),
             patch(
-                "rhesis.backend.tasks.execution.executors.output_providers.BackendEndpointTarget",
+                "rhesis.backend.tasks.execution.penelope_target.BackendEndpointTarget",
             ),
         ):
             provider = MultiTurnOutput(model=None)

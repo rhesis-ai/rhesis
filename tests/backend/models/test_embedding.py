@@ -3,11 +3,11 @@
 
 Comprehensive test suite for the Embedding model and EmbeddingConfig.
 Tests focus on:
-- EmbeddingConfig validation and dimension handling
-- Embedding property setters/getters
-- Database constraints (CHECK constraint for exactly one embedding)
-- Relationship loading (Test.embeddings, Source.embeddings)
-- to_searchable_text() implementations
+- EmbeddingConfig validation and dimension handling (unit)
+- Embedding property setters/getters (unit)
+- Database constraints (CHECK constraint for exactly one embedding) (integration)
+- Relationship loading (Test.embeddings, Source.embeddings) (integration)
+- to_searchable_text() implementations (unit/integration)
 
 """
 
@@ -19,7 +19,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models import Embedding, Source
 from rhesis.backend.app.models.embedding import EmbeddingConfig
-from rhesis.backend.app.models.enums import EmbeddingStatus
 
 # Import the test_model fixture
 pytest_plugins = ["tests.backend.metrics.fixtures.metric_fixtures"]
@@ -82,13 +81,200 @@ class TestEmbeddingConfig:
 
 
 @pytest.mark.unit
-class TestEmbeddingModel:
-    """🗄️ Test Embedding model properties and methods"""
+class TestEmbeddingModelUnit:
+    """🗄️ Test Embedding model properties and methods (without DB)"""
 
-    def test_embedding_property_getter(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
+    @pytest.fixture
+    def base_embedding(self):
+        """Fixture for a basic Embedding instance"""
+        return Embedding(
+            entity_id=uuid.uuid4(),
+            entity_type="Test",
+            model_id=uuid.uuid4(),
+            embedding_config={"dimension": 768, "model": "test-model"},
+            config_hash="test_hash",
+            searchable_text="test text",
+            text_hash="text_hash",
+            status_id=uuid.uuid4(),
+            organization_id="org_id",
+            user_id="user_id",
+        )
+
+    def test_embedding_property_getter(self, base_embedding):
         """Test reading embedding from the correct column"""
+        vector = [0.1] * 768
+        base_embedding.embedding_768 = vector
+
+        result = base_embedding.embedding
+        assert list(result) == vector
+        assert len(result) == 768
+
+    def test_embedding_property_setter(self, base_embedding):
+        """Test setting embedding sets the correct column"""
+        base_embedding.embedding_config = {"dimension": 1536, "model": "test-model"}
+        vector = [0.2] * 1536
+        base_embedding.embedding = vector
+
+        # Should be stored in embedding_1536
+        assert list(base_embedding.embedding_1536) == vector
+        assert base_embedding.embedding_384 is None
+        assert base_embedding.embedding_768 is None
+        assert base_embedding.embedding_1024 is None
+
+    def test_embedding_property_setter_clears_other_columns(self, base_embedding):
+        """Test that setting embedding clears other dimension columns"""
+        # Set initial embedding
+        base_embedding.embedding = [0.1] * 768
+
+        # Update config and set new embedding
+        base_embedding.embedding_config = {"dimension": 1024, "model": "test-model"}
+        base_embedding.embedding = [0.2] * 1024
+
+        # Only embedding_1024 should have data
+        assert base_embedding.embedding_768 is None
+        assert list(base_embedding.embedding_1024) == [0.2] * 1024
+        assert base_embedding.embedding_384 is None
+        assert base_embedding.embedding_1536 is None
+
+    def test_embedding_property_without_config(self, base_embedding):
+        """Test that accessing embedding without config raises error"""
+        base_embedding.embedding_config = None
+        base_embedding.embedding_768 = [0.1] * 768
+
+        with pytest.raises(ValueError, match="Embedding configuration is not set"):
+            _ = base_embedding.embedding
+
+    def test_embedding_property_setter_without_config(self, base_embedding):
+        """Test that setting embedding without config raises error"""
+        base_embedding.embedding_config = None
+
+        with pytest.raises(ValueError, match="embedding_config must be set"):
+            base_embedding.embedding = [0.1] * 768
+
+    def test_embedding_property_setter_dimension_mismatch(self, base_embedding):
+        """Test that setting wrong dimension raises error"""
+        # Try to set 384-dim vector when config says 768
+        with pytest.raises(ValueError, match="Vector dimension mismatch"):
+            base_embedding.embedding = [0.1] * 384
+
+    def test_dimension_property(self, base_embedding):
+        """Test dimension property returns config dimension"""
+        base_embedding.embedding_config = {"dimension": 1024, "model": "test-model"}
+        assert base_embedding.dimension == 1024
+
+    def test_dimension_property_without_config(self, base_embedding):
+        """Test dimension property raises error without config"""
+        base_embedding.embedding_config = None
+
+        with pytest.raises(ValueError, match="Embedding configuration is not set"):
+            _ = base_embedding.dimension
+
+    def test_active_dimension_property(self, base_embedding):
+        """Test active_dimension returns the actual stored dimension"""
+        base_embedding.embedding_config = {"dimension": 384, "model": "test-model"}
+        base_embedding.embedding_384 = [0.1] * 384
+        assert base_embedding.active_dimension == 384
+
+    def test_active_dimension_property_none(self, base_embedding):
+        """Test active_dimension returns None before setting embedding"""
+        # Before setting any embedding, active_dimension should be None
+        assert base_embedding.active_dimension is None
+
+        # Set embedding to make it valid
+        base_embedding.embedding = [0.1] * 768
+        assert base_embedding.active_dimension == 768
+
+    def test_embedding_column_name_property(self, base_embedding):
+        """Test embedding_column_name returns correct column name"""
+        base_embedding.embedding_config = {"dimension": 1536, "model": "test-model"}
+        base_embedding.embedding_1536 = [0.1] * 1536
+        assert base_embedding.embedding_column_name == "embedding_1536"
+
+    def test_embedding_column_name_property_none(self, base_embedding):
+        """Test embedding_column_name returns None when no embedding is set"""
+        assert base_embedding.embedding_column_name is None
+
+
+@pytest.mark.unit
+class TestSearchableTextUnit:
+    """📝 Test to_searchable_text() implementations (without DB)"""
+
+
+    def test_test_result_to_searchable_text(self):
+        """Test TestResult.to_searchable_text() extracts relevant fields"""
+        from rhesis.backend.app.models import Status, TestResult
+
+        status = Status(name="Failed")
+        test_result = TestResult(
+            status=status,
+            test_output={"response": "I don't know the answer to that."},
+            test_metrics={
+                "metric_1": {"reason": "The model failed to answer the question."},
+                "metric_2": {"reasoning": "Hallucinated information."}
+            }
+        )
+
+        text = test_result.to_searchable_text()
+
+        assert "Failed" in text
+        assert "I don't know the answer to that." in text
+        assert "The model failed to answer the question." in text
+        assert "Hallucinated information." in text
+
+    def test_trace_to_searchable_text(self):
+        """Test Trace.to_searchable_text() extracts span data but filters system prompts"""
+        from rhesis.backend.app.constants import AISpanAttributes
+        from rhesis.backend.app.models import Trace
+
+        trace = Trace(
+            span_name="llm_call",
+            status_code="OK",
+            status_message="Success",
+            attributes={
+                AISpanAttributes.OPERATION_TYPE: "completion",
+                AISpanAttributes.MODEL_NAME: "gpt-4",
+                "gen_ai.prompt": "User query here",
+                "gen_ai.system.message": "You are a helpful assistant",  # Should be filtered
+                "gen_ai.completion": "Assistant response here",
+                "gen_ai.tool.calls": "weather_api",
+            }
+        )
+
+        text = trace.to_searchable_text()
+
+        assert "llm_call" in text
+        assert "OK" in text
+        assert "Success" in text
+        assert "completion" in text
+        assert "gpt-4" in text
+        assert "User query here" in text
+        assert "Assistant response here" in text
+        assert "weather_api" in text
+        assert "You are a helpful assistant" not in text
+
+    def test_embeddable_mixin_not_implemented(self):
+        """Test that EmbeddableMixin raises NotImplementedError"""
+        from rhesis.backend.app.models.mixins import EmbeddableMixin
+
+        class DummyModel(EmbeddableMixin):
+            __name__ = "DummyModel"
+
+        dummy = DummyModel()
+        with pytest.raises(
+            NotImplementedError,
+            match="DummyModel must implement to_searchable_text",
+        ):
+            dummy.to_searchable_text()
+
+
+@pytest.mark.integration
+class TestEmbeddingModelIntegration:
+    """🗄️ Test Embedding model persistence"""
+
+    def test_embedding_persistence(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
+    ):
+        """Test that embeddings are correctly persisted and fetched from DB"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
@@ -97,11 +283,12 @@ class TestEmbeddingModel:
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
         vector = [0.1] * 768
-        embedding.embedding_768 = vector
+        embedding.embedding = vector
 
         test_db.add(embedding)
         test_db.commit()
@@ -110,236 +297,12 @@ class TestEmbeddingModel:
         # Property should return the vector from embedding_768
         result = embedding.embedding
         assert list(result) == vector
-        assert len(result) == 768
-
-    def test_embedding_property_setter(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test setting embedding sets the correct column"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            embedding_config={"dimension": 1536, "model": "test-model"},
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-
-        vector = [0.2] * 1536
-        embedding.embedding = vector
-
-        test_db.add(embedding)
-        test_db.commit()
-        test_db.refresh(embedding)
-
-        # Should be stored in embedding_1536
-        assert list(embedding.embedding_1536) == vector
         assert embedding.embedding_384 is None
-        assert embedding.embedding_768 is None
-        assert embedding.embedding_1024 is None
 
-    def test_embedding_property_setter_clears_other_columns(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
+    def test_repr(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
     ):
-        """Test that setting embedding clears other dimension columns"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            embedding_config={"dimension": 768, "model": "test-model"},
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-
-        # Set initial embedding
-        embedding.embedding = [0.1] * 768
-        test_db.add(embedding)
-        test_db.commit()
-        test_db.refresh(embedding)
-
-        # Update config and set new embedding
-        embedding.embedding_config = {"dimension": 1024, "model": "test-model"}
-        embedding.embedding = [0.2] * 1024
-        test_db.commit()
-        test_db.refresh(embedding)
-
-        # Only embedding_1024 should have data
-        assert embedding.embedding_768 is None
-        assert list(embedding.embedding_1024) == [0.2] * 1024
-        assert embedding.embedding_384 is None
-        assert embedding.embedding_1536 is None
-
-    def test_embedding_property_without_config(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test that accessing embedding without config raises error"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-        embedding.embedding_768 = [0.1] * 768
-
-        with pytest.raises(ValueError, match="Embedding configuration is not set"):
-            _ = embedding.embedding
-
-    def test_embedding_property_setter_without_config(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test that setting embedding without config raises error"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-
-        with pytest.raises(ValueError, match="embedding_config must be set"):
-            embedding.embedding = [0.1] * 768
-
-    def test_embedding_property_setter_dimension_mismatch(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test that setting wrong dimension raises error"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            embedding_config={"dimension": 768, "model": "test-model"},
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-
-        # Try to set 384-dim vector when config says 768
-        with pytest.raises(ValueError, match="Vector dimension mismatch"):
-            embedding.embedding = [0.1] * 384
-
-    def test_dimension_property(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test dimension property returns config dimension"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            embedding_config={"dimension": 1024, "model": "test-model"},
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-
-        assert embedding.dimension == 1024
-
-    def test_dimension_property_without_config(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test dimension property raises error without config"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-
-        with pytest.raises(ValueError, match="Embedding configuration is not set"):
-            _ = embedding.dimension
-
-    def test_active_dimension_property(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test active_dimension returns the actual stored dimension"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            embedding_config={"dimension": 384, "model": "test-model"},
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-        embedding.embedding_384 = [0.1] * 384
-
-        test_db.add(embedding)
-        test_db.commit()
-        test_db.refresh(embedding)
-
-        assert embedding.active_dimension == 384
-
-    def test_active_dimension_property_none(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test active_dimension returns None before setting embedding on in-memory object"""
-        # Test on in-memory object before persisting
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            embedding_config={"dimension": 768, "model": "test-model"},
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-
-        # Before setting any embedding, active_dimension should be None
-        assert embedding.active_dimension is None
-
-        # Set embedding to make it valid for persistence
-        embedding.embedding = [0.1] * 768
-        assert embedding.active_dimension == 768
-
-    def test_embedding_column_name_property(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
-        """Test embedding_column_name returns correct column name"""
-        embedding = Embedding(
-            entity_id=uuid.uuid4(),
-            entity_type="Test",
-            model_id=test_model.id,
-            embedding_config={"dimension": 1536, "model": "test-model"},
-            config_hash="test_hash",
-            searchable_text="test text",
-            text_hash="text_hash",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-        embedding.embedding_1536 = [0.1] * 1536
-
-        test_db.add(embedding)
-        test_db.commit()
-        test_db.refresh(embedding)
-
-        assert embedding.embedding_column_name == "embedding_1536"
-
-    def test_repr(self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model):
-        """Test string representation"""
+        """Test string representation (using DB to load relations)"""
         entity_id = uuid.uuid4()
         embedding = Embedding(
             entity_id=entity_id,
@@ -349,7 +312,7 @@ class TestEmbeddingModel:
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
-            status=EmbeddingStatus.ACTIVE.value,
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -367,17 +330,14 @@ class TestEmbeddingModel:
         assert "status=active" in repr_str
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 class TestEmbeddingConstraints:
     """🔒 Test database constraints on Embedding model"""
 
     def test_check_constraint_exactly_one_embedding(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
     ):
         """Test that CHECK constraint enforces exactly one embedding column"""
-        # This would violate the CHECK constraint (two embeddings set)
-        # We can't test this directly via SQLAlchemy ORM since the property setter
-        # clears other columns, but we can test via raw SQL
         from sqlalchemy import text
 
         embedding = Embedding(
@@ -388,6 +348,7 @@ class TestEmbeddingConstraints:
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -409,7 +370,7 @@ class TestEmbeddingConstraints:
         test_db.rollback()
 
     def test_check_constraint_no_embedding(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
     ):
         """Test that CHECK constraint prevents zero embeddings"""
         from sqlalchemy import text
@@ -422,6 +383,7 @@ class TestEmbeddingConstraints:
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -440,7 +402,7 @@ class TestEmbeddingConstraints:
         test_db.rollback()
 
     def test_nano_id_unique_constraint(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
     ):
         """Test that nano_id has unique constraint"""
         # Create first embedding with nano_id
@@ -453,6 +415,7 @@ class TestEmbeddingConstraints:
             searchable_text="test text",
             text_hash="text_hash",
             nano_id="test_nano_123",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -470,6 +433,7 @@ class TestEmbeddingConstraints:
             searchable_text="test text 2",
             text_hash="text_hash2",
             nano_id="test_nano_123",  # Same nano_id
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -482,9 +446,9 @@ class TestEmbeddingConstraints:
         test_db.rollback()
 
 
-@pytest.mark.unit
+@pytest.mark.integration
 class TestEmbeddingRelationships:
-    """🔗 Test polymorphic relationships with Test and Source models"""
+    """🔗 Test polymorphic relationships with Test, Trace and Chunk models"""
 
     def test_test_embeddings_relationship(
         self,
@@ -493,6 +457,7 @@ class TestEmbeddingRelationships:
         test_org_id: str,
         authenticated_user_id: str,
         test_model,
+        db_status,
     ):
         """Test loading embeddings from Test model"""
         test = db_test_minimal
@@ -506,6 +471,7 @@ class TestEmbeddingRelationships:
             config_hash="hash1",
             searchable_text="test content 1",
             text_hash="text_hash1",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -519,6 +485,7 @@ class TestEmbeddingRelationships:
             config_hash="hash2",
             searchable_text="test content 2",
             text_hash="text_hash2",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -535,105 +502,124 @@ class TestEmbeddingRelationships:
         assert all(emb.entity_id == test.id for emb in embeddings)
         assert all(emb.entity_type == "Test" for emb in embeddings)
 
-    def test_source_embeddings_relationship(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
+    def test_trace_embeddings_relationship(
+        self,
+        test_db: Session,
+        db_project,
+        test_org_id: str,
+        authenticated_user_id: str,
+        test_model,
+        db_status,
     ):
-        """Test loading embeddings from Source model"""
-        # Create a source
-        source = Source(
-            title="Test Source",
-            content="Source content",
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
-        test_db.add(source)
-        test_db.commit()
-        test_db.refresh(source)
+        """Test loading embeddings from Trace model"""
+        from datetime import datetime, timezone
+        from rhesis.backend.app.models import Trace
 
-        # Create embedding for the source
+        trace = Trace(
+            trace_id="test_trace_id_123",
+            span_id="test_span_id_123",
+            project_id=db_project.id,
+            organization_id=test_org_id,
+            environment="test",
+            span_name="test_span",
+            span_kind="INTERNAL",
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc),
+            duration_ms=10.0,
+            status_code="OK",
+        )
+        test_db.add(trace)
+        test_db.commit()
+        test_db.refresh(trace)
+
+        # Create embeddings for the trace
         embedding = Embedding(
-            entity_id=source.id,
-            entity_type="Source",
+            entity_id=trace.id,
+            entity_type="Trace",
             model_id=test_model.id,
-            embedding_config={"dimension": 1024, "model": "test-model"},
+            embedding_config={"dimension": 768, "model": "model-1"},
             config_hash="hash1",
-            searchable_text="source content",
+            searchable_text="test content 1",
             text_hash="text_hash1",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        embedding.embedding = [0.3] * 1024
+        embedding.embedding = [0.1] * 768
 
         test_db.add(embedding)
         test_db.commit()
 
         # Refresh and access relationship
-        test_db.refresh(source)
-        embeddings = source.embeddings
+        test_db.refresh(trace)
+        embeddings = trace.embeddings
 
         assert len(embeddings) == 1
-        assert embeddings[0].entity_id == source.id
-        assert embeddings[0].entity_type == "Source"
-        assert embeddings[0].active_dimension == 1024
+        assert embeddings[0].entity_id == trace.id
+        assert embeddings[0].entity_type == "Trace"
 
-
-@pytest.mark.unit
-class TestSearchableText:
-    """📝 Test to_searchable_text() implementations"""
-
-    def test_source_to_searchable_text_full(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    def test_chunk_embeddings_relationship(
+        self,
+        test_db: Session,
+        test_org_id: str,
+        authenticated_user_id: str,
+        test_model,
+        db_status,
     ):
-        """Test Source.to_searchable_text() with all fields"""
+        """Test loading embeddings from Chunk model"""
+        from rhesis.backend.app.models import Chunk, Source
+
         source = Source(
-            title="AI Safety Research",
-            description="Study on AI alignment",
-            content="In this paper we explore..." * 100,
-            citation="Smith et al. 2024",
-            url="https://example.com/paper",
+            title="Test Source",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            status_id=db_status.id,
+        )
+        test_db.add(source)
+        test_db.commit()
+
+        chunk = Chunk(
+            source_id=source.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            content="test chunk content",
+            chunk_index=0,
+            token_count=3,
+        )
+        test_db.add(chunk)
+        test_db.commit()
+        test_db.refresh(chunk)
+
+        # Create embeddings for the chunk
+        embedding = Embedding(
+            entity_id=chunk.id,
+            entity_type="Chunk",
+            model_id=test_model.id,
+            embedding_config={"dimension": 768, "model": "model-1"},
+            config_hash="hash1",
+            searchable_text="test content 1",
+            text_hash="text_hash1",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
+        embedding.embedding = [0.1] * 768
 
-        text = source.to_searchable_text()
+        test_db.add(embedding)
+        test_db.commit()
 
-        assert "AI Safety Research" in text
-        assert "Study on AI alignment" in text
-        assert "In this paper we explore" in text
-        assert "Smith et al. 2024" in text
-        assert "https://example.com/paper" in text
+        # Refresh and access relationship
+        test_db.refresh(chunk)
+        embeddings = chunk.embeddings
 
-    def test_source_to_searchable_text_truncation(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
-    ):
-        """Test that content is truncated to 20000 chars"""
-        # Create content longer than 20000 chars
-        long_content = "A" * 25000
+        assert len(embeddings) == 1
+        assert embeddings[0].entity_id == chunk.id
+        assert embeddings[0].entity_type == "Chunk"
 
-        source = Source(
-            title="Test",
-            content=long_content,
-            organization_id=test_org_id,
-            user_id=authenticated_user_id,
-        )
 
-        text = source.to_searchable_text()
-
-        # Should be truncated (20000 chars + title + spaces)
-        assert len(text) < 25000
-        assert "Test" in text
-
-    def test_source_to_searchable_text_partial(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str
-    ):
-        """Test Source.to_searchable_text() with missing fields"""
-        source = Source(
-            title="Test Source", organization_id=test_org_id, user_id=authenticated_user_id
-        )
-
-        text = source.to_searchable_text()
-
-        assert text == "Test Source"
+@pytest.mark.integration
+class TestSearchableTextIntegration:
+    """📝 Test to_searchable_text() implementations requiring DB relationships"""
 
     def test_test_to_searchable_text_single_turn(
         self,
@@ -653,27 +639,42 @@ class TestSearchableText:
             assert isinstance(text, str)
             assert len(text) > 0
 
-    def test_embeddable_mixin_not_implemented(self, test_db: Session):
-        """Test that EmbeddableMixin raises NotImplementedError"""
-        from rhesis.backend.app.models.mixins import EmbeddableMixin
+    def test_test_to_searchable_text_multi_turn(
+        self,
+        test_db: Session,
+        db_test_minimal,
+        test_org_id: str,
+        authenticated_user_id: str,
+    ):
+        """Test Test.to_searchable_text() for multi-turn tests"""
+        test = db_test_minimal
 
-        class DummyModel(EmbeddableMixin):
-            __name__ = "DummyModel"
+        # Add messages for a multi-turn conversation
+        if not hasattr(test, "messages"):
+            return  # Skip if model doesn't support messages
 
-        dummy = DummyModel()
-        with pytest.raises(
-            NotImplementedError,
-            match="DummyModel must implement to_searchable_text",
-        ):
-            dummy.to_searchable_text()
+        test.messages = [
+            {"role": "user", "content": "Hello, how are you?"},
+            {"role": "assistant", "content": "I am fine, thank you."},
+            {"role": "user", "content": "What is the capital of France?"},
+        ]
+
+        test_db.commit()
+
+        text = test.to_searchable_text()
+
+        # Should include content from all turns
+        assert "Hello, how are you?" in text
+        assert "What is the capital of France?" in text
 
 
-@pytest.mark.unit
+
+@pytest.mark.integration
 class TestEmbeddingDefaults:
     """🎯 Test default values and server defaults"""
 
     def test_weight_default(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
     ):
         """Test that weight has default value of 1.0"""
         embedding = Embedding(
@@ -684,6 +685,7 @@ class TestEmbeddingDefaults:
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -696,7 +698,7 @@ class TestEmbeddingDefaults:
         assert embedding.weight == 1.0
 
     def test_status_default(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
     ):
         """Test that status has default value of 'active'"""
         embedding = Embedding(
@@ -707,6 +709,7 @@ class TestEmbeddingDefaults:
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
+            status_id=db_status.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -716,4 +719,28 @@ class TestEmbeddingDefaults:
         test_db.commit()
         test_db.refresh(embedding)
 
-        assert embedding.status == EmbeddingStatus.ACTIVE.value
+        assert embedding.status.name == "Active"
+
+    def test_origin_default(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model, db_status
+    ):
+        """Test that origin has default value of 'user'"""
+        embedding = Embedding(
+            entity_id=uuid.uuid4(),
+            entity_type="Test",
+            model_id=test_model.id,
+            embedding_config={"dimension": 768, "model": "test-model"},
+            config_hash="test_hash",
+            searchable_text="test text",
+            text_hash="text_hash",
+            status_id=db_status.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        embedding.embedding = [0.1] * 768
+
+        test_db.add(embedding)
+        test_db.commit()
+        test_db.refresh(embedding)
+
+        assert embedding.origin == "user"

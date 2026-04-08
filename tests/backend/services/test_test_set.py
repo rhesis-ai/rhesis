@@ -12,7 +12,8 @@ import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models, schemas
+from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 from rhesis.backend.app.services import test_set as test_set_service
 
 # Use existing data factories from the established pattern
@@ -527,3 +528,39 @@ class TestTestSetGeneration:
 
         assert result.name == "Generated Test Set"
         assert len(result.tests) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGetTestSetsExcludesAdaptive:
+    """crud.get_test_sets must omit adaptive-testing sets (general test set list API)."""
+
+    def test_get_test_sets_excludes_adaptive_metadata_behavior(
+        self, test_db: Session, authenticated_user_id, test_org_id
+    ):
+        regular = models.TestSet(
+            name="Regular set for list filter",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            visibility="organization",
+            attributes={"metadata": {"behaviors": ["Safety"]}},
+        )
+        adaptive = models.TestSet(
+            name="Adaptive set for list filter",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            visibility="organization",
+            attributes={"metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]}},
+        )
+        test_db.add_all([regular, adaptive])
+        test_db.commit()
+
+        results = crud.get_test_sets(
+            test_db,
+            organization_id=str(test_org_id),
+            user_id=str(authenticated_user_id),
+            limit=100,
+        )
+        ids = {ts.id for ts in results}
+        assert regular.id in ids
+        assert adaptive.id not in ids

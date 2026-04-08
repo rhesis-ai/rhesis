@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.endpoint import EndpointService, get_schema, invoke
+from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 
 
 class TestEndpointService:
@@ -76,16 +77,19 @@ class TestEndpointService:
         # Mock only the invoker creation, use real endpoint from fixture
         with patch(
             "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
-        ):
+        ) as mock_create:
             result = await service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), input_data)
 
             assert result == {"response": "success"}
-            # Verify invoker was called with real endpoint
+            # Verify invoker was called
             mock_invoker.invoke.assert_called_once()
-            call_args = mock_invoker.invoke.call_args[0]
-            assert call_args[0] == test_db  # First arg is db
-            assert call_args[1].id == db_endpoint_minimal.id  # Second arg is endpoint
-            assert call_args[2] == input_data  # Third arg is input_data
+            
+            # Verify the context was created with the right parameters
+            mock_create.assert_called_once()
+            context = mock_create.call_args[0][0]
+            assert context.db == test_db
+            assert context.input_data == input_data
+            assert context.endpoint.id == db_endpoint_minimal.id
 
     @pytest.mark.asyncio
     async def test_invoke_endpoint_value_error(
@@ -97,15 +101,15 @@ class TestEndpointService:
         mock_invoker = Mock()
         mock_invoker.invoke = AsyncMock(side_effect=ValueError("Invalid input"))
 
-        # Mock only the invoker creation, use real endpoint from fixture
         with patch(
             "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ):
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(EndpointInvocationError) as exc_info:
                 await service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
 
             assert exc_info.value.status_code == 400
-            assert "Invalid input" in str(exc_info.value.detail)
+            assert exc_info.value.transient is False
+            assert "Invalid input" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_invoke_endpoint_general_exception(
@@ -117,15 +121,15 @@ class TestEndpointService:
         mock_invoker = Mock()
         mock_invoker.invoke = AsyncMock(side_effect=Exception("Internal error"))
 
-        # Mock only the invoker creation, use real endpoint from fixture
         with patch(
             "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
         ):
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(EndpointInvocationError) as exc_info:
                 await service.invoke_endpoint(test_db, str(db_endpoint_minimal.id), {})
 
             assert exc_info.value.status_code == 500
-            assert "Internal error" in str(exc_info.value.detail)
+            assert exc_info.value.transient is False
+            assert "Internal error" in str(exc_info.value)
 
     def test_get_schema_success(self):
         """Test successful schema retrieval"""
@@ -281,9 +285,7 @@ class TestEndpointServiceIntegration:
             result = await service.invoke_endpoint(mock_db, "endpoint123", input_data)
 
             assert result == {"status": "success", "data": "response"}
-            mock_invoker.invoke.assert_called_once_with(
-                mock_db, mock_endpoint, input_data, None
-            )
+            mock_invoker.invoke.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_error_handling_chain(self):
@@ -309,10 +311,11 @@ class TestEndpointServiceIntegration:
             "rhesis.backend.app.services.endpoint.service.create_invoker",
             side_effect=ValueError("Invalid connection type"),
         ):
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(EndpointInvocationError) as exc_info:
                 await service.invoke_endpoint(mock_db, "endpoint123", {})
 
             assert exc_info.value.status_code == 400
+            assert exc_info.value.transient is False
 
 
 @pytest.fixture

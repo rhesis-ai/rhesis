@@ -4,6 +4,7 @@ from .base import Base
 # Import remaining models
 from .behavior import Behavior
 from .category import Category
+from .chunk import Chunk
 from .comment import Comment
 from .demographic import Demographic
 from .dimension import Dimension
@@ -24,6 +25,9 @@ from .refresh_token import RefreshToken
 from .response_pattern import ResponsePattern
 from .risk import Risk
 from .source import Source
+
+# Import stats view models
+from .stats_views import TestResultStatsView, TestRunStatsView
 
 # Import models without dependencies first
 from .status import Status
@@ -50,6 +54,7 @@ __all__ = [
     "Behavior",
     "TestSet",
     "Category",
+    "Chunk",
     "Comment",
     "Embedding",
     "Endpoint",
@@ -90,6 +95,8 @@ __all__ = [
     "behavior_metric_association",
     "test_test_set_association",
     "test_set_metric_association",
+    "TestRunStatsView",
+    "TestResultStatsView",
 ]
 
 # Set up soft delete event listener

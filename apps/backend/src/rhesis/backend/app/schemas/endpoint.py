@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, field_validator
@@ -95,6 +94,9 @@ class EndpointBase(Base):
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
 
+    # Tracing control
+    disable_tracing: bool = False
+
     auth_type: Optional[EndpointAuthType] = EndpointAuthType.BEARER_TOKEN
     auth_token: Optional[str] = None
     client_id: Optional[str] = None
@@ -103,8 +105,9 @@ class EndpointBase(Base):
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
-    last_token: Optional[str] = None
-    last_token_expires_at: Optional[datetime] = None
+    # last_token and last_token_expires_at are intentionally excluded:
+    # they are managed internally by the OAuth token-refresh flow and must
+    # not be writable by API clients.
 
 
 class EndpointCreate(EndpointBase):
@@ -205,6 +208,9 @@ class Endpoint(Base):
     status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
+
+    # Tracing control
+    disable_tracing: bool = False
 
     auth_type: Optional[EndpointAuthType] = None
     # Sensitive fields excluded from response:

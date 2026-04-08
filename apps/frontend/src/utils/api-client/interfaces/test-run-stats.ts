@@ -28,7 +28,6 @@ export interface ExecutorRunCount {
 export interface TestRunTimelineData {
   date: string;
   total_runs: number;
-  status_breakdown: Record<string, number>;
   result_breakdown: Record<string, number>;
 }
 

@@ -36,7 +36,6 @@ router = APIRouter(
     prefix="/users",
     tags=["users"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token_without_context)],
 )
 
 

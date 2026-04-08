@@ -3,6 +3,7 @@
 import inspect
 from uuid import uuid4
 
+from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.sdk_invoker import SdkEndpointInvoker
 
 
@@ -32,16 +33,17 @@ class TestSdkEndpointInvoker:
 
     def test_prepare_function_kwargs_includes_test_context(self, sample_endpoint_sdk):
         """Test that _prepare_function_kwargs correctly includes test context when provided."""
-        invoker = SdkEndpointInvoker()
-
         # Mock endpoint with request mapping
         sample_endpoint_sdk.request_mapping = '{"input": "{{ input }}"}'
 
         input_data = {"input": "test message"}
         function_name = "test_function"
 
+        context = InvocationContext(db=None, endpoint=sample_endpoint_sdk, input_data=input_data)
+        invoker = SdkEndpointInvoker(context)
+
         # Prepare kwargs without test context
-        kwargs = invoker._prepare_function_kwargs(sample_endpoint_sdk, input_data, function_name)
+        kwargs = invoker._prepare_function_kwargs(function_name)
         assert "_rhesis_test_context" not in kwargs
 
     def test_test_context_can_be_added_to_function_kwargs(self):

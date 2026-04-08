@@ -58,7 +58,7 @@ class TestSet(Base, ActivityTrackableMixin, TagsMixin, CommentsMixin, TasksMixin
     license_type_id = Column(GUID(), ForeignKey("type_lookup.id"))
     test_set_type_id = Column(GUID(), ForeignKey("type_lookup.id"))
     user_id = Column(GUID(), ForeignKey("user.id"))
-    organization_id = Column(GUID(), ForeignKey("organization.id"))
+    organization_id = Column(GUID(), ForeignKey("organization.id"), index=True)
     attributes = Column(JSONB)
     is_published = Column(Boolean, default=False)
     visibility = Column(Text, default="organization")

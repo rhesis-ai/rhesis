@@ -57,14 +57,7 @@ def create_test_result(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create test result with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
+    """Create a new test result.
 
     The test result can include:
     - test_metrics: Automated metric evaluations
@@ -82,8 +75,8 @@ def create_test_result(
 
     # Auto-set status based on test_metrics if not provided
     if not test_result.status_id and test_result.test_metrics:
+        from rhesis.backend.app.constants import TestResultStatus
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
-        from rhesis.backend.tasks.enums import ResultStatus
 
         metrics = test_result.test_metrics.get("metrics", {})
         if metrics:
@@ -95,7 +88,7 @@ def create_test_result(
             )
 
             status_value = (
-                ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+                TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
             )
             status = get_or_create_status(
                 db, status_value, "TestResult", organization_id=organization_id
@@ -417,14 +410,7 @@ def update_test_result(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update test_result with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
+    """Update a test result.
 
     Supports updating:
     - test_metrics: Automated evaluations
@@ -443,8 +429,8 @@ def update_test_result(
 
     # Auto-update status based on test_metrics if status_id is not explicitly provided
     if test_result.test_metrics and not test_result.status_id:
+        from rhesis.backend.app.constants import TestResultStatus
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
-        from rhesis.backend.tasks.enums import ResultStatus
 
         metrics = test_result.test_metrics.get("metrics", {})
         if metrics:
@@ -456,7 +442,7 @@ def update_test_result(
             )
 
             status_value = (
-                ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+                TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
             )
             status = get_or_create_status(
                 db, status_value, "TestResult", organization_id=organization_id

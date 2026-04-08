@@ -29,15 +29,7 @@ def create_test_context(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create test context with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new test context."""
     organization_id, user_id = tenant_context
     # Verify that the test exists
     test = crud.get_test(
@@ -83,7 +75,10 @@ def read_test_context(
 ):
     """Get a specific test context by ID"""
     db_test_context = crud.get_test_context(
-        db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id
+        db,
+        test_context_id=test_context_id,
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
     )
     if db_test_context is None:
         raise HTTPException(status_code=404, detail="Test context not found")
@@ -98,18 +93,13 @@ def update_test_context(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update test_context with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing test context."""
     organization_id, user_id = tenant_context
     db_test_context = crud.get_test_context(
-        db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id
+        db,
+        test_context_id=test_context_id,
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
     )
     if db_test_context is None:
         raise HTTPException(status_code=404, detail="Test context not found")
@@ -139,11 +129,17 @@ def delete_test_context(
 ):
     """Delete a test context"""
     db_test_context = crud.get_test_context(
-        db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id
+        db,
+        test_context_id=test_context_id,
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
     )
     if db_test_context is None:
         raise HTTPException(status_code=404, detail="Test context not found")
 
     return crud.delete_test_context(
-        db=db, test_context_id=test_context_id, organization_id=organization_id, user_id=user_id
+        db=db,
+        test_context_id=test_context_id,
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
     )

@@ -134,33 +134,89 @@ def _parse_jsonl(file_bytes: bytes) -> List[Dict[str, Any]]:
 
 
 def _parse_csv(file_bytes: bytes) -> List[Dict[str, Any]]:
-    """Parse CSV with header row.  Handles BOM encoding."""
+    """Parse CSV with header row.  Handles BOM encoding and auto-detects delimiter."""
     # Try utf-8-sig first (handles BOM), fall back to utf-8
     try:
         text = file_bytes.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = file_bytes.decode("utf-8")
 
-    reader = csv.DictReader(io.StringIO(text))
-    return [dict(row) for row in reader]
+    # Auto-detect delimiter (handles semicolons, tabs, pipes, etc.)
+    sample = text[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+        delimiter = dialect.delimiter
+    except csv.Error:
+        delimiter = ","
+
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+    rows = []
+    for row in reader:
+        # DictReader can produce None keys for overflow fields; strip them out
+        cleaned = {k: v for k, v in row.items() if k is not None and k != ""}
+        # Skip entirely empty rows
+        if not cleaned or all(v is None or str(v).strip() == "" for v in cleaned.values()):
+            continue
+        rows.append(cleaned)
+    return rows
 
 
 def _parse_xlsx(file_bytes: bytes) -> List[Dict[str, Any]]:
-    """Parse Excel file using fastxlsx, returning rows as dicts."""
+    """Parse Excel file using openpyxl, returning rows as dicts.
+
+    Searches all sheets for the first one that contains data, and skips
+    any leading blank rows before the header row.
+    """
     try:
-        import fastxlsx
+        from openpyxl import load_workbook
     except ImportError as exc:
         raise ImportError(
-            "fastxlsx is required for Excel import. Install it with: pip install fastxlsx"
+            "openpyxl is required for Excel import. Install it with: pip install openpyxl"
         ) from exc
 
-    wb = fastxlsx.read_xlsx(file_bytes)
-    sheet_names = wb.sheet_names
-    if not sheet_names:
-        return []
+    wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
 
-    # Use the first sheet
-    sheet = wb[sheet_names[0]]
-    data = sheet.to_dict_list()
-    # fastxlsx returns list of dicts with header row as keys
-    return data
+    # Try the active sheet first, then fall back to the others
+    sheets_to_try = []
+    if wb.active is not None:
+        sheets_to_try.append(wb.active)
+    for name in wb.sheetnames:
+        ws = wb[name]
+        if ws not in sheets_to_try:
+            sheets_to_try.append(ws)
+
+    for ws in sheets_to_try:
+        all_rows = list(ws.iter_rows(values_only=True))
+
+        # Find the first non-empty row to use as headers
+        header_idx = None
+        for i, row in enumerate(all_rows):
+            if any(cell is not None and str(cell).strip() != "" for cell in row):
+                header_idx = i
+                break
+
+        if header_idx is None:
+            continue
+
+        raw_headers = all_rows[header_idx]
+        headers = [str(h).strip() if h is not None else "" for h in raw_headers]
+
+        result = []
+        for row in all_rows[header_idx + 1 :]:
+            # Skip completely empty rows
+            if all(cell is None or str(cell).strip() == "" for cell in row):
+                continue
+            row_dict = {}
+            for header, value in zip(headers, row):
+                if not header:
+                    continue
+                row_dict[header] = value
+            if row_dict:
+                result.append(row_dict)
+
+        if result:
+            wb.close()
+            return result
+
+    wb.close()
+    return []

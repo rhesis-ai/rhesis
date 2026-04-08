@@ -20,6 +20,7 @@ from rhesis.sdk.telemetry.context import (
     get_conversation_trace_id,
     get_root_trace_id,
     get_test_execution_context,
+    is_tracing_disabled,
     set_root_trace_id,
 )
 from rhesis.sdk.telemetry.provider import get_tracer_provider
@@ -377,6 +378,9 @@ class Tracer:
         Returns:
             Function result (or wrapped generator)
         """
+        if is_tracing_disabled():
+            return func(*args, **kwargs)
+
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 
@@ -488,6 +492,9 @@ class Tracer:
         Returns:
             Function result
         """
+        if is_tracing_disabled():
+            return await func(*args, **kwargs)
+
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 

@@ -96,7 +96,7 @@ async def analyze_file(
             detail="File encoding could not be read. Try saving as UTF-8.",
         )
     except ImportError as e:
-        if "fastxlsx" in str(e):
+        if "openpyxl" in str(e):
             raise HTTPException(
                 status_code=400,
                 detail="Excel support is not available. Please use CSV or JSON.",

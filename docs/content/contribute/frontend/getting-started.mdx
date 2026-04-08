@@ -1,0 +1,126 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Getting Started
+
+This guide will help you set up and run the Rhesis frontend application locally for development.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- [Node.js](https://nodejs.org/) >=18.x.x
+- [npm](https://www.npmjs.com/) or [Yarn](https://yarnpkg.com/)
+- Git
+
+## Installation Steps
+
+### 1. Clone the Repository
+
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`git clone https://github.com/rhesis-ai/rhesis.git
+cd rhesis/apps/frontend`}
+</CodeBlock>
+
+### 2. Install Dependencies
+
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`npm install
+# or
+yarn install`}
+</CodeBlock>
+
+### 3. Set Up Environment Variables
+
+Copy the example environment file and fill in the required values:
+
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`cp .env.example .env.local`}
+</CodeBlock>
+
+Update `.env.local` with the necessary configurations:
+
+- `NEXTAUTH_SECRET`: Generate one using `npx auth secret` or `openssl rand -hex 32`.
+- `NEXT_PUBLIC_API_BASE_URL`: The base URL for your backend API.
+- `AUTH_SECRET`: Should be the same as `NEXTAUTH_SECRET`.
+- `GOOGLE_CLIENT_ID`: (Optional) Your Google OAuth Client ID. Enables Google sign-in.
+- `GOOGLE_CLIENT_SECRET`: (Optional) Your Google OAuth Client Secret.
+- `GH_CLIENT_ID`: (Optional) Your GitHub OAuth Client ID. Enables GitHub sign-in.
+- `GH_CLIENT_SECRET`: (Optional) Your GitHub OAuth Client Secret.
+
+### 4. Run the Development Server
+
+<CodeBlock filename="Terminal" language="bash" isTerminal={true}>
+{`npm run dev`}
+</CodeBlock>
+
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+
+## Development Workflow
+
+### Available Scripts
+
+- `npm run dev`: Starts the development server with Turbo.
+- `npm run build`: Builds the application for production (runs type-check and lint first).
+- `npm run start`: Starts a production server (after building).
+- `npm run lint`: Lints the codebase using Next.js's built-in ESLint configuration.
+- `npm run type-check`: Validates TypeScript types.
+- `npm run clean`: Removes the .next directory.
+
+### Code Editor Setup
+
+We recommend using Visual Studio Code with the following extensions:
+
+- ESLint
+- Prettier
+- TypeScript and JavaScript Language Features
+- Material Icon Theme (optional)
+- GitLens (optional)
+
+### Recommended VSCode Settings
+
+Create or update your `.vscode/settings.json` file with:
+
+<CodeBlock filename=".vscode/settings.json" language="json">
+{`{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}`}
+</CodeBlock>
+
+## Next Steps
+
+After setting up your development environment:
+
+1. Explore the [Architecture Overview](./architecture.mdx) to understand the project structure
+2. Check out the [Component Library](./components.mdx) to learn about available UI components
+3. Review the [API Integration](./api-integration.mdx) documentation to understand backend connectivity
+4. Read the [Contributing Guidelines](https://docs.rhesis.ai/contribute/contributing) before making changes
+
+## Troubleshooting
+
+### Common Issues
+
+#### "Module not found" errors
+
+- Ensure all dependencies are installed
+- Check for typos in import paths
+- Verify that the module exists in `node_modules`
+
+#### Authentication Issues
+
+- Verify environment variables are correctly set
+- Check browser console for errors
+- Ensure the backend API is running and accessible
+
+#### Build Errors
+
+- Run `npm run clean` to clear the build cache
+- Verify TypeScript types with `npm run type-check`
+- Check for ESLint errors with `npm run lint`
+
+For additional help, please refer to the [Next.js documentation](https://nextjs.org/docs) or reach out to the team on Discord.

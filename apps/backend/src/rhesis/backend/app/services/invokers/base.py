@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Union
+
+if TYPE_CHECKING:
+    from .context import InvocationContext
 
 from sqlalchemy.orm import Session
 
@@ -11,6 +14,20 @@ from .common import ErrorResponseBuilder, HeaderManager
 from .common.schemas import ErrorResponse
 from .conversation import ConversationTracker
 from .templating import ResponseMapper, TemplateRenderer
+
+# ---------------------------------------------------------------------------
+# Module-level singletons for stateless helpers
+# ---------------------------------------------------------------------------
+# All helper classes below are stateless: they hold no per-invocation or
+# per-thread mutable state.  Sharing a single instance eliminates the cost of
+# constructing a new Jinja2 Environment (TemplateRenderer) and companion
+# objects on every test invocation.
+_template_renderer = TemplateRenderer()
+_response_mapper = ResponseMapper()
+_auth_manager = AuthenticationManager()
+_error_builder = ErrorResponseBuilder()
+_header_manager = HeaderManager()
+_conversation_tracker = ConversationTracker()
 
 
 class BaseEndpointInvoker(ABC):
@@ -24,13 +41,14 @@ class BaseEndpointInvoker(ABC):
     # but must NOT appear in the wire request body sent to the endpoint.
     RESERVED_META_KEYS: set = {"system_prompt"}
 
-    def __init__(self):
-        self.template_renderer = TemplateRenderer()
-        self.response_mapper = ResponseMapper()
-        self.auth_manager = AuthenticationManager()
-        self.error_builder = ErrorResponseBuilder()
-        self.header_manager = HeaderManager()
-        self.conversation_tracker = ConversationTracker()
+    def __init__(self, context: "InvocationContext | None" = None):
+        self.context = context
+        self.template_renderer = _template_renderer
+        self.response_mapper = _response_mapper
+        self.auth_manager = _auth_manager
+        self.error_builder = _error_builder
+        self.header_manager = _header_manager
+        self.conversation_tracker = _conversation_tracker
 
     def _strip_meta_keys(self, rendered_body: Any) -> Any:
         """Remove reserved meta keys from a rendered request body.
@@ -52,13 +70,7 @@ class BaseEndpointInvoker(ABC):
         return rendered_body
 
     @abstractmethod
-    async def invoke(
-        self,
-        db: Session,
-        endpoint: Endpoint,
-        input_data: Dict[str, Any],
-        test_execution_context: Optional[Dict[str, str]] = None,
-    ) -> Union[Dict[str, Any], ErrorResponse]:
+    async def invoke(self) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Invoke the endpoint with the given input data.
 

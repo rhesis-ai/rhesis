@@ -64,18 +64,18 @@ export default function TestRunPerformance({
   const [testRuns, setTestRuns] = useState<TestRunWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewportHeight, setViewportHeight] = useState(0);
 
   // Calculate how many test runs can fit based on viewport height
   // Each card is approximately 180px tall in 2-column grid, plus spacing
   // Account for dashboard header (~64px), KPIs (~200px), margins (~100px)
   const calculateLimit = useCallback(() => {
-    if (viewportHeight === 0) return 6; // Default
-    const availableHeight = viewportHeight - 364; // Header + KPIs + margins
+    if (typeof window === 'undefined') return 6; // Default for SSR
+    const vh = window.innerHeight;
+    const availableHeight = vh - 364; // Header + KPIs + margins
     const cardHeight = 180; // Approximate height per card row (2 cards side-by-side)
     const calculatedLimit = Math.floor(availableHeight / cardHeight) * 2; // *2 for 2-column grid
     return Math.max(6, Math.min(calculatedLimit, 20)); // Min 6, max 20
-  }, [viewportHeight]);
+  }, []);
 
   const fetchTestRuns = useCallback(async () => {
     try {
@@ -94,37 +94,42 @@ export default function TestRunPerformance({
         sort_order: 'desc',
       });
 
-      // Fetch statistics for each test run
-      const testRunsWithStats = await Promise.all(
-        response.data.map(async testRun => {
-          try {
-            // Fetch test results stats for this specific test run
-            const stats =
-              await testResultsClient.getComprehensiveTestResultsStats({
-                mode: 'summary',
-                test_run_ids: [testRun.id],
-              });
+      if (response.data.length === 0) {
+        setTestRuns([]);
+        setError(null);
+        return;
+      }
 
-            // Add stats to the test run object
-            return {
-              ...testRun,
-              stats: stats.overall_pass_rates || null,
-            };
-          } catch (error) {
-            // If stats fetch fails, return test run without stats
-            console.error(
-              `Failed to fetch stats for test run ${testRun.id}:`,
-              error
-            );
-            return {
-              ...testRun,
-              stats: null,
-            };
-          }
-        })
-      );
+      const testRunIds = response.data.map(run => run.id);
 
-      setTestRuns(testRunsWithStats);
+      // Fetch statistics for all test runs in a single call
+      try {
+        const statsResponse =
+          await testResultsClient.getComprehensiveTestResultsStats({
+            mode: 'test_runs',
+            test_run_ids: testRunIds,
+          });
+
+        // Map stats back to test runs
+        const statsMap = new Map(
+          (statsResponse.test_run_summary || []).map((summary: any) => [
+            summary.id,
+            summary.overall,
+          ])
+        );
+
+        const testRunsWithStats = response.data.map(testRun => ({
+          ...testRun,
+          stats: statsMap.get(testRun.id) || null,
+        }));
+
+        setTestRuns(testRunsWithStats);
+      } catch (error) {
+        console.error('Failed to fetch test run stats:', error);
+        // Fallback: return runs without stats
+        setTestRuns(response.data.map(run => ({ ...run, stats: null })));
+      }
+
       setError(null);
     } catch (_err) {
       setError('Unable to load test run data');
@@ -136,17 +141,10 @@ export default function TestRunPerformance({
   }, [sessionToken, calculateLimit, propLimit, onLoadComplete]);
 
   useEffect(() => {
-    // Set viewport height once on mount
-    setViewportHeight(window.innerHeight);
-  }, []);
-
-  useEffect(() => {
-    // Fetch data once viewport height is set
-    if (sessionToken && viewportHeight > 0) {
+    if (sessionToken) {
       fetchTestRuns();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, viewportHeight]); // Fetch when sessionToken changes or when viewport height is initially set
+  }, [sessionToken, fetchTestRuns]);
 
   const handleCardClick = (testRunId: string) => {
     router.push(`/test-runs/${testRunId}`);
@@ -159,7 +157,7 @@ export default function TestRunPerformance({
   // Calculate dynamic container height
   const containerHeight =
     calculateLimit() > 6
-      ? `${Math.min(calculateLimit() * 90 + 150, viewportHeight - 364)}px`
+      ? `${Math.min(calculateLimit() * 90 + 150, (typeof window !== 'undefined' ? window.innerHeight : 800) - 364)}px`
       : theme.spacing(87.5);
 
   if (loading) {

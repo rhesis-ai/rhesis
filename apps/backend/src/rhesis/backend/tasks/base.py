@@ -47,7 +47,7 @@ class BaseTask(Task):
     # Default values for all tasks
     max_retries = 3
     default_retry_delay = 10
-    send_email_notification = False  # Default: no emails
+    send_email_notification_flag = False  # Default: no emails
     send_default_completion_email = True  # New flag: whether to send default completion email
 
     def __init__(self):
@@ -156,7 +156,7 @@ class BaseTask(Task):
         )
 
         # Send email notification for successful completion if enabled
-        if self.send_email_notification:
+        if self.send_email_notification_flag:
             try:
                 self.log_with_context("debug", "Attempting to send success email notification")
                 email_kwargs = {}
@@ -203,7 +203,7 @@ class BaseTask(Task):
                 exception_type=type(exc).__name__,
             )
             # Send email notification for permanent failure if enabled
-            if self.send_email_notification:
+            if self.send_email_notification_flag:
                 try:
                     self._send_task_completion_email("failed", error_message=str(exc))
                 except Exception as email_error:
@@ -497,10 +497,10 @@ class BaseTask(Task):
 class EmailEnabledTask(BaseTask):
     """Base task class with email notifications enabled (for user-facing tasks)."""
 
-    send_email_notification = True
+    send_email_notification_flag = True
 
 
 class SilentTask(BaseTask):
     """Base task class with email notifications disabled (for background/parallel tasks)."""
 
-    send_email_notification = False
+    send_email_notification_flag = False

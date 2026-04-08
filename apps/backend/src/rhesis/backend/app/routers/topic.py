@@ -38,15 +38,7 @@ def create_topic(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create topic with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new topic."""
     organization_id, user_id = tenant_context
     return crud.create_topic(db=db, topic=topic, organization_id=organization_id, user_id=user_id)
 
@@ -88,15 +80,7 @@ def read_topic(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get topic with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a topic by ID."""
     organization_id, user_id = tenant_context
     db_topic = crud.get_topic(
         db, topic_id=topic_id, organization_id=organization_id, user_id=user_id
@@ -113,15 +97,7 @@ def delete_topic(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete topic with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete a topic by ID."""
     organization_id, user_id = tenant_context
     db_topic = crud.delete_topic(
         db, topic_id=topic_id, organization_id=organization_id, user_id=user_id
@@ -144,15 +120,7 @@ def update_topic(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update topic with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a topic by ID."""
     organization_id, user_id = tenant_context
     db_topic = crud.update_topic(
         db, topic_id=topic_id, topic=topic, organization_id=organization_id, user_id=user_id

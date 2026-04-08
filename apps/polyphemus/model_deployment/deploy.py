@@ -1,6 +1,7 @@
 """Main deployment script for deploying models to Vertex AI."""
 
 import logging
+import os
 from typing import Optional
 
 from google.cloud import aiplatform
@@ -82,6 +83,12 @@ def deploy_model_vllm(
     if hf_token:
         env_vars["HF_TOKEN"] = hf_token
         logger.info("HuggingFace token provided for private model access")
+
+    # vLLM log level inside the Vertex serving container (see Cloud Logging for the replica)
+    vllm_log_level = os.environ.get("VLLM_LOGGING_LEVEL", "").strip()
+    if vllm_log_level:
+        env_vars["VLLM_LOGGING_LEVEL"] = vllm_log_level
+        logger.info("Serving container VLLM_LOGGING_LEVEL=%s", vllm_log_level)
 
     # Upload model (registry name: polyphemus-dev / polyphemus-stg / polyphemus by env)
     model = aiplatform.Model.upload(
@@ -334,8 +341,21 @@ def main():
         choices=["auto", "outlines", "lm-format-enforcer"],
         help="Guided decoding backend (default: auto)",
     )
+    parser.add_argument(
+        "--vllm-logging-level",
+        type=str,
+        default="",
+        metavar="LEVEL",
+        help=(
+            "Set VLLM_LOGGING_LEVEL on the Vertex serving container "
+            "(e.g. DEBUG). Overrides VLLM_LOGGING_LEVEL env if set."
+        ),
+    )
 
     args = parser.parse_args()
+
+    if args.vllm_logging_level:
+        os.environ["VLLM_LOGGING_LEVEL"] = args.vllm_logging_level
 
     deploy_models(
         skip_existing=not args.force,

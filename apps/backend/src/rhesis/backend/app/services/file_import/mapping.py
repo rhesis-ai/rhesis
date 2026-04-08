@@ -134,6 +134,14 @@ _ALIASES: Dict[str, List[str]] = {
         "max turns",
         "maximum_turns",
         "maximum turns",
+        # A single "Turn Config" value is treated as max_turns
+        "turn_config",
+        "turn config",
+        "turns",
+        "num_turns",
+        "num turns",
+        "number of turns",
+        "number_of_turns",
     ],
     "metadata": [
         "metadata",
@@ -160,6 +168,10 @@ def auto_map_columns(
     """
     mapping: Dict[str, str] = {}
     matched_targets: set = set()
+
+    # Drop None or empty-string headers before processing (defensive guard against
+    # malformed CSV/XLSX input where DictReader produces None overflow keys)
+    headers = [h for h in headers if h is not None and str(h).strip() != ""]
 
     # Normalize headers for comparison
     normalized = {h: h.strip().lower().replace(" ", "_") for h in headers}

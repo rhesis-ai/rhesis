@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: stg-ingress-nginx-internal
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rhesis-ai/rhesis.git
+    targetRevision: main
+    path: kubernetes/clusters/stg/ingress-nginx-internal
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

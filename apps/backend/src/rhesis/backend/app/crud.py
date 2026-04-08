@@ -10,11 +10,12 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, desc, func, text
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, cast, desc, func, or_, text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
-from rhesis.backend.app.constants import TestExecutionContext
+from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR, TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
@@ -76,8 +77,8 @@ def get_session_variables(db: Session):
 def get_endpoint(
     db: Session, endpoint_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Endpoint]:
-    """Get endpoint with optimized approach - no session variables needed."""
-    return get_item(db, models.Endpoint, endpoint_id, organization_id, user_id)
+    """Get endpoint with relationships eagerly loaded."""
+    return get_item_detail(db, models.Endpoint, endpoint_id, organization_id, user_id)
 
 
 def get_endpoints(
@@ -106,7 +107,7 @@ def get_endpoints(
 def create_endpoint(
     db: Session, endpoint: schemas.EndpointCreate, organization_id: str, user_id: str
 ) -> models.Endpoint:
-    """Create endpoint with optimized approach - no session variables needed."""
+    """Create endpoint."""
     return create_item(db, models.Endpoint, endpoint, organization_id, user_id)
 
 
@@ -117,7 +118,7 @@ def update_endpoint(
     organization_id: str,
     user_id: str,
 ) -> Optional[models.Endpoint]:
-    """Update endpoint with optimized approach - no session variables needed."""
+    """Update endpoint."""
     return update_item(db, models.Endpoint, endpoint_id, endpoint, organization_id, user_id)
 
 
@@ -133,7 +134,7 @@ def delete_endpoint(
 def get_use_case(
     db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.UseCase]:
-    """Get use_case with optimized approach - no session variables needed."""
+    """Get use_case."""
     return get_item(db, models.UseCase, use_case_id, organization_id, user_id)
 
 
@@ -163,7 +164,7 @@ def get_use_cases(
 def create_use_case(
     db: Session, use_case: schemas.UseCaseCreate, organization_id: str = None, user_id: str = None
 ) -> models.UseCase:
-    """Create use_case with optimized approach - no session variables needed."""
+    """Create use_case."""
     return create_item(db, models.UseCase, use_case, organization_id, user_id)
 
 
@@ -174,14 +175,14 @@ def update_use_case(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.UseCase]:
-    """Update use_case with optimized approach - no session variables needed."""
+    """Update use_case."""
     return update_item(db, models.UseCase, use_case_id, use_case, organization_id, user_id)
 
 
 def delete_use_case(
     db: Session, use_case_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.UseCase]:
-    """Delete use case with optimized approach - no session variables needed."""
+    """Delete use case."""
     return delete_item(db, models.UseCase, use_case_id, organization_id, user_id)
 
 
@@ -189,7 +190,7 @@ def delete_use_case(
 def get_prompt(
     db: Session, prompt_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Prompt]:
-    """Get prompt with optimized approach - no session variables needed."""
+    """Get prompt."""
     return get_item(db, models.Prompt, prompt_id, organization_id, user_id)
 
 
@@ -219,7 +220,7 @@ def get_prompts(
 def create_prompt(
     db: Session, prompt: schemas.PromptCreate, organization_id: str = None, user_id: str = None
 ) -> models.Prompt:
-    """Create prompt with optimized approach - no session variables needed."""
+    """Create prompt."""
     return create_item(db, models.Prompt, prompt, organization_id, user_id)
 
 
@@ -230,7 +231,7 @@ def update_prompt(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Prompt]:
-    """Update prompt with optimized approach - no session variables needed."""
+    """Update prompt."""
     return update_item(db, models.Prompt, prompt_id, prompt, organization_id, user_id)
 
 
@@ -278,7 +279,7 @@ def create_prompt_template(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.PromptTemplate:
-    """Create prompt template with optimized approach - no session variables needed."""
+    """Create prompt template."""
     return create_item(db, models.PromptTemplate, prompt_template, organization_id, user_id)
 
 
@@ -304,8 +305,8 @@ def delete_prompt_template(
 def get_category(
     db: Session, category_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Category]:
-    """Get category with optimized approach - no session variables needed."""
-    return get_item(db, models.Category, category_id, organization_id, user_id)
+    """Get category with relationships eagerly loaded."""
+    return get_item_detail(db, models.Category, category_id, organization_id, user_id)
 
 
 def get_categories(
@@ -334,7 +335,7 @@ def get_categories(
 def create_category(
     db: Session, category: schemas.CategoryCreate, organization_id: str = None, user_id: str = None
 ) -> models.Category:
-    """Create category with optimized approach - no session variables needed."""
+    """Create category."""
     return create_item(db, models.Category, category, organization_id, user_id)
 
 
@@ -345,7 +346,7 @@ def update_category(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Category]:
-    """Update category with optimized approach - no session variables needed."""
+    """Update category."""
     return update_item(db, models.Category, category_id, category, organization_id, user_id)
 
 
@@ -361,7 +362,7 @@ def delete_category(
 def get_behavior(
     db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Behavior]:
-    """Get behavior with optimized approach - no session variables needed."""
+    """Get behavior."""
     return get_item(db, models.Behavior, behavior_id, organization_id, user_id)
 
 
@@ -375,7 +376,7 @@ def get_behaviors(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Behavior]:
-    """Get behaviors with optimized approach - no session variables needed."""
+    """Get behaviors."""
     return get_items(
         db, models.Behavior, skip, limit, sort_by, sort_order, filter, organization_id, user_id
     )
@@ -384,7 +385,7 @@ def get_behaviors(
 def create_behavior(
     db: Session, behavior: schemas.BehaviorCreate, organization_id: str = None, user_id: str = None
 ) -> models.Behavior:
-    """Create behavior with optimized approach - no session variables needed."""
+    """Create behavior."""
     return create_item(db, models.Behavior, behavior, organization_id, user_id)
 
 
@@ -395,14 +396,14 @@ def update_behavior(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Behavior]:
-    """Update behavior with optimized approach - no session variables needed."""
+    """Update behavior."""
     return update_item(db, models.Behavior, behavior_id, behavior, organization_id, user_id)
 
 
 def delete_behavior(
     db: Session, behavior_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Behavior]:
-    """Delete behavior with optimized approach - no session variables needed."""
+    """Delete behavior."""
     return delete_item(db, models.Behavior, behavior_id, organization_id, user_id)
 
 
@@ -442,7 +443,7 @@ def create_response_pattern(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.ResponsePattern:
-    """Create response pattern with optimized approach - no session variables needed."""
+    """Create response pattern."""
     return create_item(db, models.ResponsePattern, response_pattern, organization_id, user_id)
 
 
@@ -510,7 +511,6 @@ def get_test_sets(
     if has_runs is not None:
 
         def has_runs_filter(query):
-
             logger.info(f"Applying has_runs filter: {has_runs}")
 
             if has_runs:
@@ -538,13 +538,28 @@ def get_test_sets(
 
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
+    # Exclude test sets used for adaptive testing (they use the dedicated adaptive_testing API)
+    adaptive_marker = cast([ADAPTIVE_TESTING_BEHAVIOR], JSONB)
+    behaviors_json = models.TestSet.attributes["metadata"]["behaviors"]
+
+    def exclude_adaptive_test_sets(query):
+        return query.filter(
+            or_(
+                models.TestSet.attributes.is_(None),
+                behaviors_json.is_(None),
+                ~behaviors_json.contains(adaptive_marker),
+            )
+        )
+
+    query_builder = query_builder.with_custom_filter(exclude_adaptive_test_sets)
+
     return query_builder.all()
 
 
 def create_test_set(
     db: Session, test_set: schemas.TestSetCreate, organization_id: str = None, user_id: str = None
 ) -> models.TestSet:
-    """Create test_set with optimized approach - no session variables needed."""
+    """Create test_set."""
     return create_item(db, models.TestSet, test_set, organization_id, user_id)
 
 
@@ -555,7 +570,7 @@ def update_test_set(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.TestSet]:
-    """Update test_set with optimized approach - no session variables needed."""
+    """Update test_set."""
     return update_item(db, models.TestSet, test_set_id, test_set, organization_id, user_id)
 
 
@@ -717,7 +732,7 @@ def update_test_configuration(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.TestConfiguration]:
-    """Update test_configuration with optimized approach - no session variables needed."""
+    """Update test_configuration."""
     return update_item(
         db,
         models.TestConfiguration,
@@ -732,7 +747,7 @@ def update_test_configuration(
 def get_risk(
     db: Session, risk_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Risk]:
-    """Get risk with optimized approach - no session variables needed."""
+    """Get risk."""
     return get_item(db, models.Risk, risk_id, organization_id, user_id)
 
 
@@ -762,7 +777,7 @@ def get_risks(
 def create_risk(
     db: Session, risk: schemas.RiskCreate, organization_id: str = None, user_id: str = None
 ) -> models.Risk:
-    """Create risk with optimized approach - no session variables needed."""
+    """Create risk."""
     return create_item(db, models.Risk, risk, organization_id, user_id)
 
 
@@ -773,14 +788,14 @@ def update_risk(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Risk]:
-    """Update risk with optimized approach - no session variables needed."""
+    """Update risk."""
     return update_item(db, models.Risk, risk_id, risk, organization_id, user_id)
 
 
 def delete_risk(
     db: Session, risk_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Risk]:
-    """Delete risk with optimized approach - no session variables needed."""
+    """Delete risk."""
     return delete_item(db, models.Risk, risk_id, organization_id, user_id)
 
 
@@ -788,8 +803,19 @@ def delete_risk(
 def get_status(
     db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Status]:
-    """Get status with optimized approach - no session variables needed."""
-    return get_item(db, models.Status, status_id, organization_id, user_id)
+    """Get a single status by ID without joining all its related entities."""
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    item = (
+        QueryBuilder(db, models.Status)
+        .with_deleted()
+        .with_optimized_loads(skip_one_to_many=True)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .filter_by_id(status_id)
+    )
+    return _check_and_raise_if_deleted(item, models.Status, status_id, False)
 
 
 def get_statuses(
@@ -818,7 +844,7 @@ def get_statuses(
 def create_status(
     db: Session, status: schemas.StatusCreate, organization_id: str = None, user_id: str = None
 ) -> models.Status:
-    """Create status with optimized approach - no session variables needed."""
+    """Create status."""
     return create_item(db, models.Status, status, organization_id, user_id)
 
 
@@ -829,14 +855,14 @@ def update_status(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Status]:
-    """Update status with optimized approach - no session variables needed."""
+    """Update status."""
     return update_item(db, models.Status, status_id, status, organization_id, user_id)
 
 
 def delete_status(
     db: Session, status_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Status]:
-    """Delete status with optimized approach - no session variables needed."""
+    """Delete status."""
     return delete_item(db, models.Status, status_id, organization_id, user_id)
 
 
@@ -847,7 +873,7 @@ def get_source(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Source]:
-    """Get source with optimized approach - no session variables needed.
+    """Get source.
 
     Note: Content field is deferred and will not be loaded unless explicitly requested.
     Use get_source_with_content() to load the content field.
@@ -888,7 +914,7 @@ def get_sources(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Source]:
-    """Get sources with optimized approach - no session variables needed.
+    """Get sources.
 
     Note: Content field is deferred and will not be loaded.
     Use get_source_with_content() for individual sources that need content.
@@ -910,7 +936,7 @@ def get_sources(
 def create_source(
     db: Session, source: schemas.SourceCreate, organization_id: str = None, user_id: str = None
 ) -> models.Source:
-    """Create source with optimized approach - no session variables needed."""
+    """Create source."""
     return create_item(db, models.Source, source, organization_id, user_id)
 
 
@@ -921,23 +947,59 @@ def update_source(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Source]:
-    """Update source with optimized approach - no session variables needed."""
+    """Update source."""
     return update_item(db, models.Source, source_id, source, organization_id, user_id)
 
 
 def delete_source(
     db: Session, source_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Source]:
-    """Delete source with optimized approach - no session variables needed."""
+    """Delete source."""
     return delete_item(db, models.Source, source_id, organization_id, user_id)
+
+
+def create_chunk(
+    db: Session, chunk: schemas.ChunkCreate, organization_id: str = None, user_id: str = None
+) -> models.Chunk:
+    """Create chunk."""
+    return create_item(db, models.Chunk, chunk, organization_id=organization_id, user_id=user_id)
+
+
+def update_chunk(
+    db: Session,
+    chunk_id: uuid.UUID,
+    chunk: schemas.ChunkUpdate,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.Chunk]:
+    """Update chunk."""
+    return update_item(
+        db, models.Chunk, chunk_id, chunk, organization_id=organization_id, user_id=user_id
+    )
+
+
+def delete_chunk(
+    db: Session, chunk_id: uuid.UUID, organization_id: str, user_id: str
+) -> Optional[models.Chunk]:
+    """Delete chunk."""
+    return delete_item(db, models.Chunk, chunk_id, organization_id=organization_id, user_id=user_id)
+
+
+def get_chunk(
+    db: Session, chunk_id: uuid.UUID, organization_id: str = None, user_id: str = None
+) -> Optional[models.Chunk]:
+    """Get chunk."""
+    return get_item_detail(
+        db, models.Chunk, chunk_id, organization_id=organization_id, user_id=user_id
+    )
 
 
 # Topic CRUD
 def get_topic(
     db: Session, topic_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Topic]:
-    """Get topic with optimized approach - no session variables needed."""
-    return get_item(db, models.Topic, topic_id, organization_id, user_id)
+    """Get topic with relationships eagerly loaded."""
+    return get_item_detail(db, models.Topic, topic_id, organization_id, user_id)
 
 
 def get_topics(
@@ -966,7 +1028,7 @@ def get_topics(
 def create_topic(
     db: Session, topic: schemas.TopicCreate, organization_id: str = None, user_id: str = None
 ) -> models.Topic:
-    """Create topic with optimized approach - no session variables needed."""
+    """Create topic."""
     return create_item(db, models.Topic, topic, organization_id, user_id)
 
 
@@ -977,14 +1039,14 @@ def update_topic(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Topic]:
-    """Update topic with optimized approach - no session variables needed."""
+    """Update topic."""
     return update_item(db, models.Topic, topic_id, topic, organization_id, user_id)
 
 
 def delete_topic(
     db: Session, topic_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Topic]:
-    """Delete topic with optimized approach - no session variables needed."""
+    """Delete topic."""
     return delete_item(db, models.Topic, topic_id, organization_id, user_id)
 
 
@@ -992,7 +1054,7 @@ def delete_topic(
 def get_demographic(
     db: Session, demographic_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Demographic]:
-    """Get demographic with optimized approach - no session variables needed."""
+    """Get demographic."""
     return get_item(db, models.Demographic, demographic_id, organization_id, user_id)
 
 
@@ -1025,7 +1087,7 @@ def create_demographic(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.Demographic:
-    """Create demographic with optimized approach - no session variables needed."""
+    """Create demographic."""
     return create_item(db, models.Demographic, demographic, organization_id, user_id)
 
 
@@ -1036,7 +1098,7 @@ def update_demographic(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Demographic]:
-    """Update demographic with optimized approach - no session variables needed."""
+    """Update demographic."""
     return update_item(
         db, models.Demographic, demographic_id, demographic, organization_id, user_id
     )
@@ -1054,7 +1116,7 @@ def delete_demographic(
 def get_dimension(
     db: Session, dimension_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Dimension]:
-    """Get dimension with optimized approach - no session variables needed."""
+    """Get dimension."""
     return get_item(db, models.Dimension, dimension_id, organization_id, user_id)
 
 
@@ -1087,7 +1149,7 @@ def create_dimension(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.Dimension:
-    """Create dimension with optimized approach - no session variables needed."""
+    """Create dimension."""
     return create_item(db, models.Dimension, dimension, organization_id, user_id)
 
 
@@ -1098,7 +1160,7 @@ def update_dimension(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Dimension]:
-    """Update dimension with optimized approach - no session variables needed."""
+    """Update dimension."""
     return update_item(db, models.Dimension, dimension_id, dimension, organization_id, user_id)
 
 
@@ -1114,7 +1176,7 @@ def delete_dimension(
 def get_user(
     db: Session, user_id: uuid.UUID, organization_id: str = None, tenant_user_id: str = None
 ) -> Optional[models.User]:
-    """Get user with optimized approach - no session variables needed."""
+    """Get user."""
     return get_item(db, models.User, user_id, organization_id, tenant_user_id)
 
 
@@ -1239,7 +1301,7 @@ def get_user_by_id(db: Session, user_id: Union[str, UUID]) -> Optional[models.Us
 def get_tag(
     db: Session, tag_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Tag]:
-    """Get tag with optimized approach - no session variables needed."""
+    """Get tag."""
     return get_item(db, models.Tag, tag_id, organization_id, user_id)
 
 
@@ -1269,7 +1331,7 @@ def get_tags(
 def create_tag(
     db: Session, tag: schemas.TagCreate, organization_id: str, user_id: str
 ) -> models.Tag:
-    """Create tag with optimized approach - no session variables needed."""
+    """Create tag."""
     return create_item(db, models.Tag, tag, organization_id, user_id)
 
 
@@ -1280,14 +1342,14 @@ def update_tag(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Tag]:
-    """Update tag with optimized approach - no session variables needed."""
+    """Update tag."""
     return update_item(db, models.Tag, tag_id, tag, organization_id, user_id)
 
 
 def delete_tag(
     db: Session, tag_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.Tag]:
-    """Delete tag with optimized approach - no session variables needed."""
+    """Delete tag."""
     return delete_item(db, models.Tag, tag_id, organization_id, user_id)
 
 
@@ -1421,7 +1483,7 @@ def remove_tag(
 def get_token(
     db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Token]:
-    """Get token with optimized approach - no session variables needed."""
+    """Get token."""
     return get_item(db, models.Token, token_id, organization_id, user_id)
 
 
@@ -1522,7 +1584,7 @@ def count_user_tokens(
 def create_token(
     db: Session, token: schemas.TokenCreate, organization_id: str = None, user_id: str = None
 ) -> models.Token:
-    """Create token with optimized approach - no session variables needed."""
+    """Create token."""
     return create_item(db, models.Token, token, organization_id, user_id)
 
 
@@ -1533,14 +1595,14 @@ def update_token(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Token]:
-    """Update token with optimized approach - no session variables needed."""
+    """Update token."""
     return update_item(db, models.Token, token_id, token, organization_id, user_id)
 
 
 def revoke_token(
     db: Session, token_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Token]:
-    """Delete token with optimized approach - no session variables needed."""
+    """Delete token."""
     return delete_item(db, models.Token, token_id, organization_id, user_id)
 
 
@@ -1598,7 +1660,7 @@ def get_token_by_value(db: Session, token_value: str, organization_id: str = Non
 def get_organization(
     db: Session, organization_id: uuid.UUID, tenant_organization_id: str = None, user_id: str = None
 ) -> Optional[models.Organization]:
-    """Get organization with optimized approach - no session variables needed."""
+    """Get organization."""
     return get_item(db, models.Organization, organization_id, tenant_organization_id, user_id)
 
 
@@ -1672,8 +1734,8 @@ def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[mod
 def get_project(
     db: Session, project_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Project]:
-    """Get project with optimized approach - no session variables needed."""
-    return get_item(db, models.Project, project_id, organization_id, user_id)
+    """Get project with relationships eagerly loaded."""
+    return get_item_detail(db, models.Project, project_id, organization_id, user_id)
 
 
 def get_projects(
@@ -1702,7 +1764,7 @@ def get_projects(
 def create_project(
     db: Session, project: schemas.ProjectCreate, organization_id: str = None, user_id: str = None
 ) -> models.Project:
-    """Create project with optimized approach - no session variables needed."""
+    """Create project."""
     return create_item(db, models.Project, project, organization_id, user_id)
 
 
@@ -1719,16 +1781,14 @@ def update_project(
 def get_test(
     db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Test]:
-    """Get test with optimized approach - no session variables needed."""
+    """Get test."""
     return get_item(db, models.Test, test_id, organization_id, user_id)
 
 
 def get_test_detail(
     db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Test]:
-    """Get test with all relationships loaded using optimized approach.
-
-    No session variables needed."""
+    """Get test with all relationships loaded using optimized approach."""
     return get_item_detail(db, models.Test, test_id, organization_id, user_id)
 
 
@@ -1759,7 +1819,7 @@ def get_tests(
 def create_test(
     db: Session, test: schemas.TestCreate, organization_id: str = None, user_id: str = None
 ) -> models.Test:
-    """Create test with optimized approach - no session variables needed."""
+    """Create test."""
     return create_item(db, models.Test, test, organization_id, user_id)
 
 
@@ -1770,7 +1830,7 @@ def update_test(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Test]:
-    """Update test with optimized approach - no session variables needed."""
+    """Update test."""
     return update_item(db, models.Test, test_id, test, organization_id, user_id)
 
 
@@ -1819,7 +1879,7 @@ def delete_test(
 def get_test_context(
     db: Session, test_context_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestContext]:
-    """Get test_context with optimized approach - no session variables needed."""
+    """Get test_context."""
     return get_item(db, models.TestContext, test_context_id, organization_id, user_id)
 
 
@@ -1863,7 +1923,7 @@ def create_test_context(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.TestContext:
-    """Create test_context with optimized approach - no session variables needed."""
+    """Create test_context."""
     return create_item(db, models.TestContext, test_context, organization_id, user_id)
 
 
@@ -1874,7 +1934,7 @@ def update_test_context(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.TestContext]:
-    """Update test_context with optimized approach - no session variables needed."""
+    """Update test_context."""
     return update_item(
         db, models.TestContext, test_context_id, test_context, organization_id, user_id
     )
@@ -1889,11 +1949,47 @@ def delete_test_context(
 
 
 # Test Run CRUD
+
+# Nested relationship loading spec for TestRun detail responses.
+# Matches the schema defined by TestRunDetailSchema in routers/test_run.py.
+_TEST_RUN_NESTED_RELS = {
+    "test_configuration": {
+        "endpoint": ["project"],
+        "test_set": ["test_set_type"],
+    }
+}
+
+
+def _defer_endpoint_last_token(q):
+    """Defer Endpoint.last_token — a large encrypted OAuth token never returned in responses."""
+    return q.options(
+        joinedload(models.TestRun.test_configuration)
+        .joinedload(models.TestConfiguration.endpoint)
+        .defer(models.Endpoint.last_token)
+    )
+
+
 def get_test_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestRun]:
-    """Get test_run with optimized approach - no session variables needed."""
-    return get_item(db, models.TestRun, test_run_id, organization_id, user_id)
+    """Get test_run with relationships eagerly loaded (including nested chains)."""
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+
+    item = (
+        QueryBuilder(db, models.TestRun)
+        .with_deleted()
+        .with_optimized_loads(
+            skip_many_to_many=False,
+            skip_one_to_many=True,
+            nested_relationships=_TEST_RUN_NESTED_RELS,
+        )
+        .with_custom_filter(_defer_endpoint_last_token)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .filter_by_id(test_run_id)
+    )
+
+    return _check_and_raise_if_deleted(item, models.TestRun, test_run_id)
 
 
 def get_test_runs(
@@ -1906,16 +2002,20 @@ def get_test_runs(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
-    return get_items_detail(
-        db,
-        models.TestRun,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
+    return (
+        QueryBuilder(db, models.TestRun)
+        .with_optimized_loads(
+            skip_many_to_many=False,
+            skip_one_to_many=True,
+            nested_relationships=_TEST_RUN_NESTED_RELS,
+        )
+        .with_custom_filter(_defer_endpoint_last_token)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .with_odata_filter(filter)
+        .with_pagination(skip, limit)
+        .with_sorting(sort_by, sort_order)
+        .all()
     )
 
 
@@ -2051,7 +2151,7 @@ def update_test_run(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.TestRun]:
-    """Update test_run with optimized approach - no session variables needed."""
+    """Update test_run."""
     return update_item(db, models.TestRun, test_run_id, test_run, organization_id, user_id)
 
 
@@ -2089,9 +2189,7 @@ def delete_test_run(
 def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
-    """Get test_result with relationships (tags, tasks, comments) using optimized approach.
-
-    No session variables needed."""
+    """Get test_result with relationships (tags, tasks, comments) using optimized approach."""
     return get_item_detail(db, models.TestResult, test_result_id, organization_id, user_id)
 
 
@@ -2105,9 +2203,7 @@ def get_test_results(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestResult]:
-    """Get test_results with relationships (tags, tasks, comments) using optimized approach.
-
-    No session variables needed."""
+    """Get test_results with relationships (tags, tasks, comments) using optimized approach."""
     return get_items_detail(
         db,
         models.TestResult,
@@ -2127,7 +2223,7 @@ def create_test_result(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.TestResult:
-    """Create test_result with optimized approach - no session variables needed."""
+    """Create test_result."""
     return create_item(db, models.TestResult, test_result, organization_id, user_id)
 
 
@@ -2138,7 +2234,7 @@ def update_test_result(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.TestResult]:
-    """Update test_result with optimized approach - no session variables needed."""
+    """Update test_result."""
     return update_item(db, models.TestResult, test_result_id, test_result, organization_id, user_id)
 
 
@@ -2162,7 +2258,7 @@ def delete_project(
 def get_type_lookup(
     db: Session, type_lookup_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TypeLookup]:
-    """Get type_lookup with optimized approach - no session variables needed."""
+    """Get type_lookup."""
     return get_item(db, models.TypeLookup, type_lookup_id, organization_id, user_id)
 
 
@@ -2195,7 +2291,7 @@ def create_type_lookup(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.TypeLookup:
-    """Create type_lookup with optimized approach - no session variables needed."""
+    """Create type_lookup."""
     return create_item(db, models.TypeLookup, type_lookup, organization_id, user_id)
 
 
@@ -2206,14 +2302,14 @@ def update_type_lookup(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.TypeLookup]:
-    """Update type_lookup with optimized approach - no session variables needed."""
+    """Update type_lookup."""
     return update_item(db, models.TypeLookup, type_lookup_id, type_lookup, organization_id, user_id)
 
 
 def delete_type_lookup(
     db: Session, type_lookup_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.TypeLookup]:
-    """Delete type lookup with optimized approach - no session variables needed."""
+    """Delete type lookup."""
     return delete_item(db, models.TypeLookup, type_lookup_id, organization_id, user_id)
 
 
@@ -2369,7 +2465,7 @@ def _preprocess_metric_data(
 def create_metric(
     db: Session, metric: schemas.MetricCreate, organization_id: str = None, user_id: str = None
 ) -> models.Metric:
-    """Create a new metric with optimized approach - no session variables needed."""
+    """Create a new metric."""
 
     try:
         # Preprocess SDK data: convert string types to IDs
@@ -2393,7 +2489,7 @@ def update_metric(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Metric]:
-    """Update a metric with optimized approach - no session variables needed."""
+    """Update a metric."""
     metric_data = _preprocess_metric_data(db, metric, organization_id, user_id)
     return update_item(db, models.Metric, metric_id, metric_data, organization_id, user_id)
 
@@ -2770,7 +2866,7 @@ def get_models(
 def create_model(
     db: Session, model: schemas.ModelCreate, organization_id: str = None, user_id: str = None
 ) -> models.Model:
-    """Create a new model with optimized approach - no session variables needed."""
+    """Create a new model."""
     return create_item(db, models.Model, model, organization_id, user_id)
 
 
@@ -2781,7 +2877,7 @@ def update_model(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.Model]:
-    """Update a model with optimized approach - no session variables needed."""
+    """Update a model."""
     # First check if the model is protected
     existing_model = get_model(db, model_id, organization_id)
     if existing_model and getattr(existing_model, "is_protected", False):
@@ -2944,8 +3040,8 @@ def delete_tool(
 def get_comment(
     db: Session, comment_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Comment]:
-    """Get a specific comment by ID with optimized tenant context"""
-    return get_item(db, models.Comment, comment_id, organization_id, user_id)
+    """Get comment with relationships eagerly loaded."""
+    return get_item_detail(db, models.Comment, comment_id, organization_id, user_id)
 
 
 def get_comments(
@@ -3004,7 +3100,7 @@ def create_comment(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.Comment:
-    """Create comment with optimized approach - no session variables needed."""
+    """Create comment."""
     # If it's a dict, convert it to CommentCreate schema first
     if isinstance(comment, dict):
         comment = schemas.CommentCreate(**comment)
@@ -3157,8 +3253,8 @@ def remove_emoji_reaction(
 def get_task(
     db: Session, task_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Task]:
-    """Get task with optimized approach - no session variables needed."""
-    return get_item(db, models.Task, task_id, organization_id, user_id)
+    """Get task with relationships eagerly loaded."""
+    return get_item_detail(db, models.Task, task_id, organization_id, user_id)
 
 
 def get_tasks(
@@ -3337,36 +3433,28 @@ def create_trace_spans(
     Raises:
         Exception: If database operation fails
     """
+    from uuid import UUID as _UUID
+
+    def _safe_uuid(value: str | None, field_name: str) -> _UUID | None:
+        if not value:
+            return None
+        try:
+            return _UUID(value)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid UUID in test context {field_name}: {value}")
+            return None
+
     trace_models = []
 
     for span in spans:
-        # Calculate duration
         duration_ms = (span.end_time - span.start_time).total_seconds() * 1000
 
-        # Extract test execution context from span attributes
         test_run_id = span.attributes.get("rhesis.test.run_id")
         test_result_id = span.attributes.get("rhesis.test.result_id")
         test_id = span.attributes.get("rhesis.test.id")
 
-        # Convert to UUID if present, otherwise None
-        # Handle each UUID independently to preserve valid values
-        from uuid import UUID
-
-        def safe_uuid_convert(value: str | None, field_name: str) -> UUID | None:
-            """Convert string to UUID, handling errors independently."""
-            if not value:
-                return None
-            try:
-                return UUID(value)
-            except (ValueError, TypeError):
-                logger.warning(f"Invalid UUID in test context {field_name}: {value}")
-                return None
-
-        test_run_id_uuid = safe_uuid_convert(test_run_id, "test_run_id")
-        test_result_id_uuid = safe_uuid_convert(test_result_id, "test_result_id")
-        test_id_uuid = safe_uuid_convert(test_id, "test_id")
-
         trace_model = models.Trace(
+            id=uuid.uuid4(),
             trace_id=span.trace_id,
             span_id=span.span_id,
             parent_span_id=span.parent_span_id,
@@ -3385,25 +3473,46 @@ def create_trace_spans(
             events=[event.model_dump(mode="json") for event in span.events],
             links=[link.model_dump(mode="json") for link in span.links],
             resource=span.resource,
-            # Test execution context
-            test_run_id=test_run_id_uuid,
-            test_result_id=test_result_id_uuid,
-            test_id=test_id_uuid,
+            test_run_id=_safe_uuid(test_run_id, "test_run_id"),
+            test_result_id=_safe_uuid(test_result_id, "test_result_id"),
+            test_id=_safe_uuid(test_id, "test_id"),
         )
 
         db.add(trace_model)
         trace_models.append(trace_model)
 
-    # Bulk insert with single commit
+    prev_expire = db.expire_on_commit
     try:
+        db.expire_on_commit = False
         db.commit()
-        for trace_model in trace_models:
-            db.refresh(trace_model)
         return trace_models
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to create trace spans: {e}")
         raise
+    finally:
+        db.expire_on_commit = prev_expire
+
+
+def get_trace_by_db_id(
+    db: Session,
+    trace_db_id: str,
+    organization_id: str,
+) -> Optional[models.Trace]:
+    """Get a single trace span row by its database UUID."""
+    from uuid import UUID
+
+    return (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.id == UUID(trace_db_id),
+                models.Trace.organization_id == UUID(organization_id),
+                models.Trace.deleted_at.is_(None),
+            )
+        )
+        .first()
+    )
 
 
 def get_trace_by_id(
@@ -3538,6 +3647,7 @@ def query_traces(
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
+    trace_metrics_status: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> List[TraceRow]:
@@ -3714,6 +3824,16 @@ def query_traces(
         query = query.filter(models.Trace.conversation_id.isnot(None))
     elif trace_type == TraceType.SINGLE_TURN:
         query = query.filter(models.Trace.conversation_id.is_(None))
+
+    # Trace metrics evaluation status filter (Pass / Fail / Error)
+    # Uses an IN subquery instead of a scalar to handle orgs where the same
+    # status name exists for multiple entity types (e.g. multiple "Error" rows).
+    if trace_metrics_status:
+        matching_status_ids = select(models.Status.id).where(
+            models.Status.name == trace_metrics_status,
+            models.Status.organization_id == org_uuid,
+        )
+        query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
@@ -4046,3 +4166,172 @@ def delete_file(
 ) -> Optional[models.File]:
     """Soft-delete a file."""
     return delete_item(db, models.File, file_id, organization_id, user_id)
+
+
+# ---------------------------------------------------------------
+# Trace metrics CRUD helpers
+# ---------------------------------------------------------------
+
+
+def update_trace_turn_metrics(
+    db: Session,
+    span_id: str,
+    turn_metrics: dict,
+    status_id: Optional[str] = None,
+    processed_at: Optional[datetime] = None,
+) -> int:
+    """Update turn-level trace metrics on a single span row.
+
+    Merges turn_metrics into trace_metrics.turn_metrics without
+    overwriting conversation_metrics if already present.
+    """
+    span = db.query(models.Trace).filter(models.Trace.id == span_id).first()
+    if not span:
+        return 0
+
+    existing = span.trace_metrics or {}
+    existing["turn_metrics"] = turn_metrics
+    now = processed_at or datetime.utcnow()
+
+    update_values: Dict[str, Any] = {
+        "trace_metrics": existing,
+        "trace_metrics_processed_at": now,
+        "updated_at": datetime.utcnow(),
+    }
+    if status_id is not None:
+        update_values["trace_metrics_status_id"] = status_id
+
+    result = db.query(models.Trace).filter(models.Trace.id == span_id).update(update_values)
+    db.commit()
+    return result
+
+
+def update_trace_conversation_metrics(
+    db: Session,
+    trace_id: str,
+    conversation_metrics: dict,
+    status_id: Optional[str] = None,
+    processed_at: Optional[datetime] = None,
+) -> int:
+    """Update conversation-level trace metrics on all spans sharing a trace_id.
+
+    Writes conversation_metrics into trace_metrics.conversation_metrics on
+    every span row, re-derives status from combined turn + conversation results.
+    """
+    from sqlalchemy.orm.attributes import flag_modified
+
+    spans = db.query(models.Trace).filter(models.Trace.trace_id == trace_id).all()
+    if not spans:
+        return 0
+
+    now = processed_at or datetime.utcnow()
+    count = 0
+    for span in spans:
+        existing = span.trace_metrics or {}
+        # Important: copy the dict so SQLAlchemy detects the change, or use flag_modified
+        new_metrics = dict(existing)
+        new_metrics["conversation_metrics"] = conversation_metrics
+        span.trace_metrics = new_metrics
+
+        # Explicitly flag the JSON column as modified
+        flag_modified(span, "trace_metrics")
+
+        span.trace_metrics_processed_at = now
+        span.updated_at = datetime.utcnow()
+        if status_id is not None:
+            span.trace_metrics_status_id = status_id
+        count += 1
+
+    db.commit()
+    return count
+
+
+def get_trace_metrics_aggregated(
+    db: Session,
+    organization_id: str,
+    project_id: str,
+    environment: Optional[str] = None,
+    start_time_after: Optional[datetime] = None,
+    start_time_before: Optional[datetime] = None,
+) -> dict:
+    """Compute trace metrics using SQL-level aggregation.
+
+    Uses PostgreSQL aggregate functions (COUNT, SUM, AVG, percentile_cont)
+    to avoid loading large result sets into Python memory.
+    """
+    from sqlalchemy import case, literal_column
+    from sqlalchemy.sql import functions as sqlfunc
+
+    from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
+
+    from uuid import UUID
+
+    T = models.Trace
+
+    filters = [
+        T.organization_id == UUID(organization_id),
+        T.project_id == UUID(project_id),
+        T.deleted_at.is_(None),
+    ]
+    if environment:
+        filters.append(T.environment == environment)
+    if start_time_after:
+        filters.append(T.start_time >= start_time_after)
+    if start_time_before:
+        filters.append(T.start_time <= start_time_before)
+
+    base = db.query(T).filter(*filters).subquery()
+
+    # JSONB extraction expressions for tokens and costs
+    tokens_expr = base.c.attributes[AISpanAttributes.TOKENS_TOTAL].as_float()
+    cost_expr = base.c.enriched_data[EnrichedDataKeys.COSTS][
+        EnrichedDataKeys.TOTAL_COST_USD
+    ].as_float()
+
+    agg = db.query(
+        func.count(func.distinct(base.c.trace_id)).label("total_traces"),
+        func.count(base.c.id).label("total_spans"),
+        func.coalesce(func.sum(tokens_expr), 0).label("total_tokens"),
+        func.coalesce(func.sum(cost_expr), 0).label("total_cost_usd"),
+        func.count(case((base.c.status_code == "ERROR", 1))).label("error_count"),
+        func.coalesce(func.avg(base.c.duration_ms), 0).label("avg_duration_ms"),
+        func.coalesce(sqlfunc.percentile_cont(0.5).within_group(base.c.duration_ms), 0).label(
+            "p50_duration_ms"
+        ),
+        func.coalesce(sqlfunc.percentile_cont(0.95).within_group(base.c.duration_ms), 0).label(
+            "p95_duration_ms"
+        ),
+        func.coalesce(sqlfunc.percentile_cont(0.99).within_group(base.c.duration_ms), 0).label(
+            "p99_duration_ms"
+        ),
+    ).one()
+
+    total_spans = agg.total_spans or 0
+    error_count = agg.error_count or 0
+
+    # Operation breakdown as a separate grouped query
+    op_type_expr = func.coalesce(
+        base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string(),
+        literal_column("'unknown'"),
+    )
+    op_rows = (
+        db.query(
+            op_type_expr.label("op_type"),
+            func.count(base.c.id).label("cnt"),
+        )
+        .group_by(op_type_expr)
+        .all()
+    )
+
+    return {
+        "total_traces": agg.total_traces or 0,
+        "total_spans": total_spans,
+        "total_tokens": int(agg.total_tokens or 0),
+        "total_cost_usd": round(float(agg.total_cost_usd or 0), 6),
+        "error_rate": round(error_count / total_spans, 4) if total_spans else 0,
+        "avg_duration_ms": round(float(agg.avg_duration_ms or 0), 2),
+        "p50_duration_ms": round(float(agg.p50_duration_ms or 0), 2),
+        "p95_duration_ms": round(float(agg.p95_duration_ms or 0), 2),
+        "p99_duration_ms": round(float(agg.p99_duration_ms or 0), 2),
+        "operation_breakdown": {row.op_type: row.cnt for row in op_rows},
+    }

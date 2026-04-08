@@ -1,19 +1,16 @@
-"""Test result statistics functions with comprehensive filtering and mode-based data retrieval."""
+"""Test result statistics using the v_test_result_stats database view."""
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Dict, List
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from .common import (
-    build_pass_rate_stats,
-    build_response_data,
-    get_month_key,
-    parse_date_range,
-    safe_get_name,
-)
+from rhesis.backend.app.constants import OverallTestResult
+from rhesis.backend.app.models.stats_views import TestResultStatsView
 
-# Configuration for response modes
+from .common import build_pass_rate_stats, build_response_data, parse_date_range
+
 MODE_DEFINITIONS = {
     "all": [
         "metric_pass_rates",
@@ -34,178 +31,227 @@ MODE_DEFINITIONS = {
     "summary": ["overall_pass_rates"],
 }
 
+V = TestResultStatsView
 
-def _apply_filters(base_query, **filters):
-    """Apply all filters to the base query."""
-    from sqlalchemy import and_
 
-    from rhesis.backend.app import models
-    from rhesis.backend.app.models.tag import Tag, TaggedItem
+def _apply_filters(query, db, **f):
+    """Apply filters on the pre-joined view. Most are direct column filters;
+    test_set_ids and tags require lightweight subqueries."""
+    if f.get("organization_id"):
+        query = query.filter(V.organization_id == f["organization_id"])
 
-    # Organization filter
-    if filters.get("organization_id"):
-        base_query = base_query.filter(
-            models.TestResult.organization_id == filters["organization_id"]
-        )
+    combined_run_ids = []
+    if f.get("test_run_id"):
+        combined_run_ids.append(f["test_run_id"])
+    if f.get("test_run_ids"):
+        combined_run_ids.extend(f["test_run_ids"])
+    if combined_run_ids:
+        query = query.filter(V.test_run_id.in_(combined_run_ids))
 
-    # Handle test run filtering (backward compatibility + new multiple support)
-    combined_test_run_ids = []
-    if filters.get("test_run_id"):
-        combined_test_run_ids.append(filters["test_run_id"])
-    if filters.get("test_run_ids"):
-        combined_test_run_ids.extend(filters["test_run_ids"])
+    if f.get("start_date_obj"):
+        query = query.filter(V.created_at >= f["start_date_obj"])
+    if f.get("end_date_obj"):
+        query = query.filter(V.created_at <= f["end_date_obj"])
 
-    if combined_test_run_ids:
-        base_query = base_query.filter(models.TestResult.test_run_id.in_(combined_test_run_ids))
-
-    # Date range filters
-    if filters.get("start_date_obj"):
-        base_query = base_query.filter(models.TestResult.created_at >= filters["start_date_obj"])
-    if filters.get("end_date_obj"):
-        base_query = base_query.filter(models.TestResult.created_at <= filters["end_date_obj"])
-
-    # Test-level filters
-    if filters.get("test_set_ids"):
-        base_query = base_query.join(
-            models.test_test_set_association,
-            models.Test.id == models.test_test_set_association.c.test_id,
-        ).filter(models.test_test_set_association.c.test_set_id.in_(filters["test_set_ids"]))
-
-    # Simple list filters
-    list_filters = [
-        ("behavior_ids", models.Test.behavior_id),
-        ("category_ids", models.Test.category_id),
-        ("topic_ids", models.Test.topic_id),
-        ("status_ids", models.Test.status_id),
-        ("test_ids", models.Test.id),
-        ("test_type_ids", models.Test.test_type_id),
-        ("user_ids", models.Test.user_id),
-        ("assignee_ids", models.Test.assignee_id),
-        ("owner_ids", models.Test.owner_id),
-        ("prompt_ids", models.Test.prompt_id),
+    # Direct column filters on view (no joins needed)
+    direct_filters = [
+        ("behavior_ids", V.behavior_id),
+        ("category_ids", V.category_id),
+        ("topic_ids", V.topic_id),
+        ("status_ids", V.test_status_id),
+        ("test_ids", V.test_id),
+        ("test_type_ids", V.test_type_id),
+        ("user_ids", V.test_user_id),
+        ("assignee_ids", V.assignee_id),
+        ("owner_ids", V.owner_id),
+        ("prompt_ids", V.prompt_id),
     ]
+    for key, col in direct_filters:
+        if col is not None and f.get(key):
+            query = query.filter(col.in_(f[key]))
 
-    for filter_key, model_column in list_filters:
-        if filters.get(filter_key):
-            base_query = base_query.filter(model_column.in_(filters[filter_key]))
+    if f.get("priority_min") is not None:
+        query = query.filter(V.priority >= f["priority_min"])
+    if f.get("priority_max") is not None:
+        query = query.filter(V.priority <= f["priority_max"])
 
-    # Priority range filters
-    if filters.get("priority_min") is not None:
-        base_query = base_query.filter(models.Test.priority >= filters["priority_min"])
-    if filters.get("priority_max") is not None:
-        base_query = base_query.filter(models.Test.priority <= filters["priority_max"])
+    # test_set_ids: many-to-many via association table (subquery)
+    if f.get("test_set_ids"):
+        from rhesis.backend.app.models.test import test_test_set_association as assoc
 
-    # Tags filter
-    if filters.get("tags"):
-        base_query = (
-            base_query.join(
-                TaggedItem,
-                and_(TaggedItem.entity_id == models.Test.id, TaggedItem.entity_type == "Test"),
-            )
+        sub = (
+            db.query(assoc.c.test_id).filter(assoc.c.test_set_id.in_(f["test_set_ids"])).subquery()
+        )
+        query = query.filter(V.test_id.in_(db.query(sub.c.test_id)))
+
+    # tags: polymorphic via tagged_item + tag (subquery)
+    if f.get("tags"):
+        from rhesis.backend.app.models.tag import Tag, TaggedItem
+
+        sub = (
+            db.query(TaggedItem.entity_id)
             .join(Tag, TaggedItem.tag_id == Tag.id)
-            .filter(Tag.name.in_(filters["tags"]))
+            .filter(TaggedItem.entity_type == "Test", Tag.name.in_(f["tags"]))
+            .subquery()
         )
+        query = query.filter(V.test_id.in_(db.query(sub.c.entity_id)))
 
-    return base_query
-
-
-# Using shared build_pass_rate_stats from common module
+    return query
 
 
-def _update_dimensional_stats(
-    result,
-    test_passed_overall: bool,
-    dimensional_stats: Dict[str, Dict[str, int]],
-    dimension_name: str,
-    dimension_attr: str,
-):
-    """Update dimensional breakdown stats (behavior, category, topic)."""
-    if hasattr(result, "test") and result.test:
-        dimension_obj = getattr(result.test, dimension_attr, None)
-        if dimension_obj:
-            name = safe_get_name(dimension_obj) or f"Unknown {dimension_name.capitalize()}"
-            if name not in dimensional_stats:
-                dimensional_stats[name] = {"passed": 0, "failed": 0}
-            if test_passed_overall:
-                dimensional_stats[name]["passed"] += 1
-            else:
-                dimensional_stats[name]["failed"] += 1
+def _overall_stats(db, base_q):
+    r = base_q.with_entities(
+        func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
+        func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
+        func.count().filter(V.result == OverallTestResult.PENDING).label("pending"),
+    ).one()
+    passed = r.passed or 0
+    failed = r.failed or 0
+    pending = r.pending or 0
+    total = passed + failed  # Calculate pass_rate based only on completed runs
+    return {
+        "total": total,
+        "passed": passed,
+        "failed": failed,
+        "pending": pending,
+        "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0,
+    }
 
 
-def _build_timeline_data(monthly_stats: Dict[str, Dict]) -> List[Dict[str, Any]]:
-    """Build timeline data from monthly statistics."""
+def _timeline_stats(base_q):
+    rows = base_q.with_entities(
+        V.year,
+        V.month,
+        V.result,
+        V.test_metrics,
+    ).all()
+
+    monthly: dict = {}
+    for r in rows:
+        if not r.year or not r.month:
+            continue
+        key = f"{r.year:04d}-{r.month:02d}"
+        P, F = OverallTestResult.PASSED, OverallTestResult.FAILED
+        if key not in monthly:
+            monthly[key] = {P: 0, F: 0, "metrics": {}}
+        bucket = monthly[key]
+        if r.result == P:
+            bucket[P] += 1
+        elif r.result == F:
+            bucket[F] += 1
+
+        if r.test_metrics and isinstance(r.test_metrics, dict):
+            metrics = r.test_metrics.get("metrics")
+            if isinstance(metrics, dict):
+                for name, data in metrics.items():
+                    if not isinstance(data, dict) or "is_successful" not in data:
+                        continue
+                    if name not in bucket["metrics"]:
+                        bucket["metrics"][name] = {P: 0, F: 0}
+                    if data["is_successful"]:
+                        bucket["metrics"][name][P] += 1
+                    else:
+                        bucket["metrics"][name][F] += 1
+
     timeline = []
-    for month_key in sorted(monthly_stats.keys()):
-        month_data = monthly_stats[month_key]
-        overall_total = month_data["overall"]["passed"] + month_data["overall"]["failed"]
-        overall_pass_rate = (
-            round((month_data["overall"]["passed"] / overall_total) * 100, 2)
-            if overall_total > 0
-            else 0
-        )
-
-        # Build metric breakdown for this month using shared helper
-        metric_breakdown = build_pass_rate_stats(month_data["metrics"])
-
+    for key in sorted(monthly):
+        b = monthly[key]
+        passed, failed = b[OverallTestResult.PASSED], b[OverallTestResult.FAILED]
+        total = passed + failed
         timeline.append(
             {
-                "date": month_key,
+                "date": key,
                 "overall": {
-                    "total": overall_total,
-                    "passed": month_data["overall"]["passed"],
-                    "failed": month_data["overall"]["failed"],
-                    "pass_rate": overall_pass_rate,
+                    "total": total,
+                    "passed": passed,
+                    "failed": failed,
+                    "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0,
                 },
-                "metrics": metric_breakdown,
+                "metrics": build_pass_rate_stats(b["metrics"]),
             }
         )
     return timeline
 
 
-def _build_test_run_summary(test_run_stats: Dict[str, Dict]) -> List[Dict[str, Any]]:
-    """Build test run summary from test run statistics."""
-    test_run_summary = []
-    for run_data in test_run_stats.values():
-        # Calculate overall pass rate for this run
-        run_total = run_data["overall"]["passed"] + run_data["overall"]["failed"]
-        run_pass_rate = (
-            round((run_data["overall"]["passed"] / run_total) * 100, 2) if run_total > 0 else 0
+def _dimensional_stats(base_q, name_col):
+    """Pass rate grouped by a pre-joined name column (behavior_name, category_name, topic_name)."""
+    q = base_q.with_entities(
+        name_col.label("name"),
+        func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
+        func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
+    ).group_by(name_col)
+
+    stats = {}
+    for r in q.all():
+        label = r.name or "Unknown"
+        stats[label] = {"passed": r.passed or 0, "failed": r.failed or 0}
+    return build_pass_rate_stats(stats)
+
+
+def _test_run_summary(base_q):
+    q = (
+        base_q.with_entities(
+            V.run_id,
+            V.test_run_name,
+            V.test_run_created_at,
+            func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
+            func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
         )
-
-        # Calculate metric pass rates for this run using shared helper
-        run_metric_breakdown = build_pass_rate_stats(run_data["metrics"])
-
-        test_run_summary.append(
+        .group_by(V.run_id, V.test_run_name, V.test_run_created_at)
+        .order_by(V.test_run_created_at.desc())
+    )
+    summary = []
+    for r in q.all():
+        total = (r.passed or 0) + (r.failed or 0)
+        summary.append(
             {
-                "id": run_data["id"],
-                "name": run_data["name"],
-                "created_at": run_data["created_at"],
-                "total_tests": run_data["total_tests"],
+                "id": str(r.run_id),
+                "name": r.test_run_name or f"Test Run {str(r.run_id)[:8]}",
+                "created_at": r.test_run_created_at.isoformat() if r.test_run_created_at else None,
                 "overall": {
-                    "total": run_total,
-                    "passed": run_data["overall"]["passed"],
-                    "failed": run_data["overall"]["failed"],
-                    "pass_rate": run_pass_rate,
+                    "total": total,
+                    "passed": r.passed or 0,
+                    "failed": r.failed or 0,
+                    "pass_rate": round((r.passed / total) * 100, 2) if total > 0 else 0,
                 },
-                "metrics": run_metric_breakdown,
+                "metrics": {},
+                "total_tests": total,
             }
         )
-
-    # Sort test runs by creation date (newest first)
-    test_run_summary.sort(key=lambda x: x["created_at"] or "", reverse=True)
-    return test_run_summary
+    return summary
 
 
-# Using shared build_response_data from common module
+def _metric_stats(base_q):
+    """Aggregate per-metric pass rates from the JSONB test_metrics column.
+    Uses a lightweight Python loop over only the JSON column — the view has
+    already performed all joins so no ORM objects are loaded."""
+    results = base_q.with_entities(V.test_metrics).all()
+    P, F = OverallTestResult.PASSED, OverallTestResult.FAILED
+    metric_agg: dict = {}
+    for (metrics_json,) in results:
+        if not metrics_json or not isinstance(metrics_json, dict):
+            continue
+        metrics = metrics_json.get("metrics")
+        if not isinstance(metrics, dict):
+            continue
+        for name, data in metrics.items():
+            if not isinstance(data, dict) or "is_successful" not in data:
+                continue
+            if name not in metric_agg:
+                metric_agg[name] = {P: 0, F: 0}
+            if data["is_successful"]:
+                metric_agg[name][P] += 1
+            else:
+                metric_agg[name][F] += 1
+    return build_pass_rate_stats(metric_agg)
 
 
 def get_test_result_stats(
     db: Session,
     organization_id: str | None = None,
     months: int = 6,
-    test_run_id: str | None = None,  # Legacy single test run (backward compatibility)
+    test_run_id: str | None = None,
     mode: str = "all",
-    # Test-level filters
     test_set_ids: List[str] | None = None,
     behavior_ids: List[str] | None = None,
     category_ids: List[str] | None = None,
@@ -213,89 +259,21 @@ def get_test_result_stats(
     status_ids: List[str] | None = None,
     test_ids: List[str] | None = None,
     test_type_ids: List[str] | None = None,
-    # Test run filters (new)
-    test_run_ids: List[str] | None = None,  # Multiple test runs support
-    # User-related filters
+    test_run_ids: List[str] | None = None,
     user_ids: List[str] | None = None,
     assignee_ids: List[str] | None = None,
     owner_ids: List[str] | None = None,
-    # Other filters
     prompt_ids: List[str] | None = None,
     priority_min: int | None = None,
     priority_max: int | None = None,
     tags: List[str] | None = None,
-    # Date range filters
     start_date: str | None = None,
     end_date: str | None = None,
 ) -> Dict:
-    """
-    Get specialized statistics for test results with comprehensive filtering and configurable data modes.
-    Analyzes test_metrics to determine pass/fail status per metric and overall.
-    Designed for React charting libraries with performance optimization.
+    """Get test result statistics. Signature kept identical for backward compatibility."""
 
-    Args:
-        db: Database session
-        organization_id: Optional organization ID for filtering
-        months: Number of months to include in historical stats (used for timeline if no date range specified)
-        test_run_id: Optional specific test run ID to filter by
-        mode: Data mode to retrieve ('all', 'metrics', 'behavior', 'category', 'topic', 'overall', 'timeline', 'test_runs', 'summary')
-
-        # Test-level filters
-        test_set_ids: List of test set IDs to include
-        behavior_ids: List of behavior IDs to include
-        category_ids: List of category IDs to include
-        topic_ids: List of topic IDs to include
-        status_ids: List of test status IDs to include
-        test_ids: List of specific test IDs to include
-        test_type_ids: List of test type IDs to include
-
-        # User-related filters
-        user_ids: List of user IDs (test creators) to include
-        assignee_ids: List of assignee IDs to include
-        owner_ids: List of test owner IDs to include
-
-        # Other filters
-        prompt_ids: List of prompt IDs to include
-        priority_min: Minimum priority level (inclusive)
-        priority_max: Maximum priority level (inclusive)
-        tags: List of tags that tests must have
-
-        # Date range filters (ISO format strings)
-        start_date: Start date for filtering (overrides months parameter)
-        end_date: End date for filtering (overrides months parameter)
-
-    Returns:
-        Dict containing requested data sections based on mode:
-        - all: All data sections
-        - metrics: metric_pass_rates only
-        - behavior: behavior_pass_rates only
-        - category: category_pass_rates only
-        - topic: topic_pass_rates only
-        - overall: overall_pass_rates only
-        - timeline: timeline data only
-        - test_runs: test_run_summary only
-        - summary: overall_pass_rates + metadata (lightweight)
-    """
-    from rhesis.backend.app import models
-
-    # Handle date range - custom dates override months parameter
     start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
 
-    # Base query for test results with optimized eager loading
-    base_query = (
-        db.query(models.TestResult)
-        .options(
-            # Eager load essential relationships to prevent N+1 queries
-            joinedload(models.TestResult.test).joinedload(models.Test.behavior),
-            joinedload(models.TestResult.test).joinedload(models.Test.category),
-            joinedload(models.TestResult.test).joinedload(models.Test.topic),
-            joinedload(models.TestResult.test_run),
-            joinedload(models.TestResult.status),  # Load status for statistics
-        )
-        .join(models.Test, models.TestResult.test_id == models.Test.id)
-    )
-
-    # Apply all filters using the helper function
     filter_params = {
         "organization_id": organization_id,
         "test_run_id": test_run_id,
@@ -318,188 +296,48 @@ def get_test_result_stats(
         "tags": tags,
     }
 
-    base_query = _apply_filters(base_query, **filter_params)
+    base_q = _apply_filters(db.query(V), db, **filter_params)
 
-    # Add ordering for consistent results and better query optimization
-    base_query = base_query.order_by(models.TestResult.created_at.desc())
+    overall_pass_rates = {"total": 0, "passed": 0, "failed": 0, "pass_rate": 0}
+    metric_pass_rates: dict = {}
+    behavior_pass_rates: dict = {}
+    category_pass_rates: dict = {}
+    topic_pass_rates: dict = {}
+    timeline: list = []
+    test_run_summary: list = []
 
-    # Note: Removed LIMIT clause to ensure complete data accuracy
-    # Performance is optimized through eager loading and efficient queries instead
+    if mode in ("all", "overall", "summary"):
+        overall_pass_rates = _overall_stats(db, base_q)
+    if mode in ("all", "metrics"):
+        metric_pass_rates = _metric_stats(base_q)
+    if mode in ("all", "behavior"):
+        behavior_pass_rates = _dimensional_stats(base_q, V.behavior_name)
+    if mode in ("all", "category"):
+        category_pass_rates = _dimensional_stats(base_q, V.category_name)
+    if mode in ("all", "topic"):
+        topic_pass_rates = _dimensional_stats(base_q, V.topic_name)
+    if mode in ("all", "timeline"):
+        timeline = _timeline_stats(base_q)
+    if mode in ("all", "test_runs"):
+        test_run_summary = _test_run_summary(base_q)
 
-    # Get all test results with optimized eager loading
-    test_results = base_query.all()
-
-    if not test_results:
-        return _empty_test_result_stats(
-            start_date_obj, end_date_obj, months, organization_id, test_run_id, mode
-        )
-
-    # Parse metrics from all test results
-    metric_stats = {}  # metric_name -> {passed: count, failed: count}
-    overall_stats = {"passed": 0, "failed": 0}
-    monthly_stats = {}  # "YYYY-MM" -> {overall: {passed, failed}, metrics: {metric_name: {passed, failed}}}
-    test_run_stats = {}  # test_run_id -> stats
-
-    # Dimensional breakdowns
-    behavior_stats = {}  # behavior_name -> {passed: count, failed: count}
-    category_stats = {}  # category_name -> {passed: count, failed: count}
-    topic_stats = {}  # topic_name -> {passed: count, failed: count}
-
-    for result in test_results:
-        if not result.test_metrics or "metrics" not in result.test_metrics:
-            continue
-
-        metrics = result.test_metrics["metrics"]
-        if not isinstance(metrics, dict):
-            continue
-
-        # Use stored test status as source of truth for overall pass/fail
-        from rhesis.backend.app.constants import (
-            STATUS_CATEGORY_PASSED,
-            categorize_test_result_status,
-        )
-
-        status_name = result.status.name if result.status else None
-        status_category = categorize_test_result_status(status_name)
-        test_passed_overall = status_category == STATUS_CATEGORY_PASSED
-
-        # Still track individual metric results for per-metric statistics
-        test_metric_results = {}
-
-        for metric_name, metric_data in metrics.items():
-            if not isinstance(metric_data, dict) or "is_successful" not in metric_data:
-                continue
-
-            is_successful = metric_data["is_successful"]
-
-            # Initialize metric stats if not exists
-            if metric_name not in metric_stats:
-                metric_stats[metric_name] = {"passed": 0, "failed": 0}
-
-            # Update per-metric stats (still based on individual metric outcomes)
-            if is_successful:
-                metric_stats[metric_name]["passed"] += 1
-            else:
-                metric_stats[metric_name]["failed"] += 1
-
-            test_metric_results[metric_name] = is_successful
-
-        # Update overall stats using stored status
-        if test_passed_overall:
-            overall_stats["passed"] += 1
-        else:
-            overall_stats["failed"] += 1
-
-        # Update dimensional stats (behavior, category, topic)
-        _update_dimensional_stats(
-            result, test_passed_overall, behavior_stats, "behavior", "behavior"
-        )
-        _update_dimensional_stats(
-            result, test_passed_overall, category_stats, "category", "category"
-        )
-        _update_dimensional_stats(result, test_passed_overall, topic_stats, "topic", "topic")
-
-        # Update monthly stats
-        if result.created_at:
-            month_key = get_month_key(result.created_at)
-            if month_key not in monthly_stats:
-                monthly_stats[month_key] = {"overall": {"passed": 0, "failed": 0}, "metrics": {}}
-
-            # Update monthly overall stats
-            if test_passed_overall:
-                monthly_stats[month_key]["overall"]["passed"] += 1
-            else:
-                monthly_stats[month_key]["overall"]["failed"] += 1
-
-            # Update monthly metric stats
-            for metric_name, is_successful in test_metric_results.items():
-                if metric_name not in monthly_stats[month_key]["metrics"]:
-                    monthly_stats[month_key]["metrics"][metric_name] = {"passed": 0, "failed": 0}
-
-                if is_successful:
-                    monthly_stats[month_key]["metrics"][metric_name]["passed"] += 1
-                else:
-                    monthly_stats[month_key]["metrics"][metric_name]["failed"] += 1
-
-        # Update test run stats (using eager loaded test_run relationship)
-        if result.test_run_id:
-            run_key = str(result.test_run_id)
-            if run_key not in test_run_stats:
-                # Use eager loaded test_run relationship instead of separate query
-                test_run = result.test_run if hasattr(result, "test_run") else None
-                test_run_stats[run_key] = {
-                    "id": run_key,
-                    "name": test_run.name
-                    if test_run and test_run.name
-                    else f"Test Run {run_key[:8]}",
-                    "created_at": test_run.created_at.isoformat()
-                    if test_run and test_run.created_at
-                    else None,
-                    "overall": {"passed": 0, "failed": 0},
-                    "metrics": {},
-                    "total_tests": 0,
-                }
-
-            test_run_stats[run_key]["total_tests"] += 1
-
-            # Update test run overall stats
-            if test_passed_overall:
-                test_run_stats[run_key]["overall"]["passed"] += 1
-            else:
-                test_run_stats[run_key]["overall"]["failed"] += 1
-
-            # Update test run metric stats
-            for metric_name, is_successful in test_metric_results.items():
-                if metric_name not in test_run_stats[run_key]["metrics"]:
-                    test_run_stats[run_key]["metrics"][metric_name] = {"passed": 0, "failed": 0}
-
-                if is_successful:
-                    test_run_stats[run_key]["metrics"][metric_name]["passed"] += 1
-                else:
-                    test_run_stats[run_key]["metrics"][metric_name]["failed"] += 1
-
-    # Build pass rates using shared helper function
-    metric_pass_rates = build_pass_rate_stats(metric_stats)
-    behavior_pass_rates = build_pass_rate_stats(behavior_stats)
-    category_pass_rates = build_pass_rate_stats(category_stats)
-    topic_pass_rates = build_pass_rate_stats(topic_stats)
-
-    # Build overall pass rates
-    total_tests = overall_stats["passed"] + overall_stats["failed"]
-    overall_pass_rate = (
-        round((overall_stats["passed"] / total_tests) * 100, 2) if total_tests > 0 else 0
-    )
-    overall_pass_rates = {
-        "total": total_tests,
-        "passed": overall_stats["passed"],
-        "failed": overall_stats["failed"],
-        "pass_rate": overall_pass_rate,
-    }
-
-    # Build timeline data using helper function
-    timeline = _build_timeline_data(monthly_stats)
-
-    # Build test run summary using helper function
-    test_run_summary = _build_test_run_summary(test_run_stats)
-
-    # Build metadata (using original approach for compatibility)
+    total_tests = overall_pass_rates.get("total", 0)
     metadata = {
         "generated_at": datetime.utcnow().isoformat(),
         "organization_id": organization_id,
         "test_run_id": test_run_id,
         "period": f"Last {months} months",
-        "start_date": start_date_obj.isoformat(),
-        "end_date": end_date_obj.isoformat(),
-        "total_test_runs": len(test_run_stats),
+        "start_date": start_date_obj.isoformat() if start_date_obj else None,
+        "end_date": end_date_obj.isoformat() if end_date_obj else None,
+        "total_test_runs": len(test_run_summary) if test_run_summary else 0,
         "total_test_results": total_tests,
         "mode": mode,
-        "available_metrics": list(metric_stats.keys()),
-        "available_behaviors": list(behavior_stats.keys()),
-        "available_categories": list(category_stats.keys()),
-        "available_topics": list(topic_stats.keys()),
+        "available_metrics": list(metric_pass_rates.keys()) if metric_pass_rates else [],
+        "available_behaviors": list(behavior_pass_rates.keys()) if behavior_pass_rates else [],
+        "available_categories": list(category_pass_rates.keys()) if category_pass_rates else [],
+        "available_topics": list(topic_pass_rates.keys()) if topic_pass_rates else [],
     }
 
-    # Return data based on mode using shared helper function
     return build_response_data(
         mode,
         MODE_DEFINITIONS,
@@ -510,42 +348,5 @@ def get_test_result_stats(
         overall_pass_rates=overall_pass_rates,
         timeline=timeline,
         test_run_summary=test_run_summary,
-        metadata=metadata,
-    )
-
-
-def _empty_test_result_stats(
-    start_date, end_date, months, organization_id, test_run_id, mode="all"
-):
-    """Return empty stats structure when no test results found, respecting mode"""
-    metadata = {
-        "generated_at": datetime.utcnow().isoformat(),
-        "organization_id": organization_id,
-        "test_run_id": test_run_id,
-        "period": f"Last {months} months",
-        "start_date": start_date.isoformat(),
-        "end_date": end_date.isoformat(),
-        "total_test_runs": 0,
-        "total_test_results": 0,
-        "mode": mode,
-        "available_metrics": [],
-        "available_behaviors": [],
-        "available_categories": [],
-        "available_topics": [],
-    }
-
-    empty_overall = {"total": 0, "passed": 0, "failed": 0, "pass_rate": 0}
-
-    # Return data based on mode using the shared helper function
-    return build_response_data(
-        mode,
-        MODE_DEFINITIONS,
-        metric_pass_rates={},
-        behavior_pass_rates={},
-        category_pass_rates={},
-        topic_pass_rates={},
-        overall_pass_rates=empty_overall,
-        timeline=[],
-        test_run_summary=[],
         metadata=metadata,
     )

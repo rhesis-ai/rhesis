@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import {
   getTestRunStatusColor,
   getTestRunStatusIcon,
@@ -32,10 +33,6 @@ import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
 
-interface ProjectCache {
-  [key: string]: string;
-}
-
 interface TestRunsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
@@ -55,10 +52,11 @@ function TestRunsTable({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [_projectNames, setProjectNames] = useState<ProjectCache>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 50,
@@ -97,67 +95,6 @@ function TestRunsTable({
           setTotalCount(response.pagination.totalCount);
           onTotalCountChange?.(response.pagination.totalCount);
           setError(null);
-
-          // Fetch project names for new test runs in batch to avoid multiple state updates
-          const projectIds = response.data
-            .map(run => run.test_configuration?.endpoint?.project_id)
-            .filter((id): id is string => !!id);
-
-          const uniqueProjectIds = [...new Set(projectIds)];
-
-          if (uniqueProjectIds.length > 0) {
-            // Use functional update to check cache and fetch only uncached projects
-            // This avoids circular dependency on projectNames
-            setProjectNames(prev => {
-              const uncachedProjectIds = uniqueProjectIds.filter(
-                id => !prev[id]
-              );
-
-              if (uncachedProjectIds.length > 0) {
-                // Fetch all uncached project names in parallel
-                Promise.all(
-                  uncachedProjectIds.map(async projectId => {
-                    try {
-                      const clientFactory = new ApiClientFactory(sessionToken);
-                      const projectsClient = clientFactory.getProjectsClient();
-                      const project =
-                        await projectsClient.getProject(projectId);
-                      return { projectId, name: project.name };
-                    } catch (_err) {
-                      return null;
-                    }
-                  })
-                ).then(results => {
-                  if (isMounted.current) {
-                    const newProjects = results
-                      .filter(
-                        (
-                          result
-                        ): result is { projectId: string; name: string } =>
-                          result !== null
-                      )
-                      .reduce(
-                        (acc, { projectId, name }) => {
-                          acc[projectId] = name;
-                          return acc;
-                        },
-                        {} as Record<string, string>
-                      );
-
-                    if (Object.keys(newProjects).length > 0) {
-                      setProjectNames(current => ({
-                        ...current,
-                        ...newProjects,
-                      }));
-                    }
-                  }
-                });
-              }
-
-              // Return current state unchanged (actual update happens in Promise.then)
-              return prev;
-            });
-          }
         }
       } catch (_error) {
         if (isMounted.current) {
@@ -487,6 +424,60 @@ function TestRunsTable({
     setDeleteModalOpen(false);
   }, []);
 
+  // Must be declared before the callbacks that reference it
+  const cancellableSelectedRuns = useMemo(() => {
+    const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
+    return testRuns.filter(run => {
+      const status = run.status?.name?.toLowerCase();
+      return (
+        validSelectedRows.includes(run.id) &&
+        (status === 'queued' || status === 'progress')
+      );
+    });
+  }, [selectedRows, testRuns]);
+
+  const handleCancelSelected = useCallback(() => {
+    setCancelModalOpen(true);
+  }, []);
+
+  const handleCancelConfirm = useCallback(async () => {
+    const ids = cancellableSelectedRuns.map(run => run.id.toString());
+
+    if (ids.length === 0) {
+      setCancelModalOpen(false);
+      return;
+    }
+
+    try {
+      setIsCancelling(true);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const testRunsClient = clientFactory.getTestRunsClient();
+      await Promise.all(ids.map(id => testRunsClient.cancelTestRun(id)));
+      notifications.show(
+        `Successfully cancelled ${ids.length} test run${ids.length === 1 ? '' : 's'}`,
+        { severity: 'success' }
+      );
+      const skip = paginationModel.page * paginationModel.pageSize;
+      await fetchTestRuns(skip, paginationModel.pageSize);
+      setSelectedRows([]);
+    } catch (_error) {
+      notifications.show('Failed to cancel test runs', { severity: 'error' });
+    } finally {
+      setIsCancelling(false);
+      setCancelModalOpen(false);
+    }
+  }, [
+    cancellableSelectedRuns,
+    sessionToken,
+    notifications,
+    paginationModel,
+    fetchTestRuns,
+  ]);
+
+  const handleCancelClose = useCallback(() => {
+    setCancelModalOpen(false);
+  }, []);
+
   // Filter change handler
   const handleFilterModelChange = useCallback(
     (newFilterModel: GridFilterModel) => {
@@ -509,6 +500,16 @@ function TestRunsTable({
       onClick: handleCreateTestRun,
     });
 
+    if (cancellableSelectedRuns.length > 0) {
+      buttons.push({
+        label: `Cancel Test Run${cancellableSelectedRuns.length === 1 ? '' : 's'}`,
+        icon: <StopCircleOutlinedIcon />,
+        variant: 'outlined' as const,
+        color: 'warning' as const,
+        onClick: handleCancelSelected,
+      });
+    }
+
     if (validSelectedRows.length > 0) {
       buttons.push({
         label: 'Delete Test Runs',
@@ -520,7 +521,13 @@ function TestRunsTable({
     }
 
     return buttons;
-  }, [selectedRows, handleCreateTestRun, handleDeleteSelected]);
+  }, [
+    selectedRows,
+    cancellableSelectedRuns,
+    handleCreateTestRun,
+    handleCancelSelected,
+    handleDeleteSelected,
+  ]);
 
   return (
     <>
@@ -583,6 +590,18 @@ function TestRunsTable({
         title="Delete Test Runs"
         message={`Are you sure you want to delete ${Array.isArray(selectedRows) ? selectedRows.length : 0} test run${Array.isArray(selectedRows) && selectedRows.length === 1 ? '' : 's'}? Don't worry, related data will not be deleted, only ${Array.isArray(selectedRows) && selectedRows.length === 1 ? 'this record' : 'these records'}.`}
         itemType="test runs"
+      />
+
+      <DeleteModal
+        open={cancelModalOpen}
+        onClose={handleCancelClose}
+        onConfirm={handleCancelConfirm}
+        isLoading={isCancelling}
+        title={`Cancel Test Run${cancellableSelectedRuns.length === 1 ? '' : 's'}`}
+        message={`Are you sure you want to cancel ${cancellableSelectedRuns.length} test run${cancellableSelectedRuns.length === 1 ? '' : 's'}? ${cancellableSelectedRuns.length === 1 ? 'It' : 'They'} will be stopped and marked as Cancelled.`}
+        itemType="test run"
+        confirmButtonText={isCancelling ? 'Cancelling...' : 'Cancel Run'}
+        cancelButtonText="Keep Running"
       />
     </>
   );

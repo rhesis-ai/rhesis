@@ -117,6 +117,8 @@ def update_test_run_status(
             test_run.attributes["task_state"] = RunStatus.PROGRESS.value
         elif status_name == RunStatus.QUEUED.value:
             test_run.attributes["task_state"] = RunStatus.QUEUED.value
+        elif status_name == RunStatus.CANCELLED.value:
+            test_run.attributes["task_state"] = RunStatus.CANCELLED.value
 
         # Update the status attribute consistently
         test_run.attributes["status"] = status_name

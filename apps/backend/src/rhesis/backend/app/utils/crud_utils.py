@@ -77,12 +77,7 @@ def _clean_uuid_fields(model: Type[T], item_data: Dict[str, Any]) -> Dict[str, A
 def _auto_populate_tenant_fields(
     model: Type[T], item_data: Dict[str, Any], organization_id: str = None, user_id: str = None
 ) -> Dict[str, Any]:
-    """
-    Auto-populate organization_id and user_id using directly provided values.
-
-    OPTIMIZED VERSION: Completely bypasses database queries and session variables.
-    This eliminates ALL delays by directly using provided tenant context.
-    """
+    """Auto-populate organization_id and user_id from the provided tenant context."""
     columns = inspect(model).columns.keys()
     populated_data = item_data.copy()
 
@@ -133,11 +128,7 @@ def _prepare_item_data(
     organization_id: str = None,
     user_id: str = None,
 ) -> Dict[str, Any]:
-    """
-    Prepare item data for database operations using directly provided tenant context.
-
-    OPTIMIZED VERSION: Completely bypasses database queries and session variables.
-    """
+    """Prepare item data for database operations (convert, clean UUIDs, populate tenant fields)."""
     # Convert Pydantic to dict
     data = _convert_pydantic_to_dict(item_data)
 
@@ -267,13 +258,7 @@ def get_item(
     include_deleted: bool = False,
 ) -> Optional[T]:
     """
-    Get a single item by ID with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
+    Get a single item by ID without eager-loading relationships.
 
     Args:
         db: Database session
@@ -311,16 +296,9 @@ def get_item_detail(
     include_deleted: bool = False,
 ) -> Optional[T]:
     """
-    Get a single item with all relationships loaded using optimized approach.
+    Get a single item with all first-level relationships eagerly loaded.
 
-    No session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    - Uses selectinload for many-to-many relationships to avoid cartesian products
+    Uses selectinload for many-to-many and joinedload for other relationships.
 
     Args:
         db: Database session
@@ -340,7 +318,7 @@ def get_item_detail(
     item = (
         QueryBuilder(db, model)
         .with_deleted()  # Always include deleted to check status
-        .with_optimized_loads()
+        .with_optimized_loads(skip_one_to_many=True)
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .filter_by_id(item_id)
@@ -415,17 +393,7 @@ def get_items(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[T]:
-    """
-    Get multiple items with pagination, sorting, and filtering using optimized approach.
-
-    No session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get multiple items with pagination, sorting, and filtering (no relationship loading)."""
     return (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
@@ -452,16 +420,9 @@ def get_items_detail(
     secondary_sort_order: str = "asc",
 ) -> List[T]:
     """
-    Get multiple items with optimized relationship loading using optimized approach.
+    Get multiple items with relationships eagerly loaded, pagination, sorting, and filtering.
 
-    No session variables needed.
-    Uses selectinload for many-to-many relationships to avoid cartesian products.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
+    Uses selectinload for many-to-many and joinedload for other relationships.
 
     Args:
         nested_relationships: Dict specifying nested relationships to load.
@@ -497,17 +458,14 @@ def create_item(
     commit: bool = True,
 ) -> T:
     """
-    Create a new item with optimized approach - no session variables needed.
-
-    OPTIMIZED VERSION: Completely bypasses database queries and session variables.
-    This reduces creation time significantly by directly providing tenant context.
+    Create a new item.
 
     Args:
-        db: Database session (regular SessionLocal)
+        db: Database session
         model: SQLAlchemy model class
         item_data: Item data as dict or Pydantic model
-        organization_id: Organization ID to use directly (bypasses session variables)
-        user_id: User ID to use directly (bypasses session variables)
+        organization_id: Organization ID for tenant context
+        user_id: User ID for tenant context
         commit: Whether to commit the transaction (default: True)
 
     Returns:
@@ -542,13 +500,7 @@ def update_item(
     user_id: str = None,
 ) -> Optional[T]:
     """
-    Update an existing item with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
+    Update an existing item.
 
     Args:
         db: Database session
@@ -641,13 +593,6 @@ def delete_item(
 
     Automatically cascades to configured child relationships (see config/cascade_config.py).
     For example, deleting a TestRun will automatically soft delete all its TestResults.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    - Bulk UPDATE for cascade operations
 
     Args:
         db: Database session
@@ -805,17 +750,7 @@ def count_items(
     organization_id: str = None,
     user_id: str = None,
 ) -> int:
-    """
-    Get the total count of items matching filters (without pagination) using optimized approach.
-
-    No session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during counting
-    - Direct tenant context injection
-    """
+    """Get the total count of items matching filters (without pagination)."""
     return (
         QueryBuilder(db, model)
         .with_organization_filter(organization_id)
@@ -881,18 +816,10 @@ def get_or_create_entity(
     commit: bool = True,
 ) -> T:
     """
-    Get or create an entity based on identifying fields using optimized approach.
-
-    No session variables needed.
+    Get or create an entity based on identifying fields.
 
     Attempts to find an existing entity using unique identifying fields before creating a new one.
     Always includes organization_id in the lookup if the model supports it.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during lookup/creation
-    - Direct tenant context injection
 
     Args:
         db: Database session
@@ -950,9 +877,7 @@ def get_or_create_status(
     user_id: str = None,
     commit: bool = True,
 ) -> Status:
-    """Get or create a status with the specified name, entity type, and optional description.
-
-    Uses optimized approach - no session variables needed."""
+    """Get or create a status with the specified name, entity type, and optional description."""
     # Handle EntityType enum or string
     entity_type_value = entity_type.value if hasattr(entity_type, "value") else entity_type
 
@@ -1007,9 +932,7 @@ def get_or_create_type_lookup(
     commit: bool = True,
     description: str = None,
 ) -> TypeLookup:
-    """Get or create a type lookup with the specified type_name and type_value.
-
-    Uses optimized approach - no session variables needed."""
+    """Get or create a type lookup with the specified type_name and type_value."""
     logger.debug(
         f"get_or_create_type_lookup - Looking for type_name='{type_name}', "
         f"type_value='{type_value}'"
@@ -1069,9 +992,7 @@ def get_or_create_topic(
     user_id: str = None,
     commit: bool = True,
 ) -> Topic:
-    """Get or create a topic with optional entity type, description, and status.
-
-    Uses optimized approach - no session variables needed."""
+    """Get or create a topic with optional entity type, description, and status."""
     # Prepare topic data - only include non-None values
     topic_data = {"name": name}
 
@@ -1117,9 +1038,7 @@ def get_or_create_category(
     user_id: str = None,
     commit: bool = True,
 ) -> Category:
-    """Get or create a category with optional entity type, description, and status.
-
-    Uses optimized approach - no session variables needed."""
+    """Get or create a category with optional entity type, description, and status."""
     # Prepare category data - only include non-None values
     category_data = {"name": name}
 
@@ -1166,9 +1085,7 @@ def get_or_create_behavior(
     user_id: str = None,
     commit: bool = True,
 ) -> Behavior:
-    """Get or create a behavior with optional description and status.
-
-    Uses optimized approach - no session variables needed."""
+    """Get or create a behavior with optional description and status."""
     # Prepare behavior data - only include non-None values
     behavior_data = {"name": name}
 

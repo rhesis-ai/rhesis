@@ -145,6 +145,7 @@ interface BaseDataGridProps {
   // State persistence props
   persistState?: boolean;
   storageKey?: string;
+  hideFooter?: boolean;
 }
 
 // Create a styled version of DataGrid with bold headers
@@ -224,6 +225,7 @@ export default function BaseDataGrid({
   initialState,
   persistState = false,
   storageKey,
+  hideFooter = false,
 }: BaseDataGridProps) {
   const _theme = useTheme();
   const router = useRouter();
@@ -810,6 +812,7 @@ export default function BaseDataGrid({
           getRowId={getRowId}
           autoHeight
           pagination
+          hideFooter={hideFooter}
           paginationMode={serverSidePagination ? 'server' : 'client'}
           rowCount={serverSidePagination ? totalRows : undefined}
           paginationModel={paginationModel}
@@ -875,6 +878,7 @@ export default function BaseDataGrid({
             getRowId={getRowId}
             autoHeight
             pagination
+            hideFooter={hideFooter}
             paginationMode={serverSidePagination ? 'server' : 'client'}
             rowCount={serverSidePagination ? totalRows : undefined}
             paginationModel={paginationModel}

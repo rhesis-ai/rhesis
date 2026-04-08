@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSON
 from sqlalchemy.orm import relationship
 
@@ -62,6 +62,9 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin):
 
     # Test Configuration relationship
     test_configurations = relationship("TestConfiguration", back_populates="endpoint")
+
+    # Tracing control
+    disable_tracing = Column(Boolean, nullable=False, server_default="false", default=False)
 
     # Authentication fields
     auth_type = Column(String, nullable=True)

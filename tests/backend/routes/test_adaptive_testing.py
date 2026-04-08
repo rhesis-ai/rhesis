@@ -8,6 +8,8 @@ Tests the HTTP endpoints:
 - GET /adaptive_testing/{test_set_id}/topics
 - POST /adaptive_testing/{test_set_id}/generate_outputs
 - POST /adaptive_testing/{test_set_id}/evaluate
+- POST /adaptive_testing/import/{source_test_set_id}
+- POST /adaptive_testing/export/{source_test_set_id}
 """
 
 import uuid
@@ -183,6 +185,72 @@ def adaptive_test_set(test_db: Session, test_org_id, authenticated_user_id):
         test_db.execute(
             test_test_set_association.insert().values(
                 test_id=test.id,
+                test_set_id=test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+
+    test_db.commit()
+    test_db.refresh(test_set)
+    return test_set
+
+
+@pytest.fixture
+def regular_source_test_set_for_import(
+    test_db: Session, test_org_id, authenticated_user_id
+):
+    """Regular test set (not adaptive) with importable and skipped tests."""
+    test_set = models.TestSet(
+        name=f"Import Source {uuid.uuid4().hex[:8]}",
+        description="Source for import route tests",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        attributes={"metadata": {"behaviors": ["Safety"]}},
+    )
+    test_db.add(test_set)
+    test_db.flush()
+
+    created = [
+        _create_test_with_metadata(
+            test_db,
+            "Alpha/Beta",
+            "First prompt",
+            {
+                "label": "pass",
+                "output": "out1",
+                "labeler": "human",
+                "model_score": 1.0,
+            },
+            test_org_id,
+            authenticated_user_id,
+        ),
+        _create_test_with_metadata(
+            test_db,
+            "Alpha/Beta",
+            "Second prompt",
+            {
+                "label": "fail",
+                "output": "out2",
+                "labeler": "model",
+                "model_score": 0.1,
+            },
+            test_org_id,
+            authenticated_user_id,
+        ),
+        _create_test_with_metadata(
+            test_db,
+            "Alpha/Beta",
+            None,
+            {"label": "", "output": ""},
+            test_org_id,
+            authenticated_user_id,
+        ),
+    ]
+    for t in created:
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=t.id,
                 test_set_id=test_set.id,
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -443,6 +511,224 @@ class TestCreateAdaptiveTestSetEndpoint:
             json={"description": "No name"},
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestImportAdaptiveTestSetEndpoint:
+    """Test POST /adaptive_testing/import/{source_test_set_id}"""
+
+    def test_import_creates_adaptive_set_and_counts(
+        self,
+        authenticated_client: TestClient,
+        regular_source_test_set_for_import,
+    ):
+        src = regular_source_test_set_for_import
+        response = authenticated_client.post(f"/adaptive_testing/import/{src.id}")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert "test_set" in data
+        assert data["imported"] == 2
+        assert data["skipped"] == 1
+        assert len(data["skipped_test_ids"]) == 1
+
+        new_id = data["test_set"]["id"]
+        assert new_id != str(src.id)
+        assert "(Adaptive)" in data["test_set"]["name"]
+
+        tests_resp = authenticated_client.get(f"/adaptive_testing/{new_id}/tests")
+        assert tests_resp.status_code == status.HTTP_200_OK
+        assert len(tests_resp.json()) == 2
+
+        topics_resp = authenticated_client.get(f"/adaptive_testing/{new_id}/topics")
+        assert topics_resp.status_code == status.HTTP_200_OK
+        paths = {t["path"] for t in topics_resp.json()}
+        assert "Alpha" in paths
+        assert "Alpha/Beta" in paths
+
+    def test_import_adaptive_source_returns_400(
+        self,
+        authenticated_client: TestClient,
+    ):
+        create_resp = authenticated_client.post(
+            "/adaptive_testing",
+            json={"name": "Already Adaptive", "description": None},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        adaptive_id = create_resp.json()["id"]
+
+        response = authenticated_client.post(f"/adaptive_testing/import/{adaptive_id}")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_import_unknown_source_returns_404(
+        self,
+        authenticated_client: TestClient,
+    ):
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.post(f"/adaptive_testing/import/{fake_id}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestExportRegularTestSetFromAdaptiveEndpoint:
+    """Test POST /adaptive_testing/export/{source_test_set_id}"""
+
+    def test_export_creates_regular_set_and_counts(
+        self,
+        authenticated_client: TestClient,
+    ):
+        create_resp = authenticated_client.post(
+            "/adaptive_testing",
+            json={"name": f"Export Src {uuid.uuid4().hex[:8]}", "description": None},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        adaptive_id = create_resp.json()["id"]
+
+        for body in (
+            {
+                "topic": "Alpha/Beta",
+                "input": "First prompt",
+                "output": "out1",
+                "labeler": "human",
+                "label": "pass",
+                "model_score": 1.0,
+            },
+            {
+                "topic": "Alpha/Beta",
+                "input": "Second prompt",
+                "output": "out2",
+                "labeler": "model",
+                "label": "fail",
+                "model_score": 0.1,
+            },
+        ):
+            t_resp = authenticated_client.post(
+                f"/adaptive_testing/{adaptive_id}/tests",
+                json=body,
+            )
+            assert t_resp.status_code == status.HTTP_201_CREATED
+
+        response = authenticated_client.post(f"/adaptive_testing/export/{adaptive_id}")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert "test_set" in data
+        assert data["exported"] == 2
+        assert data["skipped"] == 2
+        assert len(data["skipped_test_ids"]) == 2
+
+        new_id = data["test_set"]["id"]
+        assert new_id != adaptive_id
+        assert "(Exported)" in data["test_set"]["name"]
+
+        attrs = data["test_set"].get("attributes") or {}
+        meta = attrs.get("metadata") or {}
+        assert "Adaptive Testing" not in (meta.get("behaviors") or [])
+        assert attrs.get("adaptive_settings") is None
+
+        tests_resp = authenticated_client.get(f"/test_sets/{new_id}/tests?limit=100")
+        assert tests_resp.status_code == status.HTTP_200_OK
+        tests = tests_resp.json()
+        assert isinstance(tests, list)
+        assert len(tests) == 2
+        for row in tests:
+            meta_t = row.get("test_metadata") or {}
+            assert meta_t.get("label") != "topic_marker"
+
+    def test_export_regular_source_returns_400(
+        self,
+        authenticated_client: TestClient,
+        regular_source_test_set_for_import,
+    ):
+        src = regular_source_test_set_for_import
+        response = authenticated_client.post(f"/adaptive_testing/export/{src.id}")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_export_unknown_source_returns_404(
+        self,
+        authenticated_client: TestClient,
+    ):
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.post(f"/adaptive_testing/export/{fake_id}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestDeleteAdaptiveTestSetEndpoint:
+    """Test DELETE /adaptive_testing/{test_set_identifier}"""
+
+    def test_delete_existing_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """DELETE returns 200 and TestSet schema."""
+        create_resp = authenticated_client.post(
+            "/adaptive_testing",
+            json={"name": "Delete Me Set", "description": "x"},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        created_id = create_resp.json()["id"]
+
+        response = authenticated_client.delete(f"/adaptive_testing/{created_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["id"] == created_id
+        assert data["name"] == "Delete Me Set"
+
+    def test_deleted_set_not_in_list(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """After DELETE, set is absent from GET /adaptive_testing."""
+        create_resp = authenticated_client.post(
+            "/adaptive_testing",
+            json={"name": "Gone From List", "description": None},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        created_id = create_resp.json()["id"]
+
+        del_resp = authenticated_client.delete(f"/adaptive_testing/{created_id}")
+        assert del_resp.status_code == status.HTTP_200_OK
+
+        list_resp = authenticated_client.get("/adaptive_testing")
+        assert list_resp.status_code == status.HTTP_200_OK
+        ids = {item["id"] for item in list_resp.json()}
+        assert created_id not in ids
+
+    def test_delete_nonexistent_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Unknown UUID returns 404."""
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.delete(f"/adaptive_testing/{fake_id}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_unauthenticated(
+        self,
+        client: TestClient,
+    ):
+        """Unauthenticated DELETE is rejected."""
+        fake_id = str(uuid.uuid4())
+        response = client.delete(f"/adaptive_testing/{fake_id}")
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
+
+    def test_delete_non_adaptive_test_set(
+        self,
+        authenticated_client: TestClient,
+        adaptive_and_regular_test_sets,
+    ):
+        """Regular test set cannot be deleted via adaptive endpoint."""
+        regular_id = str(adaptive_and_regular_test_sets["regular"].id)
+        response = authenticated_client.delete(f"/adaptive_testing/{regular_id}")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.integration
@@ -1658,12 +1944,26 @@ class TestEvaluateEndpoint:
                     "label": "pass",
                     "labeler": "MyMetric",
                     "model_score": 0.9,
+                    "metrics": {
+                        "MyMetric": {
+                            "score": 0.9,
+                            "is_successful": True,
+                            "reason": "ok",
+                            "details": {"note": "detail"},
+                        }
+                    },
                 },
                 {
                     "test_id": "tid-2",
                     "label": "fail",
                     "labeler": "MyMetric",
                     "model_score": 0.3,
+                    "metrics": {
+                        "MyMetric": {
+                            "score": 0.3,
+                            "is_successful": False,
+                        }
+                    },
                 },
             ],
             "failed": [],
@@ -1681,6 +1981,10 @@ class TestEvaluateEndpoint:
         assert data["results"][0]["label"] == "pass"
         assert data["results"][0]["labeler"] == "MyMetric"
         assert data["results"][0]["model_score"] == 0.9
+        assert data["results"][0]["metrics"]["MyMetric"]["score"] == 0.9
+        assert data["results"][0]["metrics"]["MyMetric"]["is_successful"] is True
+        assert data["results"][0]["metrics"]["MyMetric"]["details"]["note"] == "detail"
+        assert data["results"][1]["metrics"]["MyMetric"]["is_successful"] is False
         assert len(data["failed"]) == 0
 
         mock_evaluate.assert_called_once()
@@ -1818,15 +2122,17 @@ class TestEvaluateEndpoint:
             status.HTTP_403_FORBIDDEN,
         ]
 
-    def test_evaluate_missing_metric_names_validation(
+    def test_evaluate_no_metrics_when_unconfigured_returns_400(
         self,
         authenticated_client: TestClient,
         adaptive_test_set,
     ):
-        """POST without metric_names returns 422 validation error."""
+        """POST with no metric_names falls back to test set metrics; 400 if none."""
         response = authenticated_client.post(
             f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
             json={},
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        detail = response.json().get("detail", "").lower()
+        assert "metric" in detail

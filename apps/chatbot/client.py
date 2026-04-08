@@ -206,9 +206,23 @@ async def check_rate_limit_chatbot(
     This ensures rate limiting is based on authenticated user/org identifiers
     instead of just IP addresses.
 
+    The "echo" use case is exempt from rate limiting.
+
     Returns the auth dict for downstream dependencies.
     """
+    import json
+
     from limits import parse
+
+    # The "echo" use case has no usage limitation
+    try:
+        body_bytes = await request.body()
+        body = json.loads(body_bytes) if body_bytes else {}
+        if body.get("use_case") == "echo":
+            logger.debug("⚡ Rate limit skipped for echo use case")
+            return auth
+    except Exception:
+        pass
 
     # Get the rate limit identifier and tier from request state (set by verify_api_key)
     identifier = request.state.rate_limit_id
@@ -306,14 +320,14 @@ def get_available_use_cases() -> List[str]:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         use_cases_dir = os.path.join(current_dir, "use_cases")
 
-        use_cases = []
+        use_cases = ["echo"]  # Built-in use cases (no prompt file required)
         for filename in os.listdir(use_cases_dir):
             if filename.endswith(".md"):
                 use_case_name = filename[:-3]  # Remove .md extension
                 use_cases.append(use_case_name)
         return sorted(use_cases)
     except Exception:
-        return ["insurance"]  # Default fallback
+        return ["echo", "insurance"]  # Default fallback
 
 
 class FileInput(BaseModel):
@@ -328,6 +342,7 @@ class ChatRequest(BaseModel):
     use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
     mode: Optional[str] = "text"  # Output mode: "text" or "json"
     files: Optional[List[FileInput]] = None
+    rhesis: Optional[dict] = None
 
     @field_validator("files", mode="before")
     @classmethod
@@ -368,6 +383,11 @@ def extract_file_content(file_input: FileInput) -> dict:
         "mode": "{{ mode | default('text') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
         "file_contents": "{{ file_contents | default(none) }}",
+        "rhesis": {
+            "test_id": "{{ test_id | default(none) }}",
+            "test_configuration_id": "{{ test_configuration_id | default(none) }}",
+            "test_run_id": "{{ test_run_id | default(none) }}",
+        },
     },
     response_mapping={
         "output": "{{ message }}",
@@ -384,6 +404,7 @@ async def chat(
     mode: str = "text",
     conversation_history: Optional[List[dict]] = None,
     file_contents: Optional[List[dict]] = None,
+    rhesis: Optional[dict] = None,
 ) -> ChatResponse:
     """
     Process a chat message and return structured response.
@@ -400,6 +421,8 @@ async def chat(
             the history is looked up from the in-memory session store.
         file_contents: Extracted file contents as list of dicts with
             'filename' and 'content' keys.
+        rhesis: Optional dict with test execution context
+            (test_id, test_run_id, test_configuration_id).
 
     Returns:
         ChatResponse with message, session_id, context, and metadata
@@ -422,6 +445,32 @@ async def chat(
     # the string "None" rather than Python None when no files are present.
     if not isinstance(file_contents, list):
         file_contents = None
+
+    _RHESIS_ALLOWED_KEYS = {"test_id", "test_run_id", "test_configuration_id"}
+    if not isinstance(rhesis, dict):
+        rhesis = None
+    else:
+        rhesis = {
+            k: v
+            for k, v in rhesis.items()
+            if k in _RHESIS_ALLOWED_KEYS and v and v != "None"
+        }
+        if not rhesis:
+            rhesis = None
+
+    logger.info(f"Rhesis context received: {rhesis}")
+
+    # Echo use case: return input directly without any LLM call
+    if use_case == "echo":
+        sessions[session_id].messages.append({"role": "user", "content": message})
+        sessions[session_id].messages.append({"role": "assistant", "content": message})
+        return ChatResponse(
+            message=message,
+            session_id=session_id,
+            context=[],
+            metadata={"use_case": "echo", "mode": mode},
+            tool_calls=[],
+        )
 
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
@@ -486,7 +535,12 @@ async def chat(
         message=response_message,
         session_id=session_id,
         context=context_fragments,
-        metadata={"use_case": use_case, "mode": mode, "intent": intent_result},
+        metadata={
+            "use_case": use_case,
+            "mode": mode,
+            "intent": intent_result,
+            "rhesis": rhesis,
+        },
         tool_calls=tool_calls,
     )
 
@@ -532,8 +586,9 @@ async def chat_endpoint(
         )
 
         # Validate use case exists, default to insurance if not
+        # "echo" is a built-in use case that does not require a prompt file
         use_case = chat_request.use_case or "insurance"
-        available_use_cases = get_available_use_cases()
+        available_use_cases = get_available_use_cases() + ["echo"]
         if use_case not in available_use_cases:
             use_case = "insurance"
 
@@ -554,6 +609,7 @@ async def chat_endpoint(
             use_case=use_case,
             mode=chat_request.mode or "text",
             file_contents=file_contents,
+            rhesis=chat_request.rhesis,
         )
 
         logger.info(f"Response generated successfully - Length: {len(result.message)} chars")

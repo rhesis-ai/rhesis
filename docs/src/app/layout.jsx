@@ -4,6 +4,7 @@ import { getPageMap } from 'nextra/page-map'
 import ThemeAwareLogo from '../components/ThemeAwareLogo'
 import Footer from '../components/Footer'
 import GitHubStarBanner from '../components/GitHubStarBanner'
+import CollapsibleSidebar from '../components/CollapsibleSidebar'
 import { siteConfig } from '../lib/site-config'
 import { generateOrganizationSchema, generateWebsiteSchema } from '../lib/metadata'
 import 'nextra-theme-docs/style.css'
@@ -118,6 +119,8 @@ export default async function RootLayout({ children }) {
   const organizationSchema = generateOrganizationSchema()
   const websiteSchema = generateWebsiteSchema()
 
+  const pageMap = await getPageMap()
+
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <Head />
@@ -132,10 +135,11 @@ export default async function RootLayout({ children }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
         <GitHubStarBanner />
+        <CollapsibleSidebar />
         <Layout
           navbar={navbar}
           footer={footer}
-          pageMap={await getPageMap()}
+          pageMap={pageMap}
           sidebar={{
             defaultMenuCollapseLevel: 1,
             autoCollapse: true,

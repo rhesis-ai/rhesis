@@ -1,6 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+} from 'react';
 import {
   Box,
   Typography,
@@ -9,40 +15,117 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Autocomplete,
-  TextField,
   CircularProgress,
   Alert,
   Chip,
   Tooltip,
   IconButton,
+  TextField,
+  Collapse,
 } from '@mui/material';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
-import GradingIcon from '@mui/icons-material/GradingOutlined';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
+import { useTheme } from '@mui/material/styles';
 import {
+  type AdaptiveMetricEvalDetail,
   SuggestedTest,
   TestNodeCreate,
-  Topic,
 } from '@/utils/api-client/interfaces/adaptive-testing';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
-import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 
 interface SuggestionRow extends SuggestedTest {
   _id: string;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  output_error?: string | null;
+  output_pending?: boolean;
+  eval_error?: string | null;
+  eval_pending?: boolean;
 }
 
-function getScoreColor(
-  score: number | null
-): 'success' | 'warning' | 'error' | 'default' {
-  if (score === null) return 'default';
-  if (score >= 0.7) return 'error';
-  if (score >= 0.3) return 'warning';
-  return 'success';
+type PipelineStep = 'suggestions' | 'outputs' | 'evaluate' | null;
+
+type PhaseStatus = 'idle' | 'running' | 'done';
+
+function clamp01(value: number): number {
+  if (Number.isNaN(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
+function SegmentedProgressBar({
+  segments,
+}: {
+  segments: Array<{
+    label: string;
+    fraction: number;
+    active?: boolean;
+  }>;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Box sx={{ width: '100%', pt: '2px' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          height: 8,
+          width: '100%',
+        }}
+        aria-label="Adaptive testing generation progress"
+      >
+        {segments.map(seg => (
+          <Box
+            key={seg.label}
+            sx={{
+              position: 'relative',
+              flex: 1,
+              height: '100%',
+              borderRadius: theme.spacing(1),
+              overflow: 'hidden',
+              backgroundColor: theme.palette.action.disabledBackground,
+              // Inset ring so focus/active state is not clipped by DialogContent overflow
+              boxShadow: seg.active
+                ? `inset 0 0 0 1px ${theme.palette.primary.main}`
+                : 'none',
+            }}
+            aria-label={seg.label}
+          >
+            <Box
+              sx={{
+                height: '100%',
+                width: `${clamp01(seg.fraction) * 100}%`,
+                backgroundColor: theme.palette.primary.main,
+                transition: 'width 120ms linear',
+              }}
+            />
+          </Box>
+        ))}
+      </Box>
+      <Box
+        sx={{
+          mt: 0.5,
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
+        {segments.map(seg => (
+          <Typography
+            key={`${seg.label}-caption`}
+            variant="caption"
+            color={seg.active ? 'text.primary' : 'text.secondary'}
+            sx={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap' }}
+          >
+            {seg.label}
+          </Typography>
+        ))}
+      </Box>
+    </Box>
+  );
 }
 
 function getLabelColor(label: string): 'success' | 'error' | 'default' {
@@ -51,20 +134,35 @@ function getLabelColor(label: string): 'success' | 'error' | 'default' {
   return 'default';
 }
 
+function buildTestNodeCreateFromSuggestion(row: SuggestionRow): TestNodeCreate {
+  const data: TestNodeCreate = {
+    input: row.input,
+    output: row.output || undefined,
+    labeler: 'suggestion',
+  };
+  if (row.topic) {
+    data.topic = row.topic;
+  }
+  if (
+    (row.label === 'pass' || row.label === 'fail') &&
+    row.model_score != null
+  ) {
+    data.label = row.label;
+    data.model_score = row.model_score;
+  }
+  return data;
+}
+
 interface SuggestionsDialogProps {
   open: boolean;
   onClose: () => void;
   testSetId: string;
   sessionToken: string;
   topic: string | null;
-  topics: Topic[];
-  endpoints: Endpoint[];
-  endpointsLoading: boolean;
-  metrics: MetricDetail[];
-  metricsLoading: boolean;
-  defaultEndpoint: Endpoint | null;
-  defaultMetric: MetricDetail | null;
-  onTestAccepted: () => void;
+  /** Optional user guidance passed to generate_suggestions (LLM prompt). */
+  userFeedback?: string | null;
+  /** Refresh tree/topics after tests are persisted (await for batch flows). */
+  onTestAccepted: () => Promise<void>;
 }
 
 export default function SuggestionsDialog({
@@ -73,235 +171,307 @@ export default function SuggestionsDialog({
   testSetId,
   sessionToken,
   topic,
-  endpoints,
-  endpointsLoading,
-  metrics,
-  metricsLoading,
-  defaultEndpoint,
-  defaultMetric,
+  userFeedback = null,
   onTestAccepted,
 }: SuggestionsDialogProps) {
   const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [generated, setGenerated] = useState(false);
 
-  const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(
-    null
-  );
-  const [selectedMetric, setSelectedMetric] = useState<MetricDetail | null>(
-    null
-  );
   const [outputsLoading, setOutputsLoading] = useState(false);
   const [evaluateLoading, setEvaluateLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState<PipelineStep>(null);
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
+  const [acceptAllInProgress, setAcceptAllInProgress] = useState(false);
+  const hasStarted = useRef(false);
+  const [testGenStatus, setTestGenStatus] = useState<PhaseStatus>('idle');
+
+  const [outputsStatus, setOutputsStatus] = useState<PhaseStatus>('idle');
+  const [outputsCompleted, setOutputsCompleted] = useState(0);
+  const [outputsTotal, setOutputsTotal] = useState(0);
+  const seenOutputIndices = useRef<Set<number>>(new Set());
+
+  const [metricsStatus, setMetricsStatus] = useState<PhaseStatus>('idle');
+  const [metricsCompleted, setMetricsCompleted] = useState(0);
+  const [metricsTotal, setMetricsTotal] = useState(0);
+  const seenMetricIndices = useRef<Set<number>>(new Set());
+  /** Guide text used for generate + regenerate (editable without closing dialog). */
+  const [regenerationGuide, setRegenerationGuide] = useState('');
+  const [guideEditorOpen, setGuideEditorOpen] = useState(false);
 
   const notifications = useNotifications();
 
-  const handleOpen = useCallback(() => {
-    setSelectedEndpoint(defaultEndpoint);
-    setSelectedMetric(defaultMetric);
-    if (!generated) {
-      setSuggestions([]);
-      setError(null);
+  useLayoutEffect(() => {
+    if (open) {
+      setRegenerationGuide(userFeedback ?? '');
+      setGuideEditorOpen(false);
     }
-  }, [defaultEndpoint, defaultMetric, generated]);
+  }, [open, userFeedback]);
+
+  const pipelineProcessing = loading || outputsLoading || evaluateLoading;
+  const acceptInFlight = acceptAllInProgress || acceptingIds.size > 0;
+  const isBusy = pipelineProcessing || acceptInFlight;
 
   const handleClose = () => {
-    if (!loading && !outputsLoading && !evaluateLoading) {
+    if (!isBusy) {
       onClose();
     }
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
+    setSuggestions([]);
     setLoading(true);
     setError(null);
+    setCurrentStep('suggestions');
+    setTestGenStatus('running');
+    setOutputsStatus('idle');
+    setOutputsCompleted(0);
+    setOutputsTotal(0);
+    seenOutputIndices.current = new Set();
+    setMetricsStatus('idle');
+    setMetricsCompleted(0);
+    setMetricsTotal(0);
+    seenMetricIndices.current = new Set();
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const client = clientFactory.getAdaptiveTestingClient();
-      const result = await client.generateSuggestions(testSetId, {
+      const trimmedFeedback = regenerationGuide.trim();
+      const suggestionsResult = await client.generateSuggestions(testSetId, {
         topic: topic ?? undefined,
         num_examples: 10,
         num_suggestions: 20,
+        ...(trimmedFeedback ? { user_feedback: trimmedFeedback } : {}),
       });
-      const rows: SuggestionRow[] = result.suggestions.map((s, idx) => ({
-        ...s,
-        _id: `suggestion-${idx}-${Date.now()}`,
-      }));
+      const rows: SuggestionRow[] = suggestionsResult.suggestions.map(
+        (s, idx) => ({
+          ...s,
+          _id: `suggestion-${idx}-${Date.now()}`,
+        })
+      );
       setSuggestions(rows);
-      setGenerated(true);
       if (rows.length === 0) {
+        setTestGenStatus('idle');
         setError('No suggestions were generated. The test set may be empty.');
+        return;
+      }
+      setTestGenStatus('done');
+      setLoading(false);
+
+      const eligibleForOutputs = rows.filter(s => s.input.trim());
+      let rowsWithOutputs = rows;
+      setOutputsTotal(eligibleForOutputs.length);
+      setOutputsStatus(eligibleForOutputs.length > 0 ? 'running' : 'done');
+      if (eligibleForOutputs.length > 0) {
+        setCurrentStep('outputs');
+        setOutputsLoading(true);
+        try {
+          const eligibleIds = eligibleForOutputs.map(s => s._id);
+          const eligibleIdSet = new Set(eligibleIds);
+          rowsWithOutputs = rowsWithOutputs.map(s =>
+            eligibleIdSet.has(s._id) ? { ...s, output_pending: true } : s
+          );
+          setSuggestions(rowsWithOutputs);
+
+          let streamedGenerated = 0;
+          let streamedTotal = eligibleForOutputs.length;
+          let streamedFailed = 0;
+
+          await client.generateSuggestionOutputsStream(
+            testSetId,
+            {
+              suggestions: eligibleForOutputs.map(s => ({
+                input: s.input,
+                topic: s.topic,
+              })),
+            },
+            {
+              onEvent: event => {
+                if (event.type === 'item') {
+                  if (!seenOutputIndices.current.has(event.index)) {
+                    seenOutputIndices.current.add(event.index);
+                    setOutputsCompleted(prev => prev + 1);
+                  }
+                  const targetId = eligibleIds[event.index];
+                  if (!targetId) return;
+                  if (event.error) {
+                    streamedFailed += 1;
+                  }
+                  rowsWithOutputs = rowsWithOutputs.map(s => {
+                    if (s._id !== targetId) return s;
+                    return {
+                      ...s,
+                      output: event.output,
+                      output_error: event.error,
+                      output_pending: false,
+                    };
+                  });
+                  setSuggestions(rowsWithOutputs);
+                } else if (event.type === 'summary') {
+                  streamedGenerated = event.generated;
+                  streamedTotal = event.total;
+                }
+              },
+            }
+          );
+
+          if (streamedFailed > 0) {
+            notifications.show(
+              `Got ${streamedGenerated} outputs; ${streamedFailed} failed.`,
+              { severity: 'warning' }
+            );
+          } else if (streamedGenerated === 0 && streamedTotal > 0) {
+            notifications.show('No suggestion outputs were generated.', {
+              severity: 'warning',
+            });
+          }
+        } catch (err) {
+          notifications.show(
+            err instanceof Error
+              ? err.message
+              : 'Failed to get suggestion outputs.',
+            { severity: 'error' }
+          );
+        } finally {
+          setOutputsLoading(false);
+          setOutputsStatus('done');
+        }
+      }
+
+      const eligibleForEvaluation = rowsWithOutputs.filter(
+        s => s.input.trim() && s.output.trim() && s.output !== '[no output]'
+      );
+      setMetricsTotal(eligibleForEvaluation.length);
+      setMetricsStatus(eligibleForEvaluation.length > 0 ? 'running' : 'done');
+      if (eligibleForEvaluation.length > 0) {
+        setCurrentStep('evaluate');
+        setEvaluateLoading(true);
+        try {
+          const eligibleEvalIds = eligibleForEvaluation.map(s => s._id);
+          const eligibleEvalIdSet = new Set(eligibleEvalIds);
+
+          rowsWithOutputs = rowsWithOutputs.map(s =>
+            eligibleEvalIdSet.has(s._id) ? { ...s, eval_pending: true } : s
+          );
+          setSuggestions(rowsWithOutputs);
+
+          let streamedEvaluated = 0;
+          let streamedTotal = eligibleForEvaluation.length;
+          let streamedFailed = 0;
+
+          await client.evaluateSuggestionsStream(
+            testSetId,
+            {
+              suggestions: eligibleForEvaluation.map(s => ({
+                input: s.input,
+                output: s.output,
+              })),
+            },
+            {
+              onEvent: event => {
+                if (event.type === 'item') {
+                  if (!seenMetricIndices.current.has(event.index)) {
+                    seenMetricIndices.current.add(event.index);
+                    setMetricsCompleted(prev => prev + 1);
+                  }
+                  const targetId = eligibleEvalIds[event.index];
+                  if (!targetId) return;
+
+                  if (event.error) {
+                    streamedFailed += 1;
+                  }
+
+                  rowsWithOutputs = rowsWithOutputs.map(s => {
+                    if (s._id !== targetId) return s;
+                    return {
+                      ...s,
+                      label: event.label,
+                      labeler: event.labeler,
+                      model_score: event.model_score,
+                      metrics: event.metrics,
+                      eval_error: event.error,
+                      eval_pending: false,
+                    };
+                  });
+                  setSuggestions(rowsWithOutputs);
+                } else if (event.type === 'summary') {
+                  streamedEvaluated = event.evaluated;
+                  streamedTotal = event.total;
+                }
+              },
+            }
+          );
+
+          if (streamedFailed > 0) {
+            notifications.show(
+              `Evaluated ${streamedEvaluated} suggestions; ${streamedFailed} failed.`,
+              { severity: 'warning' }
+            );
+          } else if (streamedEvaluated === 0 && streamedTotal > 0) {
+            notifications.show('No suggestions were evaluated.', {
+              severity: 'warning',
+            });
+          }
+        } catch (err) {
+          notifications.show(
+            err instanceof Error
+              ? err.message
+              : 'Failed to evaluate suggestions.',
+            { severity: 'error' }
+          );
+        } finally {
+          setEvaluateLoading(false);
+          setMetricsStatus('done');
+        }
+      } else {
+        notifications.show('No suggestions with outputs to evaluate.', {
+          severity: 'warning',
+        });
       }
     } catch (err) {
+      setTestGenStatus('idle');
       setError(
         err instanceof Error ? err.message : 'Failed to generate suggestions.'
       );
     } finally {
+      setCurrentStep(null);
       setLoading(false);
-    }
-  };
-
-  const handleGenerateOutputs = async () => {
-    if (!selectedEndpoint?.id) {
-      notifications.show('Please select an endpoint first.', {
-        severity: 'warning',
-      });
-      return;
-    }
-    const eligible = suggestions.filter(s => s.input.trim());
-    if (eligible.length === 0) return;
-
-    setOutputsLoading(true);
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getAdaptiveTestingClient();
-      const result = await client.generateSuggestionOutputs(testSetId, {
-        endpoint_id: selectedEndpoint.id,
-        suggestions: eligible.map(s => ({
-          input: s.input,
-          topic: s.topic,
-        })),
-      });
-
-      const outputMap = new Map<string, string>();
-      for (const r of result.results) {
-        outputMap.set(r.input, r.output);
-      }
-
-      setSuggestions(prev =>
-        prev.map(s => {
-          const output = outputMap.get(s.input);
-          if (output !== undefined) {
-            return { ...s, output };
-          }
-          return s;
-        })
-      );
-
-      const failedCount = result.results.filter(r => r.error).length;
-      if (failedCount > 0) {
-        notifications.show(
-          `Generated ${result.generated} outputs; ${failedCount} failed.`,
-          { severity: 'warning' }
-        );
-      } else {
-        notifications.show(
-          `Generated ${result.generated} output(s) successfully.`,
-          { severity: 'success' }
-        );
-      }
-    } catch (err) {
-      notifications.show(
-        err instanceof Error
-          ? err.message
-          : 'Failed to generate suggestion outputs.',
-        { severity: 'error' }
-      );
-    } finally {
       setOutputsLoading(false);
-    }
-  };
-
-  const handleEvaluate = async () => {
-    if (!selectedMetric?.name) {
-      notifications.show('Please select a metric first.', {
-        severity: 'warning',
-      });
-      return;
-    }
-    const eligible = suggestions.filter(
-      s => s.input.trim() && s.output.trim() && s.output !== '[no output]'
-    );
-    if (eligible.length === 0) {
-      notifications.show(
-        'No suggestions with outputs to evaluate. Run "Generate Outputs" first.',
-        { severity: 'warning' }
-      );
-      return;
-    }
-
-    setEvaluateLoading(true);
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getAdaptiveTestingClient();
-      const result = await client.evaluateSuggestions(testSetId, {
-        metric_names: [selectedMetric.name],
-        suggestions: eligible.map(s => ({
-          input: s.input,
-          output: s.output,
-        })),
-      });
-
-      const evalMap = new Map<
-        string,
-        { label: string; labeler: string; model_score: number }
-      >();
-      for (const r of result.results) {
-        if (!r.error) {
-          evalMap.set(r.input, {
-            label: r.label,
-            labeler: r.labeler,
-            model_score: r.model_score,
-          });
-        }
-      }
-
-      setSuggestions(prev =>
-        prev.map(s => {
-          const evalResult = evalMap.get(s.input);
-          if (evalResult) {
-            return { ...s, ...evalResult };
-          }
-          return s;
-        })
-      );
-
-      const failedCount = result.results.filter(r => r.error).length;
-      if (failedCount > 0) {
-        notifications.show(
-          `Evaluated ${result.evaluated} suggestions; ${failedCount} failed.`,
-          { severity: 'warning' }
-        );
-      } else {
-        notifications.show(
-          `Evaluated ${result.evaluated} suggestion(s) successfully.`,
-          { severity: 'success' }
-        );
-      }
-    } catch (err) {
-      notifications.show(
-        err instanceof Error ? err.message : 'Failed to evaluate suggestions.',
-        { severity: 'error' }
-      );
-    } finally {
       setEvaluateLoading(false);
     }
-  };
+    // notifications.show is stable; omit to avoid unnecessary effect churn
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionToken, testSetId, topic, regenerationGuide]);
+
+  useEffect(() => {
+    if (open && !hasStarted.current) {
+      hasStarted.current = true;
+      handleGenerate();
+    }
+    if (!open) {
+      hasStarted.current = false;
+      setTestGenStatus('idle');
+      setOutputsStatus('idle');
+      setOutputsCompleted(0);
+      setOutputsTotal(0);
+      seenOutputIndices.current = new Set();
+      setMetricsStatus('idle');
+      setMetricsCompleted(0);
+      setMetricsTotal(0);
+      seenMetricIndices.current = new Set();
+    }
+  }, [open, handleGenerate]);
 
   const handleAccept = async (row: SuggestionRow) => {
     setAcceptingIds(prev => new Set(prev).add(row._id));
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const client = clientFactory.getAdaptiveTestingClient();
-      const data: TestNodeCreate = {
-        input: row.input,
-        output: row.output || undefined,
-        labeler: 'suggestion',
-      };
-      if (row.topic) {
-        data.topic = row.topic;
-      }
-      if (
-        (row.label === 'pass' || row.label === 'fail') &&
-        row.model_score != null
-      ) {
-        data.label = row.label;
-        data.model_score = row.model_score;
-      }
-      await client.createTest(testSetId, data);
+      await client.createTest(
+        testSetId,
+        buildTestNodeCreateFromSuggestion(row)
+      );
       setSuggestions(prev => prev.filter(s => s._id !== row._id));
-      onTestAccepted();
+      await onTestAccepted();
       notifications.show('Test added successfully.', { severity: 'success' });
     } catch (err) {
       notifications.show(
@@ -318,10 +488,73 @@ export default function SuggestionsDialog({
   };
 
   const handleAcceptAll = async () => {
-    if (suggestions.length === 0) return;
+    if (suggestions.length === 0 || acceptAllInProgress) return;
     const toAccept = [...suggestions];
-    for (const row of toAccept) {
-      await handleAccept(row);
+    setAcceptAllInProgress(true);
+    setAcceptingIds(prev => {
+      const next = new Set(prev);
+      toAccept.forEach(r => next.add(r._id));
+      return next;
+    });
+    let shouldCloseAfterAcceptAll = false;
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const client = clientFactory.getAdaptiveTestingClient();
+      const results = await Promise.allSettled(
+        toAccept.map(row =>
+          client.createTest(testSetId, buildTestNodeCreateFromSuggestion(row))
+        )
+      );
+      const succeededIds = new Set<string>();
+      let failCount = 0;
+      let firstRejection: unknown;
+      results.forEach((result, index) => {
+        const row = toAccept[index];
+        if (result.status === 'fulfilled') {
+          succeededIds.add(row._id);
+        } else {
+          failCount += 1;
+          if (firstRejection === undefined) {
+            firstRejection = result.reason;
+          }
+        }
+      });
+      setSuggestions(prev => prev.filter(s => !succeededIds.has(s._id)));
+      setAcceptingIds(prev => {
+        const next = new Set(prev);
+        toAccept.forEach(r => next.delete(r._id));
+        return next;
+      });
+      const successCount = succeededIds.size;
+      if (successCount > 0) {
+        await onTestAccepted();
+      }
+      if (failCount === 0) {
+        notifications.show(
+          successCount === 1
+            ? 'Test added successfully.'
+            : `Added ${successCount} tests successfully.`,
+          { severity: 'success' }
+        );
+        shouldCloseAfterAcceptAll = successCount > 0;
+      } else if (successCount > 0) {
+        notifications.show(
+          `Added ${successCount} test(s). ${failCount} failed.`,
+          { severity: 'warning' }
+        );
+      } else {
+        const message =
+          firstRejection instanceof Error
+            ? firstRejection.message
+            : 'Failed to accept tests.';
+        notifications.show(message, { severity: 'error' });
+      }
+    } finally {
+      setAcceptAllInProgress(false);
+      // Only auto-close when all accepts succeeded, so failures remain retryable.
+      if (shouldCloseAfterAcceptAll) {
+        onClose();
+      }
     }
   };
 
@@ -373,35 +606,21 @@ export default function SuggestionsDialog({
       align: 'center',
       headerAlign: 'center',
       renderCell: (params: GridRenderCellParams) => {
-        const label = params.row.label;
+        const row = params.row as SuggestionRow;
+        const label = row.label;
         const score = params.value;
         if (!label) {
           return <Chip label="N/A" size="small" variant="outlined" />;
         }
         return (
-          <Chip
-            label={score != null ? score.toFixed(2) : 'N/A'}
-            size="small"
-            color={score != null ? getScoreColor(score) : 'default'}
-            variant={score != null ? 'filled' : 'outlined'}
-          />
-        );
-      },
-    },
-    {
-      field: 'label',
-      headerName: 'Label',
-      width: 100,
-      renderCell: (params: GridRenderCellParams) => {
-        const label = params.value;
-        if (!label) return <Chip label="N/A" size="small" variant="outlined" />;
-        return (
-          <Chip
-            label={label}
-            size="small"
-            color={getLabelColor(label)}
-            variant="outlined"
-          />
+          <ScoreMetricsTooltip metrics={row.metrics}>
+            <Chip
+              label={score != null ? score.toFixed(2) : 'N/A'}
+              size="small"
+              color={getLabelColor(label)}
+              variant={score != null ? 'filled' : 'outlined'}
+            />
+          </ScoreMetricsTooltip>
         );
       },
     },
@@ -436,16 +655,46 @@ export default function SuggestionsDialog({
     },
   ];
 
-  const isProcessing = loading || outputsLoading || evaluateLoading;
+  const progressSegments = [
+    {
+      label: 'Test generation',
+      active: currentStep === 'suggestions',
+      fraction: testGenStatus === 'done' ? 1 : 0,
+    },
+    {
+      label:
+        outputsStatus !== 'idle' && outputsTotal > 0
+          ? `Output generation (${outputsCompleted}/${outputsTotal})`
+          : 'Output generation',
+      active: currentStep === 'outputs',
+      fraction:
+        outputsStatus === 'idle'
+          ? 0
+          : outputsStatus === 'done'
+            ? 1
+            : outputsTotal > 0
+              ? outputsCompleted / outputsTotal
+              : 1,
+    },
+    {
+      label:
+        metricsStatus !== 'idle' && metricsTotal > 0
+          ? `Metric generation (${metricsCompleted}/${metricsTotal})`
+          : 'Metric generation',
+      active: currentStep === 'evaluate',
+      fraction:
+        metricsStatus === 'idle'
+          ? 0
+          : metricsStatus === 'done'
+            ? 1
+            : metricsTotal > 0
+              ? metricsCompleted / metricsTotal
+              : 1,
+    },
+  ];
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="lg"
-      fullWidth
-      TransitionProps={{ onEnter: handleOpen }}
-    >
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
       <DialogTitle>
         <Box
           sx={{
@@ -465,7 +714,11 @@ export default function SuggestionsDialog({
               size="small"
               variant="outlined"
               onClick={handleAcceptAll}
-              disabled={isProcessing}
+              disabled={
+                pipelineProcessing ||
+                acceptAllInProgress ||
+                acceptingIds.size > 0
+              }
               startIcon={<CheckIcon />}
               sx={{ textTransform: 'none' }}
             >
@@ -481,177 +734,93 @@ export default function SuggestionsDialog({
           </Alert>
         )}
 
-        {!generated && !loading && (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-              Generate test suggestions using AI based on your existing tests
-              {topic ? ` for topic "${topic}"` : ''}.
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={handleGenerate}
-              disabled={loading}
-              startIcon={
-                loading ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : undefined
-              }
-            >
-              {loading ? 'Generating...' : 'Generate Suggestions'}
-            </Button>
+        {pipelineProcessing && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 2,
+              mb: 2,
+              pt: 0.5,
+            }}
+          >
+            <CircularProgress size={20} sx={{ mt: 0.25 }} />
+            <SegmentedProgressBar segments={progressSegments} />
           </Box>
         )}
 
-        {loading && (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <CircularProgress sx={{ mb: 2 }} />
+        {acceptAllInProgress && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              mb: 2,
+              pt: 0.5,
+            }}
+          >
+            <CircularProgress size={20} />
             <Typography variant="body2" color="text.secondary">
-              Generating test suggestions...
+              Accepting suggestions…
             </Typography>
           </Box>
         )}
 
-        {generated && !loading && (
-          <>
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 2,
-                mb: 2,
-                flexWrap: 'wrap',
-                alignItems: 'center',
-              }}
-            >
-              <Autocomplete
-                size="small"
-                options={endpoints}
-                getOptionLabel={option => option.name ?? ''}
-                value={selectedEndpoint}
-                onChange={(_, value) => setSelectedEndpoint(value ?? null)}
-                loading={endpointsLoading}
-                renderInput={params => (
-                  <TextField
-                    {...params}
-                    label="Endpoint"
-                    placeholder="Select endpoint"
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {endpointsLoading ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
-                sx={{ minWidth: 220, maxWidth: 320 }}
-              />
-              <Button
-                size="small"
-                startIcon={
-                  outputsLoading ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    <PlayArrowIcon />
-                  )
-                }
-                onClick={handleGenerateOutputs}
-                disabled={
-                  !selectedEndpoint ||
-                  outputsLoading ||
-                  suggestions.length === 0
-                }
-                sx={{ textTransform: 'none' }}
-              >
-                {outputsLoading ? 'Generating...' : 'Generate Outputs'}
-              </Button>
+        <Collapse in={guideEditorOpen}>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Optional text sent to the model with your examples. Used for the
+              next generate / regenerate run.
+            </Typography>
+            <TextField
+              multiline
+              minRows={3}
+              fullWidth
+              label="Generation guide"
+              placeholder="e.g., Focus on edge cases for date parsing..."
+              value={regenerationGuide}
+              onChange={e => setRegenerationGuide(e.target.value)}
+              inputProps={{ maxLength: 1000 }}
+              helperText="Up to 1000 characters."
+              disabled={pipelineProcessing}
+            />
+          </Box>
+        </Collapse>
 
-              <Autocomplete
-                size="small"
-                options={metrics}
-                getOptionLabel={option => option.name ?? ''}
-                value={selectedMetric}
-                onChange={(_, value) => setSelectedMetric(value ?? null)}
-                loading={metricsLoading}
-                renderInput={params => (
-                  <TextField
-                    {...params}
-                    label="Metric"
-                    placeholder="Select metric"
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {metricsLoading ? (
-                            <CircularProgress color="inherit" size={20} />
-                          ) : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
-                sx={{ minWidth: 220, maxWidth: 320 }}
-              />
-              <Button
-                size="small"
-                startIcon={
-                  evaluateLoading ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    <GradingIcon />
-                  )
-                }
-                onClick={handleEvaluate}
-                disabled={
-                  !selectedMetric || evaluateLoading || suggestions.length === 0
-                }
-                sx={{ textTransform: 'none' }}
-              >
-                {evaluateLoading ? 'Evaluating...' : 'Evaluate'}
-              </Button>
-            </Box>
-
-            {suggestions.length > 0 ? (
-              <BaseDataGrid
-                columns={columns}
-                rows={suggestions}
-                loading={false}
-                getRowId={row => row._id}
-                showToolbar={false}
-                paginationModel={{ page: 0, pageSize: 25 }}
-                serverSidePagination={false}
-                totalRows={suggestions.length}
-                pageSizeOptions={[10, 25, 50]}
-                disablePaperWrapper={true}
-                persistState={false}
-              />
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 3 }}>
-                <Typography variant="body2" color="text.secondary">
-                  All suggestions have been accepted.
-                </Typography>
-              </Box>
-            )}
-          </>
-        )}
+        <BaseDataGrid
+          columns={columns}
+          rows={suggestions}
+          loading={acceptAllInProgress}
+          getRowId={row => row._id}
+          showToolbar={false}
+          paginationModel={{ page: 0, pageSize: 25 }}
+          serverSidePagination={false}
+          totalRows={suggestions.length}
+          pageSizeOptions={[10, 25, 50]}
+          disablePaperWrapper={true}
+          persistState={false}
+        />
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} disabled={isProcessing}>
+      <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
+        <Button onClick={handleClose} disabled={isBusy}>
           Close
         </Button>
-        {generated && (
-          <Button
-            variant="outlined"
-            onClick={handleGenerate}
-            disabled={isProcessing}
-          >
-            Regenerate
-          </Button>
-        )}
+        <Button
+          variant="outlined"
+          onClick={() => setGuideEditorOpen(v => !v)}
+          disabled={isBusy}
+          sx={{ textTransform: 'none' }}
+        >
+          {guideEditorOpen ? 'Hide guide' : 'Generation guide'}
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={handleGenerate}
+          disabled={isBusy}
+          sx={{ textTransform: 'none' }}
+        >
+          Regenerate
+        </Button>
       </DialogActions>
     </Dialog>
   );

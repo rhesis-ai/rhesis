@@ -1,10 +1,34 @@
 """Schemas for adaptive testing API (generate outputs, evaluate, etc.)."""
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.test_set import TestSet as TestSetSchema
+
+# ---------------------------------------------------------------------------
+# Import from existing test set
+# ---------------------------------------------------------------------------
+
+
+class ImportAdaptiveTestSetResponse(Base):
+    """Response for POST /adaptive_testing/import/{source_test_set_id}."""
+
+    test_set: TestSetSchema
+    imported: int = 0
+    skipped: int = 0
+    skipped_test_ids: List[str] = Field(default_factory=list)
+
+
+class ExportAdaptiveTestSetResponse(Base):
+    """Response for POST /adaptive_testing/export/{source_test_set_id}."""
+
+    test_set: TestSetSchema
+    exported: int = 0
+    skipped: int = 0
+    skipped_test_ids: List[str] = Field(default_factory=list)
+
 
 # ---------------------------------------------------------------------------
 # Generate outputs
@@ -14,7 +38,7 @@ from rhesis.backend.app.schemas import Base
 class GenerateOutputsRequest(Base):
     """Request body for generating test outputs via endpoint invocation."""
 
-    endpoint_id: UUID4
+    endpoint_id: Optional[UUID4] = None
     test_ids: Optional[List[UUID4]] = None
     topic: Optional[str] = None
     include_subtopics: bool = True
@@ -52,15 +76,20 @@ class GenerateOutputsResponse(Base):
 class EvaluateRequest(Base):
     """Request body for evaluating adaptive tests with specified metrics."""
 
-    metric_names: List[str] = Field(
-        ...,
-        min_length=1,
-        description="Metric names to evaluate (must exist in the organization)",
-    )
+    metric_names: Optional[List[str]] = None
     test_ids: Optional[List[UUID4]] = None
     topic: Optional[str] = None
     include_subtopics: bool = True
     overwrite: bool = False
+
+
+class AdaptiveMetricEvalDetail(BaseModel):
+    """Per-metric evaluation row (keyed by metric name on the parent model)."""
+
+    score: float
+    is_successful: bool
+    reason: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
 
 
 class EvaluateResultItem(BaseModel):
@@ -70,6 +99,7 @@ class EvaluateResultItem(BaseModel):
     label: str
     labeler: str
     model_score: float
+    metrics: Optional[Dict[str, AdaptiveMetricEvalDetail]] = None
 
 
 class EvaluateFailedItem(BaseModel):
@@ -109,6 +139,11 @@ class GenerateSuggestionsRequest(Base):
         le=100,
         description="Number of new test suggestions to generate",
     )
+    user_feedback: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+        description="Optional user guidance to steer suggestion generation",
+    )
 
 
 class SuggestedTest(BaseModel):
@@ -144,7 +179,7 @@ class SuggestionInput(BaseModel):
 class GenerateSuggestionOutputsRequest(Base):
     """Request body for generating outputs for non-persisted suggestions."""
 
-    endpoint_id: UUID4
+    endpoint_id: Optional[UUID4] = None
     suggestions: List[SuggestionInput]
 
 
@@ -178,11 +213,7 @@ class SuggestionForEval(BaseModel):
 class EvaluateSuggestionsRequest(Base):
     """Request body for evaluating non-persisted suggestions."""
 
-    metric_names: List[str] = Field(
-        ...,
-        min_length=1,
-        description="Metric names to evaluate",
-    )
+    metric_names: Optional[List[str]] = None
     suggestions: List[SuggestionForEval]
 
 
@@ -193,6 +224,7 @@ class SuggestionEvalItem(BaseModel):
     label: str = ""
     labeler: str = ""
     model_score: float = 0.0
+    metrics: Optional[Dict[str, AdaptiveMetricEvalDetail]] = None
     error: Optional[str] = None
 
 
@@ -201,3 +233,39 @@ class EvaluateSuggestionsResponse(Base):
 
     evaluated: int
     results: List[SuggestionEvalItem]
+
+
+# ---------------------------------------------------------------------------
+# Adaptive testing settings
+# ---------------------------------------------------------------------------
+
+
+class AdaptiveSettingsUpdate(Base):
+    """Request body for updating adaptive testing settings.
+
+    Both fields are optional so callers can update only what changed.
+    """
+
+    default_endpoint_id: Optional[UUID4] = None
+    metric_ids: Optional[List[UUID4]] = None
+
+
+class AdaptiveSettingsMetric(BaseModel):
+    """Lightweight metric reference returned inside settings."""
+
+    id: UUID4
+    name: str
+
+
+class AdaptiveSettingsEndpoint(BaseModel):
+    """Lightweight endpoint reference returned inside settings."""
+
+    id: UUID4
+    name: str
+
+
+class AdaptiveSettingsResponse(Base):
+    """Response for GET/PUT adaptive testing settings."""
+
+    default_endpoint: Optional[AdaptiveSettingsEndpoint] = None
+    metrics: List[AdaptiveSettingsMetric] = []

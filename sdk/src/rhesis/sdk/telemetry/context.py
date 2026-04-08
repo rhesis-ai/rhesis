@@ -154,3 +154,18 @@ def get_conversation_mapped_input() -> Optional[str]:
     Returns None if not in a conversation context.
     """
     return _conversation_mapped_input.get()
+
+
+# Tracing disable flag — set by the executor when the backend signals
+# that this endpoint should not produce any spans.
+_tracing_disabled: ContextVar[bool] = ContextVar("tracing_disabled", default=False)
+
+
+def set_tracing_disabled(disabled: bool) -> None:
+    """Set whether tracing is disabled for the current execution."""
+    _tracing_disabled.set(disabled)
+
+
+def is_tracing_disabled() -> bool:
+    """Check whether tracing is disabled for the current execution."""
+    return _tracing_disabled.get()

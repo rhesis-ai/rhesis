@@ -1,0 +1,1339 @@
+# Rhesis Changelog
+
+All notable changes to the Rhesis project are documented in this file.
+
+This is the aggregated changelog for the entire Rhesis repository. For detailed component-specific changes, please refer to:
+- [SDK Changelog](https://github.com/rhesis-ai/rhesis/blob/main/sdk/CHANGELOG.md)
+- [Backend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/backend/CHANGELOG.md)
+- [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
+- [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
+
+## [0.6.11] - 2026-03-26
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.10**
+- **Frontend 0.6.11**
+- **SDK 0.6.11**
+
+### Summary
+
+This release introduces **live trace metrics and human trace reviews**, **project-level trace metric assignment in the UI**, and **SDK chunking upgrades using chonkie-backed strategies**. It also improves connector reliability during long-running executions.
+
+### Featured Capabilities
+
+**Trace Metrics + Human Trace Reviews**
+
+Live traces now support both automated evaluation and human override workflows:
+
+- **Trace Metrics pipeline**: Per-turn and debounced per-conversation trace metric evaluation
+- **Trace review targets**: Human reviews can target full traces, specific metrics, or specific turns
+- **Review-aware status**: Trace detail views surface review status and conflict indicators when human and automated verdicts differ
+- **Evaluation filtering**: Traces list supports evaluation-status filtering for faster triage
+
+**Project-Level Trace Metric Assignment**
+
+Projects can now define which trace metrics are assigned through the project detail experience:
+
+- **Bulk add/remove workflow**: Select trace-scoped metrics and manage assignment in one place
+- **Trace-only selection**: Project assignment UI filters to metrics with `Trace` scope
+- **Operational visibility**: Assigned metrics are displayed in a dedicated project section
+
+**SDK Chunking and Connector Improvements**
+
+SDK generation and execution workflows received key upgrades:
+
+- **Chonkie-backed chunkers**: Added `TokenChunker`, `SentenceChunker`, and `RecursiveChunker`
+- **SemanticChunker migration path**: Existing `SemanticChunker` usage now maps to recursive behavior via deprecation aliasing
+- **Non-blocking connector execution**: Test and metric execution handlers no longer block the primary WebSocket listener loop
+- **Judge input flexibility**: Base judge input validation now supports trace-driven conversational evaluation flows
+
+### Backend Highlights
+- Added trace metrics evaluation with immediate per-turn and debounced conversation phases
+- Added trace review APIs and override logic for trace, metric, and turn targets
+- Added SQL-level trace metrics aggregation for improved performance
+- Added trace metrics status tracking and trace review storage on trace records
+
+### Frontend Highlights
+- Added Trace Metrics and Reviews tabs in trace detail
+- Added trace review drawer with target inference and comment validation
+- Added project-level trace metrics assignment UI with bulk remove actions
+- Added dedicated trace detail route at `/traces/[identifier]` and improved trace filtering UX
+
+### SDK Highlights
+- Added chonkie-backed chunking strategies for source-driven synthesizers
+- Replaced custom chunking defaults with recursive chunking behavior
+- Improved connector stability for concurrent/long-running execution flows
+- Removed strict base-judge input assumptions to support conversational trace metrics
+
+## [0.6.9] - 2026-03-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.8**
+- **Frontend 0.6.9**
+- **SDK 0.6.9**
+- **Polyphemus 0.2.8**
+
+### Summary
+
+This release introduces **targeted review annotations with override-aware test results**, **SDK-side metric
+execution via `@metric`**, and **richer per-turn conversational evaluation data** including context, metadata,
+and tool calls.
+
+### Featured Capabilities
+
+**Targeted Review Annotations**
+
+Human reviews now support more precise targeting and status reconciliation:
+
+- **Review Targets**: Reviews can target the full test result, a specific metric, or a specific turn
+- **Mention-driven Targeting**: Review comments support categorized mentions for metrics and turns
+- **Override Propagation**: Applied reviews can override metric and turn pass/fail values in stored result data
+- **Effective Status UX**: Header/list/overview views now reflect review-adjusted status behavior
+
+**SDK-side Metrics with `@metric`**
+
+Custom metric functions can now execute through the SDK connector:
+
+- **New Decorator**: Register metric functions with `@metric`
+- **Connector Protocol Support**: Backend can invoke registered SDK metric functions during evaluation
+- **Signature Validation**: Metric functions must provide `input` and `output` (with optional `expected_output`
+  and `context`)
+
+**Conversation Evaluation Enrichment**
+
+Multi-turn evaluations now carry more structured per-turn detail:
+
+- **Per-turn Metadata**: Metadata is preserved at turn granularity
+- **Per-turn Context**: Retrieval context (RAG sources) is available separately from metadata
+- **Per-turn Tool Calls**: Tool/function calls are propagated across mapping, evaluation, and UI rendering
+
+### Backend Highlights
+- Added multi-target reviews for test results, turns, and metrics
+- Added `@metric` connector support for SDK-side metric execution
+- Added per-turn metadata/context/tool_calls in conversation evaluation pipelines
+- Refactored logging to standard Python `logging` configuration
+- Added security hardening for connector message limits, idle timeout, and rate limiting
+
+### Frontend Highlights
+- Added mention-enabled review comments and target-aware review UI
+- Added resizable split panel behavior in test run detail workflows
+- Improved project list UX with search, status filters, and pagination
+- Surfaced review override effects in test run summary components
+
+### SDK Highlights
+- Added `@metric` decorator support for connector-registered metrics
+- Added async-first model generation flow across providers
+- Added per-turn context/metadata/tool_calls propagation for conversational evaluation
+- Added synthesizer batch retry logic and related stability fixes
+
+### Polyphemus Highlights
+- Added `POST /generate_batch` for multi-request generation
+- Upgraded runtime baseline to Python 3.12
+- Added rolling model replacement flow for Vertex AI deployments
+- Applied dependency updates for security and compatibility
+
+## [0.6.8] - 2026-03-05
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.7**
+- **Frontend 0.6.8**
+- **SDK 0.6.8**
+- **Polyphemus 0.2.7** (no new changes in this release)
+
+### Summary
+
+This release introduces **file attachments across tests, traces, and playground chat**, **expanded test run detail views**, and **new model provider options** including LiteLLM Proxy, Azure AI Studio, and Azure OpenAI.
+
+### Featured Capabilities
+
+**File Attachments Across Test Workflows**
+
+File support is now available end-to-end across execution and debugging flows:
+
+- **Test and Test Result Attachments**: Upload, list, download, and remove files linked to tests and test results
+- **Playground Chat Uploads**: Add files directly in Playground chat input (including drag-and-drop)
+- **Provider File Filters**: Use built-in Jinja filters (`to_anthropic`, `to_openai`, `to_gemini`) to map attachments to provider-specific request payload formats
+- **Chat + Trace Integration**: Chat responses can include output files and trace links for faster debugging
+
+**Expanded Test Run Detail View**
+
+Test run details now surface more execution context without leaving the page:
+
+- **Context + Metadata Panels**: Collapsible sections for test output context and metadata
+- **File Sections**: Separate collapsible panels for input files and output files
+- **Go to Test Action**: Direct navigation from a test result detail to the original test definition
+- **Trace Access**: Conversation turns and assistant responses can open the trace drawer for deeper debugging
+
+**Model Provider Expansion**
+
+Provider support was expanded in SDK and platform model configuration:
+
+- **New Providers**: `litellm_proxy`, `azure_ai`, and `azure` (Azure OpenAI)
+- **Provider-Specific Endpoints**: Endpoint URL support for LiteLLM Proxy and Azure-hosted providers
+- **Additional SDK Params**: LiteLLM-based models support `api_base`; Azure OpenAI also supports `api_version`
+
+### Backend Highlights
+- Added multi-file attachment support for test execution and chat payloads
+- Added file format filters (`to_anthropic`, `to_openai`, `to_gemini`) for provider-specific request templating
+- Added support for Azure AI Studio and Azure OpenAI providers
+- Standardized file payload field naming from `content_base64` to `data`
+
+### Frontend Highlights
+- Added file upload/download UX in Playground chat and test result views
+- Added collapsible metadata/context sections and file sections in test run detail view
+- Added direct "Go to Test" navigation from test result details
+- Added provider support in model connection flows for LiteLLM Proxy, Azure AI, and Azure OpenAI
+
+### SDK Highlights
+- Added `File` entity APIs for upload/download/delete workflows
+- Added Azure AI Studio (`AzureAILLM`) and Azure OpenAI (`AzureOpenAILLM`) providers
+- Added LiteLLM Proxy support for OpenAI-compatible proxy routing
+- Added `connect()` blocking API for connector-only scripts
+
+## [0.6.7] - 2026-03-02
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.6**
+- **Frontend 0.6.7**
+- **SDK 0.6.7**
+- **Polyphemus 0.2.7**
+
+### Summary
+
+This release introduces **explicit `min_turns` control for early stopping in conversational tests**, **improved turn budget handling in Penelope**, and **enhanced metric handling** across the platform. It also adds bulk association/disassociation of tests with TestSets.
+
+### Featured Capabilities
+
+**Min Turns Control for Conversational Tests**
+
+Fine-grained control over early stopping behavior:
+
+- **Explicit `min_turns` Parameter**: Configure the minimum number of turns before early stopping is allowed, via backend, frontend, and SDK
+- **Range Slider UI**: Configurable through a range slider in the frontend for intuitive setup
+- **Turn-Aware Prompts**: Penelope now uses turn-aware prompts and deepening strategies to prevent premature stopping
+
+**Enhanced Metric Handling**
+
+Improvements across the metric lifecycle:
+
+- **Create-or-Update Support**: Metric push now supports create-or-update semantics in the SDK
+- **ID Preservation**: IDs are preserved when pulling metrics, preventing duplicates
+- **Null Value Fix**: Fixed null value overwrites in metric handling
+- **Conversational Metric Evaluation**: `conversation_history` is now passed to conversational metrics
+- **Pagination Fix**: Metrics page now correctly displays all backend type tabs
+
+**TestSet Bulk Operations**
+
+Improved test set management:
+
+- **Bulk Association**: Associate multiple tests with a TestSet in a single operation
+- **Bulk Disassociation**: Disassociate multiple tests from a TestSet without recreating them
+- **SDK and Backend Support**: Available across both the SDK and backend
+
+### Backend Highlights
+- Added explicit `min_turns` parameter to test configuration for early stopping control
+- Improved turn budget handling in Penelope with turn-aware prompts and deepening strategies
+- Added `conversation_history` passing to conversational metrics
+- Added methods to TestSet for bulk association/disassociation of tests
+
+### Frontend Highlights
+- Added `min_turns`/`max_turns` configuration with a range slider for conversational test setup
+- Enhanced multi-turn evaluation with accurate turn counting (user-assistant pairs)
+- Fixed metrics page pagination to display all backend type tabs
+
+### SDK Highlights
+- Added explicit `min_turns` parameter replacing instruction-based regex parsing for early stopping
+- Improved turn budget handling with turn-aware prompts and explicit min/max turn labeling
+- Enhanced metric handling: create-or-update support, ID preservation, and null value fixes
+- Added methods to TestSet for bulk association/disassociation of tests
+
+### Polyphemus Highlights
+- No significant changes in this release
+
+## [0.6.6] - 2026-02-26
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.5**
+- **Frontend 0.6.6**
+- **SDK 0.6.6**
+- **Polyphemus 0.2.6**
+
+### Video Overview
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/KWnFfA-K2YA"
+    title="Release 0.6.6 | Rhesis AI"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Summary
+
+This release introduces **Polyphemus access control with delegation tokens**, **conversation-based tracing for multi-turn interactions**, and **test set type enforcement** across the platform. It also addresses multiple security vulnerabilities across all components.
+
+### Featured Capabilities
+
+**Polyphemus Access Control**
+
+Secure, governed access to Polyphemus models:
+
+- **Request/Grant Workflow**: Users can request access to Polyphemus, admins can grant or revoke it
+- **Delegation Tokens**: Service-level delegation tokens for secure Polyphemus authentication
+- **Frontend UI**: Access request modal and model card UI states for clear visibility into access status
+- **Rate Limiting**: Added rate limiting to the Polyphemus service to prevent abuse
+
+**Conversation-Based Tracing**
+
+End-to-end observability for multi-turn conversations:
+
+- **Shared Trace IDs**: Multi-turn conversation interactions are linked under a shared `trace_id`
+- **Conversation View Tab**: Dedicated UI tab for exploring conversation traces
+- **Turn Navigation**: Navigate between turns directly within the trace detail view
+- **Enhanced Graph View**: Turn labels on edges, progressive agent invocation counts, and improved edge routing
+
+**Test Set Type Enforcement**
+
+Stricter type safety across test sets:
+
+- **Required on Creation**: `test_set_type` is now required when creating test sets via backend, frontend, and SDK
+- **Type-Matching Validation**: Tests can only be assigned to test sets of a matching type
+- **Consistent Enforcement**: Applied uniformly across all interfaces
+
+### Backend Highlights
+- Mitigated OAuth callback URL host header poisoning vulnerability
+- Updated vulnerable dependencies (cryptography, pillow, fastmcp, redis, langgraph-checkpoint, marshmallow, virtualenv, mammoth, langchain-core)
+- Added Polyphemus integration with service delegation tokens and access control request/grant workflow
+- Implemented conversation-based tracing across SDK, backend, and frontend with `trace_id` linking
+- Enforced `test_set_type` requirement on test set creation and type-matching when assigning tests
+
+### Frontend Highlights
+- Added Polyphemus access request modal, model card UI states, and Polyphemus provider icon/logo
+- Improved trace UI with conversation tracing support: conversation icon, type filter buttons, Conversation View tab, and turn navigation
+- Enhanced trace graph view with turn labels on edges, progressive agent invocation count, improved edge routing, and resizable trace detail drawer
+- Fixed security vulnerabilities in frontend transitive dependencies
+
+### SDK Highlights
+- Enhanced Polyphemus integration with access control and delegation tokens
+- Improved LLM error handling with retries, logging, and fallback mechanisms
+- Added conversation-based tracing for multi-turn interactions
+- Migrated from python-jose to PyJWT and updated dependencies to address security vulnerabilities
+
+### Polyphemus Highlights
+- Added rate limiting to the Polyphemus service
+- Implemented access control and delegation tokens with a request/grant workflow and frontend UI
+- Deployed vLLM to Vertex AI with GCP credential caching and retry logic
+- Migrated from python-jose to PyJWT and updated dependencies to resolve security vulnerabilities
+
+## [0.6.5] - 2026-02-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.4**
+- **Frontend 0.6.5**
+- **SDK 0.6.5**
+- **Polyphemus 0.2.5** (no changes in this release)
+
+### Summary
+
+This release introduces **AI-powered auto-configuration for endpoints**, **three-tier metrics evaluation for multi-turn tests**, and **adaptive testing capabilities** including a Test Explorer UI and output generation.
+
+### Featured Capabilities
+
+**AI-Powered Endpoint Auto-Configure**
+
+Intelligent endpoint setup from reference material:
+
+- **Natural Language Input**: Analyze curl commands, code snippets, or API docs to generate Rhesis request/response mappings
+- **Self-Correcting Probing**: LLM-driven endpoint probing with self-correction for accurate configuration
+- **API Key Redaction**: Automatically detects and redacts secrets before sending to the LLM, with a frontend warning when keys are detected
+- **SSRF Protection**: Blocks cloud metadata service addresses while allowing localhost for safe probing
+- **Two-Step UI**: Auto-configure modal with input and review steps, integrated into the endpoint creation form
+
+**Three-Tier Metrics for Multi-Turn Tests**
+
+Comprehensive metric evaluation in live multi-turn execution:
+
+- **Full Metric Coverage**: All metrics defined in the three-tier model (behavior > test set > execution) are now evaluated, not just Penelope's Goal Achievement metric
+- **Metrics Table**: Frontend now shows a metrics table for multi-turn test results
+- **Pass/Fail Determination**: All evaluated metrics contribute to overall pass/fail outcomes
+
+**Adaptive Testing**
+
+New tools for building and managing adaptive test suites:
+
+- **Test Explorer UI**: Browse and manage adaptive tests and topics
+- **CRUD Operations**: Create, update, and delete tests and topics via SDK
+- **Output Generation**: Generate test outputs with improved async performance
+
+### Backend Highlights
+- Evaluated three-tier metrics during live multi-turn execution, expanding beyond Penelope's Goal Achievement metric
+- Added AI-powered auto-configure service with LLM-driven analysis, endpoint probing, and self-correction
+- Added API key detection and redaction for auto-configure to prevent secrets reaching the LLM
+- Added SSRF protection blocking cloud metadata services (169.254.0.0/16) during endpoint probing
+- Supported nested JSON in request/response mappings (`Dict[str, Any]`)
+
+### Frontend Highlights
+- Added auto-configure modal with two-step stepper (input + review) integrated into the endpoint creation form
+- Displayed metrics table for multi-turn test results and used all metrics for pass/fail determination
+- Fixed redirect after endpoint creation to navigate to the project detail page
+- Improved auto-configure UX: removed mandatory auth token requirement to support open APIs
+
+### SDK Highlights
+- Added `Endpoint.auto_configure()` class method for code-first auto-configuration using the backend service
+- Introduced Adaptive Testing features including Test Explorer UI, CRUD operations for tests and topics, and output generation
+- Unified model handling with a single `get_model()` function simplifying model selection and configuration
+- Improved output generation performance using asynchronous HTTP requests
+
+## [0.6.4] - 2026-02-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.3**
+- **Frontend 0.6.4**
+- **SDK 0.6.4**
+- **Polyphemus 0.2.5**
+
+### Video Overview
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/vdbWfqhQpZs"
+    title="Now live: Metrics per Run + Output re-runs | Rhesis AI"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Summary
+
+This release introduces **split-view playground with test creation**, **file import for test sets**, **test output reuse and re-scoring**, and a **native authentication system** replacing Auth0. The platform now supports CSV, JSON, JSONL, and Excel file imports with intelligent column mapping, while the new re-scoring capability enables metric evaluation on stored outputs without re-invoking endpoints.
+
+### Featured Capabilities
+
+**Split-View Playground with Test Creation**
+
+Create tests directly from playground conversations:
+
+- **Interactive Testing**: Test endpoints in real-time with a split-view interface
+- **Automatic Test Generation**: Convert playground conversations into tests with LLM-extracted pre-filled fields
+- **Single & Multi-Turn Support**: Create both single-turn and multi-turn tests from conversations
+- **Streamlined Workflow**: Go from testing to test creation in a single interface
+
+**File Import for Test Sets**
+
+Import test sets from various file formats:
+
+- **Multiple Format Support**: CSV, JSON, JSONL, and Excel formats
+- **Intelligent Column Mapping**: Automatically map file columns to test fields
+- **User-Friendly Error Handling**: Clear error messages and validation feedback
+- **Bulk Test Creation**: Quickly create large test sets from existing data
+
+**Test Output Reuse & Re-Scoring**
+
+Evaluate metrics without re-invoking endpoints:
+
+- **Output Reuse**: Re-run tests using stored outputs from previous executions
+- **Cost Optimization**: Add new metrics without paying for new generations
+- **Flexible Evaluation**: Experiment with different metric configurations
+- **Scoring Target Selection**: Choose whether to use stored outputs or invoke endpoints
+
+**Native Authentication System**
+
+Replaced Auth0 with a comprehensive native authentication solution:
+
+- **Email Verification**: Secure account verification via email
+- **Password Reset**: Self-service password reset functionality
+- **Magic Link Login**: Passwordless authentication option
+- **OAuth Support**: Integration with third-party OAuth providers
+- **Refresh Token Rotation**: Enhanced security with automatic token rotation
+
+### Backend Highlights
+- Added split-view playground with test creation from conversations
+- Implemented file import for test sets with support for CSV, JSON, JSONL, and Excel formats
+- Enhanced test set execution with rescoring, last run retrieval, and metric management
+- Introduced user-configurable embedding model settings and connection testing
+- Replaced Auth0 with native authentication system including email verification, password reset, and magic link
+
+### Frontend Highlights
+- Added split-view playground with test creation from conversations, including drawer with LLM-extracted pre-filled fields
+- Implemented file import for test sets with column mapping and user-friendly error handling
+- Added user-configurable embedding model settings with connection testing
+- Introduced test output reuse and re-scoring capabilities with "Scoring Target" dropdown
+- Replaced Auth0 with native authentication system including email verification, password reset, magic link, and OAuth support
+
+### SDK Highlights
+- Introduced split-view playground with test creation from conversations
+- Added file import for test sets and flat convenience fields for multi-turn test configurations
+- Added rescore, last_run, and metric management capabilities to TestSet
+- Implemented user-configurable embedding model settings and improved model connection testing
+- Implemented native authentication system replacing Auth0 with email verification, password reset, and magic link login
+
+### Polyphemus Highlights
+- Enabled BetterTransformer optimization resulting in 1.5-2x inference speedup
+- Improved error messages for model configuration and worker availability
+- Enhanced model connection testing with actual API call validation
+- Updated dependencies to address security vulnerabilities (CVEs)
+
+## [0.6.3] - 2026-02-05
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.2**
+- **Frontend 0.6.3**
+- **SDK 0.6.3**
+
+### Video Overview
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/OH7e_7q7_oU"
+    title="Multi-Agent Workflow Testing & Observability | Rhesis AI v0.6.3"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Summary
+
+This release introduces the **Interactive Playground** for testing conversational endpoints with real-time WebSocket communication, **Jira ticket creation** directly from tasks via MCP integration, and **enhanced trace visualization** with a new Graph View and improved agent tracing. The platform receives significant improvements to test generation, WebSocket reliability, and overall user experience.
+
+### Featured Capabilities
+
+**Interactive Playground**
+
+The platform now includes an interactive playground for testing conversational endpoints:
+
+- **Real-Time Testing**: Test conversational endpoints with live WebSocket communication
+- **Trace Linking**: View execution traces directly from playground sessions
+- **Message Management**: Copy messages and responses for documentation or debugging
+- **Endpoint Pre-Selection**: Quickly switch between different endpoints for testing
+- **WebSocket Robustness**: Enhanced retry mechanism with increased reconnect attempts and visibility detection
+
+**Jira Integration**
+
+Create Jira tickets directly from tasks within the platform:
+
+- **Direct Task Integration**: Convert platform tasks into Jira tickets with a single click
+- **MCP Integration**: Seamless connection to Jira via Model Context Protocol
+- **Optional Space Selection**: Choose Jira space during tool connection setup
+- **Streamlined Workflow**: Bridge the gap between testing and project management
+
+**Enhanced Trace Visualization**
+
+Improved observability with new visualization capabilities:
+
+- **Graph View**: New graph-based visualization for understanding trace relationships
+- **Agent Tracing**: Comprehensive agent execution tracking with I/O capture
+- **Handoff Tracking**: Visualize agent handoffs and state transitions
+- **Token Extraction**: Improved token usage tracking and analysis
+
+### Backend Highlights
+- Added interactive playground for testing endpoints with real-time WebSocket communication
+- Implemented Jira ticket creation from tasks via MCP with optional space selection
+- Enhanced WebSocket retry mechanism with increased reconnect attempts and visibility detection
+- Added creation dates to tests and test sets
+- Improved trace visualization infrastructure
+
+### Frontend Highlights
+- Added interactive playground with real-time WebSocket communication and trace linking
+- Implemented Jira ticket creation from tasks via MCP integration
+- Enhanced trace visualization with Graph View and improved agent tracing
+- Added `./rh dev` command for simplified local development setup
+- Improved UI/UX with validation improvements and dark mode adjustments
+
+### SDK Highlights
+- Added interactive playground support with WebSocket communication
+- Enhanced trace visualization with Graph View and agent tracing support
+- Introduced JSON and JSONL import/export methods for TestSets
+- Improved WebSocket robustness with enhanced retry mechanism
+- Fixed several SDK test issues for improved reliability
+
+## [0.6.2] - 2026-01-29
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.1**
+- **Frontend 0.6.2**
+- **SDK 0.6.2**
+
+### Video Overview
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/fda6e93UGZ8"
+    title="Garak LLM Vulnerability Scanner - Release 0.6.2"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Summary
+
+This release introduces **Garak LLM vulnerability scanner integration** for comprehensive security testing of LLM applications, **3-level metrics hierarchy** for flexible test execution configuration, and **enhanced MCP integrations** including Jira/Confluence, GitHub, and observability support. The platform receives significant performance optimizations and infrastructure improvements across all components.
+
+### Featured Capabilities
+
+**Garak LLM Vulnerability Scanner**
+
+The platform now integrates [Garak](https://github.com/leondz/garak), one of the most popular vulnerability scanners for LLM and agentic applications:
+
+- **65+ Security Test Cases**: Import Garak's extensive probe library directly into Rhesis for testing prompt injection, jailbreaks, toxic outputs, data leakage, and other vulnerabilities
+- **No Command-Line Required**: Import test cases, execute them, and inspect results entirely through the UI—no terminal commands or JSON parsing needed
+- **Team Collaboration**: Review and discuss security test results with your team in one centralized platform
+- **Redis-Cached Probe Enumeration**: Efficient probe management with caching for improved performance
+- **Detector Metrics**: Built-in support for Garak detector metrics in the SDK
+- **CI/CD Integration**: Run security scans as part of your automated testing pipeline
+
+**3-Level Metrics Hierarchy**
+
+Enhanced flexibility in test execution with a new metrics hierarchy system:
+
+- **Behavior-Level Metrics**: Define default metrics at the behavior level
+- **Test-Level Overrides**: Override metrics for specific tests when needed
+- **Execution-Time Configuration**: Dynamically configure metrics at test execution time
+- **Metric Source Selection**: UI support for choosing which metric configuration to use
+- **Improved Test Flexibility**: Adapt evaluation criteria without modifying test definitions
+
+**Enhanced MCP Integrations**
+
+Expanded Model Context Protocol (MCP) support with new integrations:
+
+- **Atlassian Stdio**: Connect Jira and Confluence for issue tracking and documentation
+- **GitHub Repository Retrieval**: Access GitHub repositories and code context
+- **Observability Integration**: OpenTelemetry tracing with MCP support in SDK
+
+### Backend Highlights
+- Added Garak LLM vulnerability scanner integration with Redis caching for probe enumeration
+- Implemented 3-level metrics hierarchy (behavior → test → execution) allowing execution-time metric overrides
+- Added MCP Jira/Confluence (Atlassian Stdio), GitHub repository retrieval, and observability integrations
+- Upgraded FastAPI/Starlette and security dependencies for improved stability
+- Optimized Docker image with CPU-only PyTorch, reducing image size significantly
+
+### Frontend Highlights
+- Added 3-level metrics hierarchy UI for test execution with metric source selection
+- Integrated Garak LLM vulnerability scanner import UI for test sets
+- Added MCP Atlassian, GitHub, and observability support in the UI
+- Added context and expected response fields to test run detail view
+- Improved test execution configuration interface
+
+### SDK Highlights
+- Added Model entity with provider auto-resolution and Project entity with integration tests
+- Implemented batch processing framework and embedders support
+- Added Vertex AI support for embeddings and generation
+- Added Garak detector metric integration for security testing
+- Implemented MCP observability with OpenTelemetry tracing
+- Implemented continuous slow retry mode for connector resilience
+- Enhanced test execution with better error handling and recovery
+
+## [0.6.0] - 2026-01-15
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.0**
+- **Frontend 0.6.0**
+- **SDK 0.6.0**
+- **Polyphemus 0.2.4**
+
+### Video Overview
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/KMB2vTMU7mY"
+    title="Rhesis v0.6.0 Release Overview"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Summary
+
+This major release introduces two significant features: **Enhanced Tracing** for comprehensive observability and a **New Interactive Glossary** with 50+ AI testing terms. The SDK tracing provides deep insights into your application under test, revealing its inner workings and execution flow with async support and smart serialization, while the glossary makes it easier for teams to understand and adopt AI testing best practices.
+
+**Important**: As of version 0.6.0, all production services for the cloud version of Rhesis are now hosted in European data centers, ensuring data sovereignty and compliance with European data protection regulations.
+
+### Featured Capabilities
+
+**Enhanced Tracing**
+
+The SDK now includes comprehensive tracing capabilities that provide deep observability into your application under test (the target) and its inner workings:
+
+- **Application Insights**: Gain visibility into your target application's execution flow, function calls, and internal state
+- **Execution Flow Visualization**: See how your application processes requests, including all intermediate steps and decision points
+- **Async Support**: Full support for asynchronous operations with proper trace propagation across async boundaries
+- **Smart Serialization**: Intelligent handling of complex objects and data structures in traces, making internal state visible
+- **Improved I/O Display**: Enhanced visualization of inputs and outputs at each step of your application's execution
+- **OpenTelemetry Integration**: Basic telemetry support for standard observability tools
+- **Advanced Filtering**: Filter traces by status, duration, and custom attributes in the frontend
+- **Dependency Injection**: New `bind` parameter in endpoint decorators for cleaner code organization
+
+**New Interactive Glossary**
+
+The platform now includes a comprehensive glossary at [docs.rhesis.ai/glossary](https://docs.rhesis.ai/glossary) with 50+ carefully curated terms covering:
+
+- **Configuration Concepts**: Organization, Project, Endpoint, Model, API Tokens
+- **Testing Fundamentals**: Single-turn tests, Multi-turn tests, Metrics, Behaviors, Test Sets
+- **Advanced Testing**: Penelope agent, RAG systems, Chain-of-Thought, Prompt Injection
+- **Quality Metrics**: Precision/Recall, F1 Score, Confusion Matrix, Confidence Scores
+- **Development Tools**: SDK integration, MCP protocol, Test Generation
+- **Results Analysis**: Baseline comparison, Regression testing, A/B testing
+
+Each glossary entry includes:
+- Clear definitions and extended explanations
+- Practical examples and use cases
+- Code snippets demonstrating implementation
+- Related terms for deeper exploration
+- Links to relevant documentation sections
+
+### Backend Highlights
+- **Infrastructure**: All production services now hosted in European data centers for enhanced data sovereignty and GDPR compliance
+- Enhanced connectivity with MCP including GitHub support and multi-transport capabilities
+- Improved observability with comprehensive OpenTelemetry integration for tracing, visualization, and filtering
+- Added Chatbot Intent Recognition functionality
+- Streamlined organization onboarding with integrated test execution
+
+### Frontend Highlights
+- Enhanced SDK tracing with improved visualization and filtering in the UI
+- Improved MCP connection stability and added new GitHub MCP provider
+- Integrated test execution into organization onboarding process
+- Added interactive glossary page with search and filtering
+
+### SDK Highlights
+- Added dependency injection support with `bind` parameter in endpoint decorators
+- Enhanced SDK tracing with async support, smart serialization, and improved I/O display
+- Introduced OpenTelemetry integration for basic telemetry
+
+### Polyphemus Highlights
+- Added `bind` parameter to endpoint decorator for dependency injection
+- Introduced Bucket Model for improved data management
+
+## [0.5.4] - 2025-12-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.4**
+- **Frontend 0.5.4**
+- **SDK 0.5.2**
+- **Polyphemus 0.2.3**
+
+### Summary
+
+This release adds a new Polyphemus provider with schema support across the platform. The documentation receives enhancements including comprehensive guides and improved SDK metrics documentation. SDK improvements focus on enhanced MCP error handling and improved metric creation capabilities with support for categories and threshold operators.
+
+### Backend Highlights
+- Added new Polyphemus provider with schema definition support
+- Enhanced provider configuration for Polyphemus integration
+
+### Frontend Highlights
+- Added new Polyphemus provider with schema support
+- Documentation improvements including enhanced guides and SDK metrics
+- Dependency updates for Next.js (16.0.7 → 16.0.10) and Nodemailer (6.10.1 → 7.0.11)
+
+### SDK Highlights
+- Added new Polyphemus provider with schema support
+- Improved MCP error handling and usability
+- Enhanced metric creation with support for categories and threshold operators
+- Improved generation prompts using research-backed Chain-of-Thought techniques
+- Hotfix for MCP compatibility issues with `npx` and `bunx`
+
+## [0.5.3] - 2025-12-11
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.3**
+- **Frontend 0.5.3**
+- **Polyphemus 0.2.2**
+
+### Summary
+
+This release enhances MCP authentication and error handling, adds unique constraints to database fields, and improves multi-turn test support. The frontend receives UX improvements for trial drawer and manual test writer, while Polyphemus fixes rate limiting behavior for unauthenticated requests.
+
+### Backend Highlights
+- Improved MCP authentication and error handling, enhancing usability
+- Added unique constraint to `nano_id` columns in the database
+- Enhanced testing capabilities with endpoint connection testing and multi-turn test support
+- Notifications now separate execution status from test results in emails
+
+### Frontend Highlights
+- Improved trial drawer with multi-turn support and UX enhancements
+- Added multi-turn test support in manual test writer
+- Fixed authentication errors and improved UX for MCP (Model Comparison Platform)
+- Resolved cursor focus loss in title and description fields
+
+### Polyphemus Highlights
+- Fixed rate limiting to occur after authentication, preventing unintended rate limits on unauthenticated requests
+
+## [0.5.2] - 2025-12-08
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.2**
+- **Frontend 0.5.2**
+
+### Summary
+
+This release adds a Test Connection Tool for easier configuration and troubleshooting, removes permission restrictions from entity routes, and addresses security vulnerabilities. The frontend includes updates for React and Next.js to address CVE-2025-55182, plus support for tags in test runs and enhanced metrics capabilities.
+
+### Backend Highlights
+- Added a Test Connection Tool for easier configuration and troubleshooting
+- Removed permission restrictions from entity routes
+- Fixed: Activities API response now returns valid fields
+
+### Frontend Highlights
+- Security: Updated React and Next.js to address CVE-2025-55182
+- Test Runs: Added support for tags
+- Metrics: Added support for categories and threshold operators
+- Added Test Connection Tool
+
+## [0.5.1] - 2025-12-04
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.1**
+- **Frontend 0.5.1**
+- **Polyphemus 0.2.1**
+
+### Summary
+
+This release modernizes the dashboard with MUI X charts and activity timeline, improves connector output mapping with message field support, and adds OpenRouter provider support. The frontend receives grid state persistence and improved MCP dialogs, while Polyphemus adds user verification status.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/-GeDT-qzGMQ"
+    title="Modernized Dashboard - Release 0.5.1"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Backend Highlights
+- Modernized dashboard with MUI X charts and activity timeline
+- Improved connector output mapping with message field support
+- Added support for OpenRouter provider
+- Increased exporter timeout from 10 to 30 seconds
+
+### Frontend Highlights
+- Modernized dashboard with MUI X charts and activity timeline
+- Improved MCP import and tool selector dialogs
+- Added grid state persistence to localStorage
+- Backend execution RPC fixes and UI improvements
+
+### Polyphemus Highlights
+- Added "Is Verified" status to user profiles
+- Users can now be marked as verified
+
+## [0.5.0] - 2025-11-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.0**
+- **Frontend 0.5.0**
+- **SDK 0.5.0**
+
+### Summary
+
+This release introduces comprehensive multi-turn test support via Penelope execution agent, bidirectional SDK connector with intelligent auto-mapping, and enhanced behavior-metrics management. MCP server integration with Notion improves context for test generation, while the new interactive onboarding system guides users through initial setup.
+
+### Featured Capabilities
+
+**Multi-Turn Testing with Penelope**
+
+Watch Penelope autonomously execute complex multi-turn conversations against your LLM applications:
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/Noo8gYh04eA"
+    title="Penelope Multi-Turn Testing - Release 0.5.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+**SDK Connector Integration**
+
+See how the `@endpoint` decorator integrates your LLM application in under a minute:
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/6hteHCpOxpM"
+    title="SDK Connector - Release 0.5.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+**Behaviors and Metrics Structure**
+
+Learn how the two-layer testing structure enables whole-team collaboration on quality:
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/7sJlZ_nCPpI"
+    title="Behaviors and Metrics - Release 0.5.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+**MCP Integration with Notion**
+
+Connect your Notion workspace directly to your testing pipeline:
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/7OI7RQSKvkc"
+    title="MCP Notion Integration - Release 0.5.0"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Backend Highlights
+- Added comprehensive multi-turn test support including creation, listing, execution, and preview generation
+- Implemented bidirectional SDK connector with intelligent auto-mapping
+- Added Tool Source Type for MCP server integration
+- Added in-place test execution without worker infrastructure
+- Enhanced synthesizers for improved test generation
+- Added database persistence for onboarding progress
+- Refactored Base Entity for improved maintainability
+- Updated MCP Tool Database for enhanced tool management
+- Added endpoint to list available models for providers
+
+### Frontend Highlights
+- Implemented interactive onboarding tour system
+- Added behaviors page with refactored metrics UI
+- Implemented multi-turn conversation preview in test generation flow
+- Added bidirectional SDK connector with intelligent auto-mapping
+- Implemented Tool Configuration Frontend
+- Redesigned test results page with improved filters and client-side search
+- Redesigned knowledge detail page for design system consistency
+- Reorganized navigation with sections and external links
+- Upgraded to Next.js 16 and MUI v7
+- Added models list for providers
+
+### SDK Highlights
+- Added bidirectional SDK connector with intelligent auto-mapping
+- Added comprehensive multi-turn test support
+- Added Google Cloud integration for Polyphemus
+- Added functionality to list available models for providers
+- Improved synthesizers functionality
+- Refactored base entity structure
+- Updated MCP Tool Database functionality
+
+## [0.4.3] - 2025-11-17
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.3**
+- **Frontend 0.4.3**
+- **SDK 0.4.2**
+
+### Summary
+
+This release focuses on improving multi-turn conversation handling with centralized conversation tracking and fixes critical deployment issues in the frontend Docker image.
+
+### Backend Highlights
+- Added centralized conversation tracking for improved multi-turn conversation handling
+- Enhanced conversation state management across test executions
+
+### Frontend Highlights
+- Fixed Docker image build failure during local deployment
+- Resolved file ownership issue (chown bug) affecting containerized deployments
+
+### SDK Highlights
+- Added support for custom HTTP headers in API requests
+- Improved error handling for network requests with more descriptive error messages
+- Updated internal retry mechanism for failed API calls
+- Fixed date parsing issues in certain locales
+- Resolved bug causing occasional crashes when handling large data responses
+
+## [0.4.2] - 2025-11-13
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.2**
+- **Frontend 0.4.2**
+- **SDK 0.4.1**
+
+### Summary
+
+This release makes it easier than ever to get started with Rhesis through zero-configuration Docker Compose setup. Spin up the entire platform with a single command! The release also introduces multi-turn test support with conversational metrics, enhanced MCP integration with Notion, and improved local development experience.
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/_iAw-I35xSc"
+    title="Release 0.4.2 Overview"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Backend Highlights
+- Added support for multi-turn tests with configuration, execution, and conversational metrics
+- Improved local development setup with zero-configuration Docker Compose
+- Introduced generic MCP integration endpoints and user model configuration
+- Added scenarios, tags, and comments infrastructure for sources
+- Enhanced command-line interface for easier platform management
+
+### Frontend Highlights
+- Implemented multi-turn test support with configuration UI and goal display
+- Enhanced test set management with test type display and filtering
+- Improved local development with Docker Compose and auto-login feature
+- Integrated conversational metrics for multi-turn test evaluation
+
+### SDK Highlights
+- Added Langchain integration and Penelope language model support
+- Introduced Conversational Metrics with Goal Achievement Judge and DeepEval integration
+- Enhanced MCP Agent with autonomous ReAct loop and improved error handling
+- Added structured output support for tool calling via Pydantic schemas
+- Improved VertexAI provider reliability
+
+## [0.4.1] - 2025-10-30
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.1**
+- **Frontend 0.4.1**
+- **SDK 0.4.0**
+
+### Summary
+
+This release introduces comprehensive OpenTelemetry telemetry, enhanced test generation with iteration context, and improved source tracking. The platform now uses "Sources" terminology throughout, replacing "Documents" for consistency. Key improvements include soft deletion with cascade-aware restoration, API key authentication with rate limiting, and enhanced metrics integration with Ragas and DeepEval.
+
+<img src="/changelog/v0.4.1/Release 0.4.1.gif" alt="Release 0.4.1 Overview" style={{ width: '100%', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }} />
+
+### Backend Highlights
+- Added comprehensive OpenTelemetry telemetry system for monitoring and analytics
+- Enhanced test generation with iteration context support and source ID tracking
+- Integrated SDK metrics with simplified evaluation and database migration
+- Implemented cascade-aware restoration for soft-deleted entities
+- Added API key authentication with user-based rate limiting
+
+### Frontend Highlights
+- Replaced "Documents" terminology with "Sources" throughout the application
+- Enhanced test generation UI with improved backend support and source context display
+- Implemented OpenTelemetry for enhanced monitoring
+- Added support for additional file formats (.pptx, .xlsx, .html, .htm, .zip)
+- Improved test results display with error status icons and execution time for failed runs
+
+### SDK Highlights
+- Added Cohere and Vertex AI LLM providers with Ollama integration
+- Enhanced AI-based test generation with iteration context support
+- Improved metrics integration with Ragas and DeepEval (updated to v3.6.7)
+- Added support for both plain and OpenAI-wrapped JSON schemas
+- Refactored metrics for improved organization and maintainability
+
+## [0.4.0] - 2025-10-16
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.0**
+- **Frontend 0.4.0**
+- **SDK 0.3.1**
+
+### Summary
+
+This release focuses on user-defined LLM providers, enhanced source handling, and soft delete functionality. The Knowledge section receives significant improvements with dynamic source types and hybrid storage. User settings management is centralized, and the recycle bin provides comprehensive soft-deleted item recovery.
+
+### Backend Highlights
+- Added support for user-defined LLM providers and model configuration
+- Implemented soft delete functionality with recycle bin management
+- Enhanced source handling with dynamic source types and hybrid cloud/local storage
+- Added user settings API endpoints for managing default models
+- Implemented encryption for sensitive data in database fields
+
+### Frontend Highlights
+- Enhanced Knowledge section with source upload, preview, and OData filtering
+- Redesigned Test Runs detail page with modern dashboard interface
+- Improved Models management with edit modal and connection testing
+- Added advanced filtering for test results
+- Standardized UI consistency using theme values
+
+### SDK Highlights
+- Added support for user-defined LLM provider generation and execution
+- Enhanced DocumentExtractor with BytesIO support
+- Added `model` parameter support to synthesizer factory
+- Updated ParaphrasingSynthesizer for improved LLM selection
+
+## [0.3.0] - 2025-10-02
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.3.0**
+- **Frontend 0.3.0**
+- **SDK 0.3.0**
+
+### Summary
+
+This release introduces persistent storage for documents, robust organization-level data isolation, and comprehensive task management with email notifications. The frontend receives a complete rebranding with the new Rhesis AI visual identity.
+
+### Backend Highlights
+- Added persistent storage for documents with new `StorageService`
+- Implemented robust organization-level data isolation and access control
+- Enhanced comment and task management with email notifications
+- Introduced new endpoint for generating test configurations
+- Fixed critical cross-tenant data access vulnerabilities
+
+### Frontend Highlights
+- **Complete rebranding**: New Rhesis AI brand identity with updated color palette and logos
+- Implemented comprehensive frontend testing infrastructure
+- Enhanced task management with editable titles and improved UI consistency
+- Improved UI/UX across dashboards, metrics pages, and data grids
+- Added pre-commit hooks for code quality
+
+### SDK Highlights
+- Added functionality to push and pull metrics (categorical and numeric)
+- Introduced configuration options for metrics with enum support
+- Refactored metric classes for improved structure and reusability
+- Added metrics endpoint to SDK client
+
+## [0.2.4] - 2025-09-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.4**
+- **Frontend 0.2.4**
+- **SDK 0.2.4**
+
+### Summary
+
+This release introduces comprehensive task management functionality and integrates DocumentSynthesizer for automated document-based test generation. Enhanced metadata tracking and email notifications improve collaboration workflows.
+
+### Backend Highlights
+- Added task management with statuses, priorities, assignments, and email notifications
+- Integrated DocumentSynthesizer for automated document-based test generation
+- Enhanced test set attributes with document sources and metadata tracking
+- Improved database session handling and route refactoring
+
+### Frontend Highlights
+- Added "Source Documents" section to test detail and Test Set Details pages
+- Test sets now display document name and description
+- Project updates work without requiring page reload
+- Added send button to comment text box
+
+### SDK Highlights
+- Rewritten benchmarking framework with improved model handling
+- Introduced `Document` dataclass and `DocumentSynthesizer` for text extraction
+- Added new LLM providers including Ollama
+- Refactored metrics and moved them from backend to SDK
+
+## [0.2.3] - 2025-09-04
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.3**
+- **Frontend 0.2.3**
+- **SDK 0.2.3**
+
+### Summary
+
+This release adds collaboration features with comments support, introduces test run statistics, and enhances LLM service integration with schema support.
+
+### Backend Highlights
+- Added test run stats endpoint with performance improvements
+- Implemented comment support with CRUD operations and emoji reactions
+- Introduced LLM service integration with schema support
+- Improved environment variable handling for deployment flexibility
+
+### Frontend Highlights
+- Added comments feature for collaboration on tests, test sets, and test runs
+- Improved metrics creation and editing workflow with visual feedback
+- Enhanced test run details with dynamic charts
+- Fixed tooltip visibility issues and improved datagrid performance
+
+### SDK Highlights
+- Renamed and reorganized LLM provider components for clarity
+- Added support for JSON schemas in LLM requests for structured responses
+- Introduced API key handling for LLM providers
+- Updated linting process to use `uvx`
+
+## [0.2.2] - 2025-08-22
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.2**
+- **Frontend 0.2.2**
+- **SDK 0.2.2**
+
+### Summary
+
+This release adds document content extraction, enhances Docker configuration, and improves security with Redis authentication. Support for additional document formats (.docx, .pptx, .xlsx) is introduced.
+
+### Backend Highlights
+- Added document content extraction endpoint
+- Added document support to test set generation endpoint
+- Implemented Redis authentication for enhanced security
+- Improved Docker configuration and startup scripts
+- Added unit tests for backend components
+
+### Frontend Highlights
+- Improved document upload experience with automatic metadata generation
+- Enhanced project creation and management
+- Refactored form validation and UI elements
+- Updated Docker configuration for production mode
+
+### SDK Highlights
+- Migrated document extraction from docling to markitdown
+- Added support for docx, pptx, and xlsx formats
+- Improved code style with automated linting and formatting
+- Removed support for .url and .youtube file extensions
+
+## [0.2.1] - 2025-08-08
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.1**
+- **Frontend 0.2.1**
+- **SDK 0.2.1**
+- **Polyphemus 0.1.0**
+
+### Summary
+
+This release introduces Test Results functionality and document upload capabilities. Polyphemus, the LLM inference and benchmarking service, makes its initial release.
+
+### Backend Highlights
+- Added support for filtering test sets related to runs
+- Added document upload functionality via `/documents/upload` endpoint
+- Enhanced test generation with optional documents parameter
+- Added test result statistics support and "last login" functionality
+
+### Frontend Highlights
+- Introduced Test Results functionality for viewing and analyzing outcomes
+- Added interfaces for handling test results statistics
+- Fixed infinite loading issues for test sets
+
+### SDK Highlights
+- Added `get_field_names_from_schema` method to `BaseEntity` class
+- Updated default base URL for API endpoint
+- Improved documentation
+
+### Polyphemus Highlights
+- Initial release of LLM inference and benchmarking service
+- FastAPI-based REST API with Dolphin 3.0 Llama 3.1 8B model support
+- Modular benchmarking suite and OWASP-based security test sets
+
+## [0.2.0] - 2025-07-25
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.2.0**
+- **Frontend 0.2.0**
+- **SDK 0.2.0**
+
+### Summary
+
+This release enhances team collaboration with improved invitation security, implements email notifications for test completion, and introduces sequential test execution with Redis-based task orchestration.
+
+### Backend Highlights
+- Enhanced team invitation with improved security, validation, and rate limiting
+- Implemented email-based notification system for test execution results
+- Improved test execution framework with sequential execution and Redis orchestration
+- Fixed issues related to OData filtering, JWT expiration, and score calculation
+
+### Frontend Highlights
+- Added version information display
+- Introduced new team invitation flow with enhanced security and validation
+- Improved session management with server logout upon expiration
+- Numerous bug fixes and UI improvements across components
+
+### SDK Highlights
+- Added support for `.txt` files to DocumentExtractor
+- Introduced `documents` parameter to PromptSynthesizer
+- Added functionality for custom behaviors informed by prompts
+
+## [0.1.0] - 2025-05-15
+
+### Platform Release
+
+First release of the Rhesis main repository, including all components. Note that the SDK was previously developed separately and is now at version 0.1.8 internally, but is included in this repository-wide v0.1.0 release.
+
+### Backend
+- Core API for test management
+- Database models and schemas with SQLAlchemy
+- Authentication system with JWT
+- CRUD operations for main entities
+- API documentation with Swagger/OpenAPI
+- PostgreSQL integration with row-level security
+- Error handling and logging
+
+### Frontend
+- Next.js 15 with App Router
+- Material UI v6 component library
+- Authentication with NextAuth.js
+- Protected routes and middleware
+- Dashboard and test management interface
+- Test visualization and monitoring
+- Dark/light theme support
+- Responsive design
+
+### SDK
+- Test set management and generation capabilities
+- Prompt synthesizers for test case generation
+- Paraphrasing capabilities
+- LLM service integration
+- CLI scaffolding
+- Documentation with Sphinx
+
+### Infrastructure
+- Docker containerization for all services
+- CI/CD pipeline setup
+- Development environment configuration
+- Repository structure for monorepo management
+
+### Note
+- The SDK was previously developed and released (up to v0.1.8) in a separate repository
+- After this initial release, each component follows its own versioning lifecycle
+- Component-specific tags use the format: `<component>-vX.Y.Z`

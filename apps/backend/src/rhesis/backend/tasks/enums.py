@@ -2,6 +2,14 @@
 
 from enum import Enum
 
+from rhesis.backend.app.constants import (
+    TestResultStatus,  # noqa: F401 — re-export
+    TestType,  # noqa: F401 — re-export
+)
+
+# Backward-compatible aliases
+ResultStatus = TestResultStatus
+
 # Metrics constants
 DEFAULT_METRIC_WORKERS = 5
 
@@ -14,16 +22,6 @@ DEFAULT_RUN_STATUS_FAILED = "Failed"
 # Task retry configuration
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_BACKOFF_MAX = 600  # 10 minutes
-DEFAULT_CHORD_RETRY_MAX = 3
-DEFAULT_CHORD_BACKOFF_MAX = 60  # 1 minute
-
-
-class ResultStatus(str, Enum):
-    """Enum for test result statuses."""
-
-    PASS = "Pass"
-    FAIL = "Fail"
-    ERROR = "Error"
 
 
 class RunStatus(str, Enum):
@@ -43,6 +41,7 @@ class RunStatus(str, Enum):
     COMPLETED = "Completed"
     PARTIAL = "Partial"
     FAILED = "Failed"
+    CANCELLED = "Cancelled"
 
 
 class ExecutionMode(str, Enum):
@@ -50,16 +49,3 @@ class ExecutionMode(str, Enum):
 
     SEQUENTIAL = "Sequential"
     PARALLEL = "Parallel"
-
-
-class TestType(str, Enum):
-    """
-    Enum for test types.
-
-    These are reserved test type values in the TypeLookup table:
-    - SINGLE_TURN: Traditional single request-response tests
-    - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
-    """
-
-    SINGLE_TURN = "Single-Turn"
-    MULTI_TURN = "Multi-Turn"

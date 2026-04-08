@@ -9,7 +9,7 @@ from rhesis.sdk.metrics.providers.native.shared_utils import (
     handle_evaluation_error,
     setup_jinja_environment,
 )
-from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 # Type variable for generic return types
 T = TypeVar("T", bound="JudgeBase")
@@ -51,8 +51,8 @@ class JudgeBase(BaseMetric, SerializationMixin, BackendSyncMixin):
         Raises:
             ValueError: If any input validation fails
         """
-        if not isinstance(input, str) or not input.strip():
-            raise ValueError("input must be a non-empty string")
+        if not isinstance(input, str):
+            raise ValueError("input must be a string")
 
         if not isinstance(output, str):
             raise ValueError(

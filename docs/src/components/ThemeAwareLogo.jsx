@@ -16,9 +16,9 @@ function ThemeAwareLogo() {
   if (!mounted) {
     return (
       <img
-        src="/logo/rhesis_logo_documentation.png"
+        src="/logo/rhesis-logo-website.png"
         alt="Rhesis"
-        style={{ height: '20px', width: 'auto' }}
+        style={{ height: '48px', width: 'auto' }}
       />
     )
   }
@@ -27,11 +27,9 @@ function ThemeAwareLogo() {
 
   return (
     <img
-      src={
-        isDark ? '/logo/rhesis_logo_dark_documentation.png' : '/logo/rhesis_logo_documentation.png'
-      }
+      src={isDark ? '/logo/rhesis-logo-website-white.png' : '/logo/rhesis-logo-website.png'}
       alt="Rhesis"
-      style={{ height: '25px', width: 'auto' }}
+      style={{ height: '48px', width: 'auto' }}
     />
   )
 }
