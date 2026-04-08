@@ -45,19 +45,25 @@ ENV UV_NO_MANAGED_PYTHON=1
 ENV UV_NO_DEV=1
 ENV UV_LINK_MODE=copy
 
-# Copy the SDK, Penelope, and backend directories (needed for auth and rate limiting)
+# Copy the SDK, Penelope, rhesis meta-package (SDK depends on rhesis[telemetry]), and backend
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
+COPY packages/rhesis /app/packages/rhesis/
 COPY apps/backend /app/apps/backend/
 
 # Fix paths in pyproject.toml to point to the correct locations in Docker
 RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml
+    sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
 
 # Install dependencies using uv sync
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev
+
+# Remove PyTorch to reduce image size (~780MB). Pulled in transitively via
+# rhesis-sdk; Polyphemus does not run local model inference.
+RUN uv pip uninstall torch
 
 # Now copy ALL source code - this layer will invalidate when any source changes
 COPY apps/polyphemus/src /app/src
@@ -87,6 +93,7 @@ COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --from=builder --chown=appuser:appuser /app/src /app/src
 COPY --from=builder --chown=appuser:appuser /app/sdk /app/sdk
 COPY --from=builder --chown=appuser:appuser /app/penelope /app/penelope
+COPY --from=builder --chown=appuser:appuser /app/packages/rhesis /app/packages/rhesis
 COPY --from=builder --chown=appuser:appuser /app/apps/backend /app/apps/backend
 
 # Clean up any .env files for security
