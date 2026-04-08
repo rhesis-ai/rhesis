@@ -119,6 +119,8 @@ class TestRhesisOTLPExporter:
             project_id="test-project",
             environment="test",
         )
+        # Skip retry backoff sleeps so the test stays fast.
+        exporter._retryer.wait = lambda *a, **kw: 0
 
         # Create mock span
         span_context = SpanContext(

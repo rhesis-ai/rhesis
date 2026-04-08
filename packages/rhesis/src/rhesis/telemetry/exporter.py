@@ -190,8 +190,14 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             return self._record_failure()
 
         except requests.exceptions.HTTPError as e:
+            # e.response is normally set (we only reach here via
+            # response.raise_for_status()), but HTTPError allows it to be
+            # None — guard so an AttributeError doesn't get reclassified as
+            # "This is a bug" by the catch-all below.
+            status_code = e.response.status_code if e.response is not None else None
+
             # Log validation errors from backend
-            if e.response.status_code == 422:
+            if status_code == 422:
                 try:
                     error_detail = e.response.json()
                     logger.error(
@@ -200,9 +206,9 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                     )
                 except Exception:
                     logger.error(f"❌ Backend validation error (422): {e}")
-            elif e.response.status_code == 401:
+            elif status_code == 401:
                 logger.error(f"❌ Authentication failed. Check your RHESIS_API_KEY. Error: {e}")
-            elif e.response.status_code == 403:
+            elif status_code == 403:
                 logger.error(
                     f"❌ Authorization failed. Check your API key has access to "
                     f"project '{self.project_id}'. Error: {e}"
@@ -261,10 +267,13 @@ class RhesisOTLPExporter(OTLPSpanExporter):
 
     def _log_retry(self, retry_state) -> None:
         """Log retry attempts for transient export failures."""
+        # next_action.sleep is the upcoming sleep duration; idle_for is
+        # cumulative across attempts and would over-report on retry 2+.
+        next_sleep = retry_state.next_action.sleep if retry_state.next_action else 0.0
         logger.warning(
             f"Transient export failure, "
             f"retry {retry_state.attempt_number}/{self._max_retries} "
-            f"in {retry_state.idle_for:.1f}s"
+            f"in {next_sleep:.1f}s"
         )
 
     def _convert_spans(self, spans: Sequence[ReadableSpan]) -> OTELTraceBatch:
