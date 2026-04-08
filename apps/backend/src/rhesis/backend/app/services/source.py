@@ -44,8 +44,7 @@ def update_source(
     """
     Update a source and re-chunk when text content is supplied in the payload.
 
-    If ``content`` is present and non-empty after stripping, runs ``auto_chunk_source``
-    so chunks stay aligned with the stored body text.
+    If ``content`` is present runs ``auto_chunk_source`` so chunks stay aligned with new content.
     """
     payload = source.model_dump(exclude_unset=True)
     content_in_request = "content" in payload
@@ -60,6 +59,7 @@ def update_source(
     if updated is None:
         return None
 
+    # Auto-chunk source only if content is present in the request
     if content_in_request:
         auto_chunk_source(db, source_id, organization_id, user_id)
 
@@ -141,8 +141,8 @@ async def refresh_source_content(
     created_source = crud.create_source(
         db=db, source=source_data, organization_id=organization_id, user_id=user_id
     )
-    if extracted_content and extracted_content.strip():
-        auto_chunk_source(db, created_source.id, organization_id, user_id)
+
+    auto_chunk_source(db, created_source.id, organization_id, user_id)
 
     return created_source
 
@@ -235,8 +235,7 @@ async def extract_source_content(
         user_id=user_id,
     )
 
-    if content and content.strip():
-        auto_chunk_source(db, source_id, organization_id, user_id)
+    auto_chunk_source(db, source_id, organization_id, user_id)
 
     return {
         "source_id": str(source_id),
