@@ -8,6 +8,7 @@ from rhesis.backend.notifications import email_service
 
 # Import all task modules to ensure they're registered with Celery
 from rhesis.backend.tasks import (
+    embedding,  # noqa: F401
     example_task,  # noqa: F401
     execution,  # noqa: F401
     task_notifications,  # noqa: F401
@@ -20,6 +21,7 @@ from rhesis.backend.tasks.base import (
     SilentTask,
     email_notification,
 )
+from rhesis.backend.tasks.embedding import generate_embedding_task
 from rhesis.backend.tasks.enums import (
     DEFAULT_METRIC_WORKERS,
     DEFAULT_RESULT_STATUS,
@@ -64,6 +66,7 @@ __all__ = [
     "email_service",
     # Tasks
     "echo",
+    "generate_embedding_task",
     "count_test_sets",
     "execute_test_configuration",
     "collect_results",
