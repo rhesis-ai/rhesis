@@ -11,9 +11,7 @@ from rhesis.backend.app.services.telemetry.enrichment.core import (
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 from rhesis.backend.app.services.telemetry.enrichment.service import (
     EnrichmentService,
-    are_workers_recently_available,
     build_enrichment_chain,
-    check_workers_available,
 )
 
 __all__ = [
@@ -25,7 +23,5 @@ __all__ = [
     "TraceEnricher",
     # service
     "EnrichmentService",
-    "are_workers_recently_available",
     "build_enrichment_chain",
-    "check_workers_available",
 ]

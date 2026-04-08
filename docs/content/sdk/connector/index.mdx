@@ -115,6 +115,33 @@ if __name__ == "__main__":
   Any unsupported parameter names cause registration-time errors.
 </Callout>
 
+### Metrics-only connector mode (optional `project_id`)
+
+If your script only registers SDK metrics with `@metric`, `project_id` is optional.
+In this mode, the connector still establishes a WebSocket session and registers metrics for backend-side evaluation.
+
+<CodeBlock filename="metrics_only.py" language="python">
+{`from rhesis.sdk import RhesisClient, metric
+
+client = RhesisClient(
+    api_key="your-api-key",
+    environment="development",
+)
+
+@metric(name="contains_policy_reference", score_type="binary")
+def contains_policy_reference(input: str, output: str, context: list[str] | None = None) -> dict:
+    has_reference = bool(context) and any(ref in output for ref in context)
+    return {"score": 1.0 if has_reference else 0.0}
+
+if __name__ == "__main__":
+    client.connect()`}
+</CodeBlock>
+
+<Callout type="info">
+  `@endpoint` registrations still require `project_id`. The optional `project_id` behavior applies to
+  metrics-only connector usage.
+</Callout>
+
 ### See It in Action
 
 Watch this video to see how the Rhesis SDK connector integrates an LLM application in under a minute using a single decorator:

@@ -15,7 +15,10 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.source import (
     extract_source_content,
     get_source_file_content,
-    upload_and_create_source,
+    refresh_source_content,
+)
+from rhesis.backend.app.services.source import (
+    update_source as update_source_service,
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -122,8 +125,12 @@ def update_source(
 ):
     """Update a source by ID."""
     organization_id, user_id = tenant_context
-    db_source = crud.update_source(
-        db, source_id=source_id, source=source, organization_id=organization_id, user_id=user_id
+    db_source = update_source_service(
+        db=db,
+        source_id=source_id,
+        source=source,
+        organization_id=organization_id,
+        user_id=user_id,
     )
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
@@ -168,7 +175,7 @@ async def upload_source(
     organization_id, user_id = tenant_context
 
     try:
-        return await upload_and_create_source(
+        return await refresh_source_content(
             db=db,
             file=file,
             organization_id=str(organization_id),

@@ -132,6 +132,63 @@ synthesizer = PromptSynthesizer(
 test_set = synthesizer.generate(num_tests=50)`}
 </CodeBlock>
 
+## Chunking strategies for source-based generation (v0.6.11)
+
+When you pass `sources` to a synthesizer, Rhesis chunks extracted content before generation. In
+v0.6.11, chunking is powered by `chonkie` and defaults to `RecursiveChunker(chunk_size=1500)`
+when no custom strategy is provided.
+
+### Choose a chunking strategy
+
+| Strategy | Best for | Key behavior |
+| --- | --- | --- |
+| `TokenChunker` | Uniform chunk sizes and strict token budgets | Splits by token count with optional overlap |
+| `SentenceChunker` | Readability-focused chunks | Preserves sentence boundaries while respecting token limits |
+| `RecursiveChunker` | Long structured content (docs, markdown, policies) | Splits on large-to-small delimiters recursively |
+
+### Example: pass a custom chunker
+
+<CodeBlock filename="custom_chunking.py" language="python">
+{`from rhesis.sdk.services.chunker import SentenceChunker
+from rhesis.sdk.services.extractor import SourceSpecification, SourceType
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+sources = [
+    SourceSpecification(
+        type=SourceType.WEBSITE,
+        name="Product docs",
+        metadata={"url": "https://example.com/docs"},
+    )
+]
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate edge-case tests from this documentation",
+    sources=sources,
+    chunking_strategy=SentenceChunker(
+        chunk_size=800,
+        chunk_overlap=80,
+        min_sentences_per_chunk=2,
+    ),
+)
+
+test_set = synthesizer.generate(num_tests=20)`}
+</CodeBlock>
+
+### Recipe-based recursive chunking
+
+`RecursiveChunker` also supports recipe presets:
+
+<CodeBlock filename="recursive_chunker_recipe.py" language="python">
+{`from rhesis.sdk.services.chunker import RecursiveChunker
+
+chunker = RecursiveChunker.from_recipe(recipe="markdown", lang="en")`}
+</CodeBlock>
+
+<Callout type="info">
+  `SemanticChunker` is deprecated and now aliases `RecursiveChunker` for backward compatibility.
+  Prefer `RecursiveChunker` for new code.
+</Callout>
+
 ## Pushing Test Sets to Rhesis
 
 Push generated test sets to the Rhesis platform for analysis, tracking, and collaboration.

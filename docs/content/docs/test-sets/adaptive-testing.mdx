@@ -1,0 +1,113 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Adaptive Testing
+
+Adaptive Testing is a topic-based workflow for expanding and maintaining single-turn test sets over time.
+Instead of treating a test set as static, you can organize tests into topic trees, generate outputs in bulk,
+evaluate results with a selected metric, and iterate with AI-generated suggestions.
+
+## When to Use Adaptive Testing
+
+Use Adaptive Testing when you need to:
+
+- Grow coverage across specific risk areas or product domains
+- Re-evaluate existing tests without regenerating all outputs
+- Curate suggestions before saving them to your test set
+- Keep one evolving test set instead of creating many one-off sets
+
+## End-to-End Workflow
+
+Adaptive Testing in the UI follows this loop:
+
+1. Create an adaptive test set
+2. Organize tests in topics
+3. Generate outputs from a selected endpoint
+4. Evaluate tests with a selected metric
+5. Generate and review suggestions
+6. Accept selected suggestions into the test set
+
+<Callout type="info">
+  Topic operations are hierarchical. Renaming a topic cascades to child topics and tests; removing a topic
+  removes subtopics and moves tests to the parent topic.
+</Callout>
+
+## Generate Outputs and Evaluate with Overwrite Control
+
+Two actions drive most iteration cycles:
+
+- **Generate outputs**: invoke an endpoint for test inputs and store output in test metadata
+- **Evaluate**: run a selected metric against test input/output pairs and store label and score in test metadata
+
+Both actions support an `overwrite` option.
+
+| Parameter | Type | Default | Behavior |
+| --- | --- | --- | --- |
+| `topic` | `string \| null` | `null` | Limits processing to a topic |
+| `include_subtopics` | `boolean` | `true` | Includes descendant topics when `topic` is set |
+| `overwrite` | `boolean` | `false` | Replaces existing outputs/results instead of skipping |
+| `test_ids` | `string[] \| null` | `null` | Optional explicit subset of tests |
+
+<Callout type="info">
+  With `overwrite=false`, tests that already have outputs or evaluation labels are skipped. The response includes
+  `generated` or `evaluated`, plus `skipped` and `failed` counts.
+</Callout>
+
+### Generate Outputs API Example
+
+<CodeBlock filename="generate_outputs.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/adaptive_testing/$TEST_SET_ID/generate_outputs" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "endpoint_id": "00000000-0000-0000-0000-000000000000",
+    "topic": "Safety/Jailbreak",
+    "include_subtopics": true,
+    "overwrite": false
+  }'`}
+</CodeBlock>
+
+### Evaluate API Example
+
+<CodeBlock filename="evaluate_tests.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/adaptive_testing/$TEST_SET_ID/evaluate" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "metric_names": ["answer_relevancy"],
+    "topic": "Safety/Jailbreak",
+    "include_subtopics": true,
+    "overwrite": true
+  }'`}
+</CodeBlock>
+
+## Suggestions Workflow
+
+Suggestion endpoints are non-persisted until you accept results in the UI.
+
+1. `POST /adaptive_testing/\{id\}/generate_suggestions`
+2. `POST /adaptive_testing/\{id\}/generate_suggestion_outputs`
+3. `POST /adaptive_testing/\{id\}/evaluate_suggestions`
+4. Accept selected suggestions to create real tests in the set
+
+| Suggestion parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `num_examples` | `int` | `10` | Existing tests sampled as examples |
+| `num_suggestions` | `int` | `20` | Requested number of suggestions |
+| `topic` | `string \| null` | `null` | Optional topic focus |
+
+<CodeBlock filename="generate_suggestions.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/adaptive_testing/$TEST_SET_ID/generate_suggestions" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "topic": "Safety/Jailbreak",
+    "num_examples": 10,
+    "num_suggestions": 20
+  }'`}
+</CodeBlock>
+
+## Related Pages
+
+- [Test Sets Overview](/docs/test-sets)
+- [Tests](/docs/tests)
+- [Metrics](/docs/metrics)

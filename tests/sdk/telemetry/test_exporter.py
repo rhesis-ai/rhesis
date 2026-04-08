@@ -7,6 +7,7 @@ import requests
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.trace import SpanContext, SpanKind, Status, StatusCode
+
 from rhesis.telemetry.exporter import RhesisOTLPExporter
 
 
