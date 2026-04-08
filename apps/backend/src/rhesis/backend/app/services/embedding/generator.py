@@ -7,9 +7,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.enums import EmbeddingStatus
-from rhesis.backend.app.models.model import Model
 from rhesis.backend.app.utils.crud_utils import get_item
 
 logger = logging.getLogger(__name__)
@@ -130,46 +129,42 @@ class EmbeddingGenerator:
         text_hash = self._compute_hash(searchable_text)
 
         # Get status IDs
-        active_status = (
-            self.db.query(models.Status)
-            .filter(
-                models.Status.name.ilike(EmbeddingStatus.ACTIVE.value),
-                models.Status.organization_id == organization_id,
-            )
-            .first()
+        active_statuses = crud.get_statuses(
+            self.db,
+            filter=f"tolower(name) eq '{EmbeddingStatus.ACTIVE.value.lower()}'",
+            organization_id=organization_id,
         )
+        active_status = active_statuses[0] if active_statuses else None
+
         if not active_status:
-            active_status = self.db.query(models.Status).first()
+            active_statuses = crud.get_statuses(self.db, limit=1)
+            active_status = active_statuses[0] if active_statuses else None
             if not active_status:
                 raise ValueError("No statuses exist in the database.")
 
-        stale_status = (
-            self.db.query(models.Status)
-            .filter(
-                models.Status.name.ilike(EmbeddingStatus.STALE.value),
-                models.Status.organization_id == organization_id,
-            )
-            .first()
+        stale_statuses = crud.get_statuses(
+            self.db,
+            filter=f"tolower(name) eq '{EmbeddingStatus.STALE.value.lower()}'",
+            organization_id=organization_id,
         )
+        stale_status = stale_statuses[0] if stale_statuses else None
+
         if not stale_status:
-            stale_status = (
-                self.db.query(models.Status).filter(models.Status.id != active_status.id).first()
+            # Fallback to get any status that is not active_status
+            stale_statuses = crud.get_statuses(self.db, limit=2)
+            stale_status = next(
+                (s for s in stale_statuses if s.id != active_status.id), active_status
             )
-            if not stale_status:
-                stale_status = active_status
 
         # Check if embedding already exists (same text/config)
-        existing_embedding = (
-            self.db.query(models.Embedding)
-            .filter(
-                models.Embedding.entity_id == entity_id,
-                models.Embedding.entity_type == entity_type,
-                models.Embedding.organization_id == organization_id,
-                models.Embedding.config_hash == config_hash,
-                models.Embedding.text_hash == text_hash,
-                models.Embedding.status_id == active_status.id,
-            )
-            .first()
+        existing_embedding = crud.get_embedding_by_hash(
+            self.db,
+            entity_id=entity_id,
+            entity_type=entity_type,
+            organization_id=organization_id,
+            config_hash=config_hash,
+            text_hash=text_hash,
+            status_id=active_status.id,
         )
 
         if existing_embedding:
@@ -182,22 +177,20 @@ class EmbeddingGenerator:
         )
 
         # Mark old embeddings as stale (different text/config)
-        stale_count = (
-            self.db.query(models.Embedding)
-            .filter(
-                models.Embedding.entity_id == entity_id,
-                models.Embedding.entity_type == entity_type,
-                models.Embedding.organization_id == organization_id,
-                models.Embedding.status_id == active_status.id,
-            )
-            .update({"status_id": stale_status.id})
+        stale_count = crud.mark_embeddings_stale(
+            self.db,
+            entity_id=entity_id,
+            entity_type=entity_type,
+            organization_id=organization_id,
+            active_status_id=active_status.id,
+            stale_status_id=stale_status.id,
         )
 
         if stale_count > 0:
             logger.info(f"Marked {stale_count} old embeddings as stale")
 
         # Create and store the embedding
-        new_embedding = models.Embedding(
+        embedding_create = schemas.EmbeddingCreate(
             entity_id=entity_id,
             entity_type=entity_type,
             model_id=model_id,
@@ -205,17 +198,16 @@ class EmbeddingGenerator:
             config_hash=config_hash,
             searchable_text=searchable_text,
             text_hash=text_hash,
-            organization_id=organization_id,
-            user_id=user_id,
             status_id=active_status.id,
+            embedding=embedding_vector,
         )
 
-        # Use the property setter which automatically selects the right column
-        new_embedding.embedding = embedding_vector
-
-        self.db.add(new_embedding)
-        self.db.commit()
-        self.db.refresh(new_embedding)
+        new_embedding = crud.create_embedding(
+            self.db,
+            embedding=embedding_create,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
         logger.info(
             f"Successfully generated embedding for {entity_type}:{entity_id}, dimension={dimension}"
