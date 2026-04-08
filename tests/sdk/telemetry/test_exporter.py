@@ -7,7 +7,6 @@ import requests
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
 from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.trace import SpanContext, SpanKind, Status, StatusCode
-
 from rhesis.telemetry.exporter import RhesisOTLPExporter
 
 
@@ -376,4 +375,3 @@ class TestExporterRetryLogic:
 
         assert self.exporter.export([self.span]) == SpanExportResult.FAILURE
         assert mock_post.call_count == 1
-

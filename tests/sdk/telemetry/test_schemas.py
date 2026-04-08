@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
-
 from rhesis.telemetry.schemas import (
     FORBIDDEN_SPAN_DOMAINS,
     AILLMAttributes,
