@@ -20,6 +20,7 @@ from .config import (
     get_endpoint_display_name,
     get_model_registry_display_name,
     get_vllm_args,
+    parse_bool_config_value,
     validate_config,
 )
 from .utils import check_quota, format_deployment_summary
@@ -114,6 +115,27 @@ def deploy_model_vllm(
             "Call get_or_create_endpoint() first."
         )
 
+    scale_to_zero = parse_bool_config_value(
+        model_config.get("scale_to_zero", True),
+        field_name="model_config['scale_to_zero']",
+    )
+    min_replica_count = 0 if scale_to_zero else 1
+    max_replica_count = int(model_config.get("max_replica_count", 1))
+    spot = parse_bool_config_value(
+        model_config.get("spot", False),
+        field_name="model_config['spot']",
+    )
+    if max_replica_count < min_replica_count:
+        max_replica_count = min_replica_count
+
+    logger.info(
+        "Vertex deploy: min_replica_count=%s max_replica_count=%s scale_to_zero=%s spot=%s",
+        min_replica_count,
+        max_replica_count,
+        scale_to_zero,
+        spot,
+    )
+
     # Deploy to endpoint with 100% traffic to automatically shift
     # traffic away from any existing deployments
     model.deploy(
@@ -121,6 +143,9 @@ def deploy_model_vllm(
         machine_type=model_config["machine_type"],
         accelerator_type=model_config["accelerator_type"],
         accelerator_count=model_config["accelerator_count"],
+        min_replica_count=min_replica_count,
+        max_replica_count=max_replica_count,
+        spot=spot,
         deploy_request_timeout=1800,  # 30 minutes
         service_account=service_account,
         traffic_percentage=100,
