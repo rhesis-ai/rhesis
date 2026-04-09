@@ -28,10 +28,20 @@ CONVERSATION_OUTPUT_KEY = "rhesis.conversation.output"
 def _get_trace_metrics_config(project: models.Project) -> Dict[str, Any]:
     """Extract trace_metrics config from project attributes.
 
+    The frontend stores ``trace_metrics`` as a plain list of metric-ID
+    strings while the evaluation pipeline expects a config dict with
+    optional keys ``enabled``, ``sampling_rate``, and ``metric_ids``.
+    This function normalises both representations into a config dict.
+
     Returns defaults when attributes are absent or incomplete.
     """
     attrs = project.attributes or {}
-    return attrs.get("trace_metrics", {})
+    raw = attrs.get("trace_metrics", {})
+    if isinstance(raw, list):
+        return {"metric_ids": raw}
+    if not isinstance(raw, dict):
+        return {}
+    return raw
 
 
 def _should_evaluate(config: Dict[str, Any]) -> bool:
