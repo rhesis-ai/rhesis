@@ -31,6 +31,7 @@ Polyphemus reads Vertex AI target configuration from environment variables:
 | `POLYPHEMUS_ENDPOINT_ID` | Yes | Vertex AI endpoint identifier |
 | `POLYPHEMUS_PROJECT_ID` | Yes | GCP project ID for endpoint invocation |
 | `POLYPHEMUS_LOCATION` | No | Vertex AI region (defaults to `us-central1`) |
+| `VLLM_LOGGING_LEVEL` | No | vLLM container log verbosity for Vertex serving (for example, `DEBUG`, `INFO`) |
 
 If required variables are missing, the service returns HTTP `400` with configuration error details.
 
@@ -47,6 +48,18 @@ Region configuration uses two separate variables depending on context:
 The workflow maps `REGION` → `POLYPHEMUS_LOCATION` automatically for service deployments.
 The model deployment script reads `GCP_REGION` independently; when running it locally you must
 export `GCP_REGION` yourself (see `apps/polyphemus/model_deployment/.env.example`).
+
+### vLLM logging level (v0.2.9+)
+
+When deploying Polyphemus to Vertex AI, you can control serving container verbosity with
+`VLLM_LOGGING_LEVEL`.
+
+<CodeBlock filename="deploy-polyphemus.sh" language="bash">
+{`export VLLM_LOGGING_LEVEL=DEBUG
+python apps/polyphemus/model_deployment/deploy.py --skip-existing`}
+</CodeBlock>
+
+If set, deployment injects `VLLM_LOGGING_LEVEL` into the serving container environment.
 
 ## Batch request and response format
 
@@ -94,4 +107,4 @@ export `GCP_REGION` yourself (see `apps/polyphemus/model_deployment/.env.example
 
 - [Adversarial Testing Overview](/adversarial-testing)
 - [Polyphemus product docs](/adversarial-testing/polyphemus)
-- [Development Changelog](/contribute/changelog)
+- [Development Changelog](/changelog)

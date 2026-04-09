@@ -17,16 +17,20 @@ Tests are executed simultaneously using multiple Celery workers. This is the def
 <CodeBlock language="text" isTerminal={false}>
 {`Test Configuration
     ↓
-Celery Chord (parallel dispatch)
-    ├─→ Worker 1: Test A ─┐
-    ├─→ Worker 2: Test B ─┼─→ Collect Results
-    └─→ Worker 3: Test C ─┘`}
+Single Celery Task (execute_test_configuration)
+    ↓
+Async Batch Engine (semaphore-gated)
+    ├─→ coroutine: Test A
+    ├─→ coroutine: Test B
+    └─→ coroutine: Test C
+    ↓
+Collect Results`}
 </CodeBlock>
 
 - Tests are dispatched to available workers
 - Multiple tests run concurrently
 - Results collected when all complete
-- Uses Celery's chord primitive for coordination
+- Uses an asyncio batch runner inside one Celery task (no chord fan-out)
 
 ### Use Cases
 
@@ -174,40 +178,48 @@ Both modes use the same `collect_results` task for consistency:
 
 ### Task Orchestration
 
-#### Parallel Mode (`parallel.py`)
+#### Parallel Mode (`batch/__init__.py`)
 
-Uses Celery's chord primitive:
+Parallel mode now uses a single task with an internal async fan-out:
 
-<CodeBlock language="python" filename="parallel.py" isTerminal={false}>
-{`from celery import chord
+<CodeBlock language="python" filename="batch_runner.py" isTerminal={false}>
+{`# 1) Build execution context (prefetch test + metric data)
+ctx = prefetch_execution_context(session, test_config, test_run, tests)
 
-# Create task group
-test_tasks = [
-    execute_test_task.signature(...)
-    for test in tests
-]
+# 2) Run all tests concurrently with a semaphore
+results = _run_async(run_batch(ctx, test_ids))
 
-# Execute in parallel with callback
-chord(test_tasks)(
-    collect_results.signature(...)
-)`}
+# 3) Trigger standard result collection
+trigger_results_collection(test_config, str(test_run.id), results)`}
 </CodeBlock>
+
+Inside `run_batch`, each test is executed as an `asyncio` task and guarded by:
+
+- `batch_concurrency` (default `10`)
+- `per_test_timeout` (default `1800` seconds)
+- cooperative cancellation checks against Celery revoke state
+- one recovery pass for transient failures
 
 #### Sequential Mode (`sequential.py`)
 
-Uses Celery's chain primitive:
+Sequential mode runs each test one-by-one in process, then triggers the same
+results collection task used by parallel mode:
 
 <CodeBlock language="python" filename="sequential.py" isTerminal={false}>
-{`from celery import chain
-
-# Create sequential chain
-tasks = []
+{`results = []
 for test in tests:
-    tasks.append(execute_test_task.signature(...))
-tasks.append(collect_results.signature(...))
+    result = asyncio.run(
+        execute_test(
+            db=session,
+            test_config_id=str(test_config.id),
+            test_run_id=str(test_run.id),
+            test_id=str(test.id),
+            endpoint_id=str(test_config.endpoint_id),
+        )
+    )
+    results.append(result)
 
-# Execute sequentially
-chain(*tasks)()`}
+trigger_results_collection(test_config, str(test_run.id), results)`}
 </CodeBlock>
 
 ---
@@ -302,6 +314,7 @@ tail -f celery.log | grep "execute_test"`}
 - Endpoint returns 429 (rate limit) → Switch to Sequential
 - Inconsistent test results → Check for race conditions
 - Worker overload → Reduce concurrency or use Sequential
+- Run stuck in `Progress` after worker issues → check task failure/revoked signals and run status transitions
 
 **Sequential Mode:**
 
