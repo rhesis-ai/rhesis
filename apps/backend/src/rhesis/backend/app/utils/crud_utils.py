@@ -69,7 +69,10 @@ def _clean_strings_recursive(val: Any) -> Any:
         val = val.replace("\x00", "")
         return val.encode("utf-8", "ignore").decode("utf-8")
     elif isinstance(val, dict):
-        return {k: _clean_strings_recursive(v) for k, v in val.items()}
+        return {
+            _clean_strings_recursive(k) if isinstance(k, str) else k: _clean_strings_recursive(v)
+            for k, v in val.items()
+        }
     elif isinstance(val, list):
         return [_clean_strings_recursive(v) for v in val]
     return val
