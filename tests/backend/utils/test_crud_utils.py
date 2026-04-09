@@ -10,7 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from faker import Faker
-from sqlalchemy.orm import Session
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import Session, declarative_base
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import EntityType
@@ -549,3 +550,56 @@ class TestGetOrCreateSpecializedFunctions:
             mock_get_entity.assert_called_once_with(
                 test_db, models.Behavior, expected_behavior_data, None, None, commit=True
             )
+
+
+Base = declarative_base()
+
+
+class DummyModel(Base):
+    __tablename__ = "dummy"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    data = Column(String)
+
+
+@pytest.mark.unit
+class TestStringCleaning:
+    def test_clean_strings_recursive_nul_char(self):
+        result = crud_utils._clean_strings_recursive("hello\x00world")
+        assert result == "helloworld"
+
+    def test_clean_strings_recursive_surrogate(self):
+        result = crud_utils._clean_strings_recursive("hello\ud83dworld")
+        assert result == "helloworld"
+
+    def test_clean_strings_recursive_valid_emoji(self):
+        result = crud_utils._clean_strings_recursive("hello😀world")
+        assert result == "hello😀world"
+
+    def test_clean_strings_recursive_dict(self):
+        data = {"key\x00": "value\ud83d", "normal": 42}
+        result = crud_utils._clean_strings_recursive(data)
+        assert result == {"key": "value", "normal": 42}
+
+    def test_clean_strings_recursive_list(self):
+        data = ["hello\x00", "world\ud83d", 42]
+        result = crud_utils._clean_strings_recursive(data)
+        assert result == ["hello", "world", 42]
+
+    def test_clean_strings_recursive_nested(self):
+        data = {"nested": ["list\x00", {"deep": "string\ud83d"}]}
+        result = crud_utils._clean_strings_recursive(data)
+        assert result == {"nested": ["list", {"deep": "string"}]}
+
+    def test_clean_string_fields(self):
+        item_data = {
+            "name": "john\x00doe",
+            "data": {"nested": "value\ud83d"},
+            "non_column": "keep\x00me",
+        }
+
+        result = crud_utils._clean_string_fields(DummyModel, item_data)
+
+        assert result["name"] == "johndoe"
+        assert result["data"] == {"nested": "value"}
+        assert result["non_column"] == "keep\x00me"

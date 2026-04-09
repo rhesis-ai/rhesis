@@ -63,6 +63,33 @@ def _is_uuid_field(model: Type[T], field_name: str) -> bool:
     )
 
 
+def _clean_strings_recursive(val: Any) -> Any:
+    """Recursively clean strings to remove NUL chars and invalid UTF-8/surrogates."""
+    if isinstance(val, str):
+        val = val.replace("\x00", "")
+        return val.encode("utf-8", "ignore").decode("utf-8")
+    elif isinstance(val, dict):
+        return {
+            _clean_strings_recursive(k) if isinstance(k, str) else k: _clean_strings_recursive(v)
+            for k, v in val.items()
+        }
+    elif isinstance(val, list):
+        return [_clean_strings_recursive(v) for v in val]
+    return val
+
+
+def _clean_string_fields(model: Type[T], item_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Clean string values to prevent DB errors (removing NUL chars and surrogates)."""
+    cleaned_data = item_data.copy()
+
+    columns = inspect(model).columns
+    for field_name, field_value in list(cleaned_data.items()):
+        if field_name in columns:
+            cleaned_data[field_name] = _clean_strings_recursive(field_value)
+
+    return cleaned_data
+
+
 def _clean_uuid_fields(model: Type[T], item_data: Dict[str, Any]) -> Dict[str, Any]:
     """Clean up empty string values for UUID fields to prevent database errors."""
     cleaned_data = item_data.copy()
@@ -132,6 +159,9 @@ def _prepare_item_data(
     # Convert Pydantic to dict
     data = _convert_pydantic_to_dict(item_data)
 
+    # Clean string fields
+    data = _clean_string_fields(model, data)
+
     # Clean UUID fields
     data = _clean_uuid_fields(model, data)
 
@@ -147,6 +177,9 @@ def _prepare_update_data(
     """Prepare item data for update operations."""
     # Convert Pydantic to dict (excluding unset fields for updates)
     data = _convert_pydantic_to_dict_exclude_unset(item_data)
+
+    # Clean string fields
+    data = _clean_string_fields(model, data)
 
     # Clean UUID fields
     data = _clean_uuid_fields(model, data)

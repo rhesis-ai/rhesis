@@ -13,6 +13,59 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.12] - 2026-04-09
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.11**
+- **Frontend 0.6.12**
+- **SDK 0.6.12**
+- **Polyphemus 0.2.9**
+
+### Summary of Changes
+
+**Backend v0.6.11:**
+- **New Feature:** Added core embedding generation services and tasks for vector embeddings, including deduplication and stale embedding cleanup.
+- **New Feature:** Implemented automatic source chunking service with soft-delete and re-chunking support.
+- **Improvement:** Replaced Celery chord fan-out with an async batch execution engine for faster test runs and added a cancel test run endpoint.
+- **Improvement:** Enhanced adaptive testing with streaming suggestions, UI improvements, and the ability to export to regular test sets.
+
+
+**Frontend v0.6.12:**
+- Implemented asynchronous batch execution engine for tests, replacing chord fan-out, improving performance and adding test run cancellation.
+- Added "echo" use case to chatbot, returning user input verbatim without LLM calls or rate limit consumption.
+- Introduced adaptive testing features including streaming suggestions, batch accept, segmented progress bar, export to regular test sets, user feedback, per-metric evaluation details, and settings management.
+- Improved file import functionality with fixes for XLSX parsing, support for multi-turn turn configuration, and test-type mismatch warnings.
+- Enhanced performance through thread-local clients for HTTP and RPC connections, reduced object construction, and mop-up pass for retrying transient failures.
+- Added cancel test run endpoint and UI, allowing users to cancel in-progress test runs.
+
+
+**SDK v0.6.12:**
+- feat: Added lightweight `rhesis-telemetry` package for telemetry foundation.
+- feat: Implemented async batch execution engine for tests, improving concurrency and performance.
+- feat: Added "echo" chatbot use case that returns user input verbatim without LLM calls.
+- feat: Introduced test run cancellation functionality with UI and backend support.
+- perf: Optimized batch execution performance by reusing thread-local clients and reducing object construction.
+- fix: Implemented lazy loading for metrics, services, and models to improve SDK startup time.
+- feat: Added user feedback functionality for adaptive testing suggestion generation.
+
+
+**Polyphemus v0.2.9:**
+- Removed PyTorch dependency, reducing Docker image size.
+- Implemented NIST-aligned password hardening with increased minimum length and breach checks.
+- Fixed issues with test run metrics filtering and display in the frontend.
+- Add attachments column to tests grid.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.6.11] - 2026-03-26
 
 ### Platform Release
