@@ -25,7 +25,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "requests>=2.31.0",
-    "cryptography>=46.0.5",
+    "cryptography>=46.0.0",
     "pillow>=12.1.1",
 ]
 
@@ -47,6 +47,7 @@ build-backend = "hatchling.build"
 packages = ["src/research_assistant"]
 
 [tool.uv]
+exclude-newer = "1 week"
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "pyasn1>=0.6.3",

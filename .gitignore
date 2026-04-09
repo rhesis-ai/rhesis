@@ -165,6 +165,9 @@ cython_debug/
 #.idea/
 
 
+# pip-audit aggregate report (scripts/run_pip_audit_all.py)
+pip-audit-report.md
+
 # Report JSON
 #  This ignores the json report file being created
 tests/report.json

@@ -62,3 +62,7 @@ pattern = '''version\s*=\s*["'](?P<version>[^"']+)["']'''
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhesis"]
+
+[tool.uv]
+exclude-newer = "1 week"
+
