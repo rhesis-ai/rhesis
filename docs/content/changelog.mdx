@@ -8,6 +8,85 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.12] - 2026-04-09
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.11**
+- **Frontend 0.6.12**
+- **SDK 0.6.12**
+- **Polyphemus 0.2.9**
+
+### Summary
+
+This release introduces **test run cancellation**, **adaptive testing settings and export workflows**, and
+an **async batch execution engine** replacing chord fan-out for test execution. It also adds a built-in
+`echo` chatbot use case and extends Polyphemus deployment controls with serving-container log-level
+configuration.
+
+### Featured Capabilities
+
+**Test Run Cancellation**
+
+Queued and in-progress test runs can now be cancelled from the API and UI:
+
+- **New endpoint**: `POST /test_runs/\{id\}/cancel`
+- **Immediate status transition**: run status is set to `Cancelled` immediately
+- **Cooperative stop behavior**: running async batch work is cancelled via revoke checks and watchdog cancellation
+- **Grid action support**: test runs list supports bulk cancel for selected queued/progress runs
+
+**Adaptive Testing Settings + Export**
+
+Adaptive testing now supports persistent configuration and cleaner handoff workflows:
+
+- **Adaptive settings endpoints**: `GET/PUT /adaptive_testing/\{id\}/settings`
+- **Default endpoint + metric assignments**: adaptive sets can store default execution/evaluation settings
+- **Export endpoint**: `POST /adaptive_testing/export/\{source_test_set_identifier\}` creates a regular test set
+- **Suggestion UX updates**: streaming progress, user feedback guidance, and batch accept in the suggestions flow
+- **Topic management improvement**: adaptive tree now includes a "Tests without topic" filter
+
+**Async Batch Execution Engine**
+
+Parallel execution now uses a single-task async batch architecture:
+
+- **Orchestration change**: replaced Celery chord fan-out with internal asyncio task fan-out
+- **Concurrency controls**: semaphore-limited execution via configurable batch concurrency
+- **Recovery pass**: retries transient failures after the main pass
+- **Per-test timeout default**: increased to `1800` seconds (`30` minutes)
+- **Worker compatibility**: thread-pool execution path avoids fork-related instability
+
+**Chatbot Echo Use Case**
+
+The default chatbot service includes a built-in `echo` path:
+
+- **No LLM invocation**: returns input verbatim
+- **Rate-limit exemption**: `echo` requests bypass chatbot usage limits
+- **Practical use**: lightweight connectivity and request-mapping checks
+
+### Backend Highlights
+- Added run cancellation endpoint and cancellation state handling for queued/progress runs
+- Added adaptive settings read/update endpoints and export-from-adaptive endpoint
+- Added suggestion-generation user feedback support and streaming evaluation/output paths
+- Added file-import turn config alias support (`Turn Config`, `turns`, `num_turns`) with range parsing
+- Replaced chord fan-out path with async batch engine and cancellation watchdog
+
+### Frontend Highlights
+- Added cancel test run actions in test runs grid for queued/progress statuses
+- Added adaptive settings dialog for default endpoint/metric assignment
+- Added adaptive export action to create regular test sets from adaptive sets
+- Added suggestions progress segmentation, per-metric detail tooltip, and accept-all flow
+- Added "Tests without topic" adaptive tree filter
+
+### SDK Highlights
+- Added support for run cancellation endpoint usage in client flows
+- Improved execution reliability with async batch behavior and retry/recovery path support
+- Included echo use-case support for chatbot interactions
+
+### Polyphemus Highlights
+- Added `VLLM_LOGGING_LEVEL` deployment variable support for Vertex serving container logs
+- Continued security and dependency hardening reflected in component release `0.2.9`
+
 ## [0.6.11] - 2026-03-26
 
 ### Platform Release

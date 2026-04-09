@@ -60,8 +60,8 @@ Return Summary`}
 
 Test configurations can execute multiple tests in two modes:
 
-- **Parallel** (default): Tests run simultaneously using Celery workers
-- **Sequential**: Tests run one after another
+- **Parallel** (default): one Celery task runs an internal async batch engine
+- **Sequential**: tests run one after another
 
 See [Execution Modes](/contribute/worker/execution-modes) for details.
 
@@ -220,6 +220,18 @@ The system checks for existing results to avoid duplicate test execution.
 
 Use parallel execution mode for independent tests to maximize throughput.
 
+### Parallel Engine Notes (v0.6.12+)
+
+The parallel path now uses an internal async batch runner instead of Celery chord fan-out:
+
+- `execute_test_configuration` creates a single worker task per test run
+- `execute_tests_as_batch` prefetches execution context and runs `run_batch(...)`
+- `run_batch` uses `asyncio` tasks with semaphore-limited concurrency
+- cancellation is cooperative via Celery revoke checks and task cancellation
+- default per-test timeout is `1800` seconds (`30` minutes)
+
+This model reduces worker orchestration overhead and improves reliability for large runs.
+
 ## Module Location
 
 The test execution code is located in the backend repository but is primarily executed by workers:
@@ -239,7 +251,10 @@ The test execution code is located in the backend repository but is primarily ex
 ├── test_execution.py              # Main entry point
 ├── modes.py                       # Execution mode utilities
 ├── orchestration.py               # Task orchestration
-├── parallel.py                    # Parallel execution
+├── batch/                         # Async batch execution engine
+│   ├── __init__.py                # execute_tests_as_batch
+│   ├── context.py                 # prefetch + ExecutionContext
+│   └── runner.py                  # run_batch + cancellation watchdog
 ├── sequential.py                  # Sequential execution
 └── penelope_target.py             # Backend target for Penelope`}
 </CodeBlock>
