@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.12] - 2026-04-09
+
+### Added
+
+- Added a built-in "echo" use case to the chatbot that returns the user's input verbatim without invoking the LLM or consuming any rate-limit quota.
+- Added a POST `/test_runs/{id}/cancel` endpoint to cancel test runs.
+- Added a "Cancel Test Run(s)" button to the frontend that appears when one or more queued/in-progress runs are selected.
+- Added mid-flight cancellation via an asyncio watchdog that polls Celery's in-process revoke set.
+- Added a mop-up pass to retry transient failures after the main batch execution in test runs.
+- Added support for "Turn Config" / "turn_config" / "turns" / "num_turns" columns in file imports to configure multi-turn tests.
+- Added batch accept functionality for adaptive test suggestions in the frontend.
+- Added a segmented progress bar for the adaptive testing suggestions pipeline in the frontend.
+- Added streaming capabilities for suggestion generation and evaluation in adaptive testing, allowing for real-time updates.
+- Added export functionality for adaptive test sets to create regular test sets.
+- Added user feedback functionality for suggestion generation in adaptive testing.
+- Added per-metric evaluation details to the backend.
+- Added score metrics tooltip to the frontend.
+- Added adaptive test set settings read/update flows for managing default endpoint and metric assignments through dedicated API routes.
+- Added a "Tests without topic" option in AdaptiveTestingDetail to filter and display tests that do not have an associated topic.
+
+### Changed
+
+- Replaced chord fan-out with an async batch execution engine for test runs, improving concurrency and resource utilization.
+- Switched the Celery worker from prefork to threads pool to eliminate fork() and related native library crashes.
+- Invokers, endpoint service, and metrics evaluators now have async support.
+- Updated BaseLLM.warmup() and VertexAILLM.warmup() docstrings to remove fork-safety framing.
+- Improved telemetry ingestion error logging with stage tracking, exc_info tracebacks, and worker availability logging.
+- Adaptive testing now uses adaptive test set settings as the default source for endpoint and metric selection.
+- Increased default per-test timeout from 300s to 1800s (30 min).
+- Updated the default sort order in the test retrieval function for adaptive testing to descending.
+
+### Fixed
+
+- Fixed SIGTRAP/SIGKILL during concurrent Vertex AI tests by passing credentials directly.
+- Fixed stuck Progress status on TestRun by catching Celery task_failure and task_revoked signals.
+- Fixed bugs in the batch engine and invoker layer, including misplaced docstrings, thread-safety races, and incorrect error handling.
+- Fixed negative duration on failed test runs in the frontend.
+- Fixed raw HTML parsing in markdown to prevent React error #137.
+- Fixed telemetry tasks to bind to the Redis Celery app.
+- Fixed file import issues, including skipping blank leading rows, handling multi-sheet workbooks, and skipping empty rows.
+- Fixed adaptive testing tests for evaluate and settings client.
+- Fixed auth manager mock target in tests.
+- Fixed RPC close bug and eliminated per-invocation object construction for performance improvements.
+
+### Removed
+
+- Removed the option to overwrite existing outputs in adaptive testing, defaulting to true for output generation.
+
 ## [0.6.11] - 2026-03-26
 
 ### Added

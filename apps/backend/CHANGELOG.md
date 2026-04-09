@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.11] - 2026-04-09
+
+### Added
+- Implemented core embedding generation services and tasks for generating and storing vector embeddings, with deduplication and stale embedding cleanup.
+- Added automatic source chunking service to persist chunks to the database, with soft-delete and re-chunking support.
+- Introduced a lightweight `rhesis-telemetry` package for telemetry foundation.
+- Added an AsyncService base class for async/sync task orchestration.
+- Implemented a built-in "echo" use case that returns the user's input verbatim without invoking the LLM or consuming any rate-limit quota.
+- Added a cancel test run endpoint to revoke Celery tasks and set the status to Cancelled.
+- Added mid-flight cancellation via asyncio watchdog.
+- Added adaptive testing settings endpoints to manage default endpoint and metric assignments.
+- Added "Tests without topic" option in AdaptiveTestingDetail for adaptive testing.
+- Added Chunk entity and CRUD operations.
+- Added user feedback functionality for adaptive testing suggestion generation.
+- Added streaming for suggestion generation and evaluation in adaptive testing.
+- Added export functionality for adaptive test sets to create regular test sets.
+
+### Changed
+- Replaced chord fan-out with async batch execution engine for test execution.
+- Switched Celery worker from prefork to threads pool.
+- Enhanced adaptive testing components and UI elements.
+- Improved adaptive testing suggestions and metrics.
+- Optimized batch execution performance.
+- Improved adaptive testing suggestion prompt and generation.
+- Improved adaptive testing settings flow and test feedback.
+- Streamlined adaptive testing suggestion generation and removed unused functions.
+- Enhanced suggestion prompt structure and clarity for adaptive testing.
+- Updated default sort order for test retrieval from ascending to descending in adaptive testing.
+- Refactored adaptive testing detail and suggestions dialog components.
+
+### Fixed
+- Fixed circular import.
+- Fixed build metric configs before session closes.
+- Fixed concurrent embedding insertion race condition.
+- Fixed entity_id to send to Celery to always be a JSON-serializable string.
+- Fixed deletion strategy and chunk ownership in chunking service.
+- Fixed DB transaction issue in auto_chunk_source.
+- Fixed chunk update when source.content is empty.
+- Fixed build metric configs before session closes.
+- Fixed bugs in batch engine and invoker layer.
+- Fixed negative duration on failed test runs.
+- Fixed raw HTML parsing in markdown.
+- Fixed telemetry tasks binding to redis celery app.
+- Fixed telemetry ingestion error logging.
+- Fixed file import issues: XLSX/CSV parsing, Turn Config support, test-type mismatch warning.
+- Fixed tests that need the status_id parameter.
+- Fixed auth manager mock target to `_token_session.post`.
+- Fixed misleading default=dict from nullable metadata columns.
+- Fixed unique index for active chunks and remove server default.
+- Fixed organization deletion of embeddings referencing status before status deletion.
+- Fixed imports.
+- Fixed thread-safety race in `_get_file_logger`.
+- Fixed missing `status_id` migration in embedding table.
+- Fixed reference when backfilling `status_id`.
+- Fixed tests for Source entity, add tests for Trace and Chunk.
+- Fixed all_cancelled falsy check in batch execution.
+- Fixed broken tests in invoker layer.
+- Fixed RPC close bug and eliminated per-invocation object construction.
+
+### Removed
+- Removed misleading "(SIGTERM)" in cancel_test_run docstring.
+- Removed duplicate backend rhesis dependency in favor of transitive rhesis[telemetry] via the SDK.
+
+
 ## [0.6.10] - 2026-03-26
 
 ### Added
