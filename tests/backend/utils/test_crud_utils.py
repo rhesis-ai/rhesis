@@ -551,13 +551,16 @@ class TestGetOrCreateSpecializedFunctions:
                 test_db, models.Behavior, expected_behavior_data, None, None, commit=True
             )
 
+
 Base = declarative_base()
 
+
 class DummyModel(Base):
-    __tablename__ = 'dummy'
+    __tablename__ = "dummy"
     id = Column(Integer, primary_key=True)
     name = Column(String)
     data = Column(String)
+
 
 @pytest.mark.unit
 class TestStringCleaning:
