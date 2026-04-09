@@ -233,7 +233,9 @@ export default function TestRunMainView({
     if (filter.selectedMetrics.length > 0) {
       filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
-        return filter.selectedMetrics.some(metricName => metricName in metrics);
+        return filter.selectedMetrics.some(metricName =>
+          Object.hasOwn(metrics, metricName)
+        );
       });
     }
 
