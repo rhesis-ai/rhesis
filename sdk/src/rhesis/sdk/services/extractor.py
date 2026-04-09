@@ -168,9 +168,6 @@ class WebsiteExtractor(Extractor):
         else:
             extracted_text = str(result)
 
-        if extracted_text:
-            extracted_text = extracted_text.replace("\x00", "")
-
         return extracted_text.strip() if extracted_text else ""
 
 
@@ -274,9 +271,6 @@ class DocumentExtractor(Extractor):
             extracted_text = result.markdown
         else:
             extracted_text = str(result)
-
-        if extracted_text:
-            extracted_text = extracted_text.replace("\x00", "")
 
         return extracted_text.strip() if extracted_text else ""
 
