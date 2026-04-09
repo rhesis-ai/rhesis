@@ -155,7 +155,7 @@ export default function TestRunMainView({
     statusFilter: 'all',
     selectedBehaviors: [],
     overruleFilter: 'all',
-    selectedFailedMetrics: [],
+    selectedMetrics: [],
     commentFilter: 'all',
     commentCountRange: { min: 0, max: 20 },
     taskFilter: 'all',
@@ -229,14 +229,11 @@ export default function TestRunMainView({
       });
     }
 
-    // Apply failed metrics filter
-    if (filter.selectedFailedMetrics.length > 0) {
+    // Apply metrics filter — show results that contain any of the selected metrics
+    if (filter.selectedMetrics.length > 0) {
       filtered = filtered.filter(test => {
         const metrics = test.test_metrics?.metrics || {};
-        return filter.selectedFailedMetrics.some(metricName => {
-          const metric = metrics[metricName];
-          return metric && !metric.is_successful;
-        });
+        return filter.selectedMetrics.some(metricName => metricName in metrics);
       });
     }
 

@@ -24,6 +24,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import ListIcon from '@mui/icons-material/List';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import TableRowsIcon from '@mui/icons-material/TableRows';
@@ -37,7 +38,7 @@ export interface FilterState {
   statusFilter: 'all' | 'passed' | 'failed';
   selectedBehaviors: string[];
   overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting';
-  selectedFailedMetrics: string[];
+  selectedMetrics: string[];
   commentFilter: 'all' | 'with_comments' | 'without_comments' | 'range';
   commentCountRange: { min: number; max: number };
   taskFilter: 'all' | 'with_tasks' | 'without_tasks' | 'range';
@@ -129,13 +130,13 @@ export default function TestRunFilterBar({
   };
 
   const handleMetricToggle = (metricName: string) => {
-    const newMetrics = filter.selectedFailedMetrics.includes(metricName)
-      ? filter.selectedFailedMetrics.filter(name => name !== metricName)
-      : [...filter.selectedFailedMetrics, metricName];
+    const newMetrics = filter.selectedMetrics.includes(metricName)
+      ? filter.selectedMetrics.filter(name => name !== metricName)
+      : [...filter.selectedMetrics, metricName];
 
     onFilterChange({
       ...filter,
-      selectedFailedMetrics: newMetrics,
+      selectedMetrics: newMetrics,
     });
   };
 
@@ -176,7 +177,7 @@ export default function TestRunFilterBar({
       ...filter,
       selectedBehaviors: [],
       overruleFilter: 'all',
-      selectedFailedMetrics: [],
+      selectedMetrics: [],
       commentFilter: 'all',
       taskFilter: 'all',
     });
@@ -186,7 +187,7 @@ export default function TestRunFilterBar({
     filter.selectedBehaviors.length +
     (filter.statusFilter !== 'all' ? 1 : 0) +
     (filter.overruleFilter !== 'all' ? 1 : 0) +
-    filter.selectedFailedMetrics.length +
+    filter.selectedMetrics.length +
     (filter.commentFilter !== 'all' ? 1 : 0) +
     (filter.taskFilter !== 'all' ? 1 : 0);
 
@@ -596,7 +597,7 @@ export default function TestRunFilterBar({
 
             <Divider />
 
-            {/* Failed Metrics */}
+            {/* Metrics */}
             {availableMetrics && availableMetrics.length > 0 && (
               <>
                 <Box>
@@ -608,13 +609,13 @@ export default function TestRunFilterBar({
                       mb: 1.5,
                     }}
                   >
-                    <CancelOutlinedIcon fontSize="small" color="action" />
+                    <AssessmentOutlinedIcon fontSize="small" color="action" />
                     <Typography variant="subtitle2" fontWeight={600}>
-                      Failed Metrics
+                      Metrics
                     </Typography>
-                    {filter.selectedFailedMetrics.length > 0 && (
+                    {filter.selectedMetrics.length > 0 && (
                       <Chip
-                        label={filter.selectedFailedMetrics.length}
+                        label={filter.selectedMetrics.length}
                         size="small"
                         color="primary"
                         sx={{
@@ -633,7 +634,7 @@ export default function TestRunFilterBar({
                         key={metric.name}
                         control={
                           <Checkbox
-                            checked={filter.selectedFailedMetrics.includes(
+                            checked={filter.selectedMetrics.includes(
                               metric.name
                             )}
                             onChange={() => handleMetricToggle(metric.name)}
