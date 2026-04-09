@@ -52,12 +52,37 @@ def _parse_int_env(name: str, default: str) -> int:
         raise ValueError(f"{name} must be a valid integer, got {raw!r}") from e
 
 
+_BOOL_TRUTHY = frozenset({"1", "true", "yes", "on"})
+_BOOL_FALSY = frozenset({"0", "false", "no", "off"})
+_BOOL_ALLOWED = sorted(_BOOL_TRUTHY | _BOOL_FALSY)
+
+
+def parse_bool_config_value(value: Any, *, field_name: str) -> bool:
+    """Strict bool: actual bool passes through; str uses the same tokens as env parsing."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        token = value.strip().lower()
+        if not token:
+            raise ValueError(f"{field_name} cannot be empty or whitespace-only")
+        if token in _BOOL_TRUTHY:
+            return True
+        if token in _BOOL_FALSY:
+            return False
+        raise ValueError(
+            f"{field_name} must be one of {_BOOL_ALLOWED!r} (case-insensitive), got {value!r}"
+        )
+    raise TypeError(
+        f"{field_name} must be bool or str, got {type(value).__name__}"
+    )
+
+
 def _parse_bool_env(name: str, default: str) -> bool:
-    """Parse env as bool (true/false/1/0/yes/no/on/off); empty uses default."""
+    """Parse env as bool; empty/unset uses default. Unknown values raise ValueError."""
     raw = os.getenv(name)
     if raw is None or not str(raw).strip():
-        raw = default
-    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+        return parse_bool_config_value(default, field_name=name)
+    return parse_bool_config_value(raw, field_name=name)
 
 
 MAX_MODEL_LEN = _parse_int_env("MAX_MODEL_LEN", "4096")
