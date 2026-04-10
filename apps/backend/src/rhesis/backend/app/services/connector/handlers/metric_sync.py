@@ -7,9 +7,8 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.backend.app.utils.status import get_or_create_status
 from rhesis.sdk.connector.registry import DEFAULT_METRIC_PARAMS
 
 logger = logging.getLogger(__name__)
@@ -212,7 +211,13 @@ def _create_new_metric(
     score_type = metadata.get("score_type", "numeric")
     accepted_params = metric_data.get("parameters", list(DEFAULT_METRIC_PARAMS))
 
-    active_status = get_or_create_status(db, "Active", "General", organization_id, user_id)
+    active_status = get_or_create_status(
+        db=db,
+        name="Active",
+        entity_type="General",
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
     metric_type = get_or_create_type_lookup(
         db=db,
@@ -263,7 +268,11 @@ def _mark_inactive_metrics(
         if name not in registered_names:
             try:
                 inactive_status = get_or_create_status(
-                    db, "Inactive", "General", organization_id, user_id
+                    db=db,
+                    name="Inactive",
+                    entity_type="General",
+                    organization_id=organization_id,
+                    user_id=user_id,
                 )
                 if inactive_status:
                     metric.status_id = inactive_status.id
