@@ -15,7 +15,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-02T15:04:14.769507Z"
+exclude-newer = "2026-04-03T10:53:30.633425Z"
 exclude-newer-span = "P1W"
 
 [manifest]
@@ -3605,7 +3605,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cryptography", specifier = ">=46.0.0" },
+    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "langchain-core", specifier = ">=1.2.11" },
     { name = "langchain-google-genai", specifier = ">=2.0.0" },
@@ -3708,7 +3708,7 @@ requires-dist = [
     { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
     { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "chonkie", specifier = ">=1.6.1" },
-    { name = "cryptography", specifier = ">=46.0.0" },
+    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "diskcache" },

@@ -49,7 +49,7 @@ dependencies = [
     "aiohttp_security",
     "aiohttp_session",
     "appdirs",
-    "cryptography>=46.0.0",
+    "cryptography>=46.0.5",
     "pillow>=12.1.1",
     "marshmallow>=3.26.2",
     "mammoth>=1.11.0",

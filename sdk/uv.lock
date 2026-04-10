@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-02T15:18:18.6989Z"
+exclude-newer = "2026-04-03T10:53:28.464476Z"
 exclude-newer-span = "P1W"
 
 [manifest]
@@ -4463,7 +4463,7 @@ requires-dist = [
     { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
     { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "chonkie", specifier = ">=1.6.1" },
-    { name = "cryptography", specifier = ">=46.0.0" },
+    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "diskcache" },

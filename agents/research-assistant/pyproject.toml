@@ -25,7 +25,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "requests>=2.31.0",
-    "cryptography>=46.0.0",
+    "cryptography>=46.0.5",
     "pillow>=12.1.1",
 ]
 

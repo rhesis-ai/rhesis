@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-04-02T15:17:53.701268Z"
+exclude-newer = "2026-04-03T10:53:29.460423Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6397,7 +6397,7 @@ requires-dist = [
     { name = "bcrypt", specifier = ">=4.0.0,<5.0.0" },
     { name = "celery", extras = ["redis"], specifier = "==5.5.2" },
     { name = "chardet" },
-    { name = "cryptography", specifier = ">=46.0.0" },
+    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "email-validator", specifier = ">=2.0.0" },
     { name = "faker" },
     { name = "fastapi" },
@@ -6583,7 +6583,7 @@ requires-dist = [
     { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
     { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "chonkie", specifier = ">=1.6.1" },
-    { name = "cryptography", specifier = ">=46.0.0" },
+    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "diskcache" },
