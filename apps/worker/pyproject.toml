@@ -56,6 +56,8 @@ dependencies = [
 ]
 
 [tool.uv]
+exclude-newer = "1 week"
+exclude-newer-package = { torch = false }
 # Use CPU-only PyTorch to reduce image size (~200MB instead of ~3GB)
 # garak requires torch, but the worker doesn't need GPU support
 # Force minimum versions for transitive dependencies with security advisories
