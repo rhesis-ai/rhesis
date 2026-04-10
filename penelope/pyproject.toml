@@ -91,6 +91,7 @@ include = ["src/rhesis/py.typed"]
 allow-direct-references = true
 
 [tool.uv]
+exclude-newer = "1 week"
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "pyasn1>=0.6.3",

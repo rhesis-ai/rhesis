@@ -99,6 +99,8 @@ url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [tool.uv]
+exclude-newer = "1 week"
+exclude-newer-package = { torch = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "pyasn1>=0.6.3",

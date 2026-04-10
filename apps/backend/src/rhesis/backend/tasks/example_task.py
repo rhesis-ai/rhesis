@@ -20,6 +20,7 @@ from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import (
     BaseTask,
+    EmailEnabledTask,
     email_notification,
 )
 from rhesis.backend.tasks.enums import ExecutionMode
@@ -176,7 +177,7 @@ def manual_db_example(self):
     subject_template="Test Task Complete: {task_name} - {status}",
 )
 @app.task(
-    base=BaseTask,
+    base=EmailEnabledTask,
     name="rhesis.backend.tasks.email_notification_test",
     bind=True,
     display_name="Email Notification Test",
