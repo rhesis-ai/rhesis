@@ -32,21 +32,21 @@ ENV UV_NO_MANAGED_PYTHON=1
 # call python from the command line.
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Copy the SDK directory (required dependency)
+# SDK and rhesis meta-package (SDK depends on rhesis[telemetry]) — same layout as backend
 COPY sdk /app/sdk/
+COPY packages/rhesis /app/packages/rhesis/
 
-# Fix the SDK source path (pyproject.toml and uv.lock reference ../../sdk locally,
-# but in Docker the SDK lives at /app/sdk). Patch both files then sync with the
-# frozen lock to avoid a full re-resolution (which fails due to extras conflicts).
-RUN sed -i 's|../../sdk|/app/sdk|g' pyproject.toml uv.lock && \
-    uv sync --frozen --no-dev
+# Fix paths in pyproject.toml to point to the correct locations in Docker (see apps/backend/Dockerfile)
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' pyproject.toml && \
+    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml && \
+    uv sync --no-dev
 
 # Now copy the rest of your source (scripts, modules, etc.)
 COPY apps/chatbot /app/
 
-# Re-apply the SDK path patch: the COPY above overwrites pyproject.toml and uv.lock
-# with their original repo versions (containing ../../sdk), so we patch them again.
-RUN sed -i 's|../../sdk|/app/sdk|g' pyproject.toml uv.lock
+# Re-apply path patch: COPY restores repo pyproject.toml (../../sdk).
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' pyproject.toml && \
+    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
 
 # Remove build dependencies after installing Python packages
 RUN apt-get purge -y build-essential \
