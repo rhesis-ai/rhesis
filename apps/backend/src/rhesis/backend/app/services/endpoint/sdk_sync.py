@@ -13,8 +13,8 @@ from rhesis.backend.app.models.enums import (
     EndpointConnectionType,
     EndpointEnvironment,
 )
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.backend.app.utils.status import get_or_create_status
 
 from .mapper import generate_and_apply_mappings
 from .validation import validate_and_update_status
@@ -182,7 +182,11 @@ async def sync_sdk_endpoints(
                 # Create new endpoint for this function
                 # Get or create Active status (tentative, will be updated after validation)
                 active_status = get_or_create_status(
-                    db, "Active", "General", organization_id, user_id
+                    db=db,
+                    name="Active",
+                    entity_type="General",
+                    organization_id=organization_id,
+                    user_id=user_id,
                 )
 
                 # Create endpoint with metadata first
@@ -254,7 +258,11 @@ async def sync_sdk_endpoints(
             )
             try:
                 inactive_status = get_or_create_status(
-                    db, "Inactive", "General", organization_id, user_id
+                    db=db,
+                    name="Inactive",
+                    entity_type="General",
+                    organization_id=organization_id,
+                    user_id=user_id,
                 )
                 if inactive_status:
                     endpoint.status_id = inactive_status.id

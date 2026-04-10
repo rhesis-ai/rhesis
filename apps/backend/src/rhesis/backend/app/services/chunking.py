@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.constants import EntityType
-from rhesis.backend.app.utils.status import get_or_create_status
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.sdk.services.chunker import ChunkingService as SDKChunkingService
 from rhesis.sdk.services.chunker import ChunkingStrategy, RecursiveChunker
 from rhesis.sdk.services.extractor import ExtractedSource, SourceType
@@ -71,7 +71,11 @@ class ChunkingService:
             return []
 
         active_status = get_or_create_status(
-            self.db, "Active", EntityType.CHUNK, source.organization_id, source.user_id
+            db=self.db,
+            name="Active",
+            entity_type=EntityType.CHUNK,
+            organization_id=source.organization_id,
+            user_id=source.user_id,
         )
 
         db_chunks = []

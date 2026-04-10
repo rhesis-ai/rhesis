@@ -128,11 +128,11 @@ class EmbeddingGenerator:
         config_hash = self._compute_hash(config)
         text_hash = self._compute_hash(searchable_text)
 
-        from rhesis.backend.app.utils.status import get_or_create_status
+        from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
         active_status = get_or_create_status(
             self.db,
-            status_name=EmbeddingStatus.ACTIVE.value,
+            name=EmbeddingStatus.ACTIVE.value,
             entity_type="Embedding",
             organization_id=organization_id,
             user_id=user_id,
@@ -142,7 +142,7 @@ class EmbeddingGenerator:
 
         stale_status = get_or_create_status(
             self.db,
-            status_name=EmbeddingStatus.STALE.value,
+            name=EmbeddingStatus.STALE.value,
             entity_type="Embedding",
             organization_id=organization_id,
             user_id=user_id,
