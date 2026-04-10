@@ -27,9 +27,12 @@ def email_notification(template=None, subject_template=None):
 
     Usage:
         @email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)
-        @app.task(base=BaseTask, bind=True)
+        @app.task(base=EmailEnabledTask, bind=True)
         def my_task(self, ...):
             ...
+
+    EmailEnabledTask sets send_email_notification_flag so completion emails run; the
+    decorator only selects the template (it does not enable sending by itself).
     """
 
     def decorator(task_func):
