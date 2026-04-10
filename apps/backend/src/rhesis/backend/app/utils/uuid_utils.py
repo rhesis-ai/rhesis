@@ -5,6 +5,28 @@ from uuid import UUID
 logger = logging.getLogger(__name__)
 
 
+def safe_uuid_convert(value: Any) -> Optional[UUID]:
+    """
+    Safely convert a value to UUID object.
+
+    Args:
+        value: Value to convert (string, UUID, or other)
+
+    Returns:
+        UUID object or None if conversion fails or input is None
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, UUID):
+        return value
+
+    try:
+        return UUID(str(value))
+    except (ValueError, TypeError):
+        return None
+
+
 def sanitize_uuid_field(value: Any) -> Optional[str]:
     """
     Sanitize UUID field values to handle empty strings and validate format.
@@ -13,7 +35,8 @@ def sanitize_uuid_field(value: Any) -> Optional[str]:
         value: The value to sanitize (could be None, empty string, or valid UUID string)
 
     Returns:
-        None if value is None, empty string, or invalid UUID format, otherwise returns the value as string
+        None if value is None, empty string, or invalid UUID format,
+        otherwise returns the value as string
     """
     logger.debug(f"sanitize_uuid_field - Input: value='{value}', type={type(value)}")
 

@@ -5,36 +5,14 @@ Utility functions for task operations and common patterns.
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 from rhesis.backend.tasks.enums import RunStatus
 
 logger = logging.getLogger(__name__)
-
-
-def safe_uuid_convert(value: Any) -> Optional[UUID]:
-    """
-    Safely convert a value to UUID, returning None if conversion fails.
-
-    Args:
-        value: Value to convert (string, UUID, or other)
-
-    Returns:
-        UUID object or None if conversion fails
-    """
-    if value is None:
-        return None
-
-    if isinstance(value, UUID):
-        return value
-
-    try:
-        return UUID(str(value))
-    except (ValueError, TypeError):
-        return None
 
 
 def get_test_run_by_config(
