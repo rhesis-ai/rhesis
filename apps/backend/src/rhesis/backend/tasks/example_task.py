@@ -257,9 +257,9 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
 
     try:
         # Get test configuration
-        from rhesis.backend.app.utils.uuid_utils import to_uuid
+        from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 
-        test_config_uuid = to_uuid(test_config_id)
+        test_config_uuid = safe_uuid_convert(test_config_id)
         if not test_config_uuid:
             raise ValueError(f"Invalid test configuration ID: {test_config_id}")
 

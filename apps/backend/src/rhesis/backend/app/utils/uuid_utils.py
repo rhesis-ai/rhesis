@@ -5,7 +5,7 @@ from uuid import UUID
 logger = logging.getLogger(__name__)
 
 
-def to_uuid(value: Any) -> Optional[UUID]:
+def safe_uuid_convert(value: Any) -> Optional[UUID]:
     """
     Safely convert a value to UUID object.
 

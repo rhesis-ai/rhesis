@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
-from rhesis.backend.app.utils.uuid_utils import to_uuid
+from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 from rhesis.backend.tasks.enums import ExecutionMode, TestType
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def set_execution_mode(
     """
     try:
         # Get test configuration
-        test_config_uuid = to_uuid(test_config_id)
+        test_config_uuid = safe_uuid_convert(test_config_id)
         if not test_config_uuid:
             logger.error(f"Invalid test configuration ID: {test_config_id}")
             return False

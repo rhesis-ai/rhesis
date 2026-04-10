@@ -16,7 +16,7 @@ from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.models import Behavior, Category, Model, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.backend.app.utils.uuid_utils import to_uuid
+from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def _auto_populate_tenant_fields(
             or not isinstance(organization_id, str)
         )
     ):
-        org_uuid = to_uuid(organization_id)
+        org_uuid = safe_uuid_convert(organization_id)
         if org_uuid:
             populated_data["organization_id"] = org_uuid
 
@@ -130,7 +130,7 @@ def _auto_populate_tenant_fields(
         and user_id
         and (isinstance(user_id, str) and user_id.strip() or not isinstance(user_id, str))
     ):
-        user_uuid = to_uuid(user_id)
+        user_uuid = safe_uuid_convert(user_id)
         if user_uuid:
             populated_data["user_id"] = user_uuid
 
@@ -558,7 +558,7 @@ def update_item(
     if organization_id is not None:
         columns = inspect(model).columns.keys()
         if "organization_id" in columns:
-            org_uuid = to_uuid(organization_id)
+            org_uuid = safe_uuid_convert(organization_id)
             if org_uuid:
                 update_data["organization_id"] = org_uuid
                 logger.debug(
@@ -568,7 +568,7 @@ def update_item(
     if user_id is not None:
         columns = inspect(model).columns.keys()
         if "user_id" in columns:
-            user_uuid = to_uuid(user_id)
+            user_uuid = safe_uuid_convert(user_id)
             if user_uuid:
                 update_data["user_id"] = user_uuid
                 logger.debug(f"update_item - Auto-populating user_id: '{user_id}' for update")
@@ -1183,8 +1183,8 @@ def create_default_rhesis_model(
         "key": "",
         "endpoint": None,
         "is_protected": True,
-        "user_id": to_uuid(user_id),
-        "owner_id": to_uuid(user_id),
+        "user_id": safe_uuid_convert(user_id),
+        "owner_id": safe_uuid_convert(user_id),
     }
 
     return get_or_create_entity(

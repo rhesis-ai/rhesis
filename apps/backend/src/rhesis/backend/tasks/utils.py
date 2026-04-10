@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.utils.uuid_utils import to_uuid
+from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 from rhesis.backend.tasks.enums import RunStatus
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ def increment_test_run_progress(
     """
     try:
         # Get the test run
-        test_run_uuid = to_uuid(test_run_id)
+        test_run_uuid = safe_uuid_convert(test_run_id)
         if not test_run_uuid:
             return False
 
@@ -231,7 +231,7 @@ def validate_task_parameters(**params) -> Tuple[bool, Optional[str]]:
 
             # Validate UUID format for ID parameters
             if param_name.endswith("_id"):
-                uuid_val = to_uuid(param_value)
+                uuid_val = safe_uuid_convert(param_value)
                 if uuid_val is None:
                     return False, f"Invalid UUID format for {param_name}: {param_value}"
 
