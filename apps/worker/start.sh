@@ -12,6 +12,7 @@ echo "Worker environment: ${WORKER_ENV:-not_set}"
 echo "Git branch: ${GIT_BRANCH:-unknown}"
 echo "Git commit: ${GIT_COMMIT:-unknown}"
 echo "Celery worker concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
+echo "Celery worker queues: ${CELERY_WORKER_QUEUES:-celery,execution,telemetry}"
 echo "Celery worker pool: threads"
 
 # Set log level based on worker environment
@@ -116,7 +117,7 @@ import os
 try:
     from rhesis.backend.worker import app
     print(f'Broker URL type: {\"TLS\" if os.getenv(\"BROKER_URL\", \"\").startswith(\"rediss://\") else \"standard\"}')
-    
+
     # Test basic broker connection (lighter than worker ping)
     with app.connection() as conn:
         conn.connect()
@@ -137,13 +138,13 @@ import sys
 try:
     from sqlalchemy import create_engine, text
     import os
-    
+
     # Test database connection
     db_url = os.getenv('SQLALCHEMY_DATABASE_URL')
     db_pass = os.getenv('SQLALCHEMY_DB_PASS', '')
     redacted_url = db_url.replace(db_pass, '***') if db_pass else db_url
     print(f'Testing database connection: {redacted_url}')
-    
+
     engine = create_engine(db_url, pool_pre_ping=True)
     with engine.connect() as conn:
         result = conn.execute(text('SELECT 1'))
@@ -174,18 +175,18 @@ for i in {1..10}; do
         ps aux | grep health_server.py | grep -v grep || echo "No health server processes found"
         break
     fi
-    
+
     # Test basic endpoint
     if curl -f -s http://localhost:8080/health/basic > /dev/null 2>&1; then
         echo "✅ Health server is responding to /health/basic"
-        
+
         # Also test the ping endpoint
         if curl -f -s http://localhost:8080/ping > /dev/null 2>&1; then
             echo "✅ Health server is responding to /ping"
         else
             echo "⚠️ Health server not responding to /ping"
         fi
-        
+
         # Test debug endpoint availability
         if curl -f -s http://localhost:8080/debug > /dev/null 2>&1; then
             echo "✅ Debug endpoints are available"
@@ -194,7 +195,7 @@ for i in {1..10}; do
         fi
         break
     fi
-    
+
     echo "Waiting for health server... attempt $i/10"
     sleep 1
 done
@@ -222,23 +223,23 @@ fi
 # Function to forward signals to children
 forward_signal() {
     echo "Received shutdown signal, stopping processes..."
-    
+
     if [ ! -z "$HEALTH_SERVER_PID" ] && kill -0 $HEALTH_SERVER_PID 2>/dev/null; then
         echo "Stopping health check server (PID: $HEALTH_SERVER_PID)..."
         kill -TERM $HEALTH_SERVER_PID || true
     fi
-    
+
     if [ ! -z "$FLOWER_PID" ] && kill -0 $FLOWER_PID 2>/dev/null; then
         echo "Stopping Flower (PID: $FLOWER_PID)..."
         kill -TERM $FLOWER_PID || true
     fi
-    
+
     if [ ! -z "$CELERY_PID" ] && kill -0 $CELERY_PID 2>/dev/null; then
         echo "Stopping Celery worker (PID: $CELERY_PID)..."
         kill -TERM $CELERY_PID || true
         wait $CELERY_PID
     fi
-    
+
     exit 0
 }
 
@@ -258,14 +259,18 @@ WORKER_UUID=$(python3 -c "import uuid; print(str(uuid.uuid4())[:8])")
 export CELERY_WORKER_NAME="worker@$(hostname)-${WORKER_UUID}"
 echo "Worker context identifier: $CELERY_WORKER_NAME"
 
+# Comma-separated Celery queue names (no spaces). Default: all app queues.
+# Override per deployment to dedicate workers (e.g. execution-only pools).
+CELERY_WORKER_QUEUES="${CELERY_WORKER_QUEUES:-celery,execution,telemetry}"
+
 # Build the Celery worker command.
 # Uses the threads pool: no fork(), so no fork-safety issues with native
 # libraries (SSL, gRPC, Kerberos/CoreFoundation). Works well for I/O-bound
 # work (LLM API calls, DB queries). -E enables events for Flower/monitoring.
-CELERY_CMD="celery -A rhesis.backend.worker.app worker --pool threads --queues=celery,execution,telemetry --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --optimization=fair -E ${CELERY_WORKER_OPTS}"
+CELERY_CMD="celery -A rhesis.backend.worker.app worker --pool threads --queues=${CELERY_WORKER_QUEUES} --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --optimization=fair -E ${CELERY_WORKER_OPTS}"
 
 echo "Command: $CELERY_CMD"
-echo "Queues: celery,execution,telemetry"
+echo "Queues: ${CELERY_WORKER_QUEUES}"
 echo "Pool: threads"
 echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
 echo "Log level: ${CELERY_WORKER_LOGLEVEL}"
@@ -287,7 +292,7 @@ for i in {1..10}; do
         wait $CELERY_PID
         EXIT_CODE=$?
         echo "Worker exit code: $EXIT_CODE"
-        
+
         # Try to get more information about the failure
         echo ""
         echo "=== Failure Analysis ==="
@@ -296,10 +301,10 @@ for i in {1..10}; do
         df -h 2>/dev/null || echo "Disk info not available"
         echo "Checking for core dumps..."
         ls -la core* 2>/dev/null || echo "No core dumps found"
-        
+
         exit $EXIT_CODE
     fi
-    
+
     echo "Worker running... check $i/10 (PID: $CELERY_PID)"
     sleep 1
 done
@@ -314,7 +319,7 @@ echo "Waiting for worker to fully initialize before connectivity test..."
 # Give the worker time to fully start up
 sleep 5
 
-# Use same timeout logic as broker test  
+# Use same timeout logic as broker test
 if [[ "$BROKER_URL" == rediss://* ]]; then
     CONNECTIVITY_TIMEOUT=20
     echo "Using TLS timeout: ${CONNECTIVITY_TIMEOUT}s"
@@ -326,17 +331,17 @@ fi
 # Try multiple times with increasing delays
 for attempt in {1..3}; do
     echo "Connectivity test attempt $attempt/3..."
-    
+
     timeout $CONNECTIVITY_TIMEOUT python -c "
 import sys
 import time
 try:
     from rhesis.backend.worker import app
-    
+
     # Give a moment for workers to register
     time.sleep(2)
-    
-    # Test if we can connect to our own worker  
+
+    # Test if we can connect to our own worker
     result = app.control.inspect().ping()
     if result:
         print('✅ Worker is responding to ping')
@@ -383,4 +388,4 @@ if [ ! -z "$FLOWER_PID" ] && kill -0 $FLOWER_PID 2>/dev/null; then
     wait $FLOWER_PID 2>/dev/null || true
 fi
 
-exit $EXIT_CODE 
+exit $EXIT_CODE

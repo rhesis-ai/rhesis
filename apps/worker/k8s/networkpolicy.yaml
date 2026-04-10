@@ -8,7 +8,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app: rhesis-worker
+      component: worker
   policyTypes:
   - Egress
   egress:
@@ -18,4 +18,4 @@ spec:
   - to: []
     ports:
     - protocol: UDP
-      port: 53 
+      port: 53
