@@ -25,9 +25,9 @@ def get_or_create_status(
     Returns:
         The Status object if found or created, None otherwise
     """
-    from uuid import UUID
 
     from rhesis.backend.app.models.type_lookup import TypeLookup
+    from rhesis.backend.app.utils.uuid_utils import to_uuid
 
     # First, get or create the TypeLookup for the entity type
     entity_type_query = session.query(TypeLookup).filter(
@@ -35,7 +35,7 @@ def get_or_create_status(
     )
     if organization_id:
         entity_type_query = entity_type_query.filter(
-            TypeLookup.organization_id == UUID(organization_id)
+            TypeLookup.organization_id == to_uuid(organization_id)
         )
 
     entity_type_lookup = entity_type_query.first()
@@ -43,9 +43,9 @@ def get_or_create_status(
         # Create the entity type lookup if it doesn't exist
         entity_type_data = {"type_name": "EntityType", "type_value": entity_type}
         if organization_id:
-            entity_type_data["organization_id"] = UUID(organization_id)
+            entity_type_data["organization_id"] = to_uuid(organization_id)
             if user_id:
-                entity_type_data["user_id"] = UUID(user_id)
+                entity_type_data["user_id"] = to_uuid(user_id)
 
         entity_type_lookup = TypeLookup(**entity_type_data)
         session.add(entity_type_lookup)
@@ -57,16 +57,16 @@ def get_or_create_status(
     )
 
     if organization_id:
-        query = query.filter(Status.organization_id == UUID(organization_id))
+        query = query.filter(Status.organization_id == to_uuid(organization_id))
 
     status = query.first()
     if not status:
         # Create new status with organization context
         status_data = {"name": status_name, "entity_type_id": entity_type_lookup.id}
         if organization_id:
-            status_data["organization_id"] = UUID(organization_id)
+            status_data["organization_id"] = to_uuid(organization_id)
             if user_id:
-                status_data["user_id"] = UUID(user_id)
+                status_data["user_id"] = to_uuid(user_id)
 
         status = Status(**status_data)
         session.add(status)
