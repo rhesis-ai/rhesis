@@ -1183,8 +1183,8 @@ def create_default_rhesis_model(
         "key": "",
         "endpoint": None,
         "is_protected": True,
-        "user_id": safe_uuid_convert(user_id),
-        "owner_id": safe_uuid_convert(user_id),
+        "user_id": uuid.UUID(str(user_id)),
+        "owner_id": uuid.UUID(str(user_id)),
     }
 
     return get_or_create_entity(
