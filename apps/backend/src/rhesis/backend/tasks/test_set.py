@@ -9,7 +9,7 @@ from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
-from rhesis.backend.tasks.base import BaseTask, email_notification
+from rhesis.backend.tasks.base import BaseTask, EmailEnabledTask, email_notification
 
 # SDK components (BaseLLM, ConfigSynthesizer, MultiTurnSynthesizer) are
 # imported lazily inside task functions to avoid pulling litellm → gRPC
@@ -242,7 +242,7 @@ def _build_task_result(
     subject_template="Test Set Generation Complete: {task_name} - {status}",
 )
 @app.task(
-    base=BaseTask,
+    base=EmailEnabledTask,
     name="rhesis.backend.tasks.generate_and_save_test_set",
     bind=True,
     display_name="Generate and Save Test Set",
