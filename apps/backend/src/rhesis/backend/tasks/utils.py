@@ -5,36 +5,14 @@ Utility functions for task operations and common patterns.
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.utils.uuid_utils import to_uuid
 from rhesis.backend.tasks.enums import RunStatus
 
 logger = logging.getLogger(__name__)
-
-
-def safe_uuid_convert(value: Any) -> Optional[UUID]:
-    """
-    Safely convert a value to UUID, returning None if conversion fails.
-
-    Args:
-        value: Value to convert (string, UUID, or other)
-
-    Returns:
-        UUID object or None if conversion fails
-    """
-    if value is None:
-        return None
-
-    if isinstance(value, UUID):
-        return value
-
-    try:
-        return UUID(str(value))
-    except (ValueError, TypeError):
-        return None
 
 
 def get_test_run_by_config(
@@ -119,7 +97,7 @@ def increment_test_run_progress(
     """
     try:
         # Get the test run
-        test_run_uuid = safe_uuid_convert(test_run_id)
+        test_run_uuid = to_uuid(test_run_id)
         if not test_run_uuid:
             return False
 
@@ -253,7 +231,7 @@ def validate_task_parameters(**params) -> Tuple[bool, Optional[str]]:
 
             # Validate UUID format for ID parameters
             if param_name.endswith("_id"):
-                uuid_val = safe_uuid_convert(param_value)
+                uuid_val = to_uuid(param_value)
                 if uuid_val is None:
                     return False, f"Invalid UUID format for {param_name}: {param_value}"
 
