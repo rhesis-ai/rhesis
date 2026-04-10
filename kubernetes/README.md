@@ -68,10 +68,17 @@ kubernetes/
         ├── cert-manager/          # TLS certificates
         ├── external-dns/          # DNS automation
         ├── external-secrets/      # Kustomize overlay (env-specific values)
+        ├── grafana-operator/      # Grafana Operator Helm app only (monitoring ns)
+        ├── grafana-resources/     # Grafana CR, ingress, Prometheus/Loki datasources (after CRDs)
+        ├── kube-prometheus-stack/ # Prometheus Operator stack (Grafana disabled)
+        ├── loki/                  # Loki singleBinary
+        ├── alloy/                 # Grafana Alloy (logs to Loki)
         └── rhesis/                # Application manifests
 ```
 
 Any YAML added under `clusters/<env>/` and pushed to `main` is automatically deployed.
+
+Before syncing the monitoring stack, create the Grafana admin password in GCP Secret Manager per environment — see [`monitoring/PREREQUISITES.md`](monitoring/PREREQUISITES.md).
 
 ---
 
