@@ -566,20 +566,35 @@ export default function SuggestionsDialog({
       headerName: 'Input',
       flex: 2,
       minWidth: 200,
-      renderCell: (params: GridRenderCellParams) => (
-        <Tooltip title={params.value || ''} arrow placement="top">
-          <Typography
-            variant="body2"
-            sx={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
+      renderCell: (params: GridRenderCellParams) => {
+        const row = params.row as SuggestionRow;
+        const tooltipContent =
+          row.diversity_score != null
+            ? `Diversity: ${row.diversity_score.toFixed(3)}\n\n${params.value || ''}`
+            : params.value || '';
+        return (
+          <Tooltip
+            title={
+              <Box component="span" sx={{ whiteSpace: 'pre-line', display: 'block' }}>
+                {tooltipContent}
+              </Box>
+            }
+            arrow
+            placement="top"
           >
-            {params.value || '-'}
-          </Typography>
-        </Tooltip>
-      ),
+            <Typography
+              variant="body2"
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {params.value || '-'}
+            </Typography>
+          </Tooltip>
+        );
+      },
     },
     {
       field: 'output',

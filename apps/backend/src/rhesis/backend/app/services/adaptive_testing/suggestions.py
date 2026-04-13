@@ -215,6 +215,7 @@ def generate_suggestions(
     if generate_embeddings:
         from rhesis.backend.app.services.adaptive_testing.embeddings import (
             generate_embedding_vector,
+            sort_by_diversity,
         )
 
         for item in suggestions:
@@ -232,6 +233,8 @@ def generate_suggestions(
                     exc_info=True,
                 )
                 item["embedding"] = None
+
+        suggestions = sort_by_diversity(suggestions)
 
     logger.info(
         f"Generated {len(suggestions)} suggestions for "

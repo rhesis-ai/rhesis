@@ -192,6 +192,10 @@ class SuggestedTest(BaseModel):
         default=None,
         description="Input embedding when generate_embeddings was requested (not stored)",
     )
+    diversity_score: Optional[float] = Field(
+        default=None,
+        description="Euclidean distance from centroid embedding; higher = more diverse",
+    )
 
 
 class GenerateSuggestionsResponse(Base):

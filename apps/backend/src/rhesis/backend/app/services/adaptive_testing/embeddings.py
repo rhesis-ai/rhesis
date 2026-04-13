@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID as UUIDType
 
+import numpy as np
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import crud, models, schemas
@@ -23,6 +24,63 @@ logger = logging.getLogger(__name__)
 # Adaptive testing persists to ``embedding`` columns (see EmbeddingConfig.SUPPORTED_DIMENSIONS).
 # Force this output size so providers defaulting to large vectors (e.g. Gemini 3072) still store.
 ADAPTIVE_TESTING_EMBEDDING_DIMENSION = 768
+
+
+def sort_by_diversity(suggestions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Sort suggestions by Euclidean distance from the centroid of their embeddings.
+
+    Higher distance means more diverse (farther from the batch mean). Sets
+    ``diversity_score`` on each item. Items without a usable embedding are placed
+    last with ``diversity_score`` set to ``None``.
+    """
+    if not suggestions:
+        return suggestions
+
+    with_vectors: List[tuple[Dict[str, Any], List[float]]] = []
+    without: List[Dict[str, Any]] = []
+
+    for item in suggestions:
+        emb = item.get("embedding")
+        if emb is None or not isinstance(emb, list) or len(emb) == 0:
+            item["diversity_score"] = None
+            without.append(item)
+            continue
+        try:
+            vec = [float(x) for x in emb]
+        except (TypeError, ValueError):
+            logger.warning(
+                "Suggestion embedding not numeric; skipping diversity score",
+                exc_info=False,
+            )
+            item["diversity_score"] = None
+            without.append(item)
+            continue
+        with_vectors.append((item, vec))
+
+    if not with_vectors:
+        return suggestions
+
+    dim = len(with_vectors[0][1])
+    if any(len(v) != dim for _, v in with_vectors):
+        logger.warning(
+            "Inconsistent embedding dimensions in suggestions; skipping diversity sort"
+        )
+        for item, _ in with_vectors:
+            item["diversity_score"] = None
+        return suggestions
+
+    matrix = np.asarray([v for _, v in with_vectors], dtype=np.float64)
+    centroid = np.mean(matrix, axis=0)
+    distances = np.linalg.norm(matrix - centroid, axis=1)
+
+    order = np.argsort(-distances)
+    sorted_with: List[Dict[str, Any]] = []
+    for idx in order:
+        item, _ = with_vectors[int(idx)]
+        item["diversity_score"] = float(distances[int(idx)])
+        sorted_with.append(item)
+
+    return sorted_with + without
 
 
 def _compute_hash(data: Union[str, dict]) -> str:

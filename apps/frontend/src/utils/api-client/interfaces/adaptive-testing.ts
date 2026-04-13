@@ -220,6 +220,8 @@ export interface SuggestedTest {
   labeler: string;
   model_score: number;
   embedding?: number[] | null;
+  /** Euclidean distance from centroid when generate_embeddings was true */
+  diversity_score?: number | null;
 }
 
 export interface GenerateSuggestionsResponse {
