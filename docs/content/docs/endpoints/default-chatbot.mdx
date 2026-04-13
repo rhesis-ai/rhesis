@@ -25,6 +25,36 @@ The default insurance chatbot eliminates onboarding friction by providing:
 
 The chatbot service provides several endpoints for interaction and monitoring:
 
+### Built-in `echo` use case (v0.6.12+)
+
+The chatbot now includes a built-in `echo` use case:
+
+- Returns the input message verbatim
+- Skips LLM invocation completely
+- Is exempt from chatbot rate limits
+
+This is useful for connector smoke tests, pipeline checks, and request-mapping validation.
+
+<CodeBlock filename="echo-request.json" language="json">
+  {`{
+  "message": "ping",
+  "use_case": "echo"
+}`}
+</CodeBlock>
+
+<CodeBlock filename="echo-response.json" language="json">
+  {`{
+  "message": "ping",
+  "session_id": "2b52a8cf-7d63-4f8f-8b48-7a43f55d2f4a",
+  "context": [],
+  "metadata": {
+    "use_case": "echo",
+    "mode": "text"
+  },
+  "tool_calls": []
+}`}
+</CodeBlock>
+
 ### Chat Endpoint
 
 **POST** `/chat`

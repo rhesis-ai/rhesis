@@ -41,6 +41,34 @@ For multi-turn tests, the run detail includes conversation-specific execution da
 - **Conversation-linked trace access**: Open the trace drawer to inspect tree, sequence, graph,
   and conversation views for the related trace
 
+## Cancel In-Progress Test Runs (v0.6.12+)
+
+You can cancel runs that are still waiting or running:
+
+1. Open the **Test Runs** list view
+2. Select one or more runs with status **Queued** or **Progress**
+3. Click **Cancel Test Run** or **Cancel Test Runs**
+4. Confirm the action
+
+The API route used by the UI is `POST /test_runs/{id}/cancel`.
+
+| Current status | Cancel allowed | Result |
+|---|---|---|
+| `Queued` | Yes | Run is marked `Cancelled` immediately |
+| `Progress` | Yes | Run is marked `Cancelled`; in-flight work stops cooperatively |
+| `Completed` / `Failed` | No | API returns `409` |
+| Missing run ID | No | API returns `404` |
+
+<CodeBlock filename="cancel-test-run.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/test_runs/$TEST_RUN_ID/cancel" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN"`}
+</CodeBlock>
+
+<Callout type="info">
+  Cancellation sets the run status to `Cancelled` immediately so dashboards and
+  run lists update without waiting for all worker tasks to finish.
+</Callout>
+
 ## Review Test Runs
 Reviews allow human evaluators to validate or override automated test evaluations.
 

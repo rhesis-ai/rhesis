@@ -71,6 +71,16 @@ Multi-turn tests do not require a prompt field — the conversation is driven by
 
 These fields can be provided in a **flat format** — as individual columns in CSV/Excel or top-level keys in JSON/JSONL — or nested inside a `test_configuration` object. Both layouts are recognised automatically.
 
+For turn-count configuration, Rhesis also recognizes additional column aliases and formats:
+
+| Input column name | Maps to | Supported values |
+| --- | --- | --- |
+| `Turn Config`, `turn_config`, `turns`, `num_turns`, `number_of_turns` | `max_turns` (and `min_turns` when derivable) | `3`, `3 turns`, `2-5`, `2 to 5`, `2..5`, `min 2, max 5` |
+| `min_turns`, `min turns` | `min_turns` | Integer |
+| `max_turns`, `max turns` | `max_turns` | Integer or range values above |
+
+If a single turn value is provided (for example `3`), import sets both bounds to the same value (`min_turns=3`, `max_turns=3`).
+
 Columns mapped to **(skip)** are ignored during import.
 
 <Callout type="info">

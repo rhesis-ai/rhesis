@@ -31,6 +31,40 @@ Adaptive Testing in the UI follows this loop:
   removes subtopics and moves tests to the parent topic.
 </Callout>
 
+## Adaptive Settings (v0.6.12+)
+
+Adaptive testing settings let you store defaults on the adaptive test set itself:
+
+- **Default endpoint** used when `endpoint_id` is not provided
+- **Default metric list** used when `metric_names` is not provided
+
+The UI **Edit settings** dialog writes these defaults once, then later runs can use them without reselecting values each time.
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `default_endpoint_id` | `uuid \| null` | No | If provided, must belong to your org and be accessible |
+| `metric_ids` | `uuid[] \| null` | No | Replaces the assigned metric list atomically |
+
+<CodeBlock filename="adaptive-settings.sh" language="bash">
+{`# Read current adaptive settings
+curl -X GET "$RHESIS_BASE_URL/adaptive_testing/$TEST_SET_ID/settings" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN"
+
+# Update default endpoint + metric list
+curl -X PUT "$RHESIS_BASE_URL/adaptive_testing/$TEST_SET_ID/settings" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "default_endpoint_id": "00000000-0000-0000-0000-000000000000",
+    "metric_ids": ["11111111-1111-1111-1111-111111111111"]
+  }'`}
+</CodeBlock>
+
+<Callout type="info">
+  When settings are present, output generation and evaluation requests can omit
+  endpoint and metric parameters and still run with the configured defaults.
+</Callout>
+
 ## Generate Outputs and Evaluate with Overwrite Control
 
 Two actions drive most iteration cycles:
@@ -50,6 +84,11 @@ Both actions support an `overwrite` option.
 <Callout type="info">
   With `overwrite=false`, tests that already have outputs or evaluation labels are skipped. The response includes
   `generated` or `evaluated`, plus `skipped` and `failed` counts.
+</Callout>
+
+<Callout type="info">
+  In the Adaptive Testing UI, output generation and evaluation currently run with overwrite enabled by default.
+  Use the API directly if you need explicit skip behavior with `overwrite=false`.
 </Callout>
 
 ### Generate Outputs API Example
@@ -84,9 +123,9 @@ Both actions support an `overwrite` option.
 
 Suggestion endpoints are non-persisted until you accept results in the UI.
 
-1. `POST /adaptive_testing/\{id\}/generate_suggestions`
-2. `POST /adaptive_testing/\{id\}/generate_suggestion_outputs`
-3. `POST /adaptive_testing/\{id\}/evaluate_suggestions`
+1. `POST /adaptive_testing/{id}/generate_suggestions`
+2. `POST /adaptive_testing/{id}/generate_suggestion_outputs`
+3. `POST /adaptive_testing/{id}/evaluate_suggestions`
 4. Accept selected suggestions to create real tests in the set
 
 | Suggestion parameter | Type | Default | Notes |
@@ -94,6 +133,7 @@ Suggestion endpoints are non-persisted until you accept results in the UI.
 | `num_examples` | `int` | `10` | Existing tests sampled as examples |
 | `num_suggestions` | `int` | `20` | Requested number of suggestions |
 | `topic` | `string \| null` | `null` | Optional topic focus |
+| `user_feedback` | `string \| null` | `null` | Optional guidance text to steer suggestion generation (max length `1000`) |
 
 <CodeBlock filename="generate_suggestions.sh" language="bash">
 {`curl -X POST "$RHESIS_BASE_URL/adaptive_testing/$TEST_SET_ID/generate_suggestions" \\
@@ -102,8 +142,29 @@ Suggestion endpoints are non-persisted until you accept results in the UI.
   -d '{
     "topic": "Safety/Jailbreak",
     "num_examples": 10,
-    "num_suggestions": 20
+    "num_suggestions": 20,
+    "user_feedback": "Focus on edge cases with subtle prompt injection attempts."
   }'`}
+</CodeBlock>
+
+In the UI, suggestions now support:
+
+- Streaming output generation and streaming metric evaluation progress
+- Per-item metric details in tooltips
+- **Accept all** to persist all current suggestions in one action
+- A **Tests without topic** filter in the adaptive tree panel
+
+## Export Adaptive Test Set to a Regular Test Set (v0.6.12+)
+
+You can convert an adaptive set into a regular test set with:
+
+`POST /adaptive_testing/export/{source_test_set_identifier}`
+
+The export flow copies tests with prompt content, skips topic marker rows, and creates a regular set without adaptive settings metadata.
+
+<CodeBlock filename="export-adaptive-set.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/adaptive_testing/export/$ADAPTIVE_TEST_SET_ID" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN"`}
 </CodeBlock>
 
 ## Related Pages
