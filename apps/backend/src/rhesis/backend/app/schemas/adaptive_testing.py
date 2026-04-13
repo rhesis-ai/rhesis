@@ -2,10 +2,39 @@
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import UUID4, BaseModel, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.test_set import TestSet as TestSetSchema
+
+# ---------------------------------------------------------------------------
+# Create / update adaptive test nodes
+# ---------------------------------------------------------------------------
+
+
+class CreateAdaptiveTestBody(BaseModel):
+    """JSON body for POST /adaptive_testing/{{id}}/tests.
+
+    Single model avoids FastAPI multi-``Body()`` parsing edge cases with the
+    client JSON (e.g. ``generate_embedding`` being dropped or misread).
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    topic: Optional[str] = None
+    input: str = Field(..., description="Test input / prompt text")
+    output: str = Field(default="", description="Expected or actual output")
+    labeler: str = Field(default="user", description="Who labelled this test")
+    label: Optional[str] = Field(
+        default=None,
+        description="Label: 'pass', 'fail', or empty",
+    )
+    model_score: float = Field(default=0.0, description="Model score")
+    generate_embedding: bool = Field(
+        default=False,
+        description="If true, embed test input and persist to embedding table",
+    )
+
 
 # ---------------------------------------------------------------------------
 # Import from existing test set
@@ -127,6 +156,10 @@ class GenerateSuggestionsRequest(Base):
     """Request body for generating test suggestions via LLM."""
 
     topic: Optional[str] = None
+    generate_embeddings: bool = Field(
+        default=False,
+        description="If true, include embedding vectors for each suggestion input (not persisted)",
+    )
     num_examples: int = Field(
         default=10,
         ge=1,
@@ -155,6 +188,10 @@ class SuggestedTest(BaseModel):
     label: str = ""
     labeler: str = ""
     model_score: float = 0.0
+    embedding: Optional[List[float]] = Field(
+        default=None,
+        description="Input embedding when generate_embeddings was requested (not stored)",
+    )
 
 
 class GenerateSuggestionsResponse(Base):

@@ -69,6 +69,8 @@ export interface TestNodeCreate {
   labeler?: string;
   to_eval?: boolean;
   model_score?: number;
+  /** When true, backend embeds test input and persists to embedding table */
+  generate_embedding?: boolean;
 }
 
 export interface TestNodeUpdate {
@@ -206,6 +208,8 @@ export interface GenerateSuggestionsRequest {
   num_examples?: number;
   num_suggestions?: number;
   user_feedback?: string | null;
+  /** When true, API returns embedding vectors per suggestion input (not saved) */
+  generate_embeddings?: boolean;
 }
 
 export interface SuggestedTest {
@@ -215,6 +219,7 @@ export interface SuggestedTest {
   label: string;
   labeler: string;
   model_score: number;
+  embedding?: number[] | null;
 }
 
 export interface GenerateSuggestionsResponse {

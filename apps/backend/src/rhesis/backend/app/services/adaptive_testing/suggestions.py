@@ -130,6 +130,7 @@ def generate_suggestions(
     num_examples: int = 10,
     num_suggestions: int = 20,
     user_feedback: Optional[str] = None,
+    generate_embeddings: bool = False,
 ) -> Dict[str, Any]:
     """Generate test suggestions using an LLM.
 
@@ -210,6 +211,27 @@ def generate_suggestions(
     suggestions = [
         {"topic": topic_value, "input": str(row.get("input", "")).strip()} for row in rows
     ]
+
+    if generate_embeddings:
+        from rhesis.backend.app.services.adaptive_testing.embeddings import (
+            generate_embedding_vector,
+        )
+
+        for item in suggestions:
+            inp = (item.get("input") or "").strip()
+            if not inp:
+                item["embedding"] = None
+                continue
+            try:
+                item["embedding"] = generate_embedding_vector(inp, db, user_id)
+            except Exception as e:
+                logger.warning(
+                    "Suggestion embedding skipped (input preview %.80r): %s",
+                    inp,
+                    e,
+                    exc_info=True,
+                )
+                item["embedding"] = None
 
     logger.info(
         f"Generated {len(suggestions)} suggestions for "

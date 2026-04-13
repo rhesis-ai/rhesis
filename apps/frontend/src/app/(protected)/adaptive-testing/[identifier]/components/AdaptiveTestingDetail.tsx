@@ -2082,7 +2082,10 @@ export default function AdaptiveTestingDetail({
     const client = clientFactory.getAdaptiveTestingClient();
 
     try {
-      const created = await client.createTest(testSetId, data);
+      const created = await client.createTest(testSetId, {
+        ...data,
+        generate_embedding: true,
+      });
       setTests(prev => prev.map(test => (test.id === tempId ? created : test)));
       setPendingTestIds(prev => {
         const next = new Set(prev);
@@ -2158,6 +2161,7 @@ export default function AdaptiveTestingDetail({
         input: trimmedInput,
         ...(selectedTopicForApi ? { topic: selectedTopicForApi } : {}),
         labeler: 'user',
+        generate_embedding: true,
       });
       setTests(prev => prev.map(test => (test.id === tempId ? created : test)));
       setPendingTestIds(prev => {

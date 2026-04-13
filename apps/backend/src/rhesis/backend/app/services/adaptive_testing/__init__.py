@@ -1,5 +1,10 @@
 """Adaptive testing service package."""
 
+from .embeddings import (
+    create_test_embedding,
+    generate_embedding_vector,
+    load_test_for_embedding,
+)
 from .evaluation import (
     evaluate_tests_for_adaptive_set,
 )
@@ -37,6 +42,7 @@ from .topics import (
 )
 
 __all__ = [
+    "create_test_embedding",
     "create_adaptive_test_set",
     "create_test_node",
     "create_topic_node",
@@ -45,6 +51,7 @@ __all__ = [
     "export_regular_test_set_from_adaptive",
     "evaluate_suggestions_stream",
     "evaluate_tests_for_adaptive_set",
+    "generate_embedding_vector",
     "generate_outputs_for_tests",
     "generate_suggestions",
     "get_adaptive_settings",
@@ -54,6 +61,7 @@ __all__ = [
     "get_tree_topics",
     "import_adaptive_test_set_from_source",
     "invoke_endpoint_for_suggestions_stream",
+    "load_test_for_embedding",
     "remove_topic_node",
     "resolve_endpoint_id",
     "resolve_metric_names",

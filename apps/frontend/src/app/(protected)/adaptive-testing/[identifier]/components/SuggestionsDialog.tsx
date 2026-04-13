@@ -139,6 +139,7 @@ function buildTestNodeCreateFromSuggestion(row: SuggestionRow): TestNodeCreate {
     input: row.input,
     output: row.output || undefined,
     labeler: 'suggestion',
+    generate_embedding: true,
   };
   if (row.topic) {
     data.topic = row.topic;
@@ -240,6 +241,7 @@ export default function SuggestionsDialog({
         topic: topic ?? undefined,
         num_examples: 10,
         num_suggestions: 20,
+        generate_embeddings: true,
         ...(trimmedFeedback ? { user_feedback: trimmedFeedback } : {}),
       });
       const rows: SuggestionRow[] = suggestionsResult.suggestions.map(
