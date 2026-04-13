@@ -6276,6 +6276,7 @@ source = { directory = "../../packages/rhesis" }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
+    { name = "tenacity" },
 ]
 
 [package.optional-dependencies]
@@ -6297,6 +6298,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rhesis-sdk", marker = "extra == 'all'" },
     { name = "rhesis-sdk", marker = "extra == 'sdk'" },
+    { name = "tenacity", specifier = ">=8.2.0" },
 ]
 provides-extras = ["all", "sdk", "telemetry"]
 
