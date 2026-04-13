@@ -27,10 +27,9 @@ Async Batch Engine (semaphore-gated)
 Collect Results`}
 </CodeBlock>
 
-- Tests are dispatched to available workers
-- Multiple tests run concurrently
-- Results collected when all complete
-- Uses an asyncio batch runner inside one Celery task (no chord fan-out)
+- Tests are executed asynchronously within a single worker task
+- Concurrency is managed internally using an asyncio batch runner and semaphore limits
+- Results are collected after the entire batch completes
 
 ### Use Cases
 

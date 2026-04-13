@@ -123,9 +123,9 @@ Both actions support an `overwrite` option.
 
 Suggestion endpoints are non-persisted until you accept results in the UI.
 
-1. `POST /adaptive_testing/\{id\}/generate_suggestions`
-2. `POST /adaptive_testing/\{id\}/generate_suggestion_outputs`
-3. `POST /adaptive_testing/\{id\}/evaluate_suggestions`
+1. `POST /adaptive_testing/{id}/generate_suggestions`
+2. `POST /adaptive_testing/{id}/generate_suggestion_outputs`
+3. `POST /adaptive_testing/{id}/evaluate_suggestions`
 4. Accept selected suggestions to create real tests in the set
 
 | Suggestion parameter | Type | Default | Notes |
@@ -158,7 +158,7 @@ In the UI, suggestions now support:
 
 You can convert an adaptive set into a regular test set with:
 
-`POST /adaptive_testing/export/\{source_test_set_identifier\}`
+`POST /adaptive_testing/export/{source_test_set_identifier}`
 
 The export flow copies tests with prompt content, skips topic marker rows, and creates a regular set without adaptive settings metadata.
 

@@ -31,7 +31,7 @@ configuration.
 
 Queued and in-progress test runs can now be cancelled from the API and UI:
 
-- **New endpoint**: `POST /test_runs/\{id\}/cancel`
+- **New endpoint**: `POST /test_runs/{id}/cancel`
 - **Immediate status transition**: run status is set to `Cancelled` immediately
 - **Cooperative stop behavior**: running async batch work is cancelled via revoke checks and watchdog cancellation
 - **Grid action support**: test runs list supports bulk cancel for selected queued/progress runs
@@ -40,7 +40,7 @@ Queued and in-progress test runs can now be cancelled from the API and UI:
 
 Adaptive testing now supports persistent configuration and cleaner handoff workflows:
 
-- **Adaptive settings endpoints**: `GET/PUT /adaptive_testing/\{id\}/settings`
+- **Adaptive settings endpoints**: `GET/PUT /adaptive_testing/{id}/settings`
 - **Default endpoint + metric assignments**: adaptive sets can store default execution/evaluation settings
 - **Export endpoint**: `POST /adaptive_testing/export/\{source_test_set_identifier\}` creates a regular test set
 - **Suggestion UX updates**: streaming progress, user feedback guidance, and batch accept in the suggestions flow
