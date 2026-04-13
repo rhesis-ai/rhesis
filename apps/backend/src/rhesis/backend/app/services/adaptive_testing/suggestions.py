@@ -121,7 +121,7 @@ Requirements:
     return prompt
 
 
-def generate_suggestions(
+async def generate_suggestions(
     db: Session,
     test_set_identifier: str,
     organization_id: str,
@@ -199,7 +199,7 @@ def generate_suggestions(
     topic_value = topic or ""
 
     try:
-        raw_output = model.generate(prompt=prompt_text, schema=response_model)
+        raw_output = await model.a_generate(prompt=prompt_text, schema=response_model)
     except Exception as e:
         logger.error(f"LLM generation failed: {e}", exc_info=True)
         raise ValueError(f"LLM generation failed: {e}") from e
@@ -214,7 +214,7 @@ def generate_suggestions(
 
     if generate_embeddings:
         from rhesis.backend.app.services.adaptive_testing.embeddings import (
-            generate_embedding_vector,
+            a_generate_embedding_vector,
             sort_by_diversity,
         )
 
@@ -222,17 +222,34 @@ def generate_suggestions(
             inp = (item.get("input") or "").strip()
             if not inp:
                 item["embedding"] = None
-                continue
-            try:
-                item["embedding"] = generate_embedding_vector(inp, db, user_id)
-            except Exception as e:
-                logger.warning(
-                    "Suggestion embedding skipped (input preview %.80r): %s",
-                    inp,
-                    e,
-                    exc_info=True,
-                )
-                item["embedding"] = None
+
+        indices_text = [
+            (i, (suggestions[i].get("input") or "").strip())
+            for i in range(len(suggestions))
+            if (suggestions[i].get("input") or "").strip()
+        ]
+        if indices_text:
+            semaphore = asyncio.Semaphore(10)
+
+            async def _embed_one(idx: int, inp: str) -> tuple:
+                async with semaphore:
+                    try:
+                        vec = await a_generate_embedding_vector(inp, db, user_id)
+                        return idx, vec, None
+                    except Exception as e:
+                        logger.warning(
+                            "Suggestion embedding skipped (input preview %.80r): %s",
+                            inp,
+                            e,
+                            exc_info=True,
+                        )
+                        return idx, None, e
+
+            results = await asyncio.gather(
+                *[asyncio.create_task(_embed_one(i, t)) for i, t in indices_text]
+            )
+            for idx, vec, err in results:
+                suggestions[idx]["embedding"] = vec if err is None else None
 
         suggestions = sort_by_diversity(suggestions)
 

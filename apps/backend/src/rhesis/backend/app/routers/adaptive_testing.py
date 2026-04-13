@@ -781,7 +781,7 @@ async def evaluate_tests(
     "/{test_set_identifier}/generate_suggestions",
     response_model=GenerateSuggestionsResponse,
 )
-def generate_suggestions_endpoint(
+async def generate_suggestions_endpoint(
     test_set_identifier: str,
     body: GenerateSuggestionsRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -796,7 +796,7 @@ def generate_suggestions_endpoint(
     """
     organization_id, user_id = tenant_context
     try:
-        result = generate_suggestions(
+        result = await generate_suggestions(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),

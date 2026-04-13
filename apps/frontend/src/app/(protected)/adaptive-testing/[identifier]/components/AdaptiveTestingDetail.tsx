@@ -2084,7 +2084,9 @@ export default function AdaptiveTestingDetail({
     try {
       const created = await client.createTest(testSetId, {
         ...data,
-        generate_embedding: true,
+        // Embeddings are generated when accepting tests from suggestion flow only.
+        // Persisting embeddings for manually added tests is not implemented yet.
+        generate_embedding: false,
       });
       setTests(prev => prev.map(test => (test.id === tempId ? created : test)));
       setPendingTestIds(prev => {
@@ -2161,7 +2163,9 @@ export default function AdaptiveTestingDetail({
         input: trimmedInput,
         ...(selectedTopicForApi ? { topic: selectedTopicForApi } : {}),
         labeler: 'user',
-        generate_embedding: true,
+        // Embeddings are generated when accepting tests from suggestion flow only.
+        // Persisting embeddings for manually added tests is not implemented yet.
+        generate_embedding: false,
       });
       setTests(prev => prev.map(test => (test.id === tempId ? created : test)));
       setPendingTestIds(prev => {

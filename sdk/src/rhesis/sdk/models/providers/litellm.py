@@ -1,8 +1,9 @@
 import json
+import logging
 from typing import List, Optional, Type, Union
 
 import litellm
-from litellm import acompletion, batch_completion, embedding
+from litellm import acompletion, aembedding, batch_completion, embedding
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -10,6 +11,8 @@ from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
+for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
+    logging.getLogger(_logger_name).setLevel(logging.WARNING)
 
 
 def _unique_ordered_model_ids(models: List[str]) -> List[str]:
@@ -229,26 +232,14 @@ class LiteLLMEmbedder(BaseEmbedder):
         self.api_key = api_key
         self.dimensions = dimensions
 
-    def generate(self, text: str, **kwargs) -> Embedding:
-        """Generate embedding for a single text.
-
-        Args:
-            text: The input text to embed.
-            **kwargs: Additional parameters passed to litellm.embedding().
-
-        Returns:
-            A list of floats representing the embedding vector.
-
-        Raises:
-            TypeError: If text is not a string.
-        """
+    async def a_generate(self, text: str, **kwargs) -> Embedding:
+        """Generate embedding for a single text (async, via LiteLLM)."""
         if not isinstance(text, str):
             raise TypeError(f"text must be a string, got {type(text).__name__}")
 
-        # Allow overriding dimensions per call
         dimensions = kwargs.pop("dimensions", self.dimensions)
 
-        response = embedding(
+        response = await aembedding(
             model=self.model_name,
             input=[text],
             api_key=self.api_key,

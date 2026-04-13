@@ -155,9 +155,8 @@ class BaseEmbedder(BaseModel):
     def __init__(self, model_name: str, *args, **kwargs):
         super().__init__(model_name, *args, **kwargs)
 
-    @abstractmethod
     def generate(self, text: str, **kwargs) -> Embedding:
-        """Generate embedding for a single text.
+        """Generate embedding for a single text (bridges to ``a_generate``).
 
         Args:
             text: The input text to embed.
@@ -166,7 +165,14 @@ class BaseEmbedder(BaseModel):
         Returns:
             A list of floats representing the embedding vector.
         """
-        pass
+        return run_sync(self.a_generate(text, **kwargs))
+
+    async def a_generate(self, text: str, **kwargs) -> Embedding:
+        """Async embedding for a single text. Subclasses must override."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a_generate(). "
+            "Override a_generate() to enable async support."
+        )
 
     @abstractmethod
     def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:

@@ -124,6 +124,38 @@ def generate_embedding_vector(text: str, db: Session, user_id: str) -> List[floa
     return out
 
 
+async def a_generate_embedding_vector(text: str, db: Session, user_id: str) -> List[float]:
+    """Async embed plain text using the user's configured embedding model or platform default.
+
+    Same behavior as :func:`generate_embedding_vector` but uses the embedder's async API.
+    """
+    stripped = (text or "").strip()
+    if not stripped:
+        raise ValueError("Cannot embed empty text")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+
+    target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
+    resolved = get_user_embedding_model(db, user)
+    if isinstance(resolved, str):
+        embedder = get_model(resolved, model_type="embedding", dimensions=target_dim)
+    else:
+        embedder = resolved
+
+    vector = await embedder.a_generate(text=stripped, dimensions=target_dim)
+    out = list(vector)
+    if len(out) != target_dim:
+        logger.warning(
+            "Adaptive embedding length %s != requested %s (provider may ignore dimensions); "
+            "persistence may be skipped",
+            len(out),
+            target_dim,
+        )
+    return out
+
+
 def load_test_for_embedding(db: Session, test_id: str, organization_id: str) -> Optional[Test]:
     """Load a Test with relationships required for ``to_searchable_text()``."""
     return (
