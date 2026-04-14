@@ -93,6 +93,47 @@ test_set.download() # Downloads to current directory`}
 
 </CodeBlock>
 
+#### Executing and Rescoring via SDK
+
+The SDK supports per-run model overrides when executing test sets or rescoring existing runs:
+
+<CodeBlock
+  filename="execute_test_set.py"
+  language="python"
+>
+{`from rhesis.entities import TestSet, Endpoint
+
+test_set = TestSet(id="test-set-id")
+endpoint = Endpoint(id="endpoint-id")
+
+# Execute with model overrides
+result = test_set.execute(
+    endpoint,
+    execution_model_id="<model-uuid>",   # Override execution model (multi-turn)
+    evaluation_model_id="<model-uuid>",   # Override evaluation model
+)
+
+# Re-score an existing run with a different evaluation model
+result = test_set.rescore(
+    endpoint,
+    evaluation_model_id="<model-uuid>",
+)`}
+
+</CodeBlock>
+
+You can also set the default execution model for your account:
+
+<CodeBlock
+  filename="set_default_execution.py"
+  language="python"
+>
+{`from rhesis.entities import Model
+
+model = Model(id="model-uuid")
+model.set_default_execution()`}
+
+</CodeBlock>
+
 ## Test Set Details
 
 The test set detail page provides analytics and metadata about the test set.

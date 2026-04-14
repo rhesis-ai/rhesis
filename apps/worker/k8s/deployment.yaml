@@ -124,6 +124,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: DEFAULT_EVALUATION_MODEL
+        - name: DEFAULT_EXECUTION_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: DEFAULT_EXECUTION_MODEL
         - name: DEFAULT_EMBEDDING_MODEL
           valueFrom:
             secretKeyRef:

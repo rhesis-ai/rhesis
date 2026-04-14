@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
 from rhesis.sdk.services.extractor import SourceSpecification, SourceType
 from rhesis.sdk.synthesizers import ConfigSynthesizer
 
@@ -91,6 +91,7 @@ async def generate_tests(
     config: GenerationConfig,
     num_tests: int = 5,
     sources: Optional[List[SourceData]] = None,
+    model_id: Optional[str] = None,
 ) -> List[Dict]:
     """
     Generate tests using ConfigSynthesizer.
@@ -103,6 +104,7 @@ async def generate_tests(
         config: SDK GenerationConfig object
         num_tests: Number of tests to generate
         sources: Optional list of sources with database IDs
+        model_id: Optional model UUID to override the user's default generation model
 
     Returns:
         List of test dictionaries (source IDs are embedded in test metadata)
@@ -121,8 +123,7 @@ async def generate_tests(
             user_id=str(user.id),
         )
 
-    # Get user's configured model
-    model = get_user_generation_model(db, user)
+    model = get_generation_model_with_override(db, user, model_id=model_id)
 
     # Create synthesizer
     synthesizer = ConfigSynthesizer(
@@ -145,6 +146,7 @@ async def generate_multiturn_tests(
     user: User,
     config: Dict,
     num_tests: int = 5,
+    model_id: Optional[str] = None,
 ) -> Dict:
     """
     Generate multi-turn test cases using MultiTurnSynthesizer.
@@ -160,6 +162,7 @@ async def generate_multiturn_tests(
             - category (str, optional): Category (e.g., "Harmful", "Harmless")
             - topic (str, optional): Specific topic
         num_tests: Number of test cases to generate (default: 5)
+        model_id: Optional model UUID to override the user's default generation model
 
     Returns:
         Dict: The generated test set as a dictionary
@@ -169,8 +172,7 @@ async def generate_multiturn_tests(
     """
     from rhesis.sdk.synthesizers.multi_turn.base import GenerationConfig, MultiTurnSynthesizer
 
-    # Get user's configured model or fallback to default
-    model = get_user_generation_model(db, user)
+    model = get_generation_model_with_override(db, user, model_id=model_id)
 
     # Create configuration for multi-turn synthesizer from dict
     generation_config = GenerationConfig(**config)

@@ -322,7 +322,7 @@ class TestMultiTurnRunnerWithProvider:
                 test=mock_test,
                 endpoint_id="ep-1",
                 organization_id="org-1",
-                model="gpt-4",
+                execution_model="gpt-4",
                 output_provider=None,
             )
 
@@ -361,7 +361,7 @@ class TestMultiTurnRunnerWithProvider:
                 endpoint_id="ep-1",
                 organization_id="org-1",
                 user_id="user-1",
-                model="gpt-4",
+                evaluation_model="gpt-4",
                 output_provider=mock_provider,
             )
 

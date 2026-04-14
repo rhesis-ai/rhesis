@@ -232,6 +232,8 @@ class TestSet(BaseEntity):
         mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
         metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
         reference_test_run_id: Optional[str] = None,
+        execution_model_id: Optional[str] = None,
+        evaluation_model_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Build the request body for the execute endpoint."""
         resolved_mode = ExecutionMode.from_string(mode)
@@ -244,6 +246,10 @@ class TestSet(BaseEntity):
             body["metrics"] = self._resolve_metrics(metrics)
         if reference_test_run_id:
             body["reference_test_run_id"] = reference_test_run_id
+        if execution_model_id:
+            body["execution_model_id"] = execution_model_id
+        if evaluation_model_id:
+            body["evaluation_model_id"] = evaluation_model_id
         return body
 
     # ------------------------------------------------------------------
@@ -257,18 +263,24 @@ class TestSet(BaseEntity):
         *,
         mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
         metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+        execution_model_id: Optional[str] = None,
+        evaluation_model_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """Execute the test set against the given endpoint.
 
         Args:
             endpoint: The endpoint to execute tests against.
-            mode: Execution mode – ``ExecutionMode.PARALLEL`` (default),
+            mode: Execution mode -- ``ExecutionMode.PARALLEL`` (default),
                 ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
             metrics: Optional list of metrics for this execution.
                 Overrides test set and behavior metrics.  Each item
                 can be a dict with ``"id"``, ``"name"``, and optional
                 ``"scope"``; or a metric name string (resolved via
                 the ``/metrics`` API).
+            execution_model_id: Optional model ID to override the default
+                execution model for multi-turn tests (Penelope).
+            evaluation_model_id: Optional model ID to override the default
+                evaluation model (LLM as Judge).
 
         Returns:
             Dict containing the execution submission response.
@@ -282,12 +294,21 @@ class TestSet(BaseEntity):
             >>> endpoint = Endpoints.pull(name="GPT-4o")
             >>> result = test_set.execute(endpoint)
             >>> result = test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL)
-            >>> result = test_set.execute(endpoint, mode="sequential")
+            >>> result = test_set.execute(
+            ...     endpoint,
+            ...     execution_model_id="<uuid>",
+            ...     evaluation_model_id="<uuid>",
+            ... )
         """
         if not self.id:
             raise ValueError("Test set ID must be set before executing")
 
-        body = self._build_execution_body(mode=mode, metrics=metrics)
+        body = self._build_execution_body(
+            mode=mode,
+            metrics=metrics,
+            execution_model_id=execution_model_id,
+            evaluation_model_id=evaluation_model_id,
+        )
         client = APIClient()
         return client.send_request(
             endpoint=self.endpoint,
@@ -304,6 +325,7 @@ class TestSet(BaseEntity):
         *,
         mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
         metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+        evaluation_model_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """Re-score outputs from an existing test run.
 
@@ -319,11 +341,13 @@ class TestSet(BaseEntity):
                 - A string test run ID (UUID)
                 - A string test run name (resolved via
                   ``TestRuns`` collection)
-                - ``None`` (default) – uses the latest completed run
+                - ``None`` (default) -- uses the latest completed run
 
-            mode: Execution mode – ``ExecutionMode.PARALLEL`` (default),
+            mode: Execution mode -- ``ExecutionMode.PARALLEL`` (default),
                 ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
             metrics: Optional list of metrics for re-scoring.
+            evaluation_model_id: Optional model ID to override the default
+                evaluation model (LLM as Judge) for re-scoring.
 
         Returns:
             Dict containing the execution submission response.
@@ -337,6 +361,7 @@ class TestSet(BaseEntity):
             >>> test_set.rescore(endpoint)
             >>> test_set.rescore(endpoint, run="Safety - Run 42")
             >>> test_set.rescore(endpoint, metrics=["Accuracy"])
+            >>> test_set.rescore(endpoint, evaluation_model_id="<uuid>")
         """
         if not self.id:
             raise ValueError("Test set ID must be set before rescoring")
@@ -360,6 +385,7 @@ class TestSet(BaseEntity):
             mode=mode,
             metrics=metrics,
             reference_test_run_id=run_id,
+            evaluation_model_id=evaluation_model_id,
         )
         client = APIClient()
         return client.send_request(

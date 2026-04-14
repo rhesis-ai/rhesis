@@ -185,6 +185,30 @@ class Model(BaseEntity):
             data={"models": {"evaluation": {"model_id": self.id}}},
         )
 
+    def set_default_execution(self) -> None:
+        """Set this model as the default for multi-turn test execution.
+
+        This updates the current user's settings to use this model
+        when running multi-turn tests with Penelope.
+
+        Raises:
+            ValueError: If model ID is not set (model must be saved first)
+
+        Example:
+            >>> model = Models.pull(name="GPT-4 Production")
+            >>> model.set_default_execution()
+        """
+        if not self.id:
+            raise ValueError("Model must be saved before setting as default. Call push() first.")
+
+        client = APIClient()
+        client.send_request(
+            endpoint=Endpoints.USERS,
+            method=Methods.PATCH,
+            url_params="settings",
+            data={"models": {"execution": {"model_id": self.id}}},
+        )
+
     def set_default_embedding(self) -> None:
         """Set this model as the default for embedding generation.
 

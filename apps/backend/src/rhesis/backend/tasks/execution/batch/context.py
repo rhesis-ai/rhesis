@@ -43,7 +43,8 @@ class ExecutionContext:
     endpoint: Endpoint
     organization_id: str
     user_id: Optional[str]
-    model: Any = None
+    execution_model: Any = None
+    evaluation_model: Any = None
     # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
     metric_configs: List[MetricConfig] = field(default_factory=list)
     test_data: Dict[str, Any] = field(default_factory=dict)
@@ -100,23 +101,46 @@ def prefetch_execution_context(
     except Exception as e:
         logger.warning(f"Failed to prime auth token: {e}")
 
-    # Resolve evaluation model (same logic as test.py get_evaluation_model)
-    model = None
+    # Resolve execution model (for Penelope) and evaluation model (for metrics).
+    # Per-run overrides stored in test_config.attributes take precedence over
+    # the user's defaults, which in turn fall back to env-level defaults.
+    attrs = test_config.attributes or {}
+    execution_model = None
+    evaluation_model = None
     try:
-        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL
-        from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
+        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+        from rhesis.backend.app.utils.user_model_utils import (
+            get_evaluation_model_with_override,
+            get_execution_model_with_override,
+        )
+
+        override_execution_model_id = attrs.get("execution_model_id")
+        override_evaluation_model_id = attrs.get("evaluation_model_id")
 
         if user_id:
             user = crud.get_user_by_id(session, user_id)
             if user:
-                model = get_user_evaluation_model(session, user)
+                execution_model = get_execution_model_with_override(
+                    session, user, model_id=override_execution_model_id
+                )
+                evaluation_model = get_evaluation_model_with_override(
+                    session, user, model_id=override_evaluation_model_id
+                )
             else:
-                logger.warning(f"User {user_id} not found, using default evaluation model")
-                model = DEFAULT_EVALUATION_MODEL
+                logger.warning(f"User {user_id} not found, using default models")
+                execution_model = DEFAULT_EXECUTION_MODEL
+                evaluation_model = DEFAULT_EVALUATION_MODEL
         else:
-            model = DEFAULT_EVALUATION_MODEL
+            execution_model = DEFAULT_EXECUTION_MODEL
+            evaluation_model = DEFAULT_EVALUATION_MODEL
     except Exception as e:
-        logger.warning(f"Failed to resolve evaluation model: {e}")
+        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+
+        logger.warning(f"Failed to resolve execution/evaluation models: {e}")
+        if execution_model is None:
+            execution_model = DEFAULT_EXECUTION_MODEL
+        if evaluation_model is None:
+            evaluation_model = DEFAULT_EVALUATION_MODEL
 
     # Pre-fetch per-test data
     test_data: Dict[str, Any] = {}
@@ -201,8 +225,6 @@ def prefetch_execution_context(
         logger.warning(f"Failed to build connector metric sender: {e}")
 
     # Read concurrency / retry config from test_config.attributes with env override.
-    attrs = test_config.attributes or {}
-
     batch_concurrency = int(
         os.environ.get(
             "BATCH_CONCURRENCY",
@@ -235,7 +257,8 @@ def prefetch_execution_context(
         endpoint=endpoint,
         organization_id=organization_id,
         user_id=user_id,
-        model=model,
+        execution_model=execution_model,
+        evaluation_model=evaluation_model,
         metric_configs=metric_configs,
         test_data=test_data,
         existing_result_ids=existing_result_ids,

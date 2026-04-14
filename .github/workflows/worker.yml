@@ -297,6 +297,7 @@ jobs:
             --from-literal=GEMINI_MODEL_NAME="${{ secrets.GEMINI_MODEL_NAME }}" \
             --from-literal=DEFAULT_GENERATION_MODEL="${{ secrets.DEFAULT_GENERATION_MODEL }}" \
             --from-literal=DEFAULT_EVALUATION_MODEL="${{ secrets.DEFAULT_EVALUATION_MODEL }}" \
+            --from-literal=DEFAULT_EXECUTION_MODEL="${{ secrets.DEFAULT_EXECUTION_MODEL }}" \
             --from-literal=DEFAULT_EMBEDDING_MODEL="${{ secrets.DEFAULT_EMBEDDING_MODEL }}" \
             --from-literal=GOOGLE_APPLICATION_CREDENTIALS="${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}" \
             --from-literal=VERTEX_AI_LOCATION="${{ secrets.VERTEX_AI_LOCATION }}" \

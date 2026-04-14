@@ -87,6 +87,7 @@ interface GenerateMultiTurnTestsRequest {
   category?: string[];
   topic?: string[];
   num_tests?: number;
+  model_id?: string; // Override user's default generation model for this request
 }
 
 interface GenerateMultiTurnTestsResponse {

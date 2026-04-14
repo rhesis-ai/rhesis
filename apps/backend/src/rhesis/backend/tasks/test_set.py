@@ -209,6 +209,40 @@ def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, Any]:
             return DEFAULT_GENERATION_MODEL
 
 
+def _get_override_model(self, org_id: str, user_id: str, model_id: str) -> Union[str, Any]:
+    """
+    Fetch a specific model by ID for per-request override.
+
+    Args:
+        org_id: Organization ID
+        user_id: User ID
+        model_id: Model UUID to fetch
+
+    Returns:
+        Either a configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
+    """
+    self.log_with_context("info", "Fetching per-request override model", model_id=model_id)
+    with get_db_with_tenant_variables(org_id, user_id) as db:
+        user = crud.get_user(db, user_id=user_id)
+        if user:
+            from rhesis.backend.app.utils.user_model_utils import (
+                get_generation_model_with_override,
+            )
+
+            model = get_generation_model_with_override(db, user, model_id=model_id)
+            self.log_with_context(
+                "info",
+                "Using per-request override model",
+                model_type=type(model).__name__ if not isinstance(model, str) else "string",
+            )
+            return model
+        else:
+            self.log_with_context(
+                "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
+            )
+            return DEFAULT_GENERATION_MODEL
+
+
 def _build_task_result(
     self,
     db_test_set,
@@ -256,6 +290,7 @@ def generate_and_save_test_set(
     name: Optional[str] = None,
     test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
     metadata: Optional[dict] = None,
+    model_id: Optional[str] = None,
 ):
     """
     Generate and save test set using ConfigSynthesizer.
@@ -271,6 +306,7 @@ def generate_and_save_test_set(
         metadata: Optional extra metadata dict to merge into the saved test set's
                   metadata. Useful for attaching structured labels (e.g. garak_tags,
                   garak_module) from callers that know more context than the synthesizer.
+        model_id: Optional model UUID to override the user's default generation model
 
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
@@ -297,8 +333,11 @@ def generate_and_save_test_set(
                 user_id=user_id,
             )
 
-    # Get user's model
-    model = _get_model_for_user(self, org_id, user_id)
+    # Get model: use per-request override if provided, otherwise user's default
+    if model_id:
+        model = _get_override_model(self, org_id, user_id, model_id)
+    else:
+        model = _get_model_for_user(self, org_id, user_id)
 
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
