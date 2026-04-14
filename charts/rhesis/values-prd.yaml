@@ -1,0 +1,52 @@
+# Production environment overrides — scaffold, fill in before deploying to prd.
+
+global:
+  registry: "europe-west4-docker.pkg.dev/<prd-project-id>/rhesis"
+  imagePullPolicy: IfNotPresent
+  imageTag: ""   # pin to specific tag for production
+
+config:
+  environment: "production"
+  logLevel: "INFO"
+  nextPublicApiBaseUrl: "https://api.rhesis.ai"
+  nextPublicAppUrl: "https://app.rhesis.ai"
+  nextauthUrl: "https://app.rhesis.ai"
+  rhesisBaseUrl: "https://api.rhesis.ai"
+  frontendUrl: "https://app.rhesis.ai"
+  backendUrl: "http://backend:8080"
+  vertexAiProject: "<prd-project-id>"
+  azureOpenAiApiVersion: "2024-02-01"
+
+backend:
+  replicas: 2
+  ingress:
+    enabled: true
+    host: "api.rhesis.ai"
+
+frontend:
+  replicas: 2
+  ingress:
+    enabled: true
+    host: "app.rhesis.ai"
+
+docs:
+  ingress:
+    enabled: true
+    host: "docs.rhesis.ai"
+
+# PostgreSQL disabled for prd — use CNPG Cluster via GitOps directory
+postgresql:
+  enabled: false
+
+externalDatabase:
+  host: ""   # resolved from CNPG service name or ExternalSecret
+
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: "rhesis-app-secrets"
+    existingSecretPasswordKey: "REDIS_PASSWORD"
+  primary:
+    persistence:
+      size: 5Gi

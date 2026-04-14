@@ -1,0 +1,22 @@
+{{- if .Values.polyphemus.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: polyphemus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: polyphemus
+    tier: polyphemus
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.polyphemus.service.type }}
+  ports:
+    - port: {{ .Values.polyphemus.service.port }}
+      targetPort: {{ .Values.polyphemus.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: polyphemus
+    tier: polyphemus
+{{- end }}

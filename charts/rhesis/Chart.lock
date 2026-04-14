@@ -1,0 +1,12 @@
+dependencies:
+- name: valkey
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 2.4.7
+- name: postgresql
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 15.5.38
+- name: opentelemetry-collector
+  repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+  version: 0.150.0
+digest: sha256:aa89f6c15f401dc9e8f96307efdd9c5128d6cdf126b6b139327e58582171803f
+generated: "2026-04-14T15:23:01.372247+02:00"

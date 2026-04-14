@@ -1,0 +1,52 @@
+Rhesis has been deployed!
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Components enabled:
+{{- if .Values.backend.enabled }}
+  - Backend       ({{ .Values.backend.replicas }} replica(s))
+{{- end }}
+{{- if .Values.frontend.enabled }}
+  - Frontend      ({{ .Values.frontend.replicas }} replica(s))
+{{- end }}
+{{- range .Values.workers }}
+{{- if .enabled }}
+  - Worker/{{ .name }}  ({{ .replicas }} replica(s))
+{{- end }}
+{{- end }}
+{{- if .Values.chatbot.enabled }}
+  - Chatbot       ({{ .Values.chatbot.replicas }} replica(s))
+{{- end }}
+{{- if .Values.polyphemus.enabled }}
+  - Polyphemus    ({{ .Values.polyphemus.replicas }} replica(s))
+{{- end }}
+{{- if .Values.docs.enabled }}
+  - Docs          ({{ .Values.docs.replicas }} replica(s))
+{{- end }}
+
+Data services:
+{{- if .Values.valkey.enabled }}
+  - Valkey (in-cluster) at {{ include "rhesis.valkey.host" . }}:{{ .Values.config.redisPort }}
+{{- else }}
+  - Valkey (external)   at {{ .Values.externalValkey.host }}:{{ .Values.config.redisPort }}
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+  - PostgreSQL (in-cluster, Bitnami) at {{ include "rhesis.postgresql.host" . }}:{{ .Values.config.dbPort }}
+{{- else }}
+  - PostgreSQL (external or CNPG) — connection via secret {{ .Values.existingSecret }}
+{{- end }}
+
+Verify pods:
+  kubectl get pods -n {{ .Release.Namespace }}
+
+{{- if .Values.backend.ingress.enabled }}
+
+Backend API:
+  https://{{ .Values.backend.ingress.host }}
+{{- end }}
+{{- if .Values.frontend.ingress.enabled }}
+
+Frontend UI:
+  https://{{ .Values.frontend.ingress.host }}
+{{- end }}

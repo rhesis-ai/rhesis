@@ -18,3 +18,5 @@ resources:
   - alloy.yaml
   - grafana-resources.yaml
   - cnpg-operator.yaml
+  - rhesis/external-secret-app.yaml
+  - rhesis/rhesis-application.yaml
