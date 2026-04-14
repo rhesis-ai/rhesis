@@ -1,0 +1,14 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: stg-cnpg-operator
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rhesis-ai/rhesis.git
+    # Promote by merging a bump to this ref after validation on the prior release.
+    targetRevision: release/v1.2.3
+    path: kubernetes/clusters/stg/cnpg-system
+  destination:
+    server: https://kubernetes.default.svc

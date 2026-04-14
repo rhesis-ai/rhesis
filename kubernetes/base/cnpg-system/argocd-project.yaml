@@ -1,0 +1,27 @@
+# Dedicated AppProject for the CNPG operator Application (scoped sources and destinations).
+# Sync before the child Application (wave 0) so project exists when Argo CD validates it.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cnpg-system
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  description: CloudNativePG operator (Helm) and cnpg-system namespace only
+  sourceRepos:
+    - https://cloudnative-pg.github.io/charts
+  destinations:
+    - namespace: cnpg-system
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
