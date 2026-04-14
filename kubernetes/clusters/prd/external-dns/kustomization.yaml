@@ -8,7 +8,7 @@ configMapGenerator:
   - name: external-dns-config
     literals:
       - cloudflare-api-token-gcp-secret=cloudflare-api-token-prd
-      - domain-filter=PLACEHOLDER_DOMAIN
+      - domain-filter=rhesis.ai
       - txt-owner-id=prd-external-dns
     options:
       annotations:

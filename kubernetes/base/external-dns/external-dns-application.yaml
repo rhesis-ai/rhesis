@@ -22,8 +22,8 @@ spec:
                 name: cloudflare-api-token
                 key: cf-api-token
         domainFilters:
-          - example.com # need to change to the actual domain
-        policy: upsert-only
+          - rhesis.ai
+        policy: sync # sync or upsert
         txtOwnerId: PLACEHOLDER
         sources:
           - service

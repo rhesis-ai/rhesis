@@ -17,7 +17,7 @@ set -euo pipefail
 PROJECT_ID="${PROJECT_ID:-rhesis-dev-sandbox}"
 REGION="${REGION:-europe-west4}"
 CLUSTER_NAME="${CLUSTER_NAME:-gke-dev}"
-ARGOCD_HOST="${ARGOCD_HOST:-argocd.dev.rhesis.ai}"
+ARGOCD_HOST="${ARGOCD_HOST:-argocd.dev.rhesis.internal}"
 SKIP_VPN=false
 
 for arg in "$@"; do
