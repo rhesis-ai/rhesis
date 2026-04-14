@@ -42,6 +42,8 @@ def _mock_root_span(
     conversation_id=None,
     attributes: dict | None = None,
     span_db_id: str = SPAN_DB_ID,
+    trace_metrics: dict | None = None,
+    trace_metrics_processed_at=None,
 ) -> MagicMock:
     span = MagicMock(spec=models.Trace)
     span.id = span_db_id
@@ -53,6 +55,8 @@ def _mock_root_span(
         CONVERSATION_INPUT_KEY: "user says hi",
         CONVERSATION_OUTPUT_KEY: "assistant replies",
     }
+    span.trace_metrics = trace_metrics or {}
+    span.trace_metrics_processed_at = trace_metrics_processed_at
     return span
 
 
