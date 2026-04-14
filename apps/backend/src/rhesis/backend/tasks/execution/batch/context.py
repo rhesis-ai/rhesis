@@ -134,7 +134,13 @@ def prefetch_execution_context(
             execution_model = DEFAULT_EXECUTION_MODEL
             evaluation_model = DEFAULT_EVALUATION_MODEL
     except Exception as e:
+        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+
         logger.warning(f"Failed to resolve execution/evaluation models: {e}")
+        if execution_model is None:
+            execution_model = DEFAULT_EXECUTION_MODEL
+        if evaluation_model is None:
+            evaluation_model = DEFAULT_EVALUATION_MODEL
 
     # Pre-fetch per-test data
     test_data: Dict[str, Any] = {}
