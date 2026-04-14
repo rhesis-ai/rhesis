@@ -237,7 +237,7 @@ jobs:
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
           WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
           CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }},
-          RHESIS_BASE_URL=${{ secrets.RHESIS_BASE_URL }},
+          RHESIS_BASE_URL=${{ secrets.RHESIS_BASE_URL || 'https://api.rhesis.ai' }},
           RHESIS_API_KEY=${{ secrets.RHESIS_API_KEY }},
           RHESIS_PROJECT_ID=${{ secrets.RHESIS_PROJECT_ID }},
           RHESIS_ENVIRONMENT=${{ secrets.RHESIS_ENVIRONMENT }},
