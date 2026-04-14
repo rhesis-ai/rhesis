@@ -8,6 +8,10 @@ import {
   Paper,
   Chip,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -16,6 +20,7 @@ import SourceSelector from './shared/SourceSelector';
 import ProjectSelector from './shared/ProjectSelector';
 import ActionBar from '@/components/common/ActionBar';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
+import { Model } from '@/utils/api-client/interfaces/model';
 
 interface TestInputScreenProps {
   onContinue: (
@@ -28,6 +33,10 @@ interface TestInputScreenProps {
   onSourcesChange: (sources: SourceData[]) => void;
   selectedProjectId: string | null;
   onProjectChange: (projectId: string | null) => void;
+  selectedModelId: string | null;
+  onModelChange: (modelId: string | null) => void;
+  models: Model[];
+  isLoadingModels?: boolean;
   isLoading?: boolean;
   onBack?: () => void;
 }
@@ -123,6 +132,10 @@ export default function TestInputScreen({
   onSourcesChange,
   selectedProjectId,
   onProjectChange,
+  selectedModelId,
+  onModelChange,
+  models,
+  isLoadingModels = false,
   isLoading = false,
   onBack,
 }: TestInputScreenProps) {
@@ -230,6 +243,60 @@ export default function TestInputScreen({
           />
         </Box>
 
+        {/* Model Selection */}
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            gutterBottom
+            sx={{ mb: 1 }}
+          >
+            Select generation model (optional)
+          </Typography>
+          <FormControl fullWidth size="small">
+            <InputLabel>Generation Model</InputLabel>
+            <Select
+              value={selectedModelId || ''}
+              label="Generation Model"
+              onChange={e => {
+                const value = e.target.value as string;
+                onModelChange(value || null);
+              }}
+            >
+              <MenuItem value="">
+                <Typography variant="body2" color="text.secondary">
+                  Use default model
+                </Typography>
+              </MenuItem>
+              {isLoadingModels ? (
+                <MenuItem disabled>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={16} />
+                    <Typography variant="body2">Loading models...</Typography>
+                  </Box>
+                </MenuItem>
+              ) : (
+                models.map(model => (
+                  <MenuItem key={model.id} value={model.id}>
+                    <Box>
+                      <Typography variant="body2">{model.name}</Typography>
+                      {model.description && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                        >
+                          {model.description}
+                        </Typography>
+                      )}
+                    </Box>
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
+        </Box>
+
         {/* Description Input */}
         <Box sx={{ mb: 3 }}>
           <Typography
@@ -283,7 +350,7 @@ export default function TestInputScreen({
                         sx={{
                           cursor: 'pointer',
                           '&:hover': {
-                            bgcolor: 'primary.lighter',
+                            bgcolor: 'background.light2',
                             borderColor: 'primary.main',
                           },
                         }}

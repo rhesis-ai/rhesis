@@ -2,6 +2,7 @@
 
 import React, { useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import ModelSelector from '@/components/common/ModelSelector';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import {
   Autocomplete,
@@ -53,6 +54,10 @@ export default function TestRunDrawer({
     []
   );
   const [tags, setTags] = React.useState<string[]>([]);
+  const [selectedExecutionModelId, setSelectedExecutionModelId] =
+    React.useState('');
+  const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
+    React.useState('');
 
   const getCurrentUserId = useCallback((): UUID | undefined => {
     try {
@@ -125,6 +130,8 @@ export default function TestRunDrawer({
             // Reset tags for new test runs
             setTags([]);
           }
+          setSelectedExecutionModelId('');
+          setSelectedEvaluationModelId('');
         } catch (_fetchError) {
           setError('Failed to load required data');
           // Ensure state remains as empty arrays even on error
@@ -179,11 +186,21 @@ export default function TestRunDrawer({
       const currentUserId = getCurrentUserId();
 
       // Create test configuration
+      const attributes: Record<string, unknown> = {
+        ...(selectedExecutionModelId && {
+          execution_model_id: selectedExecutionModelId,
+        }),
+        ...(selectedEvaluationModelId && {
+          evaluation_model_id: selectedEvaluationModelId,
+        }),
+      };
+
       const testConfigurationData: TestConfigurationCreate = {
         endpoint_id: endpoint.id as UUID,
         test_set_id: testSet.id as UUID,
         ...(currentUserId && { user_id: currentUserId }),
         organization_id: endpoint.organization_id as UUID,
+        ...(Object.keys(attributes).length > 0 && { attributes }),
       };
 
       // Create the test configuration
@@ -328,6 +345,35 @@ export default function TestRunDrawer({
               )}
             />
           </Stack>
+        </Stack>
+
+        <Divider />
+
+        {/* Model Settings Section */}
+        <Stack spacing={2}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Model Settings
+          </Typography>
+
+          <ModelSelector
+            sessionToken={sessionToken}
+            value={selectedEvaluationModelId}
+            onChange={setSelectedEvaluationModelId}
+            label="Evaluation Model"
+            purpose="evaluation"
+            helperText="Used for scoring test results"
+          />
+
+          {testSet?.test_set_type?.type_value === 'Multi-Turn' && (
+            <ModelSelector
+              sessionToken={sessionToken}
+              value={selectedExecutionModelId}
+              onChange={setSelectedExecutionModelId}
+              label="Execution Model"
+              purpose="execution"
+              helperText="Used for multi-turn test execution with Penelope"
+            />
+          )}
         </Stack>
 
         <Divider />

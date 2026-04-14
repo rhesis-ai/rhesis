@@ -19,6 +19,7 @@ import {
   TestType,
 } from './shared/types';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { Model } from '@/utils/api-client/interfaces/model';
 import {
   GenerateTestsRequest,
   GenerationConfig,
@@ -94,7 +95,8 @@ const generateSamplesForTestType = async (
   description: string,
   projectName: string,
   sources: SourceData[],
-  numTests: number = 5
+  numTests: number = 5,
+  modelId?: string | null
 ): Promise<AnyTestSample[]> => {
   if (testType === 'multi_turn') {
     // Generate multi-turn tests
@@ -104,6 +106,7 @@ const generateSamplesForTestType = async (
       category: activeCategories,
       topic: activeTopics,
       num_tests: numTests,
+      ...(modelId ? { model_id: modelId } : {}),
     });
 
     if (response.tests?.length) {
@@ -149,6 +152,7 @@ const generateSamplesForTestType = async (
       config,
       num_tests: numTests,
       sources: sources,
+      ...(modelId ? { model_id: modelId } : {}),
     });
 
     if (response.tests?.length) {
@@ -227,6 +231,10 @@ export default function TestGenerationFlow({
   const [project, setProject] = useState<Project | null>(null);
   const [testSetSize, setTestSetSize] = useState<TestSetSize>('small');
   const [testSetName, setTestSetName] = useState('');
+  const [customTestCount, setCustomTestCount] = useState<number>(50);
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [models, setModels] = useState<Model[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
 
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -319,7 +327,8 @@ export default function TestGenerationFlow({
               template.description,
               project?.name || 'General',
               selectedSources,
-              5
+              5,
+              selectedModelId
             );
 
             setTestSamples(newSamples);
@@ -345,6 +354,30 @@ export default function TestGenerationFlow({
     // selectedProjectId, selectedSources, testType intentionally excluded - template init runs once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionToken, show, project]);
+
+  // Fetch available models for the model selector
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        setIsLoadingModels(true);
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const modelsClient = apiFactory.getModelsClient();
+        const response = await modelsClient.getModels({
+          sort_by: 'name',
+          sort_order: 'asc',
+          skip: 0,
+          limit: 100,
+        });
+        setModels(response.data || []);
+      } catch (_error) {
+        show('Failed to load models', { severity: 'error' });
+      } finally {
+        setIsLoadingModels(false);
+      }
+    };
+
+    fetchModels();
+  }, [sessionToken, show]);
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
@@ -464,7 +497,8 @@ export default function TestGenerationFlow({
             desc,
             projectContext,
             sources,
-            5
+            5,
+            selectedModelId
           );
 
           setTestSamples(newSamples);
@@ -513,7 +547,8 @@ export default function TestGenerationFlow({
         description,
         project?.name || 'General',
         selectedSources,
-        5
+        5,
+        selectedModelId
       );
 
       setTestSamples(newSamples);
@@ -530,6 +565,7 @@ export default function TestGenerationFlow({
     selectedSources,
     project,
     testType,
+    selectedModelId,
     show,
   ]);
 
@@ -585,6 +621,7 @@ export default function TestGenerationFlow({
             config,
             num_tests: 1,
             sources: selectedSources,
+            ...(selectedModelId ? { model_id: selectedModelId } : {}),
           });
 
           if (response.tests?.length) {
@@ -622,7 +659,8 @@ export default function TestGenerationFlow({
             `${description}\n\nFeedback: ${feedback}`,
             project?.name || 'General',
             selectedSources,
-            1
+            1,
+            selectedModelId
           );
 
           if (newSamples.length > 0) {
@@ -644,6 +682,7 @@ export default function TestGenerationFlow({
       description,
       configChips,
       selectedSources,
+      selectedModelId,
       project,
       testSamples,
       testType,
@@ -818,7 +857,8 @@ export default function TestGenerationFlow({
           description,
           project?.name || 'General',
           selectedSources,
-          5
+          5,
+          selectedModelId
         );
 
         setTestSamples(newSamples);
@@ -849,6 +889,7 @@ export default function TestGenerationFlow({
       description,
       selectedProjectId,
       selectedSources,
+      selectedModelId,
       project,
       show,
       configChips,
@@ -902,7 +943,8 @@ export default function TestGenerationFlow({
         description,
         project?.name || 'General',
         selectedSources,
-        5
+        5,
+        selectedModelId
       );
 
       setTestSamples(prev => [...prev, ...newSamples]);
@@ -916,6 +958,7 @@ export default function TestGenerationFlow({
     description,
     configChips,
     selectedSources,
+    selectedModelId,
     project,
     testType,
     show,
@@ -938,10 +981,15 @@ export default function TestGenerationFlow({
         .filter(c => c.active)
         .map(c => c.label);
 
-      // Map test set size to actual number of tests
-      // Small: 25-50 tests, Medium: 75-150 tests, Large: 200+ tests
-      const numTests =
-        testSetSize === 'small' ? 50 : testSetSize === 'large' ? 200 : 100;
+      // Map test set size to actual number of tests, capped at 200
+      const MAX_TESTS = 200;
+      let numTests: number;
+      if (testSetSize === 'custom') {
+        numTests = Math.min(Math.max(customTestCount, 1), MAX_TESTS);
+      } else {
+        numTests =
+          testSetSize === 'small' ? 50 : testSetSize === 'large' ? 200 : 100;
+      }
 
       // Build additional context with samples and metadata
       const additionalContext = {
@@ -953,7 +1001,8 @@ export default function TestGenerationFlow({
         test_coverage:
           testSetSize === 'small'
             ? 'focused'
-            : testSetSize === 'large'
+            : testSetSize === 'large' ||
+                (testSetSize === 'custom' && customTestCount >= 150)
               ? 'comprehensive'
               : 'standard',
         samples: testSamples.map(sample => ({
@@ -982,6 +1031,7 @@ export default function TestGenerationFlow({
         sources: selectedSources,
         name: testSetName.trim() || undefined,
         test_type: testType,
+        ...(selectedModelId ? { model_id: selectedModelId } : {}),
       };
 
       const response = await testSetsClient.generateTestSet(request);
@@ -1011,7 +1061,9 @@ export default function TestGenerationFlow({
     testSamples,
     testSetSize,
     testSetName,
+    customTestCount,
     selectedSources,
+    selectedModelId,
     project,
     testType,
     router,
@@ -1084,6 +1136,10 @@ export default function TestGenerationFlow({
             }}
             selectedProjectId={selectedProjectId}
             onProjectChange={setSelectedProjectId}
+            selectedModelId={selectedModelId}
+            onModelChange={setSelectedModelId}
+            models={models}
+            isLoadingModels={isLoadingModels}
             isLoading={isGenerating}
             onBack={handleBackToTests}
           />
@@ -1125,11 +1181,13 @@ export default function TestGenerationFlow({
             configChips={configChips}
             testSetSize={testSetSize}
             testSetName={testSetName}
+            customTestCount={customTestCount}
             sources={selectedSources}
             onBack={handleBackToInterface}
             onGenerate={handleGenerate}
             onTestSetSizeChange={setTestSetSize}
             onTestSetNameChange={setTestSetName}
+            onCustomTestCountChange={setCustomTestCount}
             isGenerating={isFinishing}
           />
         );
