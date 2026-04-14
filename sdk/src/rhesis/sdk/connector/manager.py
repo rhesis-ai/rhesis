@@ -74,6 +74,7 @@ class ConnectorManager:
         self._connection: WebSocketConnection | None = None
         self._connection_id: str | None = None
         self._initialized = False
+        self._connection_scheduled = False
 
     def initialize(self) -> None:
         """Initialize WebSocket connection."""
@@ -118,13 +119,22 @@ class ConnectorManager:
         if not self._initialized:
             return
 
-        # Check if connection exists but isn't started
         if self._connection and self._connection.state == ConnectionState.DISCONNECTED:
+            if self._connection_scheduled:
+                return
             try:
-                asyncio.create_task(self._connection.connect())
+                self._connection_scheduled = True
+                asyncio.create_task(self._start_connection())
             except RuntimeError:
-                # No event loop, connection will start when available
-                pass
+                self._connection_scheduled = False
+
+    async def _start_connection(self) -> None:
+        """Start connection and reset the scheduled guard when done."""
+        try:
+            if self._connection:
+                await self._connection.connect()
+        finally:
+            self._connection_scheduled = False
 
     def register_function(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
         """
