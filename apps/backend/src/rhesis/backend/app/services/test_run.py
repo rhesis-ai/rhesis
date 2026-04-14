@@ -172,6 +172,7 @@ def rescore_test_run(
     reference_test_run_id: str,
     current_user: models.User,
     metrics: Optional[List[Dict[str, Any]]] = None,
+    evaluation_model_id: uuid.UUID = None,
 ) -> Dict[str, Any]:
     """Create a new test run that re-scores an existing one.
 
@@ -215,13 +216,16 @@ def rescore_test_run(
         "execution_mode": "Parallel",
     }
 
-    # Add metrics override if provided
     if metrics:
         attributes["metrics"] = metrics
         from rhesis.backend.app.schemas.test_set import MetricsSource
 
         attributes["metrics_source"] = MetricsSource.EXECUTION_TIME.value
         logger.debug(f"Rescore using {len(metrics)} execution-time metrics")
+
+    if evaluation_model_id:
+        attributes["evaluation_model_id"] = str(evaluation_model_id)
+        logger.debug(f"Rescore evaluation model override: {evaluation_model_id}")
 
     # 3. Create new TestConfiguration pointing to same endpoint/test_set
     new_config = schemas.TestConfigurationCreate(

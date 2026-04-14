@@ -93,11 +93,12 @@ class GenerateTestsRequest(BaseModel):
     """
 
     config: GenerationConfig
-    num_tests: int = 5
+    num_tests: int = Field(default=5, ge=1, le=200)
     batch_size: int = 20
     sources: Optional[List[SourceData]] = None
     name: Optional[str] = None  # Used only for bulk generation to name the test set
     test_type: Optional[str] = TestSetType.SINGLE_TURN.value
+    model_id: Optional[UUID4] = None  # Override user's default generation model for this request
 
     @field_validator("test_type", mode="before")
     @classmethod
@@ -201,7 +202,8 @@ class GenerateMultiTurnTestsRequest(BaseModel):
     behavior: Optional[list[str]] = None
     category: Optional[list[str]] = None
     topic: Optional[list[str]] = None
-    num_tests: int = 5
+    num_tests: int = Field(default=5, ge=1, le=200)
+    model_id: Optional[UUID4] = None  # Override user's default generation model for this request
 
 
 class MultiTurnTestConfiguration(BaseModel):

@@ -151,6 +151,64 @@ class TestExecute:
         assert body["metrics"][0]["id"] == "m-resolved"
         assert body["metrics"][0]["name"] == "Toxicity"
 
+    @patch("requests.request")
+    def test_execute_with_execution_model_id(self, mock_request, test_set, endpoint):
+        """execution_model_id is included at top level of the request body."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "submitted"}
+        mock_request.return_value = mock_response
+
+        test_set.execute(endpoint, execution_model_id="model-exec-123")
+
+        _, kwargs = mock_request.call_args
+        body = kwargs["json"]
+        assert body["execution_model_id"] == "model-exec-123"
+
+    @patch("requests.request")
+    def test_execute_with_evaluation_model_id(self, mock_request, test_set, endpoint):
+        """evaluation_model_id is included at top level of the request body."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "submitted"}
+        mock_request.return_value = mock_response
+
+        test_set.execute(endpoint, evaluation_model_id="model-eval-456")
+
+        _, kwargs = mock_request.call_args
+        body = kwargs["json"]
+        assert body["evaluation_model_id"] == "model-eval-456"
+
+    @patch("requests.request")
+    def test_execute_with_both_model_ids(self, mock_request, test_set, endpoint):
+        """Both model IDs are present in the body when both are provided."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "submitted"}
+        mock_request.return_value = mock_response
+
+        test_set.execute(
+            endpoint,
+            execution_model_id="model-exec-123",
+            evaluation_model_id="model-eval-456",
+        )
+
+        _, kwargs = mock_request.call_args
+        body = kwargs["json"]
+        assert body["execution_model_id"] == "model-exec-123"
+        assert body["evaluation_model_id"] == "model-eval-456"
+
+    @patch("requests.request")
+    def test_execute_without_model_ids_omits_them(self, mock_request, test_set, endpoint):
+        """Neither model ID key appears when not provided."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "submitted"}
+        mock_request.return_value = mock_response
+
+        test_set.execute(endpoint)
+
+        _, kwargs = mock_request.call_args
+        body = kwargs["json"]
+        assert "execution_model_id" not in body
+        assert "evaluation_model_id" not in body
+
     def test_execute_no_id_raises(self, test_set_no_id, endpoint):
         """ValueError when test set has no ID."""
         with pytest.raises(ValueError, match="Test set ID must be set"):
@@ -293,6 +351,47 @@ class TestRescore:
         assert body["reference_test_run_id"] == "run-latest"
         assert len(body["metrics"]) == 1
         assert body["metrics"][0]["id"] == "m-acc"
+
+    @patch("requests.request")
+    def test_rescore_with_evaluation_model_id(self, mock_request, test_set, endpoint):
+        """evaluation_model_id is forwarded in the execute body."""
+        last_run_response = MagicMock()
+        last_run_response.json.return_value = {
+            "id": "run-latest",
+            "name": "Safety - Run 5",
+            "status": "Completed",
+        }
+
+        execute_response = MagicMock()
+        execute_response.json.return_value = {"status": "submitted"}
+
+        mock_request.side_effect = [last_run_response, execute_response]
+
+        test_set.rescore(endpoint, evaluation_model_id="model-eval-789")
+
+        second_call = mock_request.call_args_list[1]
+        body = second_call[1]["json"]
+        assert body["evaluation_model_id"] == "model-eval-789"
+        assert body["reference_test_run_id"] == "run-latest"
+
+    @patch("requests.request")
+    def test_rescore_without_evaluation_model_id_omits_it(
+        self, mock_request, test_set, endpoint
+    ):
+        """evaluation_model_id is absent when not provided."""
+        last_run_response = MagicMock()
+        last_run_response.json.return_value = {"id": "run-latest"}
+
+        execute_response = MagicMock()
+        execute_response.json.return_value = {"status": "submitted"}
+
+        mock_request.side_effect = [last_run_response, execute_response]
+
+        test_set.rescore(endpoint)
+
+        second_call = mock_request.call_args_list[1]
+        body = second_call[1]["json"]
+        assert "evaluation_model_id" not in body
 
     def test_rescore_no_id_raises(self, test_set_no_id, endpoint):
         """ValueError when test set has no ID."""

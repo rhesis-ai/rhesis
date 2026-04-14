@@ -86,6 +86,28 @@ This is particularly useful when you want to:
 - **Compare evaluation criteria** by re-scoring the same outputs with different metric configurations
 - **Validate metric changes** by checking how updated metrics affect existing results
 
+## Model Settings
+
+Override the default models used for evaluation and execution on a per-run basis.
+
+### Evaluation Model
+
+Select which model evaluates test responses using your configured [Metrics](/docs/metrics). This applies to both single-turn and multi-turn test sets.
+
+- **Default model**: Uses the default evaluation model configured in your [Model settings](/docs/models). The currently configured model name is shown in the description.
+- **Specific model**: Choose any model connected to your organization.
+
+### Execution Model (Multi-Turn Only)
+
+For multi-turn test sets, select the model that drives the [Penelope](/conversation-simulation) conversation agent. This option is only visible when executing a multi-turn test set.
+
+- **Default model**: Uses the default execution model configured in your [Model settings](/docs/models).
+- **Specific model**: Choose any model connected to your organization.
+
+<Callout type="info">
+  Model overrides apply only to the current run. They do not change your default model settings.
+</Callout>
+
 ## Test Run Metrics
 
 Metrics define how test responses are evaluated. Rhesis supports a flexible hierarchy that allows you to configure metrics at different levels.
@@ -165,6 +187,7 @@ You can re-run a test from the test run detail view:
 3. The re-run drawer opens with pre-filled settings:
    - Project, endpoint, and test set are fixed
    - Execution mode, scoring target, and metrics source can be configured
+   - Model selections (evaluation and execution models) are preserved from the original run
    - You can modify tags for the new run
 4. Click **Re-run Test** to start a new execution
 

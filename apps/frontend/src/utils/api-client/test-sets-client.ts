@@ -354,30 +354,40 @@ export class TestSetsClient extends BaseApiClient {
       execution_mode?: string;
       metrics?: Array<{ id: string; name: string; scope?: string[] }>;
       reference_test_run_id?: string;
+      execution_model_id?: string;
+      evaluation_model_id?: string;
       [key: string]: unknown;
     }
   ): Promise<TestSet> {
-    // Build request body with execution_options, metrics, and reference_test_run_id
     const requestBody: Record<string, unknown> = {};
 
     if (testConfigurationAttributes) {
-      // Extract metrics and reference_test_run_id (go at top level)
-      const { metrics, reference_test_run_id, ...executionOptions } =
-        testConfigurationAttributes;
+      const {
+        metrics,
+        reference_test_run_id,
+        execution_model_id,
+        evaluation_model_id,
+        ...executionOptions
+      } = testConfigurationAttributes;
 
-      // Add execution_options if there are any
       if (Object.keys(executionOptions).length > 0) {
         requestBody.execution_options = executionOptions;
       }
 
-      // Add metrics at top level if present
       if (metrics && metrics.length > 0) {
         requestBody.metrics = metrics;
       }
 
-      // Add reference_test_run_id at top level if present (output reuse)
       if (reference_test_run_id) {
         requestBody.reference_test_run_id = reference_test_run_id;
+      }
+
+      if (execution_model_id) {
+        requestBody.execution_model_id = execution_model_id;
+      }
+
+      if (evaluation_model_id) {
+        requestBody.evaluation_model_id = evaluation_model_id;
       }
     }
 

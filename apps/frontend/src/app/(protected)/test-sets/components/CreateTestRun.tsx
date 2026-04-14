@@ -23,6 +23,7 @@ import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
+import ModelSelector from '@/components/common/ModelSelector';
 
 interface ProjectOption {
   id: UUID;
@@ -69,6 +70,9 @@ export default function CreateTestRun({
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
   const [executionMode, setExecutionMode] = useState<string>('Parallel');
   const [tags, setTags] = useState<string[]>([]);
+  const [selectedExecutionModelId, setSelectedExecutionModelId] = useState('');
+  const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
+    useState('');
 
   // Fetch projects and endpoints when drawer opens
   useEffect(() => {
@@ -150,6 +154,8 @@ export default function CreateTestRun({
       setSelectedProject(null);
       setSelectedEndpoint(null);
       setTags([]);
+      setSelectedExecutionModelId('');
+      setSelectedEvaluationModelId('');
     }
   }, [sessionToken, onError, selectedTestSetIds, open]);
 
@@ -191,9 +197,17 @@ export default function CreateTestRun({
       const testSetsClient = clientFactory.getTestSetsClient();
 
       // Prepare test configuration attributes
-      const testConfigurationAttributes = {
+      const testConfigurationAttributes: Record<string, unknown> = {
         execution_mode: executionMode,
       };
+      if (selectedExecutionModelId) {
+        testConfigurationAttributes.execution_model_id =
+          selectedExecutionModelId;
+      }
+      if (selectedEvaluationModelId) {
+        testConfigurationAttributes.evaluation_model_id =
+          selectedEvaluationModelId;
+      }
 
       // Execute each test set individually with test configuration attributes
       const results = await Promise.all(
@@ -440,6 +454,30 @@ export default function CreateTestRun({
               </MenuItem>
             </Select>
           </FormControl>
+
+          <Divider />
+
+          {/* Model Settings Section */}
+          <Typography variant="subtitle2" color="text.secondary">
+            Model Settings
+          </Typography>
+
+          <ModelSelector
+            sessionToken={sessionToken}
+            value={selectedEvaluationModelId}
+            onChange={setSelectedEvaluationModelId}
+            label="Evaluation Model"
+            purpose="evaluation"
+          />
+
+          <ModelSelector
+            sessionToken={sessionToken}
+            value={selectedExecutionModelId}
+            onChange={setSelectedExecutionModelId}
+            label="Execution Model"
+            purpose="execution"
+            helperText="Only applies to multi-turn test sets"
+          />
 
           <Divider />
 

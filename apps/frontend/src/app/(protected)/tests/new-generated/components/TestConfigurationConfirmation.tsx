@@ -23,11 +23,13 @@ interface TestConfigurationConfirmationProps {
   configChips: ConfigChips;
   testSetSize: TestSetSize;
   testSetName: string;
+  customTestCount: number;
   sources?: SourceData[];
   onBack: () => void;
   onGenerate: () => void;
   onTestSetSizeChange: (size: TestSetSize) => void;
   onTestSetNameChange: (name: string) => void;
+  onCustomTestCountChange: (count: number) => void;
   isGenerating: boolean;
 }
 
@@ -40,11 +42,13 @@ export default function TestConfigurationConfirmation({
   configChips,
   testSetSize,
   testSetName,
+  customTestCount,
   sources = [],
   onBack,
   onGenerate,
   onTestSetSizeChange,
   onTestSetNameChange,
+  onCustomTestCountChange,
   isGenerating,
 }: TestConfigurationConfirmationProps) {
   // Count active chips across all categories
@@ -256,6 +260,8 @@ export default function TestConfigurationConfirmation({
                 <TestSetSizeSelector
                   selectedSize={testSetSize}
                   onSizeChange={onTestSetSizeChange}
+                  customCount={customTestCount}
+                  onCustomCountChange={onCustomTestCountChange}
                 />
               </Box>
             </Grid>
