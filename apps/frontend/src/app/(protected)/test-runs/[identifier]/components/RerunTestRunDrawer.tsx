@@ -164,12 +164,15 @@ export default function RerunTestRunDrawer({
 
     if (open) {
       fetchTestSetMetricsAndDetermineMode();
-      // Reset tags, execution mode, and scoring target when drawer opens
       setTags([]);
       setExecutionMode('Parallel');
       setScoringTarget('fresh');
-      setSelectedExecutionModelId('');
-      setSelectedEvaluationModelId('');
+      setSelectedExecutionModelId(
+        (rerunConfig.originalAttributes?.execution_model_id as string) || ''
+      );
+      setSelectedEvaluationModelId(
+        (rerunConfig.originalAttributes?.evaluation_model_id as string) || ''
+      );
     }
   }, [
     sessionToken,

@@ -133,9 +133,7 @@ def get_execution_model_with_override(
         Either a string (provider name) or a configured BaseLLM instance
     """
     if model_id:
-        logger.info(
-            f"[LLM_UTILS] Using per-request execution model override: model_id={model_id}"
-        )
+        logger.info(f"[LLM_UTILS] Using per-request execution model override: model_id={model_id}")
         return _fetch_and_configure_model(
             db=db,
             model_id=str(model_id),
@@ -165,9 +163,7 @@ def get_evaluation_model_with_override(
         Either a string (provider name) or a configured BaseLLM instance
     """
     if model_id:
-        logger.info(
-            f"[LLM_UTILS] Using per-request evaluation model override: model_id={model_id}"
-        )
+        logger.info(f"[LLM_UTILS] Using per-request evaluation model override: model_id={model_id}")
         return _fetch_and_configure_model(
             db=db,
             model_id=str(model_id),
