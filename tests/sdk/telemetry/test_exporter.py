@@ -503,3 +503,157 @@ class TestExporterDeadlineAndShutdown:
         assert timeouts_seen[0] <= 10
         for prev, curr in zip(timeouts_seen, timeouts_seen[1:]):
             assert curr < prev, f"timeout did not shrink: {timeouts_seen}"
+
+
+class TestExporterBatchChunking:
+    """Tests for batch chunking in RhesisOTLPExporter."""
+
+    def _make_exporter(self, max_chunk_size=100, **kwargs):
+        defaults = dict(
+            api_key="k",
+            base_url="http://localhost",
+            project_id="p",
+            environment="t",
+        )
+        defaults.update(kwargs)
+        exp = RhesisOTLPExporter(max_chunk_size=max_chunk_size, **defaults)
+        exp._retryer.wait = lambda *a, **kw: 0
+        return exp
+
+    def _make_spans(self, n, n_roots=1):
+        """Create n ReadableSpans; the first n_roots have no parent.
+
+        Children are created inside a root span's context so OTEL
+        assigns them a proper parent_span_id.
+        """
+        tracer = TracerProvider().get_tracer("test")
+        spans = []
+        n_children = n - n_roots
+
+        for i in range(n_roots):
+            if i < n_roots - 1:
+                batch = n_children // n_roots
+            else:
+                batch = n_children - (n_children // n_roots) * (n_roots - 1)
+
+            child_readable = []
+            with tracer.start_as_current_span("ai.llm.invoke") as root:
+                for _ in range(batch):
+                    with tracer.start_as_current_span("ai.tool.invoke") as child:
+                        pass
+                    child_readable.append(child._readable_span())
+
+            spans.append(root._readable_span())
+            spans.extend(child_readable)
+
+        return spans
+
+    def test_default_max_chunk_size(self):
+        """Default max_chunk_size is 100."""
+        exporter = RhesisOTLPExporter(
+            api_key="k",
+            base_url="http://localhost",
+            project_id="p",
+            environment="t",
+        )
+        assert exporter._max_chunk_size == 100
+
+    def test_custom_max_chunk_size(self):
+        """Constructor parameter overrides default."""
+        exporter = self._make_exporter(max_chunk_size=50)
+        assert exporter._max_chunk_size == 50
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_small_batch_no_chunking(self, mock_post):
+        """A batch under max_chunk_size results in a single POST."""
+        mock_post.return_value = MagicMock(status_code=200)
+        exporter = self._make_exporter(max_chunk_size=100)
+
+        spans = self._make_spans(10, n_roots=1)
+        result = exporter.export(spans)
+
+        assert result == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 1
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_large_batch_chunks_into_multiple_posts(self, mock_post):
+        """A batch of 250 spans with max_chunk_size=100 results in 3 POSTs."""
+        mock_post.return_value = MagicMock(status_code=200)
+        exporter = self._make_exporter(max_chunk_size=100)
+
+        spans = self._make_spans(250, n_roots=2)
+        result = exporter.export(spans)
+
+        assert result == SpanExportResult.SUCCESS
+        assert mock_post.call_count == 3
+
+        total_spans_sent = 0
+        for call in mock_post.call_args_list:
+            payload = call[1]["json"]
+            total_spans_sent += len(payload["spans"])
+        assert total_spans_sent == 250
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_root_spans_in_first_chunk(self, mock_post):
+        """Root spans (parent_span_id=None) always appear in the first chunk."""
+        payloads = []
+
+        def _capture(*args, **kwargs):
+            payloads.append(kwargs["json"])
+            return MagicMock(status_code=200)
+
+        mock_post.side_effect = _capture
+        exporter = self._make_exporter(max_chunk_size=5)
+
+        spans = self._make_spans(15, n_roots=3)
+        result = exporter.export(spans)
+
+        assert result == SpanExportResult.SUCCESS
+        assert len(payloads) >= 2
+
+        first_chunk_spans = payloads[0]["spans"]
+        root_spans_in_first = [s for s in first_chunk_spans if s["parent_span_id"] is None]
+        assert len(root_spans_in_first) == 3
+
+        for later_payload in payloads[1:]:
+            for s in later_payload["spans"]:
+                assert s["parent_span_id"] is not None
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_chunk_failure_returns_failure(self, mock_post):
+        """If chunk 2 POST fails, export returns FAILURE (chunk 1 already sent)."""
+        ok = MagicMock(status_code=200)
+        fail = MagicMock(status_code=422)
+        fail.json.return_value = {"detail": "rejected"}
+        fail.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            response=fail,
+        )
+        mock_post.side_effect = [ok, fail]
+
+        exporter = self._make_exporter(max_chunk_size=5)
+        spans = self._make_spans(10, n_roots=1)
+        result = exporter.export(spans)
+
+        assert result == SpanExportResult.FAILURE
+        assert mock_post.call_count == 2
+
+    @patch("rhesis.telemetry.exporter.requests.Session.post")
+    def test_per_chunk_deadline(self, mock_post):
+        """Each chunk gets its own fresh deadline, not a shared one."""
+        deadlines_seen = []
+
+        def _capture(*args, **kwargs):
+            deadlines_seen.append(kwargs.get("timeout"))
+            return MagicMock(status_code=200)
+
+        mock_post.side_effect = _capture
+        exporter = self._make_exporter(max_chunk_size=5, timeout=10)
+
+        spans = self._make_spans(12, n_roots=1)
+        result = exporter.export(spans)
+
+        assert result == SpanExportResult.SUCCESS
+        assert mock_post.call_count >= 2
+
+        for t in deadlines_seen:
+            assert t > 9.0, f"Chunk deadline should be ~10s (fresh budget), got {t}"
