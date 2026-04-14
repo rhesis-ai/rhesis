@@ -130,6 +130,11 @@ function show_usage() {
   echo "  SENDGRID_DAY_2_EMAIL_TEMPLATE_ID           Sendgrid day 2 email template ID"
   echo "  SENDGRID_DAY_3_EMAIL_TEMPLATE_ID           Sendgrid day 3 email template ID"
   echo ""
+  echo "  # Chatbot variables"
+  echo "  RHESIS_API_KEY                Rhesis API key for chatbot SDK access"
+  echo "  RHESIS_PROJECT_ID             Rhesis project ID for chatbot SDK"
+  echo "  RHESIS_ENVIRONMENT            Rhesis environment (development, staging, production)"
+  echo ""
   echo -e "${BLUE}Example:${NC}"
   echo "  $0 --repo myuser/myrepo"
 }
@@ -329,6 +334,11 @@ SERVICE_VARS=(
   "SENDGRID_DAY_1_EMAIL_TEMPLATE_ID"
   "SENDGRID_DAY_2_EMAIL_TEMPLATE_ID"
   "SENDGRID_DAY_3_EMAIL_TEMPLATE_ID"
+
+  # Chatbot variables
+  "RHESIS_API_KEY"
+  "RHESIS_PROJECT_ID"
+  "RHESIS_ENVIRONMENT"
 )
 
 # Set environment-specific secrets
