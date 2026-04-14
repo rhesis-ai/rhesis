@@ -29,7 +29,7 @@ def _set_session_variables(db: Session, organization_id: str = "", user_id: str 
     try:
         db.execute(
             text("""
-                SELECT 
+                SELECT
                     set_config('app.current_organization', :org_id, false),
                     set_config('app.current_user', :user_id, false)
             """),
@@ -110,7 +110,7 @@ SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine,
-    expire_on_commit=False,  # Expire objects after commit
+    expire_on_commit=False,  # Do not expire objects after commit
 )
 Base = declarative_base()
 
