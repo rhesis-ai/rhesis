@@ -308,6 +308,69 @@ export type SuggestionEvalStreamEvent =
   | SuggestionEvalStreamSummaryEvent;
 
 // =============================================================================
+// Unified Suggestion Pipeline (single stream)
+// =============================================================================
+
+export interface SuggestionPipelineRequest {
+  topic?: string | null;
+  generate_embeddings?: boolean;
+  num_examples?: number;
+  num_suggestions?: number;
+  user_feedback?: string | null;
+  endpoint_id?: string | null;
+  metric_names?: string[] | null;
+}
+
+export interface PipelineSuggestionsEvent {
+  type: 'suggestions';
+  suggestions: SuggestedTest[];
+  num_examples_used: number;
+}
+
+export interface PipelineOutputEvent {
+  type: 'output';
+  index: number;
+  input: string;
+  output: string;
+  error: string | null;
+}
+
+export interface PipelineEvaluationEvent {
+  type: 'evaluation';
+  index: number;
+  input: string;
+  label: string;
+  labeler: string;
+  model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  error: string | null;
+}
+
+export interface PipelineOutputSummaryEvent {
+  type: 'output_summary';
+  generated: number;
+  total: number;
+}
+
+export interface PipelineEvalSummaryEvent {
+  type: 'eval_summary';
+  evaluated: number;
+  total: number;
+}
+
+export interface PipelineDoneEvent {
+  type: 'done';
+}
+
+export type SuggestionPipelineEvent =
+  | PipelineSuggestionsEvent
+  | PipelineOutputEvent
+  | PipelineEvaluationEvent
+  | PipelineOutputSummaryEvent
+  | PipelineEvalSummaryEvent
+  | PipelineDoneEvent;
+
+// =============================================================================
 // Adaptive Settings
 // =============================================================================
 

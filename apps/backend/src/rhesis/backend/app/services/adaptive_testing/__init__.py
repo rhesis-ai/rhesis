@@ -23,6 +23,7 @@ from .suggestions import (
     evaluate_suggestions_stream,
     generate_suggestions,
     invoke_endpoint_for_suggestions_stream,
+    suggestion_pipeline_stream,
 )
 from .tests import (
     create_adaptive_test_set,
@@ -66,6 +67,7 @@ __all__ = [
     "import_adaptive_test_set_from_source",
     "invoke_endpoint_for_suggestions_stream",
     "load_test_for_embedding",
+    "suggestion_pipeline_stream",
     "remove_topic_node",
     "resolve_endpoint_id",
     "resolve_metric_names",

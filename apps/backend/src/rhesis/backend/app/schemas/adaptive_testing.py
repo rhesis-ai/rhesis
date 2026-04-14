@@ -277,6 +277,44 @@ class EvaluateSuggestionsResponse(Base):
 
 
 # ---------------------------------------------------------------------------
+# Unified suggestion pipeline (generate + outputs + evaluate in one stream)
+# ---------------------------------------------------------------------------
+
+
+class SuggestionPipelineRequest(Base):
+    """Request body for the unified suggestion pipeline.
+
+    Combines parameters from suggestion generation, output invocation, and
+    evaluation into a single streaming endpoint.
+    """
+
+    topic: Optional[str] = None
+    generate_embeddings: bool = Field(
+        default=False,
+        description="If true, include embedding vectors for each suggestion input (not persisted)",
+    )
+    num_examples: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Number of existing tests to sample as examples",
+    )
+    num_suggestions: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Number of new test suggestions to generate",
+    )
+    user_feedback: Optional[str] = Field(
+        default=None,
+        max_length=1000,
+        description="Optional user guidance to steer suggestion generation",
+    )
+    endpoint_id: Optional[UUID4] = None
+    metric_names: Optional[List[str]] = None
+
+
+# ---------------------------------------------------------------------------
 # Adaptive testing settings
 # ---------------------------------------------------------------------------
 

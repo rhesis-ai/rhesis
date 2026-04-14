@@ -41,6 +41,7 @@ from rhesis.backend.app.schemas.adaptive_testing import (
     GenerateSuggestionsResponse,
     ImportAdaptiveTestSetResponse,
     SuggestedTest,
+    SuggestionPipelineRequest,
 )
 from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
@@ -63,6 +64,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     remove_topic_node,
     resolve_endpoint_id,
     resolve_metric_names,
+    suggestion_pipeline_stream,
     update_adaptive_settings,
     update_test_node,
     update_topic_node,
@@ -858,6 +860,70 @@ async def generate_suggestion_outputs_endpoint(
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
+
+# ---------------------------------------------------------------------------
+# Unified suggestion pipeline (single stream)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{test_set_identifier}/suggestion_pipeline",
+)
+async def suggestion_pipeline_endpoint(
+    test_set_identifier: str,
+    body: SuggestionPipelineRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Unified pipeline: generate suggestions, invoke endpoint, evaluate — all in one NDJSON stream.
+
+    Streams events as they complete so the frontend receives outputs
+    immediately and evaluations overlap with remaining output calls.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        endpoint_id = resolve_endpoint_id(
+            test_set=db_test_set,
+            request_endpoint_id=body.endpoint_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
+        metric_names = resolve_metric_names(
+            test_set=db_test_set,
+            db=db,
+            organization_id=str(organization_id),
+            request_metric_names=body.metric_names,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "no metrics specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        if "metric" in msg and "does not exist" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+
+    async def _stream():
+        async for chunk in suggestion_pipeline_stream(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            endpoint_id=str(endpoint_id),
+            metric_names=metric_names,
+            topic=body.topic,
+            num_examples=body.num_examples,
+            num_suggestions=body.num_suggestions,
+            user_feedback=body.user_feedback,
+            generate_embeddings=body.generate_embeddings,
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
 @router.post(
     "/{test_set_identifier}/evaluate_suggestions",

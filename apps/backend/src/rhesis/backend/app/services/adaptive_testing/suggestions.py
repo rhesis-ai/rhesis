@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import random
+import time
 from typing import Any, Dict, List, Optional
 
 import anyio
@@ -240,6 +241,227 @@ async def generate_suggestions(
         "suggestions": suggestions,
         "num_examples_used": sample_size,
     }
+
+
+def _ndjson(event: Dict[str, Any]) -> bytes:
+    """Encode a single NDJSON event."""
+    return (json.dumps(event) + "\n").encode("utf-8")
+
+
+async def suggestion_pipeline_stream(
+    db: Session,
+    test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+    endpoint_id: str,
+    metric_names: List[str],
+    topic: Optional[str] = None,
+    num_examples: int = 10,
+    num_suggestions: int = 20,
+    user_feedback: Optional[str] = None,
+    generate_embeddings: bool = False,
+):
+    """Unified NDJSON stream: generate suggestions, invoke endpoint, evaluate.
+
+    Output and evaluation are **pipelined**: as soon as an endpoint output
+    arrives it is streamed to the client and an evaluation task is spawned
+    immediately, so output and evaluation events interleave naturally.
+
+    Event protocol (one JSON object per line):
+      - ``{"type": "suggestions", "suggestions": [...], "num_examples_used": int}``
+      - ``{"type": "output", "index": int, "input": str, "output": str, "error": str|null}``
+      - ``{"type": "evaluation", "index": int, "input": str, "label": str, ...}``
+      - ``{"type": "output_summary", "generated": int, "total": int}``
+      - ``{"type": "eval_summary", "evaluated": int, "total": int}``
+      - ``{"type": "done"}``
+    """
+    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.dependencies import get_endpoint_service
+    from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
+
+    # ── Phase 1: generate suggestions ──
+    pipeline_t0 = time.monotonic()
+    logger.info("Pipeline STARTED — generating suggestions")
+    result = await generate_suggestions(
+        db=db,
+        test_set_identifier=test_set_identifier,
+        organization_id=organization_id,
+        user_id=user_id,
+        topic=topic,
+        num_examples=num_examples,
+        num_suggestions=num_suggestions,
+        user_feedback=user_feedback,
+        generate_embeddings=generate_embeddings,
+    )
+    t_suggestions = time.monotonic() - pipeline_t0
+    logger.info(
+        "Pipeline suggestions DONE at t=%.2fs (%d suggestions)",
+        t_suggestions, len(result["suggestions"]),
+    )
+
+    yield _ndjson({
+        "type": "suggestions",
+        "suggestions": result["suggestions"],
+        "num_examples_used": result["num_examples_used"],
+    })
+    await anyio.sleep(0)
+
+    suggestions = result["suggestions"]
+    eligible = [
+        (i, s) for i, s in enumerate(suggestions) if (s.get("input") or "").strip()
+    ]
+    if not eligible:
+        yield _ndjson({"type": "output_summary", "generated": 0, "total": 0})
+        yield _ndjson({"type": "eval_summary", "evaluated": 0, "total": 0})
+        yield _ndjson({"type": "done"})
+        return
+
+    # ── Resolve services once ──
+    svc = get_endpoint_service()
+    sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+
+    output_semaphore = asyncio.Semaphore(10)
+    eval_semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
+    event_queue: asyncio.Queue = asyncio.Queue()
+
+    outputs_generated = 0
+    outputs_failed = 0
+    evals_done = 0
+    evals_failed = 0
+
+    eval_tasks: set = set()
+
+    logger.info(
+        "Pipeline output+eval phase STARTED at t=%.2fs (%d eligible)",
+        time.monotonic() - pipeline_t0, len(eligible),
+    )
+
+    async def _evaluate_one(index: int, input_text: str, output_text: str):
+        nonlocal evals_done, evals_failed
+        t_start = time.monotonic() - pipeline_t0
+        logger.info("Pipeline eval STARTED  idx=%s at t=%.2fs", index, t_start)
+        async with eval_semaphore:
+            try:
+                metric_results = await _run_metrics_on_text(
+                    sdk_metrics, input_text, output_text,
+                )
+                valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
+                if not valid:
+                    await event_queue.put({
+                        "type": "evaluation", "index": index, "input": input_text,
+                        "label": "", "labeler": "", "model_score": 0.0,
+                        "metrics": None, "error": "no metric results",
+                    })
+                    evals_failed += 1
+                    return
+
+                all_passed = all(v.get("is_successful", False) for v in valid.values())
+                label = "pass" if all_passed else "fail"
+                labeler = ", ".join(metric_names)
+                scores = [v.get("score", 0.0) for v in valid.values()]
+                score = sum(scores) / len(scores) if scores else 0.0
+                metrics_summary = build_metrics_summary_for_response(valid)
+
+                await event_queue.put({
+                    "type": "evaluation", "index": index, "input": input_text,
+                    "label": label, "labeler": labeler, "model_score": score,
+                    "metrics": metrics_summary, "error": None,
+                })
+                evals_done += 1
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Pipeline eval failed for index %s: %s", index, e)
+                await event_queue.put({
+                    "type": "evaluation", "index": index, "input": input_text,
+                    "label": "error", "labeler": ", ".join(metric_names),
+                    "model_score": 0.0, "metrics": None, "error": str(e),
+                })
+                evals_failed += 1
+            finally:
+                t_end = time.monotonic() - pipeline_t0
+                logger.info(
+                    "Pipeline eval DONE     idx=%s at t=%.2fs (started t=%.2fs)",
+                    index, t_end, t_start,
+                )
+
+    async def _invoke_one(index: int, input_text: str):
+        nonlocal outputs_generated, outputs_failed
+        t_inv_start = time.monotonic() - pipeline_t0
+        async with output_semaphore:
+            try:
+                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                    raw = await svc.invoke_endpoint(
+                        db=task_db,
+                        endpoint_id=endpoint_id,
+                        input_data={"input": input_text},
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
+                processed = process_endpoint_result(raw)
+                output = (processed.get("output") or "").strip() or "[no output]"
+                error = None
+                outputs_generated += 1
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Pipeline output failed for index %s: %s", index, e)
+                output = ""
+                error = str(e)
+                outputs_failed += 1
+
+        t_inv_end = time.monotonic() - pipeline_t0
+        logger.info(
+            "Pipeline output DONE   idx=%s at t=%.2fs (started t=%.2fs)",
+            index, t_inv_end, t_inv_start,
+        )
+
+        await event_queue.put({
+            "type": "output", "index": index,
+            "input": input_text, "output": output, "error": error,
+        })
+
+        if not error and output and output != "[no output]":
+            task = asyncio.create_task(_evaluate_one(index, input_text, output))
+            eval_tasks.add(task)
+            task.add_done_callback(eval_tasks.discard)
+
+    # ── Launch all output tasks ──
+    invoke_tasks: set = set()
+    for idx, s in eligible:
+        t = asyncio.create_task(_invoke_one(idx, s["input"]))
+        invoke_tasks.add(t)
+        t.add_done_callback(invoke_tasks.discard)
+
+    # ── Drain the event queue, yielding in arrival order ──
+    while invoke_tasks or eval_tasks or not event_queue.empty():
+        try:
+            event = await asyncio.wait_for(event_queue.get(), timeout=0.2)
+            yield _ndjson(event)
+            await anyio.sleep(0)
+        except asyncio.TimeoutError:
+            continue
+
+    # Flush any remaining events
+    while not event_queue.empty():
+        yield _ndjson(await event_queue.get())
+        await anyio.sleep(0)
+
+    total = len(eligible)
+    t_done = time.monotonic() - pipeline_t0
+    logger.info(
+        "Pipeline FINISHED at t=%.2fs — outputs=%d/%d, evals=%d/%d, "
+        "output_failures=%d, eval_failures=%d",
+        t_done, outputs_generated, total, evals_done, outputs_generated,
+        outputs_failed, evals_failed,
+    )
+    yield _ndjson({
+        "type": "output_summary",
+        "generated": outputs_generated,
+        "total": total,
+    })
+    yield _ndjson({
+        "type": "eval_summary",
+        "evaluated": evals_done,
+        "total": outputs_generated,
+    })
+    yield _ndjson({"type": "done"})
 
 
 async def invoke_endpoint_for_suggestions_stream(
