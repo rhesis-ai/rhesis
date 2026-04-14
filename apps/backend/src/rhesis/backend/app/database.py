@@ -86,7 +86,7 @@ engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     # More conservative pool settings
     pool_size=10,  # Adjust based on concurrent load
-    max_overflow=20,  # Total max: 30 connections per instance
+    max_overflow=20,  # Total max: 20 connections per instance
     pool_pre_ping=True,  # Keep this
     pool_recycle=3600,  # 1 hour instead of 30 min
     pool_timeout=10,  # Slightly shorter timeout
