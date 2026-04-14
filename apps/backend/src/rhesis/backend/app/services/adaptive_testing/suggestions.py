@@ -214,42 +214,19 @@ async def generate_suggestions(
 
     if generate_embeddings:
         from rhesis.backend.app.services.adaptive_testing.embeddings import (
-            a_generate_embedding_vector,
+            a_generate_embedding_vectors_batch,
+            resolve_embedder,
             sort_by_diversity,
         )
 
-        for item in suggestions:
-            inp = (item.get("input") or "").strip()
-            if not inp:
-                item["embedding"] = None
+        embedder = resolve_embedder(db, user_id)
+        texts = [(item.get("input") or "").strip() for item in suggestions]
 
-        indices_text = [
-            (i, (suggestions[i].get("input") or "").strip())
-            for i in range(len(suggestions))
-            if (suggestions[i].get("input") or "").strip()
-        ]
-        if indices_text:
-            semaphore = asyncio.Semaphore(10)
-
-            async def _embed_one(idx: int, inp: str) -> tuple:
-                async with semaphore:
-                    try:
-                        vec = await a_generate_embedding_vector(inp, db, user_id)
-                        return idx, vec, None
-                    except Exception as e:
-                        logger.warning(
-                            "Suggestion embedding skipped (input preview %.80r): %s",
-                            inp,
-                            e,
-                            exc_info=True,
-                        )
-                        return idx, None, e
-
-            results = await asyncio.gather(
-                *[asyncio.create_task(_embed_one(i, t)) for i, t in indices_text]
-            )
-            for idx, vec, err in results:
-                suggestions[idx]["embedding"] = vec if err is None else None
+        vectors = await a_generate_embedding_vectors_batch(
+            texts, db, user_id, embedder=embedder,
+        )
+        for item, vec in zip(suggestions, vectors):
+            item["embedding"] = vec
 
         suggestions = sort_by_diversity(suggestions)
 

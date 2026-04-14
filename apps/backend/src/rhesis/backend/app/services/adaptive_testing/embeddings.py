@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -91,16 +92,14 @@ def _compute_hash(data: Union[str, dict]) -> str:
     return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
 
 
-def generate_embedding_vector(text: str, db: Session, user_id: str) -> List[float]:
-    """Embed plain text using the user's configured embedding model or platform default.
+def resolve_embedder(db: Session, user_id: str):
+    """Resolve the embedding model for a user once.
 
-    Always requests :data:`ADAPTIVE_TESTING_EMBEDDING_DIMENSION` (768) so vectors match
-    supported ``embedding`` table columns regardless of provider defaults.
+    Returns a ready-to-use SDK ``BaseEmbedder`` instance configured with
+    :data:`ADAPTIVE_TESTING_EMBEDDING_DIMENSION`.  Call this once and pass the
+    result to :func:`generate_embedding_vector`, :func:`a_generate_embedding_vector`,
+    or :func:`a_generate_embedding_vectors_batch` to avoid repeated DB lookups.
     """
-    stripped = (text or "").strip()
-    if not stripped:
-        raise ValueError("Cannot embed empty text")
-
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise ValueError(f"User not found: {user_id}")
@@ -108,10 +107,36 @@ def generate_embedding_vector(text: str, db: Session, user_id: str) -> List[floa
     target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
     resolved = get_user_embedding_model(db, user)
     if isinstance(resolved, str):
-        embedder = get_model(resolved, model_type="embedding", dimensions=target_dim)
-    else:
-        embedder = resolved
+        return get_model(resolved, model_type="embedding", dimensions=target_dim)
+    return resolved
 
+
+def generate_embedding_vector(
+    text: str,
+    db: Session,
+    user_id: str,
+    *,
+    embedder=None,
+) -> List[float]:
+    """Embed plain text using the user's configured embedding model or platform default.
+
+    Always requests :data:`ADAPTIVE_TESTING_EMBEDDING_DIMENSION` (768) so vectors match
+    supported ``embedding`` table columns regardless of provider defaults.
+
+    Parameters
+    ----------
+    embedder : BaseEmbedder, optional
+        Pre-resolved embedder from :func:`resolve_embedder`.  When provided the
+        ``db`` / ``user_id`` lookup is skipped.
+    """
+    stripped = (text or "").strip()
+    if not stripped:
+        raise ValueError("Cannot embed empty text")
+
+    if embedder is None:
+        embedder = resolve_embedder(db, user_id)
+
+    target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
     vector = embedder.generate(text=stripped, dimensions=target_dim)
     out = list(vector)
     if len(out) != target_dim:
@@ -124,26 +149,31 @@ def generate_embedding_vector(text: str, db: Session, user_id: str) -> List[floa
     return out
 
 
-async def a_generate_embedding_vector(text: str, db: Session, user_id: str) -> List[float]:
+async def a_generate_embedding_vector(
+    text: str,
+    db: Session,
+    user_id: str,
+    *,
+    embedder=None,
+) -> List[float]:
     """Async embed plain text using the user's configured embedding model or platform default.
 
     Same behavior as :func:`generate_embedding_vector` but uses the embedder's async API.
+
+    Parameters
+    ----------
+    embedder : BaseEmbedder, optional
+        Pre-resolved embedder from :func:`resolve_embedder`.  When provided the
+        ``db`` / ``user_id`` lookup is skipped.
     """
     stripped = (text or "").strip()
     if not stripped:
         raise ValueError("Cannot embed empty text")
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise ValueError(f"User not found: {user_id}")
+    if embedder is None:
+        embedder = resolve_embedder(db, user_id)
 
     target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
-    resolved = get_user_embedding_model(db, user)
-    if isinstance(resolved, str):
-        embedder = get_model(resolved, model_type="embedding", dimensions=target_dim)
-    else:
-        embedder = resolved
-
     vector = await embedder.a_generate(text=stripped, dimensions=target_dim)
     out = list(vector)
     if len(out) != target_dim:
@@ -154,6 +184,62 @@ async def a_generate_embedding_vector(text: str, db: Session, user_id: str) -> L
             target_dim,
         )
     return out
+
+
+async def a_generate_embedding_vectors_batch(
+    texts: List[str],
+    db: Session,
+    user_id: str,
+    *,
+    embedder=None,
+    concurrency: int = 10,
+) -> List[Optional[List[float]]]:
+    """Embed multiple texts concurrently, resolving the embedder only once.
+
+    Returns a list aligned with *texts*: each element is either the embedding
+    vector or ``None`` when the text was empty or the call failed.
+
+    Parameters
+    ----------
+    embedder : BaseEmbedder, optional
+        Pre-resolved embedder from :func:`resolve_embedder`.
+    concurrency : int
+        Maximum number of parallel embedding API calls.
+    """
+    if embedder is None:
+        embedder = resolve_embedder(db, user_id)
+
+    target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _embed_one(text: str) -> Optional[List[float]]:
+        stripped = (text or "").strip()
+        if not stripped:
+            return None
+        async with semaphore:
+            try:
+                vector = await embedder.a_generate(text=stripped, dimensions=target_dim)
+                out = list(vector)
+                if len(out) != target_dim:
+                    logger.warning(
+                        "Adaptive embedding length %s != requested %s; "
+                        "persistence may be skipped",
+                        len(out),
+                        target_dim,
+                    )
+                return out
+            except Exception as e:
+                logger.warning(
+                    "Embedding failed (input preview %.80r): %s",
+                    stripped,
+                    e,
+                    exc_info=True,
+                )
+                return None
+
+    return list(
+        await asyncio.gather(*[asyncio.create_task(_embed_one(t)) for t in texts])
+    )
 
 
 def load_test_for_embedding(db: Session, test_id: str, organization_id: str) -> Optional[Test]:
