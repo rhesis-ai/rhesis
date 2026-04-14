@@ -4,12 +4,13 @@
   **What are Models?** Models are AI service providers that you can set up for your evaluation and testing workflows.
 </Callout>
 
-Models in Rhesis are used for two primary purposes:
+Models in Rhesis are used for three primary purposes:
 
 - **Test Generation**: Automatically generate test cases based on your requirements (see [Tests](/docs/tests))
 - **Evaluation (LLM as Judge)**: Evaluate AI responses using metrics powered by LLMs (see [Metrics](/docs/metrics))
+- **Execution (Multi-Turn)**: Drive multi-turn conversation simulations with [Penelope](/conversation-simulation), the agent that conducts automated conversations against your endpoints
 
-You can configure default models for each purpose in the model settings, or select specific models when creating individual metrics or test cases.
+You can configure default models for each purpose in the model settings, or override them per execution when running tests (see [Test Execution](/docs/test-execution)).
 
 ![Models Overview](/screenshots/rhesis-ai-models.png)
 
@@ -19,7 +20,7 @@ Rhesis provides a default managed model that requires no configuration:
 
 - **Rhesis Default**: Default Rhesis-hosted model
   - No API key required
-  - Pre-configured for both generation and evaluation
+  - Pre-configured for generation, evaluation, and execution
   - Ready to use immediately
 
 
@@ -60,6 +61,7 @@ Rhesis supports connections to major AI providers including:
    - **Custom Headers**: Add HTTP headers required for your API calls
    - **Default for Test Generation**: Use this model when generating test cases
    - **Default for Evaluation**: Use this model for metrics evaluation
+   - **Default for Execution (Multi-Turn)**: Use this model for multi-turn test execution with Penelope
 5. Click **"Test Connection"** to verify your configuration
 6. Click **"Save"** to add the model
 
