@@ -1,4 +1,5 @@
 import functools
+import hashlib
 import logging
 
 from sqlalchemy import Column, ForeignKey, and_
@@ -360,6 +361,25 @@ class EmbeddableMixin:
             viewonly=True,
             uselist=True,
         )
+
+    def searchable_text_changed(self) -> bool:
+        """
+        Return True if embeddings should be (re)generated for this entity.
+
+        - No rows in ``embedding`` yet → True (first-time embed).
+        - At least one row has ``text_hash`` matching the current searchable text → False.
+        - Otherwise (text changed vs. stored hashes) → True.
+
+        Multiple embedding rows (e.g. different models) are handled by checking whether
+        *any* row already matches the current content hash; the generator still decides
+        per-model work and deduplication.
+        """
+        text = self.to_searchable_text()
+        current_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        existing = self.embeddings
+        if not existing:
+            return True
+        return not any(e.text_hash == current_hash for e in existing)
 
     def to_searchable_text(self) -> str:
         """
