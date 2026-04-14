@@ -548,6 +548,13 @@ class TestExporterBatchChunking:
 
         return spans
 
+    def test_max_chunk_size_validation(self):
+        """max_chunk_size < 1 raises ValueError."""
+        with pytest.raises(ValueError, match="max_chunk_size must be >= 1"):
+            self._make_exporter(max_chunk_size=0)
+        with pytest.raises(ValueError, match="max_chunk_size must be >= 1"):
+            self._make_exporter(max_chunk_size=-5)
+
     def test_default_max_chunk_size(self):
         """Default max_chunk_size is 100."""
         exporter = RhesisOTLPExporter(

@@ -61,6 +61,9 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             max_chunk_size: Max spans per HTTP request. Batches larger than
                 this are split into multiple requests. Defaults to 100.
         """
+        if max_chunk_size < 1:
+            raise ValueError(f"max_chunk_size must be >= 1, got {max_chunk_size}")
+
         # Convert ws:// → http://, wss:// → https://
         if base_url.startswith("ws://"):
             http_url = base_url.replace("ws://", "http://")
@@ -131,6 +134,11 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         The backend validates span names according to semantic conventions:
         - Valid: ai.llm.invoke, ai.tool.invoke, ai.retrieval
         - Invalid: ai.agent.run, ai.chain.execute (HTTP 422 rejection)
+
+        When a batch exceeds ``max_chunk_size``, it is split into multiple
+        HTTP requests. If a later chunk fails, earlier chunks are already
+        persisted. ``BatchSpanProcessor`` does not retry on FAILURE, so
+        partial sends do not cause duplicates under normal operation.
 
         Args:
             spans: Sequence of spans to export
