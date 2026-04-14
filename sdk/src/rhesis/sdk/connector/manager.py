@@ -140,6 +140,9 @@ class ConnectorManager:
 
         self._registry.register(name, func, metadata)
 
+        # If connection was deferred (no event loop at initialize time), try now
+        self._ensure_connection()
+
         # If connection is active, send updated registration
         if self._connection and self._connection.websocket:
             try:
@@ -161,6 +164,9 @@ class ConnectorManager:
             self.initialize()
 
         self._metric_registry.register(name, func, metadata)
+
+        # If connection was deferred (no event loop at initialize time), try now
+        self._ensure_connection()
 
         # If connection is active, send updated registration
         if self._connection and self._connection.websocket:
