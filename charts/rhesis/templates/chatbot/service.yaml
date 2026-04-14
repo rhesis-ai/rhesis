@@ -1,0 +1,22 @@
+{{- if .Values.chatbot.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatbot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: chatbot
+    tier: chatbot
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.chatbot.service.type }}
+  ports:
+    - port: {{ .Values.chatbot.service.port }}
+      targetPort: {{ .Values.chatbot.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: chatbot
+    tier: chatbot
+{{- end }}

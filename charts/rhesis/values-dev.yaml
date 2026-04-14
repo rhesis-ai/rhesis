@@ -1,0 +1,107 @@
+# Dev environment overrides for charts/rhesis/values.yaml
+# Merged on top of values.yaml by ArgoCD.
+
+# ---------------------------------------------------------------------------
+# Global — GCP Artifact Registry for dev
+# Replace <project-id> with the actual GCP project ID (e.g. rhesis-dev-sandbox)
+# ---------------------------------------------------------------------------
+global:
+  registry: "europe-west4-docker.pkg.dev/rhesis-dev-sandbox/rhesis"
+  imagePullPolicy: Always
+  imageTag: "latest"
+
+# ---------------------------------------------------------------------------
+# Non-sensitive config overrides for dev
+# ---------------------------------------------------------------------------
+config:
+  environment: "dev"
+  logLevel: "DEBUG"
+
+  # Database (resolved to rhesis-postgresql service by Bitnami subchart)
+  dbName: "rhesis-db"
+  dbUser: "rhesis-user"
+
+  # Frontend
+  nextPublicApiBaseUrl: "https://api.dev.rhesis.ai"
+  nextPublicAppUrl: "https://app.dev.rhesis.ai"
+  nextauthUrl: "https://app.dev.rhesis.ai"
+  nextPublicAuth0ClientId: "lUO4dMypij4rUrS9gUJpam5Srf0ATtEE"
+  nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
+
+  # Backend
+  rhesisBaseUrl: "https://api.dev.rhesis.ai"
+  frontendUrl: "https://app.dev.rhesis.ai"
+  backendUrl: "http://backend:8080"
+
+  # GCP
+  vertexAiProject: "rhesis-dev-sandbox"
+
+  # AI model
+  azureOpenAiApiVersion: "2024-02-01"
+
+# ---------------------------------------------------------------------------
+# Ingress — all exposed via internal ingress-nginx (accessible over VPN)
+# ---------------------------------------------------------------------------
+backend:
+  ingress:
+    enabled: true
+    host: "api.dev.rhesis.ai"
+
+frontend:
+  ingress:
+    enabled: true
+    host: "app.dev.rhesis.ai"
+
+docs:
+  ingress:
+    enabled: true
+    host: "docs.dev.rhesis.ai"
+
+# ---------------------------------------------------------------------------
+# PostgreSQL — Bitnami subchart enabled for dev (no CNPG in this branch)
+# Uses pgvector image for vector extension support.
+# ---------------------------------------------------------------------------
+postgresql:
+  enabled: true
+  image:
+    registry: ""
+    repository: pgvector/pgvector
+    tag: pg16
+    pullPolicy: IfNotPresent
+  auth:
+    database: "rhesis-db"
+    username: "rhesis-user"
+    existingSecret: "rhesis-app-secrets"
+    secretKeys:
+      adminPasswordKey: "SQLALCHEMY_DB_PASS"
+      userPasswordKey: "SQLALCHEMY_DB_PASS"
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    initdb:
+      scripts:
+        init-extensions.sql: |
+          CREATE EXTENSION IF NOT EXISTS vector;
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+# ---------------------------------------------------------------------------
+# Valkey — in-cluster (required)
+# ---------------------------------------------------------------------------
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: "rhesis-app-secrets"
+    existingSecretPasswordKey: "REDIS_PASSWORD"
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi

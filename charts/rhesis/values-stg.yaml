@@ -1,0 +1,47 @@
+# Staging environment overrides — scaffold, fill in before deploying to stg.
+
+global:
+  registry: "europe-west4-docker.pkg.dev/<stg-project-id>/rhesis"
+  imagePullPolicy: Always
+  imageTag: "latest"
+
+config:
+  environment: "staging"
+  logLevel: "INFO"
+  nextPublicApiBaseUrl: "https://api.stg.rhesis.ai"
+  nextPublicAppUrl: "https://app.stg.rhesis.ai"
+  nextauthUrl: "https://app.stg.rhesis.ai"
+  rhesisBaseUrl: "https://api.stg.rhesis.ai"
+  frontendUrl: "https://app.stg.rhesis.ai"
+  backendUrl: "http://backend:8080"
+  vertexAiProject: "<stg-project-id>"
+  azureOpenAiApiVersion: "2024-02-01"
+
+backend:
+  ingress:
+    enabled: true
+    host: "api.stg.rhesis.ai"
+
+frontend:
+  ingress:
+    enabled: true
+    host: "app.stg.rhesis.ai"
+
+docs:
+  ingress:
+    enabled: true
+    host: "docs.stg.rhesis.ai"
+
+# PostgreSQL disabled for stg — use CNPG Cluster or external DB via ExternalSecret
+postgresql:
+  enabled: false
+
+externalDatabase:
+  host: ""   # resolved from ExternalSecret / CNPG service name
+
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: "rhesis-app-secrets"
+    existingSecretPasswordKey: "REDIS_PASSWORD"
