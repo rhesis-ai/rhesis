@@ -44,7 +44,8 @@ class SingleTurnTestExecutor(BaseTestExecutor):
         endpoint_id: str,
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
-        model: Optional[Any] = None,
+        execution_model: Optional[Any] = None,
+        evaluation_model: Optional[Any] = None,
         output_provider: Optional[OutputProvider] = None,
     ) -> Dict[str, Any]:
         """
@@ -119,7 +120,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 endpoint_id=endpoint_id,
                 organization_id=organization_id,
                 user_id=user_id,
-                model=model,
+                model=evaluation_model,
                 prompt_content=prompt_content,
                 expected_response=expected_response,
                 evaluate_metrics=True,

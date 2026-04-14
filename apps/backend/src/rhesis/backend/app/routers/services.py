@@ -310,6 +310,7 @@ async def generate_tests_endpoint(
             config=request.config,
             num_tests=request.num_tests,
             sources=request.sources,
+            model_id=str(request.model_id) if request.model_id else None,
         )
 
         # Return Pydantic model - FastAPI handles serialization
@@ -362,6 +363,7 @@ async def generate_multiturn_tests_endpoint(
             user=current_user,
             config=config,
             num_tests=request.num_tests,
+            model_id=str(request.model_id) if request.model_id else None,
         )
         # test_cases is a TestSet dict with a "tests" key containing the array
         return {"tests": test_cases.get("tests", [])}

@@ -51,7 +51,8 @@ class User(Base):
         JSONB,
         nullable=False,
         server_default=(
-            '{"version": 1, "models": {"generation": {}, "evaluation": {}, "embedding": {}}}'
+            '{"version": 1, "models": '
+            '{"generation": {}, "evaluation": {}, "execution": {}, "embedding": {}}}'
         ),
     )  # User preferences and settings
 

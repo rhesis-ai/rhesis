@@ -158,7 +158,9 @@ async def run_batch(
     if has_multi_turn:
         from rhesis.penelope import PenelopeAgent
 
-        penelope_agent = PenelopeAgent(model=ctx.model) if ctx.model else PenelopeAgent()
+        penelope_agent = (
+            PenelopeAgent(model=ctx.execution_model) if ctx.execution_model else PenelopeAgent()
+        )
 
         # Fetch credentials / tokens once before the concurrent fan-out so
         # all coroutines hit a warm cache rather than racing to fetch in parallel.
@@ -170,7 +172,7 @@ async def run_batch(
         from rhesis.backend.metrics.evaluator import MetricEvaluator
 
         evaluator = MetricEvaluator(
-            model=ctx.model,
+            model=ctx.evaluation_model,
             connector_metric_sender=ctx.connector_metric_sender,
         )
 

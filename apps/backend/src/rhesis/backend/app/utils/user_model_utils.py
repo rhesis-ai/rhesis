@@ -15,6 +15,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.constants import (
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_EVALUATION_MODEL,
+    DEFAULT_EXECUTION_MODEL,
     DEFAULT_GENERATION_MODEL,
 )
 from rhesis.backend.app.models.user import User
@@ -22,6 +23,36 @@ from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
+
+
+def get_generation_model_with_override(
+    db: Session, user: User, model_id: str = None
+) -> Union[str, BaseLLM]:
+    """
+    Get a generation model, preferring an explicit override model_id over the user's default.
+
+    If model_id is provided, fetch and configure that specific model (with org-level
+    security filtering). Otherwise fall back to the user's configured default or
+    the system DEFAULT_GENERATION_MODEL.
+
+    Args:
+        db: Database session
+        user: Current user (organization_id is extracted for security)
+        model_id: Optional model UUID to use instead of the user's default
+
+    Returns:
+        Either a string (provider name) or a configured BaseLLM instance
+    """
+    if model_id:
+        logger.info(f"[LLM_UTILS] Using per-request model override: model_id={model_id}")
+        return _fetch_and_configure_model(
+            db=db,
+            model_id=str(model_id),
+            organization_id=str(user.organization_id),
+            default_model=DEFAULT_GENERATION_MODEL,
+            user=user,
+        )
+    return get_user_generation_model(db, user)
 
 
 def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
@@ -64,6 +95,87 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
         >>> # Use model for metric evaluation
     """
     return _get_user_model(db, user, "evaluation", DEFAULT_EVALUATION_MODEL)
+
+
+def get_user_execution_model(db: Session, user: User) -> Union[str, BaseLLM]:
+    """
+    Get the user's configured default execution model or fall back to DEFAULT_EXECUTION_MODEL.
+
+    This function is used for multi-turn test execution (Penelope) where the user can
+    specify their preferred language model for driving the conversation agent.
+
+    Args:
+        db: Database session
+        user: Current user (organization_id is extracted from user for security)
+
+    Returns:
+        Either a string (provider name) or a configured BaseLLM instance
+    """
+    return _get_user_model(db, user, "execution", DEFAULT_EXECUTION_MODEL)
+
+
+def get_execution_model_with_override(
+    db: Session, user: User, model_id: str = None
+) -> Union[str, BaseLLM]:
+    """
+    Get an execution model, preferring an explicit override model_id over the user's default.
+
+    If model_id is provided, fetch and configure that specific model (with org-level
+    security filtering). Otherwise fall back to the user's configured default or
+    the system DEFAULT_EXECUTION_MODEL.
+
+    Args:
+        db: Database session
+        user: Current user (organization_id is extracted for security)
+        model_id: Optional model UUID to use instead of the user's default
+
+    Returns:
+        Either a string (provider name) or a configured BaseLLM instance
+    """
+    if model_id:
+        logger.info(
+            f"[LLM_UTILS] Using per-request execution model override: model_id={model_id}"
+        )
+        return _fetch_and_configure_model(
+            db=db,
+            model_id=str(model_id),
+            organization_id=str(user.organization_id),
+            default_model=DEFAULT_EXECUTION_MODEL,
+            user=user,
+        )
+    return get_user_execution_model(db, user)
+
+
+def get_evaluation_model_with_override(
+    db: Session, user: User, model_id: str = None
+) -> Union[str, BaseLLM]:
+    """
+    Get an evaluation model, preferring an explicit override model_id over the user's default.
+
+    If model_id is provided, fetch and configure that specific model (with org-level
+    security filtering). Otherwise fall back to the user's configured default or
+    the system DEFAULT_EVALUATION_MODEL.
+
+    Args:
+        db: Database session
+        user: Current user (organization_id is extracted for security)
+        model_id: Optional model UUID to use instead of the user's default
+
+    Returns:
+        Either a string (provider name) or a configured BaseLLM instance
+    """
+    if model_id:
+        logger.info(
+            f"[LLM_UTILS] Using per-request evaluation model override: model_id={model_id}"
+        )
+        return _fetch_and_configure_model(
+            db=db,
+            model_id=str(model_id),
+            organization_id=str(user.organization_id),
+            default_model=DEFAULT_EVALUATION_MODEL,
+            user=user,
+        )
+    return get_user_evaluation_model(db, user)
 
 
 def get_user_embedding_model(db: Session, user: User) -> Union[str, BaseLLM]:
@@ -176,6 +288,48 @@ def validate_user_generation_model(db: Session, user: User) -> None:
         logger.info("[LLM_UTILS] ✓ Generation model validation successful")
     except ValueError:
         # Re-raise ValueError as-is (it already has a user-friendly message)
+        raise
+
+
+def validate_user_execution_model(db: Session, user: User) -> None:
+    """
+    Validate that the user's configured execution model can be initialized.
+
+    This function checks if the user has a configured execution model and
+    validates that it can be properly initialized before test execution begins.
+    Raises ValueError with a user-friendly message if validation fails.
+
+    Args:
+        db: Database session
+        user: Current user
+
+    Raises:
+        ValueError: If the user's configured model cannot be initialized,
+                   with a specific error message about the configuration issue
+    """
+    logger.info(
+        f"[LLM_UTILS] Validating execution model for user_id={user.id}, "
+        f"email={user.email}, org_id={user.organization_id}"
+    )
+
+    model_settings = getattr(user.settings.models, "execution")
+    model_id = model_settings.model_id
+
+    if not model_id:
+        logger.info("[LLM_UTILS] No custom execution model configured, default will be used")
+        return
+
+    logger.info("[LLM_UTILS] Validating user's configured execution model...")
+    try:
+        _fetch_and_configure_model(
+            db=db,
+            model_id=str(model_id),
+            organization_id=str(user.organization_id),
+            default_model=DEFAULT_EXECUTION_MODEL,
+            user=user,
+        )
+        logger.info("[LLM_UTILS] ✓ Execution model validation successful")
+    except ValueError:
         raise
 
 

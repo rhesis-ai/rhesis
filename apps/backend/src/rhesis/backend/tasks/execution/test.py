@@ -13,8 +13,11 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL
-from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
+from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+from rhesis.backend.app.utils.user_model_utils import (
+    get_user_evaluation_model,
+    get_user_execution_model,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,3 +49,34 @@ def get_evaluation_model(db: Session, user_id: str) -> Any:
             f"using default: {DEFAULT_EVALUATION_MODEL}"
         )
         return DEFAULT_EVALUATION_MODEL
+
+
+def get_execution_model(db: Session, user_id: str) -> Any:
+    """
+    Get the execution model for the user, with fallback to default.
+
+    Used for multi-turn test execution (Penelope).
+
+    Args:
+        db: Database session
+        user_id: User ID string
+
+    Returns:
+        Model instance (string or BaseLLM)
+    """
+    try:
+        user = crud.get_user_by_id(db, user_id)
+        if user:
+            return get_user_execution_model(db, user)
+        else:
+            logger.warning(
+                f"[MODEL_SELECTION] User {user_id} not found, using default: "
+                f"{DEFAULT_EXECUTION_MODEL}"
+            )
+            return DEFAULT_EXECUTION_MODEL
+    except Exception as e:
+        logger.warning(
+            f"[MODEL_SELECTION] Error fetching user execution model: {str(e)}, "
+            f"using default: {DEFAULT_EXECUTION_MODEL}"
+        )
+        return DEFAULT_EXECUTION_MODEL

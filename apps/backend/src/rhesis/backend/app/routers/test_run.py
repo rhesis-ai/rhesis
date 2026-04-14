@@ -487,12 +487,17 @@ async def rescore_test_run_endpoint(
             for m in request.metrics
         ]
 
+    evaluation_model_id = None
+    if request and request.evaluation_model_id:
+        evaluation_model_id = request.evaluation_model_id
+
     try:
         result = rescore_test_run(
             db=db,
             reference_test_run_id=str(test_run_id),
             current_user=current_user,
             metrics=metrics,
+            evaluation_model_id=evaluation_model_id,
         )
         return result
     except ValueError as e:

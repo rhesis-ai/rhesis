@@ -48,12 +48,47 @@ def execute_tests_sequentially(
     # Update test run with start information using shared utility
     update_test_run_start(session, test_run, ExecutionMode.SEQUENTIAL, len(tests), start_time)
 
+    # Resolve execution and evaluation models from test_config.attributes
+    # overrides or user defaults (same logic as batch prefetch_execution_context).
+    execution_model = None
+    evaluation_model = None
+    try:
+        from rhesis.backend.app import crud
+        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+        from rhesis.backend.app.utils.user_model_utils import (
+            get_evaluation_model_with_override,
+            get_execution_model_with_override,
+        )
+
+        attrs = test_config.attributes or {}
+        override_execution_model_id = attrs.get("execution_model_id")
+        override_evaluation_model_id = attrs.get("evaluation_model_id")
+        seq_user_id = str(test_config.user_id) if test_config.user_id else None
+
+        if seq_user_id:
+            user = crud.get_user_by_id(session, seq_user_id)
+            if user:
+                execution_model = get_execution_model_with_override(
+                    session, user, model_id=override_execution_model_id
+                )
+                evaluation_model = get_evaluation_model_with_override(
+                    session, user, model_id=override_evaluation_model_id
+                )
+            else:
+                logger.warning(f"User {seq_user_id} not found, using default models")
+                execution_model = DEFAULT_EXECUTION_MODEL
+                evaluation_model = DEFAULT_EVALUATION_MODEL
+        else:
+            execution_model = DEFAULT_EXECUTION_MODEL
+            evaluation_model = DEFAULT_EVALUATION_MODEL
+    except Exception as e:
+        logger.warning(f"Failed to resolve execution/evaluation models: {e}")
+
     # Execute tests one by one
     for i, test in enumerate(tests, 1):
         logger.info(f"Executing test {i}/{len(tests)}: {test.id}")
 
         try:
-            # Execute the test asynchronously
             import asyncio
 
             result = asyncio.run(
@@ -67,6 +102,8 @@ def execute_tests_sequentially(
                     if test_config.organization_id
                     else None,
                     user_id=str(test_config.user_id) if test_config.user_id else None,
+                    execution_model=execution_model,
+                    evaluation_model=evaluation_model,
                     reference_test_run_id=reference_test_run_id,
                     trace_id=trace_id,
                 )

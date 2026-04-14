@@ -49,7 +49,8 @@ class MultiTurnTestExecutor(BaseTestExecutor):
         endpoint_id: str,
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
-        model: Optional[Any] = None,
+        execution_model: Optional[Any] = None,
+        evaluation_model: Optional[Any] = None,
         output_provider: Optional[OutputProvider] = None,
     ) -> Dict[str, Any]:
         """
@@ -121,7 +122,8 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 endpoint_id=endpoint_id,
                 organization_id=organization_id,
                 user_id=user_id,
-                model=model,
+                execution_model=execution_model,
+                evaluation_model=evaluation_model,
                 test_execution_context=test_execution_context,
                 test_set=test_set,
                 test_configuration=test_config,
