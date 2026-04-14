@@ -124,8 +124,10 @@ class TestExchangeRateService:
 
         rate = service.get_usd_to_eur_rate()
 
-        # Should use env var fallback
+        # Should use env var fallback and cache it (avoids repeated API calls)
         assert rate == 0.88
+        assert service._usd_to_eur_rate == 0.88
+        assert service._last_fetch is not None
 
     def test_refresh_rate(self, mocker):
         """Test manual refresh."""
@@ -256,5 +258,7 @@ class TestExchangeRateService:
 
         rate = await service.get_usd_to_eur_rate_async()
 
-        # Should use env var fallback
+        # Should use env var fallback and cache it
         assert rate == 0.88
+        assert service._usd_to_eur_rate == 0.88
+        assert service._last_fetch is not None
