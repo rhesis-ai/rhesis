@@ -321,10 +321,34 @@ export interface SuggestionPipelineRequest {
   metric_names?: string[] | null;
 }
 
+/** Bulk suggestions event (legacy / non-streaming fallback). */
 export interface PipelineSuggestionsEvent {
   type: 'suggestions';
   suggestions: SuggestedTest[];
   num_examples_used: number;
+}
+
+/** Streamed: single suggestion parsed from the LLM token stream. */
+export interface PipelineSuggestionEvent {
+  type: 'suggestion';
+  index: number;
+  topic: string;
+  input: string;
+}
+
+/** Streamed: embedding result for a single suggestion. */
+export interface PipelineEmbeddingEvent {
+  type: 'embedding';
+  index: number;
+  embedding: number[] | null;
+}
+
+/** Streamed: all suggestions (and embeddings) are done. */
+export interface PipelineSuggestionsDoneEvent {
+  type: 'suggestions_done';
+  total: number;
+  num_examples_used: number;
+  diversity_order: number[] | null;
 }
 
 export interface PipelineOutputEvent {
@@ -364,6 +388,9 @@ export interface PipelineDoneEvent {
 
 export type SuggestionPipelineEvent =
   | PipelineSuggestionsEvent
+  | PipelineSuggestionEvent
+  | PipelineEmbeddingEvent
+  | PipelineSuggestionsDoneEvent
   | PipelineOutputEvent
   | PipelineEvaluationEvent
   | PipelineOutputSummaryEvent

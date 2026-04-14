@@ -187,6 +187,8 @@ export default function SuggestionsDialog({
   const [acceptAllInProgress, setAcceptAllInProgress] = useState(false);
   const hasStarted = useRef(false);
   const [testGenStatus, setTestGenStatus] = useState<PhaseStatus>('idle');
+  const [testGenCompleted, setTestGenCompleted] = useState(0);
+  const [testGenTotal, setTestGenTotal] = useState(0);
 
   const [outputsStatus, setOutputsStatus] = useState<PhaseStatus>('idle');
   const [outputsCompleted, setOutputsCompleted] = useState(0);
@@ -226,6 +228,8 @@ export default function SuggestionsDialog({
     setError(null);
     setCurrentStep('suggestions');
     setTestGenStatus('running');
+    setTestGenCompleted(0);
+    setTestGenTotal(20);
     setOutputsStatus('idle');
     setOutputsCompleted(0);
     setOutputsTotal(0);
@@ -256,6 +260,71 @@ export default function SuggestionsDialog({
         {
           onEvent: (event: SuggestionPipelineEvent) => {
             switch (event.type) {
+              // ── Streaming: individual suggestion from LLM ──
+              case 'suggestion': {
+                const hasInput = event.input.trim().length > 0;
+                const newRow: SuggestionRow = {
+                  topic: event.topic,
+                  input: event.input,
+                  output: '',
+                  label: '',
+                  labeler: '',
+                  model_score: 0,
+                  _id: `suggestion-${event.index}-${Date.now()}`,
+                  output_pending: hasInput,
+                };
+                rows = [...rows, newRow];
+                setSuggestions(rows);
+                setTestGenCompleted(rows.length);
+
+                if (hasInput) {
+                  setOutputsTotal(prev => prev + 1);
+                  setOutputsStatus('running');
+                  setOutputsLoading(true);
+                }
+                break;
+              }
+
+              // ── Streaming: embedding result for a suggestion ──
+              case 'embedding': {
+                rows = rows.map((s, idx) => {
+                  if (idx !== event.index) return s;
+                  return {
+                    ...s,
+                    embedding: event.embedding,
+                  };
+                });
+                setSuggestions(rows);
+                break;
+              }
+
+              // ── Streaming: all suggestions + embeddings done ──
+              case 'suggestions_done': {
+                setTestGenTotal(event.total);
+                setTestGenCompleted(event.total);
+
+                if (event.diversity_order) {
+                  const reordered = event.diversity_order.map(i => rows[i]).filter(Boolean);
+                  if (reordered.length === rows.length) {
+                    rows = reordered;
+                    setSuggestions(rows);
+                  }
+                }
+
+                if (rows.length === 0) {
+                  setTestGenStatus('idle');
+                  setError(
+                    'No suggestions were generated. The test set may be empty.'
+                  );
+                  return;
+                }
+
+                setTestGenStatus('done');
+                setLoading(false);
+                break;
+              }
+
+              // ── Bulk suggestions (legacy / non-streaming fallback) ──
               case 'suggestions': {
                 const newRows: SuggestionRow[] = event.suggestions.map(
                   (s, idx) => ({
@@ -413,6 +482,8 @@ export default function SuggestionsDialog({
     if (!open) {
       hasStarted.current = false;
       setTestGenStatus('idle');
+      setTestGenCompleted(0);
+      setTestGenTotal(0);
       setOutputsStatus('idle');
       setOutputsCompleted(0);
       setOutputsTotal(0);
@@ -635,16 +706,26 @@ export default function SuggestionsDialog({
 
   const progressSegments = [
     {
-      label: 'Test generation',
-      active: currentStep === 'suggestions',
-      fraction: testGenStatus === 'done' ? 1 : 0,
+      label:
+        testGenStatus !== 'idle' && testGenTotal > 0
+          ? `Test generation (${testGenCompleted}/${testGenTotal})`
+          : 'Test generation',
+      active: testGenStatus === 'running',
+      fraction:
+        testGenStatus === 'idle'
+          ? 0
+          : testGenStatus === 'done'
+            ? 1
+            : testGenTotal > 0
+              ? testGenCompleted / testGenTotal
+              : 0,
     },
     {
       label:
         outputsStatus !== 'idle' && outputsTotal > 0
           ? `Output generation (${outputsCompleted}/${outputsTotal})`
           : 'Output generation',
-      active: currentStep === 'outputs',
+      active: outputsStatus === 'running',
       fraction:
         outputsStatus === 'idle'
           ? 0
@@ -659,7 +740,7 @@ export default function SuggestionsDialog({
         metricsStatus !== 'idle' && metricsTotal > 0
           ? `Metric generation (${metricsCompleted}/${metricsTotal})`
           : 'Metric generation',
-      active: currentStep === 'evaluate',
+      active: metricsStatus === 'running',
       fraction:
         metricsStatus === 'idle'
           ? 0

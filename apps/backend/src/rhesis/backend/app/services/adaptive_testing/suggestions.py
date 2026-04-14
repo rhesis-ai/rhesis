@@ -3,7 +3,8 @@ import json
 import logging
 import random
 import time
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 import anyio
 from pydantic import BaseModel, Field, create_model
@@ -73,6 +74,77 @@ def _resolve_llm_model(model_or_provider: Any):
     return model_or_provider
 
 
+class _IncrementalJsonArrayParser:
+    """Extract complete JSON objects from a streaming JSON response.
+
+    Designed for structured output shaped like ``{"suggestions": [{...}, ...]}``.
+    Feeds token chunks incrementally and yields each complete object in the
+    top-level array as soon as its closing brace is detected.  Correctly
+    handles escaped characters and strings containing braces.
+    """
+
+    def __init__(self):
+        self._buffer: str = ""
+        self._pos: int = 0
+        self._in_array: bool = False
+        self._brace_depth: int = 0
+        self._in_string: bool = False
+        self._escape_next: bool = False
+        self._obj_start: int = -1
+
+    def feed(self, chunk: str) -> List[dict]:
+        """Append *chunk* to the internal buffer and return any newly complete objects."""
+        self._buffer += chunk
+        results: List[dict] = []
+
+        while self._pos < len(self._buffer):
+            c = self._buffer[self._pos]
+
+            if self._escape_next:
+                self._escape_next = False
+                self._pos += 1
+                continue
+
+            if c == "\\" and self._in_string:
+                self._escape_next = True
+                self._pos += 1
+                continue
+
+            if c == '"':
+                self._in_string = not self._in_string
+                self._pos += 1
+                continue
+
+            if self._in_string:
+                self._pos += 1
+                continue
+
+            if not self._in_array:
+                if c == "[":
+                    self._in_array = True
+            else:
+                if c == "{":
+                    if self._brace_depth == 0:
+                        self._obj_start = self._pos
+                    self._brace_depth += 1
+                elif c == "}":
+                    self._brace_depth -= 1
+                    if self._brace_depth == 0 and self._obj_start >= 0:
+                        obj_str = self._buffer[self._obj_start : self._pos + 1]
+                        try:
+                            results.append(json.loads(obj_str))
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                "Failed to parse streamed JSON object: %.120s",
+                                obj_str,
+                            )
+                        self._obj_start = -1
+
+            self._pos += 1
+
+        return results
+
+
 def _build_suggestion_prompt(
     examples: List[Dict[str, str]],
     topic: str,
@@ -122,6 +194,105 @@ Requirements:
     return prompt
 
 
+def _prepare_suggestion_context(
+    db: Session,
+    test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+    topic: Optional[str],
+    num_examples: int,
+    num_suggestions: int,
+    user_feedback: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """Shared setup for both streaming and non-streaming suggestion generation.
+
+    Returns a context dict with resolved model, prompt, topic_value, and
+    sample_size, or ``None`` when there are no eligible tests.
+    """
+    db_test_set = crud.resolve_test_set(
+        test_set_identifier, db, organization_id=organization_id
+    )
+    if db_test_set is None:
+        raise ValueError(f"Test set not found: {test_set_identifier}")
+
+    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
+    eligible = _build_eligible_tests(tests, topic=topic)
+
+    if not eligible:
+        logger.info(
+            "No eligible tests for suggestions in "
+            "test_set=%s, topic=%r",
+            test_set_identifier,
+            topic,
+        )
+        return None
+
+    sample_size = min(num_examples, len(eligible))
+    sampled = random.sample(eligible, sample_size)
+
+    examples = []
+    for t in sampled:
+        t_topic = t.topic.name if t.topic and hasattr(t.topic, "name") else ""
+        examples.append(
+            {
+                "topic": t_topic,
+                "input": (t.prompt.content or "").strip(),
+            }
+        )
+
+    feedback_text = (user_feedback or "").strip()
+    prompt_text = _build_suggestion_prompt(
+        examples, topic or "", num_suggestions, user_feedback=feedback_text
+    )
+
+    model = _resolve_llm_model(_get_generation_model(db, user_id))
+    response_model = _suggestions_response_model(num_suggestions)
+
+    return {
+        "model": model,
+        "response_model": response_model,
+        "prompt_text": prompt_text,
+        "topic_value": topic or "",
+        "sample_size": sample_size,
+    }
+
+
+async def _generate_suggestions_stream(
+    ctx: Dict[str, Any],
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Async generator that yields suggestion items as they are parsed from
+    the LLM token stream.
+
+    Yields
+    ------
+    dict
+        First yield: ``{"type": "meta", "num_examples_used": int}``
+        Subsequent yields: ``{"type": "item", "topic": str, "input": str}``
+    """
+    model = ctx["model"]
+    response_model = ctx["response_model"]
+    prompt_text = ctx["prompt_text"]
+    topic_value = ctx["topic_value"]
+    sample_size = ctx["sample_size"]
+
+    yield {"type": "meta", "num_examples_used": sample_size}
+
+    try:
+        token_stream = await model.a_generate(
+            prompt=prompt_text, schema=response_model, stream=True
+        )
+    except Exception as e:
+        logger.error("LLM streaming generation failed: %s", e, exc_info=True)
+        raise ValueError(f"LLM generation failed: {e}") from e
+
+    parser = _IncrementalJsonArrayParser()
+
+    async for chunk in token_stream:
+        for item in parser.feed(chunk):
+            text = str(item.get("input", "")).strip()
+            yield {"type": "item", "topic": topic_value, "input": text}
+
+
 async def generate_suggestions(
     db: Session,
     test_set_identifier: str,
@@ -132,7 +303,8 @@ async def generate_suggestions(
     num_suggestions: int = 20,
     user_feedback: Optional[str] = None,
     generate_embeddings: bool = False,
-) -> Dict[str, Any]:
+    stream: bool = False,
+) -> Union[Dict[str, Any], AsyncGenerator[Dict[str, Any], None]]:
     """Generate test suggestions using an LLM.
 
     Randomly selects existing tests as examples, builds a prompt,
@@ -156,48 +328,52 @@ async def generate_suggestions(
         Number of new tests to generate (default 20)
     user_feedback : str, optional
         Optional user guidance appended to the LLM prompt
+    generate_embeddings : bool
+        When True (and ``stream=False``), compute embeddings and sort by
+        diversity before returning.  Ignored when ``stream=True`` — the
+        caller (pipeline) handles embeddings incrementally.
+    stream : bool
+        When True, return an async generator yielding individual suggestion
+        dicts as they are parsed from the LLM token stream.  The generator
+        first yields ``{"type": "meta", "num_examples_used": int}``, then
+        ``{"type": "item", "topic": str, "input": str}`` for each item.
 
     Returns
     -------
-    dict
-        - suggestions: list of {topic, input}
-        - num_examples_used: how many examples were actually used
+    dict (stream=False)
+        ``{"suggestions": [...], "num_examples_used": int}``
+    AsyncGenerator (stream=True)
+        Yields typed dicts as described above.
     """
-    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
-    if db_test_set is None:
-        raise ValueError(f"Test set not found: {test_set_identifier}")
-
-    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
-
-    eligible = _build_eligible_tests(tests, topic=topic)
-
-    if not eligible:
-        logger.info(
-            f"No eligible tests for suggestions in test_set={test_set_identifier}, topic={topic!r}"
-        )
-        return {"suggestions": [], "num_examples_used": 0}
-
-    sample_size = min(num_examples, len(eligible))
-    sampled = random.sample(eligible, sample_size)
-
-    examples = []
-    for t in sampled:
-        t_topic = t.topic.name if t.topic and hasattr(t.topic, "name") else ""
-        examples.append(
-            {
-                "topic": t_topic,
-                "input": (t.prompt.content or "").strip(),
-            }
-        )
-
-    feedback_text = (user_feedback or "").strip()
-    prompt_text = _build_suggestion_prompt(
-        examples, topic or "", num_suggestions, user_feedback=feedback_text
+    ctx = _prepare_suggestion_context(
+        db,
+        test_set_identifier,
+        organization_id,
+        user_id,
+        topic,
+        num_examples,
+        num_suggestions,
+        user_feedback,
     )
 
-    model = _resolve_llm_model(_get_generation_model(db, user_id))
-    response_model = _suggestions_response_model(num_suggestions)
-    topic_value = topic or ""
+    if ctx is None:
+        if stream:
+
+            async def _empty_stream():
+                yield {"type": "meta", "num_examples_used": 0}
+
+            return _empty_stream()
+        return {"suggestions": [], "num_examples_used": 0}
+
+    if stream:
+        return _generate_suggestions_stream(ctx)
+
+    # ── Non-streaming path (unchanged) ──
+    model = ctx["model"]
+    response_model = ctx["response_model"]
+    prompt_text = ctx["prompt_text"]
+    topic_value = ctx["topic_value"]
+    sample_size = ctx["sample_size"]
 
     try:
         raw_output = await model.a_generate(prompt=prompt_text, schema=response_model)
@@ -261,16 +437,21 @@ async def suggestion_pipeline_stream(
     user_feedback: Optional[str] = None,
     generate_embeddings: bool = False,
 ):
-    """Unified NDJSON stream: generate suggestions, invoke endpoint, evaluate.
+    """Unified NDJSON stream: generate, embed, invoke endpoint, evaluate.
 
-    Output and evaluation are **pipelined**: as soon as an endpoint output
-    arrives it is streamed to the client and an evaluation task is spawned
-    immediately, so output and evaluation events interleave naturally.
+    All phases are **fully pipelined**: as each suggestion is parsed from
+    the LLM token stream it is immediately emitted, and embedding +
+    endpoint invocation + evaluation tasks are spawned concurrently.
+    Events of all types interleave naturally as they complete.
 
     Event protocol (one JSON object per line):
-      - ``{"type": "suggestions", "suggestions": [...], "num_examples_used": int}``
-      - ``{"type": "output", "index": int, "input": str, "output": str, "error": str|null}``
+      - ``{"type": "suggestion", "index": int, "topic": str, "input": str}``
+      - ``{"type": "embedding", "index": int, "embedding": [...]|null}``
+      - ``{"type": "output", "index": int, "input": str, "output": str,
+             "error": str|null}``
       - ``{"type": "evaluation", "index": int, "input": str, "label": str, ...}``
+      - ``{"type": "suggestions_done", "total": int, "num_examples_used": int,
+             "diversity_order": [int, ...]|null}``
       - ``{"type": "output_summary", "generated": int, "total": int}``
       - ``{"type": "eval_summary", "evaluated": int, "total": int}``
       - ``{"type": "done"}``
@@ -279,10 +460,10 @@ async def suggestion_pipeline_stream(
     from rhesis.backend.app.dependencies import get_endpoint_service
     from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
 
-    # ── Phase 1: generate suggestions ──
     pipeline_t0 = time.monotonic()
-    logger.info("Pipeline STARTED — generating suggestions")
-    result = await generate_suggestions(
+    logger.info("Pipeline STARTED — generating suggestions (streaming)")
+
+    suggestion_gen = await generate_suggestions(
         db=db,
         test_set_identifier=test_set_identifier,
         organization_id=organization_id,
@@ -291,34 +472,30 @@ async def suggestion_pipeline_stream(
         num_examples=num_examples,
         num_suggestions=num_suggestions,
         user_feedback=user_feedback,
-        generate_embeddings=generate_embeddings,
+        stream=True,
     )
-    t_suggestions = time.monotonic() - pipeline_t0
-    logger.info(
-        "Pipeline suggestions DONE at t=%.2fs (%d suggestions)",
-        t_suggestions, len(result["suggestions"]),
-    )
-
-    yield _ndjson({
-        "type": "suggestions",
-        "suggestions": result["suggestions"],
-        "num_examples_used": result["num_examples_used"],
-    })
-    await anyio.sleep(0)
-
-    suggestions = result["suggestions"]
-    eligible = [
-        (i, s) for i, s in enumerate(suggestions) if (s.get("input") or "").strip()
-    ]
-    if not eligible:
-        yield _ndjson({"type": "output_summary", "generated": 0, "total": 0})
-        yield _ndjson({"type": "eval_summary", "evaluated": 0, "total": 0})
-        yield _ndjson({"type": "done"})
-        return
 
     # ── Resolve services once ──
     svc = get_endpoint_service()
     sdk_metrics = _resolve_sdk_metrics(db, organization_id, user_id, metric_names)
+
+    embedder = None
+    if generate_embeddings:
+        from rhesis.backend.app.services.adaptive_testing.embeddings import (
+            a_generate_embedding_vector,
+            resolve_embedder,
+        )
+
+        embedder = resolve_embedder(db, user_id)
+
+    # ── Shared state ──
+    suggestions: List[Dict[str, Any]] = []
+    num_examples_used = 0
+
+    embedding_tasks: Dict[int, asyncio.Task] = {}
+    embed_results: Dict[int, Optional[List[float]]] = {}
+    invoke_tasks: set = set()
+    eval_tasks: set = set()
 
     output_semaphore = asyncio.Semaphore(10)
     eval_semaphore = asyncio.Semaphore(_EVAL_MAX_CONCURRENCY)
@@ -329,12 +506,23 @@ async def suggestion_pipeline_stream(
     evals_done = 0
     evals_failed = 0
 
-    eval_tasks: set = set()
+    # ── Background task helpers (all push to the shared event_queue) ──
 
-    logger.info(
-        "Pipeline output+eval phase STARTED at t=%.2fs (%d eligible)",
-        time.monotonic() - pipeline_t0, len(eligible),
-    )
+    async def _embed_one(idx: int, text: str):
+        try:
+            vec = await a_generate_embedding_vector(
+                text, db, user_id, embedder=embedder
+            )
+            embed_results[idx] = vec
+            await event_queue.put(
+                {"type": "embedding", "index": idx, "embedding": vec}
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Embedding failed for suggestion %s: %s", idx, e)
+            embed_results[idx] = None
+            await event_queue.put(
+                {"type": "embedding", "index": idx, "embedding": None}
+            )
 
     async def _evaluate_one(index: int, input_text: str, output_text: str):
         nonlocal evals_done, evals_failed
@@ -345,7 +533,9 @@ async def suggestion_pipeline_stream(
                 metric_results = await _run_metrics_on_text(
                     sdk_metrics, input_text, output_text,
                 )
-                valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
+                valid = {
+                    k: v for k, v in metric_results.items() if isinstance(v, dict)
+                }
                 if not valid:
                     await event_queue.put({
                         "type": "evaluation", "index": index, "input": input_text,
@@ -355,7 +545,9 @@ async def suggestion_pipeline_stream(
                     evals_failed += 1
                     return
 
-                all_passed = all(v.get("is_successful", False) for v in valid.values())
+                all_passed = all(
+                    v.get("is_successful", False) for v in valid.values()
+                )
                 label = "pass" if all_passed else "fail"
                 labeler = ", ".join(metric_names)
                 scores = [v.get("score", 0.0) for v in valid.values()]
@@ -388,7 +580,9 @@ async def suggestion_pipeline_stream(
         t_inv_start = time.monotonic() - pipeline_t0
         async with output_semaphore:
             try:
-                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                with get_db_with_tenant_variables(
+                    organization_id, user_id
+                ) as task_db:
                     raw = await svc.invoke_endpoint(
                         db=task_db,
                         endpoint_id=endpoint_id,
@@ -401,7 +595,9 @@ async def suggestion_pipeline_stream(
                 error = None
                 outputs_generated += 1
             except Exception as e:  # noqa: BLE001
-                logger.warning("Pipeline output failed for index %s: %s", index, e)
+                logger.warning(
+                    "Pipeline output failed for index %s: %s", index, e
+                )
                 output = ""
                 error = str(e)
                 outputs_failed += 1
@@ -418,32 +614,118 @@ async def suggestion_pipeline_stream(
         })
 
         if not error and output and output != "[no output]":
-            task = asyncio.create_task(_evaluate_one(index, input_text, output))
+            task = asyncio.create_task(
+                _evaluate_one(index, input_text, output)
+            )
             eval_tasks.add(task)
             task.add_done_callback(eval_tasks.discard)
 
-    # ── Launch all output tasks ──
-    invoke_tasks: set = set()
-    for idx, s in eligible:
-        t = asyncio.create_task(_invoke_one(idx, s["input"]))
-        invoke_tasks.add(t)
-        t.add_done_callback(invoke_tasks.discard)
+    # ── Stream suggestions, immediately spawning all background work ──
 
-    # ── Drain the event queue, yielding in arrival order ──
-    while invoke_tasks or eval_tasks or not event_queue.empty():
-        try:
-            event = await asyncio.wait_for(event_queue.get(), timeout=0.2)
-            yield _ndjson(event)
-            await anyio.sleep(0)
-        except asyncio.TimeoutError:
+    suggestion_index = 0
+
+    async for event in suggestion_gen:
+        if event.get("type") == "meta":
+            num_examples_used = event.get("num_examples_used", 0)
             continue
 
-    # Flush any remaining events
+        text = (event.get("input") or "").strip()
+        topic_val = event.get("topic", "")
+        idx = suggestion_index
+        suggestion_index += 1
+        suggestion = {"topic": topic_val, "input": text}
+        suggestions.append(suggestion)
+
+        t_item = time.monotonic() - pipeline_t0
+        now = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
+        logger.info(
+            "[%s] Pipeline suggestion PARSED idx=%s at t=%.2fs: %.80s",
+            now, idx, t_item, text,
+        )
+
+        yield _ndjson(
+            {"type": "suggestion", "index": idx, "topic": topic_val, "input": text}
+        )
+        await anyio.sleep(0)
+
+        # Spawn embedding task
+        if embedder and text:
+            task = asyncio.create_task(_embed_one(idx, text))
+            embedding_tasks[idx] = task
+
+        # Spawn endpoint invocation immediately
+        if text:
+            logger.info(
+                "[%s] Pipeline output SPAWNED idx=%s at t=%.2fs",
+                datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3],
+                idx, time.monotonic() - pipeline_t0,
+            )
+            t = asyncio.create_task(_invoke_one(idx, text))
+            invoke_tasks.add(t)
+            t.add_done_callback(invoke_tasks.discard)
+
+        # Drain any ready events (embedding, output, evaluation)
+        while not event_queue.empty():
+            yield _ndjson(await event_queue.get())
+            await anyio.sleep(0)
+
+    t_suggestions = time.monotonic() - pipeline_t0
+    logger.info(
+        "Pipeline suggestions streamed at t=%.2fs (%d suggestions)",
+        t_suggestions,
+        len(suggestions),
+    )
+
+    # ── Drain all remaining background work ──
+    # Embedding tasks, invoke tasks, and eval tasks all push to event_queue.
+    all_bg_tasks = set(embedding_tasks.values()) | invoke_tasks | eval_tasks
+
+    while all_bg_tasks or not event_queue.empty():
+        while not event_queue.empty():
+            yield _ndjson(await event_queue.get())
+            await anyio.sleep(0)
+        # Recompute live set (eval_tasks grow dynamically from _invoke_one)
+        all_bg_tasks = set(embedding_tasks.values()) | invoke_tasks | eval_tasks
+        live = {t for t in all_bg_tasks if not t.done()}
+        if live:
+            await asyncio.wait(live, timeout=0.2, return_when=asyncio.FIRST_COMPLETED)
+        elif not event_queue.empty():
+            continue
+        else:
+            break
+
+    # Final flush
     while not event_queue.empty():
         yield _ndjson(await event_queue.get())
         await anyio.sleep(0)
 
-    total = len(eligible)
+    # ── suggestions_done with diversity order ──
+    diversity_order: Optional[List[int]] = None
+    if generate_embeddings and suggestions:
+        from rhesis.backend.app.services.adaptive_testing.embeddings import (
+            sort_by_diversity,
+        )
+
+        items_for_sort: List[Dict[str, Any]] = []
+        for i, s in enumerate(suggestions):
+            entry = dict(s)
+            entry["embedding"] = embed_results.get(i)
+            entry["_original_idx"] = i
+            items_for_sort.append(entry)
+
+        sorted_items = sort_by_diversity(items_for_sort)
+        diversity_order = [item["_original_idx"] for item in sorted_items]
+
+    yield _ndjson({
+        "type": "suggestions_done",
+        "total": len(suggestions),
+        "num_examples_used": num_examples_used,
+        "diversity_order": diversity_order,
+    })
+    await anyio.sleep(0)
+
+    # ── Summaries ──
+    total = len([s for s in suggestions if (s.get("input") or "").strip()])
     t_done = time.monotonic() - pipeline_t0
     logger.info(
         "Pipeline FINISHED at t=%.2fs — outputs=%d/%d, evals=%d/%d, "

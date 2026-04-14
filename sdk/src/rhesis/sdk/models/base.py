@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional, Union
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.models.utils import llm_retry
@@ -111,11 +111,18 @@ class BaseLLM(BaseModel):
         """
         return run_sync(self.a_generate(*args, **kwargs))
 
-    async def a_generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
+    async def a_generate(
+        self, *args, stream: bool = False, **kwargs
+    ) -> Union[str, Dict[str, Any], AsyncGenerator[str, None]]:
         """Async version of generate. Subclasses must override this.
 
+        Args:
+            stream: When True, return an async generator yielding token
+                chunks instead of the full response.
+
         Returns:
-            A string or dict (if schema provided).
+            A string or dict (if schema provided), or an async generator
+            of string chunks when ``stream=True``.
 
         Raises:
             NotImplementedError: If the subclass does not implement this.

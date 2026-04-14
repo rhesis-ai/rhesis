@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Optional, Type, Union
+from typing import AsyncGenerator, List, Optional, Type, Union
 
 import litellm
 from litellm import acompletion, aembedding, batch_completion, embedding
@@ -71,9 +71,10 @@ class LiteLLM(BaseLLM):
         prompt: str,
         system_prompt: Optional[str] = None,
         schema: Optional[Union[Type[BaseModel], dict]] = None,
+        stream: bool = False,
         *args,
         **kwargs,
-    ) -> Union[str, dict]:
+    ) -> Union[str, dict, AsyncGenerator[str, None]]:
         """
         Run an async chat completion using LiteLLM, returning the response.
         The schema will be used to validate the response if provided.
@@ -85,9 +86,13 @@ class LiteLLM(BaseLLM):
             prompt: The user prompt
             system_prompt: Optional system prompt
             schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
+            stream: When True, return an async generator of token chunks.
+                Schema validation is skipped; the caller is responsible
+                for parsing and validating the accumulated output.
 
         Returns:
-            str or dict: Raw text if no schema, validated dict if schema provided
+            str or dict when stream=False; AsyncGenerator[str, None] when
+            stream=True.
         """
         messages = (
             [
@@ -97,6 +102,11 @@ class LiteLLM(BaseLLM):
             if system_prompt
             else [{"role": "user", "content": prompt}]
         )
+
+        if stream:
+            return self._a_generate_stream(
+                messages, schema, *args, **kwargs
+            )
 
         response = await acompletion(
             model=self.model_name,
@@ -115,6 +125,30 @@ class LiteLLM(BaseLLM):
             validate_llm_response(response_content, schema)
             return response_content
         return response_content
+
+    async def _a_generate_stream(
+        self,
+        messages: list,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        *args,
+        **kwargs,
+    ) -> AsyncGenerator[str, None]:
+        """Yield token chunks from a streaming LiteLLM completion."""
+        response = await acompletion(
+            model=self.model_name,
+            messages=messages,
+            response_format=schema,
+            stream=True,
+            api_key=self.api_key,
+            api_base=self.api_base,
+            api_version=self.api_version,
+            *args,
+            **kwargs,
+        )
+        async for chunk in response:  # type: ignore[union-attr]
+            content = chunk.choices[0].delta.content
+            if content:
+                yield content
 
     def generate_batch(
         self,
