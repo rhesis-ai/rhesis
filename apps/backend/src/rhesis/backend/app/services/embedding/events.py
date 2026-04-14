@@ -12,6 +12,7 @@ from rhesis.backend.app.models.mixins import EmbeddableMixin
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.embedding.services import EmbeddingService
 from rhesis.backend.app.database import get_db
+
 logger = logging.getLogger(__name__)
 
 _SESSION_EMBEDDABLE_KEY = "embeddable_objects"
