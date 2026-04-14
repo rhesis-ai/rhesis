@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rhesis.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "rhesis.labels" . | nindent 4 }}
+data:
+  # -------------------------------------------------------------------------
+  # Database — host/name/user resolved from subchart or externalDatabase
+  # -------------------------------------------------------------------------
+  SQLALCHEMY_DB_HOST: {{ include "rhesis.postgresql.host" . | quote }}
+  SQLALCHEMY_DB_DRIVER: {{ .Values.config.dbDriver | quote }}
+  SQLALCHEMY_DB_PORT: {{ .Values.config.dbPort | quote }}
+  SQLALCHEMY_DB_NAME: {{ .Values.config.dbName | quote }}
+  SQLALCHEMY_DB_USER: {{ .Values.config.dbUser | quote }}
+
+  # -------------------------------------------------------------------------
+  # Redis / Valkey — host resolved from subchart or externalValkey
+  # -------------------------------------------------------------------------
+  REDIS_HOST: {{ include "rhesis.valkey.host" . | quote }}
+  REDIS_PORT: {{ .Values.config.redisPort | quote }}
+
+  # -------------------------------------------------------------------------
+  # Application
+  # -------------------------------------------------------------------------
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+  FRONTEND_ENV: {{ .Values.config.environment | quote }}
+  BACKEND_ENV: {{ .Values.config.environment | quote }}
+  WORKER_ENV: {{ .Values.config.environment | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+
+  # -------------------------------------------------------------------------
+  # Frontend / Auth0
+  # -------------------------------------------------------------------------
+  NEXT_PUBLIC_API_BASE_URL: {{ .Values.config.nextPublicApiBaseUrl | quote }}
+  NEXT_PUBLIC_APP_URL: {{ .Values.config.nextPublicAppUrl | quote }}
+  NEXT_TELEMETRY_DISABLED: {{ .Values.config.nextTelemetryDisabled | quote }}
+  NEXTAUTH_URL: {{ .Values.config.nextauthUrl | quote }}
+  NEXT_PUBLIC_AUTH0_CLIENT_ID: {{ .Values.config.nextPublicAuth0ClientId | quote }}
+  NEXT_PUBLIC_AUTH0_DOMAIN: {{ .Values.config.nextPublicAuth0Domain | quote }}
+  NEXT_PUBLIC_QUICK_START: {{ .Values.config.nextPublicQuickStart | quote }}
+
+  # -------------------------------------------------------------------------
+  # Backend
+  # -------------------------------------------------------------------------
+  RHESIS_BASE_URL: {{ .Values.config.rhesisBaseUrl | quote }}
+  FRONTEND_URL: {{ .Values.config.frontendUrl | quote }}
+  BACKEND_URL: {{ .Values.config.backendUrl | quote }}
+  QUICK_START: {{ .Values.config.quickStart | quote }}
+
+  # -------------------------------------------------------------------------
+  # AI model configuration
+  # -------------------------------------------------------------------------
+  AZURE_OPENAI_DEPLOYMENT_NAME: {{ .Values.config.azureOpenAiDeploymentName | quote }}
+  AZURE_OPENAI_API_VERSION: {{ .Values.config.azureOpenAiApiVersion | quote }}
+  OPENAI_MODEL_NAME: {{ .Values.config.openAiModelName | quote }}
+  GEMINI_MODEL_NAME: {{ .Values.config.geminiModelName | quote }}
+
+  # -------------------------------------------------------------------------
+  # SMTP
+  # -------------------------------------------------------------------------
+  SMTP_PORT: {{ .Values.config.smtpPort | quote }}
+
+  # -------------------------------------------------------------------------
+  # Celery
+  # -------------------------------------------------------------------------
+  CELERY_WORKER_CONCURRENCY: {{ .Values.config.celeryWorkerConcurrency | quote }}
+  CELERY_WORKER_PREFETCH_MULTIPLIER: {{ .Values.config.celeryWorkerPrefetchMultiplier | quote }}
+  CELERY_WORKER_MAX_TASKS_PER_CHILD: {{ .Values.config.celeryWorkerMaxTasksPerChild | quote }}
+  CELERY_WORKER_LOGLEVEL: {{ .Values.config.celeryWorkerLogLevel | quote }}
+
+  # -------------------------------------------------------------------------
+  # GCP / Vertex AI
+  # -------------------------------------------------------------------------
+  VERTEX_AI_LOCATION: {{ .Values.config.vertexAiLocation | quote }}
+  VERTEX_AI_PROJECT: {{ .Values.config.vertexAiProject | quote }}
+
+  # -------------------------------------------------------------------------
+  # Chatbot
+  # -------------------------------------------------------------------------
+  CHATBOT_RATE_LIMIT: {{ .Values.config.chatbotRateLimit | quote }}
+  RHESIS_CONNECTOR_DISABLED: {{ .Values.config.rhesisConnectorDisabled | quote }}
+  RHESIS_PROJECT_ID: {{ .Values.config.rhesisProjectId | quote }}

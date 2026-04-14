@@ -1,0 +1,58 @@
+{{- if .Values.docs.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: docs
+    tier: docs
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.docs.replicas }}
+  selector:
+    matchLabels:
+      app: docs
+      tier: docs
+  template:
+    metadata:
+      labels:
+        app: docs
+        tier: docs
+    spec:
+      {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.docs) | nindent 6 }}
+      containers:
+        - name: docs
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.docs "global" .Values.global) | quote }}
+          imagePullPolicy: {{ .Values.docs.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.docs) | nindent 10 }}
+          ports:
+            - containerPort: {{ .Values.docs.service.targetPort }}
+              name: http
+          {{- with .Values.docs.env }}
+          env:
+            {{- range . }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.docs.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.docs.service.targetPort }}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.docs.service.targetPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
+{{- end }}

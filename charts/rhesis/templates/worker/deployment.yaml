@@ -1,0 +1,89 @@
+{{- range .Values.workers }}
+{{- if .enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-{{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: worker-{{ .name }}
+    tier: worker
+    {{- include "rhesis.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ .replicas }}
+  selector:
+    matchLabels:
+      app: worker-{{ .name }}
+      tier: worker
+  template:
+    metadata:
+      labels:
+        app: worker-{{ .name }}
+        tier: worker
+    spec:
+      {{- if $.Values.podSecurityContext.enabled }}
+      securityContext:
+        fsGroup: {{ $.Values.podSecurityContext.fsGroup }}
+        runAsUser: {{ $.Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ $.Values.podSecurityContext.runAsGroup }}
+        {{- if $.Values.podSecurityContext.fsGroupChangePolicy }}
+        fsGroupChangePolicy: {{ $.Values.podSecurityContext.fsGroupChangePolicy }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: worker-{{ .name }}
+          image: {{ include "rhesis.image" (dict "imageValues" . "global" $.Values.global) | quote }}
+          imagePullPolicy: {{ .image.pullPolicy | default $.Values.global.imagePullPolicy }}
+          {{- if $.Values.containerSecurityContext.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: {{ $.Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ $.Values.containerSecurityContext.readOnlyRootFilesystem }}
+            runAsNonRoot: {{ $.Values.containerSecurityContext.runAsNonRoot }}
+            runAsUser: {{ $.Values.containerSecurityContext.runAsUser }}
+            runAsGroup: {{ $.Values.containerSecurityContext.runAsGroup }}
+            {{- if $.Values.containerSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml $.Values.containerSecurityContext.capabilities | nindent 14 }}
+            {{- end }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "rhesis.fullname" $ }}-config
+            - secretRef:
+                name: {{ $.Values.existingSecret }}
+          env:
+            - name: SQLALCHEMY_DATABASE_URL
+              value: "postgresql://$(SQLALCHEMY_DB_USER):$(SQLALCHEMY_DB_PASS)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            - name: BROKER_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            - name: CELERY_RESULT_BACKEND
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1"
+            {{- with .env }}
+            {{- range . }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health/basic
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health/basic
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
+{{- end }}
+{{- end }}
