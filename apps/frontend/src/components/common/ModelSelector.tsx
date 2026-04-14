@@ -37,17 +37,20 @@ function ProviderIcon({ icon }: { icon?: string }) {
   const providerIcon = PROVIDER_ICONS[icon];
   return (
     <Box
-      sx={theme => ({
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: theme.iconSizes.small,
-        height: theme.iconSizes.small,
-        '& svg, & img': {
-          width: theme.iconSizes.small,
-          height: theme.iconSizes.small,
-        },
-      })}
+      sx={theme => {
+        const size = theme.iconSizes?.small ?? 20;
+        return {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: size,
+          height: size,
+          '& svg, & img': {
+            width: size,
+            height: size,
+          },
+        };
+      }}
     >
       {providerIcon}
     </Box>
@@ -134,7 +137,7 @@ export default function ModelSelector({
           {isLoading ? (
             <MenuItem disabled>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CircularProgress size={theme.iconSizes.small} />
+                <CircularProgress size={theme.iconSizes?.small ?? 20} />
                 <Typography variant="body1">Loading models...</Typography>
               </Box>
             </MenuItem>

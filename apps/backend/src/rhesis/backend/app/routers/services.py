@@ -366,6 +366,22 @@ async def generate_multiturn_tests_endpoint(
         GenerateMultiTurnTestsResponse: The generated multi-turn test cases
     """
     try:
+        # Validate per-request model override exists and belongs to user's org
+        model_id_str = str(request.model_id) if request.model_id else None
+        if model_id_str:
+            from rhesis.backend.app import crud as model_crud
+
+            model_obj = model_crud.get_model(
+                db=db,
+                model_id=model_id_str,
+                organization_id=str(current_user.organization_id),
+            )
+            if not model_obj:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Model {model_id_str} not found or not accessible",
+                )
+
         # Prepare config dict from request
         config = {
             "generation_prompt": request.generation_prompt,
@@ -379,7 +395,7 @@ async def generate_multiturn_tests_endpoint(
             user=current_user,
             config=config,
             num_tests=request.num_tests,
-            model_id=str(request.model_id) if request.model_id else None,
+            model_id=model_id_str,
         )
         # test_cases is a TestSet dict with a "tests" key containing the array
         return {"tests": test_cases.get("tests", [])}
