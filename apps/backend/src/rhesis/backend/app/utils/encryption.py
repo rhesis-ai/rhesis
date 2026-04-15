@@ -245,6 +245,75 @@ def hash_token(token_value: str) -> str:
     return hashlib.sha256(token_value.encode()).hexdigest()
 
 
+# =============================================================================
+# SSO-specific Encryption (versioned keys for client_secret at rest)
+# =============================================================================
+
+_SSO_KEY_VERSIONS = {
+    "v1": "SSO_ENCRYPTION_KEY",
+}
+
+
+@lru_cache(maxsize=4)
+def _get_sso_fernet(version: str) -> Fernet:
+    """Return a cached Fernet instance for the given SSO key version.
+
+    Mirrors the existing ``_get_fernet()`` pattern for DB_ENCRYPTION_KEY.
+    """
+    env_var = _SSO_KEY_VERSIONS.get(version)
+    if not env_var:
+        raise EncryptionError(f"Unknown SSO key version: {version}")
+    key = os.getenv(env_var)
+    if not key:
+        raise EncryptionKeyNotFoundError(f"{env_var} environment variable is not set")
+    try:
+        return Fernet(key.encode())
+    except Exception:
+        raise EncryptionError(f"{env_var} is not a valid Fernet key")
+
+
+def get_sso_encryption_key(version: str = "v1") -> bytes:
+    """Get SSO-specific encryption key by version (validates format)."""
+    _get_sso_fernet(version)
+    env_var = _SSO_KEY_VERSIONS[version]
+    return os.getenv(env_var).encode()
+
+
+def sso_encrypt(plaintext: str, version: str = "v1") -> str:
+    """Encrypt a value with a versioned SSO key.
+
+    Returns ``"{version}:{ciphertext}"`` -- the version prefix enables
+    future key rotation without re-encrypting all secrets at once.
+    """
+    f = _get_sso_fernet(version)
+    ciphertext = f.encrypt(plaintext.encode()).decode()
+    return f"{version}:{ciphertext}"
+
+
+def sso_decrypt(versioned_ciphertext: str) -> str:
+    """Decrypt a version-prefixed SSO ciphertext.
+
+    Fail closed: raises DecryptionError on any failure.
+    """
+    if ":" not in versioned_ciphertext:
+        raise DecryptionError("SSO ciphertext missing version prefix")
+    version, ciphertext = versioned_ciphertext.split(":", 1)
+    f = _get_sso_fernet(version)
+    try:
+        return f.decrypt(ciphertext.encode()).decode()
+    except InvalidToken:
+        raise DecryptionError("Invalid SSO encrypted data or wrong encryption key")
+
+
+def is_sso_encryption_available() -> bool:
+    """Check if SSO encryption is configured (without crashing)."""
+    try:
+        get_sso_encryption_key("v1")
+        return True
+    except (EncryptionKeyNotFoundError, EncryptionError):
+        return False
+
+
 class EncryptedString(TypeDecorator):
     """
     SQLAlchemy custom type for transparent encryption/decryption.

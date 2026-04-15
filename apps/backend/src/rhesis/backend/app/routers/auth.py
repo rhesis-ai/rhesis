@@ -24,6 +24,7 @@ from rhesis.backend.app.auth.session_invalidation import (
     invalidate_user_sessions,
     is_session_valid,
 )
+from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import (
     MAGIC_LINK_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
@@ -267,17 +268,49 @@ def _get_email_service():
 
 
 @router.get("/providers", response_model=ProvidersResponse)
-async def get_providers():
+async def get_providers(
+    org: Optional[str] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Get list of enabled authentication providers.
 
     Returns information about all configured and enabled authentication
     providers. The frontend uses this to dynamically render login options.
     Includes password policy (min/max length) for client-side validation.
+
+    When ``org`` query param is provided, filters providers based on the
+    org's allowed_auth_methods and includes SSO if configured.
     """
     ProviderRegistry.initialize()
     providers = ProviderRegistry.get_provider_info()
     policy = get_password_policy()
+
+    # If org is specified, check for SSO config and filter providers
+    if org:
+        try:
+            from rhesis.backend.app.models.organization import Organization
+            from rhesis.backend.app.routers.sso import _get_sso_config, check_sso_available
+
+            organization = db.query(Organization).filter(Organization.id == org).first()
+            if organization and check_sso_available(organization):
+                sso_config = _get_sso_config(organization)
+                if sso_config and sso_config.enabled:
+                    providers.append({
+                        "name": "sso",
+                        "display_name": "SSO",
+                        "type": "oauth",
+                        "enabled": True,
+                    })
+
+                    if sso_config.allowed_auth_methods:
+                        allowed = set(sso_config.allowed_auth_methods)
+                        providers = [
+                            p for p in providers if p["name"] in allowed
+                        ]
+        except Exception:
+            pass  # On any error, return default providers (no enumeration)
+
     return ProvidersResponse(
         providers=[ProviderInfo(**p) for p in providers],
         password_policy=PasswordPolicyResponse(
@@ -387,15 +420,22 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         # Find or create user
         user = find_or_create_user_from_auth(db, auth_user)
 
+        # Capture values from pre-auth session before regeneration
+        original_frontend = request.session.get("original_frontend")
+        return_to = request.session.get("return_to", "/dashboard")
+
         # Set up session and create tokens
-        request.session["user_id"] = str(user.id)
         clear_user_logout(str(user.id))
         session_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
 
-        # Clear provider from session
-        request.session.pop("auth_provider", None)
+        # Regenerate session to prevent session fixation
+        regenerate_session(request, {"user_id": str(user.id)})
+        # Restore redirect context for build_redirect_url
+        if original_frontend:
+            request.session["original_frontend"] = original_frontend
+        request.session["return_to"] = return_to
 
         # Track login activity
         if is_telemetry_enabled():
@@ -1089,7 +1129,7 @@ async def exchange_code(body: ExchangeCodeRequest):
     instead of the long-lived tokens, limiting exposure
     in browser history and server logs.
     """
-    tokens = verify_auth_code(body.code)
+    tokens = await verify_auth_code(body.code)
     return tokens
 
 

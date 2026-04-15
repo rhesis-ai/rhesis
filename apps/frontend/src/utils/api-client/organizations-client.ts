@@ -1,6 +1,10 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { Organization } from './interfaces/organization';
+import {
+  Organization,
+  SSOConfig,
+  SSOTestResult,
+} from './interfaces/organization';
 import { UUID } from 'crypto';
 
 export type OrganizationCreate = Omit<Organization, 'id' | 'createdAt'> & {
@@ -71,6 +75,44 @@ export class OrganizationsClient extends BaseApiClient {
   ): Promise<{ status: string; message: string }> {
     return this.fetch(
       `${API_ENDPOINTS.organizations}/${id}/load-initial-data`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  async getSSOConfig(orgId: string): Promise<SSOConfig | null> {
+    try {
+      return await this.fetch<SSOConfig>(
+        `${API_ENDPOINTS.organizations}/${orgId}/sso`
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  async updateSSOConfig(
+    orgId: string,
+    config: SSOConfig
+  ): Promise<SSOConfig> {
+    return this.fetch<SSOConfig>(
+      `${API_ENDPOINTS.organizations}/${orgId}/sso`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(config),
+      }
+    );
+  }
+
+  async deleteSSOConfig(orgId: string): Promise<void> {
+    return this.fetch(`${API_ENDPOINTS.organizations}/${orgId}/sso`, {
+      method: 'DELETE',
+    });
+  }
+
+  async testSSOConnection(orgId: string): Promise<SSOTestResult> {
+    return this.fetch<SSOTestResult>(
+      `${API_ENDPOINTS.organizations}/${orgId}/sso/test`,
       {
         method: 'POST',
       }

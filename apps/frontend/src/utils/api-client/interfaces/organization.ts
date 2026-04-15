@@ -19,3 +19,20 @@ export interface Organization {
   owner_id: UUID;
   user_id: UUID;
 }
+
+export interface SSOConfig {
+  enabled: boolean;
+  provider_type: string;
+  issuer_url: string;
+  client_id: string;
+  client_secret?: string;
+  scopes: string;
+  auto_provision_users: boolean;
+  allowed_domains?: string[] | null;
+  allowed_auth_methods?: string[] | null;
+}
+
+export interface SSOTestResult {
+  success: boolean;
+  message: string;
+}

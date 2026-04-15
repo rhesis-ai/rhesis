@@ -65,6 +65,8 @@ public_routes = [
     "/auth/verify",
     "/auth/demo",
     "/auth/local-login",
+    "/auth/sso/{org_id}",
+    "/auth/sso/callback",
     "/home",
     "/docs",
     "/redoc",
@@ -434,6 +436,26 @@ app.add_middleware(HTTPSRedirectMiddleware)
 
 # Add telemetry middleware
 app.add_middleware(TelemetryMiddleware)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"] = "0"
+
+        if request.scope.get("scheme") == "https":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+
+        return response
+
+
+# Outermost middleware -- runs first on every response
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):

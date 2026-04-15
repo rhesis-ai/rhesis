@@ -274,6 +274,7 @@ def create_auth_code(
     now = datetime.now(timezone.utc)
     payload: Dict[str, Any] = {
         "type": "auth_code",
+        "jti": str(uuid.uuid4()),
         "session_token": session_token,
         "exp": now + timedelta(minutes=AUTH_CODE_EXPIRE_MINUTES),
         "iat": now,
@@ -283,13 +284,14 @@ def create_auth_code(
     return jwt.encode(payload, get_secret_key(), algorithm=ALGORITHM)
 
 
-def verify_auth_code(code: str) -> Dict[str, str]:
+async def verify_auth_code(code: str) -> Dict[str, str]:
     """Verify a short-lived auth code and return the wrapped tokens.
 
     Returns a dict with ``session_token`` (always present) and
     ``refresh_token`` (present when the code was created with one).
 
-    Raises HTTPException(400) if the code is invalid or expired.
+    Each auth code can only be exchanged once (jti tracked in Redis).
+    Raises HTTPException(400) if the code is invalid, expired, or already used.
     """
     try:
         payload = jwt.decode(code, get_secret_key(), algorithms=[ALGORITHM])
@@ -305,6 +307,28 @@ def verify_auth_code(code: str) -> Dict[str, str]:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid auth code type",
         )
+
+    # Enforce single-use via jti if present
+    jti = payload.get("jti")
+    if jti:
+        try:
+            from rhesis.backend.app.auth.used_token_store import claim_token_jti
+
+            was_first_use = await claim_token_jti(
+                jti, ttl_seconds=AUTH_CODE_EXPIRE_MINUTES * 60
+            )
+            if not was_first_use:
+                logger.warning("Auth code replay attempt: jti=%s", jti)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Auth code already used",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            # Redis unavailable -- log but allow through to avoid blocking
+            # all logins when Redis is down
+            logger.warning("Could not enforce single-use auth code (Redis unavailable)")
 
     session_token = payload.get("session_token")
     if not session_token:

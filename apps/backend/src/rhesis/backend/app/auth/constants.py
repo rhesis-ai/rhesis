@@ -9,6 +9,7 @@ class AuthProviderType(str, Enum):
     GOOGLE = "google"
     GITHUB = "github"
     MICROSOFT = "microsoft"
+    OIDC = "oidc"
     UNKNOWN = "unknown"
 
 
