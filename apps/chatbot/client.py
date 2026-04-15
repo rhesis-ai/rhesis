@@ -451,9 +451,7 @@ async def chat(
         rhesis = None
     else:
         rhesis = {
-            k: v
-            for k, v in rhesis.items()
-            if k in _RHESIS_ALLOWED_KEYS and v and v != "None"
+            k: v for k, v in rhesis.items() if k in _RHESIS_ALLOWED_KEYS and v and v != "None"
         }
         if not rhesis:
             rhesis = None

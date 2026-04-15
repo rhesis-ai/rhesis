@@ -221,6 +221,11 @@ class WebSocketConnection:
                 pass
             self._connection_task = None
 
+    async def wait_closed(self) -> None:
+        """Block until the connection maintenance loop exits."""
+        if self._connection_task:
+            await self._connection_task
+
     async def send(self, message: Dict[str, Any]) -> None:
         """
         Send a message through the WebSocket.

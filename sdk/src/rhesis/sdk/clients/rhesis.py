@@ -2,6 +2,8 @@ import asyncio
 import os
 from typing import Optional, Union
 
+from rhesis.sdk.config import _strip_quotes
+
 # Check if connector should be disabled
 # Accept common truthy values: true, 1, yes, on (case-insensitive)
 CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLED", "false").lower() in (
@@ -138,13 +140,15 @@ class RhesisClient:
         """
         from rhesis.sdk.config import get_api_key, get_base_url
 
-        # API configuration
-        self.api_key = api_key if api_key is not None else get_api_key()
-        self._base_url = base_url if base_url is not None else get_base_url()
+        # API configuration (strip wrapping quotes from Docker --env-file)
+        self.api_key = _strip_quotes(api_key if api_key is not None else get_api_key())
+        self._base_url = _strip_quotes(base_url if base_url is not None else get_base_url())
 
         # Observability configuration
-        self.project_id = project_id or os.getenv("RHESIS_PROJECT_ID")
-        self.environment = environment or os.getenv("RHESIS_ENVIRONMENT", "development")
+        self.project_id = _strip_quotes(project_id or os.getenv("RHESIS_PROJECT_ID"))
+        self.environment = _strip_quotes(
+            environment or os.getenv("RHESIS_ENVIRONMENT", "development")
+        )
 
         # Lazy connector (not initialized yet)
         self._connector_manager = None
@@ -290,12 +294,12 @@ class RhesisClient:
         return self._connector_manager
 
     def ensure_connected(self) -> None:
-        """Trigger deferred WebSocket connection if not yet established.
+        """Ensure the connector's background thread is alive.
 
-        Called automatically by the ``@endpoint`` wrapper on first
-        invocation so the connection is created once the event loop is
-        running.  Safe to call repeatedly; it is a no-op when already
-        connected or connecting.
+        Called automatically by the ``@endpoint`` wrapper on every
+        invocation.  Under normal operation the thread is already running
+        and this is a cheap ``is_alive()`` check.  If the thread died
+        (e.g. transient failure), it is restarted.
         """
         if self._connector_manager:
             self._connector_manager._ensure_connection()

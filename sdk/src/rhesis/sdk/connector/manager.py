@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import threading
 from collections.abc import Callable
 from typing import Any
 
@@ -27,7 +28,13 @@ logger = logging.getLogger(__name__)
 
 
 class ConnectorManager:
-    """Manages WebSocket connection and function registry for remote endpoint testing."""
+    """Manages WebSocket connection and function registry for remote endpoint testing.
+
+    The WebSocket runs on a dedicated daemon thread with its own asyncio event
+    loop. This decouples the connector lifecycle from the ASGI event loop so
+    registration and connection work identically under uvicorn (single process)
+    and gunicorn+uvicorn (multi-worker, pre-fork).
+    """
 
     def __init__(
         self,
@@ -74,10 +81,18 @@ class ConnectorManager:
         self._connection: WebSocketConnection | None = None
         self._connection_id: str | None = None
         self._initialized = False
-        self._connection_scheduled = False
+        self._permanently_failed = False
+        self._thread: threading.Thread | None = None
+        self._thread_loop: asyncio.AbstractEventLoop | None = None
 
     def initialize(self) -> None:
-        """Initialize WebSocket connection."""
+        """Prepare the WebSocket connection and start the background thread.
+
+        Creates the ``WebSocketConnection`` object and spawns a daemon thread
+        that owns a dedicated asyncio event loop.  The thread connects the
+        WebSocket immediately; ``_handle_connect`` sends registration for any
+        functions/metrics already in the local registries.
+        """
         if self._initialized:
             logger.warning("Connector already initialized")
             return
@@ -85,7 +100,6 @@ class ConnectorManager:
         ws_url = self._get_websocket_url()
 
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        # Send project/env headers for backward compat with old backends
         if self.project_id:
             headers["X-Rhesis-Project"] = self.project_id
             headers["X-Rhesis-Environment"] = self.environment
@@ -95,13 +109,8 @@ class ConnectorManager:
             headers=headers,
             on_message=self._handle_message,
             on_connect=self._handle_connect,
+            on_connection_failed=self._handle_permanent_failure,
         )
-
-        try:
-            asyncio.get_running_loop()
-            asyncio.create_task(self._connection.connect())
-        except RuntimeError:
-            logger.debug("No event loop running, connection will be established later")
 
         self._initialized = True
         msg = "Connector initialized"
@@ -109,33 +118,77 @@ class ConnectorManager:
             msg += f" for project {self.project_id}"
         logger.info(msg)
 
+        self._auto_connect()
+
     @property
     def connection_id(self) -> str | None:
         """The server-assigned connection ID, available after connect."""
         return self._connection_id
 
+    # ------------------------------------------------------------------
+    # Connection lifecycle
+    # ------------------------------------------------------------------
+
+    def _auto_connect(self) -> None:
+        """Start the background WebSocket thread if not already running."""
+        if self._thread and self._thread.is_alive():
+            return
+        self._thread = threading.Thread(
+            target=self._run_connection_loop,
+            name="rhesis-connector",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def _run_connection_loop(self) -> None:
+        """Entry point for the dedicated connector thread.
+
+        Creates a new asyncio event loop, connects the WebSocket, and runs
+        the loop until the process exits (daemon thread) or ``shutdown()``
+        is called.
+        """
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        self._thread_loop = loop
+        try:
+            loop.run_until_complete(self._connect_and_serve())
+        except Exception as e:
+            logger.error(f"Connector thread failed: {e}")
+        finally:
+            self._thread_loop = None
+            loop.close()
+
+    async def _connect_and_serve(self) -> None:
+        """Connect the WebSocket and block until the connection task ends."""
+        if not self._connection:
+            return
+        await self._connection.connect()
+        await self._connection.wait_closed()
+
+    def _handle_permanent_failure(self, reason: str) -> None:
+        """Mark the connector as permanently failed (e.g. auth rejection)."""
+        self._permanently_failed = True
+        logger.error(f"Connector permanently failed: {reason}")
+
     def _ensure_connection(self) -> None:
-        """Ensure WebSocket connection is started (if not already)."""
+        """Safety-net: restart the background thread if it died.
+
+        Called by ``ensure_connected()`` on every ``@endpoint`` invocation.
+        Under normal operation the thread is already alive and this is a
+        cheap ``is_alive()`` check.
+        """
         if not self._initialized:
             return
+        if self._permanently_failed:
+            return
+        if self._thread and self._thread.is_alive():
+            return
+        logger.info("Connector thread not running, restarting")
+        self._auto_connect()
 
-        if self._connection and self._connection.state == ConnectionState.DISCONNECTED:
-            if self._connection_scheduled:
-                return
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                return
-            self._connection_scheduled = True
-            asyncio.create_task(self._start_connection())
-
-    async def _start_connection(self) -> None:
-        """Start connection and reset the scheduled guard when done."""
-        try:
-            if self._connection:
-                await self._connection.connect()
-        finally:
-            self._connection_scheduled = False
+    # ------------------------------------------------------------------
+    # Function / metric registration
+    # ------------------------------------------------------------------
 
     def register_function(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
         """
@@ -150,17 +203,7 @@ class ConnectorManager:
             self.initialize()
 
         self._registry.register(name, func, metadata)
-
-        # If connection was deferred (no event loop at initialize time), try now
-        self._ensure_connection()
-
-        # If connection is active, send updated registration
-        if self._connection and self._connection.websocket:
-            try:
-                asyncio.create_task(self._send_registration())
-            except RuntimeError:
-                # No event loop running, registration will be sent when connection is established
-                logger.debug("No event loop running, registration will be sent on connection")
+        self._send_registration_if_connected()
 
     def register_metric(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
         """
@@ -175,16 +218,20 @@ class ConnectorManager:
             self.initialize()
 
         self._metric_registry.register(name, func, metadata)
+        self._send_registration_if_connected()
 
-        # If connection was deferred (no event loop at initialize time), try now
-        self._ensure_connection()
-
-        # If connection is active, send updated registration
-        if self._connection and self._connection.websocket:
-            try:
-                asyncio.create_task(self._send_registration())
-            except RuntimeError:
-                logger.debug("No event loop running, registration will be sent on connection")
+    def _send_registration_if_connected(self) -> None:
+        """Thread-safe: schedule a registration send on the connector loop."""
+        loop = self._thread_loop
+        if (
+            loop
+            and loop.is_running()
+            and self._connection
+            and self._connection.state == ConnectionState.CONNECTED
+        ):
+            loop.call_soon_threadsafe(
+                lambda: asyncio.ensure_future(self._send_registration())
+            )
 
     async def _handle_connect(self) -> None:
         """Handle successful connection/reconnection - send registration."""
@@ -470,28 +517,30 @@ class ConnectorManager:
         return f"{ws_url}/connector/ws"
 
     async def startup(self) -> None:
-        """Establish the WebSocket connection.
+        """Ensure the connector is initialized and connected.
 
-        Call this from an ASGI lifespan handler (or any async context) to
-        connect after the event loop is running. Gunicorn+Uvicorn workers
-        import application modules *before* the event loop starts, so
-        ``initialize()`` defers the connection; ``startup()`` completes it.
+        Optional convenience for ASGI lifespan handlers.  Under the new
+        background-thread model the connector starts automatically, so
+        calling this is no longer required.
         """
         if not self._initialized:
             self.initialize()
-
-        if (
-            self._connection
-            and self._connection.state == ConnectionState.DISCONNECTED
-            and not self._connection_scheduled
-        ):
-            self._connection_scheduled = True
-            await self._start_connection()
+        else:
+            self._ensure_connection()
 
     async def shutdown(self) -> None:
         """Shutdown connector and close connection."""
-        if self._connection:
-            await self._connection.disconnect()
+        loop = self._thread_loop
+        if loop and loop.is_running() and self._connection:
+            future = asyncio.run_coroutine_threadsafe(
+                self._connection.disconnect(), loop
+            )
+            try:
+                await asyncio.wait_for(asyncio.wrap_future(future), timeout=5)
+            except Exception:
+                pass
+        if self._thread is not None:
+            self._thread.join(timeout=5)
         self._initialized = False
         logger.info("Connector shutdown complete")
 
