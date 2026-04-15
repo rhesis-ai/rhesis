@@ -648,9 +648,9 @@ export function ConnectionDialog({
                     placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
                     helperText={
                       provider?.type_value === 'ollama'
-                        ? 'The URL where Ollama is running (default: http://host.docker.internal:11434)'
+                        ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach Ollama on your machine'
                         : provider?.type_value === 'litellm_proxy'
-                          ? 'The base URL of your LiteLLM Proxy server (default: http://0.0.0.0:4000)'
+                          ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach LiteLLM on your machine'
                           : provider?.type_value === 'azure_ai'
                             ? 'Your Azure AI inference endpoint URL (e.g. https://your-deployment.inference.ai.azure.com/)'
                             : provider?.type_value === 'azure'
