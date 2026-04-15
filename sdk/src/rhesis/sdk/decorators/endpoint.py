@@ -390,11 +390,9 @@ def endpoint(
 
             @wraps(func)
             async def wrapper(*args, **kwargs):
-                # Initialize cleanup_handlers before try block to ensure cleanup
-                # even if inject_bound_params fails midway through initialization
+                _default_client.ensure_connected()
                 cleanup_handlers = []
                 try:
-                    # Inject bound parameters (populates cleanup_handlers in-place)
                     kwargs = inject_bound_params(args, kwargs, cleanup_handlers)
 
                     if not observe:
@@ -411,11 +409,9 @@ def endpoint(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Initialize cleanup_handlers before try block to ensure cleanup
-            # even if inject_bound_params fails midway through initialization
+            _default_client.ensure_connected()
             cleanup_handlers = []
             try:
-                # Inject bound parameters (populates cleanup_handlers in-place)
                 kwargs = inject_bound_params(args, kwargs, cleanup_handlers)
 
                 if not observe:

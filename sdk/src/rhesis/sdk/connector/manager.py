@@ -123,10 +123,11 @@ class ConnectorManager:
             if self._connection_scheduled:
                 return
             try:
-                self._connection_scheduled = True
-                asyncio.create_task(self._start_connection())
+                asyncio.get_running_loop()
             except RuntimeError:
-                self._connection_scheduled = False
+                return
+            self._connection_scheduled = True
+            asyncio.create_task(self._start_connection())
 
     async def _start_connection(self) -> None:
         """Start connection and reset the scheduled guard when done."""
@@ -467,6 +468,25 @@ class ConnectorManager:
         ws_url = ws_url.rstrip("/")
 
         return f"{ws_url}/connector/ws"
+
+    async def startup(self) -> None:
+        """Establish the WebSocket connection.
+
+        Call this from an ASGI lifespan handler (or any async context) to
+        connect after the event loop is running. Gunicorn+Uvicorn workers
+        import application modules *before* the event loop starts, so
+        ``initialize()`` defers the connection; ``startup()`` completes it.
+        """
+        if not self._initialized:
+            self.initialize()
+
+        if (
+            self._connection
+            and self._connection.state == ConnectionState.DISCONNECTED
+            and not self._connection_scheduled
+        ):
+            self._connection_scheduled = True
+            await self._start_connection()
 
     async def shutdown(self) -> None:
         """Shutdown connector and close connection."""

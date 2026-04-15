@@ -79,6 +79,14 @@ class DisabledClient:
         """No-op when connector is disabled; returns immediately."""
         return
 
+    async def startup(self) -> None:
+        """No-op when connector is disabled."""
+        return
+
+    async def shutdown(self) -> None:
+        """No-op when connector is disabled."""
+        return
+
 
 class RhesisClient:
     """
@@ -281,6 +289,17 @@ class RhesisClient:
             self._connector_manager.initialize()
         return self._connector_manager
 
+    def ensure_connected(self) -> None:
+        """Trigger deferred WebSocket connection if not yet established.
+
+        Called automatically by the ``@endpoint`` wrapper on first
+        invocation so the connection is created once the event loop is
+        running.  Safe to call repeatedly; it is a no-op when already
+        connected or connecting.
+        """
+        if self._connector_manager:
+            self._connector_manager._ensure_connection()
+
     def register_endpoint(self, name: str, func, metadata: dict) -> None:
         """
         Register a function as a remotely callable endpoint.
@@ -331,6 +350,21 @@ class RhesisClient:
         except asyncio.CancelledError:
             pass
         finally:
+            await self._connector_manager.shutdown()
+
+    async def startup(self) -> None:
+        """Establish the connector WebSocket connection.
+
+        Call from an ASGI lifespan handler so the connection is created once
+        the event loop is running.  Safe to call multiple times; subsequent
+        calls are no-ops if the connection is already active.
+        """
+        connector = self._ensure_connector()
+        await connector.startup()
+
+    async def shutdown(self) -> None:
+        """Gracefully close the connector WebSocket connection."""
+        if self._connector_manager:
             await self._connector_manager.shutdown()
 
     def connect(self) -> None:
