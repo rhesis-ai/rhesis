@@ -723,6 +723,12 @@ start_backend() {
         exit 1
     }
 
+    check_uv
+    echo -e "${BLUE}Installing backend packages (uv sync)...${NC}"
+    uv sync || {
+        echo -e "${RED}❌ Error: uv sync failed${NC}"
+        exit 1
+    }
 
     source .venv/bin/activate || {
         echo -e "${RED}❌ Error: Failed to activate virtual environment${NC}"
