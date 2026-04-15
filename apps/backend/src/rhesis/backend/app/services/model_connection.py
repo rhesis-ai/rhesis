@@ -135,7 +135,7 @@ class ModelConnectionService:
             # Build extra params for providers that need them
             extra_params = {}
             if endpoint:
-                extra_params["base_url"] = endpoint
+                extra_params["api_base"] = endpoint
 
             # Create model config
             config = ModelConfig(
@@ -204,7 +204,7 @@ class ModelConnectionService:
             # Build extra params for providers that need them
             extra_params = {}
             if endpoint:
-                extra_params["base_url"] = endpoint
+                extra_params["api_base"] = endpoint
 
             # Create embedder config
             config = EmbeddingModelConfig(

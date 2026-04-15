@@ -238,6 +238,7 @@ async def test_model_connection(
             provider=provider,
             model_name=model_name,
             api_key=api_key,
+            endpoint=db_model.endpoint,
             model_type=model_type,
         )
 
