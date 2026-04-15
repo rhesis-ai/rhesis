@@ -9,6 +9,7 @@ This module tests the ConnectionManager class including:
 - Message routing and handling
 """
 
+import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -391,3 +392,93 @@ class TestConnectionManager:
 
             await manager.connect(conn_id, context, ws_new)
             assert manager._connections[conn_id] == ws_new
+
+
+class TestHeartbeatPing:
+    """Tests for application-level ping in the heartbeat loop."""
+
+    @pytest.fixture
+    def manager(self):
+        return ConnectionManager()
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_sends_ping_after_interval(self, manager, mock_websocket):
+        """Heartbeat sends {"type": "ping"} after _PING_INTERVAL_TICKS ticks."""
+        conn_id = "conn-ping-test"
+        manager._connections[conn_id] = mock_websocket
+
+        # Set interval to 2 ticks so the test is fast
+        manager._PING_INTERVAL_TICKS = 2
+
+        tick_count = 0
+        original_sleep = asyncio.sleep
+
+        async def fake_sleep(seconds):
+            nonlocal tick_count
+            tick_count += 1
+            # Let it run for 3 ticks then remove the connection to stop the loop
+            if tick_count >= 3:
+                manager._connections.pop(conn_id, None)
+            await original_sleep(0)
+
+        with patch("asyncio.sleep", side_effect=fake_sleep):
+            await manager._heartbeat_loop(conn_id)
+
+        ping_calls = [
+            call
+            for call in mock_websocket.send_json.call_args_list
+            if call[0][0] == {"type": "ping"}
+        ]
+        assert len(ping_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_does_not_ping_before_interval(self, manager, mock_websocket):
+        """No ping is sent before _PING_INTERVAL_TICKS ticks elapse."""
+        conn_id = "conn-no-ping"
+        manager._connections[conn_id] = mock_websocket
+        manager._PING_INTERVAL_TICKS = 10
+
+        tick_count = 0
+        original_sleep = asyncio.sleep
+
+        async def fake_sleep(seconds):
+            nonlocal tick_count
+            tick_count += 1
+            if tick_count >= 3:
+                manager._connections.pop(conn_id, None)
+            await original_sleep(0)
+
+        with patch("asyncio.sleep", side_effect=fake_sleep):
+            await manager._heartbeat_loop(conn_id)
+
+        ping_calls = [
+            call
+            for call in mock_websocket.send_json.call_args_list
+            if call[0][0] == {"type": "ping"}
+        ]
+        assert len(ping_calls) == 0
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_ping_failure_does_not_kill_loop(self, manager, mock_websocket):
+        """If sending a ping raises, the heartbeat loop continues."""
+        conn_id = "conn-ping-fail"
+        manager._connections[conn_id] = mock_websocket
+        manager._PING_INTERVAL_TICKS = 1
+
+        mock_websocket.send_json = AsyncMock(side_effect=Exception("broken pipe"))
+
+        tick_count = 0
+        original_sleep = asyncio.sleep
+
+        async def fake_sleep(seconds):
+            nonlocal tick_count
+            tick_count += 1
+            if tick_count >= 3:
+                manager._connections.pop(conn_id, None)
+            await original_sleep(0)
+
+        with patch("asyncio.sleep", side_effect=fake_sleep):
+            await manager._heartbeat_loop(conn_id)
+
+        # Loop ran all 3 ticks without crashing (would have raised otherwise)
+        assert tick_count == 3
