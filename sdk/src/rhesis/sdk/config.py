@@ -8,6 +8,7 @@ def _strip_quotes(value: Optional[str]) -> Optional[str]:
         return value[1:-1]
     return value
 
+
 # Default values
 DEFAULT_BASE_URL = "https://api.rhesis.ai"
 

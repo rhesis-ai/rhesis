@@ -229,9 +229,7 @@ class ConnectorManager:
             and self._connection
             and self._connection.state == ConnectionState.CONNECTED
         ):
-            loop.call_soon_threadsafe(
-                lambda: asyncio.ensure_future(self._send_registration())
-            )
+            loop.call_soon_threadsafe(lambda: asyncio.ensure_future(self._send_registration()))
 
     async def _handle_connect(self) -> None:
         """Handle successful connection/reconnection - send registration."""
@@ -532,9 +530,7 @@ class ConnectorManager:
         """Shutdown connector and close connection."""
         loop = self._thread_loop
         if loop and loop.is_running() and self._connection:
-            future = asyncio.run_coroutine_threadsafe(
-                self._connection.disconnect(), loop
-            )
+            future = asyncio.run_coroutine_threadsafe(self._connection.disconnect(), loop)
             try:
                 await asyncio.wait_for(asyncio.wrap_future(future), timeout=5)
             except Exception:
