@@ -194,7 +194,11 @@ class SuggestedTest(BaseModel):
     )
     diversity_score: Optional[float] = Field(
         default=None,
-        description="Euclidean distance from centroid embedding; higher = more diverse",
+        description=(
+            "Centroid-based embedding diversity score when embeddings were generated; "
+            "default metric is 1 minus cosine similarity to the batch mean direction "
+            "(higher = more diverse)"
+        ),
     )
 
 

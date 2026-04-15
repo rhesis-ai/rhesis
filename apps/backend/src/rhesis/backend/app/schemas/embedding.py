@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4
 
 from rhesis.backend.app.schemas.base import Base
 

@@ -4373,12 +4373,12 @@ def get_trace_metrics_aggregated(
     Uses PostgreSQL aggregate functions (COUNT, SUM, AVG, percentile_cont)
     to avoid loading large result sets into Python memory.
     """
+    from uuid import UUID
+
     from sqlalchemy import case, literal_column
     from sqlalchemy.sql import functions as sqlfunc
 
     from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
-
-    from uuid import UUID
 
     T = models.Trace
 

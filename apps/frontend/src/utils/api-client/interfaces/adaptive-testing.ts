@@ -220,7 +220,10 @@ export interface SuggestedTest {
   labeler: string;
   model_score: number;
   embedding?: number[] | null;
-  /** Euclidean distance from centroid when generate_embeddings was true */
+  /**
+   * Centroid-based diversity when generate_embeddings was true (default: 1 − cosine
+   * to batch mean direction; higher = more diverse)
+   */
   diversity_score?: number | null;
 }
 

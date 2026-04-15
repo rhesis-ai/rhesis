@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from uuid import UUID as UUIDType
 
 import numpy as np
@@ -17,8 +17,16 @@ from rhesis.backend.app.models.embedding import EmbeddingConfig
 from rhesis.backend.app.models.enums import EmbeddingStatus, ModelType
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.adaptive_testing.diversity_strategies import (
+    DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
+)
 from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 from rhesis.sdk.models.factory import get_model
+
+if TYPE_CHECKING:
+    from rhesis.backend.app.services.adaptive_testing.diversity_strategies import (
+        EmbeddingDiversityStrategy,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +35,25 @@ logger = logging.getLogger(__name__)
 ADAPTIVE_TESTING_EMBEDDING_DIMENSION = 768
 
 
-def sort_by_diversity(suggestions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Sort suggestions by Euclidean distance from the centroid of their embeddings.
+def sort_by_diversity(
+    suggestions: List[Dict[str, Any]],
+    strategy: Optional[EmbeddingDiversityStrategy] = None,
+) -> List[Dict[str, Any]]:
+    """Sort suggestions by a centroid-based embedding diversity metric.
 
-    Higher distance means more diverse (farther from the batch mean). Sets
-    ``diversity_score`` on each item. Items without a usable embedding are placed
-    last with ``diversity_score`` set to ``None``.
+    Uses :class:`~rhesis.backend.app.services.adaptive_testing.diversity_strategies.EmbeddingDiversityStrategy`
+    to score rows after building a single batch matrix. The default strategy is
+    :class:`~rhesis.backend.app.services.adaptive_testing.diversity_strategies.CosineCentroidDiversity`
+    (one minus cosine similarity to the mean direction). Larger scores are more
+    diverse and sort first. Sets ``diversity_score`` on each item. Items without a
+    usable embedding are placed last with ``diversity_score`` set to ``None``.
+
+    Parameters
+    ----------
+    strategy
+        If ``None``, uses :data:`DEFAULT_EMBEDDING_DIVERSITY_STRATEGY` (cosine).
     """
+    scorer = strategy if strategy is not None else DEFAULT_EMBEDDING_DIVERSITY_STRATEGY
     if not suggestions:
         return suggestions
 
@@ -63,22 +83,19 @@ def sort_by_diversity(suggestions: List[Dict[str, Any]]) -> List[Dict[str, Any]]
 
     dim = len(with_vectors[0][1])
     if any(len(v) != dim for _, v in with_vectors):
-        logger.warning(
-            "Inconsistent embedding dimensions in suggestions; skipping diversity sort"
-        )
+        logger.warning("Inconsistent embedding dimensions in suggestions; skipping diversity sort")
         for item, _ in with_vectors:
             item["diversity_score"] = None
         return suggestions
 
     matrix = np.asarray([v for _, v in with_vectors], dtype=np.float64)
-    centroid = np.mean(matrix, axis=0)
-    distances = np.linalg.norm(matrix - centroid, axis=1)
+    diversity_values = scorer.scores(matrix)
 
-    order = np.argsort(-distances)
+    order = np.argsort(-diversity_values)
     sorted_with: List[Dict[str, Any]] = []
     for idx in order:
         item, _ = with_vectors[int(idx)]
-        item["diversity_score"] = float(distances[int(idx)])
+        item["diversity_score"] = float(diversity_values[int(idx)])
         sorted_with.append(item)
 
     return sorted_with + without
@@ -222,8 +239,7 @@ async def a_generate_embedding_vectors_batch(
                 out = list(vector)
                 if len(out) != target_dim:
                     logger.warning(
-                        "Adaptive embedding length %s != requested %s; "
-                        "persistence may be skipped",
+                        "Adaptive embedding length %s != requested %s; persistence may be skipped",
                         len(out),
                         target_dim,
                     )
@@ -237,9 +253,7 @@ async def a_generate_embedding_vectors_batch(
                 )
                 return None
 
-    return list(
-        await asyncio.gather(*[asyncio.create_task(_embed_one(t)) for t in texts])
-    )
+    return list(await asyncio.gather(*[asyncio.create_task(_embed_one(t)) for t in texts]))
 
 
 def load_test_for_embedding(db: Session, test_id: str, organization_id: str) -> Optional[Test]:

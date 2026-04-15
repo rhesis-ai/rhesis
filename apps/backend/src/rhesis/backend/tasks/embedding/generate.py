@@ -5,8 +5,8 @@ This task generates embeddings for entities in a background worker.
 
 import logging
 
-from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.celery.core import app
+from rhesis.backend.tasks.base import SilentTask
 
 logger = logging.getLogger(__name__)
 

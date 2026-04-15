@@ -925,6 +925,7 @@ async def suggestion_pipeline_endpoint(
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
+
 @router.post(
     "/{test_set_identifier}/evaluate_suggestions",
 )

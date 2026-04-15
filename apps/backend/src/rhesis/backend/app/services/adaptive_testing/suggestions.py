@@ -208,9 +208,7 @@ def _prepare_suggestion_context(
     Returns a context dict with resolved model, prompt, topic_value, and
     sample_size, or ``None`` when there are no eligible tests.
     """
-    db_test_set = crud.resolve_test_set(
-        test_set_identifier, db, organization_id=organization_id
-    )
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
     if db_test_set is None:
         raise ValueError(f"Test set not found: {test_set_identifier}")
 
@@ -219,8 +217,7 @@ def _prepare_suggestion_context(
 
     if not eligible:
         logger.info(
-            "No eligible tests for suggestions in "
-            "test_set=%s, topic=%r",
+            "No eligible tests for suggestions in test_set=%s, topic=%r",
             test_set_identifier,
             topic,
         )
@@ -399,7 +396,10 @@ async def generate_suggestions(
         texts = [(item.get("input") or "").strip() for item in suggestions]
 
         vectors = await a_generate_embedding_vectors_batch(
-            texts, db, user_id, embedder=embedder,
+            texts,
+            db,
+            user_id,
+            embedder=embedder,
         )
         for item, vec in zip(suggestions, vectors):
             item["embedding"] = vec
@@ -514,19 +514,13 @@ async def suggestion_pipeline_stream(
 
     async def _embed_one(idx: int, text: str):
         try:
-            vec = await a_generate_embedding_vector(
-                text, db, user_id, embedder=embedder
-            )
+            vec = await a_generate_embedding_vector(text, db, user_id, embedder=embedder)
             embed_results[idx] = vec
-            await event_queue.put(
-                {"type": "embedding", "index": idx}
-            )
+            await event_queue.put({"type": "embedding", "index": idx})
         except Exception as e:  # noqa: BLE001
             logger.warning("Embedding failed for suggestion %s: %s", idx, e)
             embed_results[idx] = None
-            await event_queue.put(
-                {"type": "embedding", "index": idx}
-            )
+            await event_queue.put({"type": "embedding", "index": idx})
 
     async def _evaluate_one(index: int, input_text: str, output_text: str):
         nonlocal evals_done, evals_failed
@@ -534,42 +528,61 @@ async def suggestion_pipeline_stream(
         async with eval_semaphore:
             try:
                 metric_results = await _run_metrics_on_text(
-                    sdk_metrics, input_text, output_text,
+                    sdk_metrics,
+                    input_text,
+                    output_text,
                 )
-                valid = {
-                    k: v for k, v in metric_results.items() if isinstance(v, dict)
-                }
+                valid = {k: v for k, v in metric_results.items() if isinstance(v, dict)}
                 if not valid:
-                    await event_queue.put({
-                        "type": "evaluation", "index": index, "input": input_text,
-                        "label": "", "labeler": "", "model_score": 0.0,
-                        "metrics": None, "error": "no metric results",
-                    })
+                    await event_queue.put(
+                        {
+                            "type": "evaluation",
+                            "index": index,
+                            "input": input_text,
+                            "label": "",
+                            "labeler": "",
+                            "model_score": 0.0,
+                            "metrics": None,
+                            "error": "no metric results",
+                        }
+                    )
                     evals_failed += 1
                     return
 
-                all_passed = all(
-                    v.get("is_successful", False) for v in valid.values()
-                )
+                all_passed = all(v.get("is_successful", False) for v in valid.values())
                 label = "pass" if all_passed else "fail"
                 labeler = ", ".join(metric_names)
                 scores = [v.get("score", 0.0) for v in valid.values()]
                 score = sum(scores) / len(scores) if scores else 0.0
                 metrics_summary = build_metrics_summary_for_response(valid)
 
-                await event_queue.put({
-                    "type": "evaluation", "index": index, "input": input_text,
-                    "label": label, "labeler": labeler, "model_score": score,
-                    "metrics": metrics_summary, "error": None,
-                })
+                await event_queue.put(
+                    {
+                        "type": "evaluation",
+                        "index": index,
+                        "input": input_text,
+                        "label": label,
+                        "labeler": labeler,
+                        "model_score": score,
+                        "metrics": metrics_summary,
+                        "error": None,
+                    }
+                )
                 evals_done += 1
             except Exception as e:  # noqa: BLE001
                 logger.warning("Pipeline eval failed for index %s: %s", index, e)
-                await event_queue.put({
-                    "type": "evaluation", "index": index, "input": input_text,
-                    "label": "error", "labeler": ", ".join(metric_names),
-                    "model_score": 0.0, "metrics": None, "error": str(e),
-                })
+                await event_queue.put(
+                    {
+                        "type": "evaluation",
+                        "index": index,
+                        "input": input_text,
+                        "label": "error",
+                        "labeler": ", ".join(metric_names),
+                        "model_score": 0.0,
+                        "metrics": None,
+                        "error": str(e),
+                    }
+                )
                 evals_failed += 1
             finally:
                 logger.info("[%s] idx=%02d evaluation_stop", _ts(), index)
@@ -579,9 +592,7 @@ async def suggestion_pipeline_stream(
         logger.info("[%s] idx=%02d output_start", _ts(), index)
         async with output_semaphore:
             try:
-                with get_db_with_tenant_variables(
-                    organization_id, user_id
-                ) as task_db:
+                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
                     raw = await svc.invoke_endpoint(
                         db=task_db,
                         endpoint_id=endpoint_id,
@@ -594,24 +605,25 @@ async def suggestion_pipeline_stream(
                 error = None
                 outputs_generated += 1
             except Exception as e:  # noqa: BLE001
-                logger.warning(
-                    "Pipeline output failed for index %s: %s", index, e
-                )
+                logger.warning("Pipeline output failed for index %s: %s", index, e)
                 output = ""
                 error = str(e)
                 outputs_failed += 1
 
         logger.info("[%s] idx=%02d output_stop", _ts(), index)
 
-        await event_queue.put({
-            "type": "output", "index": index,
-            "input": input_text, "output": output, "error": error,
-        })
+        await event_queue.put(
+            {
+                "type": "output",
+                "index": index,
+                "input": input_text,
+                "output": output,
+                "error": error,
+            }
+        )
 
         if not error and output and output != "[no output]":
-            task = asyncio.create_task(
-                _evaluate_one(index, input_text, output)
-            )
+            task = asyncio.create_task(_evaluate_one(index, input_text, output))
             eval_tasks.add(task)
             task.add_done_callback(eval_tasks.discard)
 
@@ -636,9 +648,7 @@ async def suggestion_pipeline_stream(
         if idx < num_suggestions - 1:
             logger.info("[%s] idx=%02d generation_start", _ts(), idx + 1)
 
-        yield _ndjson(
-            {"type": "suggestion", "index": idx, "topic": topic_val, "input": text}
-        )
+        yield _ndjson({"type": "suggestion", "index": idx, "topic": topic_val, "input": text})
         await anyio.sleep(0)
 
         # Spawn embedding task
@@ -699,32 +709,42 @@ async def suggestion_pipeline_stream(
         sorted_items = sort_by_diversity(items_for_sort)
         diversity_order = [item["_original_idx"] for item in sorted_items]
 
-    yield _ndjson({
-        "type": "suggestions_done",
-        "total": len(suggestions),
-        "num_examples_used": num_examples_used,
-        "diversity_order": diversity_order,
-    })
+    yield _ndjson(
+        {
+            "type": "suggestions_done",
+            "total": len(suggestions),
+            "num_examples_used": num_examples_used,
+            "diversity_order": diversity_order,
+        }
+    )
     await anyio.sleep(0)
 
     # ── Summaries ──
     total = len([s for s in suggestions if (s.get("input") or "").strip()])
     logger.info(
-        "[%s] pipeline_stop — outputs=%d/%d, evals=%d/%d, "
-        "output_failures=%d, eval_failures=%d",
-        _ts(), outputs_generated, total, evals_done, outputs_generated,
-        outputs_failed, evals_failed,
+        "[%s] pipeline_stop — outputs=%d/%d, evals=%d/%d, output_failures=%d, eval_failures=%d",
+        _ts(),
+        outputs_generated,
+        total,
+        evals_done,
+        outputs_generated,
+        outputs_failed,
+        evals_failed,
     )
-    yield _ndjson({
-        "type": "output_summary",
-        "generated": outputs_generated,
-        "total": total,
-    })
-    yield _ndjson({
-        "type": "eval_summary",
-        "evaluated": evals_done,
-        "total": outputs_generated,
-    })
+    yield _ndjson(
+        {
+            "type": "output_summary",
+            "generated": outputs_generated,
+            "total": total,
+        }
+    )
+    yield _ndjson(
+        {
+            "type": "eval_summary",
+            "evaluated": evals_done,
+            "total": outputs_generated,
+        }
+    )
     yield _ndjson({"type": "done"})
 
 

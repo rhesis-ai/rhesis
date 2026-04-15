@@ -6,7 +6,6 @@ Async caches (e.g. GarakProbeCache) do not extend this class but should
 still reference RedisDatabase for DB number allocation.
 """
 
-import json
 import logging
 import os
 import threading
