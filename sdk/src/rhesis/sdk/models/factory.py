@@ -387,6 +387,8 @@ def get_model(
         api_key = api_key or config.api_key
         if isinstance(config, EmbeddingModelConfig):
             dimensions = dimensions or config.dimensions
+        if config.extra_params:
+            kwargs = {**config.extra_params, **kwargs}
 
     # Parse shorthand notation (e.g., "openai/gpt-4o")
     if provider and "/" in provider and model_name is None:
