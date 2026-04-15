@@ -56,9 +56,7 @@ class ResultStore:
 
         if redis_manager.is_available:
             try:
-                self._track_background_task(
-                    self._publish_rpc_response(test_run_id, result)
-                )
+                self._track_background_task(self._publish_rpc_response(test_run_id, result))
             except Exception as e:
                 logger.error(
                     f"Failed to schedule RPC response publish: {e}",
@@ -88,14 +86,10 @@ class ResultStore:
     # Metric results
     # ------------------------------------------------------------------
 
-    def resolve_metric_result(
-        self, metric_run_id: str, result: Dict[str, Any]
-    ) -> None:
+    def resolve_metric_result(self, metric_run_id: str, result: Dict[str, Any]) -> None:
         """Store a metric result and wake up any waiting coroutine."""
         if metric_run_id in self._cancelled_metrics:
-            logger.warning(
-                f"Ignoring late result for cancelled metric run: {metric_run_id}"
-            )
+            logger.warning(f"Ignoring late result for cancelled metric run: {metric_run_id}")
             return
 
         logger.info(
@@ -110,9 +104,7 @@ class ResultStore:
 
         if redis_manager.is_available:
             try:
-                self._track_background_task(
-                    self._publish_rpc_response(metric_run_id, result)
-                )
+                self._track_background_task(self._publish_rpc_response(metric_run_id, result))
             except Exception as e:
                 logger.error(
                     f"Failed to publish metric RPC response: {e}",
@@ -156,9 +148,7 @@ class ResultStore:
     # Internals
     # ------------------------------------------------------------------
 
-    async def _publish_rpc_response(
-        self, run_id: str, result: Dict[str, Any]
-    ) -> None:
+    async def _publish_rpc_response(self, run_id: str, result: Dict[str, Any]) -> None:
         """Publish RPC response to Redis for cross-instance waiters."""
         try:
             channel = f"ws:rpc:response:{run_id}"
@@ -171,15 +161,12 @@ class ResultStore:
             )
 
     @staticmethod
-    def _trim_cancelled(
-        cancelled: OrderedDict, keep: int, label: str
-    ) -> OrderedDict:
+    def _trim_cancelled(cancelled: OrderedDict, keep: int, label: str) -> OrderedDict:
         """Trim cancelled run entries, keeping only the newest items."""
         cancelled_items = list(cancelled.items())
         trimmed = OrderedDict(cancelled_items[-keep:])
         removed_count = len(cancelled_items) - len(trimmed)
         logger.info(
-            f"Cleaned up old cancelled {label}. "
-            f"Removed {removed_count} entries, kept {keep}"
+            f"Cleaned up old cancelled {label}. Removed {removed_count} entries, kept {keep}"
         )
         return trimmed
