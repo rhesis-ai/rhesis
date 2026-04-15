@@ -351,6 +351,8 @@ export interface PipelineSuggestionsDoneEvent {
   total: number;
   num_examples_used: number;
   diversity_order: number[] | null;
+  /** Diversity metric per row in sorted display order (same length as diversity_order). */
+  diversity_scores?: (number | null)[] | null;
 }
 
 export interface PipelineOutputEvent {

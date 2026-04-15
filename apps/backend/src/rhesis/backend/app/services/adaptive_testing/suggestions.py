@@ -450,7 +450,8 @@ async def suggestion_pipeline_stream(
              "error": str|null}``
       - ``{"type": "evaluation", "index": int, "input": str, "label": str, ...}``
       - ``{"type": "suggestions_done", "total": int, "num_examples_used": int,
-             "diversity_order": [int, ...]|null}``
+             "diversity_order": [int, ...]|null,
+             "diversity_scores": [float|null, ...]|null}`` (scores match sorted order)
       - ``{"type": "output_summary", "generated": int, "total": int}``
       - ``{"type": "eval_summary", "evaluated": int, "total": int}``
       - ``{"type": "done"}``
@@ -692,8 +693,9 @@ async def suggestion_pipeline_stream(
         yield _ndjson(await event_queue.get())
         await anyio.sleep(0)
 
-    # ── suggestions_done with diversity order ──
+    # ── suggestions_done with diversity order and scores ──
     diversity_order: Optional[List[int]] = None
+    diversity_scores: Optional[List[Optional[float]]] = None
     if generate_embeddings and suggestions:
         from rhesis.backend.app.services.adaptive_testing.embeddings import (
             sort_by_diversity,
@@ -708,6 +710,7 @@ async def suggestion_pipeline_stream(
 
         sorted_items = sort_by_diversity(items_for_sort)
         diversity_order = [item["_original_idx"] for item in sorted_items]
+        diversity_scores = [item.get("diversity_score") for item in sorted_items]
 
     yield _ndjson(
         {
@@ -715,6 +718,7 @@ async def suggestion_pipeline_stream(
             "total": len(suggestions),
             "num_examples_used": num_examples_used,
             "diversity_order": diversity_order,
+            "diversity_scores": diversity_scores,
         }
     )
     await anyio.sleep(0)

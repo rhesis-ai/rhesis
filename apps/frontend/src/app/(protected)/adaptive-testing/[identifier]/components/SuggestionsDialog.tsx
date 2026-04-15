@@ -294,12 +294,36 @@ export default function SuggestionsDialog({
                 setTestGenTotal(event.total);
                 setTestGenCompleted(event.total);
 
-                if (event.diversity_order) {
-                  const reordered = event.diversity_order.map(i => rows[i]).filter(Boolean);
+                const order = event.diversity_order;
+                const scores = event.diversity_scores;
+                let shouldFlushSuggestions = false;
+                if (order?.length && scores?.length === order.length) {
+                  const scoreByOriginalIndex = new Map<number, number | null>();
+                  order.forEach((origIdx, displayIdx) => {
+                    scoreByOriginalIndex.set(origIdx, scores[displayIdx] ?? null);
+                  });
+                  rows = rows.map((row, idx) => {
+                    if (!scoreByOriginalIndex.has(idx)) {
+                      return row;
+                    }
+                    return {
+                      ...row,
+                      diversity_score: scoreByOriginalIndex.get(idx) ?? null,
+                    };
+                  });
+                  shouldFlushSuggestions = true;
+                }
+
+                if (order) {
+                  const reordered = order.map(i => rows[i]).filter(Boolean);
                   if (reordered.length === rows.length) {
                     rows = reordered;
-                    setSuggestions(rows);
+                    shouldFlushSuggestions = true;
                   }
+                }
+
+                if (shouldFlushSuggestions) {
+                  setSuggestions(rows);
                 }
 
                 if (rows.length === 0) {
