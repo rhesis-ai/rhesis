@@ -3,7 +3,6 @@ import json
 import logging
 import random
 import time
-from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 import anyio
@@ -446,7 +445,7 @@ async def suggestion_pipeline_stream(
 
     Event protocol (one JSON object per line):
       - ``{"type": "suggestion", "index": int, "topic": str, "input": str}``
-      - ``{"type": "embedding", "index": int, "embedding": [...]|null}``
+      - ``{"type": "embedding", "index": int}``
       - ``{"type": "output", "index": int, "input": str, "output": str,
              "error": str|null}``
       - ``{"type": "evaluation", "index": int, "input": str, "label": str, ...}``
@@ -461,7 +460,12 @@ async def suggestion_pipeline_stream(
     from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
 
     pipeline_t0 = time.monotonic()
-    logger.info("Pipeline STARTED — generating suggestions (streaming)")
+
+    def _ts() -> str:
+        elapsed = time.monotonic() - pipeline_t0
+        return f"t={elapsed:6.2f}s"
+
+    logger.info("[%s] pipeline_start", _ts())
 
     suggestion_gen = await generate_suggestions(
         db=db,
@@ -515,19 +519,18 @@ async def suggestion_pipeline_stream(
             )
             embed_results[idx] = vec
             await event_queue.put(
-                {"type": "embedding", "index": idx, "embedding": vec}
+                {"type": "embedding", "index": idx}
             )
         except Exception as e:  # noqa: BLE001
             logger.warning("Embedding failed for suggestion %s: %s", idx, e)
             embed_results[idx] = None
             await event_queue.put(
-                {"type": "embedding", "index": idx, "embedding": None}
+                {"type": "embedding", "index": idx}
             )
 
     async def _evaluate_one(index: int, input_text: str, output_text: str):
         nonlocal evals_done, evals_failed
-        t_start = time.monotonic() - pipeline_t0
-        logger.info("Pipeline eval STARTED  idx=%s at t=%.2fs", index, t_start)
+        logger.info("[%s] idx=%02d evaluation_start", _ts(), index)
         async with eval_semaphore:
             try:
                 metric_results = await _run_metrics_on_text(
@@ -569,15 +572,11 @@ async def suggestion_pipeline_stream(
                 })
                 evals_failed += 1
             finally:
-                t_end = time.monotonic() - pipeline_t0
-                logger.info(
-                    "Pipeline eval DONE     idx=%s at t=%.2fs (started t=%.2fs)",
-                    index, t_end, t_start,
-                )
+                logger.info("[%s] idx=%02d evaluation_stop", _ts(), index)
 
     async def _invoke_one(index: int, input_text: str):
         nonlocal outputs_generated, outputs_failed
-        t_inv_start = time.monotonic() - pipeline_t0
+        logger.info("[%s] idx=%02d output_start", _ts(), index)
         async with output_semaphore:
             try:
                 with get_db_with_tenant_variables(
@@ -602,11 +601,7 @@ async def suggestion_pipeline_stream(
                 error = str(e)
                 outputs_failed += 1
 
-        t_inv_end = time.monotonic() - pipeline_t0
-        logger.info(
-            "Pipeline output DONE   idx=%s at t=%.2fs (started t=%.2fs)",
-            index, t_inv_end, t_inv_start,
-        )
+        logger.info("[%s] idx=%02d output_stop", _ts(), index)
 
         await event_queue.put({
             "type": "output", "index": index,
@@ -623,6 +618,7 @@ async def suggestion_pipeline_stream(
     # ── Stream suggestions, immediately spawning all background work ──
 
     suggestion_index = 0
+    logger.info("[%s] idx=%02d generation_start", _ts(), suggestion_index)
 
     async for event in suggestion_gen:
         if event.get("type") == "meta":
@@ -636,12 +632,9 @@ async def suggestion_pipeline_stream(
         suggestion = {"topic": topic_val, "input": text}
         suggestions.append(suggestion)
 
-        t_item = time.monotonic() - pipeline_t0
-        now = datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3]
-        logger.info(
-            "[%s] Pipeline suggestion PARSED idx=%s at t=%.2fs: %.80s",
-            now, idx, t_item, text,
-        )
+        logger.info("[%s] idx=%02d generation_stop", _ts(), idx)
+        if idx < num_suggestions - 1:
+            logger.info("[%s] idx=%02d generation_start", _ts(), idx + 1)
 
         yield _ndjson(
             {"type": "suggestion", "index": idx, "topic": topic_val, "input": text}
@@ -655,11 +648,6 @@ async def suggestion_pipeline_stream(
 
         # Spawn endpoint invocation immediately
         if text:
-            logger.info(
-                "[%s] Pipeline output SPAWNED idx=%s at t=%.2fs",
-                datetime.now(timezone.utc).strftime("%H:%M:%S.%f")[:-3],
-                idx, time.monotonic() - pipeline_t0,
-            )
             t = asyncio.create_task(_invoke_one(idx, text))
             invoke_tasks.add(t)
             t.add_done_callback(invoke_tasks.discard)
@@ -669,12 +657,7 @@ async def suggestion_pipeline_stream(
             yield _ndjson(await event_queue.get())
             await anyio.sleep(0)
 
-    t_suggestions = time.monotonic() - pipeline_t0
-    logger.info(
-        "Pipeline suggestions streamed at t=%.2fs (%d suggestions)",
-        t_suggestions,
-        len(suggestions),
-    )
+    logger.info("[%s] all generation_stop (%d suggestions)", _ts(), len(suggestions))
 
     # ── Drain all remaining background work ──
     # Embedding tasks, invoke tasks, and eval tasks all push to event_queue.
@@ -726,11 +709,10 @@ async def suggestion_pipeline_stream(
 
     # ── Summaries ──
     total = len([s for s in suggestions if (s.get("input") or "").strip()])
-    t_done = time.monotonic() - pipeline_t0
     logger.info(
-        "Pipeline FINISHED at t=%.2fs — outputs=%d/%d, evals=%d/%d, "
+        "[%s] pipeline_stop — outputs=%d/%d, evals=%d/%d, "
         "output_failures=%d, eval_failures=%d",
-        t_done, outputs_generated, total, evals_done, outputs_generated,
+        _ts(), outputs_generated, total, evals_done, outputs_generated,
         outputs_failed, evals_failed,
     )
     yield _ndjson({

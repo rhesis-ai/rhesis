@@ -336,11 +336,10 @@ export interface PipelineSuggestionEvent {
   input: string;
 }
 
-/** Streamed: embedding result for a single suggestion. */
+/** Streamed: embedding completed for a single suggestion (index only, no vector). */
 export interface PipelineEmbeddingEvent {
   type: 'embedding';
   index: number;
-  embedding: number[] | null;
 }
 
 /** Streamed: all suggestions (and embeddings) are done. */

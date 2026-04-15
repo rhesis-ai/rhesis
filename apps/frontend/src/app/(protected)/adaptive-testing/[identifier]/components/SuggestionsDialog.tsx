@@ -232,11 +232,11 @@ export default function SuggestionsDialog({
     setTestGenTotal(20);
     setOutputsStatus('idle');
     setOutputsCompleted(0);
-    setOutputsTotal(0);
+    setOutputsTotal(20);
     seenOutputIndices.current = new Set();
     setMetricsStatus('idle');
     setMetricsCompleted(0);
-    setMetricsTotal(0);
+    setMetricsTotal(20);
     seenMetricIndices.current = new Set();
 
     let rows: SuggestionRow[] = [];
@@ -278,23 +278,14 @@ export default function SuggestionsDialog({
                 setTestGenCompleted(rows.length);
 
                 if (hasInput) {
-                  setOutputsTotal(prev => prev + 1);
                   setOutputsStatus('running');
                   setOutputsLoading(true);
                 }
                 break;
               }
 
-              // ── Streaming: embedding result for a suggestion ──
+              // ── Streaming: embedding completed for a suggestion ──
               case 'embedding': {
-                rows = rows.map((s, idx) => {
-                  if (idx !== event.index) return s;
-                  return {
-                    ...s,
-                    embedding: event.embedding,
-                  };
-                });
-                setSuggestions(rows);
                 break;
               }
 
@@ -388,7 +379,6 @@ export default function SuggestionsDialog({
                   event.output &&
                   event.output !== '[no output]'
                 ) {
-                  setMetricsTotal(prev => prev + 1);
                   setMetricsStatus('running');
                   setCurrentStep('evaluate');
                   setEvaluateLoading(true);
