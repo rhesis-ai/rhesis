@@ -53,7 +53,8 @@ class ConnectionManager:
         self._contexts: Dict[str, WebSocketConnectionContext] = {}
 
         # --- Routing layer (project:env keyed) ---
-        self._project_routing: Dict[str, str] = {}
+        self._project_routing: Dict[str, List[str]] = {}
+        self._routing_counter: Dict[str, int] = {}
         self._connection_projects: Dict[str, set] = {}
 
         # --- Registry layer ---
@@ -70,16 +71,17 @@ class ConnectionManager:
         )
         self._dispatcher = Dispatcher(
             connections=self._connections,
-            project_routing=self._project_routing,
+            resolve_route=self._next_route,
             result_store=self._result_store,
             get_connection_key=self.get_connection_key,
+            remove_connection_route=self._remove_connection_route,
         )
         self._rpc_bridge = RpcBridge(
             worker_id=self.worker_id,
             connections=self._connections,
-            project_routing=self._project_routing,
+            resolve_route=self._next_route,
             get_connection_key=self.get_connection_key,
-            cleanup_project_routing=self._cleanup_project_routing,
+            remove_connection_route=self._remove_connection_route,
         )
 
     # ==================================================================
@@ -90,6 +92,56 @@ class ConnectionManager:
         """Generate a normalized ``project_id:environment`` key."""
         environment = environment.lower()
         return f"{project_id}:{environment}"
+
+    def _next_route(self, project_id: str, environment: str) -> Optional[str]:
+        """Round-robin select a live connection for a project:env.
+
+        Prunes dead connections from the pool on each call.
+        Returns ``None`` when no live connection exists.
+        """
+        key = self.get_connection_key(project_id, environment)
+        pool = self._project_routing.get(key)
+        if not pool:
+            return None
+
+        live = [c for c in pool if c in self._connections]
+        if not live:
+            del self._project_routing[key]
+            self._routing_counter.pop(key, None)
+            return None
+
+        if len(live) != len(pool):
+            self._project_routing[key] = live
+
+        idx = self._routing_counter.get(key, 0) % len(live)
+        self._routing_counter[key] = (idx + 1) % len(live)
+        return live[idx]
+
+    def _remove_connection_route(self, key: str, connection_id: str) -> None:
+        """Remove one connection from a project:env routing pool.
+
+        Also removes the key from the connection's project set so that
+        the heartbeat no longer refreshes the Redis routing key for a
+        connection that has been evicted from the pool.
+
+        When the pool becomes empty the routing entry, registries,
+        and round-robin counter are cleaned up.
+        """
+        pool = self._project_routing.get(key)
+        if pool is None:
+            return
+        if connection_id in pool:
+            pool.remove(connection_id)
+
+        projects = self._connection_projects.get(connection_id)
+        if projects is not None:
+            projects.discard(key)
+
+        if not pool:
+            del self._project_routing[key]
+            self._registries.pop(key, None)
+            self._metric_registries.pop(key, None)
+            self._routing_counter.pop(key, None)
 
     # ==================================================================
     # Background task tracking
@@ -134,17 +186,11 @@ class ConnectionManager:
 
         if redis_manager.is_available:
             try:
-                await redis_manager.client.setex(
-                    f"ws:conn:{connection_id}", 30, self.worker_id
-                )
+                await redis_manager.client.setex(f"ws:conn:{connection_id}", 30, self.worker_id)
             except Exception as e:
-                logger.warning(
-                    f"Failed to set Redis conn key for {connection_id}: {e}"
-                )
+                logger.warning(f"Failed to set Redis conn key for {connection_id}: {e}")
 
-        heartbeat = self._track_background_task(
-            self._heartbeat_loop(connection_id)
-        )
+        heartbeat = self._track_background_task(self._heartbeat_loop(connection_id))
         self._heartbeat_tasks[connection_id] = heartbeat
 
         logger.info(f"Connected: connection_id={connection_id}")
@@ -162,43 +208,33 @@ class ConnectionManager:
 
         project_keys = self._connection_projects.pop(connection_id, set())
         for pk in project_keys:
-            self._cleanup_project_routing(pk)
+            self._remove_connection_route(pk, connection_id)
 
         if redis_manager.is_available:
             try:
                 self._track_background_task(
-                    self._cleanup_redis_for_connection(
-                        connection_id, project_keys
-                    )
+                    self._cleanup_redis_for_connection(connection_id, project_keys)
                 )
             except Exception as e:
-                logger.warning(
-                    f"Failed to schedule Redis cleanup "
-                    f"for {connection_id}: {e}"
-                )
+                logger.warning(f"Failed to schedule Redis cleanup for {connection_id}: {e}")
 
-    def _cleanup_project_routing(self, project_env_key: str) -> None:
-        """Remove project:env routing and associated registries."""
-        self._project_routing.pop(project_env_key, None)
-        self._registries.pop(project_env_key, None)
-        self._metric_registries.pop(project_env_key, None)
+    async def _cleanup_redis_for_connection(self, connection_id: str, project_keys: set) -> None:
+        """Remove Redis keys for a disconnected connection.
 
-    async def _cleanup_redis_for_connection(
-        self, connection_id: str, project_keys: set
-    ) -> None:
-        """Remove all Redis keys for a disconnected connection."""
+        The ``ws:routing:{pk}`` key is only deleted when no other
+        connections remain in the local pool for that route (to avoid
+        wiping a route that is still served by another worker).
+        """
         try:
             await redis_manager.client.delete(f"ws:conn:{connection_id}")
             for pk in project_keys:
-                await redis_manager.client.delete(f"ws:routing:{pk}")
+                if not self._project_routing.get(pk):
+                    await redis_manager.client.delete(f"ws:routing:{pk}")
             logger.debug(
-                f"Cleaned Redis for connection {connection_id} "
-                f"({len(project_keys)} project key(s))"
+                f"Cleaned Redis for connection {connection_id} ({len(project_keys)} project key(s))"
             )
         except Exception as e:
-            logger.warning(
-                f"Failed to clean Redis for {connection_id}: {e}"
-            )
+            logger.warning(f"Failed to clean Redis for {connection_id}: {e}")
 
     async def _heartbeat_loop(self, connection_id: str) -> None:
         """Refresh Redis keys and send application-level pings.
@@ -230,10 +266,7 @@ class ConnectionManager:
                             await websocket.send_json({"type": "ping"})
                             logger.debug(f"Ping sent to {connection_id}")
                         except Exception as e:
-                            logger.warning(
-                                f"Failed to send ping to "
-                                f"{connection_id}: {e}"
-                            )
+                            logger.warning(f"Failed to send ping to {connection_id}: {e}")
 
                 # --- Redis key refresh ---
                 if not redis_manager.is_available:
@@ -245,28 +278,26 @@ class ConnectionManager:
                         30,
                         self.worker_id,
                     )
-                    for pk in self._connection_projects.get(
-                        connection_id, set()
-                    ):
-                        await redis_manager.client.setex(
-                            f"ws:routing:{pk}",
-                            30,
-                            self.worker_id,
-                        )
-                    logger.debug(
-                        f"Heartbeat refreshed for {connection_id}"
-                    )
+                    for pk in self._connection_projects.get(connection_id, set()):
+                        # Only refresh the routing key if this connection
+                        # is the first entry in the pool, avoiding N
+                        # redundant SETEX calls when N workers share
+                        # the same project:env route.
+                        pool = self._project_routing.get(pk)
+                        if pool and pool[0] == connection_id:
+                            await redis_manager.client.setex(
+                                f"ws:routing:{pk}",
+                                30,
+                                self.worker_id,
+                            )
+                    logger.debug(f"Heartbeat refreshed for {connection_id}")
                 except Exception as e:
-                    logger.warning(
-                        f"Heartbeat failed for {connection_id}: {e}"
-                    )
+                    logger.warning(f"Heartbeat failed for {connection_id}: {e}")
 
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.error(
-                f"Unexpected error in heartbeat for {connection_id}: {e}"
-            )
+            logger.error(f"Unexpected error in heartbeat for {connection_id}: {e}")
 
     # ==================================================================
     # Registry management
@@ -300,13 +331,9 @@ class ConnectionManager:
         """Handle registration message from SDK -- update local registries."""
         try:
             reg_msg = RegisterMessage(**message)
-            self.register_functions(
-                project_id, environment, reg_msg.functions
-            )
+            self.register_functions(project_id, environment, reg_msg.functions)
             if reg_msg.metrics:
-                self.register_metrics(
-                    project_id, environment, reg_msg.metrics
-                )
+                self.register_metrics(project_id, environment, reg_msg.metrics)
         except Exception as e:
             logger.error(f"Error handling registration: {e}")
 
@@ -317,15 +344,14 @@ class ConnectionManager:
     def has_local_route(self, project_id: str, environment: str) -> bool:
         """Check whether this instance has a local route for a project:env."""
         key = self.get_connection_key(project_id, environment)
-        conn_id = self._project_routing.get(key)
-        return conn_id is not None and conn_id in self._connections
+        pool = self._project_routing.get(key)
+        return bool(pool) and any(c in self._connections for c in pool)
 
-    def get_connection_status(
-        self, project_id: str, environment: str
-    ) -> ConnectionStatus:
+    def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
         """Get connection status for a project:environment."""
         key = self.get_connection_key(project_id, environment)
-        connected = key in self._project_routing
+        pool = self._project_routing.get(key)
+        connected = bool(pool) and any(c in self._connections for c in pool)
         functions = self._registries.get(key, [])
 
         return ConnectionStatus(
@@ -338,24 +364,19 @@ class ConnectionManager:
     async def is_connected(self, project_id: str, environment: str) -> bool:
         """Check if a project:environment has an active connection.
 
-        Checks local routing table first, then Redis for connections
-        on other instances.
+        Checks local routing table first (with liveness verification),
+        then Redis for connections on other instances.
         """
-        key = self.get_connection_key(project_id, environment)
-
-        if key in self._project_routing:
+        if self.has_local_route(project_id, environment):
             return True
 
         if redis_manager.is_available:
+            key = self.get_connection_key(project_id, environment)
             try:
-                exists = await redis_manager.client.exists(
-                    f"ws:routing:{key}"
-                )
+                exists = await redis_manager.client.exists(f"ws:routing:{key}")
                 return exists > 0
             except Exception as e:
-                logger.warning(
-                    f"Failed to check Redis for routing {key}: {e}"
-                )
+                logger.warning(f"Failed to check Redis for routing {key}: {e}")
 
         return False
 
@@ -396,9 +417,7 @@ class ConnectionManager:
         msg_environment = message.get("environment", "")
 
         if not msg_project_id and connection_id:
-            msg_project_id, msg_environment = (
-                self._resolve_project_for_connection(connection_id)
-            )
+            msg_project_id, msg_environment = self._resolve_project_for_connection(connection_id)
 
         logger.info(
             f"Processing message type: {message_type} "
@@ -407,16 +426,12 @@ class ConnectionManager:
         )
 
         if message_type == "register":
-            return await self._handle_register(
-                connection_id, message, db, organization_id, user_id
-            )
+            return await self._handle_register(connection_id, message, db, organization_id, user_id)
 
         elif message_type == "test_result":
             test_run_id = message.get("test_run_id")
             if test_run_id:
-                self._result_store.resolve_test_result(
-                    test_run_id, message
-                )
+                self._result_store.resolve_test_result(test_run_id, message)
             await message_handler.handle_test_result_message(
                 msg_project_id, msg_environment, message, db
             )
@@ -425,15 +440,11 @@ class ConnectionManager:
         elif message_type == "metric_result":
             metric_run_id = message.get("metric_run_id")
             if metric_run_id:
-                self._result_store.resolve_metric_result(
-                    metric_run_id, message
-                )
+                self._result_store.resolve_metric_result(metric_run_id, message)
             return None
 
         elif message_type == "pong":
-            await message_handler.handle_pong_message(
-                msg_project_id, msg_environment
-            )
+            await message_handler.handle_pong_message(msg_project_id, msg_environment)
             return None
 
         else:
@@ -465,16 +476,11 @@ class ConnectionManager:
                 return {
                     "type": "registered",
                     "status": "error",
-                    "error": (
-                        f"Project {reg_project_id} not found "
-                        f"or not accessible"
-                    ),
+                    "error": (f"Project {reg_project_id} not found or not accessible"),
                 }
 
         if reg_project_id and reg_environment:
-            await self.handle_registration(
-                reg_project_id, reg_environment, message
-            )
+            await self.handle_registration(reg_project_id, reg_environment, message)
             return await message_handler.handle_register_message(
                 project_id=reg_project_id,
                 environment=reg_environment,
@@ -484,9 +490,7 @@ class ConnectionManager:
                 user_id=user_id,
             )
 
-        logger.info(
-            f"Metrics-only registration for connection {connection_id}"
-        )
+        logger.info(f"Metrics-only registration for connection {connection_id}")
         response = await message_handler.handle_register_message(
             project_id="",
             environment="",
@@ -527,34 +531,28 @@ class ConnectionManager:
                 logger.error(f"Invalid project_id format: {project_id}")
                 return False
 
-            project = crud.get_project(
-                db, project_uuid, auth_org_id, auth_user_id
-            )
+            project = crud.get_project(db, project_uuid, auth_org_id, auth_user_id)
             if not project:
                 logger.error(
-                    f"Project {project_id} not found or not accessible "
-                    f"for org {auth_org_id}"
+                    f"Project {project_id} not found or not accessible for org {auth_org_id}"
                 )
                 return False
 
             logger.info(
-                f"Project authorized: {project.name} ({project_id}) "
-                f"for connection {connection_id}"
+                f"Project authorized: {project.name} ({project_id}) for connection {connection_id}"
             )
 
         key = self.get_connection_key(project_id, environment)
-        self._project_routing[key] = connection_id
+        pool = self._project_routing.setdefault(key, [])
+        if connection_id not in pool:
+            pool.append(connection_id)
         self._connection_projects.setdefault(connection_id, set()).add(key)
 
         if redis_manager.is_available:
             try:
-                await redis_manager.client.setex(
-                    f"ws:routing:{key}", 30, self.worker_id
-                )
+                await redis_manager.client.setex(f"ws:routing:{key}", 30, self.worker_id)
             except Exception as e:
-                logger.error(
-                    f"Failed to set Redis routing for {key}: {e}"
-                )
+                logger.error(f"Failed to set Redis routing for {key}: {e}")
 
         return True
 
@@ -564,17 +562,13 @@ class ConnectionManager:
 
     # --- ResultStore ---
 
-    def get_test_result(
-        self, test_run_id: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_test_result(self, test_run_id: str) -> Optional[Dict[str, Any]]:
         return self._result_store.get_test_result(test_run_id)
 
     def cleanup_test_result(self, test_run_id: str) -> None:
         self._result_store.cleanup_test_result(test_run_id)
 
-    def get_metric_result(
-        self, metric_run_id: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_metric_result(self, metric_run_id: str) -> Optional[Dict[str, Any]]:
         return self._result_store.get_metric_result(metric_run_id)
 
     def cleanup_metric_result(self, metric_run_id: str) -> None:

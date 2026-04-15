@@ -17,19 +17,29 @@ def mock_websocket():
 @pytest.fixture
 def bridge(mock_websocket):
     connections = {"conn-1": mock_websocket}
-    routing = {"proj:dev": "conn-1"}
+    routing = {"proj:dev": ["conn-1"]}
 
     def get_key(project_id, environment):
         return f"{project_id}:{environment.lower()}"
 
-    cleanup = Mock()
+    def resolve_route(project_id, environment):
+        key = get_key(project_id, environment)
+        pool = routing.get(key)
+        if not pool:
+            return None
+        live = [c for c in pool if c in connections]
+        if not live:
+            return None
+        return live[0]
+
+    remove_route = Mock()
 
     return RpcBridge(
         worker_id="test-worker-1",
         connections=connections,
-        project_routing=routing,
+        resolve_route=resolve_route,
         get_connection_key=get_key,
-        cleanup_project_routing=cleanup,
+        remove_connection_route=remove_route,
     )
 
 
@@ -66,9 +76,7 @@ class TestHandleRpcRequest:
         assert payload["type"] == "execute_metric"
 
     @pytest.mark.asyncio
-    async def test_forwards_metric_by_connection_id(
-        self, bridge, mock_websocket
-    ):
+    async def test_forwards_metric_by_connection_id(self, bridge, mock_websocket):
         request = {
             "request_id": "rpc-3",
             "request_type": "execute_metric",
@@ -87,9 +95,7 @@ class TestHandleRpcRequest:
             "metric_name": "accuracy",
             "inputs": {},
         }
-        with patch.object(
-            bridge, "_publish_error_response", new_callable=AsyncMock
-        ) as mock_pub:
+        with patch.object(bridge, "_publish_error_response", new_callable=AsyncMock) as mock_pub:
             await bridge._handle_rpc_request(request)
             mock_pub.assert_called_once()
 
@@ -102,57 +108,41 @@ class TestHandleRpcRequest:
             "function_name": "my_func",
             "inputs": {},
         }
-        with patch.object(
-            bridge, "_publish_error_response", new_callable=AsyncMock
-        ) as mock_pub:
+        with patch.object(bridge, "_publish_error_response", new_callable=AsyncMock) as mock_pub:
             await bridge._handle_rpc_request(request)
             mock_pub.assert_called_once()
 
 
 class TestForwardMessageToSdk:
     @pytest.mark.asyncio
-    async def test_cleans_stale_routing_on_send_error(
-        self, bridge, mock_websocket
-    ):
+    async def test_cleans_stale_routing_on_send_error(self, bridge, mock_websocket):
         mock_websocket.send_json.side_effect = Exception("broken pipe")
-        with patch.object(
-            bridge, "_publish_error_response", new_callable=AsyncMock
-        ):
+        with patch.object(bridge, "_publish_error_response", new_callable=AsyncMock):
             await bridge._forward_to_sdk(
-                "rpc-1", "proj:dev", mock_websocket, "my_func", {}
+                "rpc-1", "proj:dev", "conn-1", mock_websocket, "my_func", {}
             )
-        bridge._cleanup_project_routing.assert_called_once_with("proj:dev")
+        bridge._remove_connection_route.assert_called_once_with("proj:dev", "conn-1")
 
 
 class TestPublishErrorResponse:
     @pytest.mark.asyncio
     async def test_publishes_via_redis(self, bridge):
-        with patch(
-            "rhesis.backend.app.services.connector.rpc_bridge.redis_manager"
-        ) as mock_redis:
+        with patch("rhesis.backend.app.services.connector.rpc_bridge.redis_manager") as mock_redis:
             mock_redis.is_available = True
             mock_redis.client = AsyncMock()
-            await bridge._publish_error_response(
-                "rpc-1", "proj:dev", "some error"
-            )
+            await bridge._publish_error_response("rpc-1", "proj:dev", "some error")
             mock_redis.client.publish.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_noop_when_redis_unavailable(self, bridge):
-        with patch(
-            "rhesis.backend.app.services.connector.rpc_bridge.redis_manager"
-        ) as mock_redis:
+        with patch("rhesis.backend.app.services.connector.rpc_bridge.redis_manager") as mock_redis:
             mock_redis.is_available = False
-            await bridge._publish_error_response(
-                "rpc-1", "proj:dev", "some error"
-            )
+            await bridge._publish_error_response("rpc-1", "proj:dev", "some error")
 
 
 class TestListenSkipsWithoutRedis:
     @pytest.mark.asyncio
     async def test_returns_immediately_without_redis(self, bridge):
-        with patch(
-            "rhesis.backend.app.services.connector.rpc_bridge.redis_manager"
-        ) as mock_redis:
+        with patch("rhesis.backend.app.services.connector.rpc_bridge.redis_manager") as mock_redis:
             mock_redis.is_available = False
             await bridge.listen()

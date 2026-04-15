@@ -14,31 +14,39 @@ from rhesis.backend.app.services.connector.schemas import (
 
 logger = logging.getLogger(__name__)
 
+_MAX_SEND_ATTEMPTS = 3
+
 
 class Dispatcher:
     """Sends test and metric execution requests to SDK connections.
 
-    Resolves WebSockets via the shared routing/connection dicts and
-    uses :class:`ResultStore` for send-and-await semantics.
+    Resolves WebSockets via a ``resolve_route`` callable that performs
+    round-robin selection across the connection pool for a given
+    ``project:env``.
 
     Args:
         connections: Shared ``connection_id -> WebSocket`` dict (read).
-        project_routing: Shared ``project:env -> connection_id`` dict (read).
+        resolve_route: Callable ``(project_id, environment) -> Optional[connection_id]``
+            that round-robin selects a live connection from the pool.
         result_store: The result store for event management and cleanup.
         get_connection_key: Callable that builds a ``project:env`` key.
+        remove_connection_route: Callback ``(key, connection_id)`` to
+            evict a broken connection from the routing pool.
     """
 
     def __init__(
         self,
         connections: Dict[str, WebSocket],
-        project_routing: Dict[str, str],
+        resolve_route: Callable[[str, str], Optional[str]],
         result_store: ResultStore,
         get_connection_key: Callable[[str, str], str],
+        remove_connection_route: Callable[[str, str], None],
     ) -> None:
         self._connections = connections
-        self._project_routing = project_routing
+        self._resolve_route = resolve_route
         self._result_store = result_store
         self._get_connection_key = get_connection_key
+        self._remove_connection_route = remove_connection_route
 
     # ------------------------------------------------------------------
     # WebSocket resolution
@@ -46,13 +54,15 @@ class Dispatcher:
 
     def _resolve_websocket(
         self, project_id: str, environment: str
-    ) -> Optional[WebSocket]:
-        """Resolve the WebSocket for a project:env via the routing table."""
-        key = self._get_connection_key(project_id, environment)
-        conn_id = self._project_routing.get(key)
+    ) -> tuple[Optional[str], Optional[WebSocket]]:
+        """Resolve the WebSocket for a project:env via round-robin routing.
+
+        Returns (connection_id, websocket) so callers can evict on failure.
+        """
+        conn_id = self._resolve_route(project_id, environment)
         if not conn_id:
-            return None
-        return self._connections.get(conn_id)
+            return None, None
+        return conn_id, self._connections.get(conn_id)
 
     # ------------------------------------------------------------------
     # Test dispatch
@@ -68,32 +78,39 @@ class Dispatcher:
     ) -> bool:
         """Send test execution request to SDK via project:env routing.
 
+        On send failure the broken connection is evicted from the pool
+        and the next connection is tried, up to ``_MAX_SEND_ATTEMPTS``.
+
         Returns:
             True if message sent successfully, False otherwise.
         """
-        websocket = self._resolve_websocket(project_id, environment)
-        if not websocket:
-            key = self._get_connection_key(project_id, environment)
-            logger.debug(
-                f"No local WebSocket for {key} - may be on another instance"
-            )
-            return False
-
+        key = self._get_connection_key(project_id, environment)
         message = ExecuteTestMessage(
             test_run_id=test_run_id,
             function_name=function_name,
             inputs=inputs,
         )
+        payload = message.model_dump()
 
-        try:
-            await websocket.send_json(message.model_dump())
-            key = self._get_connection_key(project_id, environment)
-            logger.info(f"Sent test request to {key}: {function_name}")
-            return True
-        except Exception as e:
-            key = self._get_connection_key(project_id, environment)
-            logger.error(f"Error sending test request to {key}: {e}")
-            return False
+        for attempt in range(_MAX_SEND_ATTEMPTS):
+            conn_id, websocket = self._resolve_websocket(project_id, environment)
+            if not websocket:
+                logger.debug(f"No local WebSocket for {key} - may be on another instance")
+                return False
+
+            try:
+                await websocket.send_json(payload)
+                logger.info(f"Sent test request to {key}: {function_name}")
+                return True
+            except Exception as e:
+                logger.warning(
+                    f"Send failed on {conn_id} for {key} "
+                    f"(attempt {attempt + 1}/{_MAX_SEND_ATTEMPTS}): {e}"
+                )
+                self._remove_connection_route(key, conn_id)
+
+        logger.error(f"All send attempts exhausted for {key}: {function_name}")
+        return False
 
     async def send_and_await_result(
         self,
@@ -174,14 +191,10 @@ class Dispatcher:
 
         try:
             await websocket.send_json(message.model_dump())
-            logger.info(
-                f"Sent metric request to conn:{connection_id}: {metric_name}"
-            )
+            logger.info(f"Sent metric request to conn:{connection_id}: {metric_name}")
             return True
         except Exception as e:
-            logger.error(
-                f"Error sending metric to conn:{connection_id}: {e}"
-            )
+            logger.error(f"Error sending metric to conn:{connection_id}: {e}")
             return False
 
     async def send_and_await_metric_by_connection(
@@ -210,8 +223,7 @@ class Dispatcher:
                 return {
                     "error": "send_failed",
                     "details": (
-                        "Failed to send metric message to SDK "
-                        f"(connection {connection_id})"
+                        f"Failed to send metric message to SDK (connection {connection_id})"
                     ),
                 }
 
@@ -230,9 +242,7 @@ class Dispatcher:
 
         except asyncio.TimeoutError:
             self._result_store.cleanup_metric_result(metric_run_id)
-            logger.error(
-                f"Timeout waiting for metric result: {metric_run_id}"
-            )
+            logger.error(f"Timeout waiting for metric result: {metric_run_id}")
             return {"error": "timeout"}
 
         finally:
