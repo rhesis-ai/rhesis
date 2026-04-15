@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+import os
+import random
 import threading
 from collections.abc import Callable
 from typing import Any
@@ -113,7 +115,7 @@ class ConnectorManager:
         )
 
         self._initialized = True
-        msg = "Connector initialized"
+        msg = f"Connector initialized (pid={os.getpid()})"
         if self.project_id:
             msg += f" for project {self.project_id}"
         logger.info(msg)
@@ -140,6 +142,11 @@ class ConnectorManager:
         )
         self._thread.start()
 
+    # Max jitter (seconds) before the first connection attempt.
+    # Prevents thundering-herd when multiple Gunicorn workers boot
+    # simultaneously and all try to open WebSocket connections at once.
+    _CONNECT_JITTER_MAX = float(os.environ.get("RHESIS_CONNECT_JITTER", "5"))
+
     def _run_connection_loop(self) -> None:
         """Entry point for the dedicated connector thread.
 
@@ -147,6 +154,13 @@ class ConnectorManager:
         the loop until the process exits (daemon thread) or ``shutdown()``
         is called.
         """
+        if self._CONNECT_JITTER_MAX > 0:
+            jitter = random.uniform(0, self._CONNECT_JITTER_MAX)
+            logger.debug(f"Connection jitter: waiting {jitter:.1f}s before connecting")
+            import time
+
+            time.sleep(jitter)
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         self._thread_loop = loop
