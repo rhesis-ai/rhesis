@@ -9,7 +9,11 @@ metadata:
     app: docs
     tier: docs
     {{- include "rhesis.labels" . | nindent 4 }}
-  {{- with .Values.docs.ingress.annotations }}
+  {{- $ann := .Values.docs.ingress.annotations }}
+  {{- if not .Values.docs.ingress.tlsEnabled }}
+  {{- $ann = merge (dict "nginx.ingress.kubernetes.io/ssl-redirect" "false") (omit $ann "cert-manager.io/cluster-issuer") }}
+  {{- end }}
+  {{- with $ann }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -26,8 +30,10 @@ spec:
                 name: docs
                 port:
                   number: {{ .Values.docs.service.port }}
+  {{- if .Values.docs.ingress.tlsEnabled }}
   tls:
     - hosts:
         - {{ .Values.docs.ingress.host | quote }}
       secretName: {{ .Values.docs.ingress.tlsSecretName }}
+  {{- end }}
 {{- end }}
