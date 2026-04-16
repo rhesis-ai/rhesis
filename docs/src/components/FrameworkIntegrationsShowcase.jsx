@@ -42,19 +42,32 @@ const TRACING_ITEMS = [
   },
 ]
 
-const MCP_MAIN = {
-  name: 'Model Context Protocol',
-  href: '/docs/mcp',
-  src: '/integrations/modelcontextprotocol.svg',
-  kind: 'simpleIcon',
-}
-
-/** Shown next to MCP as examples of tool ecosystems (not product links). */
-const MCP_COMPANION_ICONS = [
-  { name: 'Jira', src: '/integrations/providers/jira.svg' },
-  { name: 'Confluence', src: '/integrations/providers/confluence.svg' },
-  { name: 'GitHub', src: '/integrations/providers/github.svg' },
-  { name: 'Notion', src: '/integrations/providers/notion.svg' },
+/** MCP server providers — sections on /docs/mcp */
+const MCP_ITEMS = [
+  {
+    name: 'Notion',
+    href: '/docs/mcp#notion',
+    src: '/integrations/providers/notion.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'GitHub',
+    href: '/docs/mcp#github',
+    src: '/integrations/providers/github.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'Jira',
+    href: '/docs/mcp#jira-or-confluence',
+    src: '/integrations/providers/jira.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'Confluence',
+    href: '/docs/mcp#jira-or-confluence',
+    src: '/integrations/providers/confluence.svg',
+    kind: 'simpleIcon',
+  },
 ]
 
 const EVAL_ITEMS = [
@@ -219,35 +232,6 @@ function LogoBox({ item }) {
   )
 }
 
-function SmallMonoIcon({ src, title }) {
-  return (
-    <span
-      role="img"
-      aria-label={title}
-      title={title}
-      style={{
-        display: 'inline-flex',
-        width: '36px',
-        height: '36px',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: '8px',
-        background: 'rgba(255,255,255,0.06)',
-        border: '1px solid rgba(255,255,255,0.1)',
-      }}
-    >
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        width={22}
-        height={22}
-        style={{ width: '22px', height: '22px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-      />
-    </span>
-  )
-}
-
 function GridCard({ item }) {
   const [hover, setHover] = React.useState(false)
   return (
@@ -347,7 +331,6 @@ function ProviderChip({ item }) {
 }
 
 function McpSection() {
-  const main = MCP_MAIN
   return (
     <section style={{ marginBottom: '2.5rem' }}>
       <h3
@@ -370,62 +353,22 @@ function McpSection() {
           lineHeight: 1.55,
         }}
       >
-        Connect MCP servers so Rhesis can use external tools during workflows.
+        Connect MCP servers so Rhesis can use external tools during workflows. See the{' '}
+        <a href="/docs/mcp" style={{ color: '#7dd3fc', fontWeight: 600 }}>
+          MCP
+        </a>{' '}
+        guide for setup.
       </p>
       <div
         style={{
-          borderRadius: '12px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          background: 'rgba(255, 255, 255, 0.03)',
-          padding: '1rem 1.25rem',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gap: '0.75rem',
         }}
       >
-        <a
-          href={main.href}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            textDecoration: 'none',
-            color: '#f9fafb',
-            marginBottom: '1rem',
-            paddingBottom: '1rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          <span
-            style={{
-              position: 'absolute',
-              width: '1px',
-              height: '1px',
-              padding: 0,
-              margin: '-1px',
-              overflow: 'hidden',
-              clip: 'rect(0, 0, 0, 0)',
-              whiteSpace: 'nowrap',
-              border: 0,
-            }}
-          >
-            {main.name}
-          </span>
-          <LogoBox item={main} />
-          <span style={{ fontWeight: 600, fontSize: '0.9375rem', fontFamily: 'Sora, sans-serif', flex: 1 }}>
-            {main.name}
-          </span>
-          <span style={{ color: 'rgba(148, 163, 184, 0.9)' }}>↗</span>
-        </a>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.8125rem', color: 'rgba(148, 163, 184, 0.95)', marginRight: '0.25rem' }}>
-            Supporting:
-          </span>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
-            {MCP_COMPANION_ICONS.map(ic => (
-              <span key={ic.name} title={ic.name} style={{ display: 'inline-flex' }}>
-                <SmallMonoIcon src={ic.src} title={ic.name} />
-              </span>
-            ))}
-          </div>
-        </div>
+        {MCP_ITEMS.map(item => (
+          <GridCard key={item.name + item.href} item={item} />
+        ))}
       </div>
     </section>
   )
