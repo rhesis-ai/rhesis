@@ -81,6 +81,7 @@ class EmbeddingGenerator:
         user_id: str,
         model_id: str,
         entity: Optional[Any] = None,
+        searchable_text: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Generate embedding for any embeddable entity.
@@ -91,17 +92,20 @@ class EmbeddingGenerator:
             organization_id: Organization context
             user_id: User context
             model_id: ID of the embedding model to use
-            entity: Optional entity object (avoids re-fetch if provided)
+            entity: Optional entity object (used when searchable_text is not provided)
+            searchable_text: Precomputed searchable text; when set, entity is not loaded for text
 
         Returns:
             Dictionary with generation result
         """
-        # If entity object provided, use it (sync path -> no extra DB query)
-        if not entity:
-            entity = self._get_entity(entity_id, entity_type, organization_id)
+        if searchable_text is None:
+            if not entity:
+                entity = self._get_entity(entity_id, entity_type, organization_id)
 
-        if not hasattr(entity, "to_searchable_text"):
-            raise ValueError(f"Entity {entity_type} does not support embedding")
+            if not hasattr(entity, "to_searchable_text"):
+                raise ValueError(f"Entity {entity_type} does not support embedding")
+
+            searchable_text = entity.to_searchable_text()
 
         # Fetch model to get all configuration
         model = crud.get_model(self.db, model_id, organization_id, user_id)
@@ -112,9 +116,6 @@ class EmbeddingGenerator:
         provider = model.provider_type.type_value if model.provider_type else None
         model_name = model.model_name
         dimension = model.dimension
-
-        # Get searchable text from entity
-        searchable_text = entity.to_searchable_text()
 
         # Create configuration for this embedding
         config = {

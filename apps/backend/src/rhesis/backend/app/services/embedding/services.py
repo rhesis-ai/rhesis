@@ -1,10 +1,10 @@
 """Embedding generation service with async/sync orchestration."""
 
 import logging
+from types import SimpleNamespace
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.mixins import EmbeddableMixin
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.async_service import AsyncService
 from rhesis.backend.tasks import task_launcher
@@ -20,28 +20,40 @@ class EmbeddingService(AsyncService):
         super().__init__()
         self.db = db
 
-    def _execute_sync(self, entity: EmbeddableMixin, model_id: str, current_user: User, **kwargs):
+    def _execute_sync(self, model_id: str, **kwargs):
         from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
+
+        entity_type = kwargs["entity_type"]
+        entity_id = kwargs["entity_id"]
+        searchable_text = kwargs["searchable_text"]
+        user_id = kwargs["user_id"]
+        organization_id = kwargs["organization_id"]
 
         generator = EmbeddingGenerator(self.db)
         generator.generate(
-            entity_id=str(entity.id),
-            entity_type=entity.__class__.__name__,
-            organization_id=str(current_user.organization_id),
-            user_id=str(current_user.id),
+            entity_id=str(entity_id),
+            entity_type=entity_type,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
             model_id=str(model_id),
-            entity=entity,
+            searchable_text=searchable_text,
+            entity=None,
         )
 
-    def _enqueue_async(self, entity: EmbeddableMixin, model_id: str, current_user: User, **kwargs):
-        entity_id = str(kwargs.get("entity_id", entity.id))
-        entity_type = kwargs.get("entity_type", entity.__class__.__name__)
+    def _enqueue_async(self, model_id: str, **kwargs):
+        entity_id = str(kwargs["entity_id"])
+        entity_type = kwargs["entity_type"]
+        searchable_text = kwargs["searchable_text"]
+        user_id = str(kwargs["user_id"])
+        organization_id = str(kwargs["organization_id"])
+
         task_launcher(
             generate_embedding_task,
             entity_id=entity_id,
             entity_type=entity_type,
-            model_id=model_id,
-            current_user=current_user,
+            model_id=str(model_id),
+            searchable_text=searchable_text,
+            current_user=SimpleNamespace(id=user_id, organization_id=organization_id),
         )
 
     def _resolve_model_id(self, user_id: str, model_id: str = None) -> str:
@@ -61,16 +73,26 @@ class EmbeddingService(AsyncService):
 
         raise ValueError(f"No embedding model found for user {user_id}")
 
-    def enqueue_embedding(self, entity: EmbeddableMixin, current_user: User) -> bool:
-        """Enqueue embedding generation for an entity."""
+    def enqueue_embedding(
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        searchable_text: str,
+        user_id: str,
+        organization_id: str,
+        model_id: str | None = None,
+    ) -> bool:
+        """Enqueue embedding generation using entity identity and precomputed searchable text."""
         try:
-            model_id = self._resolve_model_id(entity.user_id, None)
+            resolved_model_id = self._resolve_model_id(str(user_id), model_id)
             was_async, _ = self.execute_with_fallback(
-                entity,
-                model_id,
-                entity_id=entity.id,
-                entity_type=entity.__class__.__name__,
-                current_user=current_user,
+                resolved_model_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                searchable_text=searchable_text,
+                user_id=str(user_id),
+                organization_id=str(organization_id),
             )
             return was_async
         except Exception as e:

@@ -2,9 +2,9 @@ import functools
 import hashlib
 import logging
 
-from sqlalchemy import Column, ForeignKey, and_
+from sqlalchemy import Column, ForeignKey, and_, event
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import declared_attr, relationship
+from sqlalchemy.orm import declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 from .guid import GUID
@@ -397,3 +397,41 @@ class EmbeddableMixin:
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement to_searchable_text() method"
         )
+
+
+# Event listeners for embedding generation
+@event.listens_for(EmbeddableMixin, "after_insert", propagate=True)
+def on_entity_insert(mapper, connection, target):
+    from rhesis.backend.app.services.embedding.services import EmbeddingService
+
+    try:
+        session = object_session(target)
+        embedding_service = EmbeddingService(session)
+        embedding_service.enqueue_embedding(
+            entity_type=target.__class__.__name__,
+            entity_id=str(target.id),
+            searchable_text=target.to_searchable_text(),
+            user_id=str(target.user_id),
+            organization_id=str(target.organization_id),
+        )
+
+    except Exception as e:
+        logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
+
+
+@event.listens_for(EmbeddableMixin, "after_update", propagate=True)
+def on_entity_update(mapper, connection, target):
+    from rhesis.backend.app.services.embedding.services import EmbeddingService
+
+    try:
+        session = object_session(target)
+        embedding_service = EmbeddingService(session)
+        embedding_service.enqueue_embedding(
+            entity_type=target.__class__.__name__,
+            entity_id=str(target.id),
+            searchable_text=target.to_searchable_text(),
+            user_id=str(target.user_id),
+            organization_id=str(target.organization_id),
+        )
+    except Exception as e:
+        logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
