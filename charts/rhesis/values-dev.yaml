@@ -55,7 +55,7 @@ frontend:
 docs:
   ingress:
     enabled: true
-    host: "docs.internal-example.com"
+    host: "dev.docs.rhesis.internal"
     tlsEnabled: false
   env:
     - name: HOSTNAME
