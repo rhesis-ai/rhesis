@@ -57,6 +57,9 @@ docs:
     enabled: true
     host: "docs.internal-example.com"
     tlsEnabled: false
+  env:
+    - name: HOSTNAME
+      value: "0.0.0.0"
 
 # ---------------------------------------------------------------------------
 # PostgreSQL — Bitnami subchart enabled for dev (no CNPG in this branch)
