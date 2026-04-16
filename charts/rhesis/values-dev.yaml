@@ -22,15 +22,15 @@ config:
   dbUser: "rhesis-user"
 
   # Frontend
-  nextPublicApiBaseUrl: "https://api.dev.rhesis.ai"
-  nextPublicAppUrl: "https://app.dev.rhesis.ai"
-  nextauthUrl: "https://app.dev.rhesis.ai"
+  nextPublicApiBaseUrl: "https://dev-api.internal-example.com"
+  nextPublicAppUrl: "https://dev-app.internal-example.com"
+  nextauthUrl: "https://dev-app.internal-example.com"
   nextPublicAuth0ClientId: "lUO4dMypij4rUrS9gUJpam5Srf0ATtEE"
   nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
 
   # Backend
-  rhesisBaseUrl: "https://api.dev.rhesis.ai"
-  frontendUrl: "https://app.dev.rhesis.ai"
+  rhesisBaseUrl: "https://dev-api.internal-example.com"
+  frontendUrl: "https://dev-app.internal-example.com"
   backendUrl: "http://backend:8080"
 
   # GCP
@@ -45,17 +45,17 @@ config:
 backend:
   ingress:
     enabled: true
-    host: "api.dev.rhesis.ai"
+    host: "dev-api.internal-example.com"
 
 frontend:
   ingress:
     enabled: true
-    host: "app.dev.rhesis.ai"
+    host: "dev-app.internal-example.com"
 
 docs:
   ingress:
     enabled: true
-    host: "docs.dev.rhesis.ai"
+    host: "docs.internal-example.com"
 
 # ---------------------------------------------------------------------------
 # PostgreSQL — Bitnami subchart enabled for dev (no CNPG in this branch)
