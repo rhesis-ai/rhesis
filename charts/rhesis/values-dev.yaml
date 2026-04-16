@@ -44,7 +44,7 @@ config:
 # ---------------------------------------------------------------------------
 backend:
   ingress:
-    enabled: true
+    enabled: false
     host: "dev-api.internal-example.com"
 
 frontend:
@@ -93,8 +93,32 @@ postgresql:
           CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 # ---------------------------------------------------------------------------
-# Valkey — in-cluster (required)
+# Disable all services except docs
 # ---------------------------------------------------------------------------
+backend:
+  enabled: false
+
+frontend:
+  enabled: false
+
+workers:
+  - name: default
+    enabled: false
+
+chatbot:
+  enabled: false
+
+polyphemus:
+  enabled: false
+
+# ---------------------------------------------------------------------------
+# External services (required when postgresql/valkey are disabled)
+# ---------------------------------------------------------------------------
+externalDatabase:
+  host: "placeholder-db-host"
+
+externalValkey:
+  host: "placeholder-valkey-host"
 valkey:
   enabled: false
   auth:
