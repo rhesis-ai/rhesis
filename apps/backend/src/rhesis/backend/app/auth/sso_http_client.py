@@ -11,6 +11,7 @@ rebinding attacks.
 
 import ipaddress
 import logging
+import os
 import socket
 from typing import List, Tuple
 from urllib.parse import urlparse, urlunparse
@@ -18,6 +19,18 @@ from urllib.parse import urlparse, urlunparse
 import httpx
 
 logger = logging.getLogger(__name__)
+
+_DEV_ENVIRONMENTS = ("local", "test", "development")
+_LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
+
+
+def is_dev_environment() -> bool:
+    """True when ENVIRONMENT is local, test, or development.
+
+    Used by SSO modules to relax localhost/HTTPS restrictions that are only
+    appropriate for production deployments.
+    """
+    return os.getenv("ENVIRONMENT", "").lower() in _DEV_ENVIRONMENTS
 
 _BLOCKED_NETWORKS = [
     # RFC 1918 private address space -- VPCs, Kubernetes pods, Docker networks,
@@ -82,11 +95,19 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
     """Resolve hostname, validate all IPs against the blocklist, and return
     the raw getaddrinfo results for pinning into the transport.
 
+    In development environments (ENVIRONMENT=local/test/development), localhost
+    is allowed through the blocklist so that local IdP instances (e.g. Keycloak
+    on localhost:8180) can be reached.
+
     Raises SSRFError if the hostname resolves to a blocked IP or cannot be
     resolved.
     """
     if hostname.lower() in _BLOCKED_HOSTNAMES:
         raise SSRFError(f"Blocked hostname: {hostname}")
+
+    skip_blocklist = (
+        is_dev_environment() and hostname.lower() in _LOCALHOST_NAMES
+    )
 
     try:
         addr_infos = socket.getaddrinfo(
@@ -98,23 +119,29 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
     if not addr_infos:
         raise SSRFError(f"DNS resolution returned no results for: {hostname}")
 
-    for _family, _, _, _, sockaddr in addr_infos:
-        ip_str = sockaddr[0]
-        try:
-            addr = ipaddress.ip_address(ip_str)
-        except ValueError:
-            continue
-        for network in _BLOCKED_NETWORKS:
-            if addr in network:
-                logger.warning(
-                    "SSRF block: %s resolved to %s (in %s)",
-                    hostname,
-                    ip_str,
-                    network,
-                )
-                raise SSRFError(
-                    f"Hostname {hostname} resolves to a blocked address"
-                )
+    if not skip_blocklist:
+        for _family, _, _, _, sockaddr in addr_infos:
+            ip_str = sockaddr[0]
+            try:
+                addr = ipaddress.ip_address(ip_str)
+            except ValueError:
+                continue
+            for network in _BLOCKED_NETWORKS:
+                if addr in network:
+                    logger.warning(
+                        "SSRF block: %s resolved to %s (in %s)",
+                        hostname,
+                        ip_str,
+                        network,
+                    )
+                    raise SSRFError(
+                        f"Hostname {hostname} resolves to a blocked address"
+                    )
+    else:
+        logger.info(
+            "SSRF blocklist bypassed for localhost in dev environment: %s",
+            hostname,
+        )
 
     return addr_infos
 
@@ -207,8 +234,12 @@ class SSOHttpClient:
     def __init__(self, timeout: float = 10.0):
         self._timeout = timeout
 
-    def _prepare(self, url: str, kwargs: dict) -> str:
-        """Resolve, validate, and pin the URL. Injects the Host header."""
+    def _prepare(self, url: str, kwargs: dict) -> Tuple[str, bool]:
+        """Resolve, validate, and pin the URL. Injects the Host header.
+
+        Returns (pinned_url, is_localhost_dev) so callers can relax TLS
+        verification for local development IdPs.
+        """
         parsed = urlparse(url)
         hostname = parsed.hostname
         if not hostname:
@@ -225,18 +256,22 @@ class SSOHttpClient:
             headers.setdefault("Host", original_host)
         kwargs["headers"] = headers
 
-        return pinned_url
+        is_localhost_dev = (
+            is_dev_environment()
+            and hostname.lower() in _LOCALHOST_NAMES
+        )
+        return pinned_url, is_localhost_dev
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
-        pinned_url = self._prepare(url, kwargs)
+        pinned_url, skip_tls = self._prepare(url, kwargs)
         async with httpx.AsyncClient(
-            timeout=self._timeout, verify=True
+            timeout=self._timeout, verify=not skip_tls
         ) as client:
             return await client.get(pinned_url, **kwargs)
 
     async def post(self, url: str, **kwargs) -> httpx.Response:
-        pinned_url = self._prepare(url, kwargs)
+        pinned_url, skip_tls = self._prepare(url, kwargs)
         async with httpx.AsyncClient(
-            timeout=self._timeout, verify=True
+            timeout=self._timeout, verify=not skip_tls
         ) as client:
             return await client.post(pinned_url, **kwargs)

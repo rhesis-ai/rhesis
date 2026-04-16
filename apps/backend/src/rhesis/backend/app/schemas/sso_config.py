@@ -1,11 +1,12 @@
 """Pydantic validation schema for per-organization SSO configuration."""
 
 import ipaddress
-import os
 from typing import List, Optional
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, SecretStr, field_validator
+
+from rhesis.backend.app.auth.sso_http_client import is_dev_environment
 
 _BLOCKED_NETWORKS = [
     ipaddress.ip_network("10.0.0.0/8"),
@@ -39,10 +40,8 @@ class SSOConfig(BaseModel):
     @classmethod
     def issuer_must_be_https_and_not_internal(cls, v: str) -> str:
         """Validate issuer URL: HTTPS required, no internal/private destinations."""
-        is_local = os.getenv("ENVIRONMENT", "").lower() in ("local", "test")
-
         if not v.startswith("https://"):
-            if not (is_local and "localhost" in v):
+            if not (is_dev_environment() and "localhost" in v):
                 raise ValueError("issuer_url must use HTTPS")
 
         parsed = urlparse(v)
@@ -64,7 +63,7 @@ class SSOConfig(BaseModel):
             # hostname is not an IP literal -- DNS resolution
             # is validated at connect time by SSOHttpClient
 
-        if not is_local:
+        if not is_dev_environment():
             port = parsed.port
             if port is not None and port != 443:
                 raise ValueError("issuer_url must use port 443 in production")

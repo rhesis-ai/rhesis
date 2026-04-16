@@ -29,7 +29,7 @@ from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.sso_audit import SSOAuditEvent, audit_log
-from rhesis.backend.app.auth.sso_http_client import SSOHttpClient, SSRFError
+from rhesis.backend.app.auth.sso_http_client import SSOHttpClient, SSRFError, is_dev_environment
 from rhesis.backend.app.auth.sso_user_utils import SSOLoginError, find_or_create_sso_user
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
@@ -81,13 +81,12 @@ def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:
         if "client_secret" in config_data and isinstance(
             config_data["client_secret"], str
         ):
-            is_local = os.getenv("ENVIRONMENT", "").lower() in ("local", "test")
             try:
                 config_data["client_secret"] = sso_decrypt(
                     config_data["client_secret"]
                 )
             except Exception:
-                if is_local:
+                if is_dev_environment():
                     logger.warning(
                         "SSO client_secret decryption failed for org %s; "
                         "allowing plaintext fallback in local/test",
@@ -176,66 +175,6 @@ def _get_sso_callback_url(request: Request) -> str:
 # =============================================================================
 # SSO Auth Endpoints
 # =============================================================================
-
-
-@router.get("/auth/sso/{org_id}")
-@limiter.limit(SSO_LOGIN_RATE_LIMIT)
-async def sso_login(
-    request: Request,
-    org_id: str,
-    return_to: Optional[str] = None,
-    db: Session = Depends(get_db_session),
-):
-    """Initiate SSO login for an organization."""
-    if not check_sso_available():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SSO is not available",
-        )
-
-    org = _get_org_or_404(db, org_id)
-    sso_config = _get_sso_config(org)
-
-    if not sso_config or not sso_config.enabled:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SSO is not available",
-        )
-
-    return_to = _validate_return_to(return_to)
-
-    audit_log(SSOAuditEvent.LOGIN_INITIATED, org_id)
-
-    # Generate PKCE pair
-    code_verifier, code_challenge = _generate_pkce()
-
-    # Generate nonce
-    nonce = secrets.token_urlsafe(32)
-
-    # Store in session for callback verification
-    request.session["sso_code_verifier"] = code_verifier
-    request.session["sso_org_id"] = org_id
-    request.session["sso_nonce"] = nonce
-    # Preserve original frontend and return_to for build_redirect_url
-    original_frontend = request.headers.get("referer", "")
-    if original_frontend:
-        request.session["original_frontend"] = original_frontend
-    request.session["return_to"] = return_to
-
-    redirect_uri = _get_sso_callback_url(request)
-
-    provider = OIDCProvider(sso_config)
-    auth_url = await provider.get_authorization_url(
-        request,
-        redirect_uri=redirect_uri,
-        org_id=org_id,
-        code_verifier=code_verifier,
-        code_challenge=code_challenge,
-        nonce=nonce,
-        return_to=return_to,
-    )
-
-    return RedirectResponse(url=auth_url, status_code=302)
 
 
 @router.get("/auth/sso/callback")
@@ -350,6 +289,66 @@ async def sso_callback(
     return RedirectResponse(url=redirect_url, status_code=302)
 
 
+@router.get("/auth/sso/{org_id}")
+@limiter.limit(SSO_LOGIN_RATE_LIMIT)
+async def sso_login(
+    request: Request,
+    org_id: str,
+    return_to: Optional[str] = None,
+    db: Session = Depends(get_db_session),
+):
+    """Initiate SSO login for an organization."""
+    if not check_sso_available():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SSO is not available",
+        )
+
+    org = _get_org_or_404(db, org_id)
+    sso_config = _get_sso_config(org)
+
+    if not sso_config or not sso_config.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SSO is not available",
+        )
+
+    return_to = _validate_return_to(return_to)
+
+    audit_log(SSOAuditEvent.LOGIN_INITIATED, org_id)
+
+    # Generate PKCE pair
+    code_verifier, code_challenge = _generate_pkce()
+
+    # Generate nonce
+    nonce = secrets.token_urlsafe(32)
+
+    # Store in session for callback verification
+    request.session["sso_code_verifier"] = code_verifier
+    request.session["sso_org_id"] = org_id
+    request.session["sso_nonce"] = nonce
+    # Preserve original frontend and return_to for build_redirect_url
+    original_frontend = request.headers.get("referer", "")
+    if original_frontend:
+        request.session["original_frontend"] = original_frontend
+    request.session["return_to"] = return_to
+
+    redirect_uri = _get_sso_callback_url(request)
+
+    provider = OIDCProvider(sso_config)
+    auth_url = await provider.get_authorization_url(
+        request,
+        redirect_uri=redirect_uri,
+        org_id=org_id,
+        code_verifier=code_verifier,
+        code_challenge=code_challenge,
+        nonce=nonce,
+        return_to=return_to,
+    )
+
+    return RedirectResponse(url=auth_url, status_code=302)
+
+
 # =============================================================================
 # SSO Admin API
 # =============================================================================
@@ -373,10 +372,22 @@ class SSOTestResponse(BaseModel):
 
 
 async def _require_org_admin(request: Request, org_id: str):
-    """Verify the current user is an admin of the specified org."""
-    from rhesis.backend.app.auth.user_utils import get_current_user
+    """Verify the current user is an admin of the specified org.
 
-    user = await get_current_user(request)
+    Supports both session cookies and Bearer token authentication
+    to work with the frontend API client.
+    """
+    from rhesis.backend.app.auth.user_utils import (
+        bearer_scheme,
+        get_authenticated_user_with_context,
+        get_secret_key,
+    )
+
+    credentials = await bearer_scheme(request)
+    secret_key = get_secret_key()
+    user = await get_authenticated_user_with_context(
+        request, credentials, secret_key
+    )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

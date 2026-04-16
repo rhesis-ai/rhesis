@@ -1,5 +1,8 @@
 """Tests for SSRF-safe HTTP client."""
 
+import os
+from unittest.mock import patch
+
 import pytest
 
 from rhesis.backend.app.auth.sso_http_client import (
@@ -27,9 +30,23 @@ class TestValidateUrlSafety:
         with pytest.raises(SSRFError, match="Blocked hostname"):
             validate_url_safety("https://metadata.google.internal/path")
 
-    def test_localhost_blocked(self):
+    @patch.dict(os.environ, {"ENVIRONMENT": "production"})
+    def test_localhost_blocked_in_production(self):
         with pytest.raises(SSRFError):
             validate_url_safety("https://127.0.0.1/path")
+
+    @patch.dict(os.environ, {"ENVIRONMENT": "production"})
+    def test_localhost_name_blocked_in_production(self):
+        with pytest.raises(SSRFError):
+            validate_url_safety("https://localhost/path")
+
+    @patch.dict(os.environ, {"ENVIRONMENT": "development"})
+    def test_localhost_allowed_in_dev(self):
+        validate_url_safety("http://localhost:8180/realms/dev")
+
+    @patch.dict(os.environ, {"ENVIRONMENT": "local"})
+    def test_localhost_ip_allowed_in_local(self):
+        validate_url_safety("http://127.0.0.1:8180/realms/dev")
 
     def test_private_10_blocked(self):
         with pytest.raises(SSRFError):
