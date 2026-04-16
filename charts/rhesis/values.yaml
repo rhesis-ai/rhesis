@@ -82,7 +82,7 @@ config:
 # Backend
 # ---------------------------------------------------------------------------
 backend:
-  enabled: true
+  enabled: false
   image:
     repository: rhesis-backend
     tag: ""
@@ -113,7 +113,7 @@ backend:
 # Frontend
 # ---------------------------------------------------------------------------
 frontend:
-  enabled: true
+  enabled: false
   image:
     repository: rhesis-frontend
     tag: ""
@@ -145,7 +145,7 @@ frontend:
 # ---------------------------------------------------------------------------
 workers:
   - name: default
-    enabled: true
+    enabled: false
     image:
       repository: rhesis-worker
       tag: ""
@@ -163,7 +163,7 @@ workers:
 # Chatbot
 # ---------------------------------------------------------------------------
 chatbot:
-  enabled: true
+  enabled: false
   image:
     repository: rhesis-chatbot
     tag: ""
@@ -186,7 +186,7 @@ chatbot:
 # Polyphemus
 # ---------------------------------------------------------------------------
 polyphemus:
-  enabled: true
+  enabled: false
   image:
     repository: rhesis-polyphemus
     tag: ""
@@ -242,10 +242,10 @@ docs:
 
 # Valkey (Redis-compatible) — required in-cluster key-value store
 valkey:
-  enabled: true
+  enabled: false
   architecture: standalone
   auth:
-    enabled: true
+    enabled: false
     existingSecret: "rhesis-app-secrets"
     existingSecretPasswordKey: "REDIS_PASSWORD"
   primary:

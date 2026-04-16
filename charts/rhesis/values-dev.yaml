@@ -49,7 +49,7 @@ backend:
 
 frontend:
   ingress:
-    enabled: true
+    enabled: false
     host: "dev-app.internal-example.com"
 
 docs:
@@ -62,7 +62,7 @@ docs:
 # Uses pgvector image for vector extension support.
 # ---------------------------------------------------------------------------
 postgresql:
-  enabled: true
+  enabled: false
   image:
     registry: ""
     repository: pgvector/pgvector
@@ -96,7 +96,7 @@ postgresql:
 # Valkey — in-cluster (required)
 # ---------------------------------------------------------------------------
 valkey:
-  enabled: true
+  enabled: false
   auth:
     enabled: true
     existingSecret: "rhesis-app-secrets"
