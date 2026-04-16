@@ -4,9 +4,16 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 This is a quick reference for chord monitoring commands. For detailed information, see [Chord Management and Monitoring](chord-management.md).
 
+<Callout type="info">
+  This page documents a legacy execution path. Since `v0.6.12`, test execution
+  uses an async batch engine rather than Celery chord fan-out. Use this
+  reference only when investigating historical environments that still depend on
+  chord tooling.
+</Callout>
+
 ## Quick Commands
 
-### 🔍 Check Status
+### Check Status
 
 <CodeBlock language="bash" isTerminal={true}>
 {`# Quick interactive check and fix
@@ -19,7 +26,7 @@ python -m rhesis.backend.tasks.execution.chord_monitor status
 python -m rhesis.backend.tasks.execution.chord_monitor check --max-hours 1`}
 </CodeBlock>
 
-### 🔧 Fix Issues
+### Fix Issues
 
 <CodeBlock language="bash" isTerminal={true}>
 {`# Dry run - see what would be revoked
@@ -32,7 +39,7 @@ python -m rhesis.backend.tasks.execution.chord_monitor revoke --max-hours 1
 python -m rhesis.backend.tasks.execution.chord_monitor clean --force`}
 </CodeBlock>
 
-### 🔍 Inspect Specific Chord
+### Inspect Specific Chord
 
 <CodeBlock language="bash" isTerminal={true}>
 {`# Get details about a specific chord

@@ -6,11 +6,19 @@ This document covers common issues you may encounter with the Rhesis worker syst
 
 ## Chord-Related Issues
 
-> **📖 For comprehensive chord management, see [Chord Management and Monitoring](chord-management.md)**
+> **Note:** For comprehensive chord management, see [Chord Management and Monitoring](chord-management.md)
 
-The most common issues in the Rhesis worker system involve Celery chords. For detailed information about chord monitoring, troubleshooting, and best practices, refer to the dedicated [Chord Management Guide](chord-management.md).
+The current test-execution path uses the async batch engine (single Celery task per run with
+internal asyncio fan-out). Chord troubleshooting below is kept for historical incidents and
+older deployments.
 
-### Quick Chord Issue Resolution
+For current execution behavior and diagnostics, see:
+
+- [Test Execution](test-execution.md)
+- [Execution Modes](execution-modes.md)
+- [Background Tasks](background-tasks.md)
+
+### Quick Chord Issue Resolution (Legacy)
 
 If you're experiencing chord issues right now:
 
@@ -39,7 +47,7 @@ These messages indicate that there are "zombie" tasks that keep retrying indefin
 
 ### Quick Resolution for Stuck Chords
 
-> **💡 See [Chord Management Guide](chord-management.md) for comprehensive solutions**
+> **Tip:** See [Chord Management Guide](chord-management.md) for comprehensive solutions
 
 <CodeBlock language="bash" isTerminal={true}>
 {`# Check for stuck chords
@@ -183,12 +191,17 @@ organization_id = organization_id or request_org_id`}
 
 **Symptoms**: Test configurations start but never complete, remain in progress indefinitely
 
-**Cause**: Usually chord-related - the callback function (`collect_results`) never executes
+**Cause**:
+
+- Current path: async batch execution issues (cancellation/retry edge cases, worker outages)
+- Legacy path: chord callback (`collect_results`) never executes
 
 **Solution**:
-1. Check for stuck chords: `python -m rhesis.backend.tasks.execution.chord_monitor status`
-2. See [Chord Never Completing](chord-management.md#2-chord-never-completing) in the Chord Management Guide
-3. Review individual task results to ensure they're returning valid data
+1. Check active Celery tasks: `celery -A rhesis.backend.worker.app inspect active`
+2. Review worker logs for batch runner events and revoke/cancellation messages
+3. Confirm run status transitions for `Progress` to terminal status (`Completed`, `Failed`, `Partial`, `Cancelled`)
+4. If this is a historical deployment that used chord fan-out, check chord state with:
+   `python -m rhesis.backend.tasks.execution.chord_monitor status`
 
 ## Worker Registration and Status Checking
 
