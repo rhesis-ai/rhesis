@@ -1,0 +1,631 @@
+'use client'
+
+import React from 'react'
+
+/**
+ * Dark “framework grid” for third-party tools Rhesis connects to.
+ *
+ * Logo sources:
+ * - Most SVGs: Simple Icons (MIT) — https://github.com/simple-icons/simple-icons
+ *   (via jsDelivr npm package `simple-icons/icons/*.svg` where noted)
+ * - DeepEval / Ragas: project docs on GitHub (see file header in repo history)
+ * - Cohere, Groq, LiteLLM, Together AI: GitHub organization avatars (PNG, 64×64)
+ * - Polyphemus: Rhesis favicon in /logo/
+ */
+
+/** WebSocket registration + remote test runs — see /sdk/connector and /tracing (How It Works). */
+const CONNECTOR_ITEM = {
+  name: 'SDK Connector',
+  href: '/sdk/connector',
+  src: '/logo/rhesis-logo-favicon-white.svg',
+  kind: 'rhesis',
+}
+
+const TRACING_ITEMS = [
+  {
+    name: 'LangChain',
+    href: '/docs/tracing/auto-instrumentation#langchain',
+    src: '/integrations/langchain.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'LangGraph',
+    href: '/docs/tracing/auto-instrumentation#langgraph',
+    src: '/integrations/langgraph.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'OpenTelemetry',
+    href: '/docs/tracing/setup',
+    src: '/integrations/opentelemetry.svg',
+    kind: 'simpleIcon',
+  },
+]
+
+const MCP_MAIN = {
+  name: 'Model Context Protocol',
+  href: '/docs/mcp',
+  src: '/integrations/modelcontextprotocol.svg',
+  kind: 'simpleIcon',
+}
+
+/** Shown next to MCP as examples of tool ecosystems (not product links). */
+const MCP_COMPANION_ICONS = [
+  { name: 'Jira', src: '/integrations/providers/jira.svg' },
+  { name: 'Confluence', src: '/integrations/providers/confluence.svg' },
+  { name: 'GitHub', src: '/integrations/providers/github.svg' },
+  { name: 'Notion', src: '/integrations/providers/notion.svg' },
+]
+
+const EVAL_ITEMS = [
+  {
+    name: 'DeepEval',
+    href: '/docs/frameworks#deepeval',
+    src: '/integrations/deepeval.png',
+    kind: 'deepeval',
+  },
+  {
+    name: 'Ragas',
+    href: '/docs/frameworks#ragas',
+    src: '/integrations/ragas-logo.png',
+    kind: 'ragas',
+  },
+  {
+    name: 'Garak',
+    href: '/docs/frameworks#garak',
+    src: '/integrations/nvidia.svg',
+    kind: 'brand',
+  },
+]
+
+/** Matches “Supported Providers” on /docs/models — icons from Simple Icons or GitHub org avatars. */
+const MODEL_PROVIDERS = [
+  { name: 'Anthropic', src: '/integrations/providers/anthropic.svg', kind: 'simpleIcon' },
+  { name: 'Azure AI Studio', src: '/integrations/providers/microsoftazure.svg', kind: 'simpleIcon' },
+  { name: 'Azure OpenAI', src: '/integrations/providers/microsoftazure.svg', kind: 'simpleIcon' },
+  { name: 'Cohere', src: '/integrations/providers/cohere.png', kind: 'avatar' },
+  { name: 'Google', src: '/integrations/providers/google.svg', kind: 'simpleIcon' },
+  { name: 'Groq', src: '/integrations/providers/groq.png', kind: 'avatar' },
+  { name: 'LiteLLM Proxy', src: '/integrations/providers/litellm.png', kind: 'avatar' },
+  { name: 'Meta', src: '/integrations/providers/meta.svg', kind: 'simpleIcon' },
+  { name: 'Mistral', src: '/integrations/providers/mistralai.svg', kind: 'simpleIcon' },
+  { name: 'Ollama', src: '/integrations/providers/ollama.svg', kind: 'simpleIcon' },
+  { name: 'OpenAI', src: '/integrations/providers/openai.svg', kind: 'simpleIcon' },
+  { name: 'Perplexity', src: '/integrations/providers/perplexity.svg', kind: 'simpleIcon' },
+  {
+    name: 'Polyphemus',
+    src: '/logo/rhesis-logo-favicon-white.svg',
+    kind: 'rhesis',
+  },
+  { name: 'Replicate', src: '/integrations/providers/replicate.svg', kind: 'simpleIcon' },
+  { name: 'Together AI', src: '/integrations/providers/together.png', kind: 'avatar' },
+]
+
+function LogoBox({ item }) {
+  if (item.kind === 'deepeval') {
+    return (
+      <div
+        style={{
+          height: '40px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          minWidth: 0,
+        }}
+      >
+        <img
+          src={item.src}
+          alt=""
+          style={{
+            height: '28px',
+            width: 'auto',
+            maxWidth: '140px',
+            objectFit: 'contain',
+            objectPosition: 'left center',
+          }}
+        />
+      </div>
+    )
+  }
+
+  if (item.kind === 'ragas') {
+    return (
+      <div
+        style={{
+          width: '40px',
+          height: '40px',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <img
+          src={item.src}
+          alt=""
+          width={36}
+          height={36}
+          style={{ width: '36px', height: '36px', objectFit: 'contain' }}
+        />
+      </div>
+    )
+  }
+
+  if (item.kind === 'avatar') {
+    return (
+      <div
+        style={{
+          width: '40px',
+          height: '40px',
+          flexShrink: 0,
+          borderRadius: '50%',
+          overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.12)',
+        }}
+      >
+        <img src={item.src} alt="" width={40} height={40} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
+    )
+  }
+
+  if (item.kind === 'rhesis') {
+    return (
+      <div
+        style={{
+          width: '40px',
+          height: '40px',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <img
+          src={item.src}
+          alt=""
+          width={32}
+          height={32}
+          style={{ width: '32px', height: '32px', objectFit: 'contain' }}
+        />
+      </div>
+    )
+  }
+
+  const mono = item.kind === 'simpleIcon'
+  return (
+    <div
+      style={{
+        width: '40px',
+        height: '40px',
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <img
+        src={item.src}
+        alt=""
+        width={32}
+        height={32}
+        style={{
+          width: '32px',
+          height: '32px',
+          objectFit: 'contain',
+          ...(mono ? { filter: 'brightness(0) invert(1)' } : {}),
+        }}
+      />
+    </div>
+  )
+}
+
+function SmallMonoIcon({ src, title }) {
+  return (
+    <span
+      role="img"
+      aria-label={title}
+      title={title}
+      style={{
+        display: 'inline-flex',
+        width: '36px',
+        height: '36px',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '8px',
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.1)',
+      }}
+    >
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        width={22}
+        height={22}
+        style={{ width: '22px', height: '22px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+      />
+    </span>
+  )
+}
+
+function GridCard({ item }) {
+  const [hover, setHover] = React.useState(false)
+  return (
+    <a
+      href={item.href}
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1rem',
+        padding: '1rem 1.25rem',
+        borderRadius: '12px',
+        border: '1px solid',
+        borderColor: hover ? 'rgba(42, 161, 206, 0.55)' : 'rgba(255, 255, 255, 0.08)',
+        background: hover ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.02)',
+        textDecoration: 'none',
+        color: '#f9fafb',
+        transition: 'border-color 0.2s ease, background 0.2s ease, transform 0.2s ease',
+        transform: hover ? 'translateY(-2px)' : 'none',
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <span
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        {item.name}
+      </span>
+      <LogoBox item={item} />
+      <span
+        style={{
+          fontWeight: 600,
+          fontSize: '0.9375rem',
+          fontFamily: 'Sora, sans-serif',
+          flex: 1,
+          minWidth: 0,
+        }}
+      >
+        {item.name}
+      </span>
+      <span
+        aria-hidden
+        style={{
+          color: 'rgba(148, 163, 184, 0.9)',
+          fontSize: '1rem',
+          lineHeight: 1,
+        }}
+      >
+        ↗
+      </span>
+    </a>
+  )
+}
+
+function ProviderChip({ item }) {
+  return (
+    <div
+      title={item.name}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0.5rem',
+        padding: '0.75rem 0.5rem',
+        borderRadius: '10px',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'rgba(255, 255, 255, 0.02)',
+        textAlign: 'center',
+        minWidth: 0,
+      }}
+    >
+      <LogoBox item={item} />
+      <span
+        style={{
+          fontSize: '0.7rem',
+          fontWeight: 600,
+          color: 'rgba(226, 232, 240, 0.95)',
+          lineHeight: 1.25,
+          fontFamily: 'Be Vietnam Pro, sans-serif',
+          maxWidth: '100%',
+        }}
+      >
+        {item.name}
+      </span>
+    </div>
+  )
+}
+
+function McpSection() {
+  const main = MCP_MAIN
+  return (
+    <section style={{ marginBottom: '2.5rem' }}>
+      <h3
+        style={{
+          margin: '0 0 0.35rem 0',
+          fontSize: '1.25rem',
+          fontWeight: 700,
+          fontFamily: 'Sora, sans-serif',
+          color: '#f9fafb',
+        }}
+      >
+        MCPs
+      </h3>
+      <p
+        style={{
+          margin: '0 0 1.25rem 0',
+          fontSize: '0.9375rem',
+          color: 'rgba(203, 213, 225, 0.95)',
+          maxWidth: '42rem',
+          lineHeight: 1.55,
+        }}
+      >
+        Connect MCP servers so Rhesis can use external tools during workflows.
+      </p>
+      <div
+        style={{
+          borderRadius: '12px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'rgba(255, 255, 255, 0.03)',
+          padding: '1rem 1.25rem',
+        }}
+      >
+        <a
+          href={main.href}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            textDecoration: 'none',
+            color: '#f9fafb',
+            marginBottom: '1rem',
+            paddingBottom: '1rem',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              width: '1px',
+              height: '1px',
+              padding: 0,
+              margin: '-1px',
+              overflow: 'hidden',
+              clip: 'rect(0, 0, 0, 0)',
+              whiteSpace: 'nowrap',
+              border: 0,
+            }}
+          >
+            {main.name}
+          </span>
+          <LogoBox item={main} />
+          <span style={{ fontWeight: 600, fontSize: '0.9375rem', fontFamily: 'Sora, sans-serif', flex: 1 }}>
+            {main.name}
+          </span>
+          <span style={{ color: 'rgba(148, 163, 184, 0.9)' }}>↗</span>
+        </a>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '0.8125rem', color: 'rgba(148, 163, 184, 0.95)', marginRight: '0.25rem' }}>
+            Supporting:
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+            {MCP_COMPANION_ICONS.map(ic => (
+              <span key={ic.name} title={ic.name} style={{ display: 'inline-flex' }}>
+                <SmallMonoIcon src={ic.src} title={ic.name} />
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ModelProvidersSection() {
+  return (
+    <section style={{ marginBottom: '2.5rem' }}>
+      <h3
+        style={{
+          margin: '0 0 0.35rem 0',
+          fontSize: '1.25rem',
+          fontWeight: 700,
+          fontFamily: 'Sora, sans-serif',
+          color: '#f9fafb',
+        }}
+      >
+        Model providers
+      </h3>
+      <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.9375rem', color: 'rgba(203, 213, 225, 0.95)', maxWidth: '44rem', lineHeight: 1.55 }}>
+        Supported LLM backends (see also{' '}
+        <a href="/docs/integrations/llm-providers" style={{ color: '#7dd3fc' }}>
+          LLM providers
+        </a>
+        ) you can configure under{' '}
+        <a href="/docs/models" style={{ color: '#7dd3fc', fontWeight: 600 }}>
+          Models
+        </a>
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))',
+          gap: '0.65rem',
+        }}
+      >
+        {MODEL_PROVIDERS.map(p => (
+          <ProviderChip key={p.name} item={p} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ConnectorSection() {
+  return (
+    <section style={{ marginBottom: '2.5rem' }}>
+      <h3
+        style={{
+          margin: '0 0 0.35rem 0',
+          fontSize: '1.25rem',
+          fontWeight: 700,
+          fontFamily: 'Sora, sans-serif',
+          color: '#f9fafb',
+        }}
+      >
+        Connector (testing)
+      </h3>
+      <p
+        style={{
+          margin: '0 0 1.25rem 0',
+          fontSize: '0.9375rem',
+          color: 'rgba(203, 213, 225, 0.95)',
+          maxWidth: '42rem',
+          lineHeight: 1.55,
+        }}
+      >
+        Register <code style={{ fontSize: '0.88em', color: '#e2e8f0' }}>@endpoint</code> functions so
+        Rhesis can discover them and run tests over{' '}
+        <strong style={{ color: '#e2e8f0', fontWeight: 600 }}>WebSocket</strong>.
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gap: '0.75rem',
+        }}
+      >
+        <GridCard item={CONNECTOR_ITEM} />
+      </div>
+    </section>
+  )
+}
+
+function TracingSection() {
+  return (
+    <section style={{ marginBottom: '2.5rem' }}>
+      <h3
+        style={{
+          margin: '0 0 0.35rem 0',
+          fontSize: '1.25rem',
+          fontWeight: 700,
+          fontFamily: 'Sora, sans-serif',
+          color: '#f9fafb',
+        }}
+      >
+        Auto-instrumentation (tracing)
+      </h3>
+      <p
+        style={{
+          margin: '0 0 1.25rem 0',
+          fontSize: '0.9375rem',
+          color: 'rgba(203, 213, 225, 0.95)',
+          maxWidth: '42rem',
+          lineHeight: 1.55,
+        }}
+      >
+        <a href="/docs/tracing/auto-instrumentation" style={{ color: '#7dd3fc', fontWeight: 600 }}>
+          Auto-instrumentation
+        </a>{' '}
+        traces LangChain and LangGraph without extra decorators; spans export over{' '}
+        <strong style={{ color: '#e2e8f0', fontWeight: 600 }}>HTTP</strong> (OTLP). OpenTelemetry
+        setup covers the rest of the pipeline.
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gap: '0.75rem',
+        }}
+      >
+        {TRACING_ITEMS.map(item => (
+          <GridCard key={item.name + item.href} item={item} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function EvaluationSection() {
+  return (
+    <section style={{ marginBottom: '2.5rem' }}>
+      <h3
+        style={{
+          margin: '0 0 0.35rem 0',
+          fontSize: '1.25rem',
+          fontWeight: 700,
+          fontFamily: 'Sora, sans-serif',
+          color: '#f9fafb',
+        }}
+      >
+        Evaluation & red teaming
+      </h3>
+      <p
+        style={{
+          margin: '0 0 1.25rem 0',
+          fontSize: '0.9375rem',
+          color: 'rgba(203, 213, 225, 0.95)',
+          maxWidth: '42rem',
+          lineHeight: 1.55,
+        }}
+      >
+        Library-backed metrics and probes in Rhesis test suites.
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gap: '0.75rem',
+        }}
+      >
+        {EVAL_ITEMS.map(item => (
+          <GridCard key={item.name + item.href} item={item} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export function FrameworkIntegrationsShowcase() {
+  return (
+    <div
+      className="not-prose framework-integrations-showcase"
+      style={{
+        margin: '2rem 0',
+        background: 'linear-gradient(180deg, #0f1419 0%, #0a0d10 100%)',
+        borderRadius: '16px',
+        padding: '2rem 1.5rem',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        boxShadow: '0 24px 48px rgba(0, 0, 0, 0.35)',
+      }}
+    >
+      <p
+        style={{
+          margin: '0 0 1.75rem 0',
+          fontSize: '0.975rem',
+          color: 'rgba(203, 213, 225, 0.95)',
+          maxWidth: '44rem',
+          lineHeight: 1.6,
+        }}
+      >
+        Connect Rhesis to other products and open-source ecosystems.
+      </p>
+      <ConnectorSection />
+      <TracingSection />
+      <McpSection />
+      <ModelProvidersSection />
+      <EvaluationSection />
+    </div>
+  )
+}
+
+export default FrameworkIntegrationsShowcase
