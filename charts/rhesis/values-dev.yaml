@@ -56,6 +56,7 @@ docs:
   ingress:
     enabled: true
     host: "docs.internal-example.com"
+    tlsEnabled: false
 
 # ---------------------------------------------------------------------------
 # PostgreSQL — Bitnami subchart enabled for dev (no CNPG in this branch)
