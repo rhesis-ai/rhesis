@@ -45,12 +45,12 @@ config:
 backend:
   ingress:
     enabled: false
-    host: "dev-api.internal-example.com"
+    host: "dev.api.rhesis.internal"
 
 frontend:
   ingress:
     enabled: false
-    host: "dev-app.internal-example.com"
+    host: "dev.app.rhesis.internal"
 
 docs:
   ingress:
@@ -113,7 +113,7 @@ chatbot:
   enabled: false
 
 polyphemus:
-  enabled: false
+  enabled: true
 
 # ---------------------------------------------------------------------------
 # External services (required when postgresql/valkey are disabled)
