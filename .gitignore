@@ -347,3 +347,6 @@ gke_gcloud_auth_plugin_cache
 # Claude Code
 .claude/settings.local.json
 .claude/skills.local
+
+# service secrets
+infrastructure/config/service-secrets-file.json
