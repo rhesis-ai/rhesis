@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
+    targetRevision: feat/deploy-rhesis-app-into-gke
     path: kubernetes/clusters/dev/cert-manager
   destination:
     server: https://kubernetes.default.svc
