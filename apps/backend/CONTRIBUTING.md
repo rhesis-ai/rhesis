@@ -2,6 +2,9 @@
 
 For the full contribution guide, see [docs.rhesis.ai/contribute/backend](https://docs.rhesis.ai/contribute/backend).
 
+## Before you start
+- Install [`uv`](https://docs.astral.sh/uv/) for Python environment management.
+
 ## Linting and formatting
 
 From `apps/backend`:
@@ -16,12 +19,6 @@ Both targets use [ruff](https://docs.astral.sh/ruff/) via `uvx`. There are also 
 ```bash
 make format_diff
 make lint_diff
-```
-
-For type checking:
-
-```bash
-make type-check  # runs mypy against rhesis.backend
 ```
 
 ## Tests and checks
