@@ -540,17 +540,7 @@ function EvaluationSection() {
 
 export function FrameworkIntegrationsShowcase() {
   return (
-    <div
-      className="not-prose framework-integrations-showcase"
-      style={{
-        margin: '2rem 0',
-        background: 'linear-gradient(180deg, #0f1419 0%, #0a0d10 100%)',
-        borderRadius: '16px',
-        padding: '2rem 1.5rem',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        boxShadow: '0 24px 48px rgba(0, 0, 0, 0.35)',
-      }}
-    >
+    <div className="not-prose framework-integrations-showcase" style={{ margin: '1.5rem 0 0' }}>
       <p
         style={{
           margin: '0 0 1.75rem 0',
