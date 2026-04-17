@@ -6,12 +6,24 @@ import React from 'react'
  * Dark “framework grid” for third-party tools Rhesis connects to.
  *
  * Logo sources:
- * - Most SVGs: Simple Icons (MIT) — https://github.com/simple-icons/simple-icons
- *   (via jsDelivr npm package `simple-icons/icons/*.svg` where noted)
+ * - Most SVGs: Simple Icons (MIT) — https://simpleicons.org/ (CDN SVGs include brand fill)
+ * - OpenAI / Azure: Simple Icons v11 SVGs (hex fills added in-repo; newer CDN omits some slugs)
+ * - Cohere, Groq, Together AI, LiteLLM logo: BerriAI/litellm UI assets (dashboard `public/assets/logos`)
  * - DeepEval / Ragas: project docs on GitHub (see file header in repo history)
- * - Cohere, Groq, LiteLLM, Together AI: GitHub organization avatars (PNG, 64×64)
  * - Polyphemus: Rhesis favicon in /logo/
+ * - OpenTelemetry: CNCF / opentelemetry.io color icon (`static/img/logos/opentelemetry-icon-color.png`)
  */
+
+/**
+ * Light tile behind logos so dark glyphs (e.g. black Simple Icons) stay visible.
+ * Colors come from `globals.css` (`--integration-icon-well-*`). Not used for the white Rhesis favicon (`kind: 'rhesis'`).
+ */
+function IconWell({ wide, children }) {
+  const cls = wide
+    ? 'integration-icon-well integration-icon-well--wide'
+    : 'integration-icon-well integration-icon-well--square'
+  return <div className={cls}>{children}</div>
+}
 
 /** WebSocket registration + remote test runs — see /sdk/connector and /tracing (How It Works). */
 const CONNECTOR_ITEM = {
@@ -37,7 +49,7 @@ const TRACING_ITEMS = [
   {
     name: 'OpenTelemetry',
     href: '/docs/tracing/setup',
-    src: '/integrations/opentelemetry.svg',
+    src: '/integrations/opentelemetry-icon.png',
     kind: 'simpleIcon',
   },
 ]
@@ -96,10 +108,10 @@ const MODEL_PROVIDERS = [
   { name: 'Anthropic', src: '/integrations/providers/anthropic.svg', kind: 'simpleIcon' },
   { name: 'Azure AI Studio', src: '/integrations/providers/microsoftazure.svg', kind: 'simpleIcon' },
   { name: 'Azure OpenAI', src: '/integrations/providers/microsoftazure.svg', kind: 'simpleIcon' },
-  { name: 'Cohere', src: '/integrations/providers/cohere.png', kind: 'avatar' },
+  { name: 'Cohere', src: '/integrations/providers/cohere.svg', kind: 'simpleIcon' },
   { name: 'Google', src: '/integrations/providers/google.svg', kind: 'simpleIcon' },
-  { name: 'Groq', src: '/integrations/providers/groq.png', kind: 'avatar' },
-  { name: 'LiteLLM Proxy', src: '/integrations/providers/litellm.png', kind: 'avatar' },
+  { name: 'Groq', src: '/integrations/providers/groq.svg', kind: 'simpleIcon' },
+  { name: 'LiteLLM Proxy', src: '/integrations/providers/litellm_logo.jpg', kind: 'brand' },
   { name: 'Meta', src: '/integrations/providers/meta.svg', kind: 'simpleIcon' },
   { name: 'Mistral', src: '/integrations/providers/mistralai.svg', kind: 'simpleIcon' },
   { name: 'Ollama', src: '/integrations/providers/ollama.svg', kind: 'simpleIcon' },
@@ -111,21 +123,13 @@ const MODEL_PROVIDERS = [
     kind: 'rhesis',
   },
   { name: 'Replicate', src: '/integrations/providers/replicate.svg', kind: 'simpleIcon' },
-  { name: 'Together AI', src: '/integrations/providers/together.png', kind: 'avatar' },
+  { name: 'Together AI', src: '/integrations/providers/together.svg', kind: 'simpleIcon' },
 ]
 
 function LogoBox({ item }) {
   if (item.kind === 'deepeval') {
     return (
-      <div
-        style={{
-          height: '40px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          minWidth: 0,
-        }}
-      >
+      <IconWell wide>
         <img
           src={item.src}
           alt=""
@@ -137,30 +141,21 @@ function LogoBox({ item }) {
             objectPosition: 'left center',
           }}
         />
-      </div>
+      </IconWell>
     )
   }
 
   if (item.kind === 'ragas') {
     return (
-      <div
-        style={{
-          width: '40px',
-          height: '40px',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
+      <IconWell>
         <img
           src={item.src}
           alt=""
-          width={36}
-          height={36}
-          style={{ width: '36px', height: '36px', objectFit: 'contain' }}
+          width={32}
+          height={32}
+          style={{ width: '32px', height: '32px', objectFit: 'contain' }}
         />
-      </div>
+      </IconWell>
     )
   }
 
@@ -204,31 +199,20 @@ function LogoBox({ item }) {
     )
   }
 
-  const mono = item.kind === 'simpleIcon'
   return (
-    <div
-      style={{
-        width: '40px',
-        height: '40px',
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
+    <IconWell>
       <img
         src={item.src}
         alt=""
-        width={32}
-        height={32}
+        width={30}
+        height={30}
         style={{
-          width: '32px',
-          height: '32px',
+          width: '30px',
+          height: '30px',
           objectFit: 'contain',
-          ...(mono ? { filter: 'brightness(0) invert(1)' } : {}),
         }}
       />
-    </div>
+    </IconWell>
   )
 }
 
@@ -245,10 +229,14 @@ function GridCard({ item }) {
         padding: '1rem 1.25rem',
         borderRadius: '12px',
         border: '1px solid',
-        borderColor: hover ? 'rgba(42, 161, 206, 0.55)' : 'rgba(255, 255, 255, 0.08)',
-        background: hover ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.02)',
+        borderColor: hover
+          ? 'var(--integration-showcase-card-border-hover)'
+          : 'var(--integration-showcase-card-border)',
+        background: hover
+          ? 'var(--integration-showcase-card-bg-hover)'
+          : 'var(--integration-showcase-card-bg)',
         textDecoration: 'none',
-        color: '#f9fafb',
+        color: 'var(--integration-showcase-name)',
         transition: 'border-color 0.2s ease, background 0.2s ease, transform 0.2s ease',
         transform: hover ? 'translateY(-2px)' : 'none',
       }}
@@ -285,7 +273,7 @@ function GridCard({ item }) {
       <span
         aria-hidden
         style={{
-          color: 'rgba(148, 163, 184, 0.9)',
+          color: 'var(--integration-showcase-muted)',
           fontSize: '1rem',
           lineHeight: 1,
         }}
@@ -307,8 +295,8 @@ function ProviderChip({ item }) {
         gap: '0.5rem',
         padding: '0.75rem 0.5rem',
         borderRadius: '10px',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        background: 'rgba(255, 255, 255, 0.02)',
+        border: '1px solid var(--integration-showcase-chip-border)',
+        background: 'var(--integration-showcase-chip-bg)',
         textAlign: 'center',
         minWidth: 0,
       }}
@@ -318,7 +306,7 @@ function ProviderChip({ item }) {
         style={{
           fontSize: '0.7rem',
           fontWeight: 600,
-          color: 'rgba(226, 232, 240, 0.95)',
+          color: 'var(--integration-showcase-chip-name)',
           lineHeight: 1.25,
           fontFamily: 'Be Vietnam Pro, sans-serif',
           maxWidth: '100%',
@@ -330,31 +318,20 @@ function ProviderChip({ item }) {
   )
 }
 
-function McpSection() {
+export function McpSection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
-      <h3
-        style={{
-          margin: '0 0 0.35rem 0',
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          fontFamily: 'Sora, sans-serif',
-          color: '#f9fafb',
-        }}
-      >
-        MCPs
-      </h3>
       <p
         style={{
           margin: '0 0 1.25rem 0',
           fontSize: '0.9375rem',
-          color: 'rgba(203, 213, 225, 0.95)',
+          color: 'var(--integration-showcase-lede)',
           maxWidth: '42rem',
           lineHeight: 1.55,
         }}
       >
         Connect MCP servers so Rhesis can use external tools during workflows. See the{' '}
-        <a href="/docs/mcp" style={{ color: '#7dd3fc', fontWeight: 600 }}>
+        <a href="/docs/mcp" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
           MCP
         </a>{' '}
         guide for setup.
@@ -374,27 +351,24 @@ function McpSection() {
   )
 }
 
-function ModelProvidersSection() {
+export function ModelProvidersSection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
-      <h3
+      <p
         style={{
-          margin: '0 0 0.35rem 0',
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          fontFamily: 'Sora, sans-serif',
-          color: '#f9fafb',
+          margin: '0 0 1.25rem 0',
+          fontSize: '0.9375rem',
+          color: 'var(--integration-showcase-lede)',
+          maxWidth: '44rem',
+          lineHeight: 1.55,
         }}
       >
-        Model providers
-      </h3>
-      <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.9375rem', color: 'rgba(203, 213, 225, 0.95)', maxWidth: '44rem', lineHeight: 1.55 }}>
         Supported LLM backends (see also{' '}
-        <a href="/docs/integrations/llm-providers" style={{ color: '#7dd3fc' }}>
+        <a href="/docs/integrations/llm-providers" style={{ color: 'var(--integration-showcase-link)' }}>
           LLM providers
         </a>
         ) you can configure under{' '}
-        <a href="/docs/models" style={{ color: '#7dd3fc', fontWeight: 600 }}>
+        <a href="/docs/models" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
           Models
         </a>
       </p>
@@ -413,32 +387,22 @@ function ModelProvidersSection() {
   )
 }
 
-function ConnectorSection() {
+export function ConnectorSection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
-      <h3
-        style={{
-          margin: '0 0 0.35rem 0',
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          fontFamily: 'Sora, sans-serif',
-          color: '#f9fafb',
-        }}
-      >
-        Connector (testing)
-      </h3>
       <p
         style={{
           margin: '0 0 1.25rem 0',
           fontSize: '0.9375rem',
-          color: 'rgba(203, 213, 225, 0.95)',
+          color: 'var(--integration-showcase-lede)',
           maxWidth: '42rem',
           lineHeight: 1.55,
         }}
       >
-        Register <code style={{ fontSize: '0.88em', color: '#e2e8f0' }}>@endpoint</code> functions so
-        Rhesis can discover them and run tests over{' '}
-        <strong style={{ color: '#e2e8f0', fontWeight: 600 }}>WebSocket</strong>.
+        Register{' '}
+        <code style={{ fontSize: '0.88em', color: 'var(--integration-showcase-code)' }}>@endpoint</code>{' '}
+        functions so Rhesis can discover them and run tests over{' '}
+        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>WebSocket</strong>.
       </p>
       <div
         style={{
@@ -453,35 +417,24 @@ function ConnectorSection() {
   )
 }
 
-function TracingSection() {
+export function TracingSection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
-      <h3
-        style={{
-          margin: '0 0 0.35rem 0',
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          fontFamily: 'Sora, sans-serif',
-          color: '#f9fafb',
-        }}
-      >
-        Auto-instrumentation (tracing)
-      </h3>
       <p
         style={{
           margin: '0 0 1.25rem 0',
           fontSize: '0.9375rem',
-          color: 'rgba(203, 213, 225, 0.95)',
+          color: 'var(--integration-showcase-lede)',
           maxWidth: '42rem',
           lineHeight: 1.55,
         }}
       >
-        <a href="/docs/tracing/auto-instrumentation" style={{ color: '#7dd3fc', fontWeight: 600 }}>
+        <a href="/docs/tracing/auto-instrumentation" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
           Auto-instrumentation
         </a>{' '}
         traces LangChain and LangGraph without extra decorators; spans export over{' '}
-        <strong style={{ color: '#e2e8f0', fontWeight: 600 }}>HTTP</strong> (OTLP). OpenTelemetry
-        setup covers the rest of the pipeline.
+        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>HTTP</strong>{' '}
+        (OTLP). OpenTelemetry setup covers the rest of the pipeline.
       </p>
       <div
         style={{
@@ -498,25 +451,14 @@ function TracingSection() {
   )
 }
 
-function EvaluationSection() {
+export function EvaluationSection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
-      <h3
-        style={{
-          margin: '0 0 0.35rem 0',
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          fontFamily: 'Sora, sans-serif',
-          color: '#f9fafb',
-        }}
-      >
-        Evaluation & red teaming
-      </h3>
       <p
         style={{
           margin: '0 0 1.25rem 0',
           fontSize: '0.9375rem',
-          color: 'rgba(203, 213, 225, 0.95)',
+          color: 'var(--integration-showcase-lede)',
           maxWidth: '42rem',
           lineHeight: 1.55,
         }}
@@ -545,7 +487,7 @@ export function FrameworkIntegrationsShowcase() {
         style={{
           margin: '0 0 1.75rem 0',
           fontSize: '0.975rem',
-          color: 'rgba(203, 213, 225, 0.95)',
+          color: 'var(--integration-showcase-lede)',
           maxWidth: '44rem',
           lineHeight: 1.6,
         }}

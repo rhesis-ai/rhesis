@@ -1,6 +1,55 @@
+import {
+  ConnectorSection,
+  EvaluationSection,
+  McpSection,
+  ModelProvidersSection,
+  TracingSection,
+} from '@/components/FrameworkIntegrationsShowcase'
+
 # Integrations
 
+<div className="not-prose framework-integrations-showcase" style={{ margin: '1.5rem 0 0' }}>
+  <p
+    style={{
+      margin: '0 0 1.75rem 0',
+      fontSize: '0.975rem',
+      color: 'var(--integration-showcase-lede)',
+      maxWidth: '44rem',
+      lineHeight: 1.6,
+    }}
+  >
+    Connect Rhesis to other products and open-source ecosystems.
+  </p>
+</div>
 
-<FrameworkIntegrationsShowcase />
+## Connector (testing)
+
+<div className="not-prose framework-integrations-showcase">
+  <ConnectorSection />
+</div>
+
+## Auto-instrumentation (tracing)
+
+<div className="not-prose framework-integrations-showcase">
+  <TracingSection />
+</div>
+
+## MCPs
+
+<div className="not-prose framework-integrations-showcase">
+  <McpSection />
+</div>
+
+## Model providers
+
+<div className="not-prose framework-integrations-showcase">
+  <ModelProvidersSection />
+</div>
+
+## Evaluation & red teaming
+
+<div className="not-prose framework-integrations-showcase">
+  <EvaluationSection />
+</div>
 
 Tip: New to Rhesis? Start with [Getting started](/docs/getting-started).
