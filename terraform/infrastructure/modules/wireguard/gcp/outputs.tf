@@ -26,6 +26,7 @@ output "peer_configs" {
         peer_private_key  = wireguard_asymmetric_key.peers[peer.identifier].private_key
         server_public_key = wireguard_asymmetric_key.server.public_key
         server_endpoint   = "${google_compute_address.wireguard.address}:${var.wireguard_port}"
+        server_tunnel_ip  = var.wireguard_tunnel_ip
         allowed_ips = join(", ", concat(
           [var.wireguard_peer_cidr],
           [for subnet in peer.subnets : var.subnet_cidrs[subnet] if contains(keys(var.subnet_cidrs), subnet)]
