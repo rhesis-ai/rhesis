@@ -9,8 +9,9 @@ import React from 'react'
  * - Most SVGs: Simple Icons (MIT) — https://simpleicons.org/ (CDN SVGs include brand fill)
  * - OpenAI / Azure: Simple Icons v11 SVGs (hex fills added in-repo; newer CDN omits some slugs)
  * - Cohere, Groq, Together AI, LiteLLM logo: BerriAI/litellm UI assets (dashboard `public/assets/logos`)
- * - DeepEval / Ragas: project docs on GitHub (see file header in repo history)
- * - Polyphemus: Rhesis favicon in /logo/
+ * - DeepEval: `deepeval-logo.svg` from confident-ai/deepeval (`docs/static/icons/deepeval-logo.svg`)
+ * - Ragas: project docs on GitHub (see file header in repo history)
+ * - Polyphemus: `polyphemus-logo-favicon-transparent.svg` from apps/frontend/public/logos
  * - OpenTelemetry: CNCF / opentelemetry.io color icon (`static/img/logos/opentelemetry-icon-color.png`)
  */
 
@@ -48,7 +49,7 @@ const TRACING_ITEMS = [
   },
   {
     name: 'OpenTelemetry',
-    href: '/docs/tracing/setup',
+    href: '/docs/tracing',
     src: '/integrations/opentelemetry-icon.png',
     kind: 'simpleIcon',
   },
@@ -86,7 +87,7 @@ const EVAL_ITEMS = [
   {
     name: 'DeepEval',
     href: '/docs/frameworks#deepeval',
-    src: '/integrations/deepeval.png',
+    src: '/integrations/deepeval-logo.svg',
     kind: 'deepeval',
   },
   {
@@ -119,8 +120,8 @@ const MODEL_PROVIDERS = [
   { name: 'Perplexity', src: '/integrations/providers/perplexity.svg', kind: 'simpleIcon' },
   {
     name: 'Polyphemus',
-    src: '/logo/rhesis-logo-favicon-white.svg',
-    kind: 'rhesis',
+    src: '/integrations/providers/polyphemus.svg',
+    kind: 'simpleIcon',
   },
   { name: 'Replicate', src: '/integrations/providers/replicate.svg', kind: 'simpleIcon' },
   { name: 'Together AI', src: '/integrations/providers/together.svg', kind: 'simpleIcon' },
@@ -129,17 +130,13 @@ const MODEL_PROVIDERS = [
 function LogoBox({ item }) {
   if (item.kind === 'deepeval') {
     return (
-      <IconWell wide>
+      <IconWell>
         <img
           src={item.src}
           alt=""
-          style={{
-            height: '28px',
-            width: 'auto',
-            maxWidth: '140px',
-            objectFit: 'contain',
-            objectPosition: 'left center',
-          }}
+          width={32}
+          height={32}
+          style={{ width: '32px', height: '32px', objectFit: 'contain' }}
         />
       </IconWell>
     )
