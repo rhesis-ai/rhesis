@@ -89,11 +89,27 @@ backend:
   replicas: 1
   resources:
     requests:
-      memory: "512Mi"
-      cpu: "250m"
-    limits:
       memory: "1Gi"
       cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  # Backend may run heavy startup (e.g. probe caches). Worst-case time before
+  # liveness restart ≈ initialDelaySeconds + (failureThreshold - 1) * periodSeconds.
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 420
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 25
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 240
+    periodSeconds: 15
+    timeoutSeconds: 15
+    failureThreshold: 60
   service:
     type: ClusterIP
     port: 8080

@@ -54,18 +54,18 @@ spec:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           livenessProbe:
             httpGet:
-              path: /health
+              path: {{ .Values.backend.livenessProbe.httpGet.path | quote }}
               port: {{ .Values.backend.service.targetPort }}
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 5
+            initialDelaySeconds: {{ .Values.backend.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.backend.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.backend.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.backend.livenessProbe.failureThreshold }}
           readinessProbe:
             httpGet:
-              path: /health
+              path: {{ .Values.backend.readinessProbe.httpGet.path | quote }}
               port: {{ .Values.backend.service.targetPort }}
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 5
+            initialDelaySeconds: {{ .Values.backend.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.backend.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.backend.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.backend.readinessProbe.failureThreshold }}
 {{- end }}
