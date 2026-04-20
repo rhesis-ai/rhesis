@@ -50,18 +50,18 @@ spec:
             {{- toYaml .Values.polyphemus.resources | nindent 12 }}
           livenessProbe:
             httpGet:
-              path: /health
+              path: {{ .Values.polyphemus.livenessProbe.httpGet.path | quote }}
               port: {{ .Values.polyphemus.service.targetPort }}
-            initialDelaySeconds: 60
-            periodSeconds: 30
-            timeoutSeconds: 10
-            failureThreshold: 5
+            initialDelaySeconds: {{ .Values.polyphemus.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.polyphemus.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.polyphemus.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.polyphemus.livenessProbe.failureThreshold }}
           readinessProbe:
             httpGet:
-              path: /health
+              path: {{ .Values.polyphemus.readinessProbe.httpGet.path | quote }}
               port: {{ .Values.polyphemus.service.targetPort }}
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 5
+            initialDelaySeconds: {{ .Values.polyphemus.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.polyphemus.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.polyphemus.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.polyphemus.readinessProbe.failureThreshold }}
 {{- end }}
