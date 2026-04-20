@@ -4,7 +4,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 ## Overview
 
-The Rhesis backend implements a robust multi-tenancy model that ensures complete data isolation between different organizations. This is achieved through a combination of database design, explicit parameter passing, and organization filtering in CRUD operations.
+Organizations are isolated by design: models carry `organization_id`, CRUD and queries take tenant arguments or rely on session context, and list/search paths must never return another org’s rows.
 
 ## Multi-tenant Database Design
 
@@ -128,14 +128,6 @@ FastAPI dependencies provide both database sessions and tenant context:
         yield db, organization_id, user_id`}
 </CodeBlock>
 
-**Key advantages of this approach:**
-
-- **No SET LOCAL overhead**: Eliminates PostgreSQL session variable management
-- **Better performance**: Reduces database round trips
-- **Explicit parameters**: Makes tenant context visible in function signatures
-- **Easier debugging**: Tenant context is explicit in stack traces
-- **Transparent transactions**: Automatic commit/rollback handling
-
 ### Usage Patterns
 
 **For multi-entity operations (recommended):**
@@ -185,19 +177,7 @@ The multi-tenancy system integrates with authentication to set tenant context ba
 
 ## API Request Flow
 
-1. Client makes a request to a protected endpoint
-2. Authentication middleware validates the request
-3. Current user and organization are extracted from the authentication context
-4. Tenant context is set in the database session
-5. Database queries automatically filter data based on the tenant context
-6. After the request completes, tenant context is cleared
-
-## Benefits of This Approach
-
-1. **Security**: Data isolation is enforced at the database level
-2. **Simplicity**: Application code doesn't need to filter by organization
-3. **Performance**: Database indexes can be optimized for tenant-based queries
-4. **Compliance**: Helps meet data segregation requirements for regulatory compliance
+Authenticated request → user/org from auth → tenant set on the session (where applicable) → queries respect RLS/org filters → context cleared after the request.
 
 ## Superuser Access
 
