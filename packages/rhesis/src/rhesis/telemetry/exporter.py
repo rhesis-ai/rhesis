@@ -44,6 +44,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         environment: str,
         timeout: int = 10,
         max_attempts: int = 3,
+        max_chunk_size: int = 100,
     ):
         """
         Initialize exporter with Rhesis configuration.
@@ -53,11 +54,16 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             base_url: Backend base URL
             project_id: Project ID
             environment: Environment name
-            timeout: Total wall-time budget per export() call in seconds,
+            timeout: Total wall-time budget per chunk in seconds,
                 including retries and backoff. Defaults to 10.
             max_attempts: Hard cap on attempts (backstop; deadline usually
                 fires first). Defaults to 3.
+            max_chunk_size: Max spans per HTTP request. Batches larger than
+                this are split into multiple requests. Defaults to 100.
         """
+        if max_chunk_size < 1:
+            raise ValueError(f"max_chunk_size must be >= 1, got {max_chunk_size}")
+
         # Convert ws:// → http://, wss:// → https://
         if base_url.startswith("ws://"):
             http_url = base_url.replace("ws://", "http://")
@@ -80,6 +86,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         self.environment = environment
         self._max_attempts = max_attempts
         self._timeout = timeout
+        self._max_chunk_size = max_chunk_size
 
         # Set by shutdown() to abort in-flight retries (checked by stop predicate + sleep).
         self._shutdown_event = threading.Event()
@@ -128,6 +135,11 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         - Valid: ai.llm.invoke, ai.tool.invoke, ai.retrieval
         - Invalid: ai.agent.run, ai.chain.execute (HTTP 422 rejection)
 
+        When a batch exceeds ``max_chunk_size``, it is split into multiple
+        HTTP requests. If a later chunk fails, earlier chunks are already
+        persisted. ``BatchSpanProcessor`` does not retry on FAILURE, so
+        partial sends do not cause duplicates under normal operation.
+
         Args:
             spans: Sequence of spans to export
 
@@ -140,30 +152,46 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         self._total_exports += 1
 
         try:
-            # Convert OTEL spans to SDK schema models
             batch = self._convert_spans(spans)
+            chunks = self._chunk_converted_spans(batch.spans)
 
             logger.debug(
-                f"Exporting {len(spans)} span(s) for trace "
+                f"Exporting {len(batch.spans)} span(s) for trace "
                 f"{spans[0].context.trace_id if spans else 'unknown'}"
             )
 
-            # Per-attempt timeout shrinks with the remaining budget so a slow
-            # first attempt can't let a second attempt overshoot the deadline.
-            payload = batch.model_dump(mode="json")
-            deadline = time.monotonic() + self._timeout
+            if len(chunks) > 1:
+                logger.info(
+                    f"Chunking {len(batch.spans)} spans into "
+                    f"{len(chunks)} requests "
+                    f"(max_chunk_size={self._max_chunk_size})"
+                )
 
-            def _post_with_remaining_budget(p: dict) -> requests.Response:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise requests.exceptions.Timeout("export wall-time budget exhausted")
-                return self._session.post(self.endpoint, json=p, timeout=remaining)
+            for chunk in chunks:
+                sub_batch = OTELTraceBatch(spans=chunk)
+                payload = sub_batch.model_dump(mode="json")
+                deadline = time.monotonic() + self._timeout
 
-            # Serialize via Pydantic and send with retry on transient failures
-            response = self._retryer(_post_with_remaining_budget, payload)
-            response.raise_for_status()
+                def _post_with_remaining_budget(
+                    p: dict,
+                    _deadline: float = deadline,
+                ) -> requests.Response:
+                    remaining = _deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise requests.exceptions.Timeout("export wall-time budget exhausted")
+                    return self._session.post(
+                        self.endpoint,
+                        json=p,
+                        timeout=remaining,
+                    )
 
-            logger.debug(f"Successfully exported {len(spans)} span(s)")
+                response = self._retryer(
+                    _post_with_remaining_budget,
+                    payload,
+                )
+                response.raise_for_status()
+
+            logger.debug(f"Successfully exported {len(batch.spans)} span(s)")
 
             # Reset failure counter on success
             if self._consecutive_failures > 0:
@@ -372,6 +400,45 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             converted_spans.append(otel_span)
 
         return OTELTraceBatch(spans=converted_spans)
+
+    def _chunk_converted_spans(
+        self,
+        spans: list[OTELSpan],
+    ) -> list[list[OTELSpan]]:
+        """Split converted spans into chunks for separate HTTP requests.
+
+        Root spans (parent_span_id is None) are always placed in the first
+        chunk so the backend's inject_pending_output() can match them before
+        the pending-output cache entry is popped.
+
+        Args:
+            spans: Flat list of converted OTELSpan models.
+
+        Returns:
+            List of span lists, each suitable for one OTELTraceBatch POST.
+        """
+        if len(spans) <= self._max_chunk_size:
+            return [spans]
+
+        roots = [s for s in spans if s.parent_span_id is None]
+        children = [s for s in spans if s.parent_span_id is not None]
+
+        chunks: list[list[OTELSpan]] = []
+
+        children_in_first = self._max_chunk_size - len(roots)
+        if children_in_first > 0:
+            first = roots + children[:children_in_first]
+            remaining = children[children_in_first:]
+        else:
+            first = roots
+            remaining = children
+
+        chunks.append(first)
+
+        for i in range(0, len(remaining), self._max_chunk_size):
+            chunks.append(remaining[i : i + self._max_chunk_size])
+
+        return chunks
 
     @staticmethod
     def _timestamp_to_datetime(timestamp_ns: Optional[int]) -> Optional[datetime]:
