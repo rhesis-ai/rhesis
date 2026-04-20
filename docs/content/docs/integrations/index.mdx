@@ -1,12 +1,44 @@
+import { ObservabilitySection, TestsSection, McpSection, ModelProvidersSection } from '@/components/IntegrationsHub'
+
 # Integrations
 
-This page has been reorganized. Related features live in the main docs:
+<div className="not-prose framework-integrations-showcase" style={{ margin: '1.5rem 0 0' }}>
+  <p
+    style={{
+      margin: '0 0 1.75rem 0',
+      fontSize: '0.975rem',
+      color: 'var(--integration-showcase-lede)',
+      maxWidth: '44rem',
+      lineHeight: 1.6,
+    }}
+  >
+    Plug Rhesis into your environment: observability and remote test runs, evaluation-framework
+    integrations, MCP servers, and LLM providers.
+  </p>
+</div>
 
-## Where to look
+## Observability
 
-- [Models](/docs/models) - Connect to AI service providers for evaluation
-- [MCP](/docs/mcp) - Connect Model Context Protocol servers for enhanced capabilities
-- [API Tokens](/docs/api-tokens) - Generate and manage API tokens for programmatic access
-- [Endpoints](/docs/endpoints) - Configure and test your AI application endpoints
+<div className="not-prose framework-integrations-showcase">
+  <ObservabilitySection />
+</div>
 
-For SDK documentation, see [Python SDK](/sdk/installation).
+## Frameworks
+
+<div className="not-prose framework-integrations-showcase">
+  <TestsSection />
+</div>
+
+## MCPs
+
+<div className="not-prose framework-integrations-showcase">
+  <McpSection />
+</div>
+
+## Model providers
+
+<div className="not-prose framework-integrations-showcase">
+  <ModelProvidersSection />
+</div>
+
+Tip: New to Rhesis? Start with [Getting started](/docs/getting-started).

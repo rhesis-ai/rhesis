@@ -38,6 +38,9 @@ export default withNextra({
       { source: '/concepts', destination: '/docs/concepts', permanent },
       { source: '/product-tour', destination: '/docs/product-tour', permanent },
       { source: '/frameworks', destination: '/docs/frameworks', permanent },
+      // Avoid clash with public/static assets under /integrations/* — only the bare path is a doc URL
+      { source: '/integrations', destination: '/docs/integrations', permanent },
+      { source: '/integrations/', destination: '/docs/integrations', permanent },
       { source: '/acknowledgments', destination: '/docs/acknowledgments', permanent },
       { source: '/deployment', destination: '/docs/deployment', permanent },
       {

@@ -4,6 +4,8 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 Register Python functions as testable endpoints in Rhesis using the SDK connector. This code-first approach automatically creates and manages endpoints, providing an alternative to [manual endpoint configuration](/docs/endpoints).
 
+**`@endpoint` vs `@observe`:** Tracing-only helpers use `@observe`; functions Rhesis should **invoke from the platform** (test runs, connector) use `@endpoint`. See [Observe vs endpoint](/tracing/decorators#observe-vs-endpoint).
+
 <Callout type="info">
   **How it works**: Decorate functions with `@endpoint` and they automatically become endpoints
   in Rhesis. The SDK connects via WebSocket, registers function metadata, and keeps endpoints in
