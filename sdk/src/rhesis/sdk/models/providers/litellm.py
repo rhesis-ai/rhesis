@@ -104,9 +104,7 @@ class LiteLLM(BaseLLM):
         )
 
         if stream:
-            return self._a_generate_stream(
-                messages, schema, *args, **kwargs
-            )
+            return self._a_generate_stream(messages, schema, *args, **kwargs)
 
         response = await acompletion(
             model=self.model_name,

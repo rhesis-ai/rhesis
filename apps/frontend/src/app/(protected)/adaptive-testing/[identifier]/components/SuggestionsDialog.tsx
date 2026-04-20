@@ -300,7 +300,10 @@ export default function SuggestionsDialog({
                 if (order?.length && scores?.length === order.length) {
                   const scoreByOriginalIndex = new Map<number, number | null>();
                   order.forEach((origIdx, displayIdx) => {
-                    scoreByOriginalIndex.set(origIdx, scores[displayIdx] ?? null);
+                    scoreByOriginalIndex.set(
+                      origIdx,
+                      scores[displayIdx] ?? null
+                    );
                   });
                   rows = rows.map((row, idx) => {
                     if (!scoreByOriginalIndex.has(idx)) {
@@ -368,9 +371,7 @@ export default function SuggestionsDialog({
                 setOutputsLoading(true);
 
                 rows = rows.map(s =>
-                  s.input.trim()
-                    ? { ...s, output_pending: true }
-                    : s
+                  s.input.trim() ? { ...s, output_pending: true } : s
                 );
                 setSuggestions(rows);
                 break;
@@ -442,10 +443,9 @@ export default function SuggestionsDialog({
                     { severity: 'warning' }
                   );
                 } else if (event.generated === 0 && event.total > 0) {
-                  notifications.show(
-                    'No suggestion outputs were generated.',
-                    { severity: 'warning' }
-                  );
+                  notifications.show('No suggestion outputs were generated.', {
+                    severity: 'warning',
+                  });
                 }
                 break;
               }
@@ -621,7 +621,10 @@ export default function SuggestionsDialog({
         return (
           <Tooltip
             title={
-              <Box component="span" sx={{ whiteSpace: 'pre-line', display: 'block' }}>
+              <Box
+                component="span"
+                sx={{ whiteSpace: 'pre-line', display: 'block' }}
+              >
                 {tooltipContent}
               </Box>
             }

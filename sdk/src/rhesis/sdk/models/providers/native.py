@@ -271,9 +271,7 @@ class RhesisEmbedder(BaseEmbedder):
         try:
             timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    url, headers=self.headers, json={"text": text}
-                ) as response:
+                async with session.post(url, headers=self.headers, json={"text": text}) as response:
                     response.raise_for_status()
                     result: List[float] = await response.json()
                     return result
