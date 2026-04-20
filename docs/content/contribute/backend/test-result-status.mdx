@@ -51,27 +51,7 @@ status = "Pass" if all_metrics_passed else "Fail"`}
 
 ### Status as Source of Truth
 
-**Important architectural decision:** Once the status is determined and stored, it becomes the **single source of truth** for all subsequent operations:
-
-- **Statistics calculations** use the stored status field
-- **Email notifications** use the stored status field
-- **UI displays** use the stored status field
-- **API responses** use the stored status field
-
-**Do NOT recalculate status from metrics in these contexts.** The metrics remain available for:
-
-- Per-metric statistics and breakdowns
-- Detailed analysis of which specific metrics failed
-- Debugging and audit purposes
-
-This design ensures:
-
-- **Consistency:** All parts of the system agree on test status
-- **Performance:** Avoid re-parsing JSONB metrics repeatedly
-- **Historical accuracy:** Status reflects the evaluation logic at execution time
-- **Simplicity:** Single source of truth for pass/fail decisions
-
----
+After write, the stored Pass/Fail drives stats, email, UI, and API. Do **not** rederive Pass/Fail from `test_metrics` for those paths; keep metrics for drill-down, debugging, and per-metric analytics.
 
 ## Test Metrics Structure
 

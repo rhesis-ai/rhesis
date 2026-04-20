@@ -117,13 +117,7 @@ Developers can generate keys locally using:
 
 **Approach:** Update existing database columns in-place without schema changes
 
-**Rationale:**
-
-- ✅ Maintains column name consistency across the codebase
-- ✅ Eliminates need to update queries, models, and API code
-- ✅ Simpler migration process with fewer moving parts
-- ✅ Supports backward compatibility during migration window
-- ✅ Avoids temporary dual-column management
+**Rationale:** Same column names and ORM types; encrypt in place during a controlled rollout instead of maintaining parallel columns.
 
 **Migration Flow:**
 
@@ -230,201 +224,31 @@ class Endpoint(Base):
 
 ### 6. Security Model
 
-**Threat Model:**
+**Threat model (stylized):** at-rest ciphertext helps against backup/SQL-dump style exposure; it does **not** substitute for network access control, least-privilege DB users, or protecting `DB_ENCRYPTION_KEY`. If both DB and key are lost to the same attacker, they can decrypt.
 
-| Threat                  | Current Risk | After Encryption | Mitigation              |
-| ----------------------- | ------------ | ---------------- | ----------------------- |
-| Database dump leak      | 🔴 High      | ✅ Protected     | Encrypted at rest       |
-| Stolen backup files     | 🔴 High      | ✅ Protected     | Useless without key     |
-| SQL injection           | 🔴 High      | ✅ Protected     | Data is encrypted       |
-| Unauthorized DB access  | 🔴 High      | ✅ Protected     | Credentials encrypted   |
-| Application breach      | 🟡 Medium    | 🟡 Medium        | Defense in depth        |
-| Encryption key exposure | 🔴 Critical  | 🔴 Critical      | Key protection critical |
+**Phase 1 (implemented):** Fernet via `EncryptedString`, key in env, optional dual-read during migration.
 
-**Security Boundaries:**
-
-**Phase 1 Scope (Current Implementation):**
-
-- ✅ Encryption at rest using Fernet (AES-128-CBC with HMAC)
-- ✅ Symmetric key stored in environment variables
-- ✅ In-place migration with backward compatibility
-- ✅ Per-environment encryption keys (dev, staging, production)
-- ✅ Transparent encryption/decryption via SQLAlchemy
-
-**Out of Scope (Phase 2 - Future Enhancements):**
-
-- ⏳ Key rotation mechanism (planned)
-- ⏳ GCP Secret Manager integration (planned)
-- ⏳ Per-tenant encryption keys (under consideration)
-- ⏳ Hardware Security Module (HSM) integration (under consideration)
-- ⏳ External key management systems (AWS KMS, Azure Key Vault)
-- ⏳ Audit logging of encryption/decryption operations
-
-**Defense in Depth:**
-While encryption at rest significantly improves security, it's important to note:
-
-- If an attacker gains access to both the database and the encryption key, they can decrypt the data
-- This solution is one layer in a comprehensive security strategy
-- Continue to follow best practices: least privilege access, network security, monitoring, etc.
+**Later:** key rotation, Secret Manager/HSM, per-tenant keys, and decrypt audit trails are out of scope for phase 1.
 
 ## Consequences
 
-### Positive
+**Upside:** Transparent ORM encryption, no column rename, migration can read mixed plaintext/ciphertext for a window.
 
-- ✅ **Data Protection:** Sensitive tokens encrypted at rest in the database
-- ✅ **Transparent Operation:** Encryption/decryption handled automatically by SQLAlchemy
-- ✅ **No Schema Changes:** Existing columns and queries remain unchanged
-- ✅ **Backward Compatible:** Graceful migration path with dual-mode support
-- ✅ **Industry Standard:** Uses well-vetted cryptography library and algorithm
-- ✅ **Compliance:** Helps meet security and compliance requirements (SOC 2, GDPR, etc.)
+**Downside:** You must operate `DB_ENCRYPTION_KEY` like production credentials—loss of key is data loss; small per-field CPU cost during rollout.
 
-### Negative
-
-- ⚠️ **Operational Burden:** Must securely manage encryption keys across environments
-- ⚠️ **Key Loss Risk:** Losing the encryption key means permanent data loss
-- ⚠️ **Performance Overhead:** Minimal but measurable (~1-2ms per encrypt/decrypt operation)
-- ⚠️ **Backup Procedures:** Must ensure encryption keys are backed up securely
-- ⚠️ **Migration Complexity:** Requires careful coordination during rollout
-
-### Neutral
-
-- ℹ️ **Environment Setup:** All environments must configure `DB_ENCRYPTION_KEY`
-- ℹ️ **Migration Window:** Application will support both encrypted and plaintext during migration
-- ℹ️ **Key Distribution:** Need process for securely distributing keys to new environments
-- ℹ️ **Documentation:** Must document key generation, backup, and recovery procedures
+Every environment needs the key; document how you generate, store, and recover it.
 
 ## Implementation Plan
 
-This ADR is part of a larger implementation plan broken into subtasks:
+Track issues #496–501: TypeDecorator and utils, wire `Endpoint`/`Model` (and related CRUD), data backfill script, then integration tests and deployment notes.
 
-1. **✅ Subtask 1 (Issue #496):** Design & Documentation (this ADR)
-2. **Subtask 2 (Issue #497):** Core Encryption Infrastructure
-   - Create `EncryptedString` TypeDecorator
-   - Add encryption utilities module
-   - Write unit tests for encryption/decryption
-3. **Subtask 3 (Issue #498):** Endpoint Model Encryption
-   - Update `Endpoint` model to use `EncryptedString`
-   - Update relevant CRUD operations
-   - Write integration tests
-4. **Subtask 4 (Issue #499):** Model Table Encryption
-   - Update `Model` table to use `EncryptedString`
-   - Update relevant CRUD operations
-   - Write integration tests
-5. **Subtask 5 (Issue #500):** Data Migration Script
-   - Create migration script to encrypt existing data
-   - Add rollback capability
-   - Document migration procedure
-6. **Subtask 6 (Issue #501):** Integration Testing & Documentation
-   - End-to-end integration tests
-   - Update developer documentation
-   - Update deployment documentation
+## Security and operations
 
-## Security Considerations
-
-### Key Protection Best Practices
-
-**Development Environment:**
-
-- Store key in `.env` file (must be gitignored)
-- Generate unique key per developer (not shared)
-- Document key generation procedure in developer onboarding
-
-**CI/CD Environment:**
-
-- Store key in GitHub Secrets
-- Limit access to repository secrets
-- Rotate keys periodically
-
-**Staging/Production Environment:**
-
-- Use GCP Secret Manager or Kubernetes secrets
-- Implement strict access controls (principle of least privilege)
-- Enable audit logging for key access
-- Document key backup and recovery procedures
-- Test key recovery procedures periodically
-
-### Key Backup and Recovery
-
-**Critical Requirements:**
-
-- Production encryption keys must be backed up to at least 2 secure locations
-- Key backup procedure must be documented and tested quarterly
-- Designated personnel must have access to key recovery procedures
-- Include encryption keys in disaster recovery planning
-
-**Recommended Approach:**
-
-1. Store primary key in GCP Secret Manager (production)
-2. Store backup key in separate secure location (e.g., encrypted vault)
-3. Document key recovery procedure with step-by-step instructions
-4. Include encryption key IDs in runbooks
-
-### Monitoring and Alerting
-
-**Key Metrics to Monitor:**
-
-- Number of decryption failures (potential key mismatch)
-- Presence of plaintext values in encrypted columns (during/after migration)
-- Encryption key access patterns (after Secret Manager integration)
-- Application errors related to encryption/decryption
-
-**Recommended Alerts:**
-
-- Alert on decryption failures exceeding threshold
-- Alert on missing `DB_ENCRYPTION_KEY` environment variable
-- Alert on plaintext values found post-migration
+Treat `DB_ENCRYPTION_KEY` like a production secret: gitignored locally, injected from CI/CD or a secret manager in deployed envs, backed up with clear recovery steps, rotated on a schedule, and monitored for decrypt failures or missing env.
 
 ## Future Work
 
-### Phase 2 Enhancements
-
-**1. Key Rotation:**
-Implement support for dual-key encryption to enable zero-downtime key rotation:
-
-<CodeBlock filename="key-rotation.py" language="python">
-{`# Support both current and previous key
-OLD_KEY = os.getenv("DB_ENCRYPTION_KEY_OLD")
-NEW_KEY = os.getenv("DB_ENCRYPTION_KEY")
-
-def decrypt_with_fallback(value):
-    try:
-        return Fernet(NEW_KEY).decrypt(value)
-    except InvalidToken:
-        return Fernet(OLD_KEY).decrypt(value)  # Fall back to old key`}
-</CodeBlock>
-
-**2. GCP Secret Manager Integration:**
-Migrate from environment variables to GCP Secret Manager:
-
-- Centralized secret management
-- Automatic secret rotation
-- Audit logging of secret access
-- Version control for secrets
-- Fine-grained IAM permissions
-
-**3. Per-Tenant Encryption Keys:**
-For enhanced security isolation:
-
-- Each organization has its own encryption key
-- Compromised key only affects single tenant
-- Supports data residency requirements
-- More complex key management
-
-**4. Field-Level Encryption Extension:**
-Apply encryption to additional sensitive fields:
-
-- User PII (email addresses, phone numbers)
-- Payment information
-- Custom credentials
-- Webhook URLs with embedded secrets
-
-**5. Audit Logging:**
-Track encryption operations:
-
-- Log all decryption events
-- Track key usage patterns
-- Detect anomalous access patterns
-- Support compliance auditing requirements
+Possible next steps: dual-key rotation (snippet above), Secret Manager–backed keys, stricter audit of decrypt operations, and extending `EncryptedString` to other columns if threat model requires it.
 
 ## References
 

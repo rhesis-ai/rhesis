@@ -367,13 +367,7 @@ Access the Flower web UI at `http://localhost:5555` when enabled.
 
 ## Error Handling
 
-The enhanced BaseTask provides improved error handling:
-
-1. Exceptions are logged with tenant context information
-2. Failed tasks are automatically retried with exponential backoff
-3. After maximum retries, the error is recorded in the result backend
-4. Both success and failure callbacks include context information
-5. Task execution time and other metrics are tracked automatically
+`BaseTask` logs with tenant context, retries with backoff, persists terminal errors in the result backend, and runs success/failure hooks when configured.
 
 ## Troubleshooting
 
@@ -477,7 +471,3 @@ if organization_id:
     # Set the tenant context for this session
     set_tenant(db, organization_id, user_id)`}
 </CodeBlock>
-
-## Task Monitoring
-
-Task status can be monitored through several interfaces:

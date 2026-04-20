@@ -138,10 +138,8 @@ This lets clients validate early while preserving backend enforcement as the sou
 
 ### Security behavior
 
-- Passwords must not be whitespace-only.
-- Passwords must not include context words from user identity and service context.
-- Breach checks use HaveIBeenPwned k-anonymity (`/range` API), sending only the first 5 SHA-1 hash chars.
-- If the breach API is unavailable, registration/reset does not hard-fail due only to transient API errors.
+- Non-empty, non-whitespace-only passwords; context words from identity are rejected.
+- Breach check via HIBP k-anonymity (5-char hash prefix); transient HIBP failures do not alone block signup/reset.
 
 ## Token System
 

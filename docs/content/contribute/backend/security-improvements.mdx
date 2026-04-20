@@ -2,16 +2,13 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Security Improvements: Organization Filtering
 
-This document outlines the comprehensive security improvements implemented to prevent cross-tenant data access vulnerabilities in the Rhesis backend.
+How we tightened org-scoped queries and added regression coverage so one tenant cannot read or mutate another’s rows through ordinary code paths.
 
 ## Overview
 
-The Rhesis backend implements a robust multi-tenancy model with organization-based data isolation. Recent security improvements have strengthened this model by:
-
-1. **Fixing Critical Vulnerabilities**: Identified and fixed 10+ critical security vulnerabilities
-2. **Adding Comprehensive Tests**: Created extensive security test suites
-3. **Implementing CI/CD Checks**: Added automated security scanning
-4. **Providing Middleware Solutions**: Created query-level organization filtering middleware
+- Tightened org filters on tasks, CRUD, users, permissions, status utilities, and stats.
+- Regression tests in `tests/backend/test_security_fixes.py` and optional `pytest -m security`.
+- Optional script `scripts/check_organization_filtering.py` for CI; experimental org middleware exists behind flags.
 
 ## Critical Security Fixes Implemented
 
@@ -108,10 +105,6 @@ pytest tests/backend/test_security_fixes.py -v
 pytest -m security`}
 </CodeBlock>
 
-### Test Results
-
-✅ **9/9 security tests passing** - All critical vulnerabilities are properly fixed
-
 ## CI/CD Security Integration
 
 ### Automated Security Scanning
@@ -131,12 +124,6 @@ python scripts/check_organization_filtering.py --verbose
 # Setup CI/CD integration
 python scripts/check_organization_filtering.py --setup-ci`}
 </CodeBlock>
-
-### Current Security Status
-
-- **90 HIGH severity issues** identified for future remediation
-- **28 MEDIUM severity issues** requiring review
-- **Critical vulnerabilities fixed** and tested
 
 ### GitHub Actions Integration
 
@@ -187,7 +174,7 @@ def get_user_tests(db: Session, user_id: str, organization_id: str):
 
 ### 1. Understanding Query Safety Levels
 
-**✅ SAFE QUERIES (No organization filtering needed):**
+**Safe (filter often optional):**
 
 <CodeBlock filename="safe-queries.py" language="python">
 {`# ID-based queries are SAFE - UUIDs are globally unique
@@ -201,7 +188,7 @@ entity = db.query(Entity).get(entity_id)
 user = db.query(User).filter(User.id == user_id).first()`}
 </CodeBlock>
 
-**🚨 CRITICAL QUERIES (Organization filtering required):**
+**Require `organization_id` (list/search and similar):**
 
 <CodeBlock filename="critical-queries.py" language="python">
 {`# List queries without filters - DANGEROUS
@@ -236,7 +223,7 @@ if not organization_id:
     raise ValueError("Organization context required for multi-tenant operation")`}
 </CodeBlock>
 
-### 3. Use Security Tests
+### 4. Use Security Tests
 
 <CodeBlock filename="use-security-tests.py" language="python">
 {`# Test cross-tenant access prevention
@@ -245,28 +232,9 @@ def test_cross_tenant_prevention(self, test_db: Session):
     # Verify org1 user cannot access org2 data`}
 </CodeBlock>
 
-### 4. Apply Defense in Depth
+### 5. Apply Defense in Depth
 
-- **Application-level filtering**: Direct parameter passing
-- **Database-level constraints**: Foreign key relationships
-- **Middleware-level filtering**: Automatic query interception
-- **Testing-level validation**: Comprehensive security tests
-
-## Migration Guide
-
-### For Existing Code
-
-1. **Add organization_id parameters** to functions querying organization-aware models
-2. **Apply organization filtering** to all relevant database queries
-3. **Update function calls** to pass organization_id explicitly
-4. **Add security tests** for cross-tenant access prevention
-
-### For New Code
-
-1. **Always include organization_id** in functions querying multi-tenant data
-2. **Use the security check script** to validate new code
-3. **Write security tests** for new functionality
-4. **Consider middleware solutions** for complex query scenarios
+Combine explicit org filters in app code, FK integrity, optional middleware, and tests.
 
 ## Performance Considerations
 
@@ -282,49 +250,6 @@ def test_cross_tenant_prevention(self, test_db: Session):
 - **Middleware solutions**: Slight overhead, automatic security
 - **Choose based on**: Team expertise, maintenance requirements, performance needs
 
-## Future Improvements
+## Future work
 
-### 1. Complete StatsCalculator Refactoring
-
-- Apply organization filtering to all statistical queries
-- Update all query methods in the calculator
-- Maintain backward compatibility
-
-### 2. Database-Level Security
-
-- Row-level security (RLS) policies
-- Database views with built-in filtering
-- Trigger-based security enforcement
-
-### 3. Advanced Middleware Features
-
-- Query rewriting capabilities
-- Performance optimization
-- Integration with ORM events
-
-### 4. Automated Remediation
-
-- Auto-fix suggestions in security check script
-- Code transformation tools
-- IDE integration for real-time security feedback
-
-## Conclusion
-
-The implemented security improvements provide comprehensive protection against cross-tenant data access vulnerabilities while maintaining system performance and usability. The combination of:
-
-- **Fixed critical vulnerabilities**
-- **Comprehensive test coverage**
-- **Automated security scanning**
-- **Flexible middleware solutions**
-
-Creates a robust multi-tenant security model that can scale with the application's growth while maintaining data isolation between organizations.
-
-**Key Metrics**:
-
-- ✅ **10+ critical vulnerabilities fixed**
-- ✅ **9/9 security tests passing**
-- ✅ **Automated CI/CD security checks**
-- ✅ **118 potential issues identified for future work**
-- ✅ **Zero known active security vulnerabilities**
-
-The security improvements ensure that Rhesis maintains the highest standards of data protection and tenant isolation in its multi-tenant architecture.
+Finish stats coverage, keep chipping away at script findings, and evolve middleware only where it clearly reduces missed filters.

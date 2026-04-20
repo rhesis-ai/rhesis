@@ -2,31 +2,16 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Test Result Statistics API
 
-This guide covers the comprehensive test result statistics endpoint, designed for analytics dashboards and performance monitoring. The endpoint provides configurable data modes and extensive filtering capabilities for optimal performance.
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Quick Start](#quick-start)
-3. [Data Modes](#data-modes)
-4. [Filtering System](#filtering-system)
-5. [Multiple Value Support](#multiple-value-support)
-6. [Response Structure](#response-structure)
-7. [Performance Optimization](#performance-optimization)
-8. [Complete Examples](#complete-examples)
-9. [Best Practices](#best-practices)
+`/test_results/stats` aggregates `test_metrics` for dashboards: multiple `mode` values, rich filters, and compact payloads.
 
 ## Overview
 
-The test result statistics endpoint (`/test_results/stats`) provides powerful analytics capabilities for test performance analysis. It analyzes `test_metrics` JSONB data to determine pass/fail status per metric and overall test results.
+Analytics over test results: per-metric and overall pass/fail derived from stored metrics, with filters for runs, entities, time ranges, and more.
 
 ### Key Features
 
-- **Configurable Data Modes**: Retrieve only the data you need
-- **Comprehensive Filtering**: Filter by any combination of test attributes
-- **Multiple Value Support**: Query multiple entities simultaneously
-- **Performance Optimized**: Reduce payload size and response times
-- **React Chart Ready**: Structured data for charting libraries
+- Modes to trim payloads (`summary`, `metrics`, etc., as implemented)
+- Multi-valued filter parameters where the API supports them
 
 ### Authentication
 

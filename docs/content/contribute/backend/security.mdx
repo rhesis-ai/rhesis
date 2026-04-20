@@ -114,10 +114,9 @@ Sensitive authentication tokens and API keys are encrypted at rest using Fernet 
 
 **Benefits:**
 
-- ✅ Protection against database dumps or backup leaks
-- ✅ Defense against SQL injection exposing credentials
-- ✅ Compliance with security best practices (SOC 2, GDPR)
-- ✅ Useless encrypted data without the encryption key
+- Mitigates leaks from DB dumps/backups and many SQL-injection reads
+- ciphertext useless without `DB_ENCRYPTION_KEY`
+- Aligns with common compliance expectations when paired with other controls
 
 **Documentation:**
 
