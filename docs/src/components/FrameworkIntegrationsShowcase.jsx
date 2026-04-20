@@ -103,7 +103,11 @@ const EVAL_ITEMS = [
 /** Matches “Supported Providers” on /docs/models — icons from Simple Icons or GitHub org avatars. */
 const MODEL_PROVIDERS = [
   { name: 'Anthropic', src: '/integrations/providers/anthropic.svg', kind: 'simpleIcon' },
-  { name: 'Azure AI Studio', src: '/integrations/providers/microsoftazure.svg', kind: 'simpleIcon' },
+  {
+    name: 'Azure AI Studio',
+    src: '/integrations/providers/microsoftazure.svg',
+    kind: 'simpleIcon',
+  },
   { name: 'Azure OpenAI', src: '/integrations/providers/microsoftazure.svg', kind: 'simpleIcon' },
   { name: 'Cohere', src: '/integrations/providers/cohere.svg', kind: 'simpleIcon' },
   { name: 'Google', src: '/integrations/providers/google.svg', kind: 'simpleIcon' },
@@ -164,7 +168,13 @@ function LogoBox({ item }) {
           border: '1px solid rgba(255,255,255,0.12)',
         }}
       >
-        <img src={item.src} alt="" width={40} height={40} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img
+          src={item.src}
+          alt=""
+          width={40}
+          height={40}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
       </div>
     )
   }
@@ -349,11 +359,17 @@ export function ModelProvidersSection() {
         }}
       >
         Supported LLM backends (see also{' '}
-        <a href="/docs/integrations/llm-providers" style={{ color: 'var(--integration-showcase-link)' }}>
+        <a
+          href="/docs/integrations/llm-providers"
+          style={{ color: 'var(--integration-showcase-link)' }}
+        >
           LLM providers
         </a>
         ) you can configure under{' '}
-        <a href="/docs/models" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
+        <a
+          href="/docs/models"
+          style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
+        >
           Models
         </a>
       </p>
@@ -385,10 +401,18 @@ export function ConnectorSection() {
         }}
       >
         Register{' '}
-        <code style={{ fontSize: '0.88em', color: 'var(--integration-showcase-code)' }}>@endpoint</code> functions so
-        Rhesis discovers your app, lists callable endpoints, and runs tests over{' '}
-        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>WebSocket</strong>. See the{' '}
-        <a href="/sdk/connector" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
+        <code style={{ fontSize: '0.88em', color: 'var(--integration-showcase-code)' }}>
+          @endpoint
+        </code>{' '}
+        functions so Rhesis discovers your app, lists callable endpoints, and runs tests over{' '}
+        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>
+          WebSocket
+        </strong>
+        . See the{' '}
+        <a
+          href="/sdk/connector"
+          style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
+        >
           Connector
         </a>{' '}
         guide for setup.
@@ -419,17 +443,28 @@ export function ObservabilitySection() {
           lineHeight: 1.55,
         }}
       >
-        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>Rhesis</strong>{' '}
+        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>
+          Rhesis
+        </strong>{' '}
         provides observability via OpenTelemetry-based tracing.{' '}
-        <a href="/docs/tracing/auto-instrumentation" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
+        <a
+          href="/docs/tracing/auto-instrumentation"
+          style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
+        >
           Auto-instrumentation
         </a>{' '}
         works out of the box for LangChain and LangGraph; connect any Python app using the{' '}
-        <a href="/sdk/connector" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
+        <a
+          href="/sdk/connector"
+          style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
+        >
           Connector
         </a>{' '}
         with the{' '}
-        <code style={{ fontSize: '0.88em', color: 'var(--integration-showcase-code)' }}>@endpoint</code> decorator.
+        <code style={{ fontSize: '0.88em', color: 'var(--integration-showcase-code)' }}>
+          @endpoint
+        </code>{' '}
+        decorator.
       </p>
       <div
         style={{
@@ -462,8 +497,8 @@ export function EvaluationSection() {
           lineHeight: 1.55,
         }}
       >
-        Library-backed metrics (DeepEval, Ragas, Rhesis) and Garak probe imports with mapped
-        metrics in Rhesis test suites.
+        Library-backed metrics (DeepEval, Ragas, Rhesis) and Garak probe imports with mapped metrics
+        in Rhesis test suites.
       </p>
       <div
         style={{
@@ -493,9 +528,12 @@ export function TestsSection() {
           lineHeight: 1.55,
         }}
       >
-        In addition to Rhesis metrics, you can use DeepEval, Ragas, and Garak metrics and
-        import Garak test sets — see{' '}
-        <a href="/docs/frameworks" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
+        In addition to Rhesis metrics, you can use DeepEval, Ragas, and Garak metrics and import
+        Garak test sets — see{' '}
+        <a
+          href="/docs/frameworks"
+          style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
+        >
           framework integrations
         </a>
         .
