@@ -19,7 +19,6 @@ from .base import Base
 from .enums import EmbeddingOrigin
 from .guid import GUID
 from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin
-from .status import Status
 
 
 class EmbeddingConfig:

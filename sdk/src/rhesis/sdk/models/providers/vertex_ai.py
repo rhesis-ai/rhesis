@@ -574,6 +574,13 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
         """
         return self._with_vertex_credentials(super().generate, text, **kwargs)
 
+    async def a_generate(self, text: str, **kwargs) -> Embedding:
+        """Async embedding for a single text using Vertex AI."""
+        kwargs["vertex_project"] = self._vertex_config["project"]
+        kwargs["vertex_location"] = self._vertex_config["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+        return await super().a_generate(text, **kwargs)
+
     def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:
         """Generate embeddings for multiple texts using Vertex AI.
 

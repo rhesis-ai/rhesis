@@ -29,6 +29,8 @@ import {
   EvaluateSuggestionsResponse,
   AdaptiveSettings,
   AdaptiveSettingsUpdateRequest,
+  SuggestionPipelineRequest,
+  SuggestionPipelineEvent,
 } from './interfaces/adaptive-testing';
 
 /**
@@ -574,6 +576,49 @@ export class AdaptiveTestingClient extends BaseApiClient {
 
     for await (const event of this.readNdjsonStream(response)) {
       handlers.onEvent(event as SuggestionEvalStreamEvent);
+    }
+  }
+
+  /**
+   * Unified suggestion pipeline: generate, invoke endpoint, and evaluate
+   * in a single NDJSON stream. Events arrive as they complete — output
+   * events stream immediately, and evaluation events interleave as they finish.
+   */
+  async suggestionPipeline(
+    testSetId: string,
+    body: SuggestionPipelineRequest,
+    handlers: {
+      onEvent: (event: SuggestionPipelineEvent) => void;
+    }
+  ): Promise<void> {
+    const basePath = this.getBasePath(testSetId);
+    const url = joinUrl(this.baseUrl, `${basePath}/suggestion_pipeline`);
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      let message = `Pipeline request failed (${response.status})`;
+      try {
+        const parsed = JSON.parse(errorBody);
+        if (parsed.detail) message = parsed.detail;
+      } catch {
+        // use default message
+      }
+      throw new Error(message);
+    }
+
+    for await (const event of this.readNdjsonStream(response)) {
+      handlers.onEvent(event as SuggestionPipelineEvent);
     }
   }
 }

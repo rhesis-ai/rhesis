@@ -69,6 +69,8 @@ export interface TestNodeCreate {
   labeler?: string;
   to_eval?: boolean;
   model_score?: number;
+  /** When true, backend embeds test input and persists to embedding table */
+  generate_embedding?: boolean;
 }
 
 export interface TestNodeUpdate {
@@ -206,6 +208,8 @@ export interface GenerateSuggestionsRequest {
   num_examples?: number;
   num_suggestions?: number;
   user_feedback?: string | null;
+  /** When true, API returns embedding vectors per suggestion input (not saved) */
+  generate_embeddings?: boolean;
 }
 
 export interface SuggestedTest {
@@ -215,6 +219,12 @@ export interface SuggestedTest {
   label: string;
   labeler: string;
   model_score: number;
+  embedding?: number[] | null;
+  /**
+   * Centroid-based diversity when generate_embeddings was true (default: 1 − cosine
+   * to batch mean direction; higher = more diverse)
+   */
+  diversity_score?: number | null;
 }
 
 export interface GenerateSuggestionsResponse {
@@ -299,6 +309,97 @@ export interface SuggestionEvalStreamSummaryEvent {
 export type SuggestionEvalStreamEvent =
   | SuggestionEvalStreamItemEvent
   | SuggestionEvalStreamSummaryEvent;
+
+// =============================================================================
+// Unified Suggestion Pipeline (single stream)
+// =============================================================================
+
+export interface SuggestionPipelineRequest {
+  topic?: string | null;
+  generate_embeddings?: boolean;
+  num_examples?: number;
+  num_suggestions?: number;
+  user_feedback?: string | null;
+  endpoint_id?: string | null;
+  metric_names?: string[] | null;
+}
+
+/** Bulk suggestions event (legacy / non-streaming fallback). */
+export interface PipelineSuggestionsEvent {
+  type: 'suggestions';
+  suggestions: SuggestedTest[];
+  num_examples_used: number;
+}
+
+/** Streamed: single suggestion parsed from the LLM token stream. */
+export interface PipelineSuggestionEvent {
+  type: 'suggestion';
+  index: number;
+  topic: string;
+  input: string;
+}
+
+/** Streamed: embedding completed for a single suggestion (index only, no vector). */
+export interface PipelineEmbeddingEvent {
+  type: 'embedding';
+  index: number;
+}
+
+/** Streamed: all suggestions (and embeddings) are done. */
+export interface PipelineSuggestionsDoneEvent {
+  type: 'suggestions_done';
+  total: number;
+  num_examples_used: number;
+  diversity_order: number[] | null;
+  /** Diversity metric per row in sorted display order (same length as diversity_order). */
+  diversity_scores?: (number | null)[] | null;
+}
+
+export interface PipelineOutputEvent {
+  type: 'output';
+  index: number;
+  input: string;
+  output: string;
+  error: string | null;
+}
+
+export interface PipelineEvaluationEvent {
+  type: 'evaluation';
+  index: number;
+  input: string;
+  label: string;
+  labeler: string;
+  model_score: number;
+  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  error: string | null;
+}
+
+export interface PipelineOutputSummaryEvent {
+  type: 'output_summary';
+  generated: number;
+  total: number;
+}
+
+export interface PipelineEvalSummaryEvent {
+  type: 'eval_summary';
+  evaluated: number;
+  total: number;
+}
+
+export interface PipelineDoneEvent {
+  type: 'done';
+}
+
+export type SuggestionPipelineEvent =
+  | PipelineSuggestionsEvent
+  | PipelineSuggestionEvent
+  | PipelineEmbeddingEvent
+  | PipelineSuggestionsDoneEvent
+  | PipelineOutputEvent
+  | PipelineEvaluationEvent
+  | PipelineOutputSummaryEvent
+  | PipelineEvalSummaryEvent
+  | PipelineDoneEvent;
 
 // =============================================================================
 // Adaptive Settings

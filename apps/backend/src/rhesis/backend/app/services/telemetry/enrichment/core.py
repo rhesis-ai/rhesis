@@ -19,6 +19,10 @@ from rhesis.backend.app.schemas.enrichment import (
 from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
 from rhesis.sdk.telemetry.attributes import AIAttributes
 
+litellm.suppress_debug_info = True
+for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
+    logging.getLogger(_logger_name).setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 

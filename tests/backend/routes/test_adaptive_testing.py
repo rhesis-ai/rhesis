@@ -1186,6 +1186,44 @@ class TestCreateAdaptiveTestEndpoint:
             status.HTTP_403_FORBIDDEN,
         ]
 
+    @patch(
+        "rhesis.backend.app.services.adaptive_testing.embeddings.generate_embedding_vector",
+        return_value=[0.01] * 384,
+    )
+    def test_create_test_with_generate_embedding_persists_embedding_row(
+        self,
+        _mock_embed: MagicMock,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+        test_db: Session,
+    ):
+        """POST with generate_embedding=true should insert a row into embedding."""
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            json={
+                "topic": "Safety",
+                "input": "Embedding persistence check prompt",
+                "output": "ok",
+                "labeler": "user",
+                "generate_embedding": True,
+            },
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        created_id = response.json()["id"]
+
+        row = (
+            test_db.query(models.Embedding)
+            .filter(
+                models.Embedding.entity_id == uuid.UUID(created_id),
+                models.Embedding.entity_type == "Test",
+            )
+            .first()
+        )
+        assert row is not None, "expected embedding row for created adaptive test"
+        assert row.embedding_config.get("source") == "adaptive_testing"
+        assert row.embedding_config.get("dimension") == 384
+        assert row.searchable_text  # from Test.to_searchable_text()
+
 
 @pytest.mark.integration
 @pytest.mark.routes
