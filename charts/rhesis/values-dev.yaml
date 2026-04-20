@@ -46,7 +46,11 @@ backend:
   ingress:
     enabled: true
     host: "api.dev.rhesis.internal"
-
+  livelinessProbe:
+    initialDelaySeconds: 300
+  readinessProbe:
+    initialDelaySeconds: 300
+ 
 frontend:
   ingress:
     enabled: true
