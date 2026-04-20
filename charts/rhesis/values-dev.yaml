@@ -73,6 +73,15 @@ docs:
     enabled: true
     host: "docs.dev.rhesis.internal"
 
+chatbot:
+  ingress:
+    enabled: true
+    host: "chatbot.dev.rhesis.internal"
+
+polyphemus:
+  ingress:
+    enabled: true
+    host: "polyphemus.dev.rhesis.internal"
 # ---------------------------------------------------------------------------
 # PostgreSQL — Bitnami subchart enabled for dev (no CNPG in this branch)
 # Uses pgvector image for vector extension support.

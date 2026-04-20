@@ -260,6 +260,8 @@ docs:
 valkey:
   enabled: true
   architecture: standalone
+  image:
+    tag: latest
   auth:
     enabled: true
     existingSecret: "rhesis-app-secrets"
