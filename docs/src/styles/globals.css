@@ -902,6 +902,26 @@ aside nav a[class*='text-primary'],
   --text-secondary: #a9b1bb;
 }
 
+/* ResourceCard / DevelopmentResourcesGrid — same surface tokens as path-card & info cards */
+.resource-card {
+  --border-color: #e5e7eb;
+  --card-bg: #ffffff;
+  --text-primary: #3d3d3d;
+  --text-secondary: #6b7280;
+  --primary-color: #2aa1ce;
+  --primary-bg: rgba(42, 161, 206, 0.1);
+}
+
+[data-theme='dark'] .resource-card,
+.dark .resource-card {
+  --border-color: #2c2c2c;
+  --card-bg: #161b22;
+  --text-primary: #e6edf3;
+  --text-secondary: #a9b1bb;
+  --primary-color: #3bc4f2;
+  --primary-bg: rgba(42, 161, 206, 0.15);
+}
+
 /* NextStepCard Component Styles */
 .next-step-card {
   --border-color: #e5e7eb;
