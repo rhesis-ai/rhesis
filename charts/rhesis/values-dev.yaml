@@ -46,11 +46,23 @@ backend:
   ingress:
     enabled: true
     host: "api.dev.rhesis.internal"
-  livelinessProbe:
-    initialDelaySeconds: 300
+  # Dev: slow cold start (e.g. Garak). Helm replaces nested maps — keep full blocks.
+  # Liveness worst-case ≈ 900 + 29*45 = 2205s (~37m) before restart if /health never succeeds.
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 900
+    periodSeconds: 45
+    timeoutSeconds: 15
+    failureThreshold: 30
   readinessProbe:
-    initialDelaySeconds: 300
- 
+    httpGet:
+      path: /health
+    initialDelaySeconds: 600
+    periodSeconds: 20
+    timeoutSeconds: 15
+    failureThreshold: 90
+
 frontend:
   ingress:
     enabled: true
