@@ -14,7 +14,7 @@ global:
 # Non-sensitive config overrides for dev
 # ---------------------------------------------------------------------------
 config:
-  environment: "dev"
+  environment: "development"
   logLevel: "DEBUG"
 
   # Database (resolved to rhesis-postgresql service by Bitnami subchart)
