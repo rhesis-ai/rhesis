@@ -91,6 +91,14 @@ postgresql:
         init-extensions.sql: |
           CREATE EXTENSION IF NOT EXISTS vector;
           CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    podSecurityContext:
+      enabled: true
+      fsGroup: 999
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 999
+      runAsNonRoot: true
+      readOnlyRootFilesystem: false
 
 # ---------------------------------------------------------------------------
 # Valkey — in-cluster (required)
