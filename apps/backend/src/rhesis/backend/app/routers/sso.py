@@ -105,19 +105,30 @@ def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:
         return None
 
 
-def _get_org_or_404(db: Session, org_id: str) -> Organization:
-    """Look up org by UUID, raise uniform 404."""
-    try:
-        from uuid import UUID
+def _get_org_or_404(db: Session, org_identifier: str) -> Organization:
+    """Look up org by UUID or slug, raise uniform 404.
 
-        UUID(org_id)
+    Tries UUID first; if the identifier is not a valid UUID, falls back to
+    slug lookup.  Returns the same generic 404 in all failure cases to
+    prevent organization enumeration.
+    """
+    from uuid import UUID as _UUID
+
+    org = None
+    try:
+        _UUID(org_identifier)
+        org = (
+            db.query(Organization)
+            .filter(Organization.id == org_identifier)
+            .first()
+        )
     except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="SSO is not available",
+        org = (
+            db.query(Organization)
+            .filter(Organization.slug == org_identifier.lower())
+            .first()
         )
 
-    org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -364,6 +375,7 @@ class SSOConfigRequest(BaseModel):
     auto_provision_users: bool = False
     allowed_domains: Optional[List[str]] = None
     allowed_auth_methods: Optional[List[str]] = None
+    slug: Optional[str] = None
 
 
 class SSOTestResponse(BaseModel):
@@ -429,7 +441,13 @@ async def get_sso_config(
     if not sso_config:
         return None
 
-    return sso_config.masked_dict()
+    result = sso_config.masked_dict()
+    result["slug"] = org.slug or ""
+    if org.slug:
+        result["login_url"] = f"/auth/sso/{org.slug}"
+    else:
+        result["login_url"] = f"/auth/sso/{org.id}"
+    return result
 
 
 @router.put("/organizations/{org_id}/sso")
@@ -509,8 +527,36 @@ async def update_sso_config(
     config_dict = validated.model_dump()
     config_dict["client_secret"] = encrypted_secret
 
+    # Handle slug update
+    if body.slug is not None:
+        import re
+
+        slug_val = body.slug.strip().lower() if body.slug else None
+        if slug_val == "":
+            slug_val = None
+        if slug_val:
+            slug_re = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$")
+            if not slug_re.match(slug_val) or "--" in slug_val:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Slug must be 3-50 characters, lowercase "
+                    "alphanumeric and hyphens, no consecutive hyphens",
+                )
+            existing = (
+                db.query(Organization)
+                .filter(Organization.slug == slug_val, Organization.id != org.id)
+                .first()
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="This slug is already taken",
+                )
+
     is_new = org.sso_config is None
     org.sso_config = config_dict
+    if body.slug is not None:
+        org.slug = slug_val
     db.commit()
     db.refresh(org)
 
@@ -526,7 +572,13 @@ async def update_sso_config(
         },
     )
 
-    return validated.masked_dict()
+    result = validated.masked_dict()
+    result["slug"] = org.slug or ""
+    if org.slug:
+        result["login_url"] = f"/auth/sso/{org.slug}"
+    else:
+        result["login_url"] = f"/auth/sso/{org.id}"
+    return result
 
 
 @router.delete("/organizations/{org_id}/sso")
@@ -545,6 +597,7 @@ async def delete_sso_config(
 
     org = _get_org_or_404(db, org_id)
     org.sso_config = None
+    org.slug = None
     db.commit()
 
     audit_log(

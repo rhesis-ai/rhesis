@@ -24,10 +24,13 @@ import {
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   Add as AddIcon,
+  ContentCopy as CopyIcon,
 } from '@mui/icons-material';
 import { Organization, SSOConfig, SSOTestResult } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+const SSO_DISPLAY_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 interface SSOConfigFormProps {
   organization: Organization;
@@ -45,6 +48,7 @@ const DEFAULT_SSO_CONFIG: SSOConfig = {
   auto_provision_users: false,
   allowed_domains: null,
   allowed_auth_methods: null,
+  slug: '',
 };
 
 export default function SSOConfigForm({
@@ -78,6 +82,7 @@ export default function SSOConfigForm({
           ...DEFAULT_SSO_CONFIG,
           ...config,
           client_secret: '',
+          slug: config.slug || '',
         };
         setFormData(loaded);
         setInitialData(JSON.stringify(loaded));
@@ -147,16 +152,18 @@ export default function SSOConfigForm({
       const apiFactory = new ApiClientFactory(sessionToken);
       const client = apiFactory.getOrganizationsClient();
 
-      const configToSave: SSOConfig = {
+      const configToSave: Partial<SSOConfig> = {
         ...formData,
         client_secret: formData.client_secret || undefined,
+        slug: formData.slug || undefined,
       };
 
       if (hasExistingConfig && !formData.client_secret) {
         delete configToSave.client_secret;
       }
+      delete configToSave.login_url;
 
-      await client.updateSSOConfig(organization.id, configToSave);
+      await client.updateSSOConfig(organization.id, configToSave as SSOConfig);
       notifications.show('SSO configuration saved', 'success');
 
       const loaded: SSOConfig = {
@@ -247,6 +254,61 @@ export default function SSOConfigForm({
 
         <Collapse in={formData.enabled} sx={{ width: '100%' }}>
           <Grid container spacing={2} sx={{ px: 2, pt: 1 }}>
+            <Grid size={12}>
+              <TextField
+                fullWidth
+                label="SSO Slug"
+                placeholder="acme-corp"
+                value={formData.slug || ''}
+                onChange={handleChange('slug')}
+                helperText="Used in the SSO login URL. Lowercase letters, numbers, and hyphens (3-50 chars)."
+                slotProps={{
+                  htmlInput: { pattern: '[a-z0-9][a-z0-9-]*[a-z0-9]', maxLength: 50 },
+                }}
+              />
+            </Grid>
+
+            {formData.slug && (
+              <Grid size={12}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    p: 1.5,
+                    bgcolor: 'action.hover',
+                    borderRadius: 1,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+                    SSO Login URL:
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ fontFamily: 'monospace', wordBreak: 'break-all', flexGrow: 1 }}
+                  >
+                    {`${SSO_DISPLAY_BASE_URL}/auth/sso/${formData.slug}`}
+                  </Typography>
+                  <Tooltip title="Copy URL">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        const url = `${SSO_DISPLAY_BASE_URL}/auth/sso/${formData.slug}`;
+                        navigator.clipboard.writeText(url);
+                        notifications.show('URL copied to clipboard', 'success');
+                      }}
+                    >
+                      <CopyIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Grid>
+            )}
+
+            <Grid size={12}>
+              <Divider sx={{ my: 1 }} />
+            </Grid>
+
             <Grid size={12}>
               <TextField
                 fullWidth

@@ -1,12 +1,14 @@
+import re
 from datetime import datetime
 from typing import Optional
 
-from pydantic import UUID4
+from pydantic import UUID4, field_validator
 
 from rhesis.backend.app.schemas import Base
 
+_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$")
 
-# User schemas
+
 class OrganizationBase(Base):
     name: str
     display_name: Optional[str] = None
@@ -24,6 +26,24 @@ class OrganizationBase(Base):
     owner_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     is_onboarding_complete: Optional[bool] = False
+    slug: Optional[str] = None
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if not v:
+            return None
+        if not _SLUG_RE.match(v):
+            raise ValueError(
+                "Slug must be 3-50 characters, lowercase alphanumeric "
+                "and hyphens, starting and ending with a letter or digit"
+            )
+        if "--" in v:
+            raise ValueError("Slug must not contain consecutive hyphens")
+        return v
 
 
 class OrganizationCreate(OrganizationBase):

@@ -30,6 +30,8 @@ export interface SSOConfig {
   auto_provision_users: boolean;
   allowed_domains?: string[] | null;
   allowed_auth_methods?: string[] | null;
+  slug?: string;
+  login_url?: string;
 }
 
 export interface SSOTestResult {

@@ -100,6 +100,7 @@ class ProviderInfo(BaseModel):
     type: str  # 'oauth' or 'credentials'
     enabled: bool
     registration_enabled: Optional[bool] = None
+    login_url: Optional[str] = None
 
 
 class PasswordPolicyResponse(BaseModel):
@@ -286,21 +287,41 @@ async def get_providers(
     providers = ProviderRegistry.get_provider_info()
     policy = get_password_policy()
 
-    # If org is specified, check for SSO config and filter providers
     if org:
         try:
+            from uuid import UUID as _UUID
+
             from rhesis.backend.app.models.organization import Organization
             from rhesis.backend.app.routers.sso import _get_sso_config, check_sso_available
 
-            organization = db.query(Organization).filter(Organization.id == org).first()
-            if organization and check_sso_available(organization):
+            try:
+                _UUID(org)
+                organization = (
+                    db.query(Organization)
+                    .filter(Organization.id == org)
+                    .first()
+                )
+            except ValueError:
+                organization = (
+                    db.query(Organization)
+                    .filter(Organization.slug == org.lower())
+                    .first()
+                )
+
+            if organization and check_sso_available():
                 sso_config = _get_sso_config(organization)
                 if sso_config and sso_config.enabled:
+                    login_path = (
+                        f"/auth/sso/{organization.slug}"
+                        if organization.slug
+                        else f"/auth/sso/{organization.id}"
+                    )
                     providers.append({
                         "name": "sso",
                         "display_name": "SSO",
                         "type": "oauth",
                         "enabled": True,
+                        "login_url": login_path,
                     })
 
                     if sso_config.allowed_auth_methods:
@@ -309,7 +330,7 @@ async def get_providers(
                             p for p in providers if p["name"] in allowed
                         ]
         except Exception:
-            pass  # On any error, return default providers (no enumeration)
+            pass
 
     return ProvidersResponse(
         providers=[ProviderInfo(**p) for p in providers],

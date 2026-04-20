@@ -33,6 +33,7 @@ class Organization(Base, TagsMixin):
 
     # SSO configuration (validated via Pydantic, excluded from general API responses)
     sso_config = Column(JSON, nullable=True)
+    slug = Column(String(50), unique=True, index=True, nullable=True)
 
     # Relationships with explicit UUID columns
     owner_id = Column(GUID(), ForeignKey("user.id"))
