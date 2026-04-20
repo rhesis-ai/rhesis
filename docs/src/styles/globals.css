@@ -52,12 +52,13 @@
   --integration-showcase-muted: rgba(100, 116, 139, 0.95);
   --integration-showcase-code: #0f172a;
   --integration-showcase-strong: #0f172a;
-  --integration-showcase-card-border: rgba(15, 23, 42, 0.14);
-  --integration-showcase-card-border-hover: rgba(42, 161, 206, 0.55);
-  --integration-showcase-card-bg: rgba(248, 250, 252, 0.95);
-  --integration-showcase-card-bg-hover: rgba(241, 245, 249, 1);
-  --integration-showcase-chip-border: rgba(15, 23, 42, 0.12);
-  --integration-showcase-chip-bg: rgba(248, 250, 252, 0.95);
+  --integration-showcase-card-border: rgba(15, 23, 42, 0.18);
+  --integration-showcase-card-bg: rgba(255, 255, 255, 0.92);
+  --integration-showcase-card-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 10px rgba(15, 23, 42, 0.07);
+  /* Model provider chips — flatter than link cards so they read as static labels */
+  --integration-showcase-chip-border: rgba(15, 23, 42, 0.06);
+  --integration-showcase-chip-bg: rgba(255, 255, 255, 0.45);
   --integration-showcase-name: var(--rhesis-text-primary);
   --integration-showcase-chip-name: var(--rhesis-text-primary);
 }
@@ -83,12 +84,12 @@
   --integration-showcase-muted: rgba(148, 163, 184, 0.9);
   --integration-showcase-code: #e2e8f0;
   --integration-showcase-strong: #e2e8f0;
-  --integration-showcase-card-border: rgba(255, 255, 255, 0.08);
-  --integration-showcase-card-border-hover: rgba(42, 161, 206, 0.55);
-  --integration-showcase-card-bg: rgba(255, 255, 255, 0.02);
-  --integration-showcase-card-bg-hover: rgba(255, 255, 255, 0.04);
-  --integration-showcase-chip-border: rgba(255, 255, 255, 0.08);
-  --integration-showcase-chip-bg: rgba(255, 255, 255, 0.02);
+  --integration-showcase-card-border: rgba(255, 255, 255, 0.1);
+  --integration-showcase-card-bg: rgba(255, 255, 255, 0.04);
+  --integration-showcase-card-shadow: 0 2px 10px rgba(0, 0, 0, 0.42);
+  --integration-showcase-chip-border: rgba(255, 255, 255, 0.05);
+  /* No white lift — reads darker and flatter than link cards */
+  --integration-showcase-chip-bg: transparent;
   --integration-showcase-name: #f9fafb;
   --integration-showcase-chip-name: rgba(226, 232, 240, 0.95);
 }
@@ -117,6 +118,16 @@
   min-width: 0;
   height: 40px;
   padding: 6px 12px;
+}
+
+/* Integration showcase — link rows (vs flat provider chips) */
+.integration-showcase-card {
+  cursor: pointer;
+}
+
+.integration-showcase-card:focus-visible {
+  outline: 2px solid var(--integration-showcase-link);
+  outline-offset: 3px;
 }
 
 /* Local Font Definitions */

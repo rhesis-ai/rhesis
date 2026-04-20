@@ -12,7 +12,6 @@ import React from 'react'
  * - DeepEval: `deepeval-logo.svg` from confident-ai/deepeval (`docs/static/icons/deepeval-logo.svg`)
  * - Ragas: project docs on GitHub (see file header in repo history)
  * - Polyphemus: `polyphemus-logo-favicon-transparent.svg` from apps/frontend/public/logos
- * - OpenTelemetry: CNCF / opentelemetry.io color icon (`static/img/logos/opentelemetry-icon-color.png`)
  */
 
 /**
@@ -34,7 +33,7 @@ const CONNECTOR_ITEM = {
   kind: 'rhesis',
 }
 
-const TRACING_ITEMS = [
+const FRAMEWORK_TRACING_ITEMS = [
   {
     name: 'LangChain',
     href: '/docs/tracing/auto-instrumentation#langchain',
@@ -47,13 +46,10 @@ const TRACING_ITEMS = [
     src: '/integrations/langgraph.svg',
     kind: 'simpleIcon',
   },
-  {
-    name: 'OpenTelemetry',
-    href: '/docs/tracing',
-    src: '/integrations/opentelemetry-icon.png',
-    kind: 'simpleIcon',
-  },
 ]
+
+/** LangChain, LangGraph, and SDK Connector — single Observability section on /docs/integrations */
+const OBSERVABILITY_GRID_ITEMS = [...FRAMEWORK_TRACING_ITEMS, CONNECTOR_ITEM]
 
 /** MCP server providers — sections on /docs/mcp */
 const MCP_ITEMS = [
@@ -214,9 +210,9 @@ function LogoBox({ item }) {
 }
 
 function GridCard({ item }) {
-  const [hover, setHover] = React.useState(false)
   return (
     <a
+      className="integration-showcase-card"
       href={item.href}
       style={{
         position: 'relative',
@@ -225,20 +221,12 @@ function GridCard({ item }) {
         gap: '1rem',
         padding: '1rem 1.25rem',
         borderRadius: '12px',
-        border: '1px solid',
-        borderColor: hover
-          ? 'var(--integration-showcase-card-border-hover)'
-          : 'var(--integration-showcase-card-border)',
-        background: hover
-          ? 'var(--integration-showcase-card-bg-hover)'
-          : 'var(--integration-showcase-card-bg)',
+        border: '1px solid var(--integration-showcase-card-border)',
+        background: 'var(--integration-showcase-card-bg)',
+        boxShadow: 'var(--integration-showcase-card-shadow)',
         textDecoration: 'none',
         color: 'var(--integration-showcase-name)',
-        transition: 'border-color 0.2s ease, background 0.2s ease, transform 0.2s ease',
-        transform: hover ? 'translateY(-2px)' : 'none',
       }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
     >
       <span
         style={{
@@ -392,14 +380,18 @@ export function ConnectorSection() {
           margin: '0 0 1.25rem 0',
           fontSize: '0.9375rem',
           color: 'var(--integration-showcase-lede)',
-          maxWidth: '42rem',
+          maxWidth: '44rem',
           lineHeight: 1.55,
         }}
       >
         Register{' '}
-        <code style={{ fontSize: '0.88em', color: 'var(--integration-showcase-code)' }}>@endpoint</code>{' '}
-        functions so Rhesis can discover them and run tests over{' '}
-        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>WebSocket</strong>.
+        <code style={{ fontSize: '0.88em', color: 'var(--integration-showcase-code)' }}>@endpoint</code> functions so
+        Rhesis discovers your app, lists callable endpoints, and runs tests over{' '}
+        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>WebSocket</strong>. See the{' '}
+        <a href="/sdk/connector" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
+          Connector
+        </a>{' '}
+        guide for setup.
       </p>
       <div
         style={{
@@ -414,7 +406,8 @@ export function ConnectorSection() {
   )
 }
 
-export function TracingSection() {
+/** Tracing, auto-instrumentation, connector — see /docs/tracing/auto-instrumentation, /sdk/connector */
+export function ObservabilitySection() {
   return (
     <section style={{ marginBottom: '2.5rem' }}>
       <p
@@ -422,16 +415,21 @@ export function TracingSection() {
           margin: '0 0 1.25rem 0',
           fontSize: '0.9375rem',
           color: 'var(--integration-showcase-lede)',
-          maxWidth: '42rem',
+          maxWidth: '44rem',
           lineHeight: 1.55,
         }}
       >
+        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>Rhesis</strong>{' '}
+        provides observability via OpenTelemetry-based tracing.{' '}
         <a href="/docs/tracing/auto-instrumentation" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
           Auto-instrumentation
         </a>{' '}
-        traces LangChain and LangGraph without extra decorators; spans export over{' '}
-        <strong style={{ color: 'var(--integration-showcase-strong)', fontWeight: 600 }}>HTTP</strong>{' '}
-        (OTLP). OpenTelemetry setup covers the rest of the pipeline.
+        works out of the box for LangChain and LangGraph; connect any Python app using the{' '}
+        <a href="/sdk/connector" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
+          Connector
+        </a>{' '}
+        with the{' '}
+        <code style={{ fontSize: '0.88em', color: 'var(--integration-showcase-code)' }}>@endpoint</code> decorator.
       </p>
       <div
         style={{
@@ -440,12 +438,16 @@ export function TracingSection() {
           gap: '0.75rem',
         }}
       >
-        {TRACING_ITEMS.map(item => (
+        {OBSERVABILITY_GRID_ITEMS.map(item => (
           <GridCard key={item.name + item.href} item={item} />
         ))}
       </div>
     </section>
   )
+}
+
+export function TracingSection() {
+  return <ObservabilitySection />
 }
 
 export function EvaluationSection() {
@@ -460,7 +462,8 @@ export function EvaluationSection() {
           lineHeight: 1.55,
         }}
       >
-        Library-backed metrics and probes in Rhesis test suites.
+        Library-backed metrics (DeepEval, Ragas, Rhesis) and Garak probe imports with mapped
+        metrics in Rhesis test suites.
       </p>
       <div
         style={{
@@ -477,7 +480,42 @@ export function EvaluationSection() {
   )
 }
 
-export function FrameworkIntegrationsShowcase() {
+/** Import tests (e.g. Garak) and metrics (DeepEval, Ragas, Rhesis) — see /docs/frameworks */
+export function TestsSection() {
+  return (
+    <section style={{ marginBottom: '2.5rem' }}>
+      <p
+        style={{
+          margin: '0 0 1.25rem 0',
+          fontSize: '0.9375rem',
+          color: 'var(--integration-showcase-lede)',
+          maxWidth: '44rem',
+          lineHeight: 1.55,
+        }}
+      >
+        In addition to Rhesis metrics, you can use DeepEval, Ragas, and Garak metrics and
+        import Garak test sets — see{' '}
+        <a href="/docs/frameworks" style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}>
+          framework integrations
+        </a>
+        .
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gap: '0.75rem',
+        }}
+      >
+        {EVAL_ITEMS.map(item => (
+          <GridCard key={item.name + item.href} item={item} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export function IntegrationsHub() {
   return (
     <div className="not-prose framework-integrations-showcase" style={{ margin: '1.5rem 0 0' }}>
       <p
@@ -489,15 +527,19 @@ export function FrameworkIntegrationsShowcase() {
           lineHeight: 1.6,
         }}
       >
-        Connect Rhesis to other products and open-source ecosystems.
+        A single place to see how Rhesis plugs into your environment: observability and remote test
+        runs, evaluation-framework integrations, MCP servers, and LLM providers.
       </p>
-      <ConnectorSection />
-      <TracingSection />
+      <ObservabilitySection />
+      <TestsSection />
       <McpSection />
       <ModelProvidersSection />
-      <EvaluationSection />
     </div>
   )
 }
 
-export default FrameworkIntegrationsShowcase
+export function FrameworkIntegrationsShowcase() {
+  return <IntegrationsHub />
+}
+
+export default IntegrationsHub

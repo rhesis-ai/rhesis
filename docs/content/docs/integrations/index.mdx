@@ -1,10 +1,4 @@
-import {
-  ConnectorSection,
-  EvaluationSection,
-  McpSection,
-  ModelProvidersSection,
-  TracingSection,
-} from '@/components/FrameworkIntegrationsShowcase'
+import { ObservabilitySection, TestsSection, McpSection, ModelProvidersSection } from '@/components/IntegrationsHub'
 
 # Integrations
 
@@ -18,20 +12,21 @@ import {
       lineHeight: 1.6,
     }}
   >
-    Connect Rhesis to other products and open-source ecosystems.
+    Plug Rhesis into your environment: observability and remote test runs, evaluation-framework
+    integrations, MCP servers, and LLM providers.
   </p>
 </div>
 
-## Connector (testing)
+## Observability
 
 <div className="not-prose framework-integrations-showcase">
-  <ConnectorSection />
+  <ObservabilitySection />
 </div>
 
-## Auto-instrumentation (tracing)
+## Frameworks
 
 <div className="not-prose framework-integrations-showcase">
-  <TracingSection />
+  <TestsSection />
 </div>
 
 ## MCPs
@@ -44,12 +39,6 @@ import {
 
 <div className="not-prose framework-integrations-showcase">
   <ModelProvidersSection />
-</div>
-
-## Evaluation & red teaming
-
-<div className="not-prose framework-integrations-showcase">
-  <EvaluationSection />
 </div>
 
 Tip: New to Rhesis? Start with [Getting started](/docs/getting-started).

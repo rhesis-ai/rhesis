@@ -133,14 +133,14 @@ response = call_llm("What is machine learning?")`}
 
 ## Endpoints Are Automatically Traced
 
-Functions decorated with `@endpoint` are automatically traced. See the [Connector documentation](/sdk/connector) for details on endpoint registration.
+Use `@endpoint` for functions you want **Rhesis to call from the product** (for example when a test run executes your code via the [Connector](/sdk/connector)), not only for tracing. Those functions are **automatically traced** when they run. Use `@observe` for code you only need to **observe** inside your app; it is not registered for remote invocation. See [Observe vs endpoint](/tracing/decorators#observe-vs-endpoint) for the full comparison.
 
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import endpoint
 
 @endpoint()
 def chat(input: str, session_id: str = None) -> dict:
-    # This function is automatically traced
+    # Registered with Rhesis; traced when run locally or triggered from the platform
     return {"output": process_message(input), "session_id": session_id}`}
 </CodeBlock>
 
