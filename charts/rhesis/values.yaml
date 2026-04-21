@@ -195,6 +195,14 @@ chatbot:
     type: ClusterIP
     port: 8083
     targetPort: 8080
+  ingress:
+    enabled: false
+    className: "internal"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: ""
+    tlsSecretName: "rhesis-chatbot-tls"
   env: []
   # disableSecurityContext: false
 
@@ -232,6 +240,14 @@ polyphemus:
     type: ClusterIP
     port: 8081
     targetPort: 8080
+  ingress:
+    enabled: false
+    className: "internal"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: ""
+    tlsSecretName: "rhesis-polyphemus-tls"
   env: []
   # disableSecurityContext: false
 
