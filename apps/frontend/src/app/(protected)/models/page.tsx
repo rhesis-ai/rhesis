@@ -368,8 +368,10 @@ export default function ModelsPage() {
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect language models for test generation and
-          language-model-as-judge evaluation, and embedding models for semantic
-          search. Set your default models for each purpose.
+          language-model-as-judge evaluation, and embedding models for platform
+          use (including semantic search where applicable). Set your defaults
+          for generation, evaluation, and execution; the embedding default is
+          not user-configurable.
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>

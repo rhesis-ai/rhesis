@@ -87,7 +87,6 @@ export function ConnectionDialog({
   const [defaultForGeneration, setDefaultForGeneration] = useState(false);
   const [defaultForEvaluation, setDefaultForEvaluation] = useState(false);
   const [defaultForExecution, setDefaultForExecution] = useState(false);
-  const [defaultForEmbedding, setDefaultForEmbedding] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -143,12 +142,9 @@ export function ConnectionDialog({
           userSettings?.models?.evaluation?.model_id === model.id;
         const isDefaultExecution =
           userSettings?.models?.execution?.model_id === model.id;
-        const isDefaultEmbedding =
-          userSettings?.models?.embedding?.model_id === model.id;
         setDefaultForGeneration(isDefaultGeneration || false);
         setDefaultForEvaluation(isDefaultEvaluation || false);
         setDefaultForExecution(isDefaultExecution || false);
-        setDefaultForEmbedding(isDefaultEmbedding || false);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
@@ -170,7 +166,6 @@ export function ConnectionDialog({
         setDefaultForGeneration(false);
         setDefaultForEvaluation(false);
         setDefaultForExecution(false);
-        setDefaultForEmbedding(false);
         setLoading(false); // Reset loading state
       }
     }
@@ -257,14 +252,6 @@ export function ConnectionDialog({
         updates.models.execution = { model_id: modelId };
       } else if (userSettings?.models?.execution?.model_id === modelId) {
         updates.models.execution = { model_id: null };
-      }
-
-      // Update embedding default if toggle is on
-      if (defaultForEmbedding) {
-        updates.models.embedding = { model_id: modelId };
-      } else if (userSettings?.models?.embedding?.model_id === modelId) {
-        // If toggle is off and this model was previously the default, clear it by setting model_id to null
-        updates.models.embedding = { model_id: null };
       }
 
       // Only update if there are changes
@@ -926,27 +913,12 @@ export function ConnectionDialog({
                     />
                   </>
                 )}
-                {/* Show embedding toggle for embedding models */}
                 {modelType === 'embedding' && (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={defaultForEmbedding}
-                        onChange={e => setDefaultForEmbedding(e.target.checked)}
-                      />
-                    }
-                    label={
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          Default Embedding Model
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Use this model for semantic search and similarity
-                          tasks
-                        </Typography>
-                      </Box>
-                    }
-                  />
+                  <Typography variant="caption" color="text.secondary">
+                    The default embedding model is managed by the platform and
+                    cannot be changed here. Connect embedding models so the
+                    platform can use them where needed.
+                  </Typography>
                 )}
               </Stack>
             </Box>
