@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -31,6 +31,13 @@ from rhesis.backend.app.utils.validation import validate_and_normalize_email
 from rhesis.backend.notifications import email_service
 
 logger = logging.getLogger(__name__)
+
+
+def _settings_patch_forbids_embedding_update(settings_dict: dict) -> bool:
+    """True if the client explicitly tried to update models.embedding (PATCH must reject)."""
+    models = settings_dict.get("models")
+    return isinstance(models, dict) and "embedding" in models
+
 
 router = APIRouter(
     prefix="/users",
@@ -231,6 +238,12 @@ def update_user_settings(
     # exclude_none=False (default): Keep fields that were explicitly set to null
     # (for clearing values)
     settings_dict = settings_update.model_dump(exclude_unset=True, mode="json")
+
+    if _settings_patch_forbids_embedding_update(settings_dict):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The default embedding model cannot be changed via user settings.",
+        )
 
     # Get the settings manager instance (property creates new instance each time!)
     settings_manager = db_user.settings
