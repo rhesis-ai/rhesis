@@ -59,7 +59,7 @@ Otherwise fall back to externalValkey.host.
 */}}
 {{- define "rhesis.valkey.host" -}}
 {{- if .Values.valkey.enabled -}}
-{{- printf "%s-valkey-master" .Release.Name -}}
+{{- printf "%s-valkey-primary" .Release.Name -}}
 {{- else -}}
 {{- required "externalValkey.host is required when valkey.enabled=false" .Values.externalValkey.host -}}
 {{- end -}}
