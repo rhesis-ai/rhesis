@@ -21,6 +21,8 @@ import {
   LinearProgress,
   Tooltip,
   alpha,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -28,6 +30,8 @@ import {
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type {
@@ -68,6 +72,7 @@ export default function GarakImportDialog({
   const [expandedModules, setExpandedModules] = React.useState<Set<string>>(
     new Set()
   );
+  const [searchQuery, setSearchQuery] = React.useState('');
   // Progress tracking during import
   const [importProgress, setImportProgress] = React.useState<{
     phase: 'static' | 'dynamic' | 'done';
@@ -109,6 +114,35 @@ export default function GarakImportDialog({
       fetchModules();
     }
   }, [open, fetchModules, modules.length]);
+
+  // Filtered modules/probes based on search query
+  const filteredModules = React.useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return modules;
+
+    return modules.reduce<GarakProbeModule[]>((acc, module) => {
+      const moduleMatches =
+        module.name.toLowerCase().includes(q) ||
+        (module.description?.toLowerCase().includes(q) ?? false) ||
+        (module.rhesis_category?.toLowerCase().includes(q) ?? false) ||
+        (module.rhesis_topic?.toLowerCase().includes(q) ?? false);
+
+      const probes = module.probes || [];
+      const matchingProbes = probes.filter(
+        p =>
+          p.class_name.toLowerCase().includes(q) ||
+          p.full_name.toLowerCase().includes(q) ||
+          (p.description?.toLowerCase().includes(q) ?? false)
+      );
+
+      if (moduleMatches) {
+        acc.push(module);
+      } else if (matchingProbes.length > 0) {
+        acc.push({ ...module, probes: matchingProbes });
+      }
+      return acc;
+    }, []);
+  }, [modules, searchQuery]);
 
   // Get all probes from a module
   const getModuleProbes = (module: GarakProbeModule): GarakProbeClass[] => {
@@ -162,12 +196,17 @@ export default function GarakImportDialog({
   };
 
   const handleSelectAll = () => {
-    const allProbes = modules.flatMap(m => getModuleProbes(m));
-    if (selectedProbes.size === allProbes.length) {
-      setSelectedProbes(new Set());
+    const visibleProbes = filteredModules.flatMap(m => getModuleProbes(m));
+    const allVisible = visibleProbes.every(p =>
+      selectedProbes.has(p.full_name)
+    );
+    const newSelected = new Set(selectedProbes);
+    if (allVisible) {
+      visibleProbes.forEach(p => newSelected.delete(p.full_name));
     } else {
-      setSelectedProbes(new Set(allProbes.map(p => p.full_name)));
+      visibleProbes.forEach(p => newSelected.add(p.full_name));
     }
+    setSelectedProbes(newSelected);
     setPreview(null);
   };
 
@@ -453,6 +492,7 @@ export default function GarakImportDialog({
     setImportProgress(null);
     setPreparingImport(false);
     setDynamicPreviewProbes([]);
+    setSearchQuery('');
   };
 
   const toggleModuleExpand = (moduleName: string) => {
@@ -465,8 +505,16 @@ export default function GarakImportDialog({
     setExpandedModules(newExpanded);
   };
 
-  // Count selected probes for display
+  // Count probes for display
   const allProbesCount = modules.flatMap(m => getModuleProbes(m)).length;
+  const visibleProbesCount = filteredModules.flatMap(m =>
+    getModuleProbes(m)
+  ).length;
+  const allVisibleSelected =
+    visibleProbesCount > 0 &&
+    filteredModules
+      .flatMap(m => getModuleProbes(m))
+      .every(p => selectedProbes.has(p.full_name));
 
   const isCompleteWithDynamic =
     !!importProgress?.isComplete &&
@@ -515,11 +563,9 @@ export default function GarakImportDialog({
                   <Button
                     size="small"
                     onClick={handleSelectAll}
-                    disabled={loadingModules}
+                    disabled={loadingModules || visibleProbesCount === 0}
                   >
-                    {selectedProbes.size === allProbesCount
-                      ? 'Deselect All'
-                      : 'Select All'}
+                    {allVisibleSelected ? 'Deselect All' : 'Select All'}
                   </Button>
                   <IconButton
                     size="small"
@@ -536,196 +582,248 @@ export default function GarakImportDialog({
                   <CircularProgress />
                 </Box>
               ) : (
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    maxHeight: theme => theme.spacing(50),
-                    overflow: 'auto',
-                  }}
-                >
-                  <Stack divider={<Divider />}>
-                    {modules.map(module => (
-                      <Box key={module.name}>
-                        {/* Module Header */}
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          sx={{
-                            p: 1.5,
-                            cursor: 'pointer',
-                            bgcolor: 'action.hover',
-                          }}
-                          onClick={() => toggleModuleExpand(module.name)}
-                        >
-                          <Checkbox
-                            checked={isModuleFullySelected(module)}
-                            indeterminate={isModulePartiallySelected(module)}
-                            onClick={e => e.stopPropagation()}
-                            onChange={() => handleModuleToggle(module)}
-                          />
-                          <Stack flex={1} spacing={0.5}>
+                <>
+                  <TextField
+                    size="small"
+                    placeholder="Search probes by name, description, category..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    fullWidth
+                    sx={{ mb: 1 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery ? (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setSearchQuery('')}
+                            edge="end"
+                          >
+                            <ClearIcon fontSize="small" />
+                          </IconButton>
+                        </InputAdornment>
+                      ) : null,
+                    }}
+                  />
+                  {filteredModules.length === 0 ? (
+                    <Paper
+                      variant="outlined"
+                      sx={{ p: 4, textAlign: 'center' }}
+                    >
+                      <Typography color="text.secondary">
+                        No probes matching &ldquo;{searchQuery}&rdquo;
+                      </Typography>
+                    </Paper>
+                  ) : (
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        maxHeight: theme => theme.spacing(50),
+                        overflow: 'auto',
+                      }}
+                    >
+                      <Stack divider={<Divider />}>
+                        {filteredModules.map(module => (
+                          <Box key={module.name}>
+                            {/* Module Header */}
                             <Stack
                               direction="row"
                               alignItems="center"
-                              spacing={1}
+                              sx={{
+                                p: 1.5,
+                                cursor: 'pointer',
+                                bgcolor: 'action.hover',
+                              }}
+                              onClick={() => toggleModuleExpand(module.name)}
                             >
-                              <Typography variant="body1" fontWeight="medium">
-                                {module.name}
-                              </Typography>
-                              <Chip
-                                label={`${module.probe_count} probes`}
-                                size="small"
-                                variant="outlined"
+                              <Checkbox
+                                checked={isModuleFullySelected(module)}
+                                indeterminate={isModulePartiallySelected(
+                                  module
+                                )}
+                                onClick={e => e.stopPropagation()}
+                                onChange={() => handleModuleToggle(module)}
                               />
-                              {module.has_dynamic_probes &&
-                              module.total_prompt_count === 0 ? (
-                                <Tooltip title="Prompts are generated at runtime using your LLM">
-                                  <Chip
-                                    icon={<AutoAwesomeIcon />}
-                                    label="Dynamic"
-                                    size="small"
-                                    color="warning"
-                                    variant="outlined"
-                                  />
-                                </Tooltip>
-                              ) : module.has_dynamic_probes ? (
-                                <>
-                                  <Chip
-                                    label={`${module.total_prompt_count} prompts`}
-                                    size="small"
-                                    variant="outlined"
-                                  />
-                                  <Tooltip title="Some probes generate prompts at runtime using your LLM">
-                                    <Chip
-                                      icon={<AutoAwesomeIcon />}
-                                      label="+ Dynamic"
-                                      size="small"
-                                      color="warning"
-                                      variant="outlined"
-                                    />
-                                  </Tooltip>
-                                </>
-                              ) : (
-                                <Chip
-                                  label={`${module.total_prompt_count} prompts`}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                              )}
-                            </Stack>
-                            <Typography variant="body2" color="text.secondary">
-                              {module.description}
-                            </Typography>
-                            <Stack
-                              direction="row"
-                              spacing={0.5}
-                              flexWrap="wrap"
-                            >
-                              <Chip
-                                label={module.rhesis_category}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                              />
-                              <Chip
-                                label={module.rhesis_topic}
-                                size="small"
-                                color="secondary"
-                                variant="outlined"
-                              />
-                            </Stack>
-                          </Stack>
-                          <IconButton size="small">
-                            <ExpandMoreIcon
-                              sx={theme => ({
-                                transform: expandedModules.has(module.name)
-                                  ? 'rotate(180deg)'
-                                  : 'none',
-                                transition: theme.transitions.create(
-                                  'transform',
-                                  {
-                                    duration: theme.transitions.duration.short,
-                                  }
-                                ),
-                              })}
-                            />
-                          </IconButton>
-                        </Stack>
-
-                        {/* Individual Probes */}
-                        <Collapse in={expandedModules.has(module.name)}>
-                          <Stack sx={{ pl: 4 }} divider={<Divider />}>
-                            {getModuleProbes(module).map(probe => (
-                              <Stack
-                                key={probe.full_name}
-                                direction="row"
-                                alignItems="center"
-                                sx={{ p: 1, pl: 2, cursor: 'pointer' }}
-                                onClick={() => handleProbeToggle(probe)}
-                              >
-                                <Checkbox
-                                  size="small"
-                                  checked={selectedProbes.has(probe.full_name)}
-                                  onClick={e => e.stopPropagation()}
-                                  onChange={() => handleProbeToggle(probe)}
-                                />
-                                <Stack flex={1} spacing={0.25}>
-                                  <Stack
-                                    direction="row"
-                                    alignItems="center"
-                                    spacing={1}
+                              <Stack flex={1} spacing={0.5}>
+                                <Stack
+                                  direction="row"
+                                  alignItems="center"
+                                  spacing={1}
+                                >
+                                  <Typography
+                                    variant="body1"
+                                    fontWeight="medium"
                                   >
-                                    <Typography
-                                      variant="body2"
-                                      fontWeight="medium"
-                                    >
-                                      {probe.class_name}
-                                    </Typography>
-                                    {probe.is_dynamic ? (
-                                      <Tooltip title="Prompts will be generated at runtime using your LLM">
+                                    {module.name}
+                                  </Typography>
+                                  <Chip
+                                    label={`${module.probe_count} probes`}
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                  {module.has_dynamic_probes &&
+                                  module.total_prompt_count === 0 ? (
+                                    <Tooltip title="Prompts are generated at runtime using your LLM">
+                                      <Chip
+                                        icon={<AutoAwesomeIcon />}
+                                        label="Dynamic"
+                                        size="small"
+                                        color="warning"
+                                        variant="outlined"
+                                      />
+                                    </Tooltip>
+                                  ) : module.has_dynamic_probes ? (
+                                    <>
+                                      <Chip
+                                        label={`${module.total_prompt_count} prompts`}
+                                        size="small"
+                                        variant="outlined"
+                                      />
+                                      <Tooltip title="Some probes generate prompts at runtime using your LLM">
                                         <Chip
                                           icon={<AutoAwesomeIcon />}
-                                          label="Dynamic"
+                                          label="+ Dynamic"
                                           size="small"
                                           color="warning"
                                           variant="outlined"
-                                          sx={{
-                                            height: theme => theme.spacing(2.5),
-                                          }}
                                         />
                                       </Tooltip>
-                                    ) : (
-                                      <Chip
-                                        label={`${probe.prompt_count} tests`}
-                                        size="small"
-                                        variant="outlined"
-                                        sx={{
-                                          height: theme => theme.spacing(2.5),
-                                        }}
-                                      />
-                                    )}
-                                  </Stack>
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                      maxWidth: theme => theme.spacing(50),
-                                    }}
-                                  >
-                                    {probe.description}
-                                  </Typography>
+                                    </>
+                                  ) : (
+                                    <Chip
+                                      label={`${module.total_prompt_count} prompts`}
+                                      size="small"
+                                      variant="outlined"
+                                    />
+                                  )}
+                                </Stack>
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                >
+                                  {module.description}
+                                </Typography>
+                                <Stack
+                                  direction="row"
+                                  spacing={0.5}
+                                  flexWrap="wrap"
+                                >
+                                  <Chip
+                                    label={module.rhesis_category}
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                  />
+                                  <Chip
+                                    label={module.rhesis_topic}
+                                    size="small"
+                                    color="secondary"
+                                    variant="outlined"
+                                  />
                                 </Stack>
                               </Stack>
-                            ))}
-                          </Stack>
-                        </Collapse>
-                      </Box>
-                    ))}
-                  </Stack>
-                </Paper>
+                              <IconButton size="small">
+                                <ExpandMoreIcon
+                                  sx={theme => ({
+                                    transform: expandedModules.has(module.name)
+                                      ? 'rotate(180deg)'
+                                      : 'none',
+                                    transition: theme.transitions.create(
+                                      'transform',
+                                      {
+                                        duration:
+                                          theme.transitions.duration.short,
+                                      }
+                                    ),
+                                  })}
+                                />
+                              </IconButton>
+                            </Stack>
+
+                            {/* Individual Probes */}
+                            <Collapse in={expandedModules.has(module.name)}>
+                              <Stack sx={{ pl: 4 }} divider={<Divider />}>
+                                {getModuleProbes(module).map(probe => (
+                                  <Stack
+                                    key={probe.full_name}
+                                    direction="row"
+                                    alignItems="center"
+                                    sx={{ p: 1, pl: 2, cursor: 'pointer' }}
+                                    onClick={() => handleProbeToggle(probe)}
+                                  >
+                                    <Checkbox
+                                      size="small"
+                                      checked={selectedProbes.has(
+                                        probe.full_name
+                                      )}
+                                      onClick={e => e.stopPropagation()}
+                                      onChange={() => handleProbeToggle(probe)}
+                                    />
+                                    <Stack flex={1} spacing={0.25}>
+                                      <Stack
+                                        direction="row"
+                                        alignItems="center"
+                                        spacing={1}
+                                      >
+                                        <Typography
+                                          variant="body2"
+                                          fontWeight="medium"
+                                        >
+                                          {probe.class_name}
+                                        </Typography>
+                                        {probe.is_dynamic ? (
+                                          <Tooltip title="Prompts will be generated at runtime using your LLM">
+                                            <Chip
+                                              icon={<AutoAwesomeIcon />}
+                                              label="Dynamic"
+                                              size="small"
+                                              color="warning"
+                                              variant="outlined"
+                                              sx={{
+                                                height: theme =>
+                                                  theme.spacing(2.5),
+                                              }}
+                                            />
+                                          </Tooltip>
+                                        ) : (
+                                          <Chip
+                                            label={`${probe.prompt_count} tests`}
+                                            size="small"
+                                            variant="outlined"
+                                            sx={{
+                                              height: theme =>
+                                                theme.spacing(2.5),
+                                            }}
+                                          />
+                                        )}
+                                      </Stack>
+                                      <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        sx={{
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
+                                          maxWidth: theme => theme.spacing(50),
+                                        }}
+                                      >
+                                        {probe.description}
+                                      </Typography>
+                                    </Stack>
+                                  </Stack>
+                                ))}
+                              </Stack>
+                            </Collapse>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Paper>
+                  )}
+                </>
               )}
             </Box>
           )}
