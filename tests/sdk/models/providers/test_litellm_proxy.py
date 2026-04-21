@@ -137,6 +137,39 @@ class TestLiteLLMProxyGenerate:
         assert payload["response_format"]["json_schema"]["name"] == "PersonInfo"
 
     @patch("rhesis.sdk.models.providers.litellm_proxy.requests.post")
+    def test_generate_with_pydantic_schema_is_azure_strict_compatible(self, mock_post):
+        """Regression for issue #1657.
+
+        Azure OpenAI's strict mode rejects schemas that don't set
+        ``additionalProperties: false`` on every object node (including nested
+        ``$defs``). The provider must emit a strict-compliant schema so that
+        test set generation works when Azure is fronted by a LiteLLM Proxy.
+        """
+
+        class Inner(BaseModel):
+            name: str
+
+        class Outer(BaseModel):
+            inner: Inner
+            label: str
+
+        mock_post.return_value = _mock_openai_response(
+            '{"inner": {"name": "x"}, "label": "y"}'
+        )
+
+        llm = LiteLLMProxy(model_name="gemini")
+        llm.generate("hi", schema=Outer)
+
+        response_format = mock_post.call_args[1]["json"]["response_format"]
+        assert response_format["type"] == "json_schema"
+        json_schema = response_format["json_schema"]
+        assert json_schema["strict"] is True
+
+        schema = json_schema["schema"]
+        assert schema["additionalProperties"] is False
+        assert schema["$defs"]["Inner"]["additionalProperties"] is False
+
+    @patch("rhesis.sdk.models.providers.litellm_proxy.requests.post")
     def test_generate_with_dict_schema(self, mock_post):
         dict_schema = {
             "type": "json_schema",
