@@ -93,7 +93,10 @@ class TestCheckSSOAvailable:
         from rhesis.backend.app.routers.sso import check_sso_available
         assert check_sso_available() is True
 
-    @patch("rhesis.backend.app.routers.sso.is_sso_encryption_available", return_value=False)
+    @patch(
+        "rhesis.backend.app.utils.encryption.is_sso_encryption_available",
+        return_value=False,
+    )
     def test_unavailable_without_encryption(self, _mock):
         from rhesis.backend.app.routers.sso import check_sso_available
         assert check_sso_available() is False

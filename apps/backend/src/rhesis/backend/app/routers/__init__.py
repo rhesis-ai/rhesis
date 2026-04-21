@@ -8,6 +8,7 @@ from .connector import router as connector_router
 from .demographic import router as demographic_router
 from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
+from .features import router as features_router
 from .feedback import router as feedback_router
 from .file import router as file_router
 from .file_import import router as file_import_router
@@ -83,6 +84,7 @@ __all__ = [
     "task",
     "task_management",
     "garak",
+    "features",
     "file",
     "file_import",
     "adaptive_testing",
@@ -129,6 +131,7 @@ routers = sorted(
         tools_router,
         recycle_router,
         garak_router,
+        features_router,
         feedback_router,
         file_router,
         file_import_router,

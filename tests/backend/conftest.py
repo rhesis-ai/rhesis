@@ -112,6 +112,25 @@ def run_migrations_once():
     yield
 
 
+# =============================================================================
+# Feature registry bootstrap
+# =============================================================================
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _register_core_features():
+    """Register core features once per test session.
+
+    The FastAPI lifespan calls ``register_core_features()`` at app
+    startup, but unit tests that import modules without spinning up the
+    app need the registry populated too. Registration is idempotent.
+    """
+    from rhesis.backend.app.features_bootstrap import register_core_features
+
+    register_core_features()
+    yield
+
+
 # Simple fixtures for testing markers functionality
 
 

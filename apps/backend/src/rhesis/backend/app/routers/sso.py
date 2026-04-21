@@ -34,10 +34,10 @@ from rhesis.backend.app.auth.sso_user_utils import SSOLoginError, find_or_create
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.dependencies import get_db_session
+from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.schemas.sso_config import SSOConfig
 from rhesis.backend.app.utils.encryption import (
-    is_sso_encryption_available,
     sso_decrypt,
     sso_encrypt,
 )
@@ -62,14 +62,14 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 def check_sso_available(organization: Optional[Organization] = None) -> bool:
-    """Single guard function for SSO availability.
+    """Return ``True`` iff SSO is available (for ``organization`` if given).
 
-    Today checks encryption key availability. When licensing is added,
-    this becomes the single place to check the org's license tier.
+    Thin wrapper around :meth:`FeatureRegistry.is_available`. Kept at
+    this import path for backward compatibility with existing callers;
+    licensing, runtime preconditions, and future per-org entitlements
+    all flow through the registry now.
     """
-    if not is_sso_encryption_available():
-        return False
-    return True
+    return FeatureRegistry.is_available(FeatureName.SSO, organization)
 
 
 def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:

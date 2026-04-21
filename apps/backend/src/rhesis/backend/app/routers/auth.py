@@ -308,7 +308,7 @@ async def get_providers(
                     .first()
                 )
 
-            if organization and check_sso_available():
+            if organization and check_sso_available(organization):
                 sso_config = _get_sso_config(organization)
                 if sso_config and sso_config.enabled:
                     login_path = (

@@ -268,6 +268,9 @@ Key patterns:
 - Layered Architecture: routers → services → models/crud
 - Multi-tenancy: Organization-based data isolation
 - Background Processing: Celery tasks for test execution
+- Feature Gating: `FeatureRegistry` in `app/features/` is the single
+  place to check whether a gated capability is available for an
+  organization. See "Feature Gating" below.
 
 ### SDK (`sdk/`)
 Python SDK for interacting with Rhesis platform.
@@ -303,3 +306,51 @@ Key patterns:
 - App Router: File-based routing with layouts
 - Route Groups: `(protected)` for authenticated routes
 - Dynamic Routes: `[identifier]` for entity pages
+- Feature Gating: `FeaturesProvider` + `useFeature` / `<FeatureGate>`
+  consume `GET /features` to conditionally render gated UI. See
+  "Feature Gating" below.
+
+---
+
+## Feature Gating
+
+Gated capabilities (e.g. SSO) flow through a single primitive on the
+backend and a mirrored one on the frontend. No ad-hoc `if` checks
+scattered across routers or components.
+
+### Backend
+
+- `apps/backend/src/rhesis/backend/app/features/__init__.py` -- the
+  `FeatureRegistry`, `Feature` dataclass, `FeatureName` str-Enum, and
+  `LicenseProvider` protocol. `DefaultLicenseProvider` is the stub
+  used today; a real one installs via
+  `FeatureRegistry.set_license_provider(...)` when licensing lands.
+- `apps/backend/src/rhesis/backend/app/features_bootstrap.py` --
+  declarative list of features, called once from `main.py` lifespan.
+- `apps/backend/src/rhesis/backend/app/auth/feature_gates.py` --
+  FastAPI dependencies `require_feature` (404 on denial, no
+  enumeration leak) and `has_feature` (bool for branching).
+- `apps/backend/src/rhesis/backend/app/routers/features.py` --
+  `GET /features` returns license info and the enabled feature names.
+
+### Frontend
+
+- `apps/frontend/src/constants/features.ts` -- `FeatureName` mirror of
+  the backend enum. Keep in sync when adding features.
+- `apps/frontend/src/contexts/FeaturesContext.tsx` -- `FeaturesProvider`
+  (mounted in the protected layout), `useFeature(name)`, and
+  `<FeatureGate feature={...}>`. Fail-closed: features are `false`
+  during the initial fetch and on error.
+- `apps/frontend/src/utils/api-client/features-client.ts` -- typed
+  client for `GET /features`.
+
+### Adding a new gated feature
+
+1. Add a member to `FeatureName` (backend enum).
+2. Register the feature in `features_bootstrap.register_core_features`
+   with an optional `runtime_check` and the `min_plan` the future
+   license provider should enforce.
+3. Guard server-side code via `FeatureRegistry.is_available(...)` or
+   the `require_feature` / `has_feature` dependencies.
+4. Mirror the name in `apps/frontend/src/constants/features.ts` and
+   wrap the UI in `<FeatureGate feature={FeatureName.X}>`.

@@ -187,6 +187,10 @@ async def lifespan(app: FastAPI):
     """
     set_logger()
 
+    from rhesis.backend.app.features_bootstrap import register_core_features
+
+    register_core_features()
+
     # Startup: Initialize local environment if enabled
     with get_db() as db:
         initialize_local_environment(db)
