@@ -358,20 +358,21 @@ export function ModelProvidersSection() {
           lineHeight: 1.55,
         }}
       >
-        Supported LLM backends (see also{' '}
-        <a
-          href="/docs/integrations/llm-providers"
-          style={{ color: 'var(--integration-showcase-link)' }}
-        >
-          LLM providers
-        </a>
-        ) you can configure under{' '}
+        Supported LLM backends you can configure under{' '}
         <a
           href="/docs/models"
           style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
         >
           Models
         </a>
+        . For API access, see{' '}
+        <a
+          href="/docs/api-tokens"
+          style={{ color: 'var(--integration-showcase-link)', fontWeight: 600 }}
+        >
+          API Tokens
+        </a>
+        .
       </p>
       <div
         style={{

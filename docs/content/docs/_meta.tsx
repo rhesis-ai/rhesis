@@ -137,6 +137,7 @@ const meta: MetaRecord = {
   },
   organizations: 'Organizations & Team',
   endpoints: 'Endpoints',
+  integrations: 'Integrations',
   models: 'Models',
   mcp: 'MCP',
   'api-tokens': 'API Tokens',
@@ -148,7 +149,6 @@ const meta: MetaRecord = {
   },
   acknowledgments: 'Acknowledgments',
 
-  integrations: { display: 'hidden' },
   'test-results': { display: 'hidden' },
   'test-sets-runs': { display: 'hidden' },
 }
