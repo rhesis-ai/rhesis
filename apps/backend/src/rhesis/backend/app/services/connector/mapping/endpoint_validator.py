@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Any, Dict, List
 
 from rhesis.backend.app.database import get_db_with_tenant_variables
@@ -11,14 +12,16 @@ from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 logger = logging.getLogger(__name__)
 
+_DEBOUNCE_SECONDS = 30.0
+
 
 class EndpointValidationService:
     """Service for handling async endpoint validation after registration."""
 
     def __init__(self):
         """Initialize endpoint validation service."""
-        # Track background tasks to prevent silent failures
         self._background_tasks: set = set()
+        self._last_validation: Dict[str, float] = {}
 
     def _track_background_task(self, coro) -> asyncio.Task:
         """
@@ -52,13 +55,22 @@ class EndpointValidationService:
         organization_id: str,
         user_id: str,
     ) -> None:
-        """
-        Start async validation for all registered endpoints.
+        """Start async validation for all registered endpoints.
 
-        This runs after registration completes to avoid blocking WebSocket processing.
-        The background task creates its own database session to avoid using a closed session.
+        Debounces rapid-fire registrations (e.g. from multiple Gunicorn
+        workers) so that at most one validation run happens per
+        ``_DEBOUNCE_SECONDS`` window for a given ``project:env``.
         """
-        # Start validation in background - don't await it (tracked)
+        key = f"{project_id}:{environment}"
+        now = time.monotonic()
+        last = self._last_validation.get(key, 0.0)
+        if now - last < _DEBOUNCE_SECONDS:
+            logger.info(
+                f"Skipping validation for {key} -- debounced ({now - last:.1f}s since last)"
+            )
+            return
+        self._last_validation[key] = now
+
         self._track_background_task(
             self._validate_endpoints_async(
                 project_id=project_id,

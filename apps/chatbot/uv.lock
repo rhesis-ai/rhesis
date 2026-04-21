@@ -12,7 +12,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-02T15:18:07.884987Z"
+exclude-newer = "2026-04-08T17:30:52.961961Z"
 exclude-newer-span = "P1W"
 
 [manifest]
@@ -3682,6 +3682,7 @@ source = { directory = "../../packages/rhesis" }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
+    { name = "tenacity" },
 ]
 
 [package.optional-dependencies]
@@ -3703,6 +3704,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rhesis-sdk", marker = "extra == 'all'" },
     { name = "rhesis-sdk", marker = "extra == 'sdk'" },
+    { name = "tenacity", specifier = ">=8.2.0" },
 ]
 provides-extras = ["all", "sdk", "telemetry"]
 
@@ -3786,7 +3788,7 @@ requires-dist = [
     { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
     { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "chonkie", specifier = ">=1.6.1" },
-    { name = "cryptography", specifier = ">=46.0.0" },
+    { name = "cryptography", specifier = ">=46.0.5" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
     { name = "diskcache" },

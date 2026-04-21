@@ -42,6 +42,8 @@ class RetryConfig:
     # Defaults increased to accommodate typical LLM response times
     DEFAULT_PING_INTERVAL = int(os.environ.get("RHESIS_PING_INTERVAL", "60"))  # seconds
     DEFAULT_PING_TIMEOUT = int(os.environ.get("RHESIS_PING_TIMEOUT", "30"))  # seconds
+    DEFAULT_OPEN_TIMEOUT = int(os.environ.get("RHESIS_OPEN_TIMEOUT", "20"))  # seconds
+    DEFAULT_CLOSE_TIMEOUT = int(os.environ.get("RHESIS_CLOSE_TIMEOUT", "10"))  # seconds
     SLOW_RETRY_INTERVAL = 60  # seconds - wait between retry cycles
     REGISTRATION_DELAY = 0.5  # seconds - stabilization delay after connect
 

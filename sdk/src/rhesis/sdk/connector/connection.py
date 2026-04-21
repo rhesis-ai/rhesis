@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import os
 import re
 from collections.abc import Coroutine
 from typing import Any, Callable, Dict, Optional
@@ -140,6 +141,8 @@ class WebSocketConnection:
         on_connection_failed: Optional[Callable[[str], None]] = None,
         ping_interval: int = RetryConfig.DEFAULT_PING_INTERVAL,
         ping_timeout: int = RetryConfig.DEFAULT_PING_TIMEOUT,
+        open_timeout: int = RetryConfig.DEFAULT_OPEN_TIMEOUT,
+        close_timeout: int = RetryConfig.DEFAULT_CLOSE_TIMEOUT,
         max_retries: int = RetryConfig.DEFAULT_MAX_RETRIES,
     ):
         """
@@ -153,6 +156,8 @@ class WebSocketConnection:
             on_connection_failed: Optional callback called when connection permanently fails
             ping_interval: Interval between ping messages (seconds)
             ping_timeout: Timeout for pong response (seconds)
+            open_timeout: Timeout for the WebSocket opening handshake (seconds)
+            close_timeout: Timeout for the WebSocket closing handshake (seconds)
             max_retries: Maximum number of connection retry attempts (default: 10)
         """
         self.url = url
@@ -162,11 +167,14 @@ class WebSocketConnection:
         self.on_connection_failed = on_connection_failed
         self.ping_interval = ping_interval
         self.ping_timeout = ping_timeout
+        self.open_timeout = open_timeout
+        self.close_timeout = close_timeout
         self.max_retries = max_retries
 
         self.state = ConnectionState.DISCONNECTED
         self.websocket: Optional[ClientConnection] = None
         self._connection_task: Optional[asyncio.Task] = None
+        self._on_connect_task: Optional[asyncio.Task] = None
         self._should_reconnect = True
         self._failure_reason: Optional[str] = None
 
@@ -183,7 +191,8 @@ class WebSocketConnection:
             context_msg = f" ({context})" if context else ""
             logger.info(
                 f"Connection state: {old_state.value} -> {new_state.value}{context_msg} "
-                f"[url={self.url}, ping_interval={self.ping_interval}s, "
+                f"[pid={os.getpid()}, url={self.url}, "
+                f"ping_interval={self.ping_interval}s, "
                 f"ping_timeout={self.ping_timeout}s]"
             )
         self.state = new_state
@@ -220,6 +229,11 @@ class WebSocketConnection:
                 # Ignore all exceptions from connection task
                 pass
             self._connection_task = None
+
+    async def wait_closed(self) -> None:
+        """Block until the connection maintenance loop exits."""
+        if self._connection_task:
+            await self._connection_task
 
     async def send(self, message: Dict[str, Any]) -> None:
         """
@@ -327,7 +341,9 @@ class WebSocketConnection:
                     else None
                 )
 
-                if last_error:
+                if isinstance(last_error, TransientConnectionError):
+                    error_message = str(last_error)
+                elif last_error:
                     _, error_message = classify_websocket_error(last_error)
                 else:
                     error_message = "Connection failed after maximum retries"
@@ -356,19 +372,25 @@ class WebSocketConnection:
             additional_headers=self.headers,
             ping_interval=self.ping_interval,
             ping_timeout=self.ping_timeout,
+            open_timeout=self.open_timeout,
+            close_timeout=self.close_timeout,
         ) as websocket:
             self.websocket = websocket
             self._log_state_change(ConnectionState.CONNECTED, "websocket established")
 
             # Trigger on_connect callback (for registration)
             if self.on_connect:
-                # Assuming on_connect is an async function that returns a coroutine
-                asyncio.create_task(self.on_connect())
+                self._on_connect_task = asyncio.create_task(self.on_connect())
 
-            # Listen for messages (blocks until connection closes)
-            logger.debug("Starting message listener loop")
-            await self._listen_for_messages(websocket)
-            logger.debug("Message listener loop ended")
+            try:
+                # Listen for messages (blocks until connection closes)
+                logger.debug("Starting message listener loop")
+                await self._listen_for_messages(websocket)
+                logger.debug("Message listener loop ended")
+            finally:
+                if self._on_connect_task and not self._on_connect_task.done():
+                    self._on_connect_task.cancel()
+                self._on_connect_task = None
 
     async def _listen_for_messages(self, websocket: ClientConnection) -> None:
         """Listen for incoming messages."""

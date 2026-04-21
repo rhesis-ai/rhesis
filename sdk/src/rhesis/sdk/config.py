@@ -1,6 +1,14 @@
 import os
 from typing import Optional, TypeVar
 
+
+def _strip_quotes(value: Optional[str]) -> Optional[str]:
+    """Strip wrapping quotes that Docker --env-file preserves literally."""
+    if value and len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        return value[1:-1]
+    return value
+
+
 # Default values
 DEFAULT_BASE_URL = "https://api.rhesis.ai"
 
@@ -66,7 +74,7 @@ def _get_config_value(
         pass
 
     # Then check environment variable
-    env_value = os.getenv(env_var_name)
+    env_value = _strip_quotes(os.getenv(env_var_name))
     if env_value:
         return env_value
 

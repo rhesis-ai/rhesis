@@ -77,4 +77,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Command to run the FastAPI application with Gunicorn
 # Workers can be overridden via WORKERS environment variable
-CMD sh -c "gunicorn --workers ${WORKERS:-4} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 --timeout 120 --graceful-timeout 30 client:app"
+CMD sh -c "gunicorn --workers ${WORKERS:-4} --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080 --timeout 300 --graceful-timeout 30 --worker-tmp-dir /dev/shm --max-requests 1000 --max-requests-jitter 50 client:app"

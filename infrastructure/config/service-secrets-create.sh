@@ -25,11 +25,11 @@ function show_usage() {
   echo ""
   echo -e "${BLUE}Options:${NC}"
   echo "  -r, --repo REPO         GitHub repository in format 'owner/repo'"
-  echo "  -e, --environments      Comma-separated list of environments to set up [default: dev,stg,prd,test]"
+  echo "  -e, --environments      Comma-separated list of environments to set up [default: dev,stg,prd]"
   echo "  -h, --help              Show this help message"
   echo ""
   echo -e "${BLUE}Environment-specific Variables:${NC}"
-  echo "  Note: All environments (dev, stg, prd, test) use environment-specific secrets"
+  echo "  Note: All environments (dev, stg, prd) use environment-specific secrets"
   echo "  # Backend variables"
   echo "  SQLALCHEMY_DATABASE_URL       Full database URL"
   echo "  SQLALCHEMY_DB_MODE            Database mode"
@@ -66,7 +66,6 @@ function show_usage() {
   echo "  WELCOME_CALENDAR_LINK         Welcome calendar link for new users"
   echo "  WELCOME_FROM_EMAIL            Email address to use for welcome emails"
   echo "  DEMO_USER_EMAIL               Demo user email address"
-  echo "  DEMO_USER_PASSWORD            Demo user password"
   echo "  STORAGE_SERVICE_URI           Google Cloud Storage bucket URI"
   echo "  STORAGE_SERVICE_ACCOUNT_KEY   Google Cloud Storage service account key (Base64 encoded JSON)"
   echo "  LOCAL_STORAGE_PATH            Local storage path for temporary files"
@@ -89,18 +88,13 @@ function show_usage() {
   echo "  OTEL_SERVICE_NAME             OTel service name"
   echo "  OTEL_DEPLOYMENT_TYPE          Deployment type (cloud or self-hosted)"
   echo "  OTEL_RHESIS_TELEMETRY_ENABLED Telemetry enabled (true or false)"
-  echo "  OTEL_PROCESSOR_ENDPOINT       Telemetry processor endpoint"
   echo "  OTEL_API_KEY                  API key for telemetry authentication"
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
   echo "  CELERY_RESULT_BACKEND         Celery result backend URL"
   echo "  CELERY_WORKER_CONCURRENCY     Worker concurrency (number of threads)"
-  echo "  CELERY_WORKER_PREFETCH_MULTIPLIER Worker prefetch multiplier"
   echo "  BATCH_CONCURRENCY             Async LLM fan-out within a single batch task"
-  echo "  STORAGE_SERVICE_URI           Google Cloud Storage bucket URI"
-  echo "  STORAGE_SERVICE_ACCOUNT_KEY   Google Cloud Storage service account key (Base64 encoded JSON)"
-  echo "  LOCAL_STORAGE_PATH            Local storage path for temporary files"
   echo ""
   echo "  # Frontend variables"
   echo "  NEXTAUTH_URL                  NextAuth URL"
@@ -131,13 +125,18 @@ function show_usage() {
   echo "  SENDGRID_DAY_2_EMAIL_TEMPLATE_ID           Sendgrid day 2 email template ID"
   echo "  SENDGRID_DAY_3_EMAIL_TEMPLATE_ID           Sendgrid day 3 email template ID"
   echo ""
+  echo "  # Chatbot variables"
+  echo "  RHESIS_API_KEY                Rhesis API key for chatbot SDK access"
+  echo "  RHESIS_PROJECT_ID             Rhesis project ID for chatbot SDK"
+  echo "  RHESIS_ENVIRONMENT            Rhesis environment (development, staging, production)"
+  echo ""
   echo -e "${BLUE}Example:${NC}"
   echo "  $0 --repo myuser/myrepo"
 }
 
 # Default values
 REPO=""
-ENVIRONMENTS="dev,stg,prd,test"
+ENVIRONMENTS="dev,stg,prd"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -212,19 +211,6 @@ function set_secret() {
   echo -e "${GREEN}✓ Set Actions secret $secret_name for $REPO${NC}"
 }
 
-# Function to set repository-level secrets (for TEST environment)
-function set_repo_secret() {
-  local secret_name=$1
-  local secret_value=$2
-
-  echo -e "${GREEN}Setting repository secret:${NC} $secret_name"
-  echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO" 2>/dev/null || {
-    echo -e "${RED}Failed to set repository secret $secret_name${NC}"
-    return 1
-  }
-  echo -e "${GREEN}✓ Set repository secret $secret_name for $REPO${NC}"
-}
-
 # Service environment variables
 SERVICE_VARS=(
   # Backend variables
@@ -267,7 +253,6 @@ SERVICE_VARS=(
   "WELCOME_CALENDAR_LINK"
   "WELCOME_FROM_EMAIL"
   "DEMO_USER_EMAIL"
-  "DEMO_USER_PASSWORD"
   "STORAGE_SERVICE_URI"
   "STORAGE_SERVICE_ACCOUNT_KEY"
   "LOCAL_STORAGE_PATH"
@@ -289,18 +274,12 @@ SERVICE_VARS=(
   "OTEL_DEPLOYMENT_TYPE"
   "OTEL_RHESIS_TELEMETRY_ENABLED"
   "OTEL_API_KEY"
-  "OTEL_PROCESSOR_ENDPOINT"
-  # NOTE: OTEL_PROCESSOR_ENDPOINT and OTEL_PROCESSOR_URL are auto-detected
 
   # Celery worker variables
   "BROKER_URL"
   "CELERY_RESULT_BACKEND"
   "CELERY_WORKER_CONCURRENCY"
-  "CELERY_WORKER_PREFETCH_MULTIPLIER"
   "BATCH_CONCURRENCY"
-  "STORAGE_SERVICE_URI"
-  "STORAGE_SERVICE_ACCOUNT_KEY"
-  "LOCAL_STORAGE_PATH"
 
   # Frontend variables
   "NEXTAUTH_URL"
@@ -331,29 +310,16 @@ SERVICE_VARS=(
   "SENDGRID_DAY_1_EMAIL_TEMPLATE_ID"
   "SENDGRID_DAY_2_EMAIL_TEMPLATE_ID"
   "SENDGRID_DAY_3_EMAIL_TEMPLATE_ID"
+
+  # Chatbot variables
+  "RHESIS_API_KEY"
+  "RHESIS_PROJECT_ID"
+  "RHESIS_ENVIRONMENT"
 )
 
 # Set environment-specific secrets
 for env in "${ENV_ARRAY[@]}"; do
   env_upper=$(echo "$env" | tr '[:lower:]' '[:upper:]')
-
-  # Handle TEST environment the same as other environments
-  if [[ "$env" == "test" ]]; then
-    echo -e "${BLUE}Setting up secrets for $env environment...${NC}"
-
-    # TEST secrets are set as environment secrets (same as other environments)
-    for var_name in "${SERVICE_VARS[@]}"; do
-      env_var="TEST_${var_name}"
-
-      if [[ -n "${!env_var}" ]]; then
-        set_secret "$env" "$var_name" "${!env_var}"
-      else
-        echo -e "${YELLOW}Warning:${NC} $env_var environment variable is not set"
-      fi
-    done
-
-    continue
-  fi
 
   echo -e "${BLUE}Setting up secrets for $env environment...${NC}"
 
@@ -368,61 +334,59 @@ for env in "${ENV_ARRAY[@]}"; do
     fi
   done
 
-  # Set default frontend URLs if not provided (skip for test environment)
-  if [[ "$env" != "test" ]]; then
-    if [[ -z "${!env_upper}_FRONTEND_URL" ]]; then
-      if [[ "$env" == "prd" ]]; then
-        frontend_url="https://app.rhesis.ai"
-      else
-        frontend_url="https://$env-app.rhesis.ai"
-      fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_FRONTEND_URL not set, using default: $frontend_url"
-      set_secret "$env" "FRONTEND_URL" "$frontend_url"
+  # Set default frontend URLs if not provided
+  if [[ -z "${!env_upper}_FRONTEND_URL" ]]; then
+    if [[ "$env" == "prd" ]]; then
+      frontend_url="https://app.rhesis.ai"
+    else
+      frontend_url="https://$env-app.rhesis.ai"
     fi
+    echo -e "${YELLOW}Warning:${NC} ${env_upper}_FRONTEND_URL not set, using default: $frontend_url"
+    set_secret "$env" "FRONTEND_URL" "$frontend_url"
+  fi
 
-    # Set default NextAuth URL if not provided
-    if [[ -z "${!env_upper}_NEXTAUTH_URL" ]]; then
-      if [[ "$env" == "prd" ]]; then
-        nextauth_url="https://app.rhesis.ai"
-      else
-        nextauth_url="https://$env-app.rhesis.ai"
-      fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXTAUTH_URL not set, using default: $nextauth_url"
-      set_secret "$env" "NEXTAUTH_URL" "$nextauth_url"
+  # Set default NextAuth URL if not provided
+  if [[ -z "${!env_upper}_NEXTAUTH_URL" ]]; then
+    if [[ "$env" == "prd" ]]; then
+      nextauth_url="https://app.rhesis.ai"
+    else
+      nextauth_url="https://$env-app.rhesis.ai"
     fi
+    echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXTAUTH_URL not set, using default: $nextauth_url"
+    set_secret "$env" "NEXTAUTH_URL" "$nextauth_url"
+  fi
 
-    # Set default API URL if not provided
-    if [[ -z "${!env_upper}_NEXT_PUBLIC_API_BASE_URL" ]]; then
-      if [[ "$env" == "prd" ]]; then
-        api_url="https://api.rhesis.ai"
-      else
-        api_url="https://$env-api.rhesis.ai"
-      fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
-      set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
+  # Set default API URL if not provided
+  if [[ -z "${!env_upper}_NEXT_PUBLIC_API_BASE_URL" ]]; then
+    if [[ "$env" == "prd" ]]; then
+      api_url="https://api.rhesis.ai"
+    else
+      api_url="https://$env-api.rhesis.ai"
     fi
+    echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
+    set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
+  fi
 
-    # Set default APP URL if not provided
-    if [[ -z "${!env_upper}_NEXT_PUBLIC_APP_URL" ]]; then
-      if [[ "$env" == "prd" ]]; then
-        app_url="https://app.rhesis.ai"
-      else
-        app_url="https://$env-app.rhesis.ai"
-      fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_APP_URL not set, using default: $app_url"
-      set_secret "$env" "NEXT_PUBLIC_APP_URL" "$app_url"
+  # Set default APP URL if not provided
+  if [[ -z "${!env_upper}_NEXT_PUBLIC_APP_URL" ]]; then
+    if [[ "$env" == "prd" ]]; then
+      app_url="https://app.rhesis.ai"
+    else
+      app_url="https://$env-app.rhesis.ai"
     fi
+    echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_APP_URL not set, using default: $app_url"
+    set_secret "$env" "NEXT_PUBLIC_APP_URL" "$app_url"
+  fi
 
-    # Set default log level if not provided
-    if [[ -z "${!env_upper}_LOG_LEVEL" ]]; then
-      if [[ "$env" == "prd" ]]; then
-        log_level="INFO"
-      else
-        log_level="DEBUG"
-      fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_LOG_LEVEL not set, using default: $log_level"
-      set_secret "$env" "LOG_LEVEL" "$log_level"
+  # Set default log level if not provided
+  if [[ -z "${!env_upper}_LOG_LEVEL" ]]; then
+    if [[ "$env" == "prd" ]]; then
+      log_level="INFO"
+    else
+      log_level="DEBUG"
     fi
+    echo -e "${YELLOW}Warning:${NC} ${env_upper}_LOG_LEVEL not set, using default: $log_level"
+    set_secret "$env" "LOG_LEVEL" "$log_level"
   fi
 done
 

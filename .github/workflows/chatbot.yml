@@ -182,27 +182,32 @@ jobs:
           echo "🤖 Model configuration: ${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai/gemini-2.0-flash' }}"
 
           # Set environment-dependent resources
+          # Workers are derived from CPU count (2 workers per vCPU) so the
+          # SDK's WebSocket background threads always get enough CPU time.
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             MEMORY="4Gi"
             CPU="2"
+            WORKERS="4"
             MIN_INSTANCES="2"
             MAX_INSTANCES="20"
             CONCURRENCY="100"
-            echo "🏭 Production configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
+            echo "🏭 Production configuration: ${MEMORY} memory, ${CPU} CPU, ${WORKERS} workers, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
             MEMORY="4Gi"
             CPU="2"
+            WORKERS="4"
             MIN_INSTANCES="1"
             MAX_INSTANCES="10"
             CONCURRENCY="80"
-            echo "🧪 Staging configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
+            echo "🧪 Staging configuration: ${MEMORY} memory, ${CPU} CPU, ${WORKERS} workers, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           else
             MEMORY="4Gi"
             CPU="1"
+            WORKERS="2"
             MIN_INSTANCES="1"
             MAX_INSTANCES="5"
             CONCURRENCY="50"
-            echo "🛠️ Development configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
+            echo "🛠️ Development configuration: ${MEMORY} memory, ${CPU} CPU, ${WORKERS} workers, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           fi
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
@@ -226,7 +231,7 @@ jobs:
           GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},
           GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
           CHATBOT_RATE_LIMIT=${{ secrets.CHATBOT_RATE_LIMIT || '1000' }},
-          WORKERS=${{ vars.CHATBOT_WORKERS || '4' }},
+          WORKERS=${WORKERS},
           ENVIRONMENT=${{ env.ENVIRONMENT }},
           SMTP_HOST=${{ secrets.SMTP_HOST }},
           SMTP_PORT=${{ secrets.SMTP_PORT }},
@@ -237,7 +242,10 @@ jobs:
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
           WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
           CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }},
-          RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
+          RHESIS_BASE_URL=${{ secrets.RHESIS_BASE_URL || 'https://api.rhesis.ai' }},
+          RHESIS_API_KEY=${{ secrets.RHESIS_API_KEY }},
+          RHESIS_PROJECT_ID=${{ secrets.RHESIS_PROJECT_ID }},
+          RHESIS_ENVIRONMENT=${{ secrets.RHESIS_ENVIRONMENT }},
           EOF
           )"
 

@@ -1,12 +1,15 @@
 """Tests for ConnectorManager."""
 
+import asyncio
 import inspect
+import threading
+import time
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from rhesis.sdk.connector.manager import ConnectorManager
-from rhesis.sdk.connector.types import MessageType
+from rhesis.sdk.connector.types import ConnectionState, MessageType
 from rhesis.sdk.telemetry import Tracer
 
 
@@ -71,40 +74,25 @@ def test_manager_uses_telemetry_tracer(manager):
 
 
 @patch("rhesis.sdk.connector.manager.WebSocketConnection")
-@patch("asyncio.get_running_loop")
-def test_initialize(mock_get_loop, mock_ws_class, manager):
+@patch.object(ConnectorManager, "_auto_connect")
+def test_initialize(mock_auto_connect, mock_ws_class, manager):
     """Test manager initialization."""
-    # Mock get_running_loop to return a mock loop (instead of raising RuntimeError)
-    mock_get_loop.return_value = Mock()
-
     mock_ws_instance = Mock()
-    # Make connect() return an AsyncMock to avoid coroutine warnings
     mock_ws_instance.connect = AsyncMock()
     mock_ws_class.return_value = mock_ws_instance
 
-    mock_create_task, _mock_task = _make_create_task_mock()
-
-    with patch("asyncio.create_task", mock_create_task):
-        manager.initialize()
+    manager.initialize()
 
     assert manager._initialized
     assert manager._connection is not None
     mock_ws_class.assert_called_once()
-    mock_create_task.assert_called_once()
+    mock_auto_connect.assert_called_once()
 
 
-@patch("asyncio.get_running_loop")
-def test_initialize_idempotent(mock_get_loop, manager):
+@patch.object(ConnectorManager, "_auto_connect")
+def test_initialize_idempotent(mock_auto_connect, manager):
     """Test that calling initialize multiple times is safe."""
-    # Mock get_running_loop to return a mock loop (instead of raising RuntimeError)
-    mock_get_loop.return_value = Mock()
-
-    mock_create_task, _mock_task = _make_create_task_mock()
-
-    with (
-        patch("asyncio.create_task", mock_create_task),
-        patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class,
-    ):
+    with patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class:
         mock_ws_instance = Mock()
         mock_ws_instance.connect = AsyncMock()
         mock_ws_class.return_value = mock_ws_instance
@@ -112,18 +100,13 @@ def test_initialize_idempotent(mock_get_loop, manager):
         manager.initialize()
         manager.initialize()
 
-    # Should only initialize once
-    assert mock_create_task.call_count == 1
+    mock_auto_connect.assert_called_once()
 
 
-def test_register_function(manager, sample_function):
+@patch.object(ConnectorManager, "_auto_connect")
+def test_register_function(mock_auto_connect, manager, sample_function):
     """Test function registration."""
-    mock_create_task, _mock_task = _make_create_task_mock()
-
-    with (
-        patch("asyncio.create_task", mock_create_task),
-        patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class,
-    ):
+    with patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class:
         mock_ws_instance = Mock()
         mock_ws_instance.connect = AsyncMock()
         mock_ws_class.return_value = mock_ws_instance
@@ -283,9 +266,9 @@ async def test_shutdown(manager):
     manager._connection = AsyncMock()
     manager._initialized = True
 
+    # No background thread loop running, so shutdown just resets state
     await manager.shutdown()
 
-    manager._connection.disconnect.assert_called_once()
     assert not manager._initialized
 
 
@@ -347,3 +330,227 @@ async def test_send_test_result_no_connection(manager):
     """Test sending test result when no connection."""
     # Should not raise exception
     await manager._send_test_result("test-123", "success", "result")
+
+
+# ------------------------------------------------------------------
+# Background thread lifecycle tests
+# ------------------------------------------------------------------
+
+
+@patch("rhesis.sdk.connector.manager.WebSocketConnection")
+def test_auto_connect_starts_daemon_thread(mock_ws_class, manager):
+    """Test that _auto_connect starts a named daemon thread."""
+    mock_ws_class.return_value = Mock()
+
+    with patch.object(ConnectorManager, "_run_connection_loop"):
+        manager._initialized = True
+        manager._connection = Mock()
+        manager._auto_connect()
+
+        assert manager._thread is not None
+        assert manager._thread.daemon is True
+        assert manager._thread.name == "rhesis-connector"
+        manager._thread.join(timeout=1)
+
+
+@patch("rhesis.sdk.connector.manager.WebSocketConnection")
+def test_auto_connect_noop_if_thread_alive(mock_ws_class, manager):
+    """Test that _auto_connect does not start a second thread."""
+    mock_ws_class.return_value = Mock()
+    alive_thread = Mock(spec=threading.Thread)
+    alive_thread.is_alive.return_value = True
+
+    manager._thread = alive_thread
+    manager._auto_connect()
+
+    alive_thread.is_alive.assert_called_once()
+    assert manager._thread is alive_thread
+
+
+def test_ensure_connection_restarts_dead_thread(manager):
+    """Test that _ensure_connection restarts the thread if it died."""
+    manager._initialized = True
+    dead_thread = Mock(spec=threading.Thread)
+    dead_thread.is_alive.return_value = False
+    manager._thread = dead_thread
+
+    with patch.object(manager, "_auto_connect") as mock_auto:
+        manager._ensure_connection()
+        mock_auto.assert_called_once()
+
+
+def test_ensure_connection_noop_if_not_initialized(manager):
+    """Test that _ensure_connection is a no-op before initialize."""
+    manager._initialized = False
+    with patch.object(manager, "_auto_connect") as mock_auto:
+        manager._ensure_connection()
+        mock_auto.assert_not_called()
+
+
+def test_ensure_connection_noop_if_thread_alive(manager):
+    """Test that _ensure_connection skips when thread is healthy."""
+    manager._initialized = True
+    alive_thread = Mock(spec=threading.Thread)
+    alive_thread.is_alive.return_value = True
+    manager._thread = alive_thread
+
+    with patch.object(manager, "_auto_connect") as mock_auto:
+        manager._ensure_connection()
+        mock_auto.assert_not_called()
+
+
+def test_ensure_connection_noop_if_permanently_failed(manager):
+    """Test that _ensure_connection does not restart after permanent failure."""
+    manager._initialized = True
+    manager._permanently_failed = True
+    dead_thread = Mock(spec=threading.Thread)
+    dead_thread.is_alive.return_value = False
+    manager._thread = dead_thread
+
+    with patch.object(manager, "_auto_connect") as mock_auto:
+        manager._ensure_connection()
+        mock_auto.assert_not_called()
+
+
+def test_handle_permanent_failure_sets_flag(manager):
+    """Test that _handle_permanent_failure sets the flag and prevents restart."""
+    assert not manager._permanently_failed
+
+    manager._handle_permanent_failure("Authentication failed (HTTP 403)")
+
+    assert manager._permanently_failed
+
+
+# ------------------------------------------------------------------
+# Thread-safe registration tests
+# ------------------------------------------------------------------
+
+
+def test_send_registration_if_connected_no_loop(manager):
+    """Test _send_registration_if_connected is a no-op without thread loop."""
+    manager._thread_loop = None
+    manager._connection = Mock()
+    manager._connection.state = ConnectionState.CONNECTED
+
+    manager._send_registration_if_connected()
+
+
+def test_send_registration_if_connected_not_connected(manager):
+    """Test _send_registration_if_connected skips when not connected."""
+    loop = Mock()
+    loop.is_running.return_value = True
+    manager._thread_loop = loop
+    manager._connection = Mock()
+    manager._connection.state = ConnectionState.DISCONNECTED
+
+    manager._send_registration_if_connected()
+
+    loop.call_soon_threadsafe.assert_not_called()
+
+
+def test_send_registration_if_connected_schedules(manager):
+    """Test _send_registration_if_connected dispatches to thread loop."""
+    loop = Mock()
+    loop.is_running.return_value = True
+    manager._thread_loop = loop
+    manager._connection = Mock()
+    manager._connection.state = ConnectionState.CONNECTED
+
+    manager._send_registration_if_connected()
+
+    loop.call_soon_threadsafe.assert_called_once()
+
+
+# ------------------------------------------------------------------
+# Metric registration tests
+# ------------------------------------------------------------------
+
+
+@patch.object(ConnectorManager, "_auto_connect")
+def test_register_metric(mock_auto_connect, manager):
+    """Test metric registration."""
+    with patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class:
+        mock_ws_class.return_value = Mock()
+
+        def my_metric(prompt, response):
+            return 0.9
+
+        manager.register_metric("my_metric", my_metric, {"score_type": "float"})
+
+        assert manager._initialized
+        assert manager._metric_registry.has("my_metric")
+        assert manager._metric_registry.get("my_metric") == my_metric
+
+
+# ------------------------------------------------------------------
+# Shutdown with active thread loop
+# ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_shutdown_with_thread_loop(manager):
+    """Test shutdown dispatches disconnect and joins the thread."""
+    mock_connection = AsyncMock()
+    manager._connection = mock_connection
+    manager._initialized = True
+
+    loop = asyncio.new_event_loop()
+
+    def run_loop():
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
+
+    thread = threading.Thread(target=run_loop, daemon=True)
+    thread.start()
+    manager._thread_loop = loop
+    manager._thread = thread
+
+    try:
+        await manager.shutdown()
+    finally:
+        if loop.is_running():
+            loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=2)
+
+    mock_connection.disconnect.assert_called_once()
+    assert not manager._initialized
+
+
+# ------------------------------------------------------------------
+# WebSocketConnection.wait_closed tests
+# ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_wait_closed_with_task():
+    """Test wait_closed blocks until connection task completes."""
+    from rhesis.sdk.connector.connection import WebSocketConnection
+
+    conn = WebSocketConnection(
+        url="ws://localhost:8080/ws",
+        headers={},
+        on_message=AsyncMock(),
+    )
+    completed = asyncio.Event()
+
+    async def fake_maintain():
+        await asyncio.sleep(0.05)
+        completed.set()
+
+    conn._connection_task = asyncio.create_task(fake_maintain())
+    await conn.wait_closed()
+    assert completed.is_set()
+
+
+@pytest.mark.asyncio
+async def test_wait_closed_no_task():
+    """Test wait_closed returns immediately when no task exists."""
+    from rhesis.sdk.connector.connection import WebSocketConnection
+
+    conn = WebSocketConnection(
+        url="ws://localhost:8080/ws",
+        headers={},
+        on_message=AsyncMock(),
+    )
+    conn._connection_task = None
+    await conn.wait_closed()
