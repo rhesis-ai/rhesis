@@ -32,6 +32,12 @@ from rhesis.backend.notifications import email_service
 
 logger = logging.getLogger(__name__)
 
+# Temporary product/API restriction (see PR: disable default embedding model changes):
+# Traces and some other embeddables have no user, so a per-user embedding default cannot
+# be resolved consistently everywhere. Until we model defaults for user-less entities,
+# block *changes* to models.embedding via PATCH /users/settings. Stored values and GET are
+# unchanged; org onboarding may still set embedding server-side—align separately if needed.
+
 
 def _settings_patch_forbids_embedding_update(settings_dict: dict) -> bool:
     """True if the client explicitly tried to update models.embedding (PATCH must reject)."""
@@ -226,6 +232,9 @@ def update_user_settings(
             "theme": "dark"
         }
     }
+
+    Embedding default: including ``models.embedding`` in the body is rejected (422).
+    This is temporary.
     """
     # Get the user from database
     db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
