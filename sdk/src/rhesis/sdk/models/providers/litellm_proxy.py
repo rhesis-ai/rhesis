@@ -105,9 +105,7 @@ class LiteLLMProxy(BaseLLM):
                 # Use LiteLLM's helper so the emitted JSON schema satisfies
                 # OpenAI/Azure strict mode (e.g. additionalProperties: false on
                 # every object node, including nested $defs).
-                payload["response_format"] = type_to_response_format_param(
-                    response_format=schema
-                )
+                payload["response_format"] = type_to_response_format_param(response_format=schema)
             elif isinstance(schema, dict):
                 payload["response_format"] = schema
 
