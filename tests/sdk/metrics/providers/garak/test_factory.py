@@ -198,7 +198,7 @@ class TestFactoryParameterFiltering:
 
     def test_accepted_params_constant(self, factory):
         """Test that ACCEPTED_PARAMS contains expected values."""
-        expected_params = {"name", "description", "model", "threshold"}
+        expected_params = {"name", "description", "model", "threshold", "probe_notes"}
         assert factory.ACCEPTED_PARAMS == expected_params
 
 
@@ -283,7 +283,7 @@ class TestFactoryDetectorPaths:
 
     def test_registry_detector_count(self):
         """Ensure the YAML registry has the expected number of detectors."""
-        assert len(DETECTORS) == 17
+        assert len(DETECTORS) == 20
 
     def test_all_registry_detectors_in_factory(self, factory):
         """Every detector in the YAML registry is reachable via the factory."""

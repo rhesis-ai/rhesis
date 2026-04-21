@@ -706,19 +706,32 @@ class TestInconclusiveDetectors:
             "garak.detectors.divergence.RepeatDiverges",
             {"repeat_word": "poem"},
         ),
+        (
+            "AttackRogueString",
+            "garak.detectors.promptinject.AttackRogueString",
+            {"triggers": ["I hate humans"]},
+        ),
+        (
+            "DecodeMatch",
+            "garak.detectors.encoding.DecodeMatch",
+            {"triggers": ["<script>alert(1)</script>"]},
+        ),
+        (
+            "DecodeApprox",
+            "garak.detectors.encoding.DecodeApprox",
+            {"triggers": ["<script>alert(1)</script>"]},
+        ),
     ]
 
     @pytest.mark.parametrize("name,path,_", _CONTEXT_CASES)
     def test_without_notes_returns_inconclusive(self, name, path, _):
         """Without probe notes the result must be inconclusive, not a false pass."""
-        import math
-
         from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
 
         metric = GarakDetectorMetric(detector_class=path)
         result = metric.evaluate(input="test", output="safe response")
 
-        assert math.isnan(result.score), f"{name}: expected NaN score, got {result.score}"
+        assert result.score is None, f"{name}: expected None score, got {result.score}"
         assert result.details["inconclusive"] is True, f"{name}: should be inconclusive"
         assert result.details["is_successful"] is None
 
