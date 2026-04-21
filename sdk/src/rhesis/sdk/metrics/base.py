@@ -145,10 +145,12 @@ class MetricConfig:
 class MetricResult(BaseModel):
     """Result of a metric evaluation."""
 
-    score: Union[float, str] = Field(
+    score: Optional[Union[float, str]] = Field(
+        default=None,
         description=(
-            "The evaluation score (float for numeric/binary metrics, str for categorical metrics)"
-        )
+            "The evaluation score (float for numeric/binary metrics, str for categorical metrics, "
+            "None when the result is inconclusive)"
+        ),
     )
     details: Dict[str, Any] = Field(
         default_factory=dict, description="Additional evaluation details"

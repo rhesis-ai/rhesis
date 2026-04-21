@@ -9,7 +9,6 @@ the Rhesis evaluation framework.
 import asyncio
 import importlib
 import logging
-import math
 from typing import List, Optional, Union
 
 from rhesis.sdk.metrics.base import (
@@ -63,6 +62,7 @@ class GarakDetectorMetric(BaseMetric):
         description: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         threshold: Optional[float] = None,
+        probe_notes: Optional[dict] = None,
         **kwargs,
     ):
         """
@@ -82,6 +82,9 @@ class GarakDetectorMetric(BaseMetric):
         self._detector = None
         self._detector_kwargs = kwargs
         self.threshold = threshold if threshold is not None else self.DEFAULT_THRESHOLD
+        # Probe-level notes stored at construction time (e.g. {"triggers": ["I hate humans"]}).
+        # Used as a fallback when evaluate() is called without explicit notes.
+        self._probe_notes = probe_notes
 
         # Create metric config
         # Use NUMERIC score type since Garak returns probability scores (0.0-1.0)
@@ -191,8 +194,9 @@ class GarakDetectorMetric(BaseMetric):
             attempt.prompt = Message(text=input, lang="*")
             attempt.outputs = [output]
 
-            if notes:
-                attempt.notes.update(notes)
+            effective_notes = notes or self._probe_notes
+            if effective_notes:
+                attempt.notes.update(effective_notes)
 
             logger.debug("[GARAK] Created Attempt with prompt and 1 output")
 
@@ -210,8 +214,13 @@ class GarakDetectorMetric(BaseMetric):
 
             # --- Handle empty results (probe-context missing) ---------------
             if not raw_scores:
-                required_note = CONTEXT_REQUIRED_NOTES.get(self.detector_class_path)
-                if required_note:
+                normalized_path = (
+                    self.detector_class_path
+                    if self.detector_class_path.startswith("garak.")
+                    else f"garak.detectors.{self.detector_class_path}"
+                )
+                required_note = CONTEXT_REQUIRED_NOTES.get(normalized_path)
+                if required_note and not effective_notes:
                     reason = (
                         f"Detector '{self.detector_class_path.split('.')[-1]}' "
                         f"returned no scores because "
@@ -224,7 +233,7 @@ class GarakDetectorMetric(BaseMetric):
                     )
                 logger.warning(f"[GARAK] Inconclusive: {reason}")
                 return MetricResult(
-                    score=math.nan,
+                    score=None,
                     details={
                         "detector": self.detector_class_path,
                         "detector_class": self.detector_class_path.split(".")[-1],
