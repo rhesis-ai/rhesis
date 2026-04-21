@@ -225,10 +225,26 @@ export function ConnectedModelCard({
                   isGenerationDefault && 'Generation',
                   isEvaluationDefault && 'Evaluation',
                   isExecutionDefault && 'Execution',
-                  isEmbeddingDefault && 'Embedding',
+                  isEmbeddingDefault && (
+                    <Tooltip
+                      key="embedding-default"
+                      title="Platform-managed; cannot be changed in settings"
+                    >
+                      <Box component="span">Embedding</Box>
+                    </Tooltip>
+                  ),
                 ]
                   .filter(Boolean)
-                  .join(' & ')}
+                  .map((part, index) => (
+                    <React.Fragment
+                      key={
+                        typeof part === 'string' ? part : 'embedding-default'
+                      }
+                    >
+                      {index > 0 && ' & '}
+                      {part}
+                    </React.Fragment>
+                  ))}
               </Box>
             </Typography>
           )}
