@@ -5,6 +5,7 @@ import os
 from typing import Any, Dict, List, Optional, Type, Union
 
 import requests
+from litellm.llms.base_llm.base_utils import type_to_response_format_param
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -101,14 +102,12 @@ class LiteLLMProxy(BaseLLM):
 
         if schema:
             if isinstance(schema, type) and issubclass(schema, BaseModel):
-                payload["response_format"] = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema.__name__,
-                        "schema": schema.model_json_schema(),
-                        "strict": True,
-                    },
-                }
+                # Use LiteLLM's helper so the emitted JSON schema satisfies
+                # OpenAI/Azure strict mode (e.g. additionalProperties: false on
+                # every object node, including nested $defs).
+                payload["response_format"] = type_to_response_format_param(
+                    response_format=schema
+                )
             elif isinstance(schema, dict):
                 payload["response_format"] = schema
 
