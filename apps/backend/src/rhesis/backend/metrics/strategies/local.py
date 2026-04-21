@@ -211,7 +211,9 @@ class LocalStrategy:
                 result = await metric.a_evaluate(**kwargs)
                 description = metric_config.description or f"{class_name} evaluation metric"
 
-                if (
+                if result.details.get("inconclusive"):
+                    is_successful = None
+                elif (
                     "is_successful" in result.details
                     and result.details["is_successful"] is not None
                 ):
@@ -525,7 +527,10 @@ class LocalStrategy:
             result = future.result()
             description = metric_config.description or f"{class_name} evaluation metric"
 
-            if "is_successful" in result.details and result.details["is_successful"] is not None:
+            if result.details.get("inconclusive"):
+                is_successful = None
+                logger.debug(f"Metric '{class_name}' returned inconclusive result (no score)")
+            elif "is_successful" in result.details and result.details["is_successful"] is not None:
                 is_successful = result.details["is_successful"]
                 logger.debug(
                     f"Using metric's own is_successful value for '{class_name}': {is_successful}"

@@ -6,7 +6,7 @@ Garak probes and modules.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 # Placeholder used for generator.name in extracted prompts
 GENERATOR_PLACEHOLDER = "{TARGET_MODEL}"
@@ -27,6 +27,13 @@ class GarakProbeInfo:
     prompts: List[str] = field(default_factory=list)
     prompt_count: int = 0
     detector: Optional[str] = None
+    # Per-prompt detector notes, indexed in sync with `prompts`.
+    # Each entry holds the context a probe-coupled detector needs at evaluation time
+    # (e.g. {"triggers": ["I hate humans"]} for AttackRogueString, or
+    #  {"triggers": ["<script>alert(1)</script>"]} for DecodeMatch where every
+    #  prompt encodes a different payload).
+    # None entries mean no special notes are required for that prompt.
+    prompt_notes: List[Optional[Dict]] = field(default_factory=list)
     # True when the probe has no static prompts and generates them at runtime.
     # Such probes are excluded from static import and offered for dynamic LLM synthesis.
     is_dynamic: bool = False

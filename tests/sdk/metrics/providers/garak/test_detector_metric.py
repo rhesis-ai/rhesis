@@ -384,8 +384,6 @@ class TestGarakDetectorMetricEdgeCases:
         In garak v0.14, empty scores are treated as inconclusive rather
         than silently passing.
         """
-        import math
-
         mock_detector = MagicMock()
         mock_detector.detect.return_value = []
 
@@ -405,7 +403,7 @@ class TestGarakDetectorMetricEdgeCases:
         ):
             result = metric.evaluate(input="Test", output="Response")
 
-        assert math.isnan(result.score)
+        assert result.score is None
         assert result.details["inconclusive"] is True
         assert result.details["is_successful"] is None
 

@@ -9,7 +9,6 @@ the Rhesis evaluation framework.
 import asyncio
 import importlib
 import logging
-import math
 from typing import List, Optional, Union
 
 from rhesis.sdk.metrics.base import (
@@ -23,7 +22,7 @@ from rhesis.sdk.metrics.base import (
 )
 from rhesis.sdk.models.base import BaseLLM
 
-from .registry import CONTEXT_REQUIRED_NOTES
+from .registry import CONTEXT_REQUIRED_NOTES, normalize_detector_path
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +62,7 @@ class GarakDetectorMetric(BaseMetric):
         description: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         threshold: Optional[float] = None,
+        probe_notes: Optional[dict] = None,
         **kwargs,
     ):
         """
@@ -82,6 +82,9 @@ class GarakDetectorMetric(BaseMetric):
         self._detector = None
         self._detector_kwargs = kwargs
         self.threshold = threshold if threshold is not None else self.DEFAULT_THRESHOLD
+        # Probe-level notes stored at construction time (e.g. {"triggers": ["I hate humans"]}).
+        # Used as a fallback when evaluate() is called without explicit notes.
+        self._probe_notes = probe_notes
 
         # Create metric config
         # Use NUMERIC score type since Garak returns probability scores (0.0-1.0)
@@ -117,12 +120,7 @@ class GarakDetectorMetric(BaseMetric):
             ImportError: If Garak is not installed or detector not found
         """
         try:
-            # Normalize the detector path
-            # Garak's recommended_detector can be relative (e.g., "perspective.Toxicity")
-            # or full (e.g., "garak.detectors.perspective.Toxicity")
-            detector_path = self.detector_class_path
-            if not detector_path.startswith("garak."):
-                detector_path = f"garak.detectors.{detector_path}"
+            detector_path = normalize_detector_path(self.detector_class_path)
             detector_path = _DETECTOR_OVERRIDES.get(detector_path, detector_path)
 
             # Split the class path
@@ -191,8 +189,9 @@ class GarakDetectorMetric(BaseMetric):
             attempt.prompt = Message(text=input, lang="*")
             attempt.outputs = [output]
 
-            if notes:
-                attempt.notes.update(notes)
+            effective_notes = notes if notes is not None else self._probe_notes
+            if effective_notes:
+                attempt.notes.update(effective_notes)
 
             logger.debug("[GARAK] Created Attempt with prompt and 1 output")
 
@@ -210,12 +209,19 @@ class GarakDetectorMetric(BaseMetric):
 
             # --- Handle empty results (probe-context missing) ---------------
             if not raw_scores:
-                required_note = CONTEXT_REQUIRED_NOTES.get(self.detector_class_path)
-                if required_note:
+                required_note = CONTEXT_REQUIRED_NOTES.get(
+                    normalize_detector_path(self.detector_class_path)
+                )
+                notes_missing_key = required_note and (
+                    not effective_notes
+                    or required_note not in effective_notes
+                    or not effective_notes.get(required_note)
+                )
+                if notes_missing_key:
                     reason = (
                         f"Detector '{self.detector_class_path.split('.')[-1]}' "
                         f"returned no scores because "
-                        f"notes['{required_note}'] was not provided. "
+                        f"notes['{required_note}'] was not provided or empty. "
                         f"Pass probe metadata via the 'notes' parameter."
                     )
                 else:
@@ -224,7 +230,7 @@ class GarakDetectorMetric(BaseMetric):
                     )
                 logger.warning(f"[GARAK] Inconclusive: {reason}")
                 return MetricResult(
-                    score=math.nan,
+                    score=None,
                     details={
                         "detector": self.detector_class_path,
                         "detector_class": self.detector_class_path.split(".")[-1],

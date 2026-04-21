@@ -22,7 +22,7 @@ class GarakMetricFactory(BaseMetricFactory):
 
     DETECTOR_PATHS = DETECTOR_PATHS
 
-    ACCEPTED_PARAMS = {"name", "description", "model", "threshold"}
+    ACCEPTED_PARAMS = {"name", "description", "model", "threshold", "probe_notes"}
 
     def _filter_kwargs(self, kwargs: dict) -> dict:
         """Extract only params that GarakDetectorMetric accepts."""
