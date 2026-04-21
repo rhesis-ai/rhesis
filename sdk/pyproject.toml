@@ -176,6 +176,7 @@ override-dependencies = ["datasets>=4.0.0", "transformers>=5.0.0"]
 
 [tool.uv.sources]
 rhesis = { path = "../packages/rhesis" }
+rhesis-penelope = { path = "../penelope", editable = true }
 
 [tool.pyright]
 typeCheckingMode = "standard"
@@ -194,6 +195,3 @@ filterwarnings = [
     # Ignore Pydantic V2 deprecation warnings from external dependencies
     "ignore::pydantic.warnings.PydanticDeprecatedSince20",
 ]
-
-[tool.uv.sources]
-rhesis-penelope = { path = "../penelope", editable = true }
