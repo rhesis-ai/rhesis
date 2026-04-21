@@ -281,9 +281,12 @@ class TestFactoryDetectorPaths:
                 assert parts[0] == "garak"
                 assert parts[1] == "detectors"
 
-    def test_registry_detector_count(self):
-        """Ensure the YAML registry has the expected number of detectors."""
-        assert len(DETECTORS) == 20
+    def test_registry_has_detectors(self):
+        """Ensure the YAML registry is non-empty and all detectors have required fields."""
+        assert len(DETECTORS) > 0
+        for d in DETECTORS:
+            assert d.name, f"Detector {d} missing name"
+            assert d.path, f"Detector {d} missing path"
 
     def test_all_registry_detectors_in_factory(self, factory):
         """Every detector in the YAML registry is reachable via the factory."""

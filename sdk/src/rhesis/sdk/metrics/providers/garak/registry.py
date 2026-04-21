@@ -85,6 +85,28 @@ DETECTOR_PATHS: Dict[str, Optional[str]] = {
     "GarakDetectorMetric": None,
 }
 
+# ── Path helpers ─────────────────────────────────────────────────────────────
+
+
+def normalize_detector_path(path: str) -> str:
+    """Return a fully-qualified Garak detector path (``garak.detectors.…``).
+
+    Garak's ``recommended_detector`` / ``primary_detector`` attributes and the
+    value stored in ``Metric.evaluation_prompt`` in the DB can be either a
+    short relative path (``encoding.DecodeMatch``) or a full path
+    (``garak.detectors.encoding.DecodeMatch``).  This function normalises both
+    forms to the canonical full form used as keys in ``CONTEXT_REQUIRED_NOTES``.
+    """
+    if not path.startswith("garak."):
+        return f"garak.detectors.{path}"
+    return path
+
+
+def is_context_required(path: str) -> bool:
+    """Return True if the detector identified by *path* requires probe context notes."""
+    return normalize_detector_path(path) in CONTEXT_REQUIRED_NOTES
+
+
 # ── Convenience subsets (used by tests) ──────────────────────────────────────
 
 STANDALONE_DETECTORS: Dict[str, str] = {

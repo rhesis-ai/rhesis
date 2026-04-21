@@ -354,7 +354,18 @@ class GarakProbeService:
             Both lists have the same length.  Returns ([], []) on failure.
         """
         try:
-            instance = probe_class()
+            # Encoding probes use follow_prompt_cap to limit the number of prompts
+            # sampled at runtime. Disable it temporarily so we get the *complete*,
+            # deterministic prompt→trigger mapping — the same strategy used by the
+            # Alembic backfill migration (97b38ee1a6e1) to ensure consistency.
+            original_cap = getattr(probe_class, "follow_prompt_cap", None)
+            if original_cap is not None:
+                probe_class.follow_prompt_cap = False
+            try:
+                instance = probe_class()
+            finally:
+                if original_cap is not None:
+                    probe_class.follow_prompt_cap = original_cap
 
             prompts = list(instance.prompts) if hasattr(instance, "prompts") and instance.prompts else []
             if not prompts:
@@ -377,6 +388,9 @@ class GarakProbeService:
                     {"triggers": [str(t)]}
                     for t in instance.triggers[: len(prompts)]
                 ]
+                # Pad so prompt_notes[i] always corresponds to prompts[i].
+                if len(prompt_notes) < len(prompts):
+                    prompt_notes += [None] * (len(prompts) - len(prompt_notes))
                 return prompts, prompt_notes
 
             return prompts, []

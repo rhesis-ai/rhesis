@@ -110,13 +110,6 @@ async def _evaluate_single_turn_metrics(
     )
 
 
-def _normalize_detector_path(path: str) -> str:
-    """Ensure a detector path is fully qualified (``garak.detectors.…``)."""
-    if not path.startswith("garak."):
-        return f"garak.detectors.{path}"
-    return path
-
-
 def _inject_probe_notes(metric_configs: list, probe_notes: Optional[Dict[str, Any]]) -> list:
     """
     Return a copy of metric_configs with probe_notes merged into the parameters
@@ -128,18 +121,16 @@ def _inject_probe_notes(metric_configs: list, probe_notes: Optional[Dict[str, An
     if not probe_notes:
         return metric_configs
 
-    from rhesis.sdk.metrics.providers.garak.registry import CONTEXT_REQUIRED_NOTES
+    from rhesis.sdk.metrics.providers.garak.registry import is_context_required
 
     result = []
     for config in metric_configs:
         evaluation_prompt = getattr(config, "evaluation_prompt", None)
-        if evaluation_prompt:
-            normalized = _normalize_detector_path(evaluation_prompt)
-            if normalized in CONTEXT_REQUIRED_NOTES:
-                import dataclasses
+        if evaluation_prompt and is_context_required(evaluation_prompt):
+            import dataclasses
 
-                updated_params = dict(config.parameters or {})
-                updated_params["probe_notes"] = probe_notes
-                config = dataclasses.replace(config, parameters=updated_params)
+            updated_params = dict(config.parameters or {})
+            updated_params["probe_notes"] = probe_notes
+            config = dataclasses.replace(config, parameters=updated_params)
         result.append(config)
     return result

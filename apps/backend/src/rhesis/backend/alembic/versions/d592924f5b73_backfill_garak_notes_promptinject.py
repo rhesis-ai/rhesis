@@ -115,6 +115,7 @@ def downgrade() -> None:
                 SET test_metadata = test_metadata - 'garak_notes'
                 WHERE test_metadata->>'source' = 'garak'
                   AND test_metadata->>'garak_module' = 'promptinject'
+                  AND test_metadata ? 'garak_notes'
                 """
             )
         )

@@ -22,7 +22,7 @@ from rhesis.sdk.metrics.base import (
 )
 from rhesis.sdk.models.base import BaseLLM
 
-from .registry import CONTEXT_REQUIRED_NOTES
+from .registry import CONTEXT_REQUIRED_NOTES, normalize_detector_path
 
 logger = logging.getLogger(__name__)
 
@@ -120,12 +120,7 @@ class GarakDetectorMetric(BaseMetric):
             ImportError: If Garak is not installed or detector not found
         """
         try:
-            # Normalize the detector path
-            # Garak's recommended_detector can be relative (e.g., "perspective.Toxicity")
-            # or full (e.g., "garak.detectors.perspective.Toxicity")
-            detector_path = self.detector_class_path
-            if not detector_path.startswith("garak."):
-                detector_path = f"garak.detectors.{detector_path}"
+            detector_path = normalize_detector_path(self.detector_class_path)
             detector_path = _DETECTOR_OVERRIDES.get(detector_path, detector_path)
 
             # Split the class path
@@ -214,12 +209,9 @@ class GarakDetectorMetric(BaseMetric):
 
             # --- Handle empty results (probe-context missing) ---------------
             if not raw_scores:
-                normalized_path = (
-                    self.detector_class_path
-                    if self.detector_class_path.startswith("garak.")
-                    else f"garak.detectors.{self.detector_class_path}"
+                required_note = CONTEXT_REQUIRED_NOTES.get(
+                    normalize_detector_path(self.detector_class_path)
                 )
-                required_note = CONTEXT_REQUIRED_NOTES.get(normalized_path)
                 if required_note and not effective_notes:
                     reason = (
                         f"Detector '{self.detector_class_path.split('.')[-1]}' "

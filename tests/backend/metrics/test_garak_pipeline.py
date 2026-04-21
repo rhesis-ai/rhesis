@@ -443,3 +443,109 @@ class TestEvaluateSingleTurnGarakNotes:
             metrics_arg = call_kwargs.kwargs["metrics"]
 
         assert "probe_notes" not in (metrics_arg[0].parameters or {})
+
+
+# ===========================================================================
+# LocalStrategy: inconclusive result passthrough
+# ===========================================================================
+
+
+class TestLocalStrategyInconclusivePassthrough:
+    """Verify LocalStrategy passes is_successful=None when a metric returns
+    inconclusive=True, rather than collapsing it to False via ScoreEvaluator.
+
+    This is the critical path for GarakDetectorMetric when probe context is
+    missing — the result should be stored as 'unknown', not 'failed'.
+    """
+
+    def _make_inconclusive_result(self):
+        from rhesis.sdk.metrics.base import MetricResult
+
+        return MetricResult(
+            score=None,
+            details={
+                "is_successful": None,
+                "inconclusive": True,
+                "reason": "Detector returned no scores because notes['triggers'] was not provided.",
+            },
+        )
+
+    def _make_future(self, result):
+        import concurrent.futures
+
+        f = concurrent.futures.Future()
+        f.set_result(result)
+        return f
+
+    def test_inconclusive_yields_none_is_successful(self):
+        """_process_metric_result must set is_successful=None for inconclusive results."""
+        from rhesis.backend.metrics.strategies.local import LocalStrategy
+        from rhesis.sdk.metrics import MetricConfig
+        from rhesis.sdk.metrics.base import Backend
+
+        strategy = LocalStrategy()
+        config = MetricConfig(
+            class_name="GarakDetectorMetric",
+            backend=Backend.GARAK,
+            name="AttackRogueString",
+            threshold=0.5,
+            threshold_operator="<",
+        )
+        future = self._make_future(self._make_inconclusive_result())
+        result = strategy._process_metric_result(future, "GarakDetectorMetric", config, "garak")
+
+        assert result["is_successful"] is None
+        assert result["score"] is None
+
+    def test_inconclusive_does_not_invoke_score_evaluator(self):
+        """ScoreEvaluator must NOT be called when the result is inconclusive."""
+        from unittest.mock import MagicMock
+
+        from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+        from rhesis.backend.metrics.strategies.local import LocalStrategy
+        from rhesis.sdk.metrics import MetricConfig
+        from rhesis.sdk.metrics.base import Backend
+
+        mock_evaluator = MagicMock(spec=ScoreEvaluator)
+        strategy = LocalStrategy(score_evaluator=mock_evaluator)
+        config = MetricConfig(
+            class_name="GarakDetectorMetric",
+            backend=Backend.GARAK,
+            name="AttackRogueString",
+            threshold=0.5,
+            threshold_operator="<",
+        )
+        future = self._make_future(self._make_inconclusive_result())
+        strategy._process_metric_result(future, "GarakDetectorMetric", config, "garak")
+
+        mock_evaluator.evaluate_score.assert_not_called()
+
+    def test_normal_result_still_uses_score_evaluator(self):
+        """A normal result with no is_successful in details still goes through ScoreEvaluator."""
+        import concurrent.futures
+        from unittest.mock import MagicMock
+
+        from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+        from rhesis.backend.metrics.strategies.local import LocalStrategy
+        from rhesis.sdk.metrics import MetricConfig
+        from rhesis.sdk.metrics.base import Backend, MetricResult
+
+        mock_evaluator = MagicMock(spec=ScoreEvaluator)
+        mock_evaluator.evaluate_score.return_value = True
+        strategy = LocalStrategy(score_evaluator=mock_evaluator)
+        config = MetricConfig(
+            class_name="GarakDetectorMetric",
+            backend=Backend.GARAK,
+            name="AttackRogueString",
+            threshold=0.5,
+            threshold_operator="<",
+        )
+
+        normal_result = MetricResult(score=0.2, details={})
+        f = concurrent.futures.Future()
+        f.set_result(normal_result)
+
+        result = strategy._process_metric_result(f, "GarakDetectorMetric", config, "garak")
+
+        mock_evaluator.evaluate_score.assert_called_once()
+        assert result["is_successful"] is True
