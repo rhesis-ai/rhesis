@@ -7,6 +7,7 @@ and extracting metadata from traces. Used by both sync and async paths.
 import logging
 from typing import List, Optional
 
+from rhesis.telemetry.schemas import StatusCode
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import get_trace_by_id, mark_trace_processed
@@ -17,7 +18,6 @@ from rhesis.backend.app.services.telemetry.enrichment.core import (
     detect_anomalies,
     extract_metadata,
 )
-from rhesis.sdk.telemetry.schemas import StatusCode
 
 logger = logging.getLogger(__name__)
 
@@ -64,11 +64,28 @@ class TraceEnricher:
             logger.warning(f"No spans found for trace {trace_id}")
             return None
 
-        # Check if already enriched (cache hit)
-        if spans[0].enriched_data:
-            logger.debug(f"Using cached enrichment for trace {trace_id}")
-            # Convert cached dict back to Pydantic model for type safety
-            return EnrichedTraceData(**spans[0].enriched_data)
+        # Smart cache: return cached enrichment only when no new spans have
+        # arrived since the last enrichment pass.  This allows progressive
+        # re-enrichment as child spans (LLM calls, costs, etc.) arrive after
+        # the root span, while avoiding redundant work once everything is
+        # processed.
+        #
+        # `processed_at` is set on every span row by mark_trace_processed.
+        # Newly stored spans default to processed_at=None, so any span with
+        # processed_at=None means new data has arrived that warrants a re-run.
+        root_span = spans[0]  # ordered by start_time asc, so this is the root
+        if root_span.enriched_data and root_span.processed_at:
+            unprocessed = [s for s in spans if s.processed_at is None]
+            if not unprocessed:
+                logger.debug(
+                    f"Using cached enrichment for trace {trace_id} "
+                    f"(all {len(spans)} spans processed)"
+                )
+                return EnrichedTraceData(**root_span.enriched_data)
+            logger.debug(
+                f"Re-enriching trace {trace_id}: "
+                f"{len(unprocessed)} new span(s) since last enrichment"
+            )
 
         # Calculate enrichment (returns Pydantic model)
         logger.debug(f"Enriching trace {trace_id}")

@@ -14,7 +14,7 @@ from rhesis.sdk.metrics.providers.native.conversational_judge import (
     ConversationalJudge,
 )
 from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
-from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
 
@@ -282,6 +282,24 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
 
         # Use the shared numeric evaluation pattern with conversational-specific details
         return self._execute_numeric_evaluation(
+            prompt=prompt,
+            response_schema=GoalAchievementScoreResponse,
+            additional_details={
+                "turn_count": self._count_turns(conversation_history),
+                "goal": goal or GOAL_DEFAULT,
+            },
+        )
+
+    async def a_evaluate(
+        self,
+        conversation_history: ConversationHistory,
+        goal: Optional[str] = None,
+        instructions: Optional[str] = None,
+    ) -> MetricResult:
+        """Async evaluate using the existing async evaluation pattern."""
+        self._validate_evaluate_inputs(conversation_history, goal)
+        prompt = self._get_prompt_template(conversation_history, goal, instructions=instructions)
+        return await self._a_execute_numeric_evaluation(
             prompt=prompt,
             response_schema=GoalAchievementScoreResponse,
             additional_details={

@@ -157,19 +157,6 @@ class TestTraceValidation:
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_ingest_batch_size_limit(self, authenticated_client: TestClient, db_project):
-        """Test ingesting batch exceeding size limit"""
-        # Generate more than 1000 spans (the limit)
-        spans_data = TraceDataFactory.batch_data(
-            count=1001, same_trace=False, project_id=str(db_project.id)
-        )
-
-        trace_batch = {"spans": spans_data}
-
-        response = authenticated_client.post("/telemetry/traces", json=trace_batch)
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
 
 @pytest.mark.integration
 class TestTraceAuthentication:

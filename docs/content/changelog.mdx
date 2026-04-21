@@ -8,6 +8,212 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.12] - 2026-04-09
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.11**
+- **Frontend 0.6.12**
+- **SDK 0.6.12**
+- **Polyphemus 0.2.9**
+
+### Summary
+
+This release introduces **test run cancellation**, **adaptive testing settings and export workflows**, and
+an **async batch execution engine** replacing chord fan-out for test execution. It also adds a built-in
+`echo` chatbot use case and extends Polyphemus deployment controls with serving-container log-level
+configuration.
+
+### Featured Capabilities
+
+**Test Run Cancellation**
+
+Queued and in-progress test runs can now be cancelled from the API and UI:
+
+- **New endpoint**: `POST /test_runs/{id}/cancel`
+- **Immediate status transition**: run status is set to `Cancelled` immediately
+- **Cooperative stop behavior**: running async batch work is cancelled via revoke checks and watchdog cancellation
+- **Grid action support**: test runs list supports bulk cancel for selected queued/progress runs
+
+**Adaptive Testing Settings + Export**
+
+Adaptive testing now supports persistent configuration and cleaner handoff workflows:
+
+- **Adaptive settings endpoints**: `GET/PUT /adaptive_testing/{id}/settings`
+- **Default endpoint + metric assignments**: adaptive sets can store default execution/evaluation settings
+- **Export endpoint**: `POST /adaptive_testing/export/\{source_test_set_identifier\}` creates a regular test set
+- **Suggestion UX updates**: streaming progress, user feedback guidance, and batch accept in the suggestions flow
+- **Topic management improvement**: adaptive tree now includes a "Tests without topic" filter
+
+**Async Batch Execution Engine**
+
+Parallel execution now uses a single-task async batch architecture:
+
+- **Orchestration change**: replaced Celery chord fan-out with internal asyncio task fan-out
+- **Concurrency controls**: semaphore-limited execution via configurable batch concurrency
+- **Recovery pass**: retries transient failures after the main pass
+- **Per-test timeout default**: increased to `1800` seconds (`30` minutes)
+- **Worker compatibility**: thread-pool execution path avoids fork-related instability
+
+**Chatbot Echo Use Case**
+
+The default chatbot service includes a built-in `echo` path:
+
+- **No LLM invocation**: returns input verbatim
+- **Rate-limit exemption**: `echo` requests bypass chatbot usage limits
+- **Practical use**: lightweight connectivity and request-mapping checks
+
+### Backend Highlights
+- Added run cancellation endpoint and cancellation state handling for queued/progress runs
+- Added adaptive settings read/update endpoints and export-from-adaptive endpoint
+- Added suggestion-generation user feedback support and streaming evaluation/output paths
+- Added file-import turn config alias support (`Turn Config`, `turns`, `num_turns`) with range parsing
+- Replaced chord fan-out path with async batch engine and cancellation watchdog
+
+### Frontend Highlights
+- Added cancel test run actions in test runs grid for queued/progress statuses
+- Added adaptive settings dialog for default endpoint/metric assignment
+- Added adaptive export action to create regular test sets from adaptive sets
+- Added suggestions progress segmentation, per-metric detail tooltip, and accept-all flow
+- Added "Tests without topic" adaptive tree filter
+
+### SDK Highlights
+- Added support for run cancellation endpoint usage in client flows
+- Improved execution reliability with async batch behavior and retry/recovery path support
+- Included echo use-case support for chatbot interactions
+
+### Polyphemus Highlights
+- Added `VLLM_LOGGING_LEVEL` deployment variable support for Vertex serving container logs
+- Continued security and dependency hardening reflected in component release `0.2.9`
+
+## [0.6.11] - 2026-03-26
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.10**
+- **Frontend 0.6.11**
+- **SDK 0.6.11**
+
+### Summary
+
+This release introduces **live trace metrics and human trace reviews**, **project-level trace metric assignment in the UI**, and **SDK chunking upgrades using chonkie-backed strategies**. It also improves connector reliability during long-running executions.
+
+### Featured Capabilities
+
+**Trace Metrics + Human Trace Reviews**
+
+Live traces now support both automated evaluation and human override workflows:
+
+- **Trace Metrics pipeline**: Per-turn and debounced per-conversation trace metric evaluation
+- **Trace review targets**: Human reviews can target full traces, specific metrics, or specific turns
+- **Review-aware status**: Trace detail views surface review status and conflict indicators when human and automated verdicts differ
+- **Evaluation filtering**: Traces list supports evaluation-status filtering for faster triage
+
+**Project-Level Trace Metric Assignment**
+
+Projects can now define which trace metrics are assigned through the project detail experience:
+
+- **Bulk add/remove workflow**: Select trace-scoped metrics and manage assignment in one place
+- **Trace-only selection**: Project assignment UI filters to metrics with `Trace` scope
+- **Operational visibility**: Assigned metrics are displayed in a dedicated project section
+
+**SDK Chunking and Connector Improvements**
+
+SDK generation and execution workflows received key upgrades:
+
+- **Chonkie-backed chunkers**: Added `TokenChunker`, `SentenceChunker`, and `RecursiveChunker`
+- **SemanticChunker migration path**: Existing `SemanticChunker` usage now maps to recursive behavior via deprecation aliasing
+- **Non-blocking connector execution**: Test and metric execution handlers no longer block the primary WebSocket listener loop
+- **Judge input flexibility**: Base judge input validation now supports trace-driven conversational evaluation flows
+
+### Backend Highlights
+- Added trace metrics evaluation with immediate per-turn and debounced conversation phases
+- Added trace review APIs and override logic for trace, metric, and turn targets
+- Added SQL-level trace metrics aggregation for improved performance
+- Added trace metrics status tracking and trace review storage on trace records
+
+### Frontend Highlights
+- Added Trace Metrics and Reviews tabs in trace detail
+- Added trace review drawer with target inference and comment validation
+- Added project-level trace metrics assignment UI with bulk remove actions
+- Added dedicated trace detail route at `/traces/[identifier]` and improved trace filtering UX
+
+### SDK Highlights
+- Added chonkie-backed chunking strategies for source-driven synthesizers
+- Replaced custom chunking defaults with recursive chunking behavior
+- Improved connector stability for concurrent/long-running execution flows
+- Removed strict base-judge input assumptions to support conversational trace metrics
+
+## [0.6.10] - 2026-03-23
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.9**
+- **Frontend 0.6.10**
+- **SDK 0.6.10**
+- **Polyphemus 0.2.8**
+
+### Summary
+
+This release introduces **adaptive testing overwrite controls and suggestion/evaluation workflows**, **typed SDK
+statistics collection methods**, and **NIST-aligned password hardening** across authentication flows.
+
+### Featured Capabilities
+
+**Adaptive Testing Iteration Loop**
+
+Adaptive testing now supports a tighter edit-run-evaluate workflow:
+
+- **Delete Adaptive Test Sets**: Adaptive testing sets can now be deleted directly from the adaptive testing flow
+- **Overwrite Controls**: Output generation and evaluation support `overwrite` behavior so teams can explicitly
+  re-run existing tests instead of only processing missing outputs/results
+- **Suggestion Pipeline**: Added suggestion generation, suggestion output generation, and suggestion evaluation
+  endpoints to iterate on test quality before persisting new tests
+- **Bulk Test Deletion**: Adaptive testing UI supports bulk deletion for faster curation
+
+**SDK Statistics API Enhancements**
+
+Stats access in the SDK now has clearer, typed entry points:
+
+- **Collection Methods**: `TestRuns.stats()` and `TestResults.stats()` expose typed response models
+- **Per-Run Shortcut**: `TestRun.stats()` delegates to run-scoped stats for convenience
+- **DataFrame Conversion**: Stats responses support `to_dataframe()` for optional pandas workflows
+
+**Authentication Hardening**
+
+Password validation now aligns with NIST-oriented best practices:
+
+- **Minimum Length**: Default minimum password length is now 12 characters
+- **Strength Scoring**: zxcvbn-based strength checks are enforced with configurable minimum score
+- **Context Blocking**: Passwords are rejected if they contain user/service context words
+- **Breach Screening**: Optional HaveIBeenPwned k-anonymity checks reject known compromised passwords
+
+### Backend Highlights
+- Added adaptive testing evaluate and suggestion endpoints, including overwrite support
+- Added deletion endpoint for adaptive testing test sets
+- Exposed password policy settings through auth provider metadata
+- Hardened password validation with zxcvbn and breach checks
+- Continued metric evaluation refactor toward strategy-based execution
+
+### Frontend Highlights
+- Added adaptive testing delete test set action and bulk test deletion support
+- Added overwrite toggles for adaptive testing output generation and evaluation
+- Added suggestion generation/evaluation UI flow in adaptive testing detail
+- Updated auth screens to enforce the new password policy and improve rate-limit/registration errors
+- Added attachments count column in tests grid
+
+### SDK Highlights
+- Added typed stats collection methods for test runs and test results
+- Added stable transcript formatting support via `ConversationHistory.format_conversation()`
+- Kept async-first metric/model improvements and strategy-based evaluation integration
+
+### Polyphemus Highlights
+- No component version change in this platform release (`0.2.8`)
+- Existing `POST /generate_batch` capability remains available for batched generation workloads
+
 ## [0.6.9] - 2026-03-12
 
 ### Platform Release

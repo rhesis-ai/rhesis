@@ -2,11 +2,31 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 # Decorators
 
-Two decorators are available: `@observe` for tracing-only and `@endpoint` for remote testing with automatic tracing.
+Two decorators are available: `@observe` for tracing-only instrumentation, and `@endpoint` for functions that Rhesis can **invoke from the platform** (remote testing) while still emitting traces.
+
+## Observe vs endpoint
+
+**`@observe`** follows the same mental model as typical observability tools (OpenTelemetry, Langfuse, and similar): the function runs inside your **normal application context**—database handles, auth, config, and dependency injection are already in place when your code calls the function. The decorator records spans; it does not change **who** triggers execution or supply missing infrastructure.
+
+**`@endpoint`** does two things:
+
+1. **Observability** — Like `@observe`, execution is traced (unless you turn tracing off). When your app calls the function locally, it behaves like other instrumented code.
+2. **Remote invocation from Rhesis** — The function is **registered** with Rhesis so the platform can call it over the **connector** (WebSocket): for example when you **start a test run from Rhesis** and the runner needs to execute your LLM path in your environment. That path is not an HTTP request to your server—you are not required to expose a public URL—Rhesis triggers the decorated function **directly** from the product.
+
+So observability-only frameworks never have to “create” your dependencies: they observe code that is already running in a full stack. Remote runs from Rhesis **do not** have FastAPI’s `Depends()`, Flask’s `g`, or an incoming request. Parameters your business logic needs (sessions, tenant DB, user) must still exist at invocation time. For that, use **`bind`** on `@endpoint` so infrastructure is injected while only the **business arguments** stay in the remote signature. See [Parameter Binding](/sdk/connector/binding).
+
+**When to use which**
+
+| Situation | Decorator |
+|-----------|-----------|
+| Helpers, retrieval, LLM wrappers: trace only, always called from your app | `@observe` (or `@observe.*` helpers) |
+| Entry points Rhesis should list and **run from test runs / the platform**, with tracing | `@endpoint` |
+
+You can compose them: an `@endpoint` handler often calls `@observe`-decorated helpers internally.
 
 ## @endpoint
 
-Functions decorated with `@endpoint` are **automatically traced**. Use this for functions that need remote testing capability.
+Functions decorated with `@endpoint` are **registered for remote testing** and are **automatically traced** by default. Use this for the code paths you want Rhesis to **trigger from the platform** (for example ad-hoc runs and automated test suites), not only for passive observation.
 
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import endpoint
@@ -31,7 +51,7 @@ def no_trace_endpoint(x: int) -> int:
 
 ## @observe
 
-Use `@observe` for functions that only need tracing (no remote testing):
+Use `@observe` for functions that **only need tracing**: they are not registered as remotely invocable SDK endpoints. Typical examples are internal helpers, retrieval, and LLM calls your application orchestrates itself.
 
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import observe
@@ -177,9 +197,10 @@ def preprocess_text(text: str) -> str:
 
 | Feature | `@observe` | `@endpoint` |
 |---------|------------|-------------|
-| Traces execution | Yes | Yes (default) |
-| Remote testing | No | Yes |
-| Use case | Internal helpers | Public APIs, endpoints |
+| Traces execution | Yes | Yes (default; can disable) |
+| Registered for Rhesis to invoke (e.g. test runs from the platform) | No | Yes |
+| Needs `bind` for infra when invoked remotely | N/A | Often (see [binding](/sdk/connector/binding)) |
+| Use case | Helpers, instrumented stack | Callable entry points for tests and connector |
 
 ## Usage Pattern
 

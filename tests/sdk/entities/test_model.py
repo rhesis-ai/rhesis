@@ -1,5 +1,5 @@
 import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -78,3 +78,36 @@ def test_model_push_succeeds_with_valid_provider(mock_request):
 
     assert result is not None
     assert model.provider_type_id == "provider-uuid-123"
+
+
+# ================================================================
+# Tests for set_default_execution()
+# ================================================================
+
+
+class TestSetDefaultExecution:
+    """Tests for Model.set_default_execution()."""
+
+    @patch("requests.request")
+    def test_set_default_execution_sends_correct_payload(self, mock_request):
+        """PATCH is sent with the execution model settings payload."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {}
+        mock_request.return_value = mock_response
+
+        model = Model(id="model-123", name="Test Model")
+        model.set_default_execution()
+
+        mock_request.assert_called_once()
+        _, kwargs = mock_request.call_args
+        assert kwargs["method"] == "PATCH"
+        assert "settings" in kwargs["url"]
+        assert kwargs["json"] == {
+            "models": {"execution": {"model_id": "model-123"}}
+        }
+
+    def test_set_default_execution_without_id_raises(self):
+        """ValueError when model has no ID."""
+        model = Model(name="Unsaved Model")
+        with pytest.raises(ValueError, match="Model must be saved before setting as default"):
+            model.set_default_execution()

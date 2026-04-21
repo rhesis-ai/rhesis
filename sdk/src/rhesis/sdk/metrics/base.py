@@ -17,6 +17,7 @@ reserved_keys = {
 Also, the method retry_evaluationmight be better placed in a utils type of module?
 """
 
+import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -211,6 +212,14 @@ class BaseMetric(ABC):
         Returns:
             MetricResult: The evaluation result
         """
+
+    async def a_evaluate(self, *args: Any, **kwargs: Any) -> MetricResult:
+        """
+        Async version of evaluate with a default to_thread fallback.
+
+        Metrics with native async implementations should override this.
+        """
+        return await asyncio.to_thread(self.evaluate, *args, **kwargs)
 
 
 class BaseMetricFactory(ABC):

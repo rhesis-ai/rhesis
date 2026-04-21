@@ -16,9 +16,11 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
+from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import (
     BaseTask,
+    EmailEnabledTask,
     email_notification,
 )
 from rhesis.backend.tasks.enums import ExecutionMode
@@ -27,7 +29,6 @@ from rhesis.backend.tasks.execution.modes import (
     get_mode_description,
     set_execution_mode,
 )
-from rhesis.backend.worker import app
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ def manual_db_example(self):
     subject_template="Test Task Complete: {task_name} - {status}",
 )
 @app.task(
-    base=BaseTask,
+    base=EmailEnabledTask,
     name="rhesis.backend.tasks.email_notification_test",
     bind=True,
     display_name="Email Notification Test",
@@ -257,7 +258,7 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
 
     try:
         # Get test configuration
-        from rhesis.backend.tasks.utils import safe_uuid_convert
+        from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 
         test_config_uuid = safe_uuid_convert(test_config_id)
         if not test_config_uuid:
@@ -342,7 +343,8 @@ def example_set_execution_mode(test_config_id: str, execution_mode: str) -> bool
 
             if success:
                 logger.info(
-                    f"Successfully set execution mode to {execution_mode} for test config {test_config_id}"
+                    f"Successfully set execution mode to {execution_mode} "
+                    f"for test config {test_config_id}"
                 )
                 return True
             else:

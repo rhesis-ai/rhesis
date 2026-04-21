@@ -5,6 +5,7 @@ import json
 import logging
 import secrets
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -14,10 +15,53 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
-from rhesis.sdk.telemetry.constants import ConversationContext as ConversationConstants
-from rhesis.sdk.telemetry.schemas import OTELSpan, SpanKind, StatusCode
+from rhesis.telemetry.constants import ConversationContext as ConversationConstants
+from rhesis.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DeferredTraceData:
+    """In-memory trace data collected during deferred mode, written later."""
+
+    otel_span: OTELSpan
+    trace_id: str
+    project_id: str
+    organization_id: str
+    conversation_id: Optional[str] = None
+    file_data: Optional[List[Dict[str, Any]]] = None
+    first_turn_link: Optional[Dict[str, str]] = field(default=None)
+
+
+def persist_deferred_trace(db: Session, trace_data: DeferredTraceData) -> None:
+    """Write a DeferredTraceData to DB using a live session."""
+    from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
+
+    enrichment_service = EnrichmentService(db)
+    stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
+        spans=[trace_data.otel_span],
+        organization_id=trace_data.organization_id,
+        project_id=trace_data.project_id,
+    )
+
+    if stored_spans and trace_data.file_data:
+        _store_trace_files(
+            db=db,
+            trace_id=stored_spans[0].id,
+            files=trace_data.file_data,
+            organization_id=trace_data.organization_id,
+        )
+
+    if trace_data.first_turn_link and stored_spans:
+        from rhesis.backend.app.services.endpoint.service import EndpointService
+
+        EndpointService._link_first_turn_trace(
+            db=db,
+            trace_id=trace_data.first_turn_link["trace_id"],
+            conversation_id=trace_data.first_turn_link["conversation_id"],
+            organization_id=trace_data.organization_id,
+        )
 
 
 class EndpointAttributes:
@@ -104,42 +148,37 @@ def create_endpoint_attributes(
 
 @asynccontextmanager
 async def create_invocation_trace(
-    db: Session,
+    db: Optional[Session],
     endpoint: Endpoint,
     organization_id: str,
     test_execution_context: Optional[Dict[str, str]] = None,
     conversation_id: Optional[str] = None,
     input_data: Optional[Dict] = None,
+    deferred: bool = False,
+    trace_id: Optional[str] = None,
 ):
     """
     Create a trace span for REST/WebSocket invocations.
 
-    Uses OTELSpan class and semantic conventions from SDK.
-    This creates an invocation trace that captures the endpoint call
-    with timing, status, and optional test execution context.
-
     Args:
-        db: Database session
+        db: Database session (can be None when deferred=True)
         endpoint: Endpoint model
         organization_id: Organization ID
-        test_execution_context: Optional dict with test_run_id, test_result_id, test_id,
-            test_configuration_id (only present during test execution)
+        test_execution_context: Optional test execution IDs
         conversation_id: Optional conversation ID for multi-turn traces
         input_data: Optional input data dict for capturing mapped I/O
+        deferred: When True, collect trace data in-memory instead of writing to DB.
+            The DeferredTraceData is stored in trace_context["_deferred_trace"].
+        trace_id: When provided, reuse this trace_id instead of looking up from DB
+            (used for in-memory trace tracking across multi-turn conversations).
 
     Yields:
         Dict that executor can update with result data
-
-    Example:
-        async with create_invocation_trace(db, endpoint, org_id, context) as trace_ctx:
-            result = await invoker.invoke(...)
-            trace_ctx["result"] = result
     """
-    # If conversation_id is provided, try to reuse existing trace_id
     from rhesis.backend.app import crud
 
-    existing_trace_id = None
-    if conversation_id and endpoint.project_id:
+    existing_trace_id = trace_id
+    if not existing_trace_id and conversation_id and endpoint.project_id and db:
         existing_trace_id = crud.get_trace_id_for_conversation(
             db=db,
             conversation_id=conversation_id,
@@ -147,7 +186,6 @@ async def create_invocation_trace(
             organization_id=organization_id,
         )
 
-        # Fallback: check pending links cache if DB query found nothing
         if existing_trace_id is None:
             from rhesis.backend.app.services.telemetry.conversation_linking import (
                 get_trace_id_from_pending_links,
@@ -157,26 +195,23 @@ async def create_invocation_trace(
             if existing_trace_id:
                 logger.debug(f"Found trace_id from pending links cache: {existing_trace_id}")
 
-    trace_id = existing_trace_id or generate_trace_id()
+    final_trace_id = existing_trace_id or generate_trace_id()
     span_id = generate_span_id()
     start_time = datetime.now(timezone.utc)
 
-    # Create base attributes
     attributes = create_endpoint_attributes(endpoint, test_execution_context)
 
-    # Context for executor to add result data
-    trace_context = {
+    trace_context: Dict[str, Any] = {
         "result": None,
         "error": None,
     }
 
     try:
-        yield trace_context  # Executor runs invocation and sets result/error
+        yield trace_context
     except Exception as e:
         trace_context["error"] = e
         raise
     finally:
-        # Skip trace creation if endpoint has no project_id
         if endpoint.project_id is None:
             logger.debug(
                 f"Skipping trace creation for endpoint {endpoint.id} - no project_id assigned"
@@ -187,34 +222,22 @@ async def create_invocation_trace(
         result = trace_context.get("result")
         error = trace_context.get("error")
 
-        # Add trace_id to result so callers can link to the trace
         if result is not None and isinstance(result, dict):
-            result["trace_id"] = trace_id
+            result["trace_id"] = final_trace_id
 
-        # Normalize result to dict if it's a Pydantic model
         if result and hasattr(result, "model_dump"):
             result = result.model_dump(exclude_none=True)
 
-        # Add result metadata to attributes
         if result:
             attributes[EndpointAttributes.RESPONSE_STATUS] = result.get("status", "unknown")
             attributes[EndpointAttributes.RESPONSE_HAS_OUTPUT] = result.get("output") is not None
 
-            # Truncate output for storage
             output = result.get("output")
             if output:
                 output_str = json.dumps(output) if isinstance(output, (dict, list)) else str(output)
                 attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_str[:1000]
                 attributes[EndpointAttributes.RESPONSE_SIZE] = len(output_str)
 
-        # Inject mapped conversation I/O directly into span attributes.
-        # This is possible because REST/WebSocket spans are created synchronously —
-        # both input and output are available at construction time.
-        #
-        # Contrast with SDK endpoints: SDK spans arrive asynchronously via
-        # BatchSpanProcessor, so output must be deferred.  See
-        # ``conversation_linking.register_pending_output()`` and
-        # ``conversation_linking.inject_pending_output()`` for that path.
         if input_data:
             mapped_input = str(input_data.get("input", ""))
             if mapped_input:
@@ -231,17 +254,15 @@ async def create_invocation_trace(
                     : ConversationConstants.MAX_IO_LENGTH
                 ]
 
-        # Create OTELSpan using SDK schema
-        # Span name follows function.* pattern for generic functions
         otel_span = OTELSpan(
-            trace_id=trace_id,
+            trace_id=final_trace_id,
             span_id=span_id,
             parent_span_id=None,
             project_id=str(endpoint.project_id),
             environment=endpoint.environment or "development",
             conversation_id=conversation_id,
             span_name=f"function.endpoint_{endpoint.connection_type.lower()}_invoke",
-            span_kind=SpanKind.CLIENT,  # Calling external service
+            span_kind=SpanKind.CLIENT,
             start_time=start_time,
             end_time=end_time,
             status_code=StatusCode.ERROR if error else StatusCode.OK,
@@ -252,28 +273,39 @@ async def create_invocation_trace(
             resource={},
         )
 
-        # Store span and trigger enrichment
-        from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
+        if deferred:
+            file_data = input_data.get("files") if input_data else None
+            deferred_data = DeferredTraceData(
+                otel_span=otel_span,
+                trace_id=final_trace_id,
+                project_id=str(endpoint.project_id),
+                organization_id=organization_id,
+                conversation_id=conversation_id,
+                file_data=file_data,
+            )
+            trace_context["_deferred_trace"] = deferred_data
+            logger.debug(f"Deferred invocation trace {final_trace_id} (will persist later)")
+        else:
+            from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 
-        enrichment_service = EnrichmentService(db)
-        stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
-            spans=[otel_span],
-            organization_id=organization_id,
-            project_id=str(endpoint.project_id),
-        )
+            enrichment_service = EnrichmentService(db)
+            stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
+                spans=[otel_span],
+                organization_id=organization_id,
+                project_id=str(endpoint.project_id),
+            )
 
-        if stored_spans:
-            logger.debug(f"Created and enriched invocation trace {stored_spans[0].trace_id}")
+            if stored_spans:
+                logger.debug(f"Created and enriched invocation trace {stored_spans[0].trace_id}")
 
-            # Store input files linked to the trace span
-            files = input_data.get("files") if input_data else None
-            if files:
-                _store_trace_files(
-                    db=db,
-                    trace_id=stored_spans[0].id,
-                    files=files,
-                    organization_id=organization_id,
-                )
+                files = input_data.get("files") if input_data else None
+                if files:
+                    _store_trace_files(
+                        db=db,
+                        trace_id=stored_spans[0].id,
+                        files=files,
+                        organization_id=organization_id,
+                    )
 
 
 def _store_trace_files(

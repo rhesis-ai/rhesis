@@ -614,6 +614,8 @@ def execute_test_set_on_endpoint(
     user_id: str = None,
     metrics: List[Dict[str, Any]] = None,
     reference_test_run_id: uuid.UUID = None,
+    execution_model_id: uuid.UUID = None,
+    evaluation_model_id: uuid.UUID = None,
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration
@@ -698,7 +700,6 @@ def execute_test_set_on_endpoint(
         metrics_source = MetricsSource.BEHAVIOR.value
         logger.debug("Metrics source: behavior (fallback to test behaviors)")
 
-    # Create test configuration
     test_config_id = _create_test_configuration(
         db,
         endpoint_id,
@@ -710,6 +711,8 @@ def execute_test_set_on_endpoint(
         metrics,
         metrics_source,
         reference_test_run_id=reference_test_run_id,
+        execution_model_id=execution_model_id,
+        evaluation_model_id=evaluation_model_id,
     )
 
     # Submit for execution (creates test run with Queued status)
@@ -803,6 +806,8 @@ def _create_test_configuration(
     metrics: List[Dict[str, Any]] = None,
     metrics_source: str = None,
     reference_test_run_id: uuid.UUID = None,
+    execution_model_id: uuid.UUID = None,
+    evaluation_model_id: uuid.UUID = None,
 ) -> str:
     """Create test configuration and return its ID as string.
 
@@ -854,6 +859,14 @@ def _create_test_configuration(
         attributes["reference_test_run_id"] = str(reference_test_run_id)
         attributes["is_rescore"] = True
         logger.debug(f"Output reuse enabled: reference_test_run_id={reference_test_run_id}")
+
+    # Store per-run model overrides
+    if execution_model_id:
+        attributes["execution_model_id"] = str(execution_model_id)
+        logger.debug(f"Execution model override: {execution_model_id}")
+    if evaluation_model_id:
+        attributes["evaluation_model_id"] = str(evaluation_model_id)
+        logger.debug(f"Evaluation model override: {evaluation_model_id}")
 
     test_config = schemas.TestConfigurationCreate(
         endpoint_id=endpoint_id,

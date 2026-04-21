@@ -27,10 +27,10 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import (
-    OverallTestResult,
     REVIEW_TARGET_METRIC,
     REVIEW_TARGET_TRACE,
     REVIEW_TARGET_TURN,
+    OverallTestResult,
     TestResultStatus,
     categorize_test_result_status,
 )

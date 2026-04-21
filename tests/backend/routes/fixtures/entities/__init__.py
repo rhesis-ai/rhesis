@@ -90,6 +90,7 @@ __all__ = [
     # Test fixtures
     "db_test",
     "db_test_with_prompt",
+    "db_test_minimal",
     # Test set fixtures
     "db_test_set",
     "db_test_set_with_tests",
@@ -101,8 +102,4 @@ __all__ = [
     "db_endpoint",
     "db_endpoint_minimal",
     "db_endpoint_rest",
-    # Test fixtures
-    "db_test",
-    "db_test_with_prompt",
-    "db_test_minimal",
 ]

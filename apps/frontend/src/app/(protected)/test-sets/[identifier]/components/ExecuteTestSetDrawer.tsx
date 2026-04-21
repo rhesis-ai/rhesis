@@ -43,6 +43,7 @@ import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import ModelSelector from '@/components/common/ModelSelector';
 import type {
   TestSetMetric,
   LastTestRunSummary,
@@ -106,6 +107,11 @@ export default function ExecuteTestSetDrawer({
   const [metricMode, setMetricMode] = useState<MetricMode>('use_behavior');
   const [selectedMetrics, setSelectedMetrics] = useState<SelectedMetric[]>([]);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+
+  // Model settings state
+  const [selectedExecutionModelId, setSelectedExecutionModelId] = useState('');
+  const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
+    useState('');
 
   // Scoring target state
   const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
@@ -227,6 +233,8 @@ export default function ExecuteTestSetDrawer({
       setSelectedMetrics([]);
       setScoringTarget('fresh');
       setLastTestRun(null);
+      setSelectedExecutionModelId('');
+      setSelectedEvaluationModelId('');
     }
   }, [sessionToken, open, testSetId]);
 
@@ -334,6 +342,15 @@ export default function ExecuteTestSetDrawer({
           name: m.name,
           scope: m.scope,
         }));
+      }
+
+      if (selectedExecutionModelId) {
+        testConfigurationAttributes.execution_model_id =
+          selectedExecutionModelId;
+      }
+      if (selectedEvaluationModelId) {
+        testConfigurationAttributes.evaluation_model_id =
+          selectedEvaluationModelId;
       }
 
       // Add reference_test_run_id if reusing outputs
@@ -763,6 +780,32 @@ export default function ExecuteTestSetDrawer({
                 scopeFilter={testSetType ?? undefined}
               />
             </Box>
+          )}
+
+          <Divider />
+
+          {/* Model Settings Section */}
+          <Typography variant="subtitle2" color="text.secondary">
+            Model Settings
+          </Typography>
+
+          <ModelSelector
+            sessionToken={sessionToken}
+            value={selectedEvaluationModelId}
+            onChange={setSelectedEvaluationModelId}
+            label="Evaluation Model"
+            purpose="evaluation"
+          />
+
+          {testSetType === 'Multi-Turn' && (
+            <ModelSelector
+              sessionToken={sessionToken}
+              value={selectedExecutionModelId}
+              onChange={setSelectedExecutionModelId}
+              label="Execution Model"
+              purpose="execution"
+              helperText="Used for multi-turn test execution with Penelope"
+            />
           )}
 
           <Divider />

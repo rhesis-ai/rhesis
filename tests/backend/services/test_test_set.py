@@ -302,6 +302,8 @@ class TestTestSetExecution:
                 None,
                 "behavior",
                 reference_test_run_id=None,
+                execution_model_id=None,
+                evaluation_model_id=None,
             )
             mock_submit.assert_called_once_with(test_db, "test_config_id", user)
 

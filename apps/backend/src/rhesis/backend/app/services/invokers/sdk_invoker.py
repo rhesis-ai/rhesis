@@ -8,15 +8,14 @@ import uuid
 from typing import Any, Dict, Optional, Union
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
-from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
-from rhesis.sdk.telemetry.constants import ConversationContext as ConversationConstants
+from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
+from .context import InvocationContext
 
 logger = logging.getLogger(__name__)
 
@@ -31,16 +30,12 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
     # SDK endpoints automatically generate traces via instrumentation
     automatic_tracing: bool = True
 
-    def __init__(self):
+    def __init__(self, context: "InvocationContext | None" = None):
         """Initialize SDK invoker."""
-        super().__init__()
+        super().__init__(context)
 
-    def _validate_and_extract_metadata(self, endpoint: Endpoint) -> tuple[str, str, str]:
-        """
-        Validate endpoint and extract SDK metadata.
-
-        Args:
-            endpoint: The SDK endpoint
+    def _validate_and_extract_metadata(self) -> tuple[str, str, str]:
+        """Validate endpoint and extract SDK metadata.
 
         Returns:
             Tuple of (function_name, project_id, environment)
@@ -48,6 +43,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Raises:
             HTTPException: If metadata is missing or invalid
         """
+        endpoint = self.context.endpoint
         if not endpoint.endpoint_metadata:
             raise HTTPException(
                 status_code=500,
@@ -102,20 +98,17 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return use_rpc, context_type
 
-    def _prepare_function_kwargs(
-        self, endpoint: Endpoint, input_data: Dict[str, Any], function_name: str
-    ) -> Dict[str, Any]:
-        """
-        Prepare function kwargs from input data using request mapping.
+    def _prepare_function_kwargs(self, function_name: str) -> Dict[str, Any]:
+        """Prepare function kwargs from input data using request mapping.
 
         Args:
-            endpoint: The SDK endpoint
-            input_data: Raw input data
             function_name: Name of the function (for logging)
 
         Returns:
             Transformed function kwargs ready to send to SDK
         """
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
         # Prepare conversation context
         template_context, _ = self._prepare_conversation_context(endpoint, input_data)
 
@@ -158,11 +151,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Returns:
             Result dictionary from SDK, or ErrorResponse if RPC unavailable or not connected
         """
-        from rhesis.backend.app.services.connector.rpc_client import SDKRpcClient
+        from rhesis.backend.app.services.connector.rpc_client import get_rpc_client
 
         try:
-            rpc_client = SDKRpcClient()
-            await rpc_client.initialize()
+            rpc_client = await get_rpc_client()
         except RuntimeError as e:
             logger.error(f"Failed to initialize RPC client: {e}")
             return self._create_error_response(
@@ -174,30 +166,27 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 request_details=self._safe_request_details(locals(), "SDK"),
             )
 
-        try:
-            # Check connection via RPC client (checks Redis)
-            is_connected = await rpc_client.is_connected(project_id, environment)
+        # Check connection via RPC client (checks Redis)
+        is_connected = await rpc_client.is_connected(project_id, environment)
 
-            if not is_connected:
-                logger.warning(f"SDK not connected: {project_id}:{environment}")
-                return self._create_error_response(
-                    error_type="sdk_not_connected",
-                    output_message=f"SDK not connected: {project_id} in {environment}",
-                    message="SDK client is not currently connected",
-                    request_details=self._safe_request_details(locals(), "SDK"),
-                )
-
-            # Send request via RPC
-            return await rpc_client.send_and_await_result(
-                project_id=project_id,
-                environment=environment,
-                test_run_id=test_run_id,
-                function_name=function_name,
-                inputs=function_kwargs,
-                timeout=SDK_FUNCTION_TIMEOUT,
+        if not is_connected:
+            logger.warning(f"SDK not connected: {project_id}:{environment}")
+            return self._create_error_response(
+                error_type="sdk_not_connected",
+                output_message=f"SDK not connected: {project_id} in {environment}",
+                message="SDK client is not currently connected",
+                request_details=self._safe_request_details(locals(), "SDK"),
             )
-        finally:
-            await rpc_client.close()
+
+        # Send request via RPC — client is thread-local and stays open for reuse
+        return await rpc_client.send_and_await_result(
+            project_id=project_id,
+            environment=environment,
+            test_run_id=test_run_id,
+            function_name=function_name,
+            inputs=function_kwargs,
+            timeout=SDK_FUNCTION_TIMEOUT,
+        )
 
     async def _execute_via_websocket(
         self,
@@ -283,20 +272,17 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return None
 
-    def _map_sdk_response(
-        self, result: Dict[str, Any], endpoint: Endpoint, function_name: str
-    ) -> Dict[str, Any]:
-        """
-        Map SDK output to standardized response format.
+    def _map_sdk_response(self, result: Dict[str, Any], function_name: str) -> Dict[str, Any]:
+        """Map SDK output to standardized response format.
 
         Args:
             result: Raw result from SDK
-            endpoint: The SDK endpoint
             function_name: Name of the function (for logging)
 
         Returns:
             Mapped response dictionary
         """
+        endpoint = self.context.endpoint
         raw_output = result.get("output", {})
         logger.debug(f"Raw SDK output: {raw_output}")
 
@@ -312,7 +298,6 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         self,
         mapped_response: Dict[str, Any],
         conversation_field: Optional[str],
-        input_data: Dict[str, Any],
     ) -> None:
         """Ensure the conversation tracking field is present in the response.
 
@@ -323,8 +308,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Args:
             mapped_response: Mapped response dictionary (mutated in place)
             conversation_field: Field name for conversation tracking
-            input_data: Original input data (may contain conversation_id)
         """
+        input_data = self.context.input_data
         if not conversation_field:
             return
 
@@ -340,9 +325,6 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
     def _inject_conversation_context(
         self,
-        db: Session,
-        endpoint: Endpoint,
-        input_data: Dict[str, Any],
         conversation_field: Optional[str],
         function_kwargs: Dict[str, Any],
     ) -> Optional[str]:
@@ -353,11 +335,19 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         the conversation (so the SDK reuses it), and injects the context dict
         into function_kwargs.
 
+        If trace_id is provided directly (e.g. async batch mode), it is used
+        immediately without querying the database.
+
         On the first turn (no conversation_id yet), only mapped_input is
         injected so the SDK tracer can still stamp it on the root span.
 
         Returns the resolved conversation_id (or None for first turn).
         """
+        db = self.context.db
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
+        trace_id = self.context.trace_id
+
         from .conversation import find_conversation_id
 
         # Prefer the endpoint's configured field name (from response_mapping),
@@ -370,28 +360,33 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         mapped_input = str(input_data.get("input", ""))
 
         if conversation_id and endpoint.project_id:
-            # Lazy import: crud uses models that would cause a circular
-            # import at module level.
-            from rhesis.backend.app import crud
+            existing_trace_id = trace_id
 
-            existing_trace_id = crud.get_trace_id_for_conversation(
-                db=db,
-                conversation_id=conversation_id,
-                project_id=str(endpoint.project_id),
-                organization_id=str(endpoint.organization_id),
-            )
+            if existing_trace_id is None and db is not None:
+                # Lazy import: crud uses models that would cause a circular
+                # import at module level.
+                from rhesis.backend.app import crud
 
-            # Fallback: if Turn 1's spans haven't been ingested yet,
-            # the trace_id is still in the pending links cache from
-            # _link_first_turn_trace().
-            if existing_trace_id is None:
-                from rhesis.backend.app.services.telemetry.conversation_linking import (
-                    get_trace_id_from_pending_links,
+                existing_trace_id = crud.get_trace_id_for_conversation(
+                    db=db,
+                    conversation_id=conversation_id,
+                    project_id=str(endpoint.project_id),
+                    organization_id=str(endpoint.organization_id),
                 )
 
-                existing_trace_id = get_trace_id_from_pending_links(conversation_id)
-                if existing_trace_id:
-                    logger.debug(f"Found trace_id from pending links cache: {existing_trace_id}")
+                # Fallback: if Turn 1's spans haven't been ingested yet,
+                # the trace_id is still in the pending links cache from
+                # _link_first_turn_trace().
+                if existing_trace_id is None:
+                    from rhesis.backend.app.services.telemetry.conversation_linking import (
+                        get_trace_id_from_pending_links,
+                    )
+
+                    existing_trace_id = get_trace_id_from_pending_links(conversation_id)
+                    if existing_trace_id:
+                        logger.debug(
+                            f"Found trace_id from pending links cache: {existing_trace_id}"
+                        )
 
             function_kwargs[ConversationConstants.CONTEXT_KEY] = {
                 ConversationConstants.Fields.CONVERSATION_ID: conversation_id,
@@ -410,10 +405,9 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return conversation_id
 
-    @staticmethod
     def _park_mapped_output(
+        self,
         result: Dict[str, Any],
-        endpoint: Endpoint,
         mapped_response: Dict[str, Any],
     ) -> None:
         """Park the response-mapped output for injection at span ingest time.
@@ -424,6 +418,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         the span's attributes when the SDK exports it to the telemetry ingest
         endpoint — before storage.
         """
+        endpoint = self.context.endpoint
         raw_output = mapped_response.get("output", "")
         if isinstance(raw_output, (dict, list)):
             mapped_output = json.dumps(raw_output)
@@ -439,11 +434,9 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 mapped_output=mapped_output,
             )
 
-    @staticmethod
     def _park_input_files(
+        self,
         result: Dict[str, Any],
-        endpoint: Endpoint,
-        input_data: Dict[str, Any],
     ) -> None:
         """Park input files for creation when SDK spans arrive.
 
@@ -453,6 +446,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         records will be created and linked to the stored Trace when
         the spans arrive at the telemetry ingest endpoint — after storage.
         """
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
         files = input_data.get("files")
         if result.get("trace_id") and endpoint.project_id and files:
             from rhesis.backend.app.services.telemetry.conversation_linking import (
@@ -467,28 +462,37 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
     async def invoke(
         self,
-        db: Session,
-        endpoint: Endpoint,
-        input_data: Dict[str, Any],
-        test_execution_context: Optional[Dict[str, str]] = None,
+        db=None,
+        endpoint=None,
+        input_data=None,
+        *,
+        test_execution_context=None,
+        trace_id=None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
-        """
-        Invoke SDK function through WebSocket connection.
-
-        Args:
-            db: Database session
-            endpoint: The SDK endpoint to invoke
-            input_data: Standardized input data
-                (input, conversation_id, context, metadata, tool_calls)
-            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
-                                   for linking traces to test executions
+        """Invoke SDK function through WebSocket connection.
 
         Returns:
             Standardized response dict with output and metadata, or ErrorResponse for errors
         """
+        # Backward-compat: callers that pass positional args build a temporary context.
+        if db is not None or endpoint is not None:
+            from .context import InvocationContext
+
+            self.context = InvocationContext(
+                db=db,
+                endpoint=endpoint,
+                input_data=input_data or {},
+                test_execution_context=test_execution_context,
+                trace_id=trace_id,
+            )
+        db = self.context.db
+        endpoint = self.context.endpoint
+        input_data = self.context.input_data
+        test_execution_context = self.context.test_execution_context
+        trace_id = self.context.trace_id
         try:
             # Step 1: Validate and extract metadata
-            function_name, project_id, environment = self._validate_and_extract_metadata(endpoint)
+            function_name, project_id, environment = self._validate_and_extract_metadata()
 
             # Step 2: Determine invocation context (RPC vs direct WebSocket)
             use_rpc, context_type = self._determine_invocation_context(project_id, environment)
@@ -496,7 +500,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
             # Step 3: Prepare function kwargs
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
-            function_kwargs = self._prepare_function_kwargs(endpoint, input_data, function_name)
+            function_kwargs = self._prepare_function_kwargs(function_name)
 
             # Strip any user-supplied _rhesis_* keys to prevent injection,
             # then set the internal flag if the endpoint has tracing disabled.
@@ -511,9 +515,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 context = TestExecutionContext(**test_execution_context)
                 function_kwargs[TestContextConstants.CONTEXT_KEY] = context.model_dump(mode="json")
 
-            conversation_id = self._inject_conversation_context(
-                db, endpoint, input_data, conversation_field, function_kwargs
-            )
+            conversation_id = self._inject_conversation_context(conversation_field, function_kwargs)
 
             logger.info(
                 f"Invoking SDK function: {function_name} "
@@ -546,8 +548,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 return error_response
 
             # Map response and propagate trace/conversation fields
-            mapped_response = self._map_sdk_response(result, endpoint, function_name)
-            self._ensure_conversation_field(mapped_response, conversation_field, input_data)
+            mapped_response = self._map_sdk_response(result, function_name)
+            self._ensure_conversation_field(mapped_response, conversation_field)
 
             if result.get("trace_id"):
                 mapped_response["trace_id"] = result["trace_id"]
@@ -555,8 +557,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Park mapped output and files only when tracing is active;
             # there are no spans to attach them to when tracing is disabled.
             if not endpoint.disable_tracing:
-                self._park_mapped_output(result, endpoint, mapped_response)
-                self._park_input_files(result, endpoint, input_data)
+                self._park_mapped_output(result, mapped_response)
+                self._park_input_files(result)
 
             logger.info(
                 f"SDK function {function_name} completed successfully "

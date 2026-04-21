@@ -55,7 +55,7 @@ def test_constants_are_strings():
 def test_backend_and_sdk_constants_match():
     """Test that backend and SDK constants are synchronized."""
     # Import SDK constants for comparison
-    from rhesis.sdk.telemetry.constants import (
+    from rhesis.telemetry.constants import (
         TestExecutionContext as SDKTestContext,
     )
 

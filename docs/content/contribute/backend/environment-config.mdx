@@ -4,7 +4,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 ## Overview
 
-The Rhesis backend uses environment variables for configuration, allowing for different settings across development, testing, and production environments. This approach follows the [12-factor app](https://12factor.net/) methodology for configuration management.
+Configuration is environment variables (see [12-factor app](https://12factor.net/)); different files and hosts supply values per environment.
 
 ## Environment Variables Reference
 
@@ -104,12 +104,7 @@ For cloud deployments, environment variables should be set using the cloud provi
 
 ## Security Best Practices
 
-- ⚠️ **Never commit sensitive values to version control**
-- ⚠️ Use different keys and secrets for dev, staging, and production
-- ⚠️ Back up production keys securely
-- ⚠️ Store in secure secret management systems (GCP Secret Manager, AWS Secrets Manager, etc.)
-- ⚠️ Rotate secrets regularly
-- ⚠️ Use environment-specific configurations for production
+Never commit secrets. Use distinct keys per environment, store them in a secret manager, rotate periodically, and keep production config separate from dev.
 
 ## Sensitive Information
 

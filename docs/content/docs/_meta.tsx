@@ -89,7 +89,6 @@ const meta: MetaRecord = {
   },
   projects: 'Projects',
   knowledge: 'Knowledge',
-  expectations: 'Expectations',
   behaviors: 'Behaviors',
   metrics: 'Metrics',
   'tests-generation': 'Test Generation',
@@ -137,6 +136,10 @@ const meta: MetaRecord = {
   },
   organizations: 'Organizations & Team',
   endpoints: 'Endpoints',
+  integrations: {
+    title: 'Integrations',
+    theme: { layout: 'full' },
+  },
   models: 'Models',
   mcp: 'MCP',
   'api-tokens': 'API Tokens',
@@ -148,7 +151,6 @@ const meta: MetaRecord = {
   },
   acknowledgments: 'Acknowledgments',
 
-  integrations: { display: 'hidden' },
   'test-results': { display: 'hidden' },
   'test-sets-runs': { display: 'hidden' },
 }

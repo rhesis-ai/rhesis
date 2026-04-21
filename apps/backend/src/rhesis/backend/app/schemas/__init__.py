@@ -13,6 +13,7 @@ from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
 from .comment import Comment, CommentBase, CommentCreate, CommentUpdate
 from .demographic import Demographic, DemographicBase, DemographicCreate, DemographicUpdate
 from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
+from .embedding import Embedding, EmbeddingBase, EmbeddingCreate, EmbeddingUpdate
 from .emoji_reaction import CommentEmojis, EmojiReaction
 from .endpoint import (
     Endpoint,
@@ -263,6 +264,10 @@ __all__ = [
     "DimensionBase",
     "DimensionCreate",
     "DimensionUpdate",
+    "Embedding",
+    "EmbeddingBase",
+    "EmbeddingCreate",
+    "EmbeddingUpdate",
     "TypeLookup",
     "TypeLookupBase",
     "TypeLookupCreate",

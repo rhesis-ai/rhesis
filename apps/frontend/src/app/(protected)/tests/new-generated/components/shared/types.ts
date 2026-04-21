@@ -122,7 +122,7 @@ export interface GenerationConfig {
 /**
  * Test set size options
  */
-export type TestSetSize = 'small' | 'medium' | 'large';
+export type TestSetSize = 'small' | 'medium' | 'large' | 'custom';
 
 /**
  * Test set size configuration

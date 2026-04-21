@@ -5,7 +5,6 @@ Utility functions for CRUD operations with improved readability and maintainabil
 import logging
 import uuid
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
-from uuid import UUID
 
 from pydantic import BaseModel
 from sqlalchemy import inspect
@@ -17,6 +16,7 @@ from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.models import Behavior, Category, Model, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.query_utils import QueryBuilder
+from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,33 @@ def _is_uuid_field(model: Type[T], field_name: str) -> bool:
     )
 
 
+def _clean_strings_recursive(val: Any) -> Any:
+    """Recursively clean strings to remove NUL chars and invalid UTF-8/surrogates."""
+    if isinstance(val, str):
+        val = val.replace("\x00", "")
+        return val.encode("utf-8", "ignore").decode("utf-8")
+    elif isinstance(val, dict):
+        return {
+            _clean_strings_recursive(k) if isinstance(k, str) else k: _clean_strings_recursive(v)
+            for k, v in val.items()
+        }
+    elif isinstance(val, list):
+        return [_clean_strings_recursive(v) for v in val]
+    return val
+
+
+def _clean_string_fields(model: Type[T], item_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Clean string values to prevent DB errors (removing NUL chars and surrogates)."""
+    cleaned_data = item_data.copy()
+
+    columns = inspect(model).columns
+    for field_name, field_value in list(cleaned_data.items()):
+        if field_name in columns:
+            cleaned_data[field_name] = _clean_strings_recursive(field_value)
+
+    return cleaned_data
+
+
 def _clean_uuid_fields(model: Type[T], item_data: Dict[str, Any]) -> Dict[str, Any]:
     """Clean up empty string values for UUID fields to prevent database errors."""
     cleaned_data = item_data.copy()
@@ -92,15 +119,9 @@ def _auto_populate_tenant_fields(
             or not isinstance(organization_id, str)
         )
     ):
-        try:
-            # Handle both UUID objects and string IDs
-            if isinstance(organization_id, uuid.UUID):
-                org_uuid = organization_id
-            else:
-                org_uuid = UUID(organization_id)
+        org_uuid = safe_uuid_convert(organization_id)
+        if org_uuid:
             populated_data["organization_id"] = org_uuid
-        except (ValueError, TypeError):
-            pass
 
     # Auto-populate user_id (direct - no DB queries, no session variables!)
     if (
@@ -109,15 +130,9 @@ def _auto_populate_tenant_fields(
         and user_id
         and (isinstance(user_id, str) and user_id.strip() or not isinstance(user_id, str))
     ):
-        try:
-            # Handle both UUID objects and string IDs
-            if isinstance(user_id, uuid.UUID):
-                user_uuid = user_id
-            else:
-                user_uuid = UUID(user_id)
+        user_uuid = safe_uuid_convert(user_id)
+        if user_uuid:
             populated_data["user_id"] = user_uuid
-        except (ValueError, TypeError):
-            pass
 
     return populated_data
 
@@ -131,6 +146,9 @@ def _prepare_item_data(
     """Prepare item data for database operations (convert, clean UUIDs, populate tenant fields)."""
     # Convert Pydantic to dict
     data = _convert_pydantic_to_dict(item_data)
+
+    # Clean string fields
+    data = _clean_string_fields(model, data)
 
     # Clean UUID fields
     data = _clean_uuid_fields(model, data)
@@ -147,6 +165,9 @@ def _prepare_update_data(
     """Prepare item data for update operations."""
     # Convert Pydantic to dict (excluding unset fields for updates)
     data = _convert_pydantic_to_dict_exclude_unset(item_data)
+
+    # Clean string fields
+    data = _clean_string_fields(model, data)
 
     # Clean UUID fields
     data = _clean_uuid_fields(model, data)
@@ -537,32 +558,20 @@ def update_item(
     if organization_id is not None:
         columns = inspect(model).columns.keys()
         if "organization_id" in columns:
-            try:
-                # Handle both UUID objects and string IDs
-                if isinstance(organization_id, uuid.UUID):
-                    update_data["organization_id"] = organization_id
-                else:
-                    update_data["organization_id"] = UUID(organization_id)
+            org_uuid = safe_uuid_convert(organization_id)
+            if org_uuid:
+                update_data["organization_id"] = org_uuid
                 logger.debug(
                     f"update_item - Auto-populating organization_id: '{organization_id}' for update"
-                )
-            except (ValueError, TypeError) as e:
-                logger.debug(
-                    f"update_item - Invalid organization_id: {organization_id}, error: {e}"
                 )
 
     if user_id is not None:
         columns = inspect(model).columns.keys()
         if "user_id" in columns:
-            try:
-                # Handle both UUID objects and string IDs
-                if isinstance(user_id, uuid.UUID):
-                    update_data["user_id"] = user_id
-                else:
-                    update_data["user_id"] = UUID(user_id)
+            user_uuid = safe_uuid_convert(user_id)
+            if user_uuid:
+                update_data["user_id"] = user_uuid
                 logger.debug(f"update_item - Auto-populating user_id: '{user_id}' for update")
-            except (ValueError, TypeError) as e:
-                logger.debug(f"update_item - Invalid user_id: {user_id}, error: {e}")
 
     # Apply updates
     for key, value in update_data.items():
@@ -1174,8 +1183,8 @@ def create_default_rhesis_model(
         "key": "",
         "endpoint": None,
         "is_protected": True,
-        "user_id": uuid.UUID(user_id),
-        "owner_id": uuid.UUID(user_id),
+        "user_id": uuid.UUID(str(user_id)),
+        "owner_id": uuid.UUID(str(user_id)),
     }
 
     return get_or_create_entity(

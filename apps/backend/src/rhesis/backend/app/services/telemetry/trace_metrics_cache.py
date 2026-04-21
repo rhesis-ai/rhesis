@@ -79,10 +79,10 @@ def schedule_conversation_eval(
     If a previous evaluation was already scheduled for this trace_id,
     it is revoked before scheduling a new one.
     """
+    from rhesis.backend.celery.core import app as celery_app
     from rhesis.backend.tasks.telemetry.evaluate import (
         evaluate_conversation_trace_metrics,
     )
-    from rhesis.backend.worker import app as celery_app
 
     # Schedule new delayed task first to get the task ID
     result = evaluate_conversation_trace_metrics.apply_async(
@@ -124,10 +124,10 @@ def signal_conversation_complete(
          enrichment pipeline) skip debounce scheduling.
       3. Revoke any pending debounced task.
     """
+    from rhesis.backend.celery.core import app as celery_app
     from rhesis.backend.tasks.telemetry.evaluate import (
         evaluate_conversation_trace_metrics,
     )
-    from rhesis.backend.worker import app as celery_app
 
     # Dispatch first: if this fails the debounce stays as a safety net.
     evaluate_conversation_trace_metrics.delay(trace_id, project_id, organization_id)

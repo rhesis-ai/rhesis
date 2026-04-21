@@ -10,7 +10,6 @@ import random
 import time
 from typing import Any, Dict, List, Optional
 
-from celery import shared_task
 from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.orm import Session
 
@@ -18,6 +17,7 @@ from rhesis.backend.app import crud, models
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.database import SessionLocal, set_session_variables
 from rhesis.backend.app.schemas.metric import MetricScope
+from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,20 @@ CONVERSATION_OUTPUT_KEY = "rhesis.conversation.output"
 def _get_trace_metrics_config(project: models.Project) -> Dict[str, Any]:
     """Extract trace_metrics config from project attributes.
 
+    The frontend stores ``trace_metrics`` as a plain list of metric-ID
+    strings while the evaluation pipeline expects a config dict with
+    optional keys ``enabled``, ``sampling_rate``, and ``metric_ids``.
+    This function normalises both representations into a config dict.
+
     Returns defaults when attributes are absent or incomplete.
     """
     attrs = project.attributes or {}
-    return attrs.get("trace_metrics", {})
+    raw = attrs.get("trace_metrics", {})
+    if isinstance(raw, list):
+        return {"metric_ids": raw}
+    if not isinstance(raw, dict):
+        return {}
+    return raw
 
 
 def _should_evaluate(config: Dict[str, Any]) -> bool:
@@ -193,7 +203,7 @@ def _prepare_evaluation(
     return project, config, evaluator
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@app.task(bind=True, max_retries=3, default_retry_delay=60)
 def evaluate_turn_trace_metrics(
     self,
     trace_id: str,
@@ -246,6 +256,19 @@ def evaluate_turn_trace_metrics(
         if not root_span:
             logger.warning(f"No root span found for trace {trace_id}")
             return {"status": "no_root_span", "trace_id": trace_id}
+
+        # Skip if turn metrics were already evaluated for this specific span.
+        # We use trace_metrics_processed_at as the guard (only set after a real
+        # evaluation, not after a no_io/skipped result) so that spans whose
+        # input/output attributes hadn't arrived yet still get a second chance.
+        if root_span.trace_metrics_processed_at and (root_span.trace_metrics or {}).get(
+            "turn_metrics"
+        ):
+            logger.debug(
+                f"Turn metrics already evaluated for span {root_span.id} "
+                f"(trace {trace_id}), skipping"
+            )
+            return {"status": "already_evaluated", "trace_id": trace_id}
 
         input_text = (root_span.attributes or {}).get(CONVERSATION_INPUT_KEY, "")
         output_text = (root_span.attributes or {}).get(CONVERSATION_OUTPUT_KEY, "")
@@ -316,7 +339,7 @@ def evaluate_turn_trace_metrics(
         db.close()
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
+@app.task(bind=True, max_retries=3, default_retry_delay=60)
 def evaluate_conversation_trace_metrics(
     self,
     trace_id: str,

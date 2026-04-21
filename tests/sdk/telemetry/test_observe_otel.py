@@ -7,7 +7,7 @@ import pytest
 from rhesis.sdk import decorators
 from rhesis.sdk.decorators import observe
 from rhesis.sdk.decorators import _state as decorators_state
-from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.telemetry.schemas import AIOperationType
 
 
 @pytest.fixture

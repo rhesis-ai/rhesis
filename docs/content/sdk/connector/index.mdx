@@ -4,6 +4,8 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 Register Python functions as testable endpoints in Rhesis using the SDK connector. This code-first approach automatically creates and manages endpoints, providing an alternative to [manual endpoint configuration](/docs/endpoints).
 
+**`@endpoint` vs `@observe`:** Tracing-only helpers use `@observe`; functions Rhesis should **invoke from the platform** (test runs, connector) use `@endpoint`. See [Observe vs endpoint](/tracing/decorators#observe-vs-endpoint).
+
 <Callout type="info">
   **How it works**: Decorate functions with `@endpoint` and they automatically become endpoints
   in Rhesis. The SDK connects via WebSocket, registers function metadata, and keeps endpoints in
@@ -113,6 +115,33 @@ if __name__ == "__main__":
 <Callout type="info">
   The metric function must return a dict containing at least a `score` key (or a `MetricResult` instance).
   Any unsupported parameter names cause registration-time errors.
+</Callout>
+
+### Metrics-only connector mode (optional `project_id`)
+
+If your script only registers SDK metrics with `@metric`, `project_id` is optional.
+In this mode, the connector still establishes a WebSocket session and registers metrics for backend-side evaluation.
+
+<CodeBlock filename="metrics_only.py" language="python">
+{`from rhesis.sdk import RhesisClient, metric
+
+client = RhesisClient(
+    api_key="your-api-key",
+    environment="development",
+)
+
+@metric(name="contains_policy_reference", score_type="binary")
+def contains_policy_reference(input: str, output: str, context: list[str] | None = None) -> dict:
+    has_reference = bool(context) and any(ref in output for ref in context)
+    return {"score": 1.0 if has_reference else 0.0}
+
+if __name__ == "__main__":
+    client.connect()`}
+</CodeBlock>
+
+<Callout type="info">
+  `@endpoint` registrations still require `project_id`. The optional `project_id` behavior applies to
+  metrics-only connector usage.
 </Callout>
 
 ### See It in Action

@@ -80,6 +80,8 @@ class ParseResponse(BaseModel):
     total_rows: int
     validation_summary: ValidationSummary
     preview: PreviewPage
+    test_type_warning: Optional[str] = None
+    detected_test_type: Optional[str] = None
 
 
 # ── Confirm (Step 3) ─────────────────────────────────────────────

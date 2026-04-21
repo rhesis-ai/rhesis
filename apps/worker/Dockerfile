@@ -51,14 +51,16 @@ ENV UV_NO_DEV=1
 # Use copy mode since Docker's overlay fs doesn't support hardlinks
 ENV UV_LINK_MODE=copy
 
-# Copy the SDK, Penelope, and backend directories
+# Copy the SDK, Penelope, rhesis meta-package (SDK depends on rhesis[telemetry]), and backend
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
+COPY packages/rhesis /app/packages/rhesis/
 COPY apps/backend /app/backend/
 
 # Fix paths in pyproject.toml to point to the correct locations in Docker
 RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
 
 # Install dependencies
 
@@ -99,6 +101,7 @@ COPY --from=builder --chown=celery-user:celery-user /app/.venv /app/.venv
 # Copy dependencies from builder
 COPY --from=builder --chown=celery-user:celery-user /app/sdk /app/sdk
 COPY --from=builder --chown=celery-user:celery-user /app/penelope /app/penelope
+COPY --from=builder --chown=celery-user:celery-user /app/packages/rhesis /app/packages/rhesis
 COPY --from=builder --chown=celery-user:celery-user /app/backend /app/backend
 
 # Copy worker-specific files with proper ownership and permissions
@@ -126,7 +129,6 @@ ENV PYTHONUNBUFFERED=1 \
 # Default Celery configuration (can be overridden at runtime)
 ENV CELERY_WORKER_CONCURRENCY=2 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=1 \
-    CELERY_WORKER_MAX_TASKS_PER_CHILD=500 \
     CELERY_WORKER_LOGLEVEL=WARNING \
     CELERY_WORKER_OPTS="--without-gossip --without-mingle --without-heartbeat"
 

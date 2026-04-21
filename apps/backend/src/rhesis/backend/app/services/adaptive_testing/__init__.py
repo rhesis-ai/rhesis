@@ -1,5 +1,12 @@
 """Adaptive testing service package."""
 
+from .embeddings import (
+    a_generate_embedding_vectors_batch,
+    create_test_embedding,
+    generate_embedding_vector,
+    load_test_for_embedding,
+    resolve_embedder,
+)
 from .evaluation import (
     evaluate_tests_for_adaptive_set,
 )
@@ -13,9 +20,10 @@ from .settings import (
     update_adaptive_settings,
 )
 from .suggestions import (
-    evaluate_suggestions,
+    evaluate_suggestions_stream,
     generate_suggestions,
-    invoke_endpoint_for_suggestions,
+    invoke_endpoint_for_suggestions_stream,
+    suggestion_pipeline_stream,
 )
 from .tests import (
     create_adaptive_test_set,
@@ -37,15 +45,19 @@ from .topics import (
 )
 
 __all__ = [
+    "a_generate_embedding_vectors_batch",
+    "create_test_embedding",
     "create_adaptive_test_set",
     "create_test_node",
     "create_topic_node",
     "delete_adaptive_test_set",
     "delete_test_node",
     "export_regular_test_set_from_adaptive",
-    "evaluate_suggestions",
+    "evaluate_suggestions_stream",
     "evaluate_tests_for_adaptive_set",
+    "generate_embedding_vector",
     "generate_outputs_for_tests",
+    "resolve_embedder",
     "generate_suggestions",
     "get_adaptive_settings",
     "get_adaptive_test_sets",
@@ -53,7 +65,9 @@ __all__ = [
     "get_tree_tests",
     "get_tree_topics",
     "import_adaptive_test_set_from_source",
-    "invoke_endpoint_for_suggestions",
+    "invoke_endpoint_for_suggestions_stream",
+    "load_test_for_embedding",
+    "suggestion_pipeline_stream",
     "remove_topic_node",
     "resolve_endpoint_id",
     "resolve_metric_names",

@@ -1,5 +1,6 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
+import { joinUrl } from '@/utils/url';
 import {
   AdaptiveTestSet,
   ExportAdaptiveTestSetResponse,
@@ -22,10 +23,14 @@ import {
   GenerateSuggestionsResponse,
   GenerateSuggestionOutputsRequest,
   GenerateSuggestionOutputsResponse,
+  SuggestionOutputStreamEvent,
+  SuggestionEvalStreamEvent,
   EvaluateSuggestionsRequest,
   EvaluateSuggestionsResponse,
   AdaptiveSettings,
   AdaptiveSettingsUpdateRequest,
+  SuggestionPipelineRequest,
+  SuggestionPipelineEvent,
 } from './interfaces/adaptive-testing';
 
 /**
@@ -37,6 +42,39 @@ import {
 export class AdaptiveTestingClient extends BaseApiClient {
   private getBasePath(testSetId: string): string {
     return `${API_ENDPOINTS.adaptiveTesting}/${testSetId}`;
+  }
+
+  private async *readNdjsonStream(
+    response: Response
+  ): AsyncGenerator<unknown, void, void> {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Streaming response body is not available.');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex = buffer.indexOf('\n');
+      while (newlineIndex !== -1) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line) {
+          yield JSON.parse(line) as unknown;
+        }
+        newlineIndex = buffer.indexOf('\n');
+      }
+    }
+
+    const remaining = buffer.trim();
+    if (remaining) {
+      yield JSON.parse(remaining) as unknown;
+    }
   }
 
   // ===========================================================================
@@ -398,19 +436,74 @@ export class AdaptiveTestingClient extends BaseApiClient {
    * @param testSetId The test set identifier
    * @param body Endpoint ID and suggestion inputs
    */
+  async generateSuggestionOutputsStream(
+    testSetId: string,
+    body: GenerateSuggestionOutputsRequest,
+    handlers: {
+      onEvent: (event: SuggestionOutputStreamEvent) => void;
+    }
+  ): Promise<void> {
+    const basePath = this.getBasePath(testSetId);
+    const url = joinUrl(
+      this.baseUrl,
+      `${basePath}/generate_suggestion_outputs`
+    );
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      // Defer to the existing error parsing by calling JSON fetch.
+      // This will throw a rich Error with status/message.
+      await this.fetch<GenerateSuggestionOutputsResponse>(
+        `${basePath}/generate_suggestion_outputs`,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      return;
+    }
+
+    for await (const event of this.readNdjsonStream(response)) {
+      handlers.onEvent(event as SuggestionOutputStreamEvent);
+    }
+  }
+
   async generateSuggestionOutputs(
     testSetId: string,
     body: GenerateSuggestionOutputsRequest
   ): Promise<GenerateSuggestionOutputsResponse> {
-    const basePath = this.getBasePath(testSetId);
-    return this.fetch<GenerateSuggestionOutputsResponse>(
-      `${basePath}/generate_suggestion_outputs`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    const results: GenerateSuggestionOutputsResponse['results'] = [];
+    let generated = 0;
+
+    await this.generateSuggestionOutputsStream(testSetId, body, {
+      onEvent: event => {
+        if (event.type === 'item') {
+          results[event.index] = {
+            input: event.input,
+            output: event.output,
+            error: event.error,
+          };
+        } else if (event.type === 'summary') {
+          generated = event.generated;
+        }
+      },
+    });
+
+    return {
+      generated,
+      results: results.filter(Boolean),
+    };
   }
 
   /**
@@ -422,14 +515,110 @@ export class AdaptiveTestingClient extends BaseApiClient {
     testSetId: string,
     body: EvaluateSuggestionsRequest
   ): Promise<EvaluateSuggestionsResponse> {
+    const results: EvaluateSuggestionsResponse['results'] = [];
+    let evaluated = 0;
+
+    await this.evaluateSuggestionsStream(testSetId, body, {
+      onEvent: event => {
+        if (event.type === 'item') {
+          results[event.index] = {
+            input: event.input,
+            label: event.label,
+            labeler: event.labeler,
+            model_score: event.model_score,
+            metrics: event.metrics,
+            error: event.error,
+          };
+        } else if (event.type === 'summary') {
+          evaluated = event.evaluated;
+        }
+      },
+    });
+
+    return {
+      evaluated,
+      results: results.filter(Boolean),
+    };
+  }
+
+  async evaluateSuggestionsStream(
+    testSetId: string,
+    body: EvaluateSuggestionsRequest,
+    handlers: {
+      onEvent: (event: SuggestionEvalStreamEvent) => void;
+    }
+  ): Promise<void> {
     const basePath = this.getBasePath(testSetId);
-    return this.fetch<EvaluateSuggestionsResponse>(
-      `${basePath}/evaluate_suggestions`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: { 'Content-Type': 'application/json' },
+    const url = joinUrl(this.baseUrl, `${basePath}/evaluate_suggestions`);
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      await this.fetch<EvaluateSuggestionsResponse>(
+        `${basePath}/evaluate_suggestions`,
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      return;
+    }
+
+    for await (const event of this.readNdjsonStream(response)) {
+      handlers.onEvent(event as SuggestionEvalStreamEvent);
+    }
+  }
+
+  /**
+   * Unified suggestion pipeline: generate, invoke endpoint, and evaluate
+   * in a single NDJSON stream. Events arrive as they complete — output
+   * events stream immediately, and evaluation events interleave as they finish.
+   */
+  async suggestionPipeline(
+    testSetId: string,
+    body: SuggestionPipelineRequest,
+    handlers: {
+      onEvent: (event: SuggestionPipelineEvent) => void;
+    }
+  ): Promise<void> {
+    const basePath = this.getBasePath(testSetId);
+    const url = joinUrl(this.baseUrl, `${basePath}/suggestion_pipeline`);
+    const headers = this.getHeaders();
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      let message = `Pipeline request failed (${response.status})`;
+      try {
+        const parsed = JSON.parse(errorBody);
+        if (parsed.detail) message = parsed.detail;
+      } catch {
+        // use default message
       }
-    );
+      throw new Error(message);
+    }
+
+    for await (const event of this.readNdjsonStream(response)) {
+      handlers.onEvent(event as SuggestionPipelineEvent);
+    }
   }
 }

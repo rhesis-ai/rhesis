@@ -2,6 +2,13 @@
 description: This rules needs to apply when commiting to git.
 alwaysApply: false
 ---
+
+## Branch policy
+
+- **Never commit on `main`.** Work on a feature or fix branch, commit there, and merge via pull request.
+- Before staging or committing, run `git branch --show-current` (or check `git status`). If the branch is `main`, **do not commit**. Tell the user to create and switch to a branch first, for example: `git fetch origin && git checkout main && git pull origin main && git checkout -b feature/short-description`.
+- Do not use `--amend` or other git write operations that would alter history on `main` when asked to commit; the same branch rule applies.
+
 ## Pre-Commit Workflow
 
 ### 1. Check Current Status
@@ -179,6 +186,7 @@ git rebase -i HEAD~3  # Edit last 3 commits
 
 ## Quick Checklist Before Committing
 
+- [ ] Confirm you are **not** on `main` (never commit on `main`)
 - [ ] Run `git status` to see what's changed
 - [ ] Run `git diff` to review the actual changes
 - [ ] Group related changes together
@@ -186,4 +194,4 @@ git rebase -i HEAD~3  # Edit last 3 commits
 - [ ] Test that each commit doesn't break functionality
 - [ ] Consider if any commit needs a longer description or breaking change notice
 
-When creating commits, always format them according to this specification and follow the logical grouping workflow.
+When creating commits, always format them according to this specification, follow the logical grouping workflow, and obey the branch policy (no commits on `main`).

@@ -12,7 +12,7 @@ on:
     # Need to be adjusted after the time change to CEST or CET.
     # The workflow is scheduled not to be on the full hour, because full hours are busy
     # for GitHub Actions and delays can be expected.
-    - cron: '50 7 * * 4'
+    - cron: '50 6 * * 4'
 
 
 jobs:

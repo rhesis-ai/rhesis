@@ -1,11 +1,6 @@
 """Execution module for test configuration tasks."""
 
-from rhesis.backend.tasks.execution.config import (
-    TestConfigurationError,
-    get_production_redis_urls,
-    get_redis_config,
-    get_test_configuration,
-)
+from rhesis.backend.tasks.execution.config import get_test_configuration
 from rhesis.backend.tasks.execution.evaluation import (
     evaluate_multi_turn_metrics,
     evaluate_prompt_response,
@@ -19,13 +14,12 @@ from rhesis.backend.tasks.execution.run import (
     create_test_run,
     update_test_run_status,
 )
-from rhesis.backend.tasks.execution.test import execute_single_test
+from rhesis.backend.tasks.execution.test import get_evaluation_model
 from rhesis.backend.tasks.execution.test_execution import execute_test
 
 __all__ = [
-    "execute_single_test",
     "get_test_configuration",
-    "TestConfigurationError",
+    "get_evaluation_model",
     "create_test_run",
     "update_test_run_status",
     "TestExecutionError",
@@ -36,6 +30,4 @@ __all__ = [
     "evaluate_multi_turn_metrics",
     "get_behavior_metrics",
     "execute_test",
-    "get_redis_config",
-    "get_production_redis_urls",
 ]

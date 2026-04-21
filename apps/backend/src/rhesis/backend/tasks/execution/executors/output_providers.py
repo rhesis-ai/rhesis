@@ -24,9 +24,6 @@ from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.tasks.execution.executors.results import (
     process_endpoint_result,
 )
-from rhesis.backend.tasks.execution.penelope_target import (
-    BackendEndpointTarget,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +173,9 @@ class MultiTurnOutput(OutputProvider):
         # Load files attached to the test (reuse SingleTurnOutput's static method)
         input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
 
-        # Reuse existing PenelopeAgent and BackendEndpointTarget
+        from rhesis.backend.tasks.execution.penelope_target import (
+            BackendEndpointTarget,
+        )
         from rhesis.penelope import PenelopeAgent
 
         agent = PenelopeAgent(model=self.model) if self.model else PenelopeAgent()

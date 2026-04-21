@@ -86,6 +86,7 @@ export function ConnectionDialog({
   const [showApiKey, setShowApiKey] = useState(false);
   const [defaultForGeneration, setDefaultForGeneration] = useState(false);
   const [defaultForEvaluation, setDefaultForEvaluation] = useState(false);
+  const [defaultForExecution, setDefaultForExecution] = useState(false);
   const [defaultForEmbedding, setDefaultForEmbedding] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -140,10 +141,13 @@ export function ConnectionDialog({
           userSettings?.models?.generation?.model_id === model.id;
         const isDefaultEvaluation =
           userSettings?.models?.evaluation?.model_id === model.id;
+        const isDefaultExecution =
+          userSettings?.models?.execution?.model_id === model.id;
         const isDefaultEmbedding =
           userSettings?.models?.embedding?.model_id === model.id;
         setDefaultForGeneration(isDefaultGeneration || false);
         setDefaultForEvaluation(isDefaultEvaluation || false);
+        setDefaultForExecution(isDefaultExecution || false);
         setDefaultForEmbedding(isDefaultEmbedding || false);
       } else if (provider) {
         // Create mode: reset to defaults
@@ -165,6 +169,7 @@ export function ConnectionDialog({
         setShowApiKey(false);
         setDefaultForGeneration(false);
         setDefaultForEvaluation(false);
+        setDefaultForExecution(false);
         setDefaultForEmbedding(false);
         setLoading(false); // Reset loading state
       }
@@ -242,12 +247,16 @@ export function ConnectionDialog({
         updates.models.generation = { model_id: null };
       }
 
-      // Update evaluation default if toggle is on
       if (defaultForEvaluation) {
         updates.models.evaluation = { model_id: modelId };
       } else if (userSettings?.models?.evaluation?.model_id === modelId) {
-        // If toggle is off and this model was previously the default, clear it by setting model_id to null
         updates.models.evaluation = { model_id: null };
+      }
+
+      if (defaultForExecution) {
+        updates.models.execution = { model_id: modelId };
+      } else if (userSettings?.models?.execution?.model_id === modelId) {
+        updates.models.execution = { model_id: null };
       }
 
       // Update embedding default if toggle is on
@@ -639,9 +648,9 @@ export function ConnectionDialog({
                     placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
                     helperText={
                       provider?.type_value === 'ollama'
-                        ? 'The URL where Ollama is running (default: http://host.docker.internal:11434)'
+                        ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach Ollama on your machine'
                         : provider?.type_value === 'litellm_proxy'
-                          ? 'The base URL of your LiteLLM Proxy server (default: http://0.0.0.0:4000)'
+                          ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach LiteLLM on your machine'
                           : provider?.type_value === 'azure_ai'
                             ? 'Your Azure AI inference endpoint URL (e.g. https://your-deployment.inference.ai.azure.com/)'
                             : provider?.type_value === 'azure'
@@ -890,6 +899,27 @@ export function ConnectionDialog({
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             Use this model when running metrics and evaluations
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={defaultForExecution}
+                          onChange={e =>
+                            setDefaultForExecution(e.target.checked)
+                          }
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Default for Execution (Multi-Turn)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Use this model for multi-turn test execution with
+                            Penelope
                           </Typography>
                         </Box>
                       }

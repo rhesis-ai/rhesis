@@ -297,7 +297,7 @@ class ConversationTurn(BaseModel):
         default=None,
         description="Structured metadata returned by the target endpoint",
     )
-    tool_calls: Optional[List[Dict[str, Any]]] = Field(
+    tool_calls: Optional[Any] = Field(
         default=None,
         description="Tool calls made by the target endpoint",
     )

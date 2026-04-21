@@ -40,7 +40,8 @@ async def execute_test(
     endpoint_id: str,
     organization_id: Optional[str] = None,
     user_id: Optional[str] = None,
-    model: Optional[Any] = None,
+    execution_model: Optional[Any] = None,
+    evaluation_model: Optional[Any] = None,
     reference_test_run_id: Optional[str] = None,
     trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -53,9 +54,6 @@ async def execute_test(
     - Multi-Turn tests -> MultiTurnTestExecutor
     - Future types -> New executors can be added without modifying this code
 
-    The function maintains backward compatibility with existing code while enabling
-    a more modular and extensible architecture.
-
     Args:
         db: Database session
         test_config_id: UUID string of the test configuration
@@ -64,7 +62,8 @@ async def execute_test(
         endpoint_id: UUID string of the endpoint
         organization_id: UUID string of the organization (optional)
         user_id: UUID string of the user (optional)
-        model: Optional model override for evaluation
+        execution_model: Optional model for multi-turn execution (Penelope)
+        evaluation_model: Optional model override for metric evaluation
         reference_test_run_id: Optional UUID string of a previous test run
             to re-score. When provided, output is loaded from stored
             TestResults instead of invoking the endpoint.
@@ -80,19 +79,6 @@ async def execute_test(
     Raises:
         ValueError: If test or prompt is not found
         Exception: If test execution fails
-
-    Examples:
-        >>> # Normal execution
-        >>> result = await execute_test(
-        ...     db=db, test_config_id="config-uuid",
-        ...     test_run_id="run-uuid", test_id="test-uuid",
-        ...     endpoint_id="endpoint-uuid",
-        ... )
-        >>> # Re-scoring from a previous run
-        >>> result = await execute_test(
-        ...     db=db, ...,
-        ...     reference_test_run_id="previous-run-uuid",
-        ... )
     """
     logger.info(f"Starting test execution for test {test_id}")
 
@@ -114,7 +100,6 @@ async def execute_test(
         # Create appropriate executor based on test type (Strategy Pattern)
         executor = create_executor(test)
 
-        # Delegate execution to the executor
         result = await executor.execute(
             db=db,
             test_config_id=test_config_id,
@@ -123,7 +108,8 @@ async def execute_test(
             endpoint_id=endpoint_id,
             organization_id=organization_id,
             user_id=user_id,
-            model=model,
+            execution_model=execution_model,
+            evaluation_model=evaluation_model,
             output_provider=output_provider,
         )
 

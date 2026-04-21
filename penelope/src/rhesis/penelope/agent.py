@@ -691,3 +691,145 @@ class PenelopeAgent:
                     )
 
                 state.metric_results.append(metric_result)
+
+    async def a_execute_test(
+        self,
+        target: Target,
+        goal: str,
+        instructions: Optional[str] = None,
+        scenario: Optional[str] = None,
+        restrictions: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
+        max_turns: Optional[int] = None,
+        min_turns: Optional[int] = None,
+        files: Optional[List[Dict[str, str]]] = None,
+    ) -> TestResult:
+        """
+        Async version of execute_test for native event loop execution.
+
+        Used by the batch execution engine so multi-turn tests run as
+        coroutines without blocking threads.  The sync execute_test()
+        remains unchanged for backward compatibility.
+        """
+        is_valid, error = target.validate_configuration()
+        if not is_valid:
+            raise ValueError(f"Invalid target configuration: {error}")
+
+        if instructions is None:
+            instructions = self._generate_default_instructions(goal)
+            logger.info("No instructions provided, using smart default")
+
+        test_context = TestContext(
+            target_id=target.target_id,
+            target_type=target.target_type,
+            instructions=instructions,
+            goal=goal,
+            scenario=scenario,
+            restrictions=restrictions,
+            context=context or {},
+            max_turns=max_turns if max_turns is not None else self.max_turns,
+            min_turns=min_turns,
+            max_tool_executions=self.max_tool_executions,
+            files=files or [],
+        )
+
+        state = TestState(context=test_context)
+
+        # Each async invocation gets its own TurnExecutor with fresh WorkflowState
+        # so concurrent tests don't corrupt each other's workflow tracking.
+        executor = TurnExecutor(self.model, self.verbose, self.enable_transparency)
+
+        tools = self._get_tools_for_test(target)
+
+        tool_docs = []
+        for tool in tools:
+            tool_docs.append(f"### {tool.name}\n{tool.description}")
+        available_tools_text = "\n\n".join(tool_docs)
+
+        logger.info("=== AGENT (async): Creating system prompt ===")
+
+        context_str = str(context) if context else ""
+        if files:
+            file_descriptions = []
+            for f in files:
+                file_descriptions.append(
+                    f"- {f.get('filename', 'unknown')} ({f.get('content_type', 'unknown')})"
+                )
+            files_info = (
+                "\n\nAttached files available for this test:\n"
+                + "\n".join(file_descriptions)
+                + "\n\nTo include these files with a message to the target, "
+                "set include_files=true in send_message_to_target parameters."
+            )
+            context_str = (context_str + files_info) if context_str else files_info
+
+        system_prompt = get_system_prompt(
+            instructions=instructions,
+            goal=goal,
+            scenario=scenario or "",
+            restrictions=restrictions or "",
+            context=context_str,
+            available_tools=available_tools_text,
+            min_turns=min_turns,
+            max_turns=max_turns if max_turns is not None else self.max_turns,
+        )
+
+        conditions = self._create_stopping_conditions(max_turns=max_turns, min_turns=min_turns)
+
+        instructions_length = len(instructions) if instructions else 0
+        logger.info(
+            f"Starting async test execution (instructions length: {instructions_length} chars)"
+        )
+
+        while True:
+            stop_result = self._should_stop(state, conditions)
+            if stop_result.should_stop:
+                logger.info(f"Stopping: {stop_result.reason}")
+                result = state.to_result(
+                    stop_result.status,
+                    stop_result.goal_achieved,
+                    target=target,
+                    model=self.model,
+                )
+                if self.verbose:
+                    display_test_result(result)
+                return result
+
+            success = await executor.a_execute_turn(state, tools, system_prompt)
+
+            if not success:
+                result = state.to_result(ExecutionStatus.ERROR, False)
+                if self.verbose:
+                    display_test_result(result)
+                return result
+
+            conversation = state.get_conversation()
+            for metric in self.metrics:
+                if metric == self.goal_metric:
+                    if len(conversation) < 1:
+                        metric_result = MetricResult(
+                            score=0.0,
+                            details={
+                                "is_successful": False,
+                                "confidence": 0.0,
+                                "reason": "Insufficient conversation (< 1 turn)",
+                            },
+                        )
+                    else:
+                        metric_result = await self.goal_metric.a_evaluate(
+                            conversation_history=conversation,
+                            goal=goal,
+                            instructions=instructions or "",
+                        )
+
+                    for condition in conditions:
+                        condition.update_result(metric_result)
+                else:
+                    metric_result = await metric.a_evaluate(conversation, goal=goal)
+
+                if hasattr(metric, "is_goal_achievement_metric"):
+                    metric_result.details["is_goal_achievement_metric"] = (
+                        metric.is_goal_achievement_metric
+                    )
+
+                state.metric_results.append(metric_result)

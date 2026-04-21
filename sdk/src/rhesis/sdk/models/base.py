@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Union
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.models.utils import llm_retry
@@ -111,11 +111,18 @@ class BaseLLM(BaseModel):
         """
         return run_sync(self.a_generate(*args, **kwargs))
 
-    async def a_generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
+    async def a_generate(
+        self, *args, stream: bool = False, **kwargs
+    ) -> Union[str, Dict[str, Any], AsyncGenerator[str, None]]:
         """Async version of generate. Subclasses must override this.
 
+        Args:
+            stream: When True, return an async generator yielding token
+                chunks instead of the full response.
+
         Returns:
-            A string or dict (if schema provided).
+            A string or dict (if schema provided), or an async generator
+            of string chunks when ``stream=True``.
 
         Raises:
             NotImplementedError: If the subclass does not implement this.
@@ -154,6 +161,15 @@ class BaseLLM(BaseModel):
         """
         pass
 
+    async def warmup(self) -> None:
+        """Pre-warm any provider-specific resources before concurrent use.
+
+        Called once sequentially before ``asyncio.gather`` so that expensive
+        one-time operations (e.g. fetching OAuth tokens, loading credentials)
+        happen upfront rather than being repeated by every concurrent coroutine.
+        The default implementation is a no-op; providers override as needed.
+        """
+
     def get_available_models(self) -> List[str]:
         raise NotImplementedError("Subclasses must implement this method")
 
@@ -166,9 +182,8 @@ class BaseEmbedder(BaseModel):
     def __init__(self, model_name: str, *args, **kwargs):
         super().__init__(model_name, *args, **kwargs)
 
-    @abstractmethod
     def generate(self, text: str, **kwargs) -> Embedding:
-        """Generate embedding for a single text.
+        """Generate embedding for a single text (bridges to ``a_generate``).
 
         Args:
             text: The input text to embed.
@@ -177,7 +192,14 @@ class BaseEmbedder(BaseModel):
         Returns:
             A list of floats representing the embedding vector.
         """
-        pass
+        return run_sync(self.a_generate(text, **kwargs))
+
+    async def a_generate(self, text: str, **kwargs) -> Embedding:
+        """Async embedding for a single text. Subclasses must override."""
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a_generate(). "
+            "Override a_generate() to enable async support."
+        )
 
     @abstractmethod
     def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:

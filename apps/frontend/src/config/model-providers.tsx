@@ -66,8 +66,8 @@ export const PROVIDERS_REQUIRING_ENDPOINT = [
 // Default endpoints for providers that need them
 export const DEFAULT_ENDPOINTS: Record<string, string> = {
   ollama: 'http://host.docker.internal:11434',
-  vllm: 'http://localhost:8000',
-  litellm_proxy: 'http://0.0.0.0:4000',
+  vllm: 'http://host.docker.internal:8000',
+  litellm_proxy: 'http://host.docker.internal:4000',
 };
 
 // Providers where the API key is optional (proxy servers that may not require auth)

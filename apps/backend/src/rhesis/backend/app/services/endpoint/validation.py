@@ -7,7 +7,7 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.utils.status import get_or_create_status
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,13 @@ async def validate_and_update_status(
         logger.info(f"[{function_name}] Skipping validation during registration to avoid blocking")
 
         # Set to Active by default - validation can be done separately
-        active_status = get_or_create_status(db, "Active", "General", organization_id, user_id)
+        active_status = get_or_create_status(
+            db=db,
+            name="Active",
+            entity_type="General",
+            organization_id=organization_id,
+            user_id=user_id,
+        )
         if active_status:
             endpoint.status_id = active_status.id
             logger.info(f"[{function_name}] ✓ Status set to Active (validation skipped)")
@@ -68,7 +74,13 @@ async def validate_and_update_status(
     except Exception as validation_error:
         logger.error(f"Validation error for {function_name}: {validation_error}", exc_info=True)
         # Set Error status on exception and store error details
-        error_status = get_or_create_status(db, "Error", "General", organization_id, user_id)
+        error_status = get_or_create_status(
+            db=db,
+            name="Error",
+            entity_type="General",
+            organization_id=organization_id,
+            user_id=user_id,
+        )
         if error_status:
             endpoint.status_id = error_status.id
 
@@ -130,7 +142,13 @@ async def validate_and_update_status_async(
         # If no request mapping, mark as error (can't call function)
         if not request_mapping:
             logger.warning(f"[{function_name}] No request mapping - marking as Error")
-            error_status = get_or_create_status(db, "Error", "General", organization_id, user_id)
+            error_status = get_or_create_status(
+                db=db,
+                name="Error",
+                entity_type="General",
+                organization_id=organization_id,
+                user_id=user_id,
+            )
             if error_status:
                 endpoint.status_id = error_status.id
 
@@ -172,7 +190,13 @@ async def validate_and_update_status_async(
 
         if validation_result["success"]:
             # Set Active status and clear any previous errors
-            active_status = get_or_create_status(db, "Active", "General", organization_id, user_id)
+            active_status = get_or_create_status(
+                db=db,
+                name="Active",
+                entity_type="General",
+                organization_id=organization_id,
+                user_id=user_id,
+            )
             if active_status:
                 endpoint.status_id = active_status.id
 
@@ -189,7 +213,13 @@ async def validate_and_update_status_async(
             return {"success": True, "error": None, "status_set": "Active"}
         else:
             # Set Error status and store error details in metadata
-            error_status = get_or_create_status(db, "Error", "General", organization_id, user_id)
+            error_status = get_or_create_status(
+                db=db,
+                name="Error",
+                entity_type="General",
+                organization_id=organization_id,
+                user_id=user_id,
+            )
             if error_status:
                 endpoint.status_id = error_status.id
 
@@ -222,7 +252,13 @@ async def validate_and_update_status_async(
             f"[{function_name}] Validation exception: {validation_error}",
             exc_info=True,
         )
-        error_status = get_or_create_status(db, "Error", "General", organization_id, user_id)
+        error_status = get_or_create_status(
+            db=db,
+            name="Error",
+            entity_type="General",
+            organization_id=organization_id,
+            user_id=user_id,
+        )
         if error_status:
             endpoint.status_id = error_status.id
 

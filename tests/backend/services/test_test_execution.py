@@ -749,7 +749,7 @@ class TestExecutionHelpers:
                 endpoint_id=str(db_endpoint.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
-                model="gpt-4",
+                evaluation_model="gpt-4",
                 evaluate_metrics=True,
                 start_time=datetime.utcnow(),
             )
@@ -815,7 +815,8 @@ class TestExecutionHelpers:
                 endpoint_id=str(db_endpoint.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
-                model="gpt-4",
+                execution_model="gpt-4",
+                evaluation_model="gpt-4",
                 evaluate_metrics=True,
                 start_time=datetime.utcnow(),
             )

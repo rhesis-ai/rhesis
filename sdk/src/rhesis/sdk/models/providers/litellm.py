@@ -1,8 +1,9 @@
 import json
-from typing import AsyncIterator, List, Optional, Type, Union
+import logging
+from typing import AsyncGenerator, List, Optional, Type, Union
 
 import litellm
-from litellm import acompletion, batch_completion, embedding
+from litellm import acompletion, aembedding, batch_completion, embedding
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -10,6 +11,13 @@ from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
+for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
+    logging.getLogger(_logger_name).setLevel(logging.WARNING)
+
+
+def _unique_ordered_model_ids(models: List[str]) -> List[str]:
+    """Remove repeated model ids while keeping first-seen order (LiteLLM can repeat ids)."""
+    return list(dict.fromkeys(models))
 
 
 class LiteLLM(BaseLLM):
@@ -63,9 +71,10 @@ class LiteLLM(BaseLLM):
         prompt: str,
         system_prompt: Optional[str] = None,
         schema: Optional[Union[Type[BaseModel], dict]] = None,
+        stream: bool = False,
         *args,
         **kwargs,
-    ) -> Union[str, dict]:
+    ) -> Union[str, dict, AsyncGenerator[str, None]]:
         """
         Run an async chat completion using LiteLLM, returning the response.
         The schema will be used to validate the response if provided.
@@ -77,9 +86,13 @@ class LiteLLM(BaseLLM):
             prompt: The user prompt
             system_prompt: Optional system prompt
             schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
+            stream: When True, return an async generator of token chunks.
+                Schema validation is skipped; the caller is responsible
+                for parsing and validating the accumulated output.
 
         Returns:
-            str or dict: Raw text if no schema, validated dict if schema provided
+            str or dict when stream=False; AsyncGenerator[str, None] when
+            stream=True.
         """
         messages = (
             [
@@ -89,6 +102,9 @@ class LiteLLM(BaseLLM):
             if system_prompt
             else [{"role": "user", "content": prompt}]
         )
+
+        if stream:
+            return self._a_generate_stream(messages, schema, *args, **kwargs)
 
         response = await acompletion(
             model=self.model_name,
@@ -108,35 +124,27 @@ class LiteLLM(BaseLLM):
             return response_content
         return response_content
 
-    async def generate_stream(
+    async def _a_generate_stream(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
+        messages: list,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        *args,
         **kwargs,
-    ) -> AsyncIterator[str]:
-        """Stream LLM response token-by-token using litellm async streaming."""
-        messages = (
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ]
-            if system_prompt
-            else [{"role": "user", "content": prompt}]
-        )
-
+    ) -> AsyncGenerator[str, None]:
+        """Yield token chunks from a streaming LiteLLM completion."""
         response = await acompletion(
             model=self.model_name,
             messages=messages,
+            response_format=schema,
             stream=True,
             api_key=self.api_key,
             api_base=self.api_base,
             api_version=self.api_version,
+            *args,
             **kwargs,
         )
-
-        async for chunk in response:
-            delta = chunk.choices[0].delta  # type: ignore
-            content = getattr(delta, "content", None)
+        async for chunk in response:  # type: ignore[union-attr]
+            content = chunk.choices[0].delta.content
             if content:
                 yield content
 
@@ -221,6 +229,7 @@ class LiteLLM(BaseLLM):
         # Remove video models from the list
         models_list = [model for model in models_list if "video" not in model]
 
+        models_list = _unique_ordered_model_ids(models_list)
         return models_list
 
 
@@ -255,26 +264,14 @@ class LiteLLMEmbedder(BaseEmbedder):
         self.api_key = api_key
         self.dimensions = dimensions
 
-    def generate(self, text: str, **kwargs) -> Embedding:
-        """Generate embedding for a single text.
-
-        Args:
-            text: The input text to embed.
-            **kwargs: Additional parameters passed to litellm.embedding().
-
-        Returns:
-            A list of floats representing the embedding vector.
-
-        Raises:
-            TypeError: If text is not a string.
-        """
+    async def a_generate(self, text: str, **kwargs) -> Embedding:
+        """Generate embedding for a single text (async, via LiteLLM)."""
         if not isinstance(text, str):
             raise TypeError(f"text must be a string, got {type(text).__name__}")
 
-        # Allow overriding dimensions per call
         dimensions = kwargs.pop("dimensions", self.dimensions)
 
-        response = embedding(
+        response = await aembedding(
             model=self.model_name,
             input=[text],
             api_key=self.api_key,
@@ -323,4 +320,5 @@ class LiteLLMEmbedder(BaseEmbedder):
         # Keep ONLY embedding models (opposite of LiteLLM filtering)
         models_list = [model for model in models_list if "embedding" in model.lower()]
 
+        models_list = _unique_ordered_model_ids(models_list)
         return models_list

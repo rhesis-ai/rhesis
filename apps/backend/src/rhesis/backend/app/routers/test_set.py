@@ -128,6 +128,7 @@ async def generate_test_set(
             sources=[s.model_dump() for s in request.sources] if request.sources else None,
             name=request.name,
             test_type=test_type,
+            model_id=str(request.model_id) if request.model_id else None,
         )
 
         logger.info(
@@ -500,25 +501,24 @@ async def execute_test_set(
                should be reused (re-scoring mode).
     """
     try:
-        # Extract test configuration attributes from request body, default to Parallel mode
         attributes = None
         if test_configuration_attributes and test_configuration_attributes.execution_options:
             attributes = test_configuration_attributes.execution_options
 
-        # Extract execution-time metrics from request body
-        # These override test set metrics and behavior metrics
         metrics = None
         if test_configuration_attributes and test_configuration_attributes.metrics:
-            # Convert ExecutionMetric objects to dictionaries for storage
             metrics = [
                 {"id": str(m.id), "name": m.name, "scope": m.scope}
                 for m in test_configuration_attributes.metrics
             ]
 
-        # Extract reference_test_run_id for output reuse (re-scoring)
         reference_test_run_id = None
+        execution_model_id = None
+        evaluation_model_id = None
         if test_configuration_attributes:
             reference_test_run_id = test_configuration_attributes.reference_test_run_id
+            execution_model_id = test_configuration_attributes.execution_model_id
+            evaluation_model_id = test_configuration_attributes.evaluation_model_id
 
         organization_id, user_id = tenant_context
         result = execute_test_set_on_endpoint(
@@ -531,6 +531,8 @@ async def execute_test_set(
             user_id=user_id,
             metrics=metrics,
             reference_test_run_id=reference_test_run_id,
+            execution_model_id=execution_model_id,
+            evaluation_model_id=evaluation_model_id,
         )
         return result
 

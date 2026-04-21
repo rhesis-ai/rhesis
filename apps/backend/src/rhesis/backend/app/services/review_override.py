@@ -18,16 +18,14 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import (
+    REVIEW_TARGET_METRIC,
+    REVIEW_TARGET_TEST_RESULT,
+    REVIEW_TARGET_TURN,
     OverallTestResult,
     TestResultStatus,
     categorize_test_result_status,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.constants import (
-    REVIEW_TARGET_METRIC,
-    REVIEW_TARGET_TEST_RESULT,
-    REVIEW_TARGET_TURN,
-)
 
 
 def is_passed_status(status_name: str) -> bool:

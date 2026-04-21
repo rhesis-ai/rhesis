@@ -27,7 +27,7 @@ agent = PenelopeAgent(
 
 ## Default Model
 
-Penelope uses **Vertex AI with Gemini 2.0 Flash** by default. Configure globally:
+Penelope uses **Vertex AI with Gemini 2.0 Flash** by default when used standalone via the SDK. Configure globally:
 
 **Environment Variables:**
 
@@ -70,6 +70,10 @@ agent = PenelopeAgent(model=AnthropicLLM(model_name="claude-4"))
 agent = PenelopeAgent(model=OpenAILLM(model_name="gpt-4"))`}
 
 </CodeBlock>
+
+<Callout type="info">
+  **Platform vs Standalone Usage:** When Penelope runs as part of platform test execution (from the Test Sets page or via the SDK `TestSet.execute()` method), it uses the user's configured **default execution model** from [Model settings](/docs/models), or the `DEFAULT_EXECUTION_MODEL` environment variable as a fallback. Per-run overrides configured in the execution drawer take precedence over all defaults. The `PENELOPE_DEFAULT_MODEL` and `PenelopeConfig` settings described above apply only to standalone SDK usage.
+</Callout>
 
 ## Conversation Turns
 

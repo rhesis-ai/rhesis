@@ -288,6 +288,17 @@ class TestEmailNotificationDecorator:
 
         assert result == {"result": "success"}
 
+    def test_email_enabled_tasks_have_flag_set(self):
+        """Test that tasks which should send emails have the correct base class and flag set."""
+        from rhesis.backend.tasks.example_task import email_notification_test
+        from rhesis.backend.tasks.execution.results import collect_results
+        from rhesis.backend.tasks.test_set import generate_and_save_test_set
+
+        # Verify that these tasks have the flag explicitly set to True
+        assert getattr(generate_and_save_test_set, "send_email_notification_flag", False) is True
+        assert getattr(collect_results, "send_email_notification_flag", False) is True
+        assert getattr(email_notification_test, "send_email_notification_flag", False) is True
+
 
 class TestTaskValidation:
     """Test task parameter validation"""

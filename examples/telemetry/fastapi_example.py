@@ -32,7 +32,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from rhesis.sdk import RhesisClient, observe
-from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.telemetry.schemas import AIOperationType
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent / ".env"

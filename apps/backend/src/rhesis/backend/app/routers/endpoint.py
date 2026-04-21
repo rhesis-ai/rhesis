@@ -18,11 +18,12 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.endpoint import AutoConfigureRequest, AutoConfigureResult
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
+from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.app.utils.status import get_or_create_status
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,13 @@ def create_endpoint(
 
     # Auto-assign Active status when none is provided
     if not endpoint.status_id:
-        active_status = get_or_create_status(db, "Active", "General", organization_id, user_id)
+        active_status = get_or_create_status(
+            db=db,
+            name="Active",
+            entity_type="General",
+            organization_id=organization_id,
+            user_id=user_id,
+        )
         if active_status:
             endpoint.status_id = active_status.id
 
@@ -325,6 +332,9 @@ async def invoke_endpoint(
     except HTTPException as e:
         logger.error(f"API invoke HTTPException for endpoint {endpoint_id}: {e.detail}")
         raise e
+    except EndpointInvocationError as e:
+        logger.error(f"API invoke error for endpoint {endpoint_id}: {e}")
+        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
     except Exception as e:
         logger.error(
             f"API invoke unexpected error for endpoint {endpoint_id}: {str(e)}", exc_info=True

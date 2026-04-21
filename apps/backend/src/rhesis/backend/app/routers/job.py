@@ -10,9 +10,9 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
+from rhesis.backend.celery.core import app as celery_app
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.example_task import email_notification_test
-from rhesis.backend.worker import app as celery_app
 
 router = APIRouter(
     prefix="/jobs",

@@ -41,6 +41,26 @@
   --mermaid-line: oklch(50% 0.05 220);
   --mermaid-text-light: #ffffff;
   --mermaid-node-text: #1a1a1a; /* Dark text for nodes in light theme */
+
+  /* Framework integrations showcase — logo tile behind third-party icons */
+  --integration-icon-well-bg: #f1f5f9;
+  --integration-icon-well-inset: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+
+  /* Framework integrations showcase — copy, links, grid cards, provider chips */
+  --integration-showcase-lede: var(--rhesis-text-primary);
+  --integration-showcase-link: #0284c7;
+  --integration-showcase-muted: rgba(100, 116, 139, 0.95);
+  --integration-showcase-code: #0f172a;
+  --integration-showcase-strong: #0f172a;
+  --integration-showcase-card-border: rgba(15, 23, 42, 0.18);
+  --integration-showcase-card-bg: rgba(255, 255, 255, 0.92);
+  --integration-showcase-card-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 10px rgba(15, 23, 42, 0.07);
+  /* Model provider chips — flatter than link cards so they read as static labels */
+  --integration-showcase-chip-border: rgba(15, 23, 42, 0.06);
+  --integration-showcase-chip-bg: rgba(255, 255, 255, 0.45);
+  --integration-showcase-name: var(--rhesis-text-primary);
+  --integration-showcase-chip-name: var(--rhesis-text-primary);
 }
 
 /* Dark mode brand colors */
@@ -55,6 +75,59 @@
   --mermaid-line: oklch(75% 0.05 220); /* Light arrows for dark mode visibility */
   --mermaid-text-light: #ffffff;
   --mermaid-node-text: #ffffff; /* Light text for nodes in dark theme */
+
+  --integration-icon-well-bg: rgba(255, 255, 255, 0.97);
+  --integration-icon-well-inset: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+
+  --integration-showcase-lede: rgba(203, 213, 225, 0.95);
+  --integration-showcase-link: #7dd3fc;
+  --integration-showcase-muted: rgba(148, 163, 184, 0.9);
+  --integration-showcase-code: #e2e8f0;
+  --integration-showcase-strong: #e2e8f0;
+  --integration-showcase-card-border: rgba(255, 255, 255, 0.1);
+  --integration-showcase-card-bg: rgba(255, 255, 255, 0.04);
+  --integration-showcase-card-shadow: 0 2px 10px rgba(0, 0, 0, 0.42);
+  --integration-showcase-chip-border: rgba(255, 255, 255, 0.05);
+  /* No white lift — reads darker and flatter than link cards */
+  --integration-showcase-chip-bg: transparent;
+  --integration-showcase-name: #f9fafb;
+  --integration-showcase-chip-name: rgba(226, 232, 240, 0.95);
+}
+
+/* FrameworkIntegrationsShowcase — IconWell (theme via --integration-icon-well-* in :root / .dark) */
+.integration-icon-well {
+  border-radius: 10px;
+  box-sizing: border-box;
+  background: var(--integration-icon-well-bg);
+  box-shadow: var(--integration-icon-well-inset);
+}
+
+.integration-icon-well--square {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.integration-icon-well--wide {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  height: 40px;
+  padding: 6px 12px;
+}
+
+/* Integration showcase — link rows (vs flat provider chips) */
+.integration-showcase-card {
+  cursor: pointer;
+}
+
+.integration-showcase-card:focus-visible {
+  outline: 2px solid var(--integration-showcase-link);
+  outline-offset: 3px;
 }
 
 /* Local Font Definitions */
@@ -900,6 +973,26 @@ aside nav a[class*='text-primary'],
   --card-bg: #161b22;
   --text-primary: #e6edf3;
   --text-secondary: #a9b1bb;
+}
+
+/* ResourceCard / DevelopmentResourcesGrid — same surface tokens as path-card & info cards */
+.resource-card {
+  --border-color: #e5e7eb;
+  --card-bg: #ffffff;
+  --text-primary: #3d3d3d;
+  --text-secondary: #6b7280;
+  --primary-color: #2aa1ce;
+  --primary-bg: rgba(42, 161, 206, 0.1);
+}
+
+[data-theme='dark'] .resource-card,
+.dark .resource-card {
+  --border-color: #2c2c2c;
+  --card-bg: #161b22;
+  --text-primary: #e6edf3;
+  --text-secondary: #a9b1bb;
+  --primary-color: #3bc4f2;
+  --primary-bg: rgba(42, 161, 206, 0.15);
 }
 
 /* NextStepCard Component Styles */

@@ -1,4 +1,4 @@
-# Exposes the ArgoCD dashboard UI. TLS is terminated at the ingress; ArgoCD server runs HTTP (server.insecure).
+# Exposes the ArgoCD dashboard UI over the internal ingress. ArgoCD server runs HTTP (server.insecure).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -6,15 +6,10 @@ metadata:
   namespace: argocd
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: internal
-  tls:
-    - hosts:
-        - argocd.prd.rhesis.ai
-      secretName: argocd-tls
   rules:
-    - host: argocd.prd.rhesis.ai
+    - host: argocd.prd.rhesis.internal
       http:
         paths:
           - path: /

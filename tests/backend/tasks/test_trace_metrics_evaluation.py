@@ -19,6 +19,7 @@ from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.tasks.telemetry.evaluate import (
     CONVERSATION_INPUT_KEY,
     CONVERSATION_OUTPUT_KEY,
+    _get_trace_metrics_config,
     _schedule_debounced_conversation_eval,
     evaluate_conversation_trace_metrics,
     evaluate_turn_trace_metrics,
@@ -41,6 +42,8 @@ def _mock_root_span(
     conversation_id=None,
     attributes: dict | None = None,
     span_db_id: str = SPAN_DB_ID,
+    trace_metrics: dict | None = None,
+    trace_metrics_processed_at=None,
 ) -> MagicMock:
     span = MagicMock(spec=models.Trace)
     span.id = span_db_id
@@ -52,6 +55,8 @@ def _mock_root_span(
         CONVERSATION_INPUT_KEY: "user says hi",
         CONVERSATION_OUTPUT_KEY: "assistant replies",
     }
+    span.trace_metrics = trace_metrics or {}
+    span.trace_metrics_processed_at = trace_metrics_processed_at
     return span
 
 
@@ -127,6 +132,34 @@ def _mock_metric_model(name: str = "m1") -> MagicMock:
 
 
 @pytest.mark.unit
+class TestGetTraceMetricsConfig:
+    """Tests for _get_trace_metrics_config normalising different storage formats."""
+
+    def test_dict_config_returned_as_is(self):
+        project = _mock_project({"enabled": True, "sampling_rate": 0.5})
+        config = _get_trace_metrics_config(project)
+        assert config == {"enabled": True, "sampling_rate": 0.5}
+
+    def test_list_of_metric_ids_normalised_to_dict(self):
+        project = MagicMock()
+        project.attributes = {"trace_metrics": ["id-1", "id-2"]}
+        config = _get_trace_metrics_config(project)
+        assert config == {"metric_ids": ["id-1", "id-2"]}
+
+    def test_missing_trace_metrics_returns_empty_dict(self):
+        project = MagicMock()
+        project.attributes = {}
+        config = _get_trace_metrics_config(project)
+        assert config == {}
+
+    def test_none_attributes_returns_empty_dict(self):
+        project = MagicMock()
+        project.attributes = None
+        config = _get_trace_metrics_config(project)
+        assert config == {}
+
+
+@pytest.mark.unit
 class TestEvaluateTurnTraceMetrics:
     def test_single_turn_no_conversation_id(self):
         project = _mock_project()
@@ -167,6 +200,42 @@ class TestEvaluateTurnTraceMetrics:
         assert "metrics" in utm["turn_metrics"]
         assert utm["turn_metrics"]["metrics"] == eval_results
         db.close.assert_called_once()
+
+    def test_trace_metrics_as_list_of_ids(self):
+        """Reproduce the production bug: trace_metrics stored as a plain list of IDs."""
+        project = MagicMock()
+        project.attributes = {"trace_metrics": ["metric-id-1", "metric-id-2"]}
+        project.owner = None
+        project.user = None
+        root = _mock_root_span(conversation_id=None)
+        status = _mock_status_row("pass-status-id")
+        db = _db_mock_turn(project, root, status)
+        mock_metric = _mock_metric_model()
+
+        eval_results = {"m1": {"is_successful": True, "score": 1.0}}
+
+        with (
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate.SessionLocal",
+                return_value=db,
+            ),
+            patch("rhesis.backend.tasks.telemetry.evaluate.set_session_variables"),
+            patch(
+                "rhesis.backend.tasks.telemetry.evaluate._load_trace_scoped_metrics",
+                return_value=[mock_metric],
+            ) as mock_load,
+            patch("rhesis.backend.tasks.telemetry.evaluate.crud") as mock_crud,
+            patch(
+                "rhesis.backend.metrics.evaluator.MetricEvaluator",
+            ) as mock_eval_cls,
+        ):
+            mock_eval_cls.return_value.evaluate.return_value = eval_results
+            out = evaluate_turn_trace_metrics.run(TRACE_ID, PROJECT_ID, ORG_ID)
+
+        assert out["status"] == "success"
+        mock_load.assert_called_once()
+        config_arg = mock_load.call_args.args[2]
+        assert config_arg == {"metric_ids": ["metric-id-1", "metric-id-2"]}
 
     def test_multi_turn_with_conversation_id(self):
         project = _mock_project()

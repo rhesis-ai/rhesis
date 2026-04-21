@@ -174,6 +174,7 @@ export default function MarkdownContent({
     >
       <Markdown
         options={{
+          disableParsingRawHTML: true,
           overrides: {
             a: {
               component: SmartLink,

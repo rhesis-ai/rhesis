@@ -3,7 +3,7 @@
 from typing import Any, Dict
 
 # Import semantic layer constants from schemas (single source of truth)
-from rhesis.sdk.telemetry.schemas import FORBIDDEN_SPAN_DOMAINS
+from rhesis.telemetry.schemas import FORBIDDEN_SPAN_DOMAINS
 
 
 class AIAttributes:

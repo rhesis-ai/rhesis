@@ -1,6 +1,6 @@
 [project]
 name = "polyphemus"
-version = "0.2.8"
+version = "0.2.9"
 requires-python = ">=3.12"
 dependencies = [
     # FastAPI and server dependencies
@@ -57,6 +57,7 @@ pythonpath = ["src"]
 asyncio_mode = "auto"
 
 [tool.uv]
+exclude-newer = "1 week"
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "pyasn1>=0.6.3",

@@ -502,7 +502,7 @@ def inject_pending_output(
     Returns:
         Number of spans that received an output injection.
     """
-    from rhesis.sdk.telemetry.constants import (
+    from rhesis.telemetry.constants import (
         ConversationContext as ConversationConstants,
     )
 

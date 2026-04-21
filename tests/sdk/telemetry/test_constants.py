@@ -1,6 +1,6 @@
 """Tests for SDK telemetry constants."""
 
-from rhesis.sdk.telemetry.constants import TestExecutionContext
+from rhesis.telemetry.constants import TestExecutionContext
 
 
 def test_test_execution_context_has_context_key():

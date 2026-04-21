@@ -9,7 +9,6 @@ from .mixins import (
     ActivityTrackableMixin,
     CommentsMixin,
     CountsMixin,
-    EmbeddableMixin,
     OrganizationAndUserMixin,
     TagsMixin,
 )
@@ -17,7 +16,6 @@ from .mixins import (
 
 class Source(
     Base,
-    EmbeddableMixin,
     ActivityTrackableMixin,
     OrganizationAndUserMixin,
     TagsMixin,
@@ -46,9 +44,9 @@ class Source(
         String(5), comment="Language in IETF language tag format"
     )  # Language of the source (e.g., 'en-US')
 
-    # File metadata as JSONB object
+    # Metadata as JSONB object (only applicable for sources of type 'Document')
     source_metadata = Column(
-        JSONB, default=dict
+        JSONB
     )  # Should contain file_path, file_type, file_size, file_hash, original_filename
 
     # Relationships
@@ -93,22 +91,3 @@ class Source(
     def file_size(cls):
         """SQLAlchemy expression for filtering file_size"""
         return cls.source_metadata["file_size"].astext.cast(Integer)
-
-    def to_searchable_text(self) -> str:
-        """Generate searchable text from source fields for embeddings and full-text search"""
-
-        # Truncate (embedding models have a token limit): this corresponds to ca. 5000 tokens
-        content_preview = self.content[:20000] if self.content else None
-
-        return " ".join(
-            filter(
-                None,
-                [
-                    self.title,
-                    self.description,
-                    content_preview,
-                    self.citation,
-                    self.url,
-                ],
-            )
-        )

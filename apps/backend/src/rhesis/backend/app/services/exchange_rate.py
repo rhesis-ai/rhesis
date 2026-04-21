@@ -22,7 +22,8 @@ class ExchangeRateService:
         self._usd_to_eur_rate: Optional[float] = None
         self._last_fetch: Optional[datetime] = None
         self._cache_duration = timedelta(hours=24)
-        self._api_url = "https://api.frankfurter.app/latest"
+        # Frankfurter moved from api.frankfurter.app (301) to api.frankfurter.dev
+        self._api_url = "https://api.frankfurter.dev/v1/latest"
 
     def get_usd_to_eur_rate(self) -> float:
         """
@@ -55,12 +56,15 @@ class ExchangeRateService:
             logger.info(f"Using stale cached rate due to API failure: {self._usd_to_eur_rate}")
             return self._usd_to_eur_rate
 
-        # Final fallback to env var or default
+        # Final fallback to env var or default — cache it so we do not retry
+        # the API on every call when the network or endpoint is unavailable.
         fallback_rate = float(os.getenv("USD_TO_EUR_RATE", "0.92"))
         logger.warning(
             f"No cached rate available, using fallback: {fallback_rate} "
             "(from USD_TO_EUR_RATE env var or default)"
         )
+        self._usd_to_eur_rate = fallback_rate
+        self._last_fetch = datetime.utcnow()
         return fallback_rate
 
     def _is_cache_valid(self) -> bool:
@@ -84,6 +88,7 @@ class ExchangeRateService:
                 self._api_url,
                 params={"from": "USD", "to": "EUR"},
                 timeout=2.0,
+                follow_redirects=True,
             )
             response.raise_for_status()
 
@@ -112,7 +117,7 @@ class ExchangeRateService:
         """
         try:
             # Use async client for non-blocking HTTP request
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
                 response = await client.get(
                     self._api_url,
                     params={"from": "USD", "to": "EUR"},
@@ -169,12 +174,14 @@ class ExchangeRateService:
             logger.info(f"Using stale cached rate due to API failure: {self._usd_to_eur_rate}")
             return self._usd_to_eur_rate
 
-        # Final fallback to env var or default
+        # Final fallback to env var or default — cache it (see sync method).
         fallback_rate = float(os.getenv("USD_TO_EUR_RATE", "0.92"))
         logger.warning(
             f"No cached rate available, using fallback: {fallback_rate} "
             "(from USD_TO_EUR_RATE env var or default)"
         )
+        self._usd_to_eur_rate = fallback_rate
+        self._last_fetch = datetime.utcnow()
         return fallback_rate
 
     def refresh_rate(self) -> None:

@@ -890,7 +890,7 @@ function AddTestDialog({
         />
         <TextField
           label="Output (optional)"
-          placeholder='Optional. Run "Generate outputs" to fill from the endpoint.'
+          placeholder='Optional. Run "Get outputs" to fill from the endpoint.'
           fullWidth
           multiline
           minRows={2}
@@ -1040,7 +1040,7 @@ function EditTestDialog({
         />
         <TextField
           label="Output (optional)"
-          placeholder='Optional. Run "Generate outputs" to fill from the endpoint.'
+          placeholder='Optional. Run "Get outputs" to fill from the endpoint.'
           fullWidth
           multiline
           minRows={2}
@@ -1410,30 +1410,10 @@ function TestsList({
             <Chip
               label={score != null ? score.toFixed(2) : 'N/A'}
               size="small"
-              color={score != null ? getScoreColor(score) : 'default'}
+              color={getLabelColor(label)}
               variant={score != null ? 'filled' : 'outlined'}
             />
           </ScoreMetricsTooltip>
-        );
-      },
-    },
-    {
-      field: 'label',
-      headerName: 'Label',
-      width: 100,
-      renderCell: params => {
-        if (params.row.id && pendingTestIds.has(params.row.id)) {
-          return <CircularProgress size={16} />;
-        }
-        const label = params.value;
-        if (!label) return <Chip label="N/A" size="small" variant="outlined" />;
-        return (
-          <Chip
-            label={label}
-            size="small"
-            color={getLabelColor(label)}
-            variant="outlined"
-          />
         );
       },
     },
@@ -1578,6 +1558,30 @@ export default function AdaptiveTestingDetail({
   testSetId,
   sessionToken,
 }: AdaptiveTestingDetailProps) {
+  type EndpointOption = {
+    endpointId: string;
+    endpointName: string;
+    projectId: string;
+    projectName: string;
+    environment: Endpoint['environment'];
+  };
+
+  const formatEnvironment = (env: Endpoint['environment']) =>
+    env.charAt(0).toUpperCase() + env.slice(1);
+
+  const getEnvironmentColor = (env: Endpoint['environment']) => {
+    switch (env.toLowerCase()) {
+      case 'production':
+        return 'error.main';
+      case 'staging':
+        return 'warning.main';
+      case 'development':
+        return 'info.main';
+      default:
+        return 'text.secondary';
+    }
+  };
+
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [activeTab, setActiveTab] = useState(0);
@@ -1605,7 +1609,7 @@ export default function AdaptiveTestingDetail({
   );
   const [generateOutputsDialogOpen, setGenerateOutputsDialogOpen] =
     useState(false);
-  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
+  const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
   const [endpointsLoading, setEndpointsLoading] = useState(false);
   const [generateSubmitting, setGenerateSubmitting] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -1640,15 +1644,15 @@ export default function AdaptiveTestingDetail({
     useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [settingsEndpoint, setSettingsEndpoint] = useState<Endpoint | null>(
-    null
-  );
+  const [settingsEndpoint, setSettingsEndpoint] =
+    useState<EndpointOption | null>(null);
   const [settingsMetric, setSettingsMetric] = useState<MetricDetail | null>(
     null
   );
   /** Resolved labels for on-page display; null means initial load not finished */
   const [adaptiveConfigSummary, setAdaptiveConfigSummary] = useState<{
-    endpointName: string | null;
+    endpointLabel: string | null;
+    endpointEnvironment: Endpoint['environment'] | null;
     metrics: { id: string; name: string; hasDetailPage: boolean }[];
   } | null>(null);
   const [metricEditorMetricId, setMetricEditorMetricId] = useState<
@@ -1681,20 +1685,55 @@ export default function AdaptiveTestingDetail({
     let cancelled = false;
     setEndpointsLoading(true);
     const clientFactory = new ApiClientFactory(sessionToken);
+    const projectsClient = clientFactory.getProjectsClient();
     const endpointsClient = clientFactory.getEndpointsClient();
-    endpointsClient
-      .getEndpoints({
-        sort_by: 'name',
-        sort_order: 'asc',
-        limit: 100,
-      })
-      .then(res => {
+    Promise.all([
+      projectsClient.getProjects({ limit: 100 }),
+      endpointsClient.getEndpoints({ limit: 100 }),
+    ])
+      .then(([projectsResponse, endpointsResponse]) => {
         if (cancelled) return;
-        const list = res?.data ?? [];
-        setEndpoints(Array.isArray(list) ? list : []);
+
+        const projects = Array.isArray(projectsResponse)
+          ? projectsResponse
+          : projectsResponse?.data || [];
+
+        const endpoints = Array.isArray(endpointsResponse)
+          ? endpointsResponse
+          : endpointsResponse?.data || [];
+
+        const projectMap = new Map<string, { name?: string }>();
+        projects.forEach((project: { id: string; name?: string }) => {
+          projectMap.set(project.id.toString(), project);
+        });
+
+        const options: EndpointOption[] = endpoints
+          .filter(
+            (
+              endpoint: Endpoint
+            ): endpoint is Endpoint & { project_id: string } =>
+              !!endpoint.project_id
+          )
+          .map(endpoint => {
+            const project = projectMap.get(endpoint.project_id ?? '');
+            return {
+              endpointId: endpoint.id,
+              endpointName: endpoint.name,
+              projectId: endpoint.project_id ?? '',
+              projectName: project?.name || 'Unknown Project',
+              environment: endpoint.environment,
+            };
+          })
+          .sort((a, b) => {
+            const projectCompare = a.projectName.localeCompare(b.projectName);
+            if (projectCompare !== 0) return projectCompare;
+            return a.endpointName.localeCompare(b.endpointName);
+          });
+
+        setEndpointOptions(options);
       })
       .catch(() => {
-        if (!cancelled) setEndpoints([]);
+        if (!cancelled) setEndpointOptions([]);
       })
       .finally(() => {
         if (!cancelled) setEndpointsLoading(false);
@@ -1711,10 +1750,14 @@ export default function AdaptiveTestingDetail({
     try {
       const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
       const resolvedEndpoint =
-        endpoints.find(e => e.id === settings.default_endpoint?.id) ?? null;
+        endpointOptions.find(
+          e => e.endpointId === settings.default_endpoint?.id
+        ) ?? null;
       setSettingsEndpoint(resolvedEndpoint);
-      const endpointName =
-        resolvedEndpoint?.name ?? settings.default_endpoint?.name ?? null;
+      const endpointLabel = resolvedEndpoint
+        ? `${resolvedEndpoint.projectName} › ${resolvedEndpoint.endpointName}`
+        : (settings.default_endpoint?.name ?? null);
+      const endpointEnvironment = resolvedEndpoint?.environment ?? null;
 
       const metricsSummary = await Promise.all(
         settings.metrics.map(async m => {
@@ -1739,7 +1782,11 @@ export default function AdaptiveTestingDetail({
           }
         })
       );
-      setAdaptiveConfigSummary({ endpointName, metrics: metricsSummary });
+      setAdaptiveConfigSummary({
+        endpointLabel,
+        endpointEnvironment,
+        metrics: metricsSummary,
+      });
 
       const firstMetricId = settings.metrics[0]?.id;
       setSettingsMetric(
@@ -1748,14 +1795,18 @@ export default function AdaptiveTestingDetail({
           : null
       );
     } catch {
-      setAdaptiveConfigSummary({ endpointName: null, metrics: [] });
+      setAdaptiveConfigSummary({
+        endpointLabel: null,
+        endpointEnvironment: null,
+        metrics: [],
+      });
     }
-  }, [endpoints, metrics, sessionToken, testSetId]);
+  }, [endpointOptions, metrics, sessionToken, testSetId]);
 
   useEffect(() => {
-    if (endpoints.length === 0 && metrics.length === 0) return;
+    if (endpointOptions.length === 0 && metrics.length === 0) return;
     void loadAdaptiveSettings();
-  }, [endpoints, metrics, loadAdaptiveSettings]);
+  }, [endpointOptions, metrics, loadAdaptiveSettings]);
 
   useEffect(() => {
     if (searchParams.get('openSettings') !== '1') return;
@@ -1829,15 +1880,22 @@ export default function AdaptiveTestingDetail({
     }
   };
 
-  const handleGenerateOutputsSubmit = async () => {
+  const handleGenerateOutputsSubmit = async (options?: {
+    topic: string | null;
+    includeSubtopics: boolean;
+    closeDialog?: boolean;
+  }) => {
     setGenerateSubmitting(true);
     setGenerateError(null);
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
+    const effectiveTopic = options?.topic ?? generateOutputsTopic;
+    const effectiveIncludeSubtopics =
+      options?.includeSubtopics ?? generateOutputsIncludeSubtopics;
     try {
       const result = await client.generateOutputs(testSetId, {
-        topic: generateOutputsTopic ?? undefined,
-        include_subtopics: generateOutputsIncludeSubtopics,
+        topic: effectiveTopic ?? undefined,
+        include_subtopics: effectiveIncludeSubtopics,
         overwrite: true,
       });
       const [treeNodes, updatedTopics] = await Promise.all([
@@ -1846,26 +1904,40 @@ export default function AdaptiveTestingDetail({
       ]);
       setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
       setTopics(updatedTopics);
-      setGenerateOutputsDialogOpen(false);
+      if (options?.closeDialog ?? generateOutputsDialogOpen) {
+        setGenerateOutputsDialogOpen(false);
+      }
       const failedCount = result.failed?.length ?? 0;
       if (failedCount > 0) {
         notifications.show(
-          `Generated ${result.generated} outputs${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}; ${failedCount} failed.`,
+          `Got ${result.generated} outputs${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}; ${failedCount} failed.`,
           { severity: 'warning' }
         );
       } else {
         notifications.show(
-          `Generated ${result.generated} output(s) successfully${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}.`,
+          `Got ${result.generated} output(s) successfully${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}.`,
           { severity: 'success' }
         );
       }
     } catch (err) {
       setGenerateError(
-        err instanceof Error ? err.message : 'Failed to generate outputs.'
+        err instanceof Error ? err.message : 'Failed to get outputs.'
       );
     } finally {
       setGenerateSubmitting(false);
     }
+  };
+
+  const handleGenerateOutputsInline = (fromTable?: boolean) => {
+    const topic =
+      fromTable && activeTab === 0 && selectedTopicForApi
+        ? selectedTopicForApi
+        : null;
+    void handleGenerateOutputsSubmit({
+      topic,
+      includeSubtopics: true,
+      closeDialog: false,
+    });
   };
 
   const handleEvaluateOpen = (fromTable?: boolean) => {
@@ -1887,15 +1959,22 @@ export default function AdaptiveTestingDetail({
     }
   };
 
-  const handleEvaluateSubmit = async () => {
+  const handleEvaluateSubmit = async (options?: {
+    topic: string | null;
+    includeSubtopics: boolean;
+    closeDialog?: boolean;
+  }) => {
     setEvaluateSubmitting(true);
     setEvaluateError(null);
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
+    const effectiveTopic = options?.topic ?? evaluateTopic;
+    const effectiveIncludeSubtopics =
+      options?.includeSubtopics ?? evaluateIncludeSubtopics;
     try {
       const result = await client.evaluate(testSetId, {
-        topic: evaluateTopic ?? undefined,
-        include_subtopics: evaluateIncludeSubtopics,
+        topic: effectiveTopic ?? undefined,
+        include_subtopics: effectiveIncludeSubtopics,
         overwrite: true,
       });
       const [treeNodes, updatedTopics] = await Promise.all([
@@ -1904,7 +1983,9 @@ export default function AdaptiveTestingDetail({
       ]);
       setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
       setTopics(updatedTopics);
-      setEvaluateDialogOpen(false);
+      if (options?.closeDialog ?? evaluateDialogOpen) {
+        setEvaluateDialogOpen(false);
+      }
       const failedCount = result.failed?.length ?? 0;
       if (failedCount > 0) {
         notifications.show(
@@ -1924,6 +2005,18 @@ export default function AdaptiveTestingDetail({
     } finally {
       setEvaluateSubmitting(false);
     }
+  };
+
+  const handleEvaluateInline = (fromTable?: boolean) => {
+    const topic =
+      fromTable && activeTab === 0 && selectedTopicForApi
+        ? selectedTopicForApi
+        : null;
+    void handleEvaluateSubmit({
+      topic,
+      includeSubtopics: true,
+      closeDialog: false,
+    });
   };
 
   const handleAddTopicOpen = (parentTopic: string | null) => {
@@ -1979,29 +2072,64 @@ export default function AdaptiveTestingDetail({
 
     // Optimistically add to local state
     setTests(prev => [...prev, optimisticTest]);
+    setPendingTestIds(prev => {
+      const next = new Set(prev);
+      next.add(tempId);
+      return next;
+    });
 
-    // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
 
-    client
-      .createTest(testSetId, data)
-      .then(async () => {
-        // Refresh to get the real test with server ID
-        const [treeNodes, updatedTopics] = await Promise.all([
-          client.getTree(testSetId),
-          client.getTopics(testSetId),
-        ]);
-        setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
-        setTopics(updatedTopics);
-      })
-      .catch(() => {
-        // Rollback: remove the optimistic test
-        setTests(prev => prev.filter(t => t.id !== tempId));
-        notifications.show('Failed to add test. Change has been reverted.', {
-          severity: 'error',
-        });
+    try {
+      const created = await client.createTest(testSetId, {
+        ...data,
+        // Embeddings are generated when accepting tests from suggestion flow only.
+        // Persisting embeddings for manually added tests is not implemented yet.
+        generate_embedding: false,
       });
+      setTests(prev => prev.map(test => (test.id === tempId ? created : test)));
+      setPendingTestIds(prev => {
+        const next = new Set(prev);
+        next.delete(tempId);
+        next.add(created.id);
+        return next;
+      });
+
+      const outputProvided = Boolean(data.output && data.output.trim());
+      if (!outputProvided) {
+        await client.generateOutputs(testSetId, {
+          test_ids: [created.id],
+          overwrite: true,
+        });
+      }
+
+      await client.evaluate(testSetId, {
+        test_ids: [created.id],
+        overwrite: true,
+      });
+
+      // Refresh to pick up outputs + evaluation
+      const [treeNodes, updatedTopics] = await Promise.all([
+        client.getTree(testSetId),
+        client.getTopics(testSetId),
+      ]);
+      setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+      setTopics(updatedTopics);
+    } catch (err) {
+      // Rollback: remove the optimistic test
+      setTests(prev => prev.filter(t => t.id !== tempId));
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to add and evaluate test.',
+        { severity: 'error' }
+      );
+    } finally {
+      setPendingTestIds(prev => {
+        const next = new Set(prev);
+        next.delete(tempId);
+        return next;
+      });
+    }
   };
 
   const handleInlineAddTest = async (input: string) => {
@@ -2035,6 +2163,9 @@ export default function AdaptiveTestingDetail({
         input: trimmedInput,
         ...(selectedTopicForApi ? { topic: selectedTopicForApi } : {}),
         labeler: 'user',
+        // Embeddings are generated when accepting tests from suggestion flow only.
+        // Persisting embeddings for manually added tests is not implemented yet.
+        generate_embedding: false,
       });
       setTests(prev => prev.map(test => (test.id === tempId ? created : test)));
       setPendingTestIds(prev => {
@@ -2082,15 +2213,15 @@ export default function AdaptiveTestingDetail({
     }
   };
 
-  const handleSuggestionAccepted = useCallback(() => {
+  const handleSuggestionAccepted = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
-    Promise.all([client.getTree(testSetId), client.getTopics(testSetId)]).then(
-      ([treeNodes, updatedTopics]) => {
-        setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
-        setTopics(updatedTopics);
-      }
-    );
+    const [treeNodes, updatedTopics] = await Promise.all([
+      client.getTree(testSetId),
+      client.getTopics(testSetId),
+    ]);
+    setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+    setTopics(updatedTopics);
   }, [sessionToken, testSetId]);
 
   const openSuggestionGuidance = useCallback(() => {
@@ -2454,7 +2585,7 @@ export default function AdaptiveTestingDetail({
   const failCount = tests.filter(t => t.label === 'fail').length;
 
   const handleSaveSettings = async () => {
-    if (!settingsEndpoint?.id || !settingsMetric?.id) {
+    if (!settingsEndpoint?.endpointId || !settingsMetric?.id) {
       setSettingsError('Select both endpoint and metric.');
       return;
     }
@@ -2464,11 +2595,12 @@ export default function AdaptiveTestingDetail({
       const clientFactory = new ApiClientFactory(sessionToken);
       const adaptiveClient = clientFactory.getAdaptiveTestingClient();
       await adaptiveClient.updateAdaptiveSettings(testSetId, {
-        default_endpoint_id: settingsEndpoint.id,
+        default_endpoint_id: settingsEndpoint.endpointId,
         metric_ids: [settingsMetric.id],
       });
       setAdaptiveConfigSummary({
-        endpointName: settingsEndpoint.name ?? null,
+        endpointLabel: `${settingsEndpoint.projectName} › ${settingsEndpoint.endpointName}`,
+        endpointEnvironment: settingsEndpoint.environment,
         metrics:
           settingsMetric?.id &&
           settingsMetric.name != null &&
@@ -2527,49 +2659,6 @@ export default function AdaptiveTestingDetail({
 
   return (
     <Box>
-      {/* Summary Stats */}
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 2,
-          mb: 3,
-          flexWrap: 'wrap',
-        }}
-      >
-        <Paper variant="outlined" sx={{ px: 3, py: 2, minWidth: 120 }}>
-          <Typography variant="caption" color="text.secondary">
-            Total Tests
-          </Typography>
-          <Typography variant="h5" fontWeight={600}>
-            {totalTests}
-          </Typography>
-        </Paper>
-        <Paper variant="outlined" sx={{ px: 3, py: 2, minWidth: 120 }}>
-          <Typography variant="caption" color="text.secondary">
-            Topics
-          </Typography>
-          <Typography variant="h5" fontWeight={600}>
-            {totalTopics}
-          </Typography>
-        </Paper>
-        <Paper variant="outlined" sx={{ px: 3, py: 2, minWidth: 120 }}>
-          <Typography variant="caption" color="text.secondary">
-            Pass
-          </Typography>
-          <Typography variant="h5" fontWeight={600} color="success.main">
-            {passCount}
-          </Typography>
-        </Paper>
-        <Paper variant="outlined" sx={{ px: 3, py: 2, minWidth: 120 }}>
-          <Typography variant="caption" color="text.secondary">
-            Fail
-          </Typography>
-          <Typography variant="h5" fontWeight={600} color="error.main">
-            {failCount}
-          </Typography>
-        </Paper>
-      </Box>
-
       <Paper
         variant="outlined"
         sx={{
@@ -2630,7 +2719,7 @@ export default function AdaptiveTestingDetail({
               disabled={exportSubmitting}
               sx={{ textTransform: 'none' }}
             >
-              {exportSubmitting ? 'Exporting…' : 'Export to test set'}
+              {exportSubmitting ? 'Saving…' : 'Save to Test Set'}
             </Button>
             <Button
               variant="outlined"
@@ -2691,25 +2780,54 @@ export default function AdaptiveTestingDetail({
                     Selected endpoint
                   </Typography>
                 </Box>
-                {adaptiveConfigSummary.endpointName ? (
-                  <Chip
-                    label={adaptiveConfigSummary.endpointName}
-                    size="medium"
-                    variant="outlined"
+                {adaptiveConfigSummary.endpointLabel ? (
+                  <Box
                     sx={{
-                      height: 'auto',
-                      py: 0.75,
-                      maxWidth: '100%',
-                      fontWeight: 500,
-                      borderColor: alpha(theme.palette.primary.main, 0.35),
-                      bgcolor: alpha(theme.palette.primary.main, 0.06),
-                      '& .MuiChip-label': {
-                        whiteSpace: 'normal',
-                        display: 'block',
-                        py: 0.25,
-                      },
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: 1,
                     }}
-                  />
+                  >
+                    <Chip
+                      label={adaptiveConfigSummary.endpointLabel}
+                      size="medium"
+                      variant="outlined"
+                      sx={{
+                        height: 'auto',
+                        py: 0.75,
+                        maxWidth: '100%',
+                        fontWeight: 500,
+                        borderColor: alpha(theme.palette.primary.main, 0.35),
+                        bgcolor: alpha(theme.palette.primary.main, 0.06),
+                        '& .MuiChip-label': {
+                          whiteSpace: 'normal',
+                          display: 'block',
+                          py: 0.25,
+                        },
+                      }}
+                    />
+                    {adaptiveConfigSummary.endpointEnvironment ? (
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: theme =>
+                            theme.shape.borderRadius * 0.25,
+                          bgcolor: 'action.hover',
+                          color: getEnvironmentColor(
+                            adaptiveConfigSummary.endpointEnvironment
+                          ),
+                          fontWeight: 'medium',
+                        }}
+                      >
+                        {formatEnvironment(
+                          adaptiveConfigSummary.endpointEnvironment
+                        )}
+                      </Typography>
+                    ) : null}
+                  </Box>
                 ) : (
                   <Chip
                     label="Not set — use Edit settings"
@@ -2818,21 +2936,123 @@ export default function AdaptiveTestingDetail({
       </Paper>
 
       {/* View Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          mb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 1.5,
+          flexWrap: 'wrap',
+        }}
+      >
         <Tabs
           value={activeTab}
           onChange={(_, newValue) => {
             setActiveTab(newValue);
             setSelectedRows([]);
           }}
+          sx={{ minHeight: 44 }}
         >
           <Tab
             icon={<AccountTreeIcon />}
             iconPosition="start"
             label="Tree View"
+            sx={{ minHeight: 44 }}
           />
-          <Tab icon={<ListIcon />} iconPosition="start" label="List View" />
+          <Tab
+            icon={<ListIcon />}
+            iconPosition="start"
+            label="List View"
+            sx={{ minHeight: 44 }}
+          />
         </Tabs>
+
+        {/* Compact Summary Stats (kept near view toggles) */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flexWrap: 'wrap',
+            pb: 0.75,
+          }}
+        >
+          {[
+            { label: 'Total', value: totalTests },
+            { label: 'Topics', value: totalTopics },
+          ].map(item => (
+            <Box
+              key={item.label}
+              sx={{
+                px: 1,
+                py: 0.5,
+                borderRadius: theme.shape.borderRadius * 2,
+                border: 1,
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 0.75,
+              }}
+            >
+              <Typography variant="caption" color="text.secondary">
+                {item.label}
+              </Typography>
+              <Typography variant="subtitle2" fontWeight={700}>
+                {item.value}
+              </Typography>
+            </Box>
+          ))}
+
+          <Box
+            sx={{
+              px: 1,
+              py: 0.5,
+              borderRadius: theme.shape.borderRadius * 2,
+              border: 1,
+              borderColor: alpha(theme.palette.success.main, 0.35),
+              bgcolor: alpha(theme.palette.success.main, 0.06),
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 0.75,
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              Pass
+            </Typography>
+            <Typography
+              variant="subtitle2"
+              fontWeight={700}
+              color="success.main"
+            >
+              {passCount}
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              px: 1,
+              py: 0.5,
+              borderRadius: theme.shape.borderRadius * 2,
+              border: 1,
+              borderColor: alpha(theme.palette.error.main, 0.35),
+              bgcolor: alpha(theme.palette.error.main, 0.06),
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 0.75,
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              Fail
+            </Typography>
+            <Typography variant="subtitle2" fontWeight={700} color="error.main">
+              {failCount}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       {/* Tree View */}
@@ -2911,18 +3131,20 @@ export default function AdaptiveTestingDetail({
               <Button
                 size="small"
                 startIcon={<PlayArrowIcon />}
-                onClick={() => handleGenerateOutputsOpen(true)}
+                onClick={() => handleGenerateOutputsInline(true)}
+                disabled={generateSubmitting || evaluateSubmitting}
                 sx={{ textTransform: 'none' }}
               >
-                Generate outputs
+                Get outputs
               </Button>
               <Button
                 size="small"
                 startIcon={<GradingIcon />}
-                onClick={() => handleEvaluateOpen(true)}
+                onClick={() => handleEvaluateInline(true)}
+                disabled={generateSubmitting || evaluateSubmitting}
                 sx={{ textTransform: 'none' }}
               >
-                Generate evaluations
+                Evaluate
               </Button>
               <Button
                 size="small"
@@ -2954,6 +3176,39 @@ export default function AdaptiveTestingDetail({
                 </Button>
               )}
             </Box>
+            {(generateSubmitting ||
+              evaluateSubmitting ||
+              generateError ||
+              evaluateError) && (
+              <Stack sx={{ mb: 1 }} spacing={1}>
+                {generateSubmitting && (
+                  <Alert severity="info" onClose={() => setGenerateError(null)}>
+                    Getting outputs…
+                  </Alert>
+                )}
+                {evaluateSubmitting && (
+                  <Alert severity="info" onClose={() => setEvaluateError(null)}>
+                    Evaluating…
+                  </Alert>
+                )}
+                {generateError && (
+                  <Alert
+                    severity="error"
+                    onClose={() => setGenerateError(null)}
+                  >
+                    {generateError}
+                  </Alert>
+                )}
+                {evaluateError && (
+                  <Alert
+                    severity="error"
+                    onClose={() => setEvaluateError(null)}
+                  >
+                    {evaluateError}
+                  </Alert>
+                )}
+              </Stack>
+            )}
             <Paper variant="outlined" sx={{ p: 1 }}>
               <TestsList
                 tests={filteredTests}
@@ -2988,18 +3243,20 @@ export default function AdaptiveTestingDetail({
             <Button
               size="small"
               startIcon={<PlayArrowIcon />}
-              onClick={() => handleGenerateOutputsOpen(true)}
+              onClick={() => handleGenerateOutputsInline(true)}
+              disabled={generateSubmitting || evaluateSubmitting}
               sx={{ textTransform: 'none' }}
             >
-              Generate outputs
+              Get outputs
             </Button>
             <Button
               size="small"
               startIcon={<GradingIcon />}
-              onClick={() => handleEvaluateOpen(true)}
+              onClick={() => handleEvaluateInline(true)}
+              disabled={generateSubmitting || evaluateSubmitting}
               sx={{ textTransform: 'none' }}
             >
-              Generate evaluations
+              Evaluate
             </Button>
             <Button
               size="small"
@@ -3031,6 +3288,33 @@ export default function AdaptiveTestingDetail({
               </Button>
             )}
           </Box>
+          {(generateSubmitting ||
+            evaluateSubmitting ||
+            generateError ||
+            evaluateError) && (
+            <Stack sx={{ mb: 1 }} spacing={1}>
+              {generateSubmitting && (
+                <Alert severity="info" onClose={() => setGenerateError(null)}>
+                  Getting outputs…
+                </Alert>
+              )}
+              {evaluateSubmitting && (
+                <Alert severity="info" onClose={() => setEvaluateError(null)}>
+                  Evaluating…
+                </Alert>
+              )}
+              {generateError && (
+                <Alert severity="error" onClose={() => setGenerateError(null)}>
+                  {generateError}
+                </Alert>
+              )}
+              {evaluateError && (
+                <Alert severity="error" onClose={() => setEvaluateError(null)}>
+                  {evaluateError}
+                </Alert>
+              )}
+            </Stack>
+          )}
           <Paper variant="outlined" sx={{ p: 2 }}>
             <TestsList
               tests={tests}
@@ -3217,14 +3501,14 @@ export default function AdaptiveTestingDetail({
         </DialogActions>
       </Dialog>
 
-      {/* Generate outputs dialog */}
+      {/* Get outputs dialog */}
       <Dialog
         open={generateOutputsDialogOpen}
         onClose={handleGenerateOutputsClose}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Generate outputs</DialogTitle>
+        <DialogTitle>Get outputs</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Invoke the selected endpoint for each test input and store the
@@ -3295,7 +3579,9 @@ export default function AdaptiveTestingDetail({
           </Button>
           <Button
             variant="contained"
-            onClick={handleGenerateOutputsSubmit}
+            onClick={() => {
+              void handleGenerateOutputsSubmit();
+            }}
             disabled={generateSubmitting}
             startIcon={
               generateSubmitting ? (
@@ -3305,7 +3591,7 @@ export default function AdaptiveTestingDetail({
               )
             }
           >
-            {generateSubmitting ? 'Generating…' : 'Generate'}
+            {generateSubmitting ? 'Getting…' : 'Get outputs'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -3317,7 +3603,7 @@ export default function AdaptiveTestingDetail({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Generate evaluations</DialogTitle>
+        <DialogTitle>Evaluate</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Run the metric configured in adaptive testing settings against each
@@ -3382,7 +3668,9 @@ export default function AdaptiveTestingDetail({
           </Button>
           <Button
             variant="contained"
-            onClick={handleEvaluateSubmit}
+            onClick={() => {
+              void handleEvaluateSubmit();
+            }}
             disabled={evaluateSubmitting}
             startIcon={
               evaluateSubmitting ? (
@@ -3392,7 +3680,7 @@ export default function AdaptiveTestingDetail({
               )
             }
           >
-            {evaluateSubmitting ? 'Generating…' : 'Generate evaluations'}
+            {evaluateSubmitting ? 'Evaluating…' : 'Evaluate'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -3416,9 +3704,8 @@ export default function AdaptiveTestingDetail({
           </Typography>
           {settingsReEvaluateWarning && (
             <Alert severity="warning" sx={{ mb: 2 }}>
-              To keep results consistent with a new endpoint or metric, use
-              Generate outputs and Generate evaluations for all tests in this
-              set.
+              To keep results consistent with a new endpoint or metric, use Get
+              outputs and Evaluate for all tests in this set.
             </Alert>
           )}
           {settingsError && (
@@ -3431,11 +3718,45 @@ export default function AdaptiveTestingDetail({
             </Alert>
           )}
           <Autocomplete
-            options={endpoints}
-            getOptionLabel={option => option.name ?? ''}
+            options={endpointOptions}
+            getOptionLabel={option =>
+              `${option.projectName} › ${option.endpointName}`
+            }
             value={settingsEndpoint}
             onChange={(_, value) => setSettingsEndpoint(value ?? null)}
             loading={endpointsLoading}
+            renderOption={(props, option) => {
+              const { key: _key, ...otherProps } = props;
+              return (
+                <li key={option.endpointId} {...otherProps}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      width: '100%',
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                      {option.projectName} › {option.endpointName}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        ml: 2,
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: theme => theme.shape.borderRadius * 0.25,
+                        bgcolor: 'action.hover',
+                        color: getEnvironmentColor(option.environment),
+                        fontWeight: 'medium',
+                      }}
+                    >
+                      {formatEnvironment(option.environment)}
+                    </Typography>
+                  </Box>
+                </li>
+              );
+            }}
             renderInput={params => (
               <TextField
                 {...params}

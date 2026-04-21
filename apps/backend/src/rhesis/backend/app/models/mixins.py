@@ -371,8 +371,8 @@ class EmbeddableMixin:
             str: Searchable text representation
 
         Example:
-            >>> source.to_searchable_text()
-            "Title: AI Safety Research. Description: Study on... Content: In this paper..."
+            >>> chunk.to_searchable_text()
+            "While this document focuses on the evolving trends in AI safety research, ..."
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement to_searchable_text() method"

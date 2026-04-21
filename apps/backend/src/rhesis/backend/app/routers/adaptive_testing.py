@@ -7,10 +7,12 @@ Provides views over test set data as adaptive testing trees:
 - Topics only (hierarchical topic structure)
 """
 
+import logging
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
@@ -23,25 +25,23 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.adaptive_testing import (
     AdaptiveSettingsResponse,
     AdaptiveSettingsUpdate,
-    ExportAdaptiveTestSetResponse,
-    ImportAdaptiveTestSetResponse,
+    CreateAdaptiveTestBody,
     EvaluateFailedItem,
     EvaluateRequest,
     EvaluateResponse,
     EvaluateResultItem,
     EvaluateSuggestionsRequest,
-    EvaluateSuggestionsResponse,
+    ExportAdaptiveTestSetResponse,
     GenerateOutputsFailedItem,
     GenerateOutputsRequest,
     GenerateOutputsResponse,
     GenerateOutputsUpdatedItem,
     GenerateSuggestionOutputsRequest,
-    GenerateSuggestionOutputsResponse,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
+    ImportAdaptiveTestSetResponse,
     SuggestedTest,
-    SuggestionEvalItem,
-    SuggestionOutputItem,
+    SuggestionPipelineRequest,
 )
 from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
@@ -49,9 +49,9 @@ from rhesis.backend.app.services.adaptive_testing import (
     create_topic_node,
     delete_adaptive_test_set,
     delete_test_node,
-    export_regular_test_set_from_adaptive,
-    evaluate_suggestions,
+    evaluate_suggestions_stream,
     evaluate_tests_for_adaptive_set,
+    export_regular_test_set_from_adaptive,
     generate_outputs_for_tests,
     generate_suggestions,
     get_adaptive_settings,
@@ -60,15 +60,18 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_tests,
     get_tree_topics,
     import_adaptive_test_set_from_source,
-    invoke_endpoint_for_suggestions,
+    invoke_endpoint_for_suggestions_stream,
     remove_topic_node,
     resolve_endpoint_id,
     resolve_metric_names,
+    suggestion_pipeline_stream,
     update_adaptive_settings,
     update_test_node,
     update_topic_node,
 )
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/adaptive_testing",
@@ -508,12 +511,7 @@ def delete_adaptive_topic(
 )
 def create_adaptive_test(
     test_set_identifier: str,
-    topic: Optional[str] = Body(None, description="Topic path for the test (optional)"),
-    input: str = Body(..., description="Test input / prompt text"),
-    output: str = Body("", description="Expected or actual output"),
-    labeler: str = Body("user", description="Who labelled this test"),
-    label: Optional[str] = Body(None, description="Label: 'pass', 'fail', or empty"),
-    model_score: float = Body(0.0, description="Model score"),
+    body: CreateAdaptiveTestBody,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -527,18 +525,54 @@ def create_adaptive_test(
     organization_id, user_id = tenant_context
     db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
-    return create_test_node(
+    node = create_test_node(
         db=db,
         test_set_id=db_test_set.id,
         organization_id=str(organization_id),
         user_id=str(user_id),
-        topic=topic or "",
-        input=input,
-        output=output,
-        labeler=labeler,
-        label=label or "",
-        model_score=model_score,
+        topic=body.topic or "",
+        input=body.input,
+        output=body.output,
+        labeler=body.labeler,
+        label=body.label or "",
+        model_score=body.model_score,
     )
+
+    if body.generate_embedding:
+        try:
+            from rhesis.backend.app.services.adaptive_testing.embeddings import (
+                create_test_embedding,
+                generate_embedding_vector,
+                load_test_for_embedding,
+            )
+
+            db_test = load_test_for_embedding(db, node.id, str(organization_id))
+            if not db_test:
+                logger.warning(
+                    "Adaptive test embedding skipped: Test row not found after create "
+                    "(test_id=%s, organization_id=%s)",
+                    node.id,
+                    organization_id,
+                )
+            else:
+                text = db_test.to_searchable_text()
+                vector = generate_embedding_vector(text, db, str(user_id))
+                stored = create_test_embedding(db, db_test, vector, current_user)
+                if stored is None:
+                    logger.warning(
+                        "Adaptive test embedding not persisted (test_id=%s); "
+                        "see earlier create_test_embedding logs for the reason",
+                        node.id,
+                    )
+        except Exception as e:
+            logger.warning(
+                "Adaptive test embedding skipped after create (test_id=%s): %s",
+                node.id,
+                e,
+                exc_info=True,
+            )
+
+    return node
 
 
 @router.put(
@@ -749,7 +783,7 @@ async def evaluate_tests(
     "/{test_set_identifier}/generate_suggestions",
     response_model=GenerateSuggestionsResponse,
 )
-def generate_suggestions_endpoint(
+async def generate_suggestions_endpoint(
     test_set_identifier: str,
     body: GenerateSuggestionsRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -764,7 +798,7 @@ def generate_suggestions_endpoint(
     """
     organization_id, user_id = tenant_context
     try:
-        result = generate_suggestions(
+        result = await generate_suggestions(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),
@@ -773,6 +807,7 @@ def generate_suggestions_endpoint(
             num_examples=body.num_examples,
             num_suggestions=body.num_suggestions,
             user_feedback=body.user_feedback,
+            generate_embeddings=body.generate_embeddings,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -785,7 +820,6 @@ def generate_suggestions_endpoint(
 
 @router.post(
     "/{test_set_identifier}/generate_suggestion_outputs",
-    response_model=GenerateSuggestionOutputsResponse,
 )
 async def generate_suggestion_outputs_endpoint(
     test_set_identifier: str,
@@ -802,19 +836,10 @@ async def generate_suggestion_outputs_endpoint(
     organization_id, user_id = tenant_context
     db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
-    inputs = [{"input": s.input, "topic": s.topic} for s in body.suggestions]
-
     try:
         endpoint_id = resolve_endpoint_id(
             test_set=db_test_set,
             request_endpoint_id=body.endpoint_id,
-        )
-        result = await invoke_endpoint_for_suggestions(
-            db=db,
-            endpoint_id=endpoint_id,
-            inputs=inputs,
-            organization_id=str(organization_id),
-            user_id=str(user_id),
         )
     except ValueError as e:
         msg = str(e).lower()
@@ -822,22 +847,87 @@ async def generate_suggestion_outputs_endpoint(
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
 
-    return GenerateSuggestionOutputsResponse(
-        generated=result["generated"],
-        results=[
-            SuggestionOutputItem(
-                input=r["input"],
-                output=r["output"],
-                error=r.get("error"),
-            )
-            for r in result["results"]
-        ],
-    )
+    async def _stream():
+        # NDJSON stream: one JSON object per line.
+        async for chunk in invoke_endpoint_for_suggestions_stream(
+            db=db,
+            endpoint_id=str(endpoint_id),
+            suggestions=body.suggestions,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+
+
+# ---------------------------------------------------------------------------
+# Unified suggestion pipeline (single stream)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{test_set_identifier}/suggestion_pipeline",
+)
+async def suggestion_pipeline_endpoint(
+    test_set_identifier: str,
+    body: SuggestionPipelineRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Unified pipeline: generate suggestions, invoke endpoint, evaluate — all in one NDJSON stream.
+
+    Streams events as they complete so the frontend receives outputs
+    immediately and evaluations overlap with remaining output calls.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        endpoint_id = resolve_endpoint_id(
+            test_set=db_test_set,
+            request_endpoint_id=body.endpoint_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
+        metric_names = resolve_metric_names(
+            test_set=db_test_set,
+            db=db,
+            organization_id=str(organization_id),
+            request_metric_names=body.metric_names,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "no metrics specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        if "metric" in msg and "does not exist" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+
+    async def _stream():
+        async for chunk in suggestion_pipeline_stream(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            endpoint_id=str(endpoint_id),
+            metric_names=metric_names,
+            topic=body.topic,
+            num_examples=body.num_examples,
+            num_suggestions=body.num_suggestions,
+            user_feedback=body.user_feedback,
+            generate_embeddings=body.generate_embeddings,
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
 
 @router.post(
     "/{test_set_identifier}/evaluate_suggestions",
-    response_model=EvaluateSuggestionsResponse,
 )
 async def evaluate_suggestions_endpoint(
     test_set_identifier: str,
@@ -854,21 +944,12 @@ async def evaluate_suggestions_endpoint(
     organization_id, user_id = tenant_context
     db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
-    items = [{"input": s.input, "output": s.output} for s in body.suggestions]
-
     try:
         metric_names = resolve_metric_names(
             test_set=db_test_set,
             db=db,
             organization_id=str(organization_id),
             request_metric_names=body.metric_names,
-        )
-        result = await evaluate_suggestions(
-            db=db,
-            organization_id=str(organization_id),
-            user_id=str(user_id),
-            metric_names=metric_names,
-            suggestions=items,
         )
     except ValueError as e:
         msg = str(e).lower()
@@ -878,17 +959,16 @@ async def evaluate_suggestions_endpoint(
             raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
 
-    return EvaluateSuggestionsResponse(
-        evaluated=result["evaluated"],
-        results=[
-            SuggestionEvalItem(
-                input=r["input"],
-                label=r["label"],
-                labeler=r["labeler"],
-                model_score=r["model_score"],
-                metrics=r.get("metrics"),
-                error=r.get("error"),
-            )
-            for r in result["results"]
-        ],
-    )
+    items = [{"input": s.input, "output": s.output} for s in body.suggestions]
+
+    async def _stream():
+        async for chunk in evaluate_suggestions_stream(
+            db=db,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            metric_names=metric_names,
+            suggestions=items,
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")

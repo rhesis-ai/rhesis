@@ -723,6 +723,12 @@ start_backend() {
         exit 1
     }
 
+    check_uv
+    echo -e "${BLUE}Installing backend packages (uv sync)...${NC}"
+    uv sync || {
+        echo -e "${RED}❌ Error: uv sync failed${NC}"
+        exit 1
+    }
 
     source .venv/bin/activate || {
         echo -e "${RED}❌ Error: Failed to activate virtual environment${NC}"
@@ -880,13 +886,40 @@ start_worker() {
     }
 
     LOG_FILE="$SCRIPT_DIR/celery.log"
+    FLOWER_PORT="${FLOWER_PORT:-5555}"
+    WORKER_PROJECT="$SCRIPT_DIR/apps/worker"
+
     echo -e "${GREEN}Starting new Celery worker...${NC}"
     echo -e "${BLUE}Logs will be written to: ${LOG_FILE}${NC}"
-    echo -e "${YELLOW}Press Ctrl+C to stop the worker${NC}"
+    echo -e "${YELLOW}Press Ctrl+C to stop the worker and Flower${NC}"
     echo ""
 
-    # Set up trap to handle Ctrl+C gracefully
-    trap "echo -e '\n${YELLOW}Shutting down worker...${NC}'; exit" INT TERM
+    # Flower is declared in apps/worker; backend cwd keeps .env loading consistent.
+    export PYTHONPATH="${SCRIPT_DIR}/apps/backend/src${PYTHONPATH:+:$PYTHONPATH}"
+
+    FLOWER_PID=""
+    WORKER_PID=""
+    cleanup_worker_stack() {
+        if [ -n "${WORKER_PID:-}" ] && kill -0 "$WORKER_PID" 2>/dev/null; then
+            echo -e "\n${YELLOW}Stopping Celery worker (PID ${WORKER_PID})...${NC}"
+            kill -TERM "$WORKER_PID" 2>/dev/null || true
+            wait "$WORKER_PID" 2>/dev/null || true
+        fi
+        if [ -n "${FLOWER_PID:-}" ] && kill -0 "$FLOWER_PID" 2>/dev/null; then
+            echo -e "${YELLOW}Stopping Flower (PID ${FLOWER_PID})...${NC}"
+            kill -TERM "$FLOWER_PID" 2>/dev/null || true
+            wait "$FLOWER_PID" 2>/dev/null || true
+        fi
+    }
+    trap 'cleanup_worker_stack; exit 130' INT
+    trap 'cleanup_worker_stack; exit 143' TERM
+
+    echo -e "${GREEN}Starting Flower (Celery monitor)...${NC}"
+    uv run --project "$WORKER_PROJECT" celery -A rhesis.backend.worker.app flower --port="$FLOWER_PORT" &
+    FLOWER_PID=$!
+    echo -e "${BLUE}Flower dashboard: http://127.0.0.1:${FLOWER_PORT}/${NC}"
+    echo -e "${BLUE}Override the port with: ${WHITE}FLOWER_PORT=<port> ./rh dev worker${NC}"
+    echo ""
 
     # Set CELERY_WORKER_NAME environment variable (using hostname-UUID for uniqueness)
     # Generate unique worker ID using hostname + UUID
@@ -896,17 +929,19 @@ start_worker() {
     export CELERY_WORKER_NAME="worker@$(hostname)-${WORKER_UUID}"
     echo -e "${GREEN}✅ CELERY_WORKER_NAME set to: ${CELERY_WORKER_NAME}${NC}"
 
-    # Run in foreground - using uv run handles the virtual environment automatically
-    # Using --logfile parameter to write logs directly
-    # Using -E to enable events for worker discovery
-    # Configuration matches apps/worker/start.sh for consistency
-    exec uv run celery -A rhesis.backend.worker.app worker \
+    uv run celery -A rhesis.backend.worker.app worker \
+        --pool threads \
         --loglevel=DEBUG \
         --queues=celery,execution,telemetry,architect \
-        --concurrency=8 \
-        --max-tasks-per-child=500 \
+        --concurrency=${CELERY_WORKER_CONCURRENCY:-2} \
         --optimization=fair \
-        -E 
+        -E &
+    WORKER_PID=$!
+
+    wait "$WORKER_PID"
+    WORKER_RC=$?
+    cleanup_worker_stack
+    exit "$WORKER_RC"
 }
 
 # Function to run frontend tests

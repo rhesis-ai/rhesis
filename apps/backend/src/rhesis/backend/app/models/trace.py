@@ -14,24 +14,31 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.backend.app.constants import AISpanAttributes
+from rhesis.backend.app.constants import REVIEW_TARGET_TRACE, AISpanAttributes
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.mixins import (
     CommentsMixin,
+    EmbeddableMixin,
     FilesMixin,
     ReviewsMixin,
     TagsMixin,
     TasksMixin,
 )
 
-from rhesis.backend.app.constants import REVIEW_TARGET_TRACE
-
 if TYPE_CHECKING:
     pass
 
 
-class Trace(Base, TagsMixin, CommentsMixin, TasksMixin, FilesMixin, ReviewsMixin):
+class Trace(
+    Base,
+    EmbeddableMixin,
+    TagsMixin,
+    CommentsMixin,
+    TasksMixin,
+    FilesMixin,
+    ReviewsMixin,
+):
     """OpenTelemetry trace span model."""
 
     __tablename__ = "trace"
@@ -154,3 +161,41 @@ class Trace(Base, TagsMixin, CommentsMixin, TasksMixin, FilesMixin, ReviewsMixin
     def total_tokens(self) -> int | None:
         """Extract total tokens from attributes."""
         return self.attributes.get(AISpanAttributes.TOKENS_TOTAL)
+
+    def to_searchable_text(self) -> str:
+        """
+        Generate searchable text from trace fields for embeddings and full-text search.
+        Extracts span info, status, and relevant AI attributes (excluding system prompts).
+        """
+        content = [
+            self.span_name,
+            self.status_code,
+            self.status_message,
+            self.operation_type,
+            self.model_name,
+        ]
+
+        if self.attributes and isinstance(self.attributes, dict):
+            # Extract common prompt/completion/tool attributes if present
+            for key, value in self.attributes.items():
+                key_lower = key.lower()
+
+                # Exclude system prompts/messages
+                if "system" in key_lower:
+                    continue
+
+                if any(
+                    term in key_lower
+                    for term in [
+                        "prompt",
+                        "completion",
+                        "message",
+                        "content",
+                        "tool",
+                        "function",
+                        "call",
+                    ]
+                ):
+                    content.append(str(value))
+
+        return " ".join(filter(None, content)).strip()

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-04-09
+
+### Added
+- Added an Attachments column to the tests grid, displaying the number of attached files.
+- Implemented NIST-aligned password hardening, including zxcvbn strength scoring, context-specific word blocking, and HaveIBeenPwned breach checks. Minimum password length increased to 12 characters.
+- Added the ability to set the VLLM logging level via the `VLLM_LOGGING_LEVEL` environment variable.
+
+### Changed
+- Updated password policy UI and error handling to align with the new NIST-aligned password policy.
+- Improved test run advanced filters metrics by fetching only the metrics used in the current test run.
+- Improved performance of test run metrics fetching by using a Postgres query to retrieve distinct metric names.
+- Updated vulnerable dependencies to address Dependabot security alerts.
+- Updated `langgraph` to version 1.0.10 to address an unsafe msgpack deserialization vulnerability.
+- Updated `mcp-atlassian` to version 0.21.0 to address an arbitrary file write/RCE vulnerability.
+- Updated `tornado` to version 6.5.5 to address a DoS vulnerability.
+- Modified MCP agent to use the system default model instead of the user's configured model.
+
+### Fixed
+- Fixed a StaleDataError during onboarding caused by RLS session variable loss after `db.commit()`.
+- Fixed a broken filter layout on the metrics overview page.
+- Fixed an issue where tasks created from the single-turn test result drawer did not store `test_run_id` metadata.
+- Fixed tests grid random reordering by adding a stable secondary sort.
+- Fixed counts including soft-deleted records in Comments, Files, and Tasks.
+- Fixed the Notion integration link to point to the internal integrations page.
+- Fixed an issue where the MCP agent could return raw file contents or markdown-wrapped responses instead of a JSON array.
+
+### Removed
+- Removed PyTorch from the Polyphemus Docker image, reducing the image size.
+- Removed Assignee and Owner fields from the Test Run Configuration.
+
+
 ## [0.2.8] - 2026-03-12
 
 ### Added

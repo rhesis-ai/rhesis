@@ -13,7 +13,7 @@ from rhesis.backend.app.services.invokers.tracing import (
     generate_span_id,
     generate_trace_id,
 )
-from rhesis.sdk.telemetry.schemas import SpanKind, StatusCode
+from rhesis.telemetry.schemas import SpanKind, StatusCode
 
 
 def test_generate_trace_id():

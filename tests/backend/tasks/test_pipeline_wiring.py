@@ -5,7 +5,8 @@ Covers:
 - execute_test: creates correct OutputProvider based on params
 - execute_single_test Celery task: accepts and forwards new params
 - execute_test_cases orchestration: passes params to execution strategies
-- execute_tests_in_parallel: includes params in task kwargs
+- execute_tests_as_batch: batch execution for parallel mode
+- execute_tests_in_parallel: includes params in task kwargs (legacy)
 - execute_tests_sequentially: passes params to execute_test
 - execute_test_configuration: extracts reference_test_run_id from attributes
 """
@@ -182,7 +183,7 @@ class TestOrchestrationPassthrough:
     """Tests that execute_test_cases passes params to execution strategies."""
 
     def test_parallel_receives_params(self):
-        """execute_test_cases passes reference_test_run_id to parallel strategy."""
+        """execute_test_cases passes reference_test_run_id to batch strategy."""
         mock_test_set = MagicMock()
         mock_test_set.tests = [MagicMock()]
 
@@ -195,9 +196,9 @@ class TestOrchestrationPassthrough:
                 "rhesis.backend.tasks.execution.orchestration.get_execution_mode",
             ) as mock_mode,
             patch(
-                "rhesis.backend.tasks.execution.orchestration.execute_tests_in_parallel",
+                "rhesis.backend.tasks.execution.orchestration.execute_tests_as_batch",
                 return_value={"total_tests": 1},
-            ) as mock_parallel,
+            ) as mock_batch,
         ):
             from rhesis.backend.tasks.enums import ExecutionMode
             from rhesis.backend.tasks.execution.orchestration import (
@@ -214,7 +215,7 @@ class TestOrchestrationPassthrough:
                 trace_id="trace-1",
             )
 
-        call_kwargs = mock_parallel.call_args.kwargs
+        call_kwargs = mock_batch.call_args.kwargs
         assert call_kwargs["reference_test_run_id"] == "ref-run-1"
         assert call_kwargs["trace_id"] == "trace-1"
 
@@ -253,116 +254,6 @@ class TestOrchestrationPassthrough:
         call_kwargs = mock_sequential.call_args.kwargs
         assert call_kwargs["reference_test_run_id"] == "ref-run-2"
 
-
-# ============================================================================
-# Parallel execution task kwargs tests
-# ============================================================================
-
-
-class TestParallelTaskKwargs:
-    """Tests that execute_tests_in_parallel includes new params in task kwargs."""
-
-    def test_includes_reference_test_run_id_in_tasks(self):
-        """Parallel execution includes reference_test_run_id in chord task kwargs."""
-        mock_test = MagicMock()
-        mock_test.id = "test-1"
-        mock_config = MagicMock()
-        mock_config.id = "cfg-1"
-        mock_config.endpoint_id = "ep-1"
-        mock_config.organization_id = "org-1"
-        mock_config.user_id = "user-1"
-        mock_run = MagicMock()
-        mock_run.id = "run-1"
-
-        with (
-            patch(
-                "rhesis.backend.tasks.execution.parallel.update_test_run_start",
-            ),
-            patch(
-                "rhesis.backend.tasks.execution.parallel.execute_single_test",
-            ) as mock_task,
-            patch(
-                "rhesis.backend.tasks.execution.parallel.collect_results",
-            ) as mock_collect,
-            patch(
-                "rhesis.backend.tasks.execution.parallel.chord",
-            ) as mock_chord,
-            patch(
-                "rhesis.backend.tasks.execution.parallel.create_execution_result",
-                return_value={"total_tests": 1},
-            ),
-        ):
-            mock_sig = MagicMock()
-            mock_task.s = MagicMock(return_value=mock_sig)
-            mock_chord_result = MagicMock()
-            mock_chord.return_value = mock_chord_result
-            mock_collect.s = MagicMock(return_value=MagicMock())
-
-            from rhesis.backend.tasks.execution.parallel import (
-                execute_tests_in_parallel,
-            )
-
-            execute_tests_in_parallel(
-                session=MagicMock(),
-                test_config=mock_config,
-                test_run=mock_run,
-                tests=[mock_test],
-                reference_test_run_id="ref-run-99",
-            )
-
-        call_kwargs = mock_task.s.call_args.kwargs
-        assert call_kwargs["reference_test_run_id"] == "ref-run-99"
-
-    def test_excludes_none_optional_params(self):
-        """Parallel execution omits reference_test_run_id when it is None."""
-        mock_test = MagicMock()
-        mock_test.id = "test-1"
-        mock_config = MagicMock()
-        mock_config.id = "cfg-1"
-        mock_config.endpoint_id = "ep-1"
-        mock_config.organization_id = "org-1"
-        mock_config.user_id = "user-1"
-        mock_run = MagicMock()
-        mock_run.id = "run-1"
-
-        with (
-            patch(
-                "rhesis.backend.tasks.execution.parallel.update_test_run_start",
-            ),
-            patch(
-                "rhesis.backend.tasks.execution.parallel.execute_single_test",
-            ) as mock_task,
-            patch(
-                "rhesis.backend.tasks.execution.parallel.collect_results",
-            ) as mock_collect,
-            patch(
-                "rhesis.backend.tasks.execution.parallel.chord",
-            ) as mock_chord,
-            patch(
-                "rhesis.backend.tasks.execution.parallel.create_execution_result",
-                return_value={"total_tests": 1},
-            ),
-        ):
-            mock_sig = MagicMock()
-            mock_task.s = MagicMock(return_value=mock_sig)
-            mock_chord_result = MagicMock()
-            mock_chord.return_value = mock_chord_result
-            mock_collect.s = MagicMock(return_value=MagicMock())
-
-            from rhesis.backend.tasks.execution.parallel import (
-                execute_tests_in_parallel,
-            )
-
-            execute_tests_in_parallel(
-                session=MagicMock(),
-                test_config=mock_config,
-                test_run=mock_run,
-                tests=[mock_test],
-            )
-
-        call_kwargs = mock_task.s.call_args.kwargs
-        assert "reference_test_run_id" not in call_kwargs
-        assert "trace_id" not in call_kwargs
 
 
 # ============================================================================

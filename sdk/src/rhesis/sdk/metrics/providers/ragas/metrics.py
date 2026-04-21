@@ -7,7 +7,7 @@ from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.ragas.metric_base import RagasMetricBase
 from rhesis.sdk.metrics.utils import retry_evaluation
-from rhesis.sdk.models import BaseLLM
+from rhesis.sdk.models.base import BaseLLM
 
 
 class RagasContextRelevance(RagasMetricBase):

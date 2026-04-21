@@ -230,6 +230,8 @@ class TestSetExecutionRequest(BaseModel):
     execution_options: Optional[Dict[str, Any]] = None
     metrics: Optional[List[ExecutionMetric]] = None
     reference_test_run_id: Optional[UUID4] = None
+    execution_model_id: Optional[UUID4] = None
+    evaluation_model_id: Optional[UUID4] = None
 
     @field_validator("execution_options")
     @classmethod
@@ -256,3 +258,4 @@ class TestRunRescoreRequest(BaseModel):
 
     metrics: Optional[List[ExecutionMetric]] = None
     execution_options: Optional[Dict[str, Any]] = None
+    evaluation_model_id: Optional[UUID4] = None

@@ -15,13 +15,13 @@ For detailed usage and configuration options, see VertexAILLM class documentatio
 
 import atexit
 import base64
-import contextlib
 import hashlib
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import AsyncIterator, List, Optional, Set, Type, Union
+from typing import List, Optional, Set, Type, Union
 
 from pydantic import BaseModel
 
@@ -32,6 +32,8 @@ from rhesis.sdk.models.defaults import (
     model_name_from_id,
 )
 from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
+
+logger = logging.getLogger(__name__)
 
 # Track temp files created by this process for cleanup
 _temp_credential_files: Set[str] = set()
@@ -118,13 +120,7 @@ class VertexAICredentialsMixin:
         # Write credentials to the persistent temp file (idempotent)
         # If file already exists, we'll just overwrite it (safe since content is the same)
         try:
-            # Use os.open with restrictive permissions (owner read/write only)
-            fd = os.open(
-                str(temp_file_path),
-                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-                0o600,
-            )
-            with os.fdopen(fd, "w") as f:
+            with open(temp_file_path, "w") as f:
                 json.dump(credentials_json, f)
 
             # Track this file for cleanup at process exit
@@ -215,14 +211,11 @@ class VertexAICredentialsMixin:
         except Exception:
             pass
 
-        # All methods failed — never log the raw value (it may contain secrets)
-        is_file_like = "/" in credentials or "\\" in credentials
-        hint = (
-            f"path '{credentials}' does not exist"
-            if is_file_like
-            else f"value ({len(credentials)} chars) is not valid base64 or a file path"
+        # All methods failed
+        raise ValueError(
+            f"GOOGLE_APPLICATION_CREDENTIALS is neither valid base64 nor an existing file path: "
+            f"{credentials}"
         )
-        raise ValueError(f"GOOGLE_APPLICATION_CREDENTIALS could not be loaded: {hint}")
 
     def _load_vertex_config(self) -> dict:
         """
@@ -364,23 +357,6 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         self._vertex_config = self._load_vertex_config()
         return self._vertex_config
 
-    @contextlib.contextmanager
-    def _vertex_env(self, kwargs):
-        """Inject Vertex AI project/location and credentials into kwargs and env."""
-        kwargs["vertex_ai_project"] = self.model["project"]
-        kwargs["vertex_ai_location"] = self.model["location"]
-
-        credentials_path = self._ensure_credentials_file()
-        original = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-        try:
-            yield
-        finally:
-            if original:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original
-            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
-
     async def a_generate(
         self,
         prompt: str,
@@ -389,14 +365,34 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         *args,
         **kwargs,
     ):
-        with self._vertex_env(kwargs):
-            return await super().a_generate(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                schema=schema,
-                *args,
-                **kwargs,
-            )
+        """
+        Generate content using Vertex AI (async).
+
+        Overrides the parent to inject Vertex AI-specific parameters.
+        Called directly via ``await model.a_generate(...)`` or indirectly
+        through ``model.generate(...)`` which bridges via ``run_sync()``.
+
+        Args:
+            prompt: The text prompt
+            system_prompt: Optional system prompt
+            schema: Optional Pydantic schema for structured output
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            Generated text or dict (if schema provided)
+        """
+        kwargs["vertex_ai_project"] = self.model["project"]
+        kwargs["vertex_ai_location"] = self.model["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+
+        return await super().a_generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            schema=schema,
+            *args,
+            **kwargs,
+        )
 
     def generate_batch(
         self,
@@ -407,27 +403,61 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         *args,
         **kwargs,
     ) -> List[Union[str, dict]]:
-        with self._vertex_env(kwargs):
-            return super().generate_batch(
-                prompts=prompts,
-                system_prompt=system_prompt,
-                schema=schema,
-                n=n,
-                *args,
-                **kwargs,
-            )
+        """
+        Generate batch content using Vertex AI.
 
-    async def generate_stream(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        **kwargs,
-    ) -> AsyncIterator[str]:
-        with self._vertex_env(kwargs):
-            async for chunk in super().generate_stream(
-                prompt=prompt, system_prompt=system_prompt, **kwargs
-            ):
-                yield chunk
+        This method overrides the parent to inject Vertex AI-specific parameters.
+
+        Args:
+            prompts: List of user prompts
+            system_prompt: Optional system prompt (applied to all prompts)
+            schema: Optional Pydantic schema for structured output
+            n: Number of completions to generate per prompt
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            List of generated text or dicts (if schema provided)
+        """
+        # Inject Vertex AI-specific parameters
+        kwargs["vertex_ai_project"] = self.model["project"]
+        kwargs["vertex_ai_location"] = self.model["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+
+        return super().generate_batch(
+            prompts=prompts,
+            system_prompt=system_prompt,
+            schema=schema,
+            n=n,
+            *args,
+            **kwargs,
+        )
+
+    async def warmup(self) -> None:
+        """Pre-warm LiteLLM's VertexAI credential cache before concurrent use.
+
+        LiteLLM's module-level ``vertex_chat_completion`` singleton fetches an OAuth
+        token on the first call via ``_ensure_access_token_async``.  Without a warm-up,
+        every coroutine in an ``asyncio.gather`` batch races to fetch the token
+        simultaneously, each spawning its own thread and making redundant HTTPS calls.
+
+        One sequential warm-up call here populates ``_credentials_project_mapping`` in
+        the singleton so every subsequent concurrent call returns the cached token
+        immediately.
+        """
+        try:
+            from litellm.main import vertex_chat_completion
+
+            credentials_path = self._ensure_credentials_file()
+            project = (self.model or {}).get("project")
+            await vertex_chat_completion._ensure_access_token_async(
+                credentials=credentials_path,
+                project_id=project,
+                custom_llm_provider="vertex_ai",
+            )
+            logger.debug("VertexAI credentials pre-warmed (LiteLLM cache populated)")
+        except Exception as e:
+            logger.warning(f"VertexAI credential pre-warm failed (non-fatal, proceeding): {e}")
 
     def __del__(self):
         """
@@ -525,22 +555,9 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
         # Inject Vertex AI-specific parameters
         kwargs["vertex_project"] = self._vertex_config["project"]
         kwargs["vertex_location"] = self._vertex_config["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
 
-        # Ensure credentials file exists
-        credentials_path = self._ensure_credentials_file()
-
-        # Set credentials via environment variable for LiteLLM
-        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-
-        try:
-            return func(*args, **kwargs)
-        finally:
-            # Restore original credentials environment variable
-            if original_credentials:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
-            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        return func(*args, **kwargs)
 
     def generate(self, text: str, **kwargs) -> Embedding:
         """Generate embedding for a single text using Vertex AI.
@@ -556,6 +573,13 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
             TypeError: If text is not a string.
         """
         return self._with_vertex_credentials(super().generate, text, **kwargs)
+
+    async def a_generate(self, text: str, **kwargs) -> Embedding:
+        """Async embedding for a single text using Vertex AI."""
+        kwargs["vertex_project"] = self._vertex_config["project"]
+        kwargs["vertex_location"] = self._vertex_config["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+        return await super().a_generate(text, **kwargs)
 
     def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:
         """Generate embeddings for multiple texts using Vertex AI.

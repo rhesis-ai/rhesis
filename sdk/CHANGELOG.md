@@ -13,6 +13,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.12] - 2026-04-09
+
+### Added
+- Introduced a lightweight `rhesis-telemetry` package to serve as a foundation for telemetry.
+- Added a built-in "echo" use case to the chatbot that returns user input verbatim without invoking an LLM or consuming rate limits.
+- Added a POST `/test_runs/{id}/cancel` endpoint to cancel running tests.
+- Implemented a "Cancel Test Run(s)" button in the frontend to allow users to cancel queued or in-progress test runs.
+- Implemented mid-flight cancellation of tests via an asyncio watchdog, allowing tests to be cancelled while running.
+- Added user feedback functionality for suggestion generation in adaptive testing.
+- Exposed per-metric evaluation details in the backend.
+- Added optional metrics on tree nodes in the SDK.
+- Implemented a mop-up pass to retry transient failures after the main batch of tests.
+
+### Changed
+- Repurposed the `rhesis` meta-package as a lightweight telemetry foundation.
+- Replaced chord fan-out with an async batch execution engine for improved performance.
+- Switched the Celery worker from a prefork pool to a threads pool to eliminate fork-related crashes.
+- Invokers, the endpoint service, and metrics now support asynchronous operations.
+- The default sort order for test retrieval in adaptive testing is now descending, prioritizing the most recent tests.
+- Adaptive testing now defaults to overwriting existing outputs when generating evaluations.
+- Increased the default per-test timeout from 300s to 1800s (30 minutes).
+
+### Fixed
+- Fixed unique ordered model IDs in LiteLLM listings.
+- Fixed SIGTRAP/SIGKILL during concurrent Vertex AI tests by passing credentials directly.
+- Fixed a stuck "Progress" status on TestRun by catching Celery task failure and task revoked signals.
+- Fixed bugs in the batch engine and invoker layer, including misplaced docstrings and thread-safety races.
+- Prevented negative duration on failed test runs in the frontend.
+- Disabled raw HTML parsing in markdown to prevent React errors.
+- Bound telemetry tasks to the Redis Celery app to prevent broker unavailability issues.
+- Restored `timeout_error` and `connection_error` to `_TRANSIENT_ERROR_TYPES`.
+- Improved telemetry ingestion error logging with stage tracking and tracebacks.
+- Restored backward-compatible API and fixed broken tests in invokers.
+- Fixed an RPC close bug and eliminated per-invocation object construction for performance improvements.
+- Persisted error records for failed tests.
+- Fixed lazy loading of metrics, services, models, and synthesizers in the SDK.
+
+### Removed
+- Removed the option to overwrite existing outputs in adaptive testing, defaulting to true.
+
+
 ## [0.6.11] - 2026-03-26
 
 ### Added

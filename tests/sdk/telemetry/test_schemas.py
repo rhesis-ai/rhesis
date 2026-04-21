@@ -4,8 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
-
-from rhesis.sdk.telemetry.schemas import (
+from rhesis.telemetry.schemas import (
     FORBIDDEN_SPAN_DOMAINS,
     AILLMAttributes,
     AIOperationType,
@@ -240,8 +239,8 @@ class TestOTELTraceBatch:
         with pytest.raises(ValidationError):
             OTELTraceBatch(spans=[])
 
-    def test_batch_validation_max_length(self):
-        """Test batch cannot exceed 1000 spans."""
+    def test_batch_validation_no_max_length(self):
+        """Test batch has no upper bound (controlled by BatchSpanProcessor)."""
         now = datetime.now(timezone.utc)
         spans = [
             OTELSpan(
@@ -254,8 +253,8 @@ class TestOTELTraceBatch:
             )
             for i in range(1001)
         ]
-        with pytest.raises(ValidationError):
-            OTELTraceBatch(spans=spans)
+        batch = OTELTraceBatch(spans=spans)
+        assert len(batch.spans) == 1001
 
 
 class TestTraceIngestResponse:

@@ -7,6 +7,7 @@ on:
       - 'apps/worker/**'
       - 'apps/backend/**'
       - 'sdk/**'
+      - 'penelope/**'
       - '.github/workflows/worker.yml'
   workflow_dispatch:
     inputs:
@@ -290,11 +291,13 @@ jobs:
             --from-literal=LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
             --from-literal=CELERY_WORKER_LOGLEVEL="${{ secrets.LOG_LEVEL || 'INFO' }}" \
             --from-literal=CELERY_WORKER_CONCURRENCY="${{ secrets.CELERY_WORKER_CONCURRENCY || '2' }}" \
+            --from-literal=BATCH_CONCURRENCY="${{ secrets.BATCH_CONCURRENCY || '10' }}" \
             --from-literal=GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --from-literal=GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \
             --from-literal=GEMINI_MODEL_NAME="${{ secrets.GEMINI_MODEL_NAME }}" \
             --from-literal=DEFAULT_GENERATION_MODEL="${{ secrets.DEFAULT_GENERATION_MODEL }}" \
             --from-literal=DEFAULT_EVALUATION_MODEL="${{ secrets.DEFAULT_EVALUATION_MODEL }}" \
+            --from-literal=DEFAULT_EXECUTION_MODEL="${{ secrets.DEFAULT_EXECUTION_MODEL }}" \
             --from-literal=DEFAULT_EMBEDDING_MODEL="${{ secrets.DEFAULT_EMBEDDING_MODEL }}" \
             --from-literal=GOOGLE_APPLICATION_CREDENTIALS="${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}" \
             --from-literal=VERTEX_AI_LOCATION="${{ secrets.VERTEX_AI_LOCATION }}" \
@@ -344,7 +347,7 @@ jobs:
           echo "🔧 Applying optimized resource configurations..."
           echo "  - Memory request: 4Gi (prevents HPA auto-scaling due to memory pressure)"
           echo "  - Memory limit: 6Gi (generous headroom for spikes and safety)"
-          echo "  - Celery concurrency: 2 (optimized for minimal memory usage and debugging)"
+          echo "  - Pool: threads (no fork, safe with native libraries)"
 
           # Set environment-specific replica counts for clean deployment
           echo "🗑️ Ensuring clean deployment state..."
@@ -375,13 +378,13 @@ jobs:
           # Set environment-specific replica counts
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
             sed -i 's/replicas: 4/replicas: 4/g' deployment.yaml
-            echo "  ✅ Production: Deploying with 4 initial replicas (8 total workers with concurrency=2)"
+            echo "  ✅ Production: Deploying with 4 initial replicas"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             sed -i 's/replicas: 4/replicas: 1/g' deployment.yaml
-            echo "  ✅ Staging: Deploying with 1 initial replica (2 total workers with concurrency=2)"
+            echo "  ✅ Staging: Deploying with 1 initial replica"
           else
             sed -i 's/replicas: 4/replicas: 1/g' deployment.yaml
-            echo "  ✅ Development: Deploying with 1 initial replica (2 total workers with concurrency=2)"
+            echo "  ✅ Development: Deploying with 1 initial replica"
           fi
 
           echo "🧹 Clean deployment preparation completed"
@@ -389,23 +392,23 @@ jobs:
           # Always force pod restart by updating timestamp annotation
           sed -i "s|deployment-timestamp: \"placeholder\"|deployment-timestamp: \"$(date +%s)\"|g" deployment.yaml
 
-          # Configure HPA based on environment with optimized concurrency=2
-          echo "🌍 Configuring for ${{ env.ENV_VALUE }} environment (concurrency=2 optimized)..."
+          # Configure HPA based on environment
+          echo "🌍 Configuring for ${{ env.ENV_VALUE }} environment..."
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
             MIN_REPLICAS="4"
             MAX_REPLICAS="8"
             NAMESPACE_NAME="rhesis-worker"
-            echo "  - Production: Min 4, Max 8 replicas (8-16 total workers)"
+            echo "  - Production: Min 4, Max 8 replicas"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             MIN_REPLICAS="1"
             MAX_REPLICAS="2"
             NAMESPACE_NAME="rhesis-worker-${{ env.ENV_VALUE }}"
-            echo "  - Staging: Min 1, Max 2 replicas (2-4 total workers)"
+            echo "  - Staging: Min 1, Max 2 replicas"
           else
             MIN_REPLICAS="1"
             MAX_REPLICAS="2"
             NAMESPACE_NAME="rhesis-worker-${{ env.ENV_VALUE }}"
-            echo "  - Development: Min 1, Max 2 replicas (2-4 total workers)"
+            echo "  - Development: Min 1, Max 2 replicas"
           fi
 
           # Generate HPA with environment-specific values
@@ -523,14 +526,14 @@ jobs:
           echo "  ✅ Namespace: ${{ env.NAMESPACE }}"
           echo "  ✅ Image: ${{ env.IMAGE_NAME }}:latest"
           echo "  ✅ Environment: ${{ env.ENV_VALUE }}"
-          echo "  ✅ Resource optimization: Applied (4Gi/6Gi memory, 250m CPU)"
-          echo "  ✅ Concurrency: Optimized 2 workers per pod (minimal memory usage)"
+          echo "  ✅ Resources: 4Gi/6Gi memory, 250m/1000m CPU"
+          echo "  ✅ Pool: threads (CELERY_WORKER_CONCURRENCY threads per pod)"
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
-            echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods, 8-16 total workers)"
+            echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods)"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
-            echo "  ✅ Autoscaling: Enabled with HPA (1-2 pods, 2-4 total workers)"
+            echo "  ✅ Autoscaling: Enabled with HPA (1-2 pods)"
           else
-            echo "  ✅ Autoscaling: Enabled with HPA (1-2 pods, 2-4 total workers)"
+            echo "  ✅ Autoscaling: Enabled with HPA (1-2 pods)"
           fi
           echo "  ✅ Cleanup: Old pods removed"
 

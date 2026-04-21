@@ -357,6 +357,7 @@ async def generate_text_batch_via_vertex_endpoint(
                     timeout_seconds=timeout_seconds,
                 )
             except Exception as exc:
+                logger.error("Batch item failed: %s", exc, exc_info=True)
                 return {"error": str(exc)}
 
     results = await asyncio.gather(

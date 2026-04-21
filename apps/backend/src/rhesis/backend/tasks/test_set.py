@@ -1,21 +1,19 @@
 import logging
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, TestSetType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
-from rhesis.backend.app.services.generation import get_source_specifications
 from rhesis.backend.app.services.test_set import bulk_create_test_set
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+from rhesis.backend.celery.core import app
 from rhesis.backend.notifications.email.template_service import EmailTemplate
-from rhesis.backend.tasks.base import BaseTask, email_notification
-from rhesis.backend.worker import app
+from rhesis.backend.tasks.base import BaseTask, EmailEnabledTask, email_notification
 
-# Import SDK components for test generation
-from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.synthesizers import ConfigSynthesizer, MultiTurnSynthesizer
+# SDK components (BaseLLM, ConfigSynthesizer, MultiTurnSynthesizer) are
+# imported lazily inside task functions to avoid pulling litellm → gRPC
+# into the Celery main process before forking (gRPC is not fork-safe).
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -55,16 +53,16 @@ def count_test_sets(self):
             # Get counts by visibility
             public_count = db.query(TestSet).filter(TestSet.visibility == "public").count()
             private_count = db.query(TestSet).filter(TestSet.visibility == "private").count()
+
+            published_count = db.query(TestSet).filter(TestSet.is_published).count()
+            unpublished_count = db.query(TestSet).filter(~TestSet.is_published).count()
+
         self.log_with_context(
             "info",
             "Visibility counts retrieved",
             public_count=public_count,
             private_count=private_count,
         )
-
-        # Get counts by published status
-        published_count = db.query(TestSet).filter(TestSet.is_published).count()
-        unpublished_count = db.query(TestSet).filter(~TestSet.is_published).count()
         self.log_with_context(
             "info",
             "Published status counts retrieved",
@@ -179,7 +177,7 @@ def _save_test_set_to_database(
     return db_test_set
 
 
-def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
+def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, Any]:
     """
     Fetch user's configured generation model from database.
 
@@ -192,9 +190,10 @@ def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
     """
     self.log_with_context("info", "Fetching user's configured generation model")
     with get_db_with_tenant_variables(org_id, user_id) as db:
-        # Get the user from database (user_id from context is already a UUID string)
         user = crud.get_user(db, user_id=user_id)
         if user:
+            from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
+
             model = get_user_generation_model(db, user)
             self.log_with_context(
                 "info",
@@ -204,6 +203,40 @@ def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, BaseLLM]:
             return model
         else:
             # Fallback to default if user not found
+            self.log_with_context(
+                "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
+            )
+            return DEFAULT_GENERATION_MODEL
+
+
+def _get_override_model(self, org_id: str, user_id: str, model_id: str) -> Union[str, Any]:
+    """
+    Fetch a specific model by ID for per-request override.
+
+    Args:
+        org_id: Organization ID
+        user_id: User ID
+        model_id: Model UUID to fetch
+
+    Returns:
+        Either a configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
+    """
+    self.log_with_context("info", "Fetching per-request override model", model_id=model_id)
+    with get_db_with_tenant_variables(org_id, user_id) as db:
+        user = crud.get_user(db, user_id=user_id)
+        if user:
+            from rhesis.backend.app.utils.user_model_utils import (
+                get_generation_model_with_override,
+            )
+
+            model = get_generation_model_with_override(db, user, model_id=model_id)
+            self.log_with_context(
+                "info",
+                "Using per-request override model",
+                model_type=type(model).__name__ if not isinstance(model, str) else "string",
+            )
+            return model
+        else:
             self.log_with_context(
                 "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
             )
@@ -243,7 +276,7 @@ def _build_task_result(
     subject_template="Test Set Generation Complete: {task_name} - {status}",
 )
 @app.task(
-    base=BaseTask,
+    base=EmailEnabledTask,
     name="rhesis.backend.tasks.generate_and_save_test_set",
     bind=True,
     display_name="Generate and Save Test Set",
@@ -257,6 +290,7 @@ def generate_and_save_test_set(
     name: Optional[str] = None,
     test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
     metadata: Optional[dict] = None,
+    model_id: Optional[str] = None,
 ):
     """
     Generate and save test set using ConfigSynthesizer.
@@ -272,6 +306,7 @@ def generate_and_save_test_set(
         metadata: Optional extra metadata dict to merge into the saved test set's
                   metadata. Useful for attaching structured labels (e.g. garak_tags,
                   garak_module) from callers that know more context than the synthesizer.
+        model_id: Optional model UUID to override the user's default generation model
 
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
@@ -289,6 +324,8 @@ def generate_and_save_test_set(
 
     if sources:
         with self.get_db_session() as db:
+            from rhesis.backend.app.services.generation import get_source_specifications
+
             source_specifications = get_source_specifications(
                 sources=[SourceData(**s) for s in sources],
                 db=db,
@@ -296,8 +333,11 @@ def generate_and_save_test_set(
                 user_id=user_id,
             )
 
-    # Get user's model
-    model = _get_model_for_user(self, org_id, user_id)
+    # Get model: use per-request override if provided, otherwise user's default
+    if model_id:
+        model = _get_override_model(self, org_id, user_id, model_id)
+    else:
+        model = _get_model_for_user(self, org_id, user_id)
 
     # Determine model info for logging
     model_info = model if isinstance(model, str) else f"{type(model).__name__} instance"
@@ -329,6 +369,8 @@ def generate_and_save_test_set(
             valid = [t.value for t in TestSetType]
             raise ValueError(f"Unsupported test_type {test_type!r}. Valid values: {valid}")
         test_type = resolved_type.value
+
+        from rhesis.sdk.synthesizers import ConfigSynthesizer, MultiTurnSynthesizer
 
         # Create synthesizer with full config
         if test_type == TestSetType.SINGLE_TURN.value:

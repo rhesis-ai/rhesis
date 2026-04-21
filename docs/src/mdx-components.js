@@ -14,7 +14,6 @@ import { InfoCardHorizontal } from './components/InfoCardHorizontal'
 import { PlatformFeatures } from './components/PlatformFeatures'
 import { AdvancedCapabilities } from './components/AdvancedCapabilities'
 import { YouTubeEmbed } from './components/YouTubeEmbed'
-
 // Get the default MDX components
 const themeComponents = getThemeComponents()
 

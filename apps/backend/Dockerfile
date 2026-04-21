@@ -57,13 +57,15 @@ ENV UV_LINK_MODE=copy
 # Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
 
-# Copy the SDK and Penelope directories
+# Copy the SDK, Penelope, and rhesis meta-package (SDK depends on rhesis[telemetry])
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
+COPY packages/rhesis /app/packages/rhesis/
 
 # Fix paths in pyproject.toml to point to the correct locations in Docker
 RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
 
 # Install dependencies (torch is in optional dependencies, not installed by default)
 # To install with CPU torch, use: uv sync --extra cpu
@@ -136,6 +138,7 @@ COPY --from=builder --chown=rhesis-user:rhesis-user /app/pyproject.toml /app/pyp
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/src /app/src
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh /app/start.sh
 
