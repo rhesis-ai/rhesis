@@ -416,6 +416,88 @@ tools:
       input:
         description: "A simple test message string (e.g. 'hello')."
 
+  # ── Statistics & Comparison ──────────────────────────────
+  - name: get_test_result_stats
+    label: Analyzing test results
+    method: GET
+    path: /test_results/stats
+    default_query:
+      mode: test_runs
+    description: >
+      Get aggregated statistics for test results. Use this for comparing
+      test runs, analyzing behavior pass rates, and understanding metric
+      performance across runs. The mode parameter controls what data is
+      returned:
+
+      - **test_runs**: Per-run pass/fail summary with pass rates. Best
+        for comparing two or more runs side by side. Pass multiple
+        test_run_ids to compare specific runs.
+      - **behavior**: Pass rates grouped by behavior. Use with
+        test_run_id to see which behaviors passed/failed in a specific
+        run. Compare two runs by calling once per run.
+      - **metrics**: Pass rates grouped by metric name.
+      - **summary**: Lightweight overall pass/fail totals.
+      - **all**: Complete stats (all of the above).
+
+      Filter by test_run_ids to scope results to specific runs. Combine
+      with behavior_ids or test_set_ids for targeted analysis.
+    parameters:
+      mode:
+        description: >
+          Stats mode: "test_runs" (per-run comparison), "behavior"
+          (by behavior), "metrics" (by metric), "summary" (totals),
+          "all" (everything). Default: "test_runs".
+      test_run_ids:
+        description: >
+          Filter to specific test runs (array of UUIDs). Pass two or
+          more run IDs to compare them side by side.
+      test_run_id:
+        description: >
+          Filter to a single test run (UUID). Use test_run_ids for
+          multi-run comparison.
+      test_set_ids:
+        description: "Filter by test set UUIDs (array)."
+      behavior_ids:
+        description: "Filter by behavior UUIDs (array)."
+      start_date:
+        description: "Start date in ISO format (e.g. 2026-01-01)."
+      end_date:
+        description: "End date in ISO format."
+
+  - name: get_test_run_stats
+    label: Analyzing test runs
+    method: GET
+    path: /test_runs/stats
+    default_query:
+      mode: summary
+    description: >
+      Get run-level analytics: how many runs by status, which test sets
+      are run most often, who runs tests, and run volume over time.
+      Use this for operational overview, NOT for comparing pass/fail
+      outcomes between runs (use get_test_result_stats for that).
+
+      Modes: "summary" (totals), "status" (status distribution),
+      "results" (result distribution), "test_sets" (most run test sets),
+      "executors" (top executors), "timeline" (monthly trends),
+      "all" (everything).
+    parameters:
+      mode:
+        description: >
+          Stats mode: "summary", "status", "results", "test_sets",
+          "executors", "timeline", "all". Default: "summary".
+      test_run_ids:
+        description: "Filter to specific test runs (array of UUIDs)."
+      endpoint_ids:
+        description: "Filter by endpoint UUIDs (array)."
+      test_set_ids:
+        description: "Filter by test set UUIDs (array)."
+      months:
+        description: "Months of history to include (default: 6)."
+      start_date:
+        description: "Start date in ISO format (overrides months)."
+      end_date:
+        description: "End date in ISO format (overrides months)."
+
   # ── Background Jobs ─────────────────────────────────────
   - name: get_job_status
     label: Checking job status

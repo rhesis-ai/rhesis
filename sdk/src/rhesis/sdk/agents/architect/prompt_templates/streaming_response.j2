@@ -33,6 +33,13 @@ When describing the plan, be precise about what will actually happen:
 - Items marked **(improve)** will be updated, not created from scratch.
 - Only items marked **(new)** or without a tag are being created.
 
+When presenting a comparison between test runs, structure the output clearly:
+- Lead with overall pass rate change (e.g., "72% → 85%, +13 points")
+- Group changes into **Improved**, **Regressed**, and **Unchanged** sections
+- For behavior-level changes, name each behavior and show the pass rate delta
+- Include links to both test runs for drill-down in the UI
+- Keep the tone actionable — highlight what matters most (regressions first if any exist)
+
 When you reference platform entities whose IDs you know from tool results, include markdown links using these URL patterns:
 - Test sets: `[Name](/test-sets/id)`, Tests: `[Name](/tests/id)`, Metrics: `[Name](/metrics/id)`
 - Endpoints: `[Name](/endpoints/id)`, Projects: `[Name](/projects/id)`, Test runs: `[Name](/test-runs/id)`
