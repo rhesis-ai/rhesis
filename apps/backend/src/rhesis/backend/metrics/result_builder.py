@@ -17,9 +17,9 @@ class MetricResultBuilder:
     results. Call .to_dict() to get the plain dict for storage.
     """
 
-    score: Union[float, str]
+    score: Optional[Union[float, str]]
     reason: str
-    is_successful: bool
+    is_successful: Optional[bool]
     backend: str
     name: str
     class_name: str
@@ -31,8 +31,13 @@ class MetricResultBuilder:
     duration_ms: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to plain dict, omitting None optional fields."""
-        d = {k: v for k, v in asdict(self).items() if v is not None}
+        """Convert to plain dict, omitting None optional fields except core result fields."""
+        _always_include = {"score", "is_successful"}
+        d = {
+            k: v
+            for k, v in asdict(self).items()
+            if v is not None or k in _always_include
+        }
         if "error_message" in d:
             d["error"] = d.pop("error_message")
         return d
@@ -41,9 +46,9 @@ class MetricResultBuilder:
     def success(
         cls,
         *,
-        score: Union[float, str],
+        score: Optional[Union[float, str]],
         reason: str,
-        is_successful: bool,
+        is_successful: Optional[bool],
         backend: str,
         name: str,
         class_name: str,

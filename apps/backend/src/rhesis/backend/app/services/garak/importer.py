@@ -207,6 +207,15 @@ class GarakImporter:
                 "garak_tags": probe.tags,
             }
 
+            # Store per-prompt detector notes when the probe requires them (e.g. trigger
+            # strings for AttackRogueString/DecodeMatch). These are passed to the metric
+            # at evaluation time so the detector has the context it needs.
+            # prompt_notes is aligned with probe.prompts: prompt_notes[i] belongs to
+            # the prompt at index i.  Encoding probes have a *different* trigger per
+            # prompt; PromptInject probes have the same trigger for all prompts.
+            if probe.prompt_notes and idx < len(probe.prompt_notes) and probe.prompt_notes[idx]:
+                test_metadata["garak_notes"] = probe.prompt_notes[idx]
+
             # Create test data with taxonomy mapping
             test_data = test_set_schemas.TestData(
                 prompt=test_set_schemas.TestPrompt(

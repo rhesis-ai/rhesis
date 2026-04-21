@@ -290,11 +290,20 @@ class GarakProbeService:
                 if isinstance(probe_tags, (list, tuple, set)):
                     tags = list(probe_tags)
 
-            # Get prompts using the extractor
-            prompts = self._extractor.extract_prompts(probe_class)
-
             # Get detector (handles primary_detector / recommended_detector)
             detector = compat.get_probe_detector(probe_class)
+
+            # Try to obtain prompts AND per-prompt notes from a single instantiation.
+            # This is critical for probes like encoding.InjectBase64 where each prompt
+            # encodes a *different* payload: prompts[i] <-> triggers[i] are aligned, and
+            # a second instantiation with random sampling may produce a different order.
+            prompts, prompt_notes = self._extract_prompts_and_notes(probe_class)
+
+            # Fall back to the extractor for probes that cannot be instantiated
+            # (e.g. those that require external resources or a live model).
+            if not prompts:
+                prompts = self._extractor.extract_prompts(probe_class)
+                prompt_notes = []
 
             prompt_count = len(prompts)
             return GarakProbeInfo(
@@ -307,6 +316,7 @@ class GarakProbeService:
                 prompts=prompts,
                 prompt_count=prompt_count,
                 detector=detector,
+                prompt_notes=prompt_notes,
                 # A probe is "dynamic" when it has no static prompts after all
                 # extraction strategies have been exhausted.  Such probes generate
                 # test inputs at runtime (e.g. via RL, NLTK, or an external model)
@@ -317,6 +327,59 @@ class GarakProbeService:
         except Exception as e:
             logger.warning(f"Error extracting probe info for {module_name}.{class_name}: {e}")
             return None
+
+    def _extract_prompts_and_notes(
+        self, probe_class: type
+    ) -> tuple[List[str], List[Optional[Dict]]]:
+        """
+        Instantiate a probe once and return (prompts, per-prompt notes) together.
+
+        Probe-coupled detectors (AttackRogueString, DecodeMatch, DecodeApprox) require
+        context in attempt.notes["triggers"] at evaluation time.  There are two patterns:
+
+        - PromptInject probes: the *same* rogue string applies to every prompt in the
+          class.  Extracted from instance.pi_prompts[0]["settings"]["attack_rogue_string"].
+
+        - Encoding probes (InjectBase64, InjectAscii85, …): each prompt encodes a
+          *different* payload.  instance.prompts[i] and instance.triggers[i] are aligned
+          at construction time; a second instantiation with random sampling may produce a
+          different order, so both must be captured in the same call.
+
+        Returns:
+            Tuple (prompts, prompt_notes) where prompt_notes[i] is the notes dict for
+            prompts[i], or None if no special context is needed for that prompt.
+            Both lists have the same length.  Returns ([], []) on failure.
+        """
+        try:
+            instance = probe_class()
+
+            prompts = list(instance.prompts) if hasattr(instance, "prompts") and instance.prompts else []
+            if not prompts:
+                return [], []
+
+            # PromptInject: same rogue string applies to all prompts in the class.
+            if hasattr(instance, "pi_prompts") and instance.pi_prompts:
+                trigger = (
+                    instance.pi_prompts[0]
+                    .get("settings", {})
+                    .get("attack_rogue_string")
+                )
+                if trigger:
+                    notes: Dict = {"triggers": [trigger]}
+                    return prompts, [notes] * len(prompts)
+
+            # Encoding probes: per-prompt triggers aligned with instance.prompts.
+            if hasattr(instance, "triggers") and instance.triggers:
+                prompt_notes = [
+                    {"triggers": [str(t)]}
+                    for t in instance.triggers[: len(prompts)]
+                ]
+                return prompts, prompt_notes
+
+            return prompts, []
+
+        except Exception:
+            return [], []
 
     def get_all_probes(self) -> Dict[str, List[GarakProbeInfo]]:
         """
