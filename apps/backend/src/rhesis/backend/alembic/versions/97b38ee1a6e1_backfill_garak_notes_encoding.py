@@ -92,7 +92,10 @@ def _build_prompt_trigger_map(probe_class_name: str) -> Optional[Dict[str, str]]
         if not hasattr(instance, "prompts") or not hasattr(instance, "triggers"):
             return None
 
-        return {str(p).strip().replace("\r\n", "\n"): str(t) for p, t in zip(instance.prompts, instance.triggers)}
+        return {
+            str(p).strip().replace("\r\n", "\n"): str(t)
+            for p, t in zip(instance.prompts, instance.triggers)
+        }
 
     except Exception as exc:
         logger.warning("Could not build trigger map for %s: %s", probe_class_name, exc)
