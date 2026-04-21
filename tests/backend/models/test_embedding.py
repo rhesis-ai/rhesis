@@ -12,13 +12,16 @@ Tests focus on:
 """
 
 import uuid
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models import Embedding, Source
+from rhesis.backend.app import models
+from rhesis.backend.app.models import Embedding
 from rhesis.backend.app.models.embedding import EmbeddingConfig
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
 # Import the test_model fixture
 pytest_plugins = ["tests.backend.metrics.fixtures.metric_fixtures"]
@@ -513,6 +516,7 @@ class TestEmbeddingRelationships:
     ):
         """Test loading embeddings from Trace model"""
         from datetime import datetime, timezone
+
         from rhesis.backend.app.models import Trace
 
         trace = Trace(
@@ -667,6 +671,80 @@ class TestSearchableTextIntegration:
         assert "Hello, how are you?" in text
         assert "What is the capital of France?" in text
 
+
+@pytest.mark.integration
+class TestEmbeddableMixinEmbeddingListeners:
+    """EmbeddableMixin after_insert/after_update skip enqueue when user_id is missing."""
+
+    @patch("rhesis.backend.app.services.embedding.services.EmbeddingService")
+    def test_insert_skips_enqueue_when_user_id_none(
+        self,
+        mock_embedding_service_class,
+        test_db: Session,
+        test_org_id: str,
+        authenticated_user_id: str,
+        db_test_with_prompt,
+    ):
+        """No embedding job when TestResult has no user_id (nullable ownership)."""
+        mock_instance = mock_embedding_service_class.return_value
+
+        status = get_or_create_status(
+            test_db,
+            name="completed",
+            entity_type="TestResult",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_result = models.TestResult(
+            test_id=db_test_with_prompt.id,
+            test_run_id=None,
+            test_configuration_id=None,
+            test_output={"response": "hello"},
+            status_id=status.id,
+            organization_id=test_org_id,
+            user_id=None,
+        )
+        test_db.add(test_result)
+        test_db.commit()
+
+        mock_instance.enqueue_embedding.assert_not_called()
+
+    @patch("rhesis.backend.app.services.embedding.services.EmbeddingService")
+    def test_update_skips_enqueue_when_user_id_none(
+        self,
+        mock_embedding_service_class,
+        test_db: Session,
+        test_org_id: str,
+        authenticated_user_id: str,
+        db_test_with_prompt,
+    ):
+        """Updates still skip embedding when user_id remains unset."""
+        mock_instance = mock_embedding_service_class.return_value
+
+        status = get_or_create_status(
+            test_db,
+            name="completed",
+            entity_type="TestResult",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_result = models.TestResult(
+            test_id=db_test_with_prompt.id,
+            test_run_id=None,
+            test_configuration_id=None,
+            test_output={"response": "before"},
+            status_id=status.id,
+            organization_id=test_org_id,
+            user_id=None,
+        )
+        test_db.add(test_result)
+        test_db.commit()
+        mock_instance.enqueue_embedding.reset_mock()
+
+        test_result.test_output = {"response": "after update"}
+        test_db.commit()
+
+        mock_instance.enqueue_embedding.assert_not_called()
 
 
 @pytest.mark.integration

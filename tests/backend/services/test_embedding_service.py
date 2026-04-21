@@ -398,7 +398,7 @@ class TestEmbeddingService:
     @patch.object(EmbeddingService, "_check_workers_available")
     @patch.object(EmbeddingService, "_execute_sync")
     @patch.object(EmbeddingService, "_enqueue_async")
-    def test_enqueue_embedding_entity_without_user_id(
+    def test_enqueue_embedding_after_test_entity_has_user_id(
         self,
         mock_enqueue,
         mock_execute,
@@ -407,7 +407,7 @@ class TestEmbeddingService:
         test_entity,
         user_with_embedding_model,
     ):
-        """Test enqueue_embedding uses entity's user_id."""
+        """enqueue_embedding works when Test row has user_id set (listeners reset mocks)."""
         mock_workers.return_value = False
         mock_execute.return_value = {"status": "success"}
 

@@ -402,6 +402,12 @@ class EmbeddableMixin:
 # Event listeners for embedding generation
 @event.listens_for(EmbeddableMixin, "after_insert", propagate=True)
 def on_entity_insert(mapper, connection, target):
+    if getattr(target, "user_id", None) is None:
+        logger.warning(
+            f"Skipping embedding for {target.__class__.__name__} {target.id}: user_id is None"
+        )
+        return
+
     from rhesis.backend.app.services.embedding.services import EmbeddingService
 
     try:
@@ -421,6 +427,12 @@ def on_entity_insert(mapper, connection, target):
 
 @event.listens_for(EmbeddableMixin, "after_update", propagate=True)
 def on_entity_update(mapper, connection, target):
+    if getattr(target, "user_id", None) is None:
+        logger.warning(
+            f"Skipping embedding for {target.__class__.__name__} {target.id}: user_id is None"
+        )
+        return
+
     from rhesis.backend.app.services.embedding.services import EmbeddingService
 
     try:
