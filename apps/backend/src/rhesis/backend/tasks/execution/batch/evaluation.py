@@ -118,7 +118,7 @@ def _inject_probe_notes(metric_configs: list, probe_notes: Optional[Dict[str, An
     For non-Garak metrics and when probe_notes is None, the original configs are
     returned unchanged.
     """
-    if not probe_notes:
+    if probe_notes is None:
         return metric_configs
 
     from rhesis.sdk.metrics.providers.garak.registry import is_context_required

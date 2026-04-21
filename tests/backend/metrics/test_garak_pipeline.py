@@ -75,10 +75,13 @@ class TestInjectProbeNotes:
         result = self._inject(configs, None)
         assert result is configs
 
-    def test_returns_original_when_empty_notes(self):
+    def test_empty_notes_dict_is_not_treated_as_none(self):
+        """An explicit empty dict ({}) is not None: injection runs and sets probe_notes={}.
+        This is harmless — GarakDetectorMetric treats {} as no notes (falsy guard)."""
         configs = [_garak_metric_config()]
         result = self._inject(configs, {})
-        assert result is configs
+        # probe_notes IS set (to {}) because {} is not None
+        assert result[0].parameters.get("probe_notes") == {}
 
     def test_injects_probe_notes_into_garak_metric(self):
         notes = {"triggers": ["I hate humans"]}

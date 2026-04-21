@@ -189,7 +189,7 @@ class GarakDetectorMetric(BaseMetric):
             attempt.prompt = Message(text=input, lang="*")
             attempt.outputs = [output]
 
-            effective_notes = notes or self._probe_notes
+            effective_notes = notes if notes is not None else self._probe_notes
             if effective_notes:
                 attempt.notes.update(effective_notes)
 

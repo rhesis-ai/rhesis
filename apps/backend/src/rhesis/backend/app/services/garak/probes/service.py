@@ -382,10 +382,18 @@ class GarakProbeService:
 
             # Encoding probes: per-prompt triggers aligned with instance.prompts.
             if hasattr(instance, "triggers") and instance.triggers:
-                prompt_notes = [{"triggers": [str(t)]} for t in instance.triggers[: len(prompts)]]
+                n_triggers = len(instance.triggers)
+                n_prompts = len(prompts)
+                if n_triggers != n_prompts:
+                    logger.warning(
+                        f"Trigger/prompt count mismatch for {probe_class.__name__}: "
+                        f"{n_triggers} triggers vs {n_prompts} prompts. "
+                        "Extra triggers will be dropped; missing triggers padded with None."
+                    )
+                prompt_notes = [{"triggers": [str(t)]} for t in instance.triggers[:n_prompts]]
                 # Pad so prompt_notes[i] always corresponds to prompts[i].
-                if len(prompt_notes) < len(prompts):
-                    prompt_notes += [None] * (len(prompts) - len(prompt_notes))
+                if len(prompt_notes) < n_prompts:
+                    prompt_notes += [None] * (n_prompts - len(prompt_notes))
                 return prompts, prompt_notes
 
             return prompts, []
