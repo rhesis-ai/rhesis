@@ -201,7 +201,7 @@ def update_topic_node(
             organization_id=organization_id,
             user_id=user_id,
         )
-        db_test.topic_id = new_db_topic.id
+        db_test.topic = new_db_topic
         db.add(db_test)
 
     db.flush()
@@ -283,7 +283,10 @@ def remove_topic_node(
         if is_marker:
             topic_marker_ids.append(db_test.id)
         else:
-            db_test.topic_id = parent_topic.id if parent_topic else None
+            if parent_topic:
+                db_test.topic = parent_topic
+            else:
+                db_test.topic = None
             db.add(db_test)
 
     for test_id in topic_marker_ids:
