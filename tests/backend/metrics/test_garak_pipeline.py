@@ -75,13 +75,11 @@ class TestInjectProbeNotes:
         result = self._inject(configs, None)
         assert result is configs
 
-    def test_empty_notes_dict_is_not_treated_as_none(self):
-        """An explicit empty dict ({}) is not None: injection runs and sets probe_notes={}.
-        This is harmless — GarakDetectorMetric treats {} as no notes (falsy guard)."""
+    def test_returns_original_when_empty_notes(self):
+        """Empty dict is falsy — treated as 'nothing to inject', returns original list."""
         configs = [_garak_metric_config()]
         result = self._inject(configs, {})
-        # probe_notes IS set (to {}) because {} is not None
-        assert result[0].parameters.get("probe_notes") == {}
+        assert result is configs
 
     def test_injects_probe_notes_into_garak_metric(self):
         notes = {"triggers": ["I hate humans"]}
@@ -117,6 +115,13 @@ class TestInjectProbeNotes:
         assert result[0].parameters["probe_notes"] == notes
         assert result[1] is non_garak
         assert "probe_notes" not in (result[2].parameters or {})
+
+    def test_does_not_overwrite_existing_probe_notes(self):
+        """probe_notes already in parameters must not be overwritten."""
+        existing_notes = {"triggers": ["original"]}
+        config = _garak_metric_config(parameters={"probe_notes": existing_notes})
+        result = self._inject([config], {"triggers": ["new"]})
+        assert result[0].parameters["probe_notes"] == existing_notes
 
     def test_preserves_existing_parameters(self):
         notes = {"triggers": ["test"]}

@@ -212,11 +212,15 @@ class GarakDetectorMetric(BaseMetric):
                 required_note = CONTEXT_REQUIRED_NOTES.get(
                     normalize_detector_path(self.detector_class_path)
                 )
-                if required_note and not effective_notes:
+                notes_missing_key = required_note and (
+                    not effective_notes or required_note not in effective_notes
+                    or not effective_notes.get(required_note)
+                )
+                if notes_missing_key:
                     reason = (
                         f"Detector '{self.detector_class_path.split('.')[-1]}' "
                         f"returned no scores because "
-                        f"notes['{required_note}'] was not provided. "
+                        f"notes['{required_note}'] was not provided or empty. "
                         f"Pass probe metadata via the 'notes' parameter."
                     )
                 else:

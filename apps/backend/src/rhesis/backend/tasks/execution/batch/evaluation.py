@@ -115,10 +115,11 @@ def _inject_probe_notes(metric_configs: list, probe_notes: Optional[Dict[str, An
     Return a copy of metric_configs with probe_notes merged into the parameters
     of any Garak metric that is registered as requiring probe context.
 
-    For non-Garak metrics and when probe_notes is None, the original configs are
-    returned unchanged.
+    Only injects when probe_notes is non-empty, and never overwrites an existing
+    probe_notes value already present in MetricConfig.parameters (non-destructive).
+    Returns the original list unchanged when there is nothing to inject.
     """
-    if probe_notes is None:
+    if not probe_notes:
         return metric_configs
 
     from rhesis.sdk.metrics.providers.garak.registry import is_context_required
@@ -127,10 +128,11 @@ def _inject_probe_notes(metric_configs: list, probe_notes: Optional[Dict[str, An
     for config in metric_configs:
         evaluation_prompt = getattr(config, "evaluation_prompt", None)
         if evaluation_prompt and is_context_required(evaluation_prompt):
-            import dataclasses
+            existing_params = config.parameters or {}
+            if "probe_notes" not in existing_params:
+                import dataclasses
 
-            updated_params = dict(config.parameters or {})
-            updated_params["probe_notes"] = probe_notes
-            config = dataclasses.replace(config, parameters=updated_params)
+                updated_params = {**existing_params, "probe_notes": probe_notes}
+                config = dataclasses.replace(config, parameters=updated_params)
         result.append(config)
     return result

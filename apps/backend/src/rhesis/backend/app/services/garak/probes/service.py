@@ -398,7 +398,11 @@ class GarakProbeService:
 
             return prompts, []
 
-        except Exception:
+        except Exception as exc:
+            logger.debug(
+                f"Could not instantiate {probe_class.__name__} for prompt/notes extraction: {exc}",
+                exc_info=True,
+            )
             return [], []
 
     def get_all_probes(self) -> Dict[str, List[GarakProbeInfo]]:

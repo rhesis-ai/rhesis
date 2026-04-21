@@ -92,7 +92,7 @@ def _build_prompt_trigger_map(probe_class_name: str) -> Optional[Dict[str, str]]
         if not hasattr(instance, "prompts") or not hasattr(instance, "triggers"):
             return None
 
-        return {str(p): str(t) for p, t in zip(instance.prompts, instance.triggers)}
+        return {str(p).strip().replace("\r\n", "\n"): str(t) for p, t in zip(instance.prompts, instance.triggers)}
 
     except Exception as exc:
         logger.warning("Could not build trigger map for %s: %s", probe_class_name, exc)
@@ -130,7 +130,7 @@ def upgrade() -> None:
         for row in rows:
             test_id = row[0]
             metadata = row[1] or {}
-            prompt_content = row[2] or ""
+            prompt_content = (row[2] or "").strip().replace("\r\n", "\n")
             probe_class_name = metadata.get("garak_probe_class", "")
 
             if probe_class_name not in ENCODING_PROBE_CLASSES:
