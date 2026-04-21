@@ -213,7 +213,8 @@ class GarakDetectorMetric(BaseMetric):
                     normalize_detector_path(self.detector_class_path)
                 )
                 notes_missing_key = required_note and (
-                    not effective_notes or required_note not in effective_notes
+                    not effective_notes
+                    or required_note not in effective_notes
                     or not effective_notes.get(required_note)
                 )
                 if notes_missing_key:
