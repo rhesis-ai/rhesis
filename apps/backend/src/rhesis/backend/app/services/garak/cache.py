@@ -44,7 +44,7 @@ class GarakProbeCache:
     # Increment this whenever the structure of cached probe data changes so that
     # stale entries (missing new fields like is_dynamic / has_dynamic_probes) are
     # automatically invalidated and regenerated on next access.
-    SCHEMA_VERSION = 4  # v4: GarakProbeInfo probe_notes → prompt_notes (per-prompt list)
+    SCHEMA_VERSION = 5  # v5: exclude visual_jailbreak module (image-only probes)
 
     # Class-level memory cache (shared across instances within a process)
     _memory_cache: ClassVar[Dict[str, Dict]] = {}

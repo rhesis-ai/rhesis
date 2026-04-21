@@ -23,10 +23,13 @@ class GarakProbeService:
 
     # Modules excluded from enumeration entirely.
     # 'base' and 'test' are internal garak modules.
-    # 'audio' and 'fileformats' operate on binary payloads and cannot be synthesised
-    # as text prompts, so they have no meaningful representation in Rhesis.
+    # 'audio', 'fileformats', and 'visual_jailbreak' operate on binary payloads
+    # (audio, binary files, images) and cannot be synthesised as text prompts,
+    # so they have no meaningful representation in Rhesis.  'visual_jailbreak'
+    # is also excluded because instantiating its probes downloads hundreds of
+    # images from GitHub at startup.
     # NOTE: These are also intentionally absent from GarakTaxonomy.MODULE_MAPPINGS.
-    EXCLUDED_MODULES = {"base", "test", "audio", "fileformats"}
+    EXCLUDED_MODULES = {"base", "test", "audio", "fileformats", "visual_jailbreak"}
 
     def __init__(self):
         self._probe_cache: Dict[str, GarakModuleInfo] = {}
