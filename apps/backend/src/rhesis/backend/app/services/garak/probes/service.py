@@ -367,27 +367,22 @@ class GarakProbeService:
                 if original_cap is not None:
                     probe_class.follow_prompt_cap = original_cap
 
-            prompts = list(instance.prompts) if hasattr(instance, "prompts") and instance.prompts else []
+            prompts = (
+                list(instance.prompts) if hasattr(instance, "prompts") and instance.prompts else []
+            )
             if not prompts:
                 return [], []
 
             # PromptInject: same rogue string applies to all prompts in the class.
             if hasattr(instance, "pi_prompts") and instance.pi_prompts:
-                trigger = (
-                    instance.pi_prompts[0]
-                    .get("settings", {})
-                    .get("attack_rogue_string")
-                )
+                trigger = instance.pi_prompts[0].get("settings", {}).get("attack_rogue_string")
                 if trigger:
                     notes: Dict = {"triggers": [trigger]}
                     return prompts, [notes] * len(prompts)
 
             # Encoding probes: per-prompt triggers aligned with instance.prompts.
             if hasattr(instance, "triggers") and instance.triggers:
-                prompt_notes = [
-                    {"triggers": [str(t)]}
-                    for t in instance.triggers[: len(prompts)]
-                ]
+                prompt_notes = [{"triggers": [str(t)]} for t in instance.triggers[: len(prompts)]]
                 # Pad so prompt_notes[i] always corresponds to prompts[i].
                 if len(prompt_notes) < len(prompts):
                     prompt_notes += [None] * (len(prompts) - len(prompt_notes))

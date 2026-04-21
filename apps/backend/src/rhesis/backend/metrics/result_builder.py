@@ -33,11 +33,7 @@ class MetricResultBuilder:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to plain dict, omitting None optional fields except core result fields."""
         _always_include = {"score", "is_successful"}
-        d = {
-            k: v
-            for k, v in asdict(self).items()
-            if v is not None or k in _always_include
-        }
+        d = {k: v for k, v in asdict(self).items() if v is not None or k in _always_include}
         if "error_message" in d:
             d["error"] = d.pop("error_message")
         return d
