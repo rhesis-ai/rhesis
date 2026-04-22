@@ -62,10 +62,14 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
     sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
 
-# Install dependencies
-
+# Install dependencies (CPU torch via extra, then remove torch — matches apps/backend)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
+    uv sync --extra cpu
+
+# Remove PyTorch to reduce image size (~780MB savings)
+# Garak declares torch as a dependency, but our usage doesn't require it at runtime.
+# See: apps/backend/Dockerfile and apps/backend/src/rhesis/backend/app/services/garak/taxonomy.py
+RUN uv pip uninstall torch
 
 # ============================================================================
 # STAGE 2: Runtime - Create minimal runtime image
@@ -88,6 +92,7 @@ RUN apt-get update && \
     jq \
     procps \
     git \
+    ncdu \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user and directories
