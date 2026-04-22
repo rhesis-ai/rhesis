@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import Image from 'next/image';
 import {
   Box,
   TextField,
@@ -73,13 +74,38 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
         p: 4,
       }}
     >
-      <Typography
-        variant="h4"
-        color="text.secondary"
-        sx={{ fontWeight: 300, mb: 1 }}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 0,
+          mb: 1,
+        }}
       >
-        What would you like to test?
-      </Typography>
+        <Box
+          sx={{
+            width: 150,
+            height: 150,
+            position: 'relative',
+          }}
+        >
+          <Image
+            src="/logos/rhesis-architect.png"
+            alt="Rhesis Architect"
+            fill
+            sizes="150px"
+            style={{ objectFit: 'contain' }}
+          />
+        </Box>
+        <Typography
+          variant="h4"
+          color="text.secondary"
+          sx={{ fontWeight: 300 }}
+        >
+          What would you like to test?
+        </Typography>
+      </Box>
 
       <Box sx={{ width: '100%', maxWidth: 680 }}>
         <TextField
