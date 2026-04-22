@@ -114,6 +114,9 @@ export function useArchitectChat(
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [autoApproveAll, setAutoApproveAll] = useState(false);
 
+  const currentPlanRef = useRef<string | null>(null);
+  currentPlanRef.current = currentPlan;
+
   const pendingCorrelationRef = useRef<string | null>(null);
   const streamingMessageIdRef = useRef<string | null>(null);
   const autoApproveRef = useRef(autoApproveAll);
@@ -363,6 +366,10 @@ export function useArchitectChat(
       if (!trimmed) return;
 
       setError(null);
+
+      if (currentPlanRef.current) {
+        setCurrentPlan(null);
+      }
 
       const correlationId = generateCorrelationId();
       pendingCorrelationRef.current = correlationId;
