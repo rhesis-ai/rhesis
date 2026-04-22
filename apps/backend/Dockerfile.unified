@@ -66,32 +66,17 @@ RUN uv pip uninstall torch
 COPY apps/backend/src /app/src
 
 # =============================================================================
-# build-worker: worker lockfile + full backend tree for imports, then uv sync
+# base-runtime: shared slim runtime + uv + rhesis-user + shared app payload
 # =============================================================================
-FROM base-build AS build-worker
-
-COPY apps/worker/pyproject.toml apps/worker/uv.lock /app/
-
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_NO_MANAGED_PYTHON=1 \
-    UV_LINK_MODE=copy \
-    UV_NO_DEV=1
-
-COPY apps/backend /app/backend/
-
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=cache,target=/root/.cargo/registry \
-    uv sync --extra cpu
-
-RUN uv pip uninstall torch
-
-# =============================================================================
-# base-runtime: shared slim runtime + uv (no Bun; backend-only adds Bun)
-# =============================================================================
+# The worker target reuses build-backend directly; there is no separate
+# build-worker stage because the worker image is exactly the backend venv
+# with a different entrypoint.
+#
+# Everything that is byte-identical between backend and worker lives here,
+# so the two target images share this common prefix layer-for-layer. In
+# particular: the ~1.9 GB /app/.venv COPY, the editable-install source
+# trees (src/sdk/penelope/packages/rhesis), and pyproject.toml are all
+# materialised exactly once per Docker storage driver.
 FROM mirror.gcr.io/library/python:3.12.8-slim AS base-runtime
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -111,10 +96,28 @@ RUN apt-get update && \
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# Single shared non-root user for both targets. Using the same name means
+# --chown produces identical metadata, which is a prerequisite for Docker
+# to dedupe the heavy COPY layers below across images.
+RUN adduser --disabled-password --gecos '' rhesis-user && \
+    chown rhesis-user:rhesis-user /app
+
+# rhesis-backend is installed editably in build-backend, so the venv's .pth
+# files point at /app/src, /app/sdk, /app/penelope, /app/packages/rhesis;
+# those trees must ship alongside /app/.venv.
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/.venv /app/.venv
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/src /app/src
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/pyproject.toml /app/pyproject.toml
+
+RUN find /app -name ".env" -type f -delete
+
 EXPOSE 8080
 
 # =============================================================================
-# backend: Bun/npx, postgresql-client, rhesis-user, FastAPI stack
+# backend: Bun/npx, postgresql-client, FastAPI entrypoint
 # =============================================================================
 FROM base-runtime AS backend
 
@@ -143,20 +146,8 @@ RUN apt-get update && \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-RUN adduser --disabled-password --gecos '' rhesis-user && \
-    mkdir -p /app && \
-    chown rhesis-user:rhesis-user /app
-
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/.venv /app/.venv
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/pyproject.toml /app/pyproject.toml
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/src /app/src
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh /app/start.sh
-
-RUN find /app -name ".env" -type f -delete
 
 USER rhesis-user
 
@@ -169,7 +160,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # =============================================================================
-# worker: jq/procps, celery-user, Celery stack (no Bun)
+# worker: jq/procps, Celery entrypoint
 # =============================================================================
 FROM base-runtime AS worker
 
@@ -182,22 +173,14 @@ RUN apt-get update && \
     jq \
     procps \
     ncdu \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /var/log/celery && \
+    chown rhesis-user:rhesis-user /var/log/celery
 
-RUN adduser --disabled-password --gecos '' celery-user && \
-    mkdir -p /app /var/log/celery && \
-    chown celery-user:celery-user /app /var/log/celery
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/worker/start.sh /app/start.sh
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/worker/health_server.py /app/health_server.py
 
-COPY --from=build-worker --chown=celery-user:celery-user /app/.venv /app/.venv
-COPY --from=build-worker --chown=celery-user:celery-user /app/sdk /app/sdk
-COPY --from=build-worker --chown=celery-user:celery-user /app/penelope /app/penelope
-COPY --from=build-worker --chown=celery-user:celery-user /app/packages/rhesis /app/packages/rhesis
-COPY --from=build-worker --chown=celery-user:celery-user /app/backend /app/backend
-
-COPY --chown=celery-user:celery-user --chmod=755 apps/worker/start.sh /app/start.sh
-COPY --chown=celery-user:celery-user --chmod=755 apps/worker/health_server.py /app/health_server.py
-
-USER celery-user
+USER rhesis-user
 
 ENV PYTHONHASHSEED=0 \
     PYTHONMALLOC=malloc \
@@ -205,7 +188,7 @@ ENV PYTHONHASHSEED=0 \
     MALLOC_MMAP_THRESHOLD_=131072 \
     MALLOC_TOP_PAD_=131072 \
     PATH="/app/.venv/bin:$PATH" \
-    PYTHONPATH=/app:/app/backend/src \
+    PYTHONPATH=/app \
     CELERY_OPTIMIZATION=fair \
     CELERY_DISABLE_RATE_LIMITS=True \
     CELERY_TASK_ALWAYS_EAGER=False \
