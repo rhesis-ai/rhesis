@@ -62,7 +62,7 @@ class EmbeddingGenerator:
             dimensions=dimension,
         )
         try:
-            embedder = get_embedding_model(config=config, model_type="embedding")
+            embedder = get_embedding_model(config=config)
         except ValueError as e:
             raise ValueError(f"Failed to create embedder: {e}")
 
