@@ -370,6 +370,7 @@ def architect_chat_task(
                     "mode": agent.mode,
                     "needs_confirmation": agent.needs_confirmation,
                     "auto_approve_all": agent.auto_approve_all,
+                    "awaiting_task": bool(agent.pending_tasks),
                     "plan": (
                         agent.plan.to_markdown()
                         if agent.plan and hasattr(agent.plan, "to_markdown")

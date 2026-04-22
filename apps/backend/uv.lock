@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-04-03T10:53:29.460423Z"
+exclude-newer = "2026-04-15T14:24:35.064456Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6615,7 +6615,7 @@ requires-dist = [
     { name = "mammoth", specifier = ">=1.11.0" },
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
     { name = "marshmallow", specifier = ">=3.26.2" },
-    { name = "mcp", specifier = ">=1.23.0" },
+    { name = "mcp", specifier = "==1.26.0" },
     { name = "nest-asyncio" },
     { name = "numpy" },
     { name = "pandas", specifier = ">=2.2.2" },

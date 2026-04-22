@@ -11,6 +11,7 @@ from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
+litellm.disable_aiohttp_transport = True  # prevents "attached to a different loop" errors in threaded/Celery contexts
 for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
     logging.getLogger(_logger_name).setLevel(logging.WARNING)
 
