@@ -71,7 +71,12 @@ class AgentEventHandler:
     # ── tool lifecycle ──────────────────────────────────────────────
 
     async def on_tool_start(
-        self, *, tool_name: str, arguments: Dict[str, Any], reasoning: Optional[str] = None, **kwargs: Any
+        self,
+        *,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        reasoning: Optional[str] = None,
+        **kwargs: Any,
     ) -> None:
         """Called before a tool is executed."""
 

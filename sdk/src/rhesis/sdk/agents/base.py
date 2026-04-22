@@ -777,7 +777,9 @@ class BaseAgent:
             False,
         )
 
-    async def _execute_tools(self, tool_calls: List[ToolCall], reasoning: str = "") -> List[ToolResult]:
+    async def _execute_tools(
+        self, tool_calls: List[ToolCall], reasoning: str = ""
+    ) -> List[ToolResult]:
         results: List[ToolResult] = []
         for tc in tool_calls:
             arguments = tc.arguments
