@@ -305,12 +305,13 @@ jobs:
 
           MIGRATION_EXIT_CODE=$?
 
-          # Clean up the job after execution
-          echo "🧹 Cleaning up migration job..."
-          gcloud run jobs delete $MIGRATION_JOB_NAME \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --quiet
+          # Intentionally keep the job so you can inspect executions and logs in Cloud Run (Console → Jobs).
+          # Uncomment below to delete the job after each run (avoids accumulating backend-migrate-* jobs).
+          # echo "🧹 Cleaning up migration job..."
+          # gcloud run jobs delete $MIGRATION_JOB_NAME \
+          #   --project=${{ env.PROJECT_ID }} \
+          #   --region=${{ env.REGION }} \
+          #   --quiet
 
           if [ $MIGRATION_EXIT_CODE -ne 0 ]; then
             echo "❌ Migration failed with exit code $MIGRATION_EXIT_CODE"
