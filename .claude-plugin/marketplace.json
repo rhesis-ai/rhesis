@@ -14,7 +14,8 @@
       "source": "rhesis",
       "description": "Design, run, and analyze AI test suites on the Rhesis platform",
       "category": "testing",
-      "tags": ["ai-testing", "mcp", "evaluation", "llm-testing"]
+      "tags": ["ai-testing", "mcp", "evaluation", "llm-testing"],
+      "skills": ["./skills/rhesis"]
     }
   ]
 }

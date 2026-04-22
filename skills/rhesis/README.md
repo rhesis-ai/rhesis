@@ -1,6 +1,6 @@
 # Rhesis Agent Skill
 
-Design, run, and analyze AI test suites on the [Rhesis](https://rhesis.ai) platform — from within Claude Code, Cursor, or any compatible AI interface.
+Design, run, and analyze AI test suites on the [Rhesis](https://rhesis.ai) platform — from within Claude Code, Cursor, Codex, or [any compatible AI interface](https://github.com/vercel-labs/skills#supported-agents).
 
 This skill teaches your agent how to explore an AI endpoint's capabilities, design a test suite, create behaviors and metrics, generate tests, execute them, and analyze the results. All platform operations run through the Rhesis MCP server.
 
@@ -15,47 +15,61 @@ This skill teaches your agent how to explore an AI endpoint's capabilities, desi
 
 ---
 
-## Install in Claude Code
+## Install the skill (any agent)
 
-Claude Code uses a plugin system that bundles the skill and MCP server configuration together. Install in two steps:
+The fastest way to install across Claude Code, Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
+
+```bash
+npx skills add rhesis-ai/rhesis
+```
+
+The CLI detects which agents you have installed and asks where to place the skill. Use `-g` for a global install (available in all projects) or omit it for project-level.
+
+```bash
+# Global install — available everywhere
+npx skills add rhesis-ai/rhesis -g
+
+# Install to specific agents only
+npx skills add rhesis-ai/rhesis -a cursor -a claude-code -g
+
+# See where it would be installed without installing
+npx skills add rhesis-ai/rhesis --list
+```
+
+> `npx skills` installs the skill instructions. The MCP server (which the skill uses to talk to Rhesis) is configured separately — see the sections below for your agent.
+
+---
+
+## Connect the MCP server
+
+The skill needs the Rhesis MCP server connected to call platform tools. Set this up once per agent.
+
+### Claude Code
+
+```bash
+export RHESIS_API_KEY=rhs_your_token_here
+# Optional — defaults to https://api.rhesis.ai/mcp
+export RHESIS_MCP_URL=http://localhost:8080/mcp
+```
+
+The skill is bundled as a Claude Code plugin that includes the MCP config. To install via plugin (MCP + skill together):
 
 ```
 /plugin marketplace add rhesis-ai/rhesis
 /plugin install rhesis@rhesis-ai
 ```
 
-Then set your API token:
+Then set `RHESIS_API_KEY` as above.
 
-```bash
-export RHESIS_API_KEY=rhs_your_token_here
-```
+### Cursor
 
-The plugin reads `RHESIS_API_KEY` automatically. On next session start, the `rhesis` MCP server is connected and the skill is active.
-
-**Self-hosted backend:**
-
-```bash
-export RHESIS_MCP_URL=http://localhost:8080/mcp
-export RHESIS_API_KEY=your_local_token
-```
-
-**Testing locally before publishing:**
-
-```bash
-claude --plugin-dir ./skills/rhesis
-```
-
----
-
-## Install in Cursor
-
-### Step 1: Connect the MCP server (one click)
+**One click** — click the badge to install the MCP server config automatically:
 
 [![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=rhesis&config=eyJ1cmwiOiJodHRwczovL2FwaS5yaGVzaXMuYWkvbWNwIiwiaGVhZGVycyI6eyJBdXRob3JpemF0aW9uIjoiQmVhcmVyIFlPVVJfUkhFU0lTX0FQSV9LRVkifX0K)
 
-After clicking, Cursor opens and installs the MCP server. Then edit `.cursor/mcp.json` to replace `YOUR_RHESIS_API_KEY` with your actual token.
+After clicking, edit `.cursor/mcp.json` to replace `YOUR_RHESIS_API_KEY` with your actual token. Restart Cursor.
 
-**Or add manually** — paste this into `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global):
+**Or paste manually** into `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
 
 ```json
 {
@@ -70,27 +84,14 @@ After clicking, Cursor opens and installs the MCP server. Then edit `.cursor/mcp
 }
 ```
 
-Restart Cursor after editing the config.
+### Other agents (Codex, Gemini CLI, OpenCode, etc.)
 
-**Self-hosted backend:** Replace `https://api.rhesis.ai/mcp` with `http://localhost:8080/mcp`.
+Add the Rhesis MCP server to your agent's MCP config file. The connection details are:
 
-### Step 2: Install the skill
+- **URL:** `https://api.rhesis.ai/mcp` (or `http://localhost:8080/mcp` for self-hosted)
+- **Auth header:** `Authorization: Bearer <your-api-token>`
 
-Clone the repo and symlink the skill directory into Cursor's skills location:
-
-```bash
-# Clone (sparse — only the skills directory)
-git clone --filter=blob:none --sparse https://github.com/rhesis-ai/rhesis.git rhesis-skills
-cd rhesis-skills && git sparse-checkout set skills/rhesis
-
-# Symlink for user-level (all projects)
-ln -s "$(pwd)/skills/rhesis" ~/.cursor/skills/rhesis
-
-# Or copy if you prefer no git dependency
-cp -r skills/rhesis ~/.cursor/skills/rhesis
-```
-
-Cursor loads the skill automatically on next session. To verify, type `/rhesis` or ask about testing an AI endpoint.
+Refer to your agent's documentation for the exact config file location and format.
 
 ---
 
@@ -126,7 +127,7 @@ You can also use it for direct operations without the full workflow:
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Skill instructions (loaded by Cursor; Claude Code fallback) |
+| `SKILL.md` | Skill instructions — loaded by all compatible agents |
 | `.claude-plugin/plugin.json` | Claude Code plugin manifest |
 | `.mcp.json` | MCP server config bundled with the Claude Code plugin |
 | `references/tool-catalog.md` | All 27 MCP tools with parameters and common mistakes |
@@ -148,7 +149,7 @@ The Rhesis platform has a built-in Architect agent with a WebSocket chat UI. Thi
 | **Write guard** | Plan-level, structural enforcement | Instructional guidance only |
 | **Mode transitions** | Formal phases with WebSocket events | Informal, guided by skill instructions |
 
-Use the native Architect when you want maximum structural control. Use this skill when you want to work within Claude Code or Cursor without switching to the Rhesis web UI.
+Use the native Architect when you want maximum structural control. Use this skill when you want to work within your existing AI environment without switching context.
 
 ---
 
@@ -156,15 +157,13 @@ Use the native Architect when you want maximum structural control. Use this skil
 
 **MCP server not connecting:**
 - Verify `RHESIS_API_KEY` is set and the token hasn't expired — regenerate at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
-- Check that the MCP URL is reachable: `curl -H "Authorization: Bearer $RHESIS_API_KEY" https://api.rhesis.ai/mcp`
+- Test connectivity: `curl -H "Authorization: Bearer $RHESIS_API_KEY" https://api.rhesis.ai/mcp`
 - In Cursor, restart the IDE after editing `.cursor/mcp.json`
 
-**Skill not activating (Cursor):**
-- Verify `~/.cursor/skills/rhesis/SKILL.md` exists
-- Try explicitly invoking: `/rhesis` in the chat
-
-**Claude Code filesystem skill loading issues:**
-- There is a known bug with `~/.claude/skills/` discovery. Use the plugin install path (`/plugin install rhesis@rhesis-ai`) — this uses a supported installation mechanism.
+**Skill not activating:**
+- Run `npx skills list` to verify the skill is installed and shows the correct path
+- In Cursor, verify `~/.cursor/skills/rhesis/SKILL.md` exists
+- In Claude Code, try `/rhesis` explicitly; if the filesystem skill loading bug affects your version, use the plugin install path instead
 
 **Tool-name collisions:**
-- If you have other MCP servers with generic tool names (e.g., `list_test_runs`), they may conflict with Rhesis tools. Rhesis tools will be prefixed by the server name in Claude Code; in Cursor, check `.cursor/mcp.json` for any name conflicts.
+- If you have other MCP servers with generic tool names (e.g., `list_test_runs`), they may conflict. In Claude Code, Rhesis tools are prefixed by server name; in Cursor, check `.cursor/mcp.json` for conflicts.

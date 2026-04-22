@@ -13,6 +13,16 @@ The Rhesis Agent Skill packages the platform's domain knowledge into a portable 
 - A Rhesis account at [app.rhesis.ai](https://app.rhesis.ai) (or a self-hosted backend)
 - An API token — generate one at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens)
 
+## Install (any agent)
+
+The fastest way to install across Claude Code, Cursor, Codex, Gemini CLI, and 40+ other AI interfaces:
+
+<CodeBlock language="bash">
+{`npx skills add rhesis-ai/rhesis -g`}
+</CodeBlock>
+
+The CLI detects your installed agents and places the skill accordingly. After installing the skill, connect the MCP server for your specific agent (see below).
+
 ## Install in Claude Code
 
 Claude Code uses a plugin system that bundles the skill and MCP server configuration together.
