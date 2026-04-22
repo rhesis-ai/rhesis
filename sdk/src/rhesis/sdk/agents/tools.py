@@ -301,9 +301,7 @@ class ExploreEndpointTool(BaseTool):
         except RuntimeError:
             loop = None
 
-        def _on_tool_start(
-            tool_name: str, arguments: Dict[str, Any], reasoning: str
-        ) -> None:
+        def _on_tool_start(tool_name: str, arguments: Dict[str, Any], reasoning: str) -> None:
             if not handlers or not loop:
                 return
             asyncio.run_coroutine_threadsafe(
@@ -571,7 +569,9 @@ class ExploreEndpointTool(BaseTool):
             except Exception as e:
                 logger.error(
                     "Comprehensive: strategy '%s' failed: %s",
-                    name, e, exc_info=True,
+                    name,
+                    e,
+                    exc_info=True,
                 )
                 return (name, None, {"strategy": name, "error": str(e)})
 

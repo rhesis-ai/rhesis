@@ -151,10 +151,7 @@ class ArchitectPlan(BaseModel):
     def _coerce_mappings(cls, v: Any) -> Any:
         """Accept both legacy dict and new list-of-MappingSpec format."""
         if isinstance(v, dict):
-            return [
-                {"behavior": beh, "metrics": mnames}
-                for beh, mnames in v.items()
-            ]
+            return [{"behavior": beh, "metrics": mnames} for beh, mnames in v.items()]
         return v
 
     def to_markdown(self) -> str:
@@ -172,11 +169,7 @@ class ArchitectPlan(BaseModel):
             lines.append("")
             for b in self.behaviors:
                 box = "[x]" if b.completed else "[ ]"
-                tag = (
-                    f" *({b.reuse_status})*"
-                    if b.reuse_status != "new"
-                    else ""
-                )
+                tag = f" *({b.reuse_status})*" if b.reuse_status != "new" else ""
                 lines.append(f"- {box} **{b.name}**{tag}")
                 if b.description:
                     lines.append(f"  {b.description}")
@@ -187,14 +180,9 @@ class ArchitectPlan(BaseModel):
             lines.append("")
             for ts in self.test_sets:
                 box = "[x]" if ts.completed else "[ ]"
-                lines.append(
-                    f"- {box} **{ts.name}** — "
-                    f"{ts.num_tests} {ts.test_type} tests"
-                )
+                lines.append(f"- {box} **{ts.name}** — {ts.num_tests} {ts.test_type} tests")
                 if ts.behaviors:
-                    lines.append(
-                        f"  Behaviors: {', '.join(ts.behaviors)}"
-                    )
+                    lines.append(f"  Behaviors: {', '.join(ts.behaviors)}")
             lines.append("")
 
         if self.metrics:
@@ -202,11 +190,7 @@ class ArchitectPlan(BaseModel):
             lines.append("")
             for m in self.metrics:
                 box = "[x]" if m.completed else "[ ]"
-                tag = (
-                    f" *({m.reuse_status})*"
-                    if m.reuse_status != "new"
-                    else ""
-                )
+                tag = f" *({m.reuse_status})*" if m.reuse_status != "new" else ""
                 lines.append(f"- {box} **{m.name}**{tag}")
             lines.append("")
 
@@ -215,10 +199,7 @@ class ArchitectPlan(BaseModel):
             lines.append("")
             for mapping in self.behavior_metric_mappings:
                 box = "[x]" if mapping.completed else "[ ]"
-                lines.append(
-                    f"- {box} **{mapping.behavior}** → "
-                    f"{', '.join(mapping.metrics)}"
-                )
+                lines.append(f"- {box} **{mapping.behavior}** → {', '.join(mapping.metrics)}")
             lines.append("")
 
         return "\n".join(lines)
@@ -245,9 +226,7 @@ def build_save_plan_tool() -> Dict[str, Any]:
         )
 
     pydantic_required = schema.get("required", [])
-    required = [
-        k for k in pydantic_required if k != "project"
-    ]
+    required = [k for k in pydantic_required if k != "project"]
     for key in ("behaviors", "test_sets", "metrics"):
         if key not in required and key in properties:
             required.append(key)
@@ -304,11 +283,7 @@ def _strip_internal_fields(obj: Any) -> None:
                 if key in _INTERNAL_FIELDS:
                     del obj["properties"][key]
             if "required" in obj:
-                obj["required"] = [
-                    r
-                    for r in obj["required"]
-                    if r not in _INTERNAL_FIELDS
-                ]
+                obj["required"] = [r for r in obj["required"] if r not in _INTERNAL_FIELDS]
         for v in obj.values():
             _strip_internal_fields(v)
     elif isinstance(obj, list):

@@ -81,9 +81,7 @@ TOOL_REGISTRY: Dict[str, ToolEntry] = {
 
 def tools_for_mode(mode: AgentMode) -> FrozenSet[str]:
     """Return the set of tool names that trigger a given mode."""
-    return frozenset(
-        name for name, entry in TOOL_REGISTRY.items() if entry.mode == mode
-    )
+    return frozenset(name for name, entry in TOOL_REGISTRY.items() if entry.mode == mode)
 
 
 def plan_category_for(tool_name: str) -> Optional[PlanCategory]:

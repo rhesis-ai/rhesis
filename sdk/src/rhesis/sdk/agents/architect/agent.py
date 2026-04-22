@@ -80,9 +80,7 @@ class ArchitectAgent(BaseAgent):
             history_window=history_window,
             verbose=verbose,
             event_handlers=event_handlers,
-            prompt_templates_dir=(
-                Path(__file__).parent / "prompt_templates"
-            ),
+            prompt_templates_dir=(Path(__file__).parent / "prompt_templates"),
         )
         self._conversation_history: List[Dict[str, Any]] = []
         self._plan: Optional[ArchitectPlan] = None
@@ -109,9 +107,7 @@ class ArchitectAgent(BaseAgent):
         self._mutating_tools: Optional[FrozenSet[str]] = None
         self._auto_approve_all: bool = False
 
-        self._discovery_state: Dict[str, Any] = (
-            _default_discovery_state()
-        )
+        self._discovery_state: Dict[str, Any] = _default_discovery_state()
 
         # UUID → entity name for resolving IDs in mapping tools
         self._id_to_name: Dict[str, str] = {}
@@ -147,9 +143,7 @@ class ArchitectAgent(BaseAgent):
         Returns:
             The agent's response text.
         """
-        return asyncio.run(
-            self.chat_async(message, attachments=attachments)
-        )
+        return asyncio.run(self.chat_async(message, attachments=attachments))
 
     async def chat_async(
         self,
@@ -162,9 +156,7 @@ class ArchitectAgent(BaseAgent):
             self._awaiting_task = False
             self._await_message = ""
             self._pending_tasks.clear()
-            self._conversation_history.append(
-                {"role": Role.USER, "content": message}
-            )
+            self._conversation_history.append({"role": Role.USER, "content": message})
 
             # If the previous turn asked for confirmation, unlock
             # only the specific tools that were blocked.
@@ -188,19 +180,14 @@ class ArchitectAgent(BaseAgent):
             try:
                 response = await self._run_loop(message)
 
-                self._conversation_history.append(
-                    {"role": Role.ASSISTANT, "content": response}
-                )
+                self._conversation_history.append({"role": Role.ASSISTANT, "content": response})
 
                 # Reset per-turn state
                 self._creation_approved = False
                 self._attachments = None
 
                 if self.verbose:
-                    print(
-                        f"[Architect:{self._mode}] "
-                        f"Response: {response[:200]}..."
-                    )
+                    print(f"[Architect:{self._mode}] Response: {response[:200]}...")
 
                 return response
             finally:
@@ -221,9 +208,7 @@ class ArchitectAgent(BaseAgent):
     async def set_plan_async(self, value: ArchitectPlan) -> None:
         """Set the plan and emit a plan_update event."""
         self._plan = value
-        await _emit(
-            self._event_handlers, "on_plan_update", plan=value
-        )
+        await _emit(self._event_handlers, "on_plan_update", plan=value)
 
     @property
     def mode(self) -> str:
@@ -276,15 +261,9 @@ class ArchitectAgent(BaseAgent):
 
     @guard_state.setter
     def guard_state(self, value: Dict[str, Any]) -> None:
-        self._needs_confirmation = value.get(
-            "needs_confirmation", False
-        )
-        self._confirming_tools = frozenset(
-            value.get("confirming_tools", [])
-        )
-        self._auto_approve_all = value.get(
-            "auto_approve_all", False
-        )
+        self._needs_confirmation = value.get("needs_confirmation", False)
+        self._confirming_tools = frozenset(value.get("confirming_tools", []))
+        self._auto_approve_all = value.get("auto_approve_all", False)
 
     def reset(self) -> None:
         """Reset all state for a fresh conversation."""
@@ -328,9 +307,7 @@ class ArchitectAgent(BaseAgent):
                 },
                 "message": {
                     "type": "string",
-                    "description": (
-                        "Message to show the user while waiting."
-                    ),
+                    "description": ("Message to show the user while waiting."),
                 },
             },
             "required": ["task_ids", "message"],
@@ -360,9 +337,7 @@ class ArchitectAgent(BaseAgent):
             )
         return tools
 
-    def _classify_mutating(
-        self, tools: List[Dict[str, Any]]
-    ) -> FrozenSet[str]:
+    def _classify_mutating(self, tools: List[Dict[str, Any]]) -> FrozenSet[str]:
         """Build the set of tools that require user confirmation."""
         cfg = self._cfg
         mutating: Set[str] = set()
@@ -376,9 +351,7 @@ class ArchitectAgent(BaseAgent):
             elif t.get(ToolMeta.DESTRUCTIVE_HINT) is True:
                 mutating.add(t["name"])
             else:
-                method = t.get(
-                    ToolMeta.HTTP_METHOD, "POST"
-                ).upper()
+                method = t.get(ToolMeta.HTTP_METHOD, "POST").upper()
                 if method not in cfg.readonly_http_methods:
                     mutating.add(t["name"])
         return frozenset(mutating)
@@ -403,15 +376,9 @@ class ArchitectAgent(BaseAgent):
         without confirmation (session-level override).
         """
         if self._auto_approve_all:
-            return await super()._handle_tool_calls(
-                action, iteration
-            )
+            return await super()._handle_tool_calls(action, iteration)
 
-        mutating = [
-            tc
-            for tc in action.tool_calls
-            if self._is_mutating(tc.tool_name)
-        ]
+        mutating = [tc for tc in action.tool_calls if self._is_mutating(tc.tool_name)]
 
         if mutating and not self._is_approved(mutating):
             blocked_names = [tc.tool_name for tc in mutating]
@@ -422,16 +389,10 @@ class ArchitectAgent(BaseAgent):
 
             # Unlock ALL mutating tools so the full plan can
             # execute without re-blocking on subsequent types.
-            self._confirming_tools = (
-                self._mutating_tools or frozenset(blocked_names)
-            )
+            self._confirming_tools = self._mutating_tools or frozenset(blocked_names)
 
             # Still allow read-only tools to execute
-            read_only = [
-                tc
-                for tc in action.tool_calls
-                if not self._is_mutating(tc.tool_name)
-            ]
+            read_only = [tc for tc in action.tool_calls if not self._is_mutating(tc.tool_name)]
             if read_only:
                 read_results = await self._execute_tools(read_only)
                 self._execution_history.append(
@@ -452,14 +413,10 @@ class ArchitectAgent(BaseAgent):
                     f"Present the plan and ask the user to confirm."
                 ),
                 action=Action.FINISH,
-                final_answer=(
-                    action.final_answer or action.reasoning
-                ),
+                final_answer=(action.final_answer or action.reasoning),
                 needs_confirmation=True,
             )
-            return await self._handle_finish_action(
-                finish_action, iteration
-            )
+            return await self._handle_finish_action(finish_action, iteration)
 
         return await super()._handle_tool_calls(action, iteration)
 
@@ -469,16 +426,11 @@ class ArchitectAgent(BaseAgent):
             return True
         if not self._creation_approved:
             return False
-        return all(
-            tc.tool_name in self._confirming_tools
-            for tc in tool_calls
-        )
+        return all(tc.tool_name in self._confirming_tools for tc in tool_calls)
 
     # ── argument validation ──────────────────────────────────────
 
-    def _validate_tool_arguments(
-        self, tool_call: ToolCall
-    ) -> Optional[str]:
+    def _validate_tool_arguments(self, tool_call: ToolCall) -> Optional[str]:
         """Structural defense against oversized/malformed payloads.
 
         Returns an error message if validation fails, None if ok.
@@ -500,19 +452,10 @@ class ArchitectAgent(BaseAgent):
             )
 
         for key, value in args.items():
-            if (
-                isinstance(value, str)
-                and len(value) > cfg.max_string_value_len
-            ):
+            if isinstance(value, str) and len(value) > cfg.max_string_value_len:
                 limit_kb = cfg.max_string_value_len // 1000
-                return (
-                    f"Argument '{key}' exceeds the "
-                    f"{limit_kb} KB string limit."
-                )
-            if (
-                isinstance(value, list)
-                and len(value) > cfg.max_array_items
-            ):
+                return f"Argument '{key}' exceeds the {limit_kb} KB string limit."
+            if isinstance(value, list) and len(value) > cfg.max_array_items:
                 return (
                     f"Argument '{key}' contains {len(value)} "
                     f"items (max {cfg.max_array_items}). "
@@ -523,9 +466,7 @@ class ArchitectAgent(BaseAgent):
 
     # ── plan constraints ──────────────────────────────────────────
 
-    def _check_plan_constraints(
-        self, tool_call: ToolCall
-    ) -> Optional[str]:
+    def _check_plan_constraints(self, tool_call: ToolCall) -> Optional[str]:
         """Reject tool calls that contradict the saved plan.
 
         Returns an error message if the call is invalid, None if ok.
@@ -533,10 +474,7 @@ class ArchitectAgent(BaseAgent):
         if not self._plan:
             return None
 
-        if (
-            tool_call.tool_name == "create_project"
-            and not self._plan.project
-        ):
+        if tool_call.tool_name == "create_project" and not self._plan.project:
             return (
                 "The saved plan does not include a project. "
                 "Skip create_project and proceed with the next "
@@ -545,10 +483,7 @@ class ArchitectAgent(BaseAgent):
 
         if tool_call.tool_name == "create_metric":
             name = tool_call.arguments.get("name", "")
-            if name and not any(
-                m.name.lower() == name.lower()
-                for m in self._plan.metrics
-            ):
+            if name and not any(m.name.lower() == name.lower() for m in self._plan.metrics):
                 planned = [m.name for m in self._plan.metrics]
                 return (
                     f"Metric name '{name}' does not match any "
@@ -566,9 +501,7 @@ class ArchitectAgent(BaseAgent):
 
         return None
 
-    def _check_already_completed(
-        self, tool_call: ToolCall
-    ) -> Optional[str]:
+    def _check_already_completed(self, tool_call: ToolCall) -> Optional[str]:
         """Reject creation of an entity that is already completed."""
         plan = self._plan
         if not plan:
@@ -591,11 +524,7 @@ class ArchitectAgent(BaseAgent):
         items = items_map.get(category, [])
 
         for item in items:
-            if (
-                item
-                and item.completed
-                and item.name.lower() == name
-            ):
+            if item and item.completed and item.name.lower() == name:
                 return (
                     f"'{item.name}' is already completed in the "
                     f"plan. Skip this step and proceed to the "
@@ -604,9 +533,7 @@ class ArchitectAgent(BaseAgent):
 
         return None
 
-    def _check_execution_order(
-        self, tool_call: ToolCall
-    ) -> Optional[str]:
+    def _check_execution_order(self, tool_call: ToolCall) -> Optional[str]:
         """Block test set creation while prerequisites are incomplete.
 
         Behaviors, metrics, and mappings must all be completed
@@ -631,17 +558,12 @@ class ArchitectAgent(BaseAgent):
                 pending.append(f"metric '{m.name}'")
         for mp in plan.behavior_metric_mappings:
             if not mp.completed:
-                pending.append(
-                    f"mapping '{mp.behavior}' → "
-                    f"{', '.join(mp.metrics)}"
-                )
+                pending.append(f"mapping '{mp.behavior}' → {', '.join(mp.metrics)}")
 
         if pending:
             return (
                 "Cannot generate test sets yet. Complete these "
-                "plan items first: "
-                + "; ".join(pending)
-                + "."
+                "plan items first: " + "; ".join(pending) + "."
             )
         return None
 
@@ -655,10 +577,7 @@ class ArchitectAgent(BaseAgent):
         if tool_call.tool_name == InternalTool.AWAIT_TASK:
             return await self._execute_await_task(tool_call)
 
-        error = (
-            self._check_plan_constraints(tool_call)
-            or self._validate_tool_arguments(tool_call)
-        )
+        error = self._check_plan_constraints(tool_call) or self._validate_tool_arguments(tool_call)
         if error:
             logger.warning(
                 "[Architect] Rejected tool %s: %s",
@@ -682,9 +601,7 @@ class ArchitectAgent(BaseAgent):
 
     # ── plan management ──────────────────────────────────────────
 
-    async def _execute_save_plan(
-        self, tool_call: ToolCall
-    ) -> ToolResult:
+    async def _execute_save_plan(self, tool_call: ToolCall) -> ToolResult:
         """Parse LLM-provided plan data and store it."""
         try:
             plan = ArchitectPlan.model_validate(tool_call.arguments)
@@ -697,15 +614,12 @@ class ArchitectAgent(BaseAgent):
             await self.set_mode_async(AgentMode.PLANNING)
             await self.set_plan_async(plan)
             logger.info(
-                "[Architect] Plan saved: %d behaviors, "
-                "%d test sets, %d metrics",
+                "[Architect] Plan saved: %d behaviors, %d test sets, %d metrics",
                 len(plan.behaviors),
                 len(plan.test_sets),
                 len(plan.metrics),
             )
-            project_label = (
-                f"{plan.project.name} — " if plan.project else ""
-            )
+            project_label = f"{plan.project.name} — " if plan.project else ""
             return ToolResult(
                 tool_name=InternalTool.SAVE_PLAN,
                 success=True,
@@ -717,9 +631,7 @@ class ArchitectAgent(BaseAgent):
                 ),
             )
         except Exception as e:
-            logger.warning(
-                "[Architect] Failed to parse plan: %s", e
-            )
+            logger.warning("[Architect] Failed to parse plan: %s", e)
             return ToolResult(
                 tool_name=InternalTool.SAVE_PLAN,
                 success=False,
@@ -728,9 +640,7 @@ class ArchitectAgent(BaseAgent):
 
     # ── async task waiting ────────────────────────────────────────
 
-    async def _execute_await_task(
-        self, tool_call: ToolCall
-    ) -> ToolResult:
+    async def _execute_await_task(self, tool_call: ToolCall) -> ToolResult:
         """Pause the turn to wait for background tasks."""
         task_ids = tool_call.arguments.get("task_ids", [])
         message = tool_call.arguments.get("message", "")
@@ -787,9 +697,7 @@ class ArchitectAgent(BaseAgent):
             self._needs_confirmation = False
         return step, should_finish
 
-    async def _track_plan_progress(
-        self, tool_call: ToolCall, result: ToolResult
-    ) -> None:
+    async def _track_plan_progress(self, tool_call: ToolCall, result: ToolResult) -> None:
         """Mark plan items as completed after successful tool calls."""
         self._collect_id_names(result)
 
@@ -804,11 +712,7 @@ class ArchitectAgent(BaseAgent):
         name = (tool_call.arguments.get("name") or "").lower()
         updated = False
 
-        if (
-            category == "project"
-            and plan.project
-            and not plan.project.completed
-        ):
+        if category == "project" and plan.project and not plan.project.completed:
             plan.project.completed = True
             updated = True
 
@@ -825,14 +729,10 @@ class ArchitectAgent(BaseAgent):
             updated = self._match_metric(plan, tool_call, name)
 
         elif category == "mapping":
-            updated = self._match_mapping(
-                plan, tool_call, self._id_to_name
-            )
+            updated = self._match_mapping(plan, tool_call, self._id_to_name)
 
         if updated:
-            await _emit(
-                self._event_handlers, "on_plan_update", plan=plan
-            )
+            await _emit(self._event_handlers, "on_plan_update", plan=plan)
 
     @staticmethod
     def _mark_completed(items: list, name: str) -> bool:
@@ -853,10 +753,7 @@ class ArchitectAgent(BaseAgent):
         if not name and tool_call.arguments.get("prompt"):
             prompt_lower = tool_call.arguments["prompt"].lower()
             for m in plan.metrics:
-                if (
-                    not m.completed
-                    and m.name.lower() in prompt_lower
-                ):
+                if not m.completed and m.name.lower() in prompt_lower:
                     m.completed = True
                     return True
         if name:
@@ -903,9 +800,7 @@ class ArchitectAgent(BaseAgent):
             if behavior and mapping.behavior.lower() == behavior:
                 mapping.completed = True
                 return True
-            if metric and any(
-                m.lower() == metric for m in mapping.metrics
-            ):
+            if metric and any(m.lower() == metric for m in mapping.metrics):
                 mapping.completed = True
                 return True
         return False
@@ -920,9 +815,7 @@ class ArchitectAgent(BaseAgent):
 
         updated = False
         for line in message.splitlines():
-            match = re.search(
-                r"Test set '([^']+)' generated successfully", line
-            )
+            match = re.search(r"Test set '([^']+)' generated successfully", line)
             if match:
                 name = match.group(1).lower()
                 for ts in plan.test_sets:
@@ -932,9 +825,7 @@ class ArchitectAgent(BaseAgent):
                         break
 
         if updated:
-            await _emit(
-                self._event_handlers, "on_plan_update", plan=plan
-            )
+            await _emit(self._event_handlers, "on_plan_update", plan=plan)
 
     # ── transport lifecycle ──────────────────────────────────────
 
@@ -960,9 +851,7 @@ class ArchitectAgent(BaseAgent):
         discovery_text = self._format_discovery_state()
         attachments_text = self._format_attachments()
 
-        template = self._jinja_env.get_template(
-            "iteration_prompt.j2"
-        )
+        template = self._jinja_env.get_template("iteration_prompt.j2")
         return template.render(
             mode=self._mode,
             user_query=user_query,
@@ -981,13 +870,8 @@ class ArchitectAgent(BaseAgent):
 
         parts: List[str] = []
         if ds.get("endpoint_name"):
-            parts.append(
-                f"Endpoint: {ds['endpoint_name']} "
-                f"(id: {ds['endpoint_id']})"
-            )
-        parts.append(
-            "Explored: yes" if ds.get("explored") else "Explored: not yet"
-        )
+            parts.append(f"Endpoint: {ds['endpoint_name']} (id: {ds['endpoint_id']})")
+        parts.append("Explored: yes" if ds.get("explored") else "Explored: not yet")
         for label, key in [
             ("Observations", "observations"),
             ("User-confirmed testing areas", "user_confirmed_areas"),
@@ -1012,10 +896,7 @@ class ArchitectAgent(BaseAgent):
         if mentions:
             parts.append("Resolved entity references:")
             for m in mentions:
-                parts.append(
-                    f"  - @{m['type']}:{m['display']} "
-                    f"(id: {m['id']})"
-                )
+                parts.append(f"  - @{m['type']}:{m['display']} (id: {m['id']})")
 
         files = self._attachments.get("files")
         if files:
@@ -1023,14 +904,8 @@ class ArchitectAgent(BaseAgent):
                 filename = f.get("filename", "unknown")
                 content = f.get("content", "")
                 if len(content) > cfg.max_attachment_chars:
-                    content = (
-                        content[: cfg.max_attachment_chars]
-                        + "\n\n[... truncated ...]"
-                    )
-                parts.append(
-                    f"Attached file: {filename}\n"
-                    f"```\n{content}\n```"
-                )
+                    content = content[: cfg.max_attachment_chars] + "\n\n[... truncated ...]"
+                parts.append(f"Attached file: {filename}\n```\n{content}\n```")
 
         return "\n".join(parts)
 
@@ -1041,9 +916,7 @@ class ArchitectAgent(BaseAgent):
     ) -> Tuple[ExecutionStep, bool]:
         """Stream the final response token-by-token."""
         logger.info("[Architect] Streaming final response")
-        confirmation = (
-            action.needs_confirmation and not self._auto_approve_all
-        )
+        confirmation = action.needs_confirmation and not self._auto_approve_all
         self._needs_confirmation = confirmation
 
         seed = action.final_answer or ""
@@ -1086,17 +959,11 @@ class ArchitectAgent(BaseAgent):
         final_answer: str,
     ) -> str:
         """Build the prompt for the streaming Phase 2 LLM call."""
-        conv_window = self._conversation_history[
-            -self._history_window :
-        ]
+        conv_window = self._conversation_history[-self._history_window :]
         plan_text = self._plan.to_markdown() if self._plan else ""
-        tool_results_text = (
-            self._format_tool_results_for_streaming()
-        )
+        tool_results_text = self._format_tool_results_for_streaming()
 
-        template = self._jinja_env.get_template(
-            "streaming_response.j2"
-        )
+        template = self._jinja_env.get_template("streaming_response.j2")
         return template.render(
             conversation_history=conv_window,
             plan_text=plan_text,
@@ -1116,14 +983,9 @@ class ArchitectAgent(BaseAgent):
                 for tr in step.tool_results:
                     preview = cfg.tool_result_preview_chars
                     if tr.success and tr.content:
-                        parts.append(
-                            f"[{tr.tool_name}]: "
-                            f"{tr.content[:preview]}"
-                        )
+                        parts.append(f"[{tr.tool_name}]: {tr.content[:preview]}")
                     elif tr.error:
-                        parts.append(
-                            f"[{tr.tool_name}] Error: {tr.error}"
-                        )
+                        parts.append(f"[{tr.tool_name}] Error: {tr.error}")
         return "\n\n".join(parts)
 
     # ── history formatting ───────────────────────────────────────
@@ -1132,50 +994,27 @@ class ArchitectAgent(BaseAgent):
         parts: List[str] = []
         cfg = self._cfg
 
-        conv_window = self._conversation_history[
-            -self._history_window :
-        ]
+        conv_window = self._conversation_history[-self._history_window :]
         if len(self._conversation_history) > self._history_window:
-            omitted = (
-                len(self._conversation_history) - self._history_window
-            )
-            parts.append(
-                f"[... {omitted} earlier messages omitted ...]"
-            )
+            omitted = len(self._conversation_history) - self._history_window
+            parts.append(f"[... {omitted} earlier messages omitted ...]")
 
-        recent_start = max(
-            0, len(conv_window) - cfg.recent_msg_limit
-        )
+        recent_start = max(0, len(conv_window) - cfg.recent_msg_limit)
         for i, msg in enumerate(conv_window):
             role = msg["role"].capitalize()
             content = msg["content"]
-            max_chars = (
-                cfg.recent_msg_max_chars
-                if i >= recent_start
-                else cfg.older_msg_max_chars
-            )
+            max_chars = cfg.recent_msg_max_chars if i >= recent_start else cfg.older_msg_max_chars
             if len(content) > max_chars:
                 content = content[:max_chars] + "..."
             parts.append(f"{role}: {content}")
 
-        exec_window = self._execution_history[
-            -self._history_window :
-        ]
+        exec_window = self._execution_history[-self._history_window :]
         if len(self._execution_history) > self._history_window:
-            omitted = (
-                len(self._execution_history) - self._history_window
-            )
-            parts.append(
-                f"[... {omitted} earlier tool steps omitted ...]"
-            )
+            omitted = len(self._execution_history) - self._history_window
+            parts.append(f"[... {omitted} earlier tool steps omitted ...]")
         for step in exec_window:
-            reasoning_preview = step.reasoning[
-                : cfg.reasoning_preview_chars
-            ]
-            parts.append(
-                f"[Tool iteration {step.iteration}] "
-                f"Reasoning: {reasoning_preview}"
-            )
+            reasoning_preview = step.reasoning[: cfg.reasoning_preview_chars]
+            parts.append(f"[Tool iteration {step.iteration}] Reasoning: {reasoning_preview}")
             if step.tool_calls:
                 for tc in step.tool_calls:
                     parts.append(f"  Called: {tc.tool_name}")
@@ -1183,14 +1022,8 @@ class ArchitectAgent(BaseAgent):
                 for tr in step.tool_results:
                     preview = cfg.tool_result_preview_chars
                     if tr.success:
-                        parts.append(
-                            f"  Result ({tr.tool_name}): "
-                            f"{tr.content[:preview]}"
-                        )
+                        parts.append(f"  Result ({tr.tool_name}): {tr.content[:preview]}")
                     else:
-                        parts.append(
-                            f"  Error ({tr.tool_name}): "
-                            f"{tr.error}"
-                        )
+                        parts.append(f"  Error ({tr.tool_name}): {tr.error}")
 
         return "\n".join(parts) if parts else ""
