@@ -4,10 +4,10 @@ tools:
     label: Listing projects
     method: GET
     path: /projects/
+    page_size: 50
     description: >
       List projects in the current organization. Use $select to request
-      only the fields you need (e.g. $select=name,id). Use skip/limit
-      for pagination.
+      only the fields you need (e.g. $select=name,id).
 
   - name: create_project
     label: Creating project
@@ -23,6 +23,7 @@ tools:
     label: Listing test sets
     method: GET
     path: /test_sets/
+    page_size: 20
     description: >
       List test sets in the organization. Test sets group related tests
       that share a common behavior, category, or theme. Use $select to
@@ -142,6 +143,7 @@ tools:
     path: /tests/
     default_query:
       $select: "id,prompt,behavior,category,topic,test_set"
+    page_size: 20
     description: >
       List tests in the organization. Each test defines a prompt,
       expected response behavior, and optional metadata. By default
@@ -152,6 +154,7 @@ tools:
     label: Checking test runs
     method: GET
     path: /test_runs/
+    page_size: 20
     description: >
       List test runs in the organization. Each test run tracks one
       execution of a test set. Key fields: id, status, test_set,
@@ -178,6 +181,7 @@ tools:
     path: /test_results/
     default_query:
       $select: "id,status,prompt,behavior,metric_scores"
+    page_size: 20
     description: >
       List test results. Each result contains the prompt sent, the
       response received, status (Passed/Failed), and evaluation scores.
@@ -216,6 +220,7 @@ tools:
     label: Looking up behaviors
     method: GET
     path: /behaviors/
+    page_size: 20
     description: >
       List available behaviors. Behaviors define what an endpoint should
       do (e.g., "answer questions accurately", "refuse harmful requests").
@@ -244,6 +249,7 @@ tools:
     label: Listing categories
     method: GET
     path: /categories/
+    page_size: 20
     description: >
       List available categories. Categories classify tests by type
       (e.g., "functional", "safety", "robustness"). Use $select to
@@ -253,6 +259,7 @@ tools:
     label: Listing topics
     method: GET
     path: /topics/
+    page_size: 20
     description: >
       List available topics. Topics define subject areas for tests
       (e.g., "healthcare", "finance", "general knowledge"). Use $select
@@ -282,6 +289,7 @@ tools:
     path: /metrics/
     default_query:
       $select: "id,name,description,score_type,threshold,metric_scope"
+    page_size: 20
     description: >
       List available metrics for evaluating test results. Metrics
       define how endpoint responses are scored (e.g., accuracy,
@@ -404,6 +412,7 @@ tools:
     label: Checking metric behaviors
     method: GET
     path: /metrics/{metric_id}/behaviors/
+    page_size: 20
     description: >
       List all behaviors currently linked to a metric. Use this to
       verify which behaviors a metric evaluates or to check whether a
@@ -417,6 +426,7 @@ tools:
     label: Finding endpoints
     method: GET
     path: /endpoints/
+    page_size: 50
     description: >
       List configured endpoints. Endpoints are the AI systems being
       tested (chat APIs, completion APIs, etc.). Use $select to request
@@ -529,9 +539,9 @@ tools:
     label: Listing knowledge sources
     method: GET
     path: /sources/
+    page_size: 50
     default_query:
-      $select: "id,title,description,url"
-      limit: 100
+      $select: "id,title,description,url,source_type_id,status_id,organization_id,user_id"
     description: >
       Discover available knowledge sources by title and description.
       Use this when the user mentions documentation, reference material,
@@ -542,9 +552,6 @@ tools:
       and the backend handles content injection.
     parameters:
       $filter:
-      $select:
-      limit:
-      skip:
 
   # ── Background Jobs ─────────────────────────────────────
   - name: get_job_status

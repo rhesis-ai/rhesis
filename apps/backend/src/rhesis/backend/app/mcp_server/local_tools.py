@@ -19,7 +19,7 @@ from rhesis.sdk.agents.base import MCPTool
 from rhesis.sdk.agents.constants import ToolMeta
 from rhesis.sdk.agents.schemas import ToolResult
 
-from .tools import build_tools_and_operations, load_tool_configs
+from .tools import apply_query_overrides, build_tools_and_operations, format_list_response, load_tool_configs
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +107,10 @@ class LocalToolProvider(MCPTool):
             if param.get("in") == "query" and param["name"] in arguments:
                 query[param["name"]] = arguments.pop(param["name"])
 
+        # Apply default_query and page_size peek-ahead.
+        query, current_skip, page_size = apply_query_overrides(query, op)
+        logger.debug("LocalTool %s → query=%s page_size=%s", tool_name, query, page_size)
+
         # Remaining arguments = request body.
         # If the operation expects a body (POST/PUT) but no arguments
         # remain, send an empty dict so FastAPI doesn't reject a missing body.
@@ -146,10 +150,11 @@ class LocalToolProvider(MCPTool):
                 data = response.json()
             except Exception:
                 data = response.text
+            formatted = format_list_response(data, page_size, current_skip)
             return ToolResult(
                 tool_name=tool_name,
                 success=True,
-                content=json.dumps(data, default=str),
+                content=json.dumps(formatted, default=str),
             )
 
         except Exception as e:

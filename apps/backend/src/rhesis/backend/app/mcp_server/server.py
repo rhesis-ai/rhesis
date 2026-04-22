@@ -23,7 +23,7 @@ from starlette.types import Receive, Scope, Send
 from rhesis.backend.app.auth.token_utils import get_secret_key
 from rhesis.backend.app.auth.user_utils import get_authenticated_user_with_context
 
-from .tools import build_tools_and_operations
+from .tools import apply_query_overrides, build_tools_and_operations, format_list_response
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +31,26 @@ logger = logging.getLogger(__name__)
 # ── Response formatters ────────────────────────────────────────────
 
 
-def format_success(response: httpx.Response) -> str:
-    """Format a successful response as a JSON string for MCP."""
+def format_success(
+    response: httpx.Response,
+    page_size: Optional[int] = None,
+    current_skip: int = 0,
+) -> str:
+    """Format a successful response as a JSON string for MCP.
+
+    When ``page_size`` is provided (peek-ahead pagination), list responses
+    are wrapped with ``_pagination`` metadata so the LLM always knows
+    whether the result set is complete or truncated.
+    """
     try:
         data = response.json()
     except Exception:
         data = response.text
-    return json.dumps(data, default=str)
+
+    return json.dumps(
+        format_list_response(data, page_size, current_skip),
+        default=str,
+    )
 
 
 def format_error(response: httpx.Response) -> str:
@@ -120,13 +133,9 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
             if param.get("in") == "query" and param["name"] in arguments:
                 query[param["name"]] = arguments.pop(param["name"])
 
-        # 2b. Apply default query params (e.g. $select) when the
-        # agent didn't supply them.  This keeps response payloads
-        # small by default — the agent can still override by
-        # providing its own value.
-        for key, value in op.get("default_query", {}).items():
-            if key not in query:
-                query[key] = value
+        # Apply default_query and page_size peek-ahead. Both are declared in
+        # mcp_tools.yaml and enforced here regardless of what the agent passed.
+        query, current_skip, page_size = apply_query_overrides(query, op)
 
         # 3. Remaining arguments = request body
         body = arguments if arguments else None
@@ -145,7 +154,7 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
         if response.status_code >= 400:
             text = format_error(response)
         else:
-            text = format_success(response)
+            text = format_success(response, page_size=page_size, current_skip=current_skip)
 
         return [mcp_types.TextContent(type="text", text=text)]
 
