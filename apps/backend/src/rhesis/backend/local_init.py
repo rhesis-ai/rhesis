@@ -9,6 +9,7 @@ DO NOT use this in production environments.
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
 
@@ -79,7 +80,9 @@ def initialize_local_environment(db: Session) -> None:
 
                 if not example_project:
                     logger.info("📦 Loading initial seed data...")
-                    load_initial_data(db, str(org.id), str(user.id))
+                    default_model_ids = load_initial_data(db, str(org.id), str(user.id))
+                    _apply_default_model_ids_to_user(user, default_model_ids)
+                    db.flush()
                     db.commit()
                     logger.info("✅ Initial seed data loaded successfully!")
                 else:
@@ -144,7 +147,9 @@ def initialize_local_environment(db: Session) -> None:
 
         # Load initial seed data (example project, tests, etc.)
         logger.info("📦 Loading initial seed data...")
-        load_initial_data(db, str(org_id), str(user_id))
+        default_model_ids = load_initial_data(db, str(org_id), str(user_id))
+        _apply_default_model_ids_to_user(user, default_model_ids)
+        db.flush()
 
         db.commit()
 
@@ -157,6 +162,23 @@ def initialize_local_environment(db: Session) -> None:
         logger.error(f"❌ Failed to initialize local environment: {str(e)}")
         logger.error("   This is not critical - you can still use the application.")
         db.rollback()
+
+
+def _apply_default_model_ids_to_user(
+    user: models.User, default_model_ids: Mapping[str, Any] | None
+) -> None:
+    """Match organization onboarding: wire default LLM/embedding IDs into user settings."""
+    if not default_model_ids:
+        return
+    user.settings.update(
+        {
+            "models": {
+                "generation": {"model_id": default_model_ids.get("language_model_id")},
+                "evaluation": {"model_id": default_model_ids.get("language_model_id")},
+                "embedding": {"model_id": default_model_ids.get("embedding_model_id")},
+            }
+        }
+    )
 
 
 def _create_local_token(db: Session, user_id: uuid.UUID, organization_id: uuid.UUID) -> None:

@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-15T14:24:49.345542Z"
+exclude-newer = "2026-04-15T20:41:52.59063Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -5266,11 +5266,15 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "tenacity" },
     { name = "tomli" },
-    { name = "torch", version = "2.10.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.10.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "uvicorn" },
     { name = "websockets" },
     { name = "yaspin" },
+]
+
+[package.optional-dependencies]
+cpu = [
+    { name = "torch", version = "2.10.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.10.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
 ]
 
 [package.metadata]
@@ -5319,11 +5323,12 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0.43" },
     { name = "tenacity", specifier = "==8.2.3" },
     { name = "tomli", specifier = ">=2.0.0" },
-    { name = "torch", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "rhesis-worker", extra = "cpu" } },
     { name = "uvicorn", specifier = ">=0.35.0" },
     { name = "websockets", specifier = "==15.0.1" },
     { name = "yaspin", specifier = "==3.0.2" },
 ]
+provides-extras = ["cpu"]
 
 [[package]]
 name = "rich"
