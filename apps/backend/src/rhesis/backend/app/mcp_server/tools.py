@@ -66,8 +66,9 @@ def build_tools_and_operations(
             )
             continue
 
-        # YAML parameter description overrides
-        yaml_param_overrides = tc.get("parameters", {}) or {}
+        # YAML parameter description overrides; normalize None values (bare YAML keys) to {}
+        raw_overrides = tc.get("parameters", {}) or {}
+        yaml_param_overrides = {k: v or {} for k, v in raw_overrides.items()}
 
         input_schema = build_input_schema(operation, openapi_schema, yaml_param_overrides)
         description = tc.get("description", "").strip()

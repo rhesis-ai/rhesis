@@ -106,6 +106,16 @@ tools:
         description: >
           Name for the generated test set (string). Use the test set
           name from your plan.
+      sources:
+        description: >
+          Optional. List of knowledge source objects to ground the generated
+          tests in real content. Each object must contain only the id field:
+          [{"id": "<source-uuid>"}]. The backend fetches the source content
+          by ID automatically and injects it into the synthesizer — do NOT
+          attempt to load or pass source content yourself. Use list_sources
+          to discover available sources and pass their IDs here.
+          LIMITATION: only single-turn test generation uses sources.
+          Multi-turn tests currently ignore this parameter.
 
   - name: execute_test_set
     label: Running test set
@@ -183,9 +193,23 @@ tools:
     method: GET
     path: /test_results/{test_result_id}
     description: >
-      Get full details of a specific test result: the prompt, response,
-      expected response, status, metric scores with individual reasoning,
-      and evaluation metadata. Use this to drill into specific failures.
+      Get full details of a specific test result. Use this to drill into
+      individual failures and understand why a test failed.
+
+      Key fields in the response:
+      - test_output.output: the endpoint's actual response text
+      - test_metrics.metrics: dict of metric name → evaluation result.
+        Each evaluation result contains:
+        - is_successful (bool): whether this metric passed
+        - score (float or string): the numeric or categorical score
+        - reason (string): the evaluator's explanation of why this score
+          was given — this is the most useful field for failure analysis
+        - threshold (float): the pass/fail threshold (numeric metrics)
+      - status: overall pass/fail for this test result
+
+      Use the result IDs from list_test_results (filtered to failures) to
+      identify which specific results to drill into. Focus on the 2-3 most
+      informative failures rather than fetching every failing result.
 
   # ── Behaviors ─────────────────────────────────────────────
   - name: list_behaviors
@@ -424,23 +448,25 @@ tools:
     default_query:
       mode: test_runs
     description: >
-      Get aggregated statistics for test results. Use this for comparing
-      test runs, analyzing behavior pass rates, and understanding metric
-      performance across runs. The mode parameter controls what data is
-      returned:
+      Get aggregated statistics for test results. Use this for single-run
+      analysis (which behaviors/metrics failed?) and multi-run comparison
+      (did results improve?). The mode parameter controls what is returned:
 
-      - **test_runs**: Per-run pass/fail summary with pass rates. Best
-        for comparing two or more runs side by side. Pass multiple
-        test_run_ids to compare specific runs.
-      - **behavior**: Pass rates grouped by behavior. Use with
-        test_run_id to see which behaviors passed/failed in a specific
-        run. Compare two runs by calling once per run.
-      - **metrics**: Pass rates grouped by metric name.
-      - **summary**: Lightweight overall pass/fail totals.
-      - **all**: Complete stats (all of the above).
+      - **all**: Complete stats for a single run — behavior pass rates,
+        metric pass rates, overall totals, and timeline. Use with a single
+        test_run_id immediately after execution for a full analysis in one
+        call. This is the most efficient option for post-run analysis.
+      - **behavior**: Pass rates grouped by behavior. Use with test_run_id
+        to see which behaviors passed/failed in a specific run.
+      - **metrics**: Pass rates grouped by metric name. Use with test_run_id
+        to see which metrics are the problem areas.
+      - **test_runs**: Per-run pass/fail summary with pass rates. Best for
+        comparing two or more runs side by side. Pass multiple test_run_ids.
+      - **summary**: Lightweight overall pass/fail totals only.
 
-      Filter by test_run_ids to scope results to specific runs. Combine
-      with behavior_ids or test_set_ids for targeted analysis.
+      For single-run analysis: use mode=all with test_run_id.
+      For multi-run comparison: use mode=test_runs with test_run_ids.
+      Filter by behavior_ids or test_set_ids for targeted analysis.
     parameters:
       mode:
         description: >
@@ -497,6 +523,28 @@ tools:
         description: "Start date in ISO format (overrides months)."
       end_date:
         description: "End date in ISO format (overrides months)."
+
+  # ── Knowledge Sources ────────────────────────────────────
+  - name: list_sources
+    label: Listing knowledge sources
+    method: GET
+    path: /sources/
+    default_query:
+      $select: "id,title,description,url"
+      limit: 100
+    description: >
+      Discover available knowledge sources by title and description.
+      Use this when the user mentions documentation, reference material,
+      or says things like "based on our FAQ", "use the product spec",
+      "I have reference material". Search by name with
+      $filter=contains(tolower(title), 'keyword'). The agent should
+      NEVER fetch source content — pass IDs directly to generate_test_set
+      and the backend handles content injection.
+    parameters:
+      $filter:
+      $select:
+      limit:
+      skip:
 
   # ── Background Jobs ─────────────────────────────────────
   - name: get_job_status
