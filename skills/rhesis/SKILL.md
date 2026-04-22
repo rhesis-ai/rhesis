@@ -9,7 +9,7 @@ This skill teaches you how to work effectively with the Rhesis platform: explore
 
 ## Prerequisites
 
-The Rhesis MCP server must be connected to your AI interface. If you followed the install instructions in `README.md`, this is already done. You also need a Rhesis API token — generate one at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens).
+The Rhesis MCP server must be connected to your AI interface before this skill can call any tools. If it isn't set up yet, see the [install guide](https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis#connect-the-mcp-server) for your agent. You also need a Rhesis API token — generate one at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens).
 
 For self-hosted backends, set `RHESIS_MCP_URL=http://localhost:8080/mcp` instead of the default hosted URL.
 
