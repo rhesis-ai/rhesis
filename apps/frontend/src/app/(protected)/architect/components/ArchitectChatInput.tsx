@@ -331,7 +331,7 @@ const ArchitectChatInput = forwardRef<
             sx={{
               width: theme.spacing(1),
               height: theme.spacing(1),
-              borderRadius: '50%',
+              borderRadius: theme.shape.circular,
               backgroundColor: color,
               flexShrink: 0,
             }}

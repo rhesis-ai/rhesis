@@ -279,7 +279,7 @@ export default function ArchitectChat({
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        borderRadius: 0,
+        borderRadius: (theme) => theme.shape.sharp,
       }}
     >
       {/* Header with mode badge */}

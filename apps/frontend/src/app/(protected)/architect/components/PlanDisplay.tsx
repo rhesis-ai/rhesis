@@ -46,7 +46,7 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
         mb: 1,
         border: 1,
         borderColor: isComplete ? 'success.main' : 'divider',
-        borderRadius: 1,
+        borderRadius: (theme) => theme.shape.borderRadius,
         bgcolor: 'background.paper',
       }}
     >
@@ -79,7 +79,7 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
               <LinearProgress
                 variant="determinate"
                 value={progress}
-                sx={{ flex: 1, maxWidth: 120, height: 4, borderRadius: 2 }}
+                sx={{ flex: 1, maxWidth: 120, height: 4, borderRadius: (theme) => theme.shape.borderRadius * 2 }}
               />
               <Typography variant="caption" color="text.secondary">
                 {done}/{total}

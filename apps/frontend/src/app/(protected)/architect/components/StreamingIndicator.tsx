@@ -26,7 +26,7 @@ export default function StreamingIndicator({ state }: StreamingIndicatorProps) {
         sx={{
           width: 32,
           height: 32,
-          borderRadius: '50%',
+          borderRadius: (theme) => theme.shape.circular,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -45,7 +45,7 @@ export default function StreamingIndicator({ state }: StreamingIndicatorProps) {
           p: 1.5,
           maxWidth: '75%',
           bgcolor: 'background.paper',
-          borderRadius: 2,
+          borderRadius: (theme) => theme.shape.borderRadius * 2,
           border: 1,
           borderColor: 'divider',
         }}
