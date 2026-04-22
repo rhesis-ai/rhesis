@@ -6,10 +6,12 @@ metadata:
   namespace: argocd
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: internal
   rules:
-    - host: argocd.dev.rhesis.internal
+    - host: dev-argocd.rhesis.ai
       http:
         paths:
           - path: /
@@ -19,3 +21,7 @@ spec:
                 name: argocd-server
                 port:
                   number: 80
+  tls:
+    - hosts:
+        - dev-argocd.rhesis.ai
+      secretName: argocd-tls

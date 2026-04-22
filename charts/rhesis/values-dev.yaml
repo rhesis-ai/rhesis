@@ -22,15 +22,15 @@ config:
   dbUser: "rhesis-user"
 
   # Frontend
-  nextPublicApiBaseUrl: "https://api.dev.rhesis.internal"
-  nextPublicAppUrl: "https://app.dev.rhesis.internal"
-  nextauthUrl: "https://app.dev.rhesis.internal"
+  nextPublicApiBaseUrl: "https://dev-api.rhesis.ai"
+  nextPublicAppUrl: "https://dev-app.rhesis.ai"
+  nextauthUrl: "https://dev-app.rhesis.ai"
   nextPublicAuth0ClientId: "lUO4dMypij4rUrS9gUJpam5Srf0ATtEE"
   nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
 
   # Backend
-  rhesisBaseUrl: "https://api.dev.rhesis.internal"
-  frontendUrl: "https://app.dev.rhesis.internal"
+  rhesisBaseUrl: "https://dev-api.rhesis.ai"
+  frontendUrl: "https://dev-app.rhesis.ai"
   backendUrl: "http://backend:8080"
 
   # GCP
@@ -45,7 +45,10 @@ config:
 backend:
   ingress:
     enabled: true
-    host: "api.dev.rhesis.internal"
+    host: "dev-api.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
   # Dev: slow cold start (e.g. Garak). Helm replaces nested maps — keep full blocks.
   # Liveness worst-case ≈ 900 + 29*45 = 2205s (~37m) before restart if /health never succeeds.
   livenessProbe:
@@ -66,22 +69,34 @@ backend:
 frontend:
   ingress:
     enabled: true
-    host: "app.dev.rhesis.internal"
+    host: "dev-app.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 docs:
   ingress:
     enabled: true
-    host: "docs.dev.rhesis.internal"
+    host: "dev-docs.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 chatbot:
   ingress:
     enabled: true
-    host: "chatbot.dev.rhesis.internal"
+    host: "dev-chatbot.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 polyphemus:
   ingress:
     enabled: true
-    host: "polyphemus.dev.rhesis.internal"
+    host: "dev-polyphemus.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
   livenessProbe:
     httpGet:
       path: /health

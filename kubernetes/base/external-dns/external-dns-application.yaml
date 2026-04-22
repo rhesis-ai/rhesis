@@ -23,6 +23,8 @@ spec:
                 key: cf-api-token
         domainFilters:
           - rhesis.ai
+        ingressClassFilters:
+          - external
         policy: sync # sync or upsert
         txtOwnerId: PLACEHOLDER
         sources:

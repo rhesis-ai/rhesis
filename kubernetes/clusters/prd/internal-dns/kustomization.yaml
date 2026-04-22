@@ -10,7 +10,7 @@ configMapGenerator:
       - tsig-secret-gcp-key=internal-dns-tsig-key-prd
       - rfc2136-host=10.6.1.200
       - tsig-keyname=tsig-prd
-      - domain-filter=rhesis.internal
+      - domain-filter=rhesis.ai
       - txt-owner-id=prd-internal-dns
     options:
       annotations:

@@ -39,8 +39,8 @@ write_files:
   - path: /tmp/named.conf.b64
     content: "${bind9_named_conf_b64}"
     permissions: '0600'
-  - path: /tmp/rhesis.internal.zone.b64
-    content: "${bind9_zone_file_b64}"
+  - path: /tmp/rhesis.ai.zone.b64
+    content: "${bind9_rhesis_ai_zone_file_b64}"
     permissions: '0600'
 %{ endif ~}
 
@@ -55,7 +55,7 @@ runcmd:
 %{ if bind9_enabled ~}
   - mkdir -p /var/lib/bind
   - base64 -d /tmp/named.conf.b64 > /etc/bind/named.conf && rm /tmp/named.conf.b64
-  - "test -f /var/lib/bind/rhesis.internal.zone || (base64 -d /tmp/rhesis.internal.zone.b64 > /var/lib/bind/rhesis.internal.zone && rm /tmp/rhesis.internal.zone.b64)"
+  - "test -f /var/lib/bind/rhesis.ai.zone || (base64 -d /tmp/rhesis.ai.zone.b64 > /var/lib/bind/rhesis.ai.zone && rm /tmp/rhesis.ai.zone.b64)"
   - chown -R bind:bind /var/lib/bind
   - systemctl enable named
   - systemctl restart named

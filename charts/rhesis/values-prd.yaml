@@ -22,17 +22,29 @@ backend:
   ingress:
     enabled: true
     host: "api.rhesis.ai"
+    className: external
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 frontend:
   replicas: 2
   ingress:
     enabled: true
     host: "app.rhesis.ai"
+    className: external
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 docs:
   ingress:
     enabled: true
     host: "docs.rhesis.ai"
+    className: external
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 # PostgreSQL disabled for prd — use CNPG Cluster via GitOps directory
 postgresql:

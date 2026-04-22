@@ -8,11 +8,11 @@ global:
 config:
   environment: "staging"
   logLevel: "INFO"
-  nextPublicApiBaseUrl: "https://api.stg.rhesis.ai"
-  nextPublicAppUrl: "https://app.stg.rhesis.ai"
-  nextauthUrl: "https://app.stg.rhesis.ai"
-  rhesisBaseUrl: "https://api.stg.rhesis.ai"
-  frontendUrl: "https://app.stg.rhesis.ai"
+  nextPublicApiBaseUrl: "https://stg-api.rhesis.ai"
+  nextPublicAppUrl: "https://stg-app.rhesis.ai"
+  nextauthUrl: "https://stg-app.rhesis.ai"
+  rhesisBaseUrl: "https://stg-api.rhesis.ai"
+  frontendUrl: "https://stg-app.rhesis.ai"
   backendUrl: "http://backend:8080"
   vertexAiProject: "<stg-project-id>"
   azureOpenAiApiVersion: "2024-02-01"
@@ -20,17 +20,26 @@ config:
 backend:
   ingress:
     enabled: true
-    host: "api.stg.rhesis.ai"
+    host: "stg-api.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 frontend:
   ingress:
     enabled: true
-    host: "app.stg.rhesis.ai"
+    host: "stg-app.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 docs:
   ingress:
     enabled: true
-    host: "docs.stg.rhesis.ai"
+    host: "stg-docs.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 # PostgreSQL disabled for stg — use CNPG Cluster or external DB via ExternalSecret
 postgresql:

@@ -1,4 +1,4 @@
-// BIND9 configuration for rhesis.internal dynamic DNS
+// BIND9 configuration — split-horizon DNS for rhesis.ai
 // Managed by Terraform — do not edit manually
 
 options {
@@ -43,10 +43,11 @@ key "${key.keyname}" {
 
 %{ endfor ~}
 
-// rhesis.internal zone — accepts dynamic updates from all env TSIG keys
-zone "rhesis.internal" {
+// rhesis.ai zone — split-horizon: dev-*/stg-* → internal LB IPs (BIND9 only, VPN),
+// prod records → Cloudflare (external-dns); written by internal-dns via RFC2136
+zone "rhesis.ai" {
     type master;
-    file "/var/lib/bind/rhesis.internal.zone";
+    file "/var/lib/bind/rhesis.ai.zone";
     allow-update {
 %{ for env, key in tsig_keys ~}
         key "${key.keyname}";
