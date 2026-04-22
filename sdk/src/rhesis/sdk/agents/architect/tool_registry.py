@@ -34,6 +34,7 @@ class ToolEntry:
 
 
 TOOL_REGISTRY: Dict[str, ToolEntry] = {
+    "list_sources": ToolEntry(mode=AgentMode.DISCOVERY),
     "create_project": ToolEntry(
         mode=AgentMode.CREATING,
         plan_category=PlanCategory.PROJECT,
