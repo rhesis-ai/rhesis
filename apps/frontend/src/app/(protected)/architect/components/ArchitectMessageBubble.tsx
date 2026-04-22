@@ -32,6 +32,7 @@ const MENTION_TYPE_COLORS: Record<string, string> = {
   test_set: 'success.main',
   behavior: 'warning.main',
   test_run: 'primary.main',
+  source: 'error.main',
 };
 
 interface ArchitectMessageBubbleProps {
@@ -66,7 +67,7 @@ export default function ArchitectMessageBubble({
   const renderedContent = useMemo(() => {
     if (!isUser) return null;
     const mentionRegex =
-      /@(endpoint|metric|test_set|behavior|test_run):([^\s@]+(?:\s+[^\s@]+)*?)(?=\s|$|[.,!?;])/g;
+      /@(endpoint|metric|test_set|behavior|test_run|source):([^\s@]+(?:\s+[^\s@]+)*?)(?=\s|$|[.,!?;])/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;

@@ -49,6 +49,7 @@ const ENTITY_TYPES: Record<string, { label: string; fetchKey: string }> = {
   test_set: { label: 'Test Sets', fetchKey: 'test-sets' },
   behavior: { label: 'Behaviors', fetchKey: 'behaviors' },
   test_run: { label: 'Test Runs', fetchKey: 'test-runs' },
+  source: { label: 'Knowledge Sources', fetchKey: 'sources' },
 };
 
 const TYPE_ORDER = Object.keys(ENTITY_TYPES);
@@ -154,6 +155,7 @@ const ArchitectChatInput = forwardRef<
       test_set: theme.palette.success.main,
       behavior: theme.palette.warning.main,
       test_run: theme.palette.primary.main,
+      source: theme.palette.error.main,
     }),
     [theme]
   );
@@ -234,6 +236,15 @@ const ArchitectChatInput = forwardRef<
               .getTestRunsClient()
               .getTestRuns({ skip: 0, limit: 10, filter: odataFilter });
             results = resp.data;
+          } else if (targetType === 'source') {
+            const resp = await factory
+              .getSourcesClient()
+              .getSources({
+                skip: 0,
+                limit: 10,
+                $filter: `contains(tolower(title), '${nameQuery}')`,
+              });
+            results = resp.data.map(s => ({ id: s.id as string, name: s.title }));
           }
 
           const suggestions: ExtendedSuggestion[] = results
