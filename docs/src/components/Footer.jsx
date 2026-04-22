@@ -23,20 +23,31 @@
  */
 
 const footerData = {
-  product: {
-    title: 'Product',
+  features: {
+    title: 'Features',
     links: [
-      { name: 'Platform', href: 'https://app.rhesis.ai', external: true },
-      { name: 'SDK', href: '/sdk/installation' },
-      { name: 'Repository', href: 'https://github.com/rhesis-ai/rhesis', external: true },
+      { name: 'Generation', href: '/docs/tests-generation' },
+      { name: 'Metrics', href: '/docs/metrics' },
+      { name: 'Conversations', href: '/docs/conversation-simulation' },
+      { name: 'Observability', href: '/docs/tracing' },
     ],
   },
-  docs: {
-    title: 'Docs',
+  guides: {
+    title: 'Guides',
     links: [
-      { name: 'Getting started', href: '/deployment/self-hosting' },
-      { name: 'Test Generation', href: '/docs/tests-generation' },
-      { name: 'Metrics', href: '/docs/metrics' },
+      { name: 'Quick start guide', href: '/guides/quick-start-guide' },
+      { name: 'SDK connector', href: '/sdk/connector' },
+      { name: 'CI/CD integration', href: '/guides/ci-cd-integration' },
+      { name: 'Testing user journeys', href: '/guides/testing-user-journeys' },
+    ],
+  },
+  glossary: {
+    title: 'Glossary',
+    links: [
+      { name: 'LLM as a Judge', href: '/glossary/llm-as-a-judge' },
+      { name: 'Test Generation', href: '/glossary/test-generation' },
+      { name: 'Trace', href: '/glossary/trace' },
+      { name: 'Agent', href: '/glossary/agent' },
     ],
   },
   company: {
@@ -151,8 +162,21 @@ export const Footer = ({
       borderColor: 'var(--border-color, rgba(255, 255, 255, 0.2))',
       paddingTop: '1.5rem',
       display: 'flex',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-end',
+      gap: '1rem',
+    },
+    bottomLeft: {
+      display: 'flex',
       flexDirection: 'column',
       gap: '1rem',
+    },
+    bmftrLogo: {
+      width: '110px',
+      height: 'auto',
+      objectFit: 'contain',
+      flexShrink: 0,
     },
     copyright: {
       fontSize: '0.75rem',
@@ -231,33 +255,19 @@ export const Footer = ({
             </div>
           </div>
 
-          {/* Bottom section with copyright and legal links */}
+          {/* Bottom section with copyright, legal links, and logo */}
           <div style={styles.bottom}>
-            {showCopyright && (
-              <div style={styles.copyright}>
-                Copyright ©{currentYear} Rhesis AI GmbH • Made in Potsdam, Germany.
-              </div>
-            )}
+            <div style={styles.bottomLeft}>
+              {showCopyright && (
+                <div style={styles.copyright}>
+                  Copyright ©{currentYear} Rhesis AI GmbH • Made in Potsdam, Germany.
+                </div>
+              )}
 
-            <div style={styles.legalLinks}>
-              {legalLinks.map(link => (
-                <a
-                  key={`legal-${link.name}`}
-                  href={link.href}
-                  target={link.external ? '_blank' : '_self'}
-                  rel={link.external ? 'noopener noreferrer' : undefined}
-                  style={styles.legalLink}
-                  className="footer-legal-link"
-                >
-                  {link.name}
-                </a>
-              ))}
-              {/* Add any additional legal links */}
-              {additionalLinks
-                .filter(link => link.section === 'legal')
-                .map(link => (
+              <div style={styles.legalLinks}>
+                {legalLinks.map(link => (
                   <a
-                    key={`legal-additional-${link.name}`}
+                    key={`legal-${link.name}`}
                     href={link.href}
                     target={link.external ? '_blank' : '_self'}
                     rel={link.external ? 'noopener noreferrer' : undefined}
@@ -267,7 +277,30 @@ export const Footer = ({
                     {link.name}
                   </a>
                 ))}
+                {/* Add any additional legal links */}
+                {additionalLinks
+                  .filter(link => link.section === 'legal')
+                  .map(link => (
+                    <a
+                      key={`legal-additional-${link.name}`}
+                      href={link.href}
+                      target={link.external ? '_blank' : '_self'}
+                      rel={link.external ? 'noopener noreferrer' : undefined}
+                      style={styles.legalLink}
+                      className="footer-legal-link"
+                    >
+                      {link.name}
+                    </a>
+                  ))}
+              </div>
             </div>
+
+            <img
+              src="/logo/bmftr-light-mode.webp"
+              alt="Built for the future"
+              style={styles.bmftrLogo}
+              className="bmftr-logo"
+            />
           </div>
         </div>
       </footer>
@@ -359,6 +392,18 @@ export const Footer = ({
         /* Ensure footer sticks to bottom */
         .rhesis-footer {
           margin-top: auto;
+        }
+
+        /* BMFTR logo: invert to white in dark themes */
+        [data-theme='dark'] .rhesis-footer .bmftr-logo,
+        .dark .rhesis-footer .bmftr-logo {
+          filter: brightness(0) invert(1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+          html:not([data-theme]) .rhesis-footer .bmftr-logo {
+            filter: brightness(0) invert(1);
+          }
         }
 
         /* Accessibility improvements */
