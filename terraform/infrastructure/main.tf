@@ -324,8 +324,6 @@ module "internal_dns_dev" {
 
   project_id  = var.project_id
   environment = "dev"
-
-  depends_on = [module.eso_dev]
 }
 
 module "internal_dns_stg" {
@@ -334,8 +332,6 @@ module "internal_dns_stg" {
 
   project_id  = var.project_id
   environment = "stg"
-
-  depends_on = [module.eso_stg]
 }
 
 module "internal_dns_prd" {
@@ -344,8 +340,6 @@ module "internal_dns_prd" {
 
   project_id  = var.project_id
   environment = "prd"
-
-  depends_on = [module.eso_prd]
 }
 
 # ── Ingress internal LB static IPs ──────────────────────────────────
