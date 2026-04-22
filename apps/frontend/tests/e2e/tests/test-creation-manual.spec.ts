@@ -16,7 +16,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     // Click "Add Tests" — the button that opens the first wizard modal
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
@@ -58,7 +61,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
     const addVisible = await addBtn
@@ -122,7 +128,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
     const addVisible = await addBtn
@@ -176,6 +185,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Manual writer page URL not reached — skipping');
       return;
     }
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
@@ -190,7 +203,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
     const addVisible = await addBtn
@@ -240,7 +256,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Manual writer page URL not reached — skipping');
       return;
     }
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     // Fill in the first test row — look for a test prompt input
     const promptInput = page
@@ -286,7 +305,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
     const addVisible = await addBtn
@@ -336,7 +358,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Manual writer page URL not reached — skipping');
       return;
     }
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     // Fill in the test prompt
     const promptInput = page
