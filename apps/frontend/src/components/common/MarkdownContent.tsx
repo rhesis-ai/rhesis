@@ -19,15 +19,18 @@ function isInternalPath(href: string | undefined): boolean {
 
 /**
  * Repair markdown link patterns that LLMs sometimes break:
+ * - Backtick-wrapped links: `[text](url)` → [text](url)
  * - Escaped brackets: \[text\](url) → [text](url)
  * - Whitespace between ] and (: [text] (url) → [text](url)
  * Only targets URLs starting with / or http(s):// to avoid false positives.
  */
 function normalizeMarkdownLinks(content: string): string {
-  return content.replace(
-    /\\?\[([^\]\\]+)\\?\]\s*\(((?:\/|https?:\/\/)[^)\s]+)\)/g,
-    '[$1]($2)'
-  );
+  return content
+    .replace(/`(\[([^\]`]+)\]\(((?:\/|https?:\/\/)[^)\s`]+)\))`/g, '[$2]($3)')
+    .replace(
+      /\\?\[([^\]\\]+)\\?\]\s*\(((?:\/|https?:\/\/)[^)\s]+)\)/g,
+      '[$1]($2)'
+    );
 }
 
 function SmartLink({

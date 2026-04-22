@@ -56,6 +56,8 @@ export interface StreamingState {
 
 interface UseArchitectChatOptions {
   sessionId: string | null;
+  /** Seed the conversation with this user message immediately on mount. */
+  initialUserMessage?: string | null;
 }
 
 export interface ChatAttachments {
@@ -76,6 +78,7 @@ interface UseArchitectChatResult {
   streamingState: StreamingState;
   currentMode: string;
   currentPlan: string | null;
+  isAwaitingTask: boolean;
   autoApproveAll: boolean;
   setAutoApproveAll: React.Dispatch<React.SetStateAction<boolean>>;
   setCurrentMode: React.Dispatch<React.SetStateAction<string>>;
@@ -101,7 +104,7 @@ const initialStreamingState: StreamingState = {
 export function useArchitectChat(
   options: UseArchitectChatOptions
 ): UseArchitectChatResult {
-  const { sessionId } = options;
+  const { sessionId, initialUserMessage } = options;
   const { isConnected, send, subscribe, subscribeToChannel } = useWebSocket();
 
   const [messages, setMessages] = useState<ArchitectChatMessage[]>([]);
@@ -112,6 +115,7 @@ export function useArchitectChat(
   );
   const [currentMode, setCurrentMode] = useState('discovery');
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [isAwaitingTask, setIsAwaitingTask] = useState(false);
   const [autoApproveAll, setAutoApproveAll] = useState(false);
 
   const currentPlanRef = useRef<string | null>(null);
@@ -122,16 +126,30 @@ export function useArchitectChat(
   const autoApproveRef = useRef(autoApproveAll);
   autoApproveRef.current = autoApproveAll;
 
-  // Reset state when switching sessions
+  // Reset state when switching sessions. Seed the initial user message
+  // immediately so it is visible before the WebSocket connection is ready.
   useEffect(() => {
-    setMessages([]);
+    const seed: ArchitectChatMessage[] =
+      initialUserMessage
+        ? [
+            {
+              id: generateId(),
+              role: 'user',
+              content: initialUserMessage,
+              timestamp: new Date(),
+            },
+          ]
+        : [];
+    setMessages(seed);
     setIsLoading(false);
     setError(null);
     setStreamingState(initialStreamingState);
     setCurrentMode('discovery');
     setCurrentPlan(null);
+    setIsAwaitingTask(false);
     streamingMessageIdRef.current = null;
     pendingCorrelationRef.current = null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   // Subscribe to architect channel when session changes
@@ -166,6 +184,7 @@ export function useArchitectChat(
       subscribe(EventType.ARCHITECT_THINKING, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectThinkingPayload;
         ensureStreamingMessage();
+        setIsAwaitingTask(false);
         setStreamingState(prev => ({
           ...prev,
           isThinking: true,
@@ -231,6 +250,7 @@ export function useArchitectChat(
 
         if (payload.mode) setCurrentMode(payload.mode);
         if (payload.plan) setCurrentPlan(payload.plan);
+        setIsAwaitingTask(payload.awaiting_task ?? false);
 
         const streamId = streamingMessageIdRef.current;
         if (streamId) {
@@ -240,8 +260,9 @@ export function useArchitectChat(
           setMessages(prev =>
             prev.map(m => {
               if (m.id !== streamId) return m;
-              const content =
-                m.content.trim() ? m.content : (payload.content || '');
+              const content = m.content.trim()
+                ? m.content
+                : payload.content || '';
               return {
                 ...m,
                 content,
@@ -366,6 +387,7 @@ export function useArchitectChat(
       if (!trimmed) return;
 
       setError(null);
+      setIsAwaitingTask(false);
 
       if (currentPlanRef.current) {
         setCurrentPlan(null);
@@ -374,17 +396,22 @@ export function useArchitectChat(
       const correlationId = generateCorrelationId();
       pendingCorrelationRef.current = correlationId;
 
-      setMessages(prev => [
-        ...prev,
-        {
-          id: generateId(),
-          role: 'user',
-          content: trimmed,
-          timestamp: new Date(),
-          files: attachments?.files,
-          mentions: attachments?.mentions,
-        },
-      ]);
+      setMessages(prev => {
+        // Don't duplicate a message that was already seeded (e.g. from welcome screen)
+        const last = prev[prev.length - 1];
+        if (last?.role === 'user' && last.content === trimmed) return prev;
+        return [
+          ...prev,
+          {
+            id: generateId(),
+            role: 'user',
+            content: trimmed,
+            timestamp: new Date(),
+            files: attachments?.files,
+            mentions: attachments?.mentions,
+          },
+        ];
+      });
 
       setIsLoading(true);
       setStreamingState(initialStreamingState);
@@ -423,6 +450,7 @@ export function useArchitectChat(
     streamingState,
     currentMode,
     currentPlan,
+    isAwaitingTask,
     autoApproveAll,
     setAutoApproveAll,
     setCurrentMode,

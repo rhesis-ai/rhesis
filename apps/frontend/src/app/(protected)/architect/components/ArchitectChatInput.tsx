@@ -186,16 +186,13 @@ const ArchitectChatInput = forwardRef<
             t.startsWith(lowerSearch) ||
             ENTITY_TYPES[t].label.toLowerCase().startsWith(lowerSearch)
         ).map(t => ({
+          // display is the bare type prefix so onChange can strip the markup
+          // and leave "@type:" as plain text, priming a real search
           id: `_hint_${t}`,
-          display: `${t}: (type to search ${ENTITY_TYPES[t].label.toLowerCase()})`,
+          display: `${t}:`,
           entityType: '_hint',
         }));
         callback(typeHints);
-        return;
-      }
-
-      if (nameQuery.length < 1) {
-        callback([]);
         return;
       }
 
@@ -207,44 +204,51 @@ const ArchitectChatInput = forwardRef<
       debounceRef.current[debounceKey] = setTimeout(async () => {
         try {
           const factory = new ApiClientFactory(sessionToken);
-          const odataFilter = `contains(tolower(name), '${nameQuery}')`;
+
+          // When nameQuery is empty (e.g. "@endpoint:" with nothing after),
+          // fetch the first page without a filter so the user can browse.
+          const nameFilter = nameQuery
+            ? `contains(tolower(name), '${nameQuery}')`
+            : undefined;
 
           let results: Array<{ id: string; name: string }> = [];
 
           if (targetType === 'endpoint') {
             const resp = await factory
               .getEndpointsClient()
-              .getEndpoints({ skip: 0, limit: 10, $filter: odataFilter });
+              .getEndpoints({ skip: 0, limit: 10, $filter: nameFilter });
             results = resp.data;
           } else if (targetType === 'metric') {
             const resp = await factory
               .getMetricsClient()
-              .getMetrics({ skip: 0, limit: 10, $filter: odataFilter });
+              .getMetrics({ skip: 0, limit: 10, $filter: nameFilter });
             results = resp.data;
           } else if (targetType === 'test_set') {
             const resp = await factory
               .getTestSetsClient()
-              .getTestSets({ skip: 0, limit: 10, $filter: odataFilter });
+              .getTestSets({ skip: 0, limit: 10, $filter: nameFilter });
             results = resp.data;
           } else if (targetType === 'behavior') {
             const items = await factory
               .getBehaviorClient()
-              .getBehaviors({ skip: 0, limit: 10, $filter: odataFilter });
+              .getBehaviors({ skip: 0, limit: 10, $filter: nameFilter });
             results = items;
           } else if (targetType === 'test_run') {
             const resp = await factory
               .getTestRunsClient()
-              .getTestRuns({ skip: 0, limit: 10, filter: odataFilter });
+              .getTestRuns({ skip: 0, limit: 10, filter: nameFilter });
             results = resp.data;
           } else if (targetType === 'source') {
+            const titleFilter = nameQuery
+              ? `contains(tolower(title), '${nameQuery}')`
+              : undefined;
             const resp = await factory
               .getSourcesClient()
-              .getSources({
-                skip: 0,
-                limit: 10,
-                $filter: `contains(tolower(title), '${nameQuery}')`,
-              });
-            results = resp.data.map(s => ({ id: s.id as string, name: s.title }));
+              .getSources({ skip: 0, limit: 50, $filter: titleFilter });
+            results = resp.data.map(s => ({
+              id: s.id as string,
+              name: s.title,
+            }));
           }
 
           const suggestions: ExtendedSuggestion[] = results
@@ -274,10 +278,40 @@ const ArchitectChatInput = forwardRef<
     ) => {
       const item = suggestion as ExtendedSuggestion;
       const isHint = item.entityType === '_hint';
-      const color = isHint
-        ? theme.palette.text.secondary
-        : (typeColors[item.entityType as keyof typeof typeColors] ??
-          theme.palette.text.primary);
+
+      if (isHint) {
+        // Display the human-readable entity label (e.g. "Endpoints") with an
+        // arrow to indicate the user can select this to start browsing.
+        const typeKey = (item.id as string).replace('_hint_', '');
+        const label = ENTITY_TYPES[typeKey]?.label ?? typeKey;
+        return (
+          <Box
+            sx={{
+              px: 1.5,
+              py: 0.75,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              backgroundColor: focused
+                ? theme.palette.action.hover
+                : 'transparent',
+              cursor: 'pointer',
+            }}
+          >
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {label}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+              →
+            </Typography>
+          </Box>
+        );
+      }
+
+      const color =
+        typeColors[item.entityType as keyof typeof typeColors] ??
+        theme.palette.text.primary;
 
       return (
         <Box
@@ -290,27 +324,19 @@ const ArchitectChatInput = forwardRef<
             backgroundColor: focused
               ? theme.palette.action.hover
               : 'transparent',
-            cursor: isHint ? 'default' : 'pointer',
-            opacity: isHint ? 0.7 : 1,
+            cursor: 'pointer',
           }}
         >
-          {!isHint && (
-            <Box
-              sx={{
-                width: theme.spacing(1),
-                height: theme.spacing(1),
-                borderRadius: '50%',
-                backgroundColor: color,
-                flexShrink: 0,
-              }}
-            />
-          )}
-          <Typography
-            variant="body2"
-            sx={{ fontStyle: isHint ? 'italic' : 'normal' }}
-          >
-            {item.display ?? ''}
-          </Typography>
+          <Box
+            sx={{
+              width: theme.spacing(1),
+              height: theme.spacing(1),
+              borderRadius: '50%',
+              backgroundColor: color,
+              flexShrink: 0,
+            }}
+          />
+          <Typography variant="body2">{item.display ?? ''}</Typography>
         </Box>
       );
     },
@@ -461,7 +487,16 @@ const ArchitectChatInput = forwardRef<
           <MentionsInput
             inputRef={mentionsInputRef}
             value={value}
-            onChange={e => setValue(e.target.value)}
+            onChange={e => {
+              // When a type-hint mention is selected (e.g. "@[endpoint:](_hint_endpoint)"),
+              // strip the markup and leave just "@endpoint:" as plain text. This primes the
+              // search so the dropdown immediately shows items for that type.
+              const stripped = e.target.value.replace(
+                /@\[([^:\]]+:)\]\(_hint_[^)]+\)/g,
+                '@$1'
+              );
+              setValue(stripped);
+            }}
             onKeyDown={handleKeyDown}
             disabled={inputDisabled}
             placeholder={

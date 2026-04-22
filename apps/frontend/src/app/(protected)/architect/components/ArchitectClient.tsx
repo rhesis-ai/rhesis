@@ -15,6 +15,7 @@ export default function ArchitectClient() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   const getClient = useCallback(() => {
@@ -55,6 +56,8 @@ export default function ArchitectClient() {
     async (message: string) => {
       const client = getClient();
       if (!client) return;
+      // Drop the welcome screen immediately — no flicker during the API call.
+      setIsCreatingSession(true);
       try {
         const newSession = await client.createSession();
         setSessions(prev => [newSession, ...prev]);
@@ -62,6 +65,7 @@ export default function ArchitectClient() {
         setActiveSessionId(newSession.id);
       } catch (err) {
         console.error('Failed to create session:', err);
+        setIsCreatingSession(false);
       }
     },
     [getClient]
@@ -122,9 +126,9 @@ export default function ArchitectClient() {
             initialMessage={pendingMessage}
             onInitialMessageSent={handleInitialMessageSent}
           />
-        ) : (
+        ) : !isCreatingSession ? (
           <ArchitectWelcome onSubmit={handleNewSessionWithMessage} />
-        )}
+        ) : null}
       </Box>
     </Box>
   );

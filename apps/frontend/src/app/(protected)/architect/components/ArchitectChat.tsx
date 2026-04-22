@@ -55,7 +55,10 @@ function planDataToMarkdown(data: Record<string, unknown>): string {
     lines.push('## Behaviors', '');
     for (const b of behaviors) {
       const box = b.completed ? '[x]' : '[ ]';
-      const tag = b.reuse_status && b.reuse_status !== 'new' ? ` *(${b.reuse_status})*` : '';
+      const tag =
+        b.reuse_status && b.reuse_status !== 'new'
+          ? ` *(${b.reuse_status})*`
+          : '';
       lines.push(`- ${box} **${b.name}**${tag}`);
       if (b.description) lines.push(`  ${b.description}`);
     }
@@ -66,8 +69,11 @@ function planDataToMarkdown(data: Record<string, unknown>): string {
     lines.push('## Test Sets', '');
     for (const ts of testSets) {
       const box = ts.completed ? '[x]' : '[ ]';
-      lines.push(`- ${box} **${ts.name}** — ${ts.num_tests ?? 15} ${ts.test_type ?? 'Single-Turn'} tests`);
-      if (ts.behaviors?.length) lines.push(`  Behaviors: ${ts.behaviors.join(', ')}`);
+      lines.push(
+        `- ${box} **${ts.name}** — ${ts.num_tests ?? 15} ${ts.test_type ?? 'Single-Turn'} tests`
+      );
+      if (ts.behaviors?.length)
+        lines.push(`  Behaviors: ${ts.behaviors.join(', ')}`);
     }
     lines.push('');
   }
@@ -76,18 +82,26 @@ function planDataToMarkdown(data: Record<string, unknown>): string {
     lines.push('## Metrics', '');
     for (const m of metrics) {
       const box = m.completed ? '[x]' : '[ ]';
-      const tag = m.reuse_status && m.reuse_status !== 'new' ? ` *(${m.reuse_status})*` : '';
+      const tag =
+        m.reuse_status && m.reuse_status !== 'new'
+          ? ` *(${m.reuse_status})*`
+          : '';
       lines.push(`- ${box} **${m.name}**${tag}`);
     }
     lines.push('');
   }
-  const mappings = data.behavior_metric_mappings as PlanSpec[] | Record<string, string[]> | undefined;
+  const mappings = data.behavior_metric_mappings as
+    | PlanSpec[]
+    | Record<string, string[]>
+    | undefined;
   if (mappings) {
     lines.push('## Behavior-Metric Mappings', '');
     if (Array.isArray(mappings)) {
       for (const mapping of mappings) {
         const box = mapping.completed ? '[x]' : '[ ]';
-        lines.push(`- ${box} **${mapping.behavior}** → ${(mapping.metrics || []).join(', ')}`);
+        lines.push(
+          `- ${box} **${mapping.behavior}** → ${(mapping.metrics || []).join(', ')}`
+        );
       }
     } else {
       for (const [beh, mnames] of Object.entries(mappings)) {
@@ -124,13 +138,14 @@ export default function ArchitectChat({
     streamingState,
     currentMode,
     currentPlan,
+    isAwaitingTask,
     autoApproveAll,
     setAutoApproveAll,
     setCurrentMode,
     setCurrentPlan,
     sendMessage,
     setMessages,
-  } = useArchitectChat({ sessionId });
+  } = useArchitectChat({ sessionId, initialUserMessage: initialMessage });
 
   // Track sessions that were created with an initial message so we never
   // run loadMessages for them (the async fetch would wipe the messages
@@ -204,7 +219,14 @@ export default function ArchitectChat({
     };
 
     loadMessages();
-  }, [sessionId, sessionToken, setMessages, setAutoApproveAll, setCurrentMode, setCurrentPlan]);
+  }, [
+    sessionId,
+    sessionToken,
+    setMessages,
+    setAutoApproveAll,
+    setCurrentMode,
+    setCurrentPlan,
+  ]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -395,6 +417,9 @@ export default function ArchitectChat({
 
               const showActions = isLastContentAssistant && pendingConfirmation;
 
+              const showWaitingSpinner =
+                isLastContentAssistant && !showActions && isAwaitingTask;
+
               return (
                 <ArchitectMessageBubble
                   key={message.id}
@@ -402,6 +427,7 @@ export default function ArchitectChat({
                   userName={authSession?.user?.name || undefined}
                   userPicture={authSession?.user?.picture || undefined}
                   showActions={showActions}
+                  showWaitingSpinner={showWaitingSpinner}
                   streamingState={
                     message.isStreaming ? streamingState : undefined
                   }

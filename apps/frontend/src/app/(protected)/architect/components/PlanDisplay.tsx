@@ -23,6 +23,9 @@ function countProgress(plan: string): { done: number; total: number } {
   let done = 0;
   for (const line of lines) {
     if (line.startsWith('- [x] ') || line.startsWith('- [ ] ')) {
+      // Skip existing/reused items — they carry a *(status)* tag and are
+      // already present, so they don't belong in the "to-do" count.
+      if (/\*\([^)]+\)\*/.test(line)) continue;
       total++;
       if (line.startsWith('- [x] ')) done++;
     }

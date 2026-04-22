@@ -71,6 +71,8 @@ export interface ArchitectResponsePayload {
   needs_confirmation?: boolean;
   /** Server-side auto-approve state (echoed back for UI sync). */
   auto_approve_all?: boolean;
+  /** True when the agent has dispatched a background task and is waiting for it to finish. */
+  awaiting_task?: boolean;
 }
 
 /**

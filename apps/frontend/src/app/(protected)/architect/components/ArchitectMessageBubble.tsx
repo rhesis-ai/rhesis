@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Box,
   Button,
+  CircularProgress,
   Paper,
   Typography,
   IconButton,
@@ -40,6 +41,7 @@ interface ArchitectMessageBubbleProps {
   userName?: string;
   userPicture?: string;
   showActions?: boolean;
+  showWaitingSpinner?: boolean;
   streamingState?: StreamingState;
   onAccept?: () => void;
   onReject?: () => void;
@@ -56,6 +58,7 @@ export default function ArchitectMessageBubble({
   userName,
   userPicture,
   showActions,
+  showWaitingSpinner,
   streamingState,
   onAccept,
   onReject,
@@ -250,15 +253,30 @@ export default function ArchitectMessageBubble({
             mt: 0.5,
           }}
         >
-          <Typography
-            variant="caption"
-            sx={{
-              opacity: 0.6,
-              color: isUser ? 'primary.contrastText' : 'text.secondary',
-            }}
-          >
-            {formatTime(message.timestamp)}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                opacity: 0.6,
+                color: isUser ? 'primary.contrastText' : 'text.secondary',
+              }}
+            >
+              {formatTime(message.timestamp)}
+            </Typography>
+            {showWaitingSpinner && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <CircularProgress
+                  size={10}
+                  thickness={5}
+                  color="inherit"
+                  sx={{ opacity: 0.5 }}
+                />
+                <Typography variant="caption" sx={{ opacity: 0.5 }}>
+                  Working…
+                </Typography>
+              </Box>
+            )}
+          </Box>
           {!isUser && (
             <Tooltip title={copied ? 'Copied!' : 'Copy'}>
               <IconButton

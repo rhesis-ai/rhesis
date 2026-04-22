@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import Image from 'next/image';
 import {
   Box,
   TextField,
@@ -69,8 +68,6 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        flexDirection: 'column',
-        gap: 3,
         p: 4,
       }}
     >
@@ -79,35 +76,15 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 0,
-          mb: 1,
+          gap: 3,
+          width: '100%',
+          maxWidth: theme => theme.spacing(85),
         }}
       >
-        <Box
-          sx={{
-            width: 150,
-            height: 150,
-            position: 'relative',
-          }}
-        >
-          <Image
-            src="/logos/rhesis-architect.png"
-            alt="Rhesis Architect"
-            fill
-            sizes="150px"
-            style={{ objectFit: 'contain' }}
-          />
-        </Box>
-        <Typography
-          variant="h4"
-          color="text.secondary"
-          sx={{ fontWeight: 300 }}
-        >
+        <Typography variant="h4" color="text.secondary" sx={{ fontWeight: theme => theme.typography.fontWeightLight, textAlign: 'center' }}>
           What would you like to test?
         </Typography>
-      </Box>
 
-      <Box sx={{ width: '100%', maxWidth: 680 }}>
         <TextField
           inputRef={inputRef}
           fullWidth
@@ -126,9 +103,7 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
               pl: 2,
               pr: 1,
               bgcolor: 'action.hover',
-              '& fieldset': {
-                borderColor: 'divider',
-              },
+              '& fieldset': { borderColor: 'divider' },
             },
           }}
           slotProps={{
@@ -141,8 +116,8 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
                     sx={{
                       bgcolor: 'primary.main',
                       color: 'primary.contrastText',
-                      width: 36,
-                      height: 36,
+                      width: theme => theme.spacing(4.5),
+                      height: theme => theme.spacing(4.5),
                       '&:hover': { bgcolor: 'primary.dark' },
                       '&:disabled': {
                         bgcolor: 'action.disabledBackground',
@@ -157,29 +132,20 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
             },
           }}
         />
-      </Box>
 
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 1,
-          justifyContent: 'center',
-          maxWidth: 680,
-          mt: 1,
-        }}
-      >
-        {SUGGESTED_PROMPTS.map(({ label, prompt, icon: Icon }) => (
-          <Chip
-            key={label}
-            icon={<Icon fontSize="small" />}
-            label={label}
-            variant="outlined"
-            onClick={() => handleSuggestedPrompt(prompt)}
-            disabled={isSubmitting}
-            sx={{ cursor: 'pointer' }}
-          />
-        ))}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
+          {SUGGESTED_PROMPTS.map(({ label, prompt, icon: Icon }) => (
+            <Chip
+              key={label}
+              icon={<Icon fontSize="small" />}
+              label={label}
+              variant="outlined"
+              onClick={() => handleSuggestedPrompt(prompt)}
+              disabled={isSubmitting}
+              sx={{ cursor: 'pointer' }}
+            />
+          ))}
+        </Box>
       </Box>
     </Box>
   );
