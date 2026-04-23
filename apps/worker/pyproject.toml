@@ -49,6 +49,7 @@ dependencies = [
     "uvicorn>=0.35.0",
     "websockets==15.0.1",
     "yaspin==3.0.2",
+    "zxcvbn>=4.4.24",
     "rhesis-sdk",
     "rhesis-penelope",
     "sendgrid",
