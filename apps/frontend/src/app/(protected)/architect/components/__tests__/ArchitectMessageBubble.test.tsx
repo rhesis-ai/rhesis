@@ -221,7 +221,11 @@ describe('ArchitectMessageBubble', () => {
           streamingState={{
             isThinking: false,
             activeTools: [
-              { tool: 'list_endpoints', description: 'Listing endpoints' },
+              {
+                tool: 'list_endpoints',
+                description: 'Listing endpoints',
+                startedAt: 1000,
+              },
             ],
             completedTools: [],
           }}
@@ -243,6 +247,7 @@ describe('ArchitectMessageBubble', () => {
                 tool: 'list_endpoints',
                 description: 'Listed endpoints',
                 success: true,
+                startedAt: 1000,
               },
             ],
           }}
@@ -265,6 +270,7 @@ describe('ArchitectMessageBubble', () => {
                 tool: 'check_endpoint',
                 description: 'Checking endpoint',
                 success: false,
+                startedAt: 1000,
               },
             ],
           }}
@@ -281,7 +287,7 @@ describe('ArchitectMessageBubble', () => {
           message={createMessage({ content: '' })}
           streamingState={{
             isThinking: false,
-            activeTools: [{ tool: 'list_metrics' }],
+            activeTools: [{ tool: 'list_metrics', startedAt: 1000 }],
             completedTools: [],
           }}
         />

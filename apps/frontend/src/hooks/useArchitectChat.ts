@@ -51,6 +51,7 @@ export interface StreamingState {
     preview?: string;
     reasoning?: string;
     durationMs?: number;
+    startedAt: number;
   }>;
 }
 
@@ -329,6 +330,7 @@ export function useArchitectChat(
                 preview: payload.preview,
                 reasoning: activeTool?.reasoning || payload.reasoning,
                 durationMs,
+                startedAt: activeTool?.startedAt ?? Date.now(),
               },
             ],
           };

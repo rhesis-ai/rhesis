@@ -122,7 +122,7 @@ const SUGGESTED_PROMPTS = [
 export default function ArchitectChat({
   sessionId,
   sessionToken,
-  onSessionTitleUpdate,
+  onSessionTitleUpdate: _onSessionTitleUpdate,
   initialMessage,
   onInitialMessageSent,
 }: ArchitectChatProps) {

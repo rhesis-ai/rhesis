@@ -202,6 +202,10 @@ const ArchitectChatInput = forwardRef<
       }
 
       debounceRef.current[debounceKey] = setTimeout(async () => {
+        if (!targetType) {
+          callback([]);
+          return;
+        }
         try {
           const factory = new ApiClientFactory(sessionToken);
 
@@ -256,7 +260,7 @@ const ArchitectChatInput = forwardRef<
             .map(r => ({
               id: `${targetType}:${r.id}`,
               display: r.name,
-              entityType: targetType!,
+              entityType: targetType,
             }));
           callback(suggestions);
         } catch (err) {
@@ -451,14 +455,14 @@ const ArchitectChatInput = forwardRef<
     >
       {files.length > 0 && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-          {files.map((f, i) => (
+          {files.map((f, fileIdx) => (
             <Chip
-              key={`${f.filename}-${i}`}
+              key={`${f.filename}-${f.size}`}
               icon={<InsertDriveFileIcon />}
               label={`${f.filename} (${formatFileSize(f.size)})`}
               size="small"
               variant="outlined"
-              onDelete={() => removeFile(i)}
+              onDelete={() => removeFile(fileIdx)}
               deleteIcon={<CloseIcon />}
             />
           ))}

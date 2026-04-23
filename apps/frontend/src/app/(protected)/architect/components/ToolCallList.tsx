@@ -53,7 +53,7 @@ export default function ToolCallList({
 }: ToolCallListProps) {
   const [expandedCompleted, setExpandedCompleted] = useState(false);
   const [expandedReasoning, setExpandedReasoning] = useState<Set<number>>(
-    new Set()
+    new Set<number>()
   );
 
   const prevCompletedCountRef = useRef(completedTools.length);
@@ -65,22 +65,23 @@ export default function ToolCallList({
 
     if (newCount <= prevCount) return;
 
-    const newIndices: number[] = [];
+    const newStartedAts: number[] = [];
     for (let i = prevCount; i < newCount; i++) {
-      if (completedTools[i]?.reasoning) newIndices.push(i);
+      const t = completedTools[i];
+      if (t?.reasoning) newStartedAts.push(t.startedAt);
     }
-    if (newIndices.length === 0) return;
+    if (newStartedAts.length === 0) return;
 
     setExpandedReasoning(prev => {
       const next = new Set(prev);
-      newIndices.forEach(i => next.add(i));
+      newStartedAts.forEach(s => next.add(s));
       return next;
     });
 
     const timer = setTimeout(() => {
       setExpandedReasoning(prev => {
         const next = new Set(prev);
-        newIndices.forEach(i => next.delete(i));
+        newStartedAts.forEach(s => next.delete(s));
         return next;
       });
     }, FOLD_DELAY_MS);
@@ -101,28 +102,29 @@ export default function ToolCallList({
     ? completedTools.slice(collapsedCount)
     : completedTools;
 
-  const toggleReasoning = (idx: number) => {
+  const toggleReasoning = (startedAt: number) => {
     setExpandedReasoning(prev => {
       const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
+      if (next.has(startedAt)) next.delete(startedAt);
+      else next.add(startedAt);
       return next;
     });
   };
 
   const renderCompletedTool = (
-    tool: StreamingState['completedTools'][number],
-    idx: number
+    tool: StreamingState['completedTools'][number]
   ) => (
     <Collapse
-      key={`done-${tool.tool}-${idx}`}
+      key={`done-${tool.startedAt}`}
       in
       timeout={ENTER_DURATION_MS}
       appear
     >
       <Box sx={{ mb: 0.25 }}>
         <ButtonBase
-          onClick={tool.reasoning ? () => toggleReasoning(idx) : undefined}
+          onClick={
+            tool.reasoning ? () => toggleReasoning(tool.startedAt) : undefined
+          }
           disableRipple={!tool.reasoning}
           sx={{
             display: 'flex',
@@ -157,7 +159,10 @@ export default function ToolCallList({
           )}
         </ButtonBase>
         {tool.reasoning && (
-          <Collapse in={expandedReasoning.has(idx)} timeout={FOLD_DURATION_MS}>
+          <Collapse
+            in={expandedReasoning.has(tool.startedAt)}
+            timeout={FOLD_DURATION_MS}
+          >
             <Typography
               variant="caption"
               color="text.secondary"
@@ -180,9 +185,9 @@ export default function ToolCallList({
   return (
     <Box sx={{ ml: 2.5, borderLeft: 2, borderColor: 'divider', pl: 1 }}>
       {/* Active tools first — the user cares about what's running now */}
-      {activeTools.map((tool, idx) => (
+      {activeTools.map(tool => (
         <Collapse
-          key={`active-${tool.tool}-${idx}`}
+          key={`active-${tool.startedAt}`}
           in
           timeout={ENTER_DURATION_MS}
           appear
@@ -253,14 +258,12 @@ export default function ToolCallList({
       {/* Hidden completed tools (expandable) */}
       <Collapse in={expandedCompleted} timeout={200}>
         <Box sx={{ ml: 1, borderLeft: 1, borderColor: 'divider', pl: 1 }}>
-          {hiddenTools.map((tool, idx) => renderCompletedTool(tool, idx))}
+          {hiddenTools.map(tool => renderCompletedTool(tool))}
         </Box>
       </Collapse>
 
       {/* Recent completed tools (visible when nothing is running) */}
-      {visibleCompleted.map((tool, idx) =>
-        renderCompletedTool(tool, collapsedCount + idx)
-      )}
+      {visibleCompleted.map(tool => renderCompletedTool(tool))}
     </Box>
   );
 }

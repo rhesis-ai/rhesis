@@ -16,6 +16,7 @@ function makeDone(
     description: `Tool ${i} done`,
     success: true,
     reasoning: `Reasoning for tool ${i}`,
+    startedAt: 1000 + i,
     ...overrides,
   }));
 }
@@ -81,6 +82,7 @@ describe('ToolCallList', () => {
         tool: 'explore',
         description: 'Exploring endpoint',
         reasoning: 'Need to check capabilities',
+        startedAt: 1000,
       },
     ];
     render(<ToolCallList completedTools={[]} activeTools={active} />);
@@ -92,7 +94,7 @@ describe('ToolCallList', () => {
   it('collapses all completed tools when active tools are running', () => {
     const done = makeDone(4);
     const active: ActiveTool[] = [
-      { tool: 'send_msg', description: 'Sending message' },
+      { tool: 'send_msg', description: 'Sending message', startedAt: 2000 },
     ];
     render(<ToolCallList completedTools={done} activeTools={active} />);
 

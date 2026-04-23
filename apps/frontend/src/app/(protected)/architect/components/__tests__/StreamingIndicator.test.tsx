@@ -47,8 +47,16 @@ describe('StreamingIndicator', () => {
       <StreamingIndicator
         state={createState({
           activeTools: [
-            { tool: 'list_endpoints', description: 'Listing endpoints' },
-            { tool: 'list_metrics', description: 'Listing metrics' },
+            {
+              tool: 'list_endpoints',
+              description: 'Listing endpoints',
+              startedAt: 1000,
+            },
+            {
+              tool: 'list_metrics',
+              description: 'Listing metrics',
+              startedAt: 1001,
+            },
           ],
         })}
       />
@@ -62,7 +70,7 @@ describe('StreamingIndicator', () => {
     render(
       <StreamingIndicator
         state={createState({
-          activeTools: [{ tool: 'list_behaviors' }],
+          activeTools: [{ tool: 'list_behaviors', startedAt: 1000 }],
         })}
       />
     );
@@ -79,6 +87,7 @@ describe('StreamingIndicator', () => {
               tool: 'list_endpoints',
               description: 'Listed endpoints',
               success: true,
+              startedAt: 1000,
             },
           ],
         })}
@@ -98,6 +107,7 @@ describe('StreamingIndicator', () => {
               tool: 'check_endpoint',
               description: 'Checking endpoint',
               success: false,
+              startedAt: 1000,
             },
           ],
         })}
@@ -114,13 +124,18 @@ describe('StreamingIndicator', () => {
         state={createState({
           isThinking: true,
           activeTools: [
-            { tool: 'create_metric', description: 'Creating metric' },
+            {
+              tool: 'create_metric',
+              description: 'Creating metric',
+              startedAt: 1001,
+            },
           ],
           completedTools: [
             {
               tool: 'list_metrics',
               description: 'Listed metrics',
               success: true,
+              startedAt: 1000,
             },
           ],
         })}
