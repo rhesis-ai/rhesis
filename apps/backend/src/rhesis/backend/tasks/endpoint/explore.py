@@ -14,9 +14,15 @@ import logging
 import time
 from typing import Any, Dict, Literal, Optional
 
+from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.celery.core import app
 from rhesis.backend.tasks.base import SilentTask
+from rhesis.backend.tasks.endpoint.target import make_target_factory
+
+# ExploreEndpointTool is imported lazily inside the task to avoid pulling
+# litellm → gRPC into the Celery main process before forking.
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +86,6 @@ def run_exploration_task(
         extra={"endpoint_id": endpoint_id, "strategy": strategy, "org_id": org_id},
     )
 
-    # Resolve the user's generation model (same pattern as other generation tasks).
-    # Imports are deferred to avoid pulling litellm → gRPC into the Celery main
-    # process before forking (gRPC is not fork-safe).
-    from rhesis.backend.app import crud
-    from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
-
     with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
         user = crud.get_user(db, user_id=user_id)
         if user is None:
@@ -100,7 +100,6 @@ def run_exploration_task(
         meta={"status": "Connecting to endpoint", "endpoint_id": endpoint_id},
     )
 
-    from rhesis.backend.tasks.endpoint.target import make_target_factory
     from rhesis.sdk.agents.tools import ExploreEndpointTool
 
     start = time.monotonic()

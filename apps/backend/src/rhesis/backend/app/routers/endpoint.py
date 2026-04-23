@@ -18,6 +18,8 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.endpoint import AutoConfigureRequest, AutoConfigureResult
 from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreEndpointResponse
 from rhesis.backend.app.services.endpoint import EndpointService
+from rhesis.backend.tasks import task_launcher
+from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -362,9 +364,6 @@ async def explore_endpoint_route(
     until status is ``SUCCESS``.  The ``result`` field then contains the
     exploration findings.
     """
-    from rhesis.backend.tasks import task_launcher
-    from rhesis.backend.tasks.endpoint.explore import run_exploration_task
-
     organization_id, user_id = tenant_context
 
     db_endpoint = crud.get_endpoint(

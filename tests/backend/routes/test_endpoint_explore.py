@@ -1,8 +1,4 @@
-"""Unit tests for POST /endpoints/{endpoint_id}/explore.
-
-Tests the happy path, 404 for an unknown endpoint, 400 when neither
-strategy nor goal is provided, and that auth is required.
-"""
+"""Unit tests for POST /endpoints/{endpoint_id}/explore."""
 
 import uuid
 from unittest.mock import MagicMock, patch
@@ -10,11 +6,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-
-
-# ---------------------------------------------------------------------------
-# App / auth fixtures
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture
@@ -32,9 +23,8 @@ def endpoint_id():
 
 @pytest.fixture
 def app(mock_user):
-    """Return a TestClient with auth and generation-model validation bypassed."""
-    from rhesis.backend.app.main import app as fastapi_app
     from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+    from rhesis.backend.app.main import app as fastapi_app
     from rhesis.backend.app.utils.execution_validation import validate_generation_model
 
     fastapi_app.dependency_overrides[require_current_user_or_token] = lambda: mock_user
@@ -52,7 +42,6 @@ def app(mock_user):
 
 class TestExploreEndpointHappy:
     def test_returns_task_id(self, app, endpoint_id, mock_user):
-        """A valid request should return 200 with a task_id."""
         mock_ep = MagicMock()
         mock_async_result = MagicMock()
         mock_async_result.id = str(uuid.uuid4())
@@ -74,7 +63,6 @@ class TestExploreEndpointHappy:
         assert "message" in data
 
     def test_goal_without_strategy_accepted(self, app, endpoint_id, mock_user):
-        """A goal without strategy should also be accepted."""
         mock_ep = MagicMock()
         mock_async_result = MagicMock()
         mock_async_result.id = str(uuid.uuid4())
@@ -94,12 +82,12 @@ class TestExploreEndpointHappy:
 
 
 # ---------------------------------------------------------------------------
-# 404 — endpoint not found
+# 404
 # ---------------------------------------------------------------------------
 
 
 class TestExploreEndpoint404:
-    def test_returns_404_for_unknown_endpoint(self, app, endpoint_id, mock_user):
+    def test_returns_404_for_unknown_endpoint(self, app, endpoint_id):
         with patch("rhesis.backend.app.routers.endpoint.crud") as mock_crud:
             mock_crud.get_endpoint.return_value = None
 
@@ -112,25 +100,21 @@ class TestExploreEndpoint404:
 
 
 # ---------------------------------------------------------------------------
-# 422 — validation: neither strategy nor goal
+# 422 validation
 # ---------------------------------------------------------------------------
 
 
 class TestExploreEndpointValidation:
-    def test_returns_422_when_neither_strategy_nor_goal(self, app, endpoint_id, mock_user):
-        """Omitting both strategy and goal should return a validation error."""
+    def test_returns_422_when_neither_strategy_nor_goal(self, app, endpoint_id):
         response = app.post(
             f"/endpoints/{endpoint_id}/explore",
             json={"instructions": "some instructions only"},
         )
-
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
-    def test_returns_422_for_invalid_strategy(self, app, endpoint_id, mock_user):
-        """An unsupported strategy value should return a validation error."""
+    def test_returns_422_for_invalid_strategy(self, app, endpoint_id):
         response = app.post(
             f"/endpoints/{endpoint_id}/explore",
             json={"strategy": "not_a_real_strategy"},
         )
-
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
