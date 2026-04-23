@@ -1,7 +1,7 @@
 """Tests for the architect WebSocket message handler."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -107,7 +107,7 @@ class TestArchitectHandlerValidation:
 class TestArchitectHandlerSuccess:
     @pytest.mark.asyncio
     async def test_persists_message_and_dispatches_task(self, mock_manager, mock_user):
-        session_id = "sess-abc"
+        session_id = str(uuid4())
         message = WebSocketMessage(
             type=EventType.ARCHITECT_MESSAGE,
             correlation_id="corr-1",
@@ -122,6 +122,8 @@ class TestArchitectHandlerSuccess:
             mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_crud = MagicMock()
+            # get_architect_session must return a truthy value to pass the ownership check
+            mock_crud.get_architect_session.return_value = MagicMock()
             mock_task = MagicMock()
 
             with (
@@ -138,6 +140,12 @@ class TestArchitectHandlerSuccess:
                 ),
             ):
                 await handle_architect_message(mock_manager, "conn-1", mock_user, message)
+
+                # Verify session ownership checked
+                mock_crud.get_architect_session.assert_called_once()
+                assert mock_crud.get_architect_session.call_args[1]["session_id"] == UUID(
+                    session_id
+                )
 
                 # Verify message persisted
                 mock_crud.create_architect_message.assert_called_once()
@@ -165,11 +173,12 @@ class TestArchitectHandlerSuccess:
 
     @pytest.mark.asyncio
     async def test_auto_approve_forwarded_to_celery(self, mock_manager, mock_user):
+        session_id = str(uuid4())
         message = WebSocketMessage(
             type=EventType.ARCHITECT_MESSAGE,
             correlation_id="corr-1",
             payload={
-                "session_id": "sess-1",
+                "session_id": session_id,
                 "message": "go ahead",
                 "auto_approve": True,
             },
@@ -182,10 +191,12 @@ class TestArchitectHandlerSuccess:
             mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
+            mock_crud = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock()
             mock_task = MagicMock()
 
             with (
-                patch("rhesis.backend.app.crud", MagicMock()),
+                patch("rhesis.backend.app.crud", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch(
                     "rhesis.backend.tasks.architect.architect_chat_task",
@@ -199,11 +210,12 @@ class TestArchitectHandlerSuccess:
 
     @pytest.mark.asyncio
     async def test_auto_approve_absent_sends_none(self, mock_manager, mock_user):
+        session_id = str(uuid4())
         message = WebSocketMessage(
             type=EventType.ARCHITECT_MESSAGE,
             correlation_id="corr-1",
             payload={
-                "session_id": "sess-1",
+                "session_id": session_id,
                 "message": "hello",
             },
         )
@@ -215,10 +227,12 @@ class TestArchitectHandlerSuccess:
             mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
+            mock_crud = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock()
             mock_task = MagicMock()
 
             with (
-                patch("rhesis.backend.app.crud", MagicMock()),
+                patch("rhesis.backend.app.crud", mock_crud),
                 patch("rhesis.backend.app.schemas"),
                 patch(
                     "rhesis.backend.tasks.architect.architect_chat_task",
@@ -232,12 +246,13 @@ class TestArchitectHandlerSuccess:
 
     @pytest.mark.asyncio
     async def test_attachments_forwarded(self, mock_manager, mock_user):
+        session_id = str(uuid4())
         attachments = {"files": ["doc.pdf"]}
         message = WebSocketMessage(
             type=EventType.ARCHITECT_MESSAGE,
             correlation_id="corr-1",
             payload={
-                "session_id": "sess-1",
+                "session_id": session_id,
                 "message": "analyze this",
                 "attachments": attachments,
             },
@@ -250,12 +265,14 @@ class TestArchitectHandlerSuccess:
             mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
+            mock_crud = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock()
             mock_task = MagicMock()
 
             with (
                 patch(
                     "rhesis.backend.app.crud",
-                    MagicMock(),
+                    mock_crud,
                 ),
                 patch(
                     "rhesis.backend.app.schemas",
@@ -269,6 +286,44 @@ class TestArchitectHandlerSuccess:
 
                 task_kwargs = mock_task.apply_async.call_args[1]
                 assert task_kwargs["kwargs"]["attachments"] == attachments
+
+
+    @pytest.mark.asyncio
+    async def test_unauthorized_session_rejected(self, mock_manager, mock_user):
+        """Session not owned by the user returns an error without persisting anything."""
+        session_id = str(uuid4())
+        message = WebSocketMessage(
+            type=EventType.ARCHITECT_MESSAGE,
+            correlation_id="corr-1",
+            payload={"session_id": session_id, "message": "hello"},
+        )
+
+        with patch(
+            "rhesis.backend.app.services.websocket.handlers.architect.get_db_with_tenant_variables"
+        ) as mock_get_db:
+            mock_db = MagicMock()
+            mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
+            mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+            mock_crud = MagicMock()
+            # Simulate session not found for this tenant
+            mock_crud.get_architect_session.return_value = None
+            mock_task = MagicMock()
+
+            with (
+                patch("rhesis.backend.app.crud", mock_crud),
+                patch("rhesis.backend.app.schemas"),
+                patch("rhesis.backend.tasks.architect.architect_chat_task", mock_task),
+            ):
+                await handle_architect_message(mock_manager, "conn-1", mock_user, message)
+
+                mock_crud.create_architect_message.assert_not_called()
+                mock_task.apply_async.assert_not_called()
+
+        mock_manager.broadcast.assert_called_once()
+        msg = mock_manager.broadcast.call_args[0][0]
+        assert msg.type == EventType.ARCHITECT_ERROR
+        assert "access denied" in msg.payload["error"]
 
 
 # ---------------------------------------------------------------------------
