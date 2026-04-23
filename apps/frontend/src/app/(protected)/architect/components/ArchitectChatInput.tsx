@@ -217,20 +217,7 @@ const ArchitectChatInput = forwardRef<
           onChange={handleFileSelect}
         />
 
-        <Box
-          sx={{
-            flex: 1,
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: theme => `${theme.shape.borderRadius}px`,
-            px: 1.5,
-            py: 1,
-            '&:focus-within': {
-              borderColor: 'primary.main',
-              outline: theme => `1px solid ${theme.palette.primary.main}`,
-            },
-          }}
-        >
+        <Box sx={{ flex: 1 }}>
           <InputBase
             inputRef={inputRef}
             value={value}
@@ -238,23 +225,33 @@ const ArchitectChatInput = forwardRef<
             onKeyDown={handleKeyDown}
             disabled={inputDisabled}
             multiline
-            minRows={1}
-            maxRows={6}
             fullWidth
             placeholder={
               isConnected
                 ? 'Describe what you want to test...'
                 : 'Waiting for connection...'
             }
-            sx={{
-              fontSize: 'body2.fontSize',
-              fontFamily: 'body2.fontFamily',
-              lineHeight: 1.5,
+            sx={theme => ({
+              fontSize: theme.typography.body2.fontSize,
+              fontFamily: theme.typography.fontFamily,
+              minHeight: theme.spacing(5),
               '& .MuiInputBase-input': {
-                p: 0,
-                color: 'text.primary',
+                padding: `${theme.spacing(1)} ${theme.spacing(1.5)}`,
+                border: `1px solid ${theme.palette.divider}`,
+                borderRadius: `${theme.shape.borderRadius}px`,
+                outline: 'none',
+                lineHeight: '1.5',
+                color: theme.palette.text.primary,
+                backgroundColor: 'transparent',
+                overflow: 'auto',
+                maxHeight: theme.spacing(16),
+                '&:focus': {
+                  borderColor: theme.palette.primary.main,
+                  borderWidth: '2px',
+                  padding: `calc(${theme.spacing(1)} - 1px) calc(${theme.spacing(1.5)} - 1px)`,
+                },
               },
-            }}
+            })}
           />
         </Box>
 
