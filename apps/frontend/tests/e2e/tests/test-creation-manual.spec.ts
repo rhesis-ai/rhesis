@@ -164,7 +164,8 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, '"Start Writing" button not found — skipping');
       return;
     }
-    await manualBtn.click();
+    // The button has pointerEvents:none (the Card handles the click); force bypasses that.
+    await manualBtn.click({ force: true });
 
     // Should navigate to the manual writer page
     const navSucceeded = await page
@@ -229,7 +230,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, '"Start Writing" button not found — skipping');
       return;
     }
-    await manualBtn.click();
+    await manualBtn.click({ force: true });
 
     const navSucceeded = await page
       .waitForURL(/\/tests\/(create|new|manual)/, { timeout: 15_000 })
@@ -325,7 +326,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, '"Start Writing" button not found — skipping');
       return;
     }
-    await manualBtn.click();
+    await manualBtn.click({ force: true });
 
     const navSucceeded = await page
       .waitForURL(/\/tests\/(create|new|manual)/, { timeout: 15_000 })
