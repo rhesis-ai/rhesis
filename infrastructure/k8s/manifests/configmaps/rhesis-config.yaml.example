@@ -27,10 +27,7 @@ data:
   # =============================================================================
   # 🔐 AUTHENTICATION & AUTHORIZATION
   # =============================================================================
-  # Auth0 Configuration - Get these from https://manage.auth0.com/
-  # These are PUBLIC values that can be exposed in the frontend
-  NEXT_PUBLIC_AUTH0_CLIENT_ID: "YOUR_AUTH0_CLIENT_ID"
-  NEXT_PUBLIC_AUTH0_DOMAIN: "YOUR_AUTH0_DOMAIN"
+  # Legacy Auth0 (optional): configure AUTH0_* in rhesis-secrets, not public build vars.
 
   #####################################################################################
   # ⚙️ OPTIONAL CONFIGURATION (RECOMMENDED)
@@ -136,13 +133,11 @@ data:
   # 📚 QUICK START GUIDE
   #####################################################################################
   # 1. Copy this file: cp rhesis-config.yaml.example rhesis-config.yaml
-  # 2. Set required USER-DEFINED variables (minimum for basic operation):
-  #    - NEXT_PUBLIC_AUTH0_CLIENT_ID, NEXT_PUBLIC_AUTH0_DOMAIN
+  # 2. Set required USER-DEFINED variables (URLs, NEXTAUTH_URL, API base URL, etc.)
   # 3. Optionally set OPTIONAL variables for enhanced functionality
   # 4. Apply the configmap: kubectl apply -f rhesis-config.yaml
   #
   # 🔒 SECURITY NOTES:
   # - This file contains only non-sensitive configuration
   # - Sensitive data (passwords, API keys) should go in rhesis-secrets.yaml
-  # - Public Auth0 values are safe to expose in the frontend
   #####################################################################################
