@@ -142,6 +142,7 @@ const meta: MetaRecord = {
   },
   models: 'Models',
   mcp: 'MCP',
+  'agent-skill': 'Agent Skill',
   'api-tokens': 'API Tokens',
   deployment: 'Deployment',
   frameworks: 'Frameworks',

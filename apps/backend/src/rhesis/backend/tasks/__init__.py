@@ -9,6 +9,7 @@ from rhesis.backend.notifications import email_service
 # Import all task modules to ensure they're registered with Celery
 from rhesis.backend.tasks import (
     embedding,  # noqa: F401
+    endpoint,  # noqa: F401
     example_task,  # noqa: F401
     execution,  # noqa: F401
     task_notifications,  # noqa: F401

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "rhesis": {
+      "type": "http",
+      "url": "${RHESIS_MCP_URL:-https://api.rhesis.ai/mcp}",
+      "headers": {
+        "Authorization": "Bearer ${RHESIS_API_KEY}"
+      }
+    }
+  }
+}
