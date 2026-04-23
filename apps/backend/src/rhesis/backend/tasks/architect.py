@@ -180,8 +180,7 @@ def architect_chat_task(
             conversation_history = [
                 {"role": m.role, "content": m.content}
                 for m in db_session.messages
-                if m.role in ("user", "assistant", "system")
-                and m.content
+                if m.role in ("user", "assistant", "system") and m.content
             ]
             # Remove the last user message (it's the one we're processing)
             if conversation_history and conversation_history[-1]["role"] == "user":
@@ -275,9 +274,7 @@ def architect_chat_task(
         # 3. Handle auto-resume: save the system message and notify
         is_auto_resume = user_message.startswith("[TASK_COMPLETED]")
         if is_auto_resume:
-            with get_db_with_tenant_variables(
-                org_id or "", user_id or ""
-            ) as db:
+            with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
                 crud.create_architect_message(
                     db=db,
                     message=schemas.ArchitectMessageCreate(

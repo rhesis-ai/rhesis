@@ -78,9 +78,7 @@ def build_tools_and_operations(
         if tc.get("page_size") is not None:
             input_schema.get("properties", {}).pop("limit", None)
             if "required" in input_schema:
-                input_schema["required"] = [
-                    r for r in input_schema["required"] if r != "limit"
-                ]
+                input_schema["required"] = [r for r in input_schema["required"] if r != "limit"]
 
         description = tc.get("description", "").strip()
 

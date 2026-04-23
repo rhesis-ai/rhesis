@@ -4300,9 +4300,7 @@ def get_architect_session_detail(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.ArchitectSession]:
-    return get_item_detail(
-        db, models.ArchitectSession, session_id, organization_id, user_id
-    )
+    return get_item_detail(db, models.ArchitectSession, session_id, organization_id, user_id)
 
 
 def get_architect_sessions(
@@ -4334,9 +4332,7 @@ def create_architect_session(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.ArchitectSession:
-    return create_item(
-        db, models.ArchitectSession, session, organization_id, user_id
-    )
+    return create_item(db, models.ArchitectSession, session, organization_id, user_id)
 
 
 def update_architect_session(
@@ -4346,9 +4342,7 @@ def update_architect_session(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.ArchitectSession]:
-    return update_item(
-        db, models.ArchitectSession, session_id, session, organization_id, user_id
-    )
+    return update_item(db, models.ArchitectSession, session_id, session, organization_id, user_id)
 
 
 def delete_architect_session(
@@ -4357,9 +4351,7 @@ def delete_architect_session(
     organization_id: str = None,
     user_id: str = None,
 ) -> Optional[models.ArchitectSession]:
-    return delete_item(
-        db, models.ArchitectSession, session_id, organization_id, user_id
-    )
+    return delete_item(db, models.ArchitectSession, session_id, organization_id, user_id)
 
 
 # ── Architect Message CRUD ──────────────────────────────────────────────
@@ -4390,9 +4382,7 @@ def create_architect_message(
     organization_id: str = None,
     user_id: str = None,
 ) -> models.ArchitectMessage:
-    return create_item(
-        db, models.ArchitectMessage, message, organization_id, user_id
-    )
+    return create_item(db, models.ArchitectMessage, message, organization_id, user_id)
 
 
 # ---------------------------------------------------------------

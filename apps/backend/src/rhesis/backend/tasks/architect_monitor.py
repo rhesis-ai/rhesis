@@ -58,12 +58,14 @@ def register_awaiting_tasks(
     r = _get_redis()
     pipe = r.pipeline()
 
-    context = json.dumps({
-        "session_id": session_id,
-        "org_id": org_id,
-        "user_id": user_id,
-        "auto_approve": auto_approve,
-    })
+    context = json.dumps(
+        {
+            "session_id": session_id,
+            "org_id": org_id,
+            "user_id": user_id,
+            "auto_approve": auto_approve,
+        }
+    )
 
     for tid in task_ids:
         pipe.set(f"arch:task:{tid}", context, ex=_KEY_TTL)
@@ -91,9 +93,7 @@ def _summarize_result(task_id: str, state: str, result: Any) -> str:
         test_set_id = result.get("test_set_id")
         test_run_id = result.get("test_run_id")
         if test_set_id:
-            name = result.get("name") or result.get(
-                "test_set_name", "test set"
-            )
+            name = result.get("name") or result.get("test_set_name", "test set")
             count = result.get(
                 "test_count",
                 result.get("num_tests_generated", "?"),
@@ -201,8 +201,7 @@ def _on_task_done(
     remaining = r.decr(count_key)
 
     logger.info(
-        "Architect task %s finished (state=%s, key=%s), "
-        "%d remaining for session %s",
+        "Architect task %s finished (state=%s, key=%s), %d remaining for session %s",
         task_id,
         state,
         matched_key,
@@ -235,11 +234,7 @@ def _resume_architect(
         raw = r.get(key)
         if raw:
             entry = json.loads(raw)
-            summaries.append(
-                _summarize_result(
-                    entry["task_id"], entry["state"], entry["result"]
-                )
-            )
+            summaries.append(_summarize_result(entry["task_id"], entry["state"], entry["result"]))
         r.delete(key)
 
     r.delete(f"arch:count:{session_id}")

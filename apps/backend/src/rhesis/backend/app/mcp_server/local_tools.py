@@ -19,7 +19,12 @@ from rhesis.sdk.agents.base import MCPTool
 from rhesis.sdk.agents.constants import ToolMeta
 from rhesis.sdk.agents.schemas import ToolResult
 
-from .tools import apply_query_overrides, build_tools_and_operations, format_list_response, load_tool_configs
+from .tools import (
+    apply_query_overrides,
+    build_tools_and_operations,
+    format_list_response,
+    load_tool_configs,
+)
 
 logger = logging.getLogger(__name__)
 
