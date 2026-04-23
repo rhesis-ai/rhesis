@@ -364,7 +364,9 @@ test.describe('Tests — manual creation wizard @crud', () => {
 
     // A save dialog should appear — use waitFor so we don't miss a delayed open
     const saveDialog = page.getByRole('dialog');
-    await saveDialog.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+    await saveDialog
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .catch(() => {});
     const dialogVisible = await saveDialog.isVisible().catch(() => false);
 
     if (dialogVisible) {
