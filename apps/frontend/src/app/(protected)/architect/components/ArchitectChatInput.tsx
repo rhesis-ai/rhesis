@@ -5,31 +5,21 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from 'react';
-import { MentionsInput, Mention, SuggestionDataItem } from 'react-mentions';
 import {
   Box,
   IconButton,
+  InputBase,
   Typography,
   Chip,
   CircularProgress,
-  useTheme,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import CloseIcon from '@mui/icons-material/Close';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-
-export interface MentionItem {
-  type: string;
-  id: string;
-  display: string;
-}
 
 export interface FileAttachment {
   filename: string;
@@ -39,20 +29,8 @@ export interface FileAttachment {
 }
 
 export interface Attachments {
-  mentions?: MentionItem[];
   files?: FileAttachment[];
 }
-
-const ENTITY_TYPES: Record<string, { label: string; fetchKey: string }> = {
-  endpoint: { label: 'Endpoints', fetchKey: 'endpoints' },
-  metric: { label: 'Metrics', fetchKey: 'metrics' },
-  test_set: { label: 'Test Sets', fetchKey: 'test-sets' },
-  behavior: { label: 'Behaviors', fetchKey: 'behaviors' },
-  test_run: { label: 'Test Runs', fetchKey: 'test-runs' },
-  source: { label: 'Knowledge Sources', fetchKey: 'sources' },
-};
-
-const TYPE_ORDER = Object.keys(ENTITY_TYPES);
 
 const ACCEPTED_FILE_EXTENSIONS = [
   '.pdf',
@@ -87,31 +65,6 @@ interface ArchitectChatInputProps {
   sessionToken?: string;
 }
 
-interface ExtendedSuggestion extends SuggestionDataItem {
-  entityType: string;
-}
-
-/**
- * Parse react-mentions markup into clean text and structured mentions.
- *
- * Markup format: `@[Display Name](type:uuid)`
- * Output text:   `@type:Display Name`
- */
-export function extractMentions(markup: string): {
-  text: string;
-  mentions: MentionItem[];
-} {
-  const mentions: MentionItem[] = [];
-  const text = markup.replace(
-    /@\[([^\]]+)\]\(([^:]+):([^)]+)\)/g,
-    (_match, display, type, id) => {
-      mentions.push({ type, id, display });
-      return `@${type}:${display}`;
-    }
-  );
-  return { text, mentions };
-}
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -127,242 +80,33 @@ const ArchitectChatInput = forwardRef<
     disabled = false,
     isLoading = false,
     isConnected = true,
-    sessionToken,
+    sessionToken: _sessionToken,
   },
   ref
 ) {
-  const theme = useTheme();
   const [value, setValue] = useState('');
   const [files, setFiles] = useState<FileAttachment[]>([]);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mentionsInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const debounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   useImperativeHandle(ref, () => ({
-    focus: () => mentionsInputRef.current?.focus(),
+    focus: () => inputRef.current?.focus(),
   }));
 
   useEffect(() => {
-    if (!disabled && isConnected && mentionsInputRef.current) {
-      mentionsInputRef.current.focus();
+    if (!disabled && isConnected && inputRef.current) {
+      inputRef.current.focus();
     }
   }, [disabled, isConnected]);
 
-  const typeColors = useMemo(
-    () => ({
-      endpoint: theme.palette.info.main,
-      metric: theme.palette.secondary.main,
-      test_set: theme.palette.success.main,
-      behavior: theme.palette.warning.main,
-      test_run: theme.palette.primary.main,
-      source: theme.palette.error.main,
-    }),
-    [theme]
-  );
-
-  const fetchSuggestions = useCallback(
-    (search: string, callback: (data: SuggestionDataItem[]) => void) => {
-      if (!sessionToken) {
-        callback([]);
-        return;
-      }
-
-      const lowerSearch = search.toLowerCase();
-      let targetType: string | null = null;
-      let nameQuery = lowerSearch;
-
-      for (const type of TYPE_ORDER) {
-        const prefix = `${type}:`;
-        if (lowerSearch.startsWith(prefix)) {
-          targetType = type;
-          nameQuery = lowerSearch.slice(prefix.length);
-          break;
-        }
-      }
-
-      if (!targetType) {
-        const typeHints: ExtendedSuggestion[] = TYPE_ORDER.filter(
-          t =>
-            t.startsWith(lowerSearch) ||
-            ENTITY_TYPES[t].label.toLowerCase().startsWith(lowerSearch)
-        ).map(t => ({
-          // display is the bare type prefix so onChange can strip the markup
-          // and leave "@type:" as plain text, priming a real search
-          id: `_hint_${t}`,
-          display: `${t}:`,
-          entityType: '_hint',
-        }));
-        callback(typeHints);
-        return;
-      }
-
-      const debounceKey = `${targetType}:${nameQuery}`;
-      if (debounceRef.current[debounceKey]) {
-        clearTimeout(debounceRef.current[debounceKey]);
-      }
-
-      debounceRef.current[debounceKey] = setTimeout(async () => {
-        if (!targetType) {
-          callback([]);
-          return;
-        }
-        try {
-          const factory = new ApiClientFactory(sessionToken);
-
-          // When nameQuery is empty (e.g. "@endpoint:" with nothing after),
-          // fetch the first page without a filter so the user can browse.
-          const nameFilter = nameQuery
-            ? `contains(tolower(name), '${nameQuery}')`
-            : undefined;
-
-          let results: Array<{ id: string; name: string }> = [];
-
-          if (targetType === 'endpoint') {
-            const resp = await factory
-              .getEndpointsClient()
-              .getEndpoints({ skip: 0, limit: 10, $filter: nameFilter });
-            results = resp.data;
-          } else if (targetType === 'metric') {
-            const resp = await factory
-              .getMetricsClient()
-              .getMetrics({ skip: 0, limit: 10, $filter: nameFilter });
-            results = resp.data;
-          } else if (targetType === 'test_set') {
-            const resp = await factory
-              .getTestSetsClient()
-              .getTestSets({ skip: 0, limit: 10, $filter: nameFilter });
-            results = resp.data;
-          } else if (targetType === 'behavior') {
-            const items = await factory
-              .getBehaviorClient()
-              .getBehaviors({ skip: 0, limit: 10, $filter: nameFilter });
-            results = items;
-          } else if (targetType === 'test_run') {
-            const resp = await factory
-              .getTestRunsClient()
-              .getTestRuns({ skip: 0, limit: 10, filter: nameFilter });
-            results = resp.data
-              .filter((r): r is typeof r & { name: string } => r.name != null)
-              .map(r => ({ id: r.id, name: r.name }));
-          } else if (targetType === 'source') {
-            const titleFilter = nameQuery
-              ? `contains(tolower(title), '${nameQuery}')`
-              : undefined;
-            const resp = await factory
-              .getSourcesClient()
-              .getSources({ skip: 0, limit: 50, $filter: titleFilter });
-            results = resp.data.map(s => ({
-              id: s.id as string,
-              name: s.title,
-            }));
-          }
-
-          const suggestions: ExtendedSuggestion[] = results
-            .filter(r => r.name)
-            .map(r => ({
-              id: `${targetType}:${r.id}`,
-              display: r.name,
-              entityType: targetType,
-            }));
-          callback(suggestions);
-        } catch (err) {
-          console.error(`Failed to fetch ${targetType} suggestions:`, err);
-          callback([]);
-        }
-      }, 300);
-    },
-    [sessionToken]
-  );
-
-  const renderSuggestion = useCallback(
-    (
-      suggestion: SuggestionDataItem,
-      _search: string,
-      _highlightedDisplay: React.ReactNode,
-      _index: number,
-      focused: boolean
-    ) => {
-      const item = suggestion as ExtendedSuggestion;
-      const isHint = item.entityType === '_hint';
-
-      if (isHint) {
-        // Display the human-readable entity label (e.g. "Endpoints") with an
-        // arrow to indicate the user can select this to start browsing.
-        const typeKey = (item.id as string).replace('_hint_', '');
-        const label = ENTITY_TYPES[typeKey]?.label ?? typeKey;
-        return (
-          <Box
-            sx={{
-              px: 1.5,
-              py: 0.75,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 1,
-              backgroundColor: focused
-                ? theme.palette.action.hover
-                : 'transparent',
-              cursor: 'pointer',
-            }}
-          >
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {label}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-              →
-            </Typography>
-          </Box>
-        );
-      }
-
-      const color =
-        typeColors[item.entityType as keyof typeof typeColors] ??
-        theme.palette.text.primary;
-
-      return (
-        <Box
-          sx={{
-            px: 1.5,
-            py: 0.75,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            backgroundColor: focused
-              ? theme.palette.action.hover
-              : 'transparent',
-            cursor: 'pointer',
-          }}
-        >
-          <Box
-            sx={{
-              width: theme.spacing(1),
-              height: theme.spacing(1),
-              borderRadius: theme.shape.circular,
-              backgroundColor: color,
-              flexShrink: 0,
-            }}
-          />
-          <Typography variant="body2">{item.display ?? ''}</Typography>
-        </Box>
-      );
-    },
-    [theme, typeColors]
-  );
-
   const handleSend = useCallback(() => {
-    if (!value.trim() || disabled || isLoading) return;
+    const trimmed = value.trim();
+    if (!trimmed || disabled || isLoading) return;
 
-    const { text, mentions } = extractMentions(value);
     const attachments: Attachments = {};
-
-    if (mentions.length > 0) attachments.mentions = mentions;
     if (files.length > 0) attachments.files = files;
 
-    const hasAttachments =
-      (attachments.mentions?.length ?? 0) > 0 ||
-      (attachments.files?.length ?? 0) > 0;
-
-    onSend(text, hasAttachments ? attachments : undefined);
+    onSend(trimmed, files.length > 0 ? attachments : undefined);
     setValue('');
     setFiles([]);
   }, [value, files, disabled, isLoading, onSend]);
@@ -428,23 +172,8 @@ const ArchitectChatInput = forwardRef<
     setFiles(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  const mentionStyle = useMemo(
-    () => ({
-      backgroundColor: alpha(
-        theme.palette.primary.main,
-        theme.palette.action.activatedOpacity
-      ),
-      borderRadius: `${theme.shape.borderRadius}px`,
-      position: 'relative' as const,
-      zIndex: 1,
-    }),
-    [theme]
-  );
-
   const inputDisabled = disabled || !isConnected || isLoading;
   const canSend = value.trim().length > 0 && !inputDisabled;
-  const borderColor = theme.palette.divider;
-  const focusBorderColor = theme.palette.primary.main;
 
   return (
     <Box
@@ -471,7 +200,24 @@ const ArchitectChatInput = forwardRef<
         </Box>
       )}
 
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1,
+          alignItems: 'flex-end',
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: theme => `${theme.shape.borderRadius}px`,
+          bgcolor: 'background.default',
+          px: 1,
+          py: 0.5,
+          '&:focus-within': {
+            borderColor: 'primary.main',
+            borderWidth: 2,
+            mx: '-1px',
+          },
+        }}
+      >
         <IconButton
           size="small"
           onClick={() => fileInputRef.current?.click()}
@@ -489,133 +235,51 @@ const ArchitectChatInput = forwardRef<
           onChange={handleFileSelect}
         />
 
-        <Box sx={{ flex: 1 }}>
-          <MentionsInput
-            inputRef={mentionsInputRef}
-            value={value}
-            onChange={e => {
-              // When a type-hint mention is selected (e.g. "@[endpoint:](_hint_endpoint)"),
-              // strip the markup and leave just "@endpoint:" as plain text. This primes the
-              // search so the dropdown immediately shows items for that type.
-              const stripped = e.target.value.replace(
-                /@\[([^:\]]+:)\]\(_hint_[^)]+\)/g,
-                '@$1'
-              );
-              setValue(stripped);
-            }}
-            onKeyDown={handleKeyDown}
-            disabled={inputDisabled}
-            placeholder={
-              isConnected
-                ? 'Describe what you want to test... (@ to mention entities)'
-                : 'Waiting for connection...'
-            }
-            style={{
-              control: {
-                fontSize: theme.typography.body2.fontSize,
-                fontFamily: theme.typography.fontFamily,
-                minHeight: theme.spacing(5),
-              },
-              input: {
-                padding: `${theme.spacing(1)} ${theme.spacing(1.5)}`,
-                border: `1px solid ${borderColor}`,
-                borderRadius: `${theme.shape.borderRadius}px`,
-                outline: 'none',
-                fontSize: theme.typography.body2.fontSize,
-                fontFamily: theme.typography.fontFamily,
-                lineHeight: '1.5',
-                color: theme.palette.text.primary,
-                backgroundColor: 'transparent',
-                overflow: 'auto',
-                maxHeight: theme.spacing(16),
-              },
-              highlighter: {
-                padding: `${theme.spacing(1)} ${theme.spacing(1.5)}`,
-                border: '1px solid transparent',
-                borderRadius: `${theme.shape.borderRadius}px`,
-                fontSize: theme.typography.body2.fontSize,
-                fontFamily: theme.typography.fontFamily,
-                lineHeight: '1.5',
-                pointerEvents: 'none' as const,
-              },
-              suggestions: {
-                backgroundColor: 'transparent',
-                borderRadius: `${(theme.shape.borderRadius as number) * 2}px`,
-                overflow: 'hidden',
-                zIndex: theme.zIndex.modal + 1,
-                list: {
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  padding: 0,
-                  margin: 0,
-                  listStyleType: 'none',
-                },
-              },
-              '&multiLine': {
-                control: {
-                  minHeight: theme.spacing(5),
-                },
-                input: {
-                  overflow: 'auto',
-                  maxHeight: theme.spacing(16),
-                },
-                highlighter: {
-                  pointerEvents: 'none' as const,
-                },
-              },
-            }}
-            customSuggestionsContainer={(children: React.ReactNode) => (
-              <Box
-                sx={{
-                  py: 0.5,
-                  maxHeight: theme.spacing(30),
-                  overflow: 'auto',
-                  backgroundColor: theme.palette.background.paper,
-                  borderRadius: `${(theme.shape.borderRadius as number) * 2}px`,
-                  boxShadow: [
-                    `0 0 ${theme.spacing(1)} ${alpha(theme.palette.primary.main, 0.15)}`,
-                    `0 0 ${theme.spacing(3)} ${alpha(theme.palette.primary.main, 0.08)}`,
-                  ].join(', '),
-                }}
+        <InputBase
+          inputRef={inputRef}
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={inputDisabled}
+          multiline
+          maxRows={6}
+          fullWidth
+          placeholder={
+            isConnected
+              ? 'Describe what you want to test...'
+              : 'Waiting for connection...'
+          }
+          sx={{
+            flex: 1,
+            fontSize: 'body2.fontSize',
+            fontFamily: 'body2.fontFamily',
+            py: 0.5,
+            '& .MuiInputBase-input': {
+              p: 0,
+              lineHeight: 1.5,
+              color: 'text.primary',
+            },
+          }}
+          renderSuffix={() =>
+            !isConnected ? (
+              <Typography
+                variant="caption"
+                color="text.disabled"
+                sx={{ mr: 1 }}
               >
-                {children}
-              </Box>
-            )}
-            a11ySuggestionsListLabel="Entity suggestions"
-            onFocus={e => {
-              const target = e.target as HTMLElement;
-              if (target.style) {
-                target.style.borderColor = focusBorderColor;
-                target.style.borderWidth = '2px';
-              }
-            }}
-            onBlur={e => {
-              const target = e.target as HTMLElement;
-              if (target.style) {
-                target.style.borderColor = borderColor;
-                target.style.borderWidth = '1px';
-              }
-            }}
-          >
-            <Mention
-              trigger="@"
-              data={fetchSuggestions}
-              renderSuggestion={renderSuggestion}
-              markup="@[__display__](__id__)"
-              displayTransform={(_id: string, display: string) => `@${display}`}
-              appendSpaceOnAdd
-              style={mentionStyle}
-            />
-          </MentionsInput>
-        </Box>
+                Connecting…
+              </Typography>
+            ) : null
+          }
+        />
 
         <IconButton
           color="primary"
           onClick={handleSend}
           disabled={!canSend}
           sx={{
-            width: theme.spacing(5),
-            height: theme.spacing(5),
+            width: theme => theme.spacing(5),
+            height: theme => theme.spacing(5),
             mb: 0.5,
             bgcolor: 'primary.main',
             color: 'primary.contrastText',
