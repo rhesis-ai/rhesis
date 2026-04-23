@@ -53,5 +53,5 @@ async def claim_token_jti(jti: str, ttl_seconds: int) -> bool:
     except TokenStoreUnavailableError:
         raise
     except Exception as e:
-        logger.warning("Failed to claim token jti: %s", e)
+        logger.warning("Failed to claim token jti: %s", type(e).__name__)
         raise TokenStoreUnavailableError("Token store temporarily unavailable")

@@ -56,7 +56,10 @@ async def handle_architect_message(
         return
 
     logger.info(
-        f"Architect message from conn={conn_id} session={session_id}: {user_message[:100]}..."
+        "Architect message from conn=%s session=%s (len=%d)",
+        conn_id,
+        session_id,
+        len(user_message),
     )
 
     try:
