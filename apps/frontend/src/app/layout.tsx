@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { Box, Chip, Tooltip } from '@mui/material';
+import { Box, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
+import { BetaBadge } from '../components/common/BetaBadge';
 import '../styles/fonts.css';
 import {
   DashboardIcon,
@@ -154,9 +155,7 @@ async function getNavigationItems(
       segment: 'architect',
       title: 'Architect',
       icon: <EngineeringIcon key="architect-icon" />,
-      action: (
-        <Chip label="beta" size="small" variant="outlined" color="warning" />
-      ),
+      action: <BetaBadge />,
     },
     {
       kind: 'page',
@@ -182,30 +181,17 @@ async function getNavigationItems(
       title: 'Test Sets',
       icon: <CategoryIcon key="test-sets-icon" />,
     },
-    ...(process.env.NODE_ENV === 'development'
-      ? [
-          {
-            kind: 'page' as const,
-            segment: 'adaptive-testing',
-            title: (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box component="span">Adaptive Testing</Box>
-                <Chip
-                  label="beta"
-                  size="small"
-                  color="warning"
-                  variant="outlined"
-                  sx={{
-                    height: 18,
-                    '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' },
-                  }}
-                />
-              </Box>
-            ),
-            icon: <AccountTreeIcon key="adaptive-testing-icon" />,
-          },
-        ]
-      : []),
+    {
+      kind: 'page' as const,
+      segment: 'adaptive-testing',
+      title: (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box component="span">Adaptive Testing</Box>
+          <BetaBadge />
+        </Box>
+      ),
+      icon: <AccountTreeIcon key="adaptive-testing-icon" />,
+    },
     // Results Section
     {
       kind: 'header',
