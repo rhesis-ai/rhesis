@@ -46,7 +46,7 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
         mb: 1,
         border: 1,
         borderColor: isComplete ? 'success.main' : 'divider',
-        borderRadius: theme => theme.shape.borderRadius,
+        borderRadius: theme => `${theme.shape.borderRadius}px`,
         bgcolor: 'background.paper',
       }}
     >
@@ -83,7 +83,7 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
                   flex: 1,
                   maxWidth: 120,
                   height: 4,
-                  borderRadius: theme => theme.shape.borderRadius * 2,
+                  borderRadius: theme => `${(theme.shape.borderRadius as number) * 2}px`,
                 }}
               />
               <Typography variant="caption" color="text.secondary">

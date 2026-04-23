@@ -96,7 +96,7 @@ export default function ArchitectMessageBubble({
           sx={{
             backgroundColor: alpha(color, 0.15),
             color: 'primary.contrastText',
-            borderRadius: theme => theme.shape.borderRadius / 2,
+            borderRadius: theme => `${(theme.shape.borderRadius as number) / 2}px`,
             px: 0.5,
             fontWeight: 500,
           }}
@@ -181,7 +181,7 @@ export default function ArchitectMessageBubble({
               ? 'error.lighter'
               : 'background.paper',
           color: isUser ? 'primary.contrastText' : 'text.primary',
-          borderRadius: theme => theme.shape.borderRadius * 2,
+          borderRadius: theme => `${(theme.shape.borderRadius as number) * 2}px`,
           border: isUser ? 'none' : 1,
           borderColor: message.isError ? 'error.light' : 'divider',
           position: 'relative',
