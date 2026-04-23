@@ -695,6 +695,10 @@ class TestEmbeddableMixinEmbeddingListeners:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
+        # Parent Test is also EmbeddableMixin; if it stays in the session, commit() can
+        # enqueue for Test (e.g. relationship sync) and mask the TestResult behavior.
+        test_db.expunge(db_test_with_prompt)
+
         test_result = models.TestResult(
             test_id=db_test_with_prompt.id,
             test_run_id=None,
@@ -707,6 +711,8 @@ class TestEmbeddableMixinEmbeddingListeners:
         test_db.add(test_result)
         test_db.commit()
 
+        test_db.refresh(test_result)
+        assert test_result.user_id is None
         mock_instance.enqueue_embedding.assert_not_called()
 
     @patch("rhesis.backend.app.services.embedding.services.EmbeddingService")
@@ -728,6 +734,8 @@ class TestEmbeddableMixinEmbeddingListeners:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
+        test_db.expunge(db_test_with_prompt)
+
         test_result = models.TestResult(
             test_id=db_test_with_prompt.id,
             test_run_id=None,
