@@ -241,7 +241,9 @@ const ArchitectChatInput = forwardRef<
             const resp = await factory
               .getTestRunsClient()
               .getTestRuns({ skip: 0, limit: 10, filter: nameFilter });
-            results = resp.data;
+            results = resp.data
+              .filter((r): r is typeof r & { name: string } => r.name != null)
+              .map(r => ({ id: r.id, name: r.name }));
           } else if (targetType === 'source') {
             const titleFilter = nameQuery
               ? `contains(tolower(title), '${nameQuery}')`

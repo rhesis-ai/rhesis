@@ -85,7 +85,7 @@ export default function ArchitectMessageBubble({
       const colorToken = MENTION_TYPE_COLORS[entityType] || 'text.primary';
       const colorTokenParts = colorToken.split('.');
       const color =
-        (theme.palette as Record<string, Record<string, string>>)[
+        (theme.palette as unknown as Record<string, Record<string, string>>)[
           colorTokenParts[0]
         ]?.[colorTokenParts[1]] || theme.palette.text.primary;
 
