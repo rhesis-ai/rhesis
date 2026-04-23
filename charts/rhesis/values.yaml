@@ -59,6 +59,11 @@ config:
   azureOpenAiApiVersion: ""
   openAiModelName: "gpt-4o"
   geminiModelName: "gemini-2.0-flash-001"
+  # Default LLM providers (format: provider/model). See apps/backend/.../constants.py
+  defaultGenerationModel: "rhesis/rhesis-default"
+  defaultEvaluationModel: "rhesis/rhesis-default"
+  defaultExecutionModel: "rhesis/rhesis-default"
+  defaultEmbeddingModel: "vertex_ai/text-embedding-005"
 
   # SMTP
   smtpPort: "465"

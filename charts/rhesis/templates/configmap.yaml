@@ -56,6 +56,10 @@ data:
   AZURE_OPENAI_API_VERSION: {{ .Values.config.azureOpenAiApiVersion | quote }}
   OPENAI_MODEL_NAME: {{ .Values.config.openAiModelName | quote }}
   GEMINI_MODEL_NAME: {{ .Values.config.geminiModelName | quote }}
+  DEFAULT_GENERATION_MODEL: {{ .Values.config.defaultGenerationModel | quote }}
+  DEFAULT_EVALUATION_MODEL: {{ .Values.config.defaultEvaluationModel | quote }}
+  DEFAULT_EXECUTION_MODEL: {{ .Values.config.defaultExecutionModel | quote }}
+  DEFAULT_EMBEDDING_MODEL: {{ .Values.config.defaultEmbeddingModel | quote }}
 
   # -------------------------------------------------------------------------
   # SMTP

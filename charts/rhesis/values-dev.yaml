@@ -36,7 +36,14 @@ config:
   # GCP
   vertexAiProject: "rhesis-dev-sandbox"
 
-  # AI model
+  # AI model — Vertex defaults in dev (GEMINI_API_KEY + GOOGLE_APPLICATION_CREDENTIALS in ESO);
+  # avoids requiring RHESIS_API_KEY for rhesis/rhesis-default
+  geminiModelName: "gemini-2.5-flash-001"
+  defaultGenerationModel: "vertex_ai/gemini-2.5-flash"
+  defaultEvaluationModel: "vertex_ai/gemini-2.5-flash"
+  defaultExecutionModel: "vertex_ai/gemini-2.5-flash"
+  defaultEmbeddingModel: "vertex_ai/text-embedding-005"
+  vertexAiLocation: "europe-west4"
   azureOpenAiApiVersion: "2024-02-01"
 
 # ---------------------------------------------------------------------------
