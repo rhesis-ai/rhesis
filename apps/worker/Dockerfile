@@ -132,7 +132,8 @@ ENV PYTHONUNBUFFERED=1 \
     CELERY_TASK_EAGER_PROPAGATES=False
 
 # Default Celery configuration (can be overridden at runtime)
-ENV CELERY_WORKER_CONCURRENCY=2 \
+ENV CELERY_WORKER_QUEUES=celery,execution,telemetry \
+    CELERY_WORKER_CONCURRENCY=2 \
     CELERY_WORKER_PREFETCH_MULTIPLIER=1 \
     CELERY_WORKER_LOGLEVEL=WARNING \
     CELERY_WORKER_OPTS="--without-gossip --without-mingle --without-heartbeat"

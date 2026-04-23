@@ -1,20 +1,21 @@
+# Optional dedicated pool (default celery queue only). Not applied by kustomization.yaml by default.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rhesis-worker
+  name: rhesis-worker-celery
   namespace: rhesis-worker-dev
   labels:
-    app: rhesis-worker
+    app: rhesis-worker-celery
     component: worker
 spec:
-  replicas: 4
+  replicas: 2
   selector:
     matchLabels:
-      app: rhesis-worker
+      app: rhesis-worker-celery
   template:
     metadata:
       labels:
-        app: rhesis-worker
+        app: rhesis-worker-celery
         component: worker
       annotations:
         # Always restart pods on every deployment
@@ -124,11 +125,6 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: DEFAULT_EVALUATION_MODEL
-        - name: DEFAULT_EXECUTION_MODEL
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: DEFAULT_EXECUTION_MODEL
         - name: DEFAULT_EMBEDDING_MODEL
           valueFrom:
             secretKeyRef:
@@ -264,11 +260,7 @@ spec:
               name: rhesis-worker-secrets
               key: DEFAULT_POLYPHEMUS_URL
         - name: CELERY_WORKER_QUEUES
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: CELERY_WORKER_QUEUES
-              optional: true
+          value: "celery"
         - name: GIT_BRANCH
           value: "GIT_BRANCH_PLACEHOLDER"
         - name: GIT_COMMIT

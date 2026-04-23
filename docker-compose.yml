@@ -150,7 +150,7 @@ services:
       retries: 3
       start_period: 60s
 
-  # Celery Worker
+  # Celery Worker (monolith: all queues; set CELERY_WORKER_QUEUES to restrict)
   worker:
     build:
       context: .
@@ -158,6 +158,7 @@ services:
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
       LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      CELERY_WORKER_QUEUES: ${CELERY_WORKER_QUEUES:-celery,execution,telemetry}
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
       CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
@@ -177,6 +178,105 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health/basic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: one worker pool per queue for priority via replicas/concurrency.
+  # Profile workers-split — enable with: docker compose --profile workers-split up -d
+  # Prefer either this profile or the monolith `worker` above to avoid redundant capacity.
+  worker-execution:
+    profiles:
+      - workers-split
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
+      LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      CELERY_WORKER_QUEUES: execution
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_EXECUTION_CONCURRENCY:-8}
+      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
+      CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      USE_TCP_DATABASE: ${USE_TCP_DATABASE:-true}
+      ENABLE_FLOWER: ${ENABLE_FLOWER:-no}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/basic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  worker-telemetry:
+    profiles:
+      - workers-split
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
+      LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      CELERY_WORKER_QUEUES: telemetry
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_TELEMETRY_CONCURRENCY:-4}
+      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
+      CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      USE_TCP_DATABASE: ${USE_TCP_DATABASE:-true}
+      ENABLE_FLOWER: ${ENABLE_FLOWER:-no}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/basic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  worker-celery:
+    profiles:
+      - workers-split
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
+      LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      CELERY_WORKER_QUEUES: celery
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CELERY_CONCURRENCY:-4}
+      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
+      CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
+      USE_TCP_DATABASE: ${USE_TCP_DATABASE:-true}
+      ENABLE_FLOWER: ${ENABLE_FLOWER:-no}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/basic"]
       interval: 30s
       timeout: 10s
       retries: 3
