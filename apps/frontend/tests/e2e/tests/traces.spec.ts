@@ -36,11 +36,9 @@ test.describe('Traces @sanity', () => {
     const traceTable = page.locator('table, [role="grid"]');
     const authRequired = page.getByText(/authentication required/i);
 
-    const hasEmptyState = await emptyState.isVisible().catch(() => false);
-    const hasTable = await traceTable.isVisible().catch(() => false);
-    const hasAuthMsg = await authRequired.isVisible().catch(() => false);
-
-    expect(hasEmptyState || hasTable || hasAuthMsg).toBeTruthy();
+    await expect(emptyState.or(traceTable).or(authRequired)).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test('traces page has a valid page title', async ({ page }) => {

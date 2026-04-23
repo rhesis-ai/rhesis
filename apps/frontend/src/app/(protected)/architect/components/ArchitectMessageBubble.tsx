@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -9,7 +9,6 @@ import {
   Typography,
   IconButton,
   Tooltip,
-  useTheme,
 } from '@mui/material';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -21,20 +20,10 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import ThinkingDots from './ThinkingDots';
 import ToolCallList from './ToolCallList';
 import Chip from '@mui/material/Chip';
-import { alpha } from '@mui/material/styles';
 import { ArchitectChatMessage, StreamingState } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
-
-const MENTION_TYPE_COLORS: Record<string, string> = {
-  endpoint: 'info.main',
-  metric: 'secondary.main',
-  test_set: 'success.main',
-  behavior: 'warning.main',
-  test_run: 'primary.main',
-  source: 'error.main',
-};
 
 interface ArchitectMessageBubbleProps {
   message: ArchitectChatMessage;
@@ -64,56 +53,7 @@ export default function ArchitectMessageBubble({
   onReject,
 }: ArchitectMessageBubbleProps) {
   const [copied, setCopied] = useState(false);
-  const theme = useTheme();
   const isUser = message.role === 'user';
-
-  const renderedContent = useMemo(() => {
-    if (!isUser) return null;
-    const mentionRegex =
-      /@(endpoint|metric|test_set|behavior|test_run|source):([^\s@]+(?:\s+[^\s@]+)*?)(?=\s|$|[.,!?;])/g;
-    const parts: React.ReactNode[] = [];
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-    const text = message.content;
-
-    while ((match = mentionRegex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(text.slice(lastIndex, match.index));
-      }
-      const entityType = match[1];
-      const entityName = match[2];
-      const colorToken = MENTION_TYPE_COLORS[entityType] || 'text.primary';
-      const colorTokenParts = colorToken.split('.');
-      const color =
-        (theme.palette as unknown as Record<string, Record<string, string>>)[
-          colorTokenParts[0]
-        ]?.[colorTokenParts[1]] || theme.palette.text.primary;
-
-      parts.push(
-        <Box
-          key={`mention-${match.index}`}
-          component="span"
-          sx={{
-            backgroundColor: alpha(color, 0.15),
-            color: 'primary.contrastText',
-            borderRadius: theme =>
-              `${(theme.shape.borderRadius as number) / 2}px`,
-            px: 0.5,
-            fontWeight: 500,
-          }}
-        >
-          @{entityName}
-        </Box>
-      );
-      lastIndex = match.index + match[0].length;
-    }
-
-    if (parts.length === 0) return null;
-    if (lastIndex < text.length) {
-      parts.push(text.slice(lastIndex));
-    }
-    return <Typography variant="body2">{parts}</Typography>;
-  }, [isUser, message.content, theme]);
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -215,11 +155,7 @@ export default function ArchitectMessageBubble({
         )}
 
         {/* Message content */}
-        {isUser && renderedContent ? (
-          renderedContent
-        ) : (
-          <MarkdownContent content={message.content} variant="body2" />
-        )}
+        <MarkdownContent content={message.content} variant="body2" />
 
         {/* File attachment chips (user messages) */}
         {isUser && message.files && message.files.length > 0 && (
