@@ -134,9 +134,18 @@ Get details of a specific test run including status, timing, and the `attributes
 ---
 
 ### `get_test_result`
-Get full details of a specific test result including response text, metric scores with individual reasoning, and evaluation metadata.
+Get full details of a specific test result. Use this to drill into individual failures and understand why a test failed.
 
-Use this to drill into a specific failure; too expensive to call for all results.
+**Key fields in the response:**
+- `test_output.output` — the endpoint's actual response text
+- `test_metrics.metrics` — dict of metric name → evaluation result, each containing:
+  - `is_successful` — whether this metric passed
+  - `score` — the numeric or categorical score
+  - `reason` — the evaluator's explanation of why this score was given (most useful for failure analysis)
+  - `threshold` — the pass/fail threshold (numeric metrics)
+- `status` — overall pass/fail for this test result
+
+Use the result IDs from `list_test_results` (filtered to failures) to identify which to drill into. Focus on the 2–3 most informative failures rather than fetching every one.
 
 **Key parameters:** `test_result_id` (path parameter, required)
 
@@ -265,6 +274,7 @@ Generate a test set using the Rhesis synthesizer. An LLM creates diverse test pr
   - `topics` (optional list of strings)
 - `num_tests` — integer, default 5, typical range 3–20
 - `test_type` — `"Single-Turn"` (default) or `"Multi-Turn"`
+- `sources` — optional list of knowledge source objects to ground tests in real content. Each object must contain only the `id` field: `[{"id": "<source-uuid>"}]`. The backend fetches and injects source content automatically — do NOT fetch or pass content yourself. Use `list_sources` to discover available sources. Only works with Single-Turn; ignored for Multi-Turn.
 
 **Common mistakes:** Omitting `config.behaviors`, using `test_type: "single-turn"` (wrong case).
 
@@ -280,6 +290,21 @@ Use this **only** when importing specific user-provided test prompts that must b
 - `description`
 - `tests` (required, non-empty array) — each item: `{"prompt": {"content": "...", "language_code": "en"}, "behavior": "name", "category": "name", "topic": "name"}`
 - `priority` — integer (1, 2, 3), not a string
+
+---
+
+## Knowledge sources
+
+### `list_sources`
+Discover available knowledge sources (documentation, FAQs, product specs, etc.) that can be used to ground test generation.
+
+Use when the user mentions "based on our docs", "use the product spec", "I have reference material", or similar. Search by name with `$filter=contains(tolower(title), 'keyword')`.
+
+**The agent must never fetch or pass source content directly.** Pass source IDs to `generate_test_set` and the backend handles content injection automatically.
+
+**Default fields returned:** `id`, `title`, `description`, `url`, `source_type_id`, `status_id`
+
+**Key parameters:** `$filter` (search by title), `$select`
 
 ---
 
@@ -299,14 +324,17 @@ The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `t
 ## Analytics
 
 ### `get_test_result_stats`
-Aggregated statistics for test results. Use for comparing runs, analyzing behavior pass rates, and understanding metric performance.
+Aggregated statistics for test results. Use for single-run analysis and multi-run comparison.
 
 **Mode parameter:**
-- `test_runs` (default) — per-run pass/fail summary with pass rates; pass multiple `test_run_ids` to compare
+- `all` — complete stats for a single run: behavior pass rates, metric pass rates, overall totals, and timeline. **Use this with a single `test_run_id` immediately after execution — most efficient option for post-run analysis.**
 - `behavior` — pass rates grouped by behavior; use with `test_run_id`
-- `metrics` — pass rates grouped by metric name
-- `summary` — lightweight overall totals
-- `all` — everything
+- `metrics` — pass rates grouped by metric name; use with `test_run_id`
+- `test_runs` — per-run pass/fail summary; pass multiple `test_run_ids` to compare runs side by side
+- `summary` — lightweight overall totals only
+
+**For single-run analysis:** `mode=all` with `test_run_id`  
+**For multi-run comparison:** `mode=test_runs` with `test_run_ids`
 
 **Key parameters:**
 - `mode`

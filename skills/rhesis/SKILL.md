@@ -106,6 +106,7 @@ Execute the approved plan exactly — no additions, substitutions, or extra enti
    - `config.categories` and `config.topics` — optional
    - `num_tests` — typically 5–15 per test set
    - `test_type` — `"Single-Turn"` or `"Multi-Turn"`
+   - `sources` — optional, if the user mentioned reference material or documentation. Use `list_sources` to find available sources first, then pass `[{"id": "<uuid>"}]`. Only works with Single-Turn tests.
    The response includes a `task_id`.
 5. **Wait for generation** — poll `get_job_status` with the `task_id` until `status` is `"SUCCESS"`. When done, extract `test_set_id` from `result`.
 6. **Resolve behavior IDs** — for reused behaviors, you have IDs from step 1. For newly created behaviors, call `list_behaviors` with batched OR filters: `$filter=name eq 'A' or name eq 'B'`. One call for all.
@@ -152,10 +153,13 @@ Only execute tests when the user explicitly asks.
 
 ## Analysis phase
 
-After a test run completes, retrieve and present results in two steps:
+After a test run completes, retrieve and present results efficiently:
 
-1. **Summary**: call `get_test_run` with the `test_run_id`. The `attributes` field contains authoritative counts (`total_tests`, pass counts, timing). Use these numbers — never count items from a list response, which may be truncated.
-2. **Details**: call `list_test_results` with `$filter=test_run_id eq '<id>'` and a minimal `$select` (e.g., `$select=id,status,prompt,behavior,metric_scores`). Omit `response` unless you specifically need the full text.
+**Preferred — single call:** call `get_test_result_stats` with `mode=all` and `test_run_id`. Returns behavior pass rates, metric pass rates, overall totals, and timeline in one call.
+
+**If you need individual result details:** call `list_test_results` with `$filter=test_run_id eq '<id>'` and a minimal `$select` (e.g., `$select=id,status,prompt,behavior,metric_scores`). Omit `response` unless you specifically need the full text.
+
+For authoritative total test counts, call `get_test_run` — the `attributes.total_tests` field is the source of truth. Never count items from a list response.
 
 Present results as:
 - Overall pass rate and counts
@@ -167,9 +171,11 @@ Present results as:
 
 When the user asks to compare runs or detect regressions:
 
-1. Call `get_test_result_stats` with `mode=test_runs` and `test_run_ids` set to the runs to compare. This returns per-run pass/fail summaries in one call.
-2. For behavior-level breakdown: call `get_test_result_stats` with `mode=behavior` and `test_run_id` for each run separately.
+1. Call `get_test_result_stats` with `mode=test_runs` and `test_run_ids` set to both runs. Returns per-run pass/fail summaries in one call.
+2. For behavior-level breakdown: call with `mode=behavior` and a single `test_run_id` per run.
 3. For metric-level breakdown: use `mode=metrics`.
+
+For a full single-run breakdown immediately after execution, use `mode=all` with `test_run_id` instead — it returns everything in one call.
 
 Present comparisons as: overall pass rate change, which behaviors improved, which regressed, unchanged count.
 

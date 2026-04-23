@@ -4,11 +4,21 @@ How to retrieve, interpret, and present test run results after an `execute_test_
 
 ---
 
-## Retrieving results: two-step pattern
+## Retrieving results
 
-Always use two calls — never try to infer counts from the results list.
+### Preferred: single call with `mode=all`
 
-### Step 1: Get authoritative counts
+```
+get_test_result_stats
+  mode=all
+  test_run_id="<uuid>"
+```
+
+Returns behavior pass rates, metric pass rates, overall totals, and timeline in one call. Use this immediately after execution for a complete post-run analysis. Most efficient option.
+
+### Authoritative total counts
+
+If you need the authoritative test count separately (e.g., for a progress message before stats are ready):
 
 ```
 get_test_run(test_run_id="<uuid>")
@@ -19,9 +29,9 @@ The `attributes` field contains:
 - `execution_mode`
 - `started_at`
 
-Use `attributes.total_tests` for your summary. Do not count items from `list_test_results` — the list may be paginated or truncated.
+Never count items from `list_test_results` for totals — the list may be paginated or truncated.
 
-### Step 2: Get result details
+### Individual result details
 
 ```
 list_test_results
@@ -29,11 +39,14 @@ list_test_results
   $select=id,status,prompt,behavior,metric_scores
 ```
 
-Keep `$select` minimal. Add `response` to `$select` only if you need to show the full endpoint response for a specific failure — it is a large field that causes truncation.
+Keep `$select` minimal. Add `response` only if you need the full endpoint response — it is a large field that causes truncation.
 
 **Status values:** `Passed` | `Failed`
 
-**`metric_scores` structure:** array of score objects, each with metric name, score value, and whether it passed the threshold.
+To understand a specific failure in depth, call `get_test_result` with the result ID. Key fields:
+- `test_output.output` — the endpoint's actual response
+- `test_metrics.metrics` — dict of metric name → `{is_successful, score, reason, threshold}`
+- `reason` — the evaluator's explanation; most useful for failure analysis
 
 ---
 
