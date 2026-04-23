@@ -60,10 +60,25 @@ async def handle_architect_message(
     )
 
     try:
+        from uuid import UUID
+
         from rhesis.backend.app import crud, schemas
 
-        # Persist user message
         with get_db_with_tenant_variables(str(user.organization_id), str(user.id)) as db:
+            # Verify the session belongs to this user's organization before writing.
+            db_session = crud.get_architect_session(
+                db,
+                session_id=UUID(session_id),
+                organization_id=str(user.organization_id),
+                user_id=str(user.id),
+            )
+            if not db_session:
+                await _send_architect_error(
+                    manager, conn_id, correlation_id, "Session not found or access denied"
+                )
+                return
+
+            # Persist user message
             crud.create_architect_message(
                 db=db,
                 message=schemas.ArchitectMessageCreate(

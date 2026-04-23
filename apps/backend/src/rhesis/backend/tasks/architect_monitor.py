@@ -37,7 +37,7 @@ def _get_redis() -> _redis_lib.Redis:
     """Return a Redis client reusing a shared connection pool."""
     global _redis_pool
     if _redis_pool is None:
-        url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
+        url = os.getenv("BROKER_URL") or os.getenv("REDIS_URL", "redis://localhost:6379/0")
         _redis_pool = _redis_lib.ConnectionPool.from_url(url)
     return _redis_lib.Redis(connection_pool=_redis_pool)
 

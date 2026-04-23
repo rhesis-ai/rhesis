@@ -47,7 +47,8 @@ def apply_select(
         elif hasattr(obj, "dict"):
             d = obj.dict()
         else:
-            d = obj.__dict__
+            # Exclude private/internal attributes (e.g. SQLAlchemy's _sa_instance_state)
+            d = {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
         return {k: v for k, v in d.items() if k in fields}
 
     if isinstance(data, list):

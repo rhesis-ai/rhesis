@@ -20,7 +20,7 @@ from rhesis.backend.app.utils.redact import redact_email
 logger = logging.getLogger(__name__)
 
 # Token expiry defaults (in minutes)
-SERVICE_DELEGATION_EXPIRE_MINUTES = int(os.getenv("SERVICE_DELEGATION_EXPIRE_MINUTES", "60"))
+SERVICE_DELEGATION_EXPIRE_MINUTES = int(os.getenv("SERVICE_DELEGATION_EXPIRE_MINUTES", "15"))
 EMAIL_VERIFICATION_EXPIRE_MINUTES = 60 * 24  # 24 hours
 PASSWORD_RESET_EXPIRE_MINUTES = 60  # 1 hour
 MAGIC_LINK_EXPIRE_MINUTES = 15  # 15 minutes

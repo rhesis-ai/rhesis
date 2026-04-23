@@ -4,6 +4,7 @@ from functools import wraps
 from typing import Callable, Type, TypeVar
 
 from fastapi import Response
+from starlette.responses import Response as StarletteResponse
 
 from rhesis.backend.app.utils.crud_utils import count_items
 
@@ -38,6 +39,14 @@ def with_count_header(model: Type):
 
             # Call original route function (await if async)
             result = await func(*args, **kwargs) if is_async else func(*args, **kwargs)
+
+            # When the route returns a Response directly (e.g. JSONResponse for $select paths),
+            # FastAPI forwards it as-is and ignores headers set on the `response` dependency.
+            # Copy the count header so it is never silently dropped.
+            if isinstance(result, StarletteResponse):
+                for header_name, header_value in response.headers.items():
+                    result.headers.setdefault(header_name, header_value)
+
             return result
 
         return wrapper

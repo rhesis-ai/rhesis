@@ -208,7 +208,10 @@ def setup_mcp_server(
 
                 try:
                     secret_key = get_secret_key()
-                except Exception:
+                except Exception as exc:
+                    # Secret key misconfiguration — log loudly so ops can detect it.
+                    # Treat as unauthenticated rather than crashing the ASGI app.
+                    logger.error("MCP auth: failed to retrieve secret key: %s", exc)
                     secret_key = None
 
                 user = await get_authenticated_user_with_context(

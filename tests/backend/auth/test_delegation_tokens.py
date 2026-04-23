@@ -61,7 +61,7 @@ class TestDelegationTokens:
         assert 9 < delta < 11  # ~10 minutes
 
     def test_token_default_expiration(self, test_user):
-        """Test default expiration time (5 minutes)."""
+        """Test default expiration time (15 minutes) for test generation jobs."""
         token = create_service_delegation_token(test_user, "polyphemus")
         payload = jwt.decode(token, get_secret_key(), algorithms=[ALGORITHM])
 
@@ -69,8 +69,8 @@ class TestDelegationTokens:
         iat_time = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
         delta = (exp_time - iat_time).total_seconds() / 60
 
-        # Should be ~5 minutes by default
-        assert 4 < delta < 6
+        # Should be ~15 minutes by default
+        assert 14 < delta < 16
 
     def test_token_includes_nbf(self, test_user):
         """Test token includes 'not before' claim."""
