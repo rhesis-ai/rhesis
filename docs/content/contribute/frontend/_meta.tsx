@@ -20,6 +20,9 @@ export default {
   "state-management": {
     title: "State Management",
   },
+  "architect-chat-ui": {
+    title: "Architect Chat UI",
+  },
   "api-integration": {
     title: "API Integration",
   },

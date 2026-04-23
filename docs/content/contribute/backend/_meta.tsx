@@ -48,6 +48,9 @@ export default {
   "odata-guide": {
     title: "OData Query Guide",
   },
+  "architect-chat-system": {
+    title: "Architect Chat System",
+  },
   "environment-config": {
     title: "Environment Configuration",
   },
