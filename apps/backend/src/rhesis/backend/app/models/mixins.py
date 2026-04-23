@@ -4,7 +4,7 @@ import logging
 
 from sqlalchemy import Column, ForeignKey, and_, event
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import declared_attr, object_session, relationship
+from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 from .guid import GUID
@@ -399,6 +399,69 @@ class EmbeddableMixin:
         )
 
 
+# Defer embedding work to after commit so we never flush from inside flush (mapper events
+# run during Session.flush, while EmbeddingGenerator may call get_or_create_status → flush).
+_PENDING_EMBEDDING_JOBS_KEY = "pending_embedding_jobs"
+
+
+def _queue_embedding_after_commit(target) -> None:
+    session = object_session(target)
+    if session is None:
+        return
+    try:
+        searchable_text = target.to_searchable_text()
+    except Exception as e:
+        logger.error(
+            "Error computing searchable text for %s %s: %s",
+            target.__class__.__name__,
+            getattr(target, "id", None),
+            e,
+        )
+        return
+    pending = session.info.setdefault(_PENDING_EMBEDDING_JOBS_KEY, [])
+    pending.append(
+        {
+            "entity_type": target.__class__.__name__,
+            "entity_id": str(target.id),
+            "searchable_text": searchable_text,
+            "user_id": str(target.user_id),
+            "organization_id": str(target.organization_id),
+        }
+    )
+
+
+@event.listens_for(Session, "after_commit")
+def _process_pending_embedding_jobs(session: Session) -> None:
+    jobs = session.info.pop(_PENDING_EMBEDDING_JOBS_KEY, None)
+    if not jobs:
+        return
+
+    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.services.embedding.services import EmbeddingService
+
+    for job in jobs:
+        try:
+            with get_db_with_tenant_variables(
+                job["organization_id"],
+                job["user_id"],
+            ) as db:
+                embedding_service = EmbeddingService(db)
+                embedding_service.enqueue_embedding(
+                    entity_type=job["entity_type"],
+                    entity_id=job["entity_id"],
+                    searchable_text=job["searchable_text"],
+                    user_id=job["user_id"],
+                    organization_id=job["organization_id"],
+                )
+        except Exception as e:
+            logger.error(
+                "Error running deferred embedding for %s %s: %s",
+                job.get("entity_type"),
+                job.get("entity_id"),
+                e,
+            )
+
+
 # Event listeners for embedding generation
 @event.listens_for(EmbeddableMixin, "after_insert", propagate=True)
 def on_entity_insert(mapper, connection, target):
@@ -408,19 +471,8 @@ def on_entity_insert(mapper, connection, target):
         )
         return
 
-    from rhesis.backend.app.services.embedding.services import EmbeddingService
-
     try:
-        session = object_session(target)
-        embedding_service = EmbeddingService(session)
-        embedding_service.enqueue_embedding(
-            entity_type=target.__class__.__name__,
-            entity_id=str(target.id),
-            searchable_text=target.to_searchable_text(),
-            user_id=str(target.user_id),
-            organization_id=str(target.organization_id),
-        )
-
+        _queue_embedding_after_commit(target)
     except Exception as e:
         logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
 
@@ -433,17 +485,7 @@ def on_entity_update(mapper, connection, target):
         )
         return
 
-    from rhesis.backend.app.services.embedding.services import EmbeddingService
-
     try:
-        session = object_session(target)
-        embedding_service = EmbeddingService(session)
-        embedding_service.enqueue_embedding(
-            entity_type=target.__class__.__name__,
-            entity_id=str(target.id),
-            searchable_text=target.to_searchable_text(),
-            user_id=str(target.user_id),
-            organization_id=str(target.organization_id),
-        )
+        _queue_embedding_after_commit(target)
     except Exception as e:
         logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
