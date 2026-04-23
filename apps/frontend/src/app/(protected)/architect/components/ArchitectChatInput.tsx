@@ -247,8 +247,7 @@ const ArchitectChatInput = forwardRef<
                 maxHeight: theme.spacing(16),
                 '&:focus': {
                   borderColor: theme.palette.primary.main,
-                  borderWidth: '2px',
-                  padding: `calc(${theme.spacing(1)} - 1px) calc(${theme.spacing(1.5)} - 1px)`,
+                  outline: `1px solid ${theme.palette.primary.main}`,
                 },
               },
             })}
