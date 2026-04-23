@@ -12,7 +12,6 @@ import {
   Box,
   IconButton,
   InputBase,
-  Typography,
   Chip,
   CircularProgress,
 } from '@mui/material';
@@ -200,24 +199,7 @@ const ArchitectChatInput = forwardRef<
         </Box>
       )}
 
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 1,
-          alignItems: 'flex-end',
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: theme => `${theme.shape.borderRadius}px`,
-          bgcolor: 'background.default',
-          px: 1,
-          py: 0.5,
-          '&:focus-within': {
-            borderColor: 'primary.main',
-            borderWidth: 2,
-            mx: '-1px',
-          },
-        }}
-      >
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
         <IconButton
           size="small"
           onClick={() => fileInputRef.current?.click()}
@@ -235,43 +217,45 @@ const ArchitectChatInput = forwardRef<
           onChange={handleFileSelect}
         />
 
-        <InputBase
-          inputRef={inputRef}
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={inputDisabled}
-          multiline
-          maxRows={6}
-          fullWidth
-          placeholder={
-            isConnected
-              ? 'Describe what you want to test...'
-              : 'Waiting for connection...'
-          }
+        <Box
           sx={{
             flex: 1,
-            fontSize: 'body2.fontSize',
-            fontFamily: 'body2.fontFamily',
-            py: 0.5,
-            '& .MuiInputBase-input': {
-              p: 0,
-              lineHeight: 1.5,
-              color: 'text.primary',
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: theme => `${theme.shape.borderRadius}px`,
+            px: 1.5,
+            py: 1,
+            '&:focus-within': {
+              borderColor: 'primary.main',
+              outline: theme => `1px solid ${theme.palette.primary.main}`,
             },
           }}
-          renderSuffix={() =>
-            !isConnected ? (
-              <Typography
-                variant="caption"
-                color="text.disabled"
-                sx={{ mr: 1 }}
-              >
-                Connecting…
-              </Typography>
-            ) : null
-          }
-        />
+        >
+          <InputBase
+            inputRef={inputRef}
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={inputDisabled}
+            multiline
+            maxRows={6}
+            fullWidth
+            placeholder={
+              isConnected
+                ? 'Describe what you want to test...'
+                : 'Waiting for connection...'
+            }
+            sx={{
+              fontSize: 'body2.fontSize',
+              fontFamily: 'body2.fontFamily',
+              lineHeight: 1.5,
+              '& .MuiInputBase-input': {
+                p: 0,
+                color: 'text.primary',
+              },
+            }}
+          />
+        </Box>
 
         <IconButton
           color="primary"
