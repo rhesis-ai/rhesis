@@ -117,10 +117,16 @@ class VertexAICredentialsMixin:
         temp_dir = Path(tempfile.gettempdir())
         temp_file_path = temp_dir / f"vertex_ai_creds_{creds_hash}.json"
 
-        # Write credentials to the persistent temp file (idempotent)
-        # If file already exists, we'll just overwrite it (safe since content is the same)
+        # Write credentials to the persistent temp file with restricted permissions
+        # (0o600 = owner read/write only). Use os.open so the mode is set atomically
+        # at creation time rather than relying on a post-creation chmod.
         try:
-            with open(temp_file_path, "w") as f:
+            fd = os.open(
+                str(temp_file_path),
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                0o600,
+            )
+            with os.fdopen(fd, "w") as f:
                 json.dump(credentials_json, f)
 
             # Track this file for cleanup at process exit
@@ -211,10 +217,10 @@ class VertexAICredentialsMixin:
         except Exception:
             pass
 
-        # All methods failed
+        # All methods failed — omit the credential value to avoid leaking secrets.
         raise ValueError(
-            f"GOOGLE_APPLICATION_CREDENTIALS is neither valid base64 nor an existing file path: "
-            f"{credentials}"
+            "GOOGLE_APPLICATION_CREDENTIALS could not be loaded: "
+            "value is neither valid base64-encoded JSON nor an existing file path."
         )
 
     def _load_vertex_config(self) -> dict:

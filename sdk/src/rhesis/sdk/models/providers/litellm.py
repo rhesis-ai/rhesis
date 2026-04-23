@@ -126,6 +126,27 @@ class LiteLLM(BaseLLM):
             return response_content
         return response_content
 
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> AsyncGenerator[str, None]:
+        """Stream LLM response token-by-token via LiteLLM.
+
+        Delegates to ``a_generate(stream=True)`` so that Vertex AI and other
+        subclasses can inject provider-specific parameters before the streaming
+        call reaches ``_a_generate_stream``.
+        """
+        result = await self.a_generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            stream=True,
+            **kwargs,
+        )
+        async for chunk in result:
+            yield chunk
+
     async def _a_generate_stream(
         self,
         messages: list,
