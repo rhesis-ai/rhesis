@@ -131,7 +131,8 @@ export default function ToolCallList({
             alignItems: 'center',
             gap: 1,
             textAlign: 'left',
-            borderRadius: theme => `${(theme.shape.borderRadius as number) / 2}px`,
+            borderRadius: theme =>
+              `${(theme.shape.borderRadius as number) / 2}px`,
             py: 0.125,
             cursor: tool.reasoning ? 'pointer' : 'default',
             '&:hover': tool.reasoning ? { bgcolor: 'action.hover' } : undefined,
@@ -239,7 +240,8 @@ export default function ToolCallList({
             gap: 0.5,
             mb: 0.25,
             py: 0.125,
-            borderRadius: theme => `${(theme.shape.borderRadius as number) / 2}px`,
+            borderRadius: theme =>
+              `${(theme.shape.borderRadius as number) / 2}px`,
             '&:hover': { bgcolor: 'action.hover' },
           }}
         >

@@ -83,7 +83,8 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
                   flex: 1,
                   maxWidth: 120,
                   height: 4,
-                  borderRadius: theme => `${(theme.shape.borderRadius as number) * 2}px`,
+                  borderRadius: theme =>
+                    `${(theme.shape.borderRadius as number) * 2}px`,
                 }}
               />
               <Typography variant="caption" color="text.secondary">
