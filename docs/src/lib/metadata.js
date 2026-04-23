@@ -87,13 +87,27 @@ export function generatePageMetadata(
     description = config.siteDescription
   }
 
+  // Merge page-level keywords (from frontmatter) with sitewide defaults
+  const pageKeywords = baseMetadata?.keywords
+  const keywords = pageKeywords
+    ? [
+        ...new Set([
+          ...(Array.isArray(pageKeywords) ? pageKeywords : [pageKeywords]),
+          ...config.keywords,
+        ]),
+      ]
+    : config.keywords
+
   const canonicalUrl = getCanonicalUrl(urlPath, config)
   const imageUrl = getOpenGraphImage(urlPath, config.defaultImage)
+
+  // Respect ROBOTS_NOINDEX env var (e.g. staging deployments)
+  const noIndex = process.env.ROBOTS_NOINDEX === 'true'
 
   return {
     title,
     description,
-    keywords: config.keywords,
+    keywords,
     authors: [{ name: config.author.name, url: config.author.url }],
     creator: config.author.name,
     publisher: config.organization.name,
@@ -131,13 +145,13 @@ export function generatePageMetadata(
       images: [imageUrl],
     },
 
-    // Robots
+    // Robots — respect ROBOTS_NOINDEX for staging/preview environments
     robots: {
-      index: true,
-      follow: true,
+      index: !noIndex,
+      follow: !noIndex,
       googleBot: {
-        index: true,
-        follow: true,
+        index: !noIndex,
+        follow: !noIndex,
         'max-video-preview': -1,
         'max-image-preview': 'large',
         'max-snippet': -1,
