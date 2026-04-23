@@ -210,6 +210,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: JWT_SECRET_KEY
+        - name: SESSION_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SESSION_SECRET_KEY
         - name: JWT_ALGORITHM
           valueFrom:
             secretKeyRef:
