@@ -16,12 +16,14 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.endpoint import AutoConfigureRequest, AutoConfigureResult
+from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreEndpointResponse
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
@@ -340,3 +342,54 @@ async def invoke_endpoint(
             f"API invoke unexpected error for endpoint {endpoint_id}: {str(e)}", exc_info=True
         )
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/{endpoint_id}/explore",
+    response_model=ExploreEndpointResponse,
+    dependencies=[Depends(validate_generation_model)],
+)
+async def explore_endpoint_route(
+    endpoint_id: uuid.UUID,
+    request: ExploreEndpointRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Launch an async Penelope exploration of an endpoint.
+
+    Returns a ``task_id`` that can be polled via ``GET /jobs/{task_id}``
+    until status is ``SUCCESS``.  The ``result`` field then contains the
+    exploration findings.
+    """
+    from rhesis.backend.tasks import task_launcher
+    from rhesis.backend.tasks.endpoint.explore import run_exploration_task
+
+    organization_id, user_id = tenant_context
+
+    db_endpoint = crud.get_endpoint(
+        db, endpoint_id=endpoint_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_endpoint is None:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+
+    task_result = task_launcher(
+        run_exploration_task,
+        current_user=current_user,
+        endpoint_id=str(endpoint_id),
+        strategy=request.strategy,
+        goal=request.goal,
+        instructions=request.instructions,
+        scenario=request.scenario,
+        restrictions=request.restrictions,
+        previous_findings=request.previous_findings,
+    )
+
+    strategy_label = request.strategy or "custom goal"
+    return ExploreEndpointResponse(
+        task_id=str(task_result.id),
+        message=(
+            f"Endpoint exploration started using {strategy_label}. "
+            "Poll GET /jobs/{{task_id}} until status is SUCCESS."
+        ),
+    )

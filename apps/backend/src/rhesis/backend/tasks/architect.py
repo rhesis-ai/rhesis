@@ -500,8 +500,9 @@ def _make_target_factory(org_id: str, user_id: str):
 
     Returns a callable ``(endpoint_id) -> LocalEndpointTarget`` that
     the ``ExploreEndpointTool`` uses to create targets at call time.
-    Each target calls the service layer directly — no HTTP, no SDK
-    client, no delegation token.
+    Each target call opens its own DB session so the factory is safe
+    to use across long-lived architect chat sessions without holding
+    a single connection open for minutes at a time.
     """
     import asyncio as _asyncio
 

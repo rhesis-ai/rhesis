@@ -30,16 +30,27 @@ Use this before exploring or running tests — not when simply looking up endpoi
 ---
 
 ### `explore_endpoint`
-Run a multi-turn conversation against an endpoint using a Penelope exploration agent. Returns findings about domain, response patterns, capabilities, restrictions, and conversation support.
+Run a multi-turn Penelope exploration of an endpoint to discover its domain, capabilities, limits, and response patterns. This is an **async operation** — the response includes a `task_id` to poll via `get_job_status`.
+
+**Status flow:** PENDING → STARTED → PROGRESS → SUCCESS | FAILURE
+
+When `SUCCESS`, the `result` field contains the full exploration findings:
+- `findings` — structured findings from Penelope
+- `strategy_findings` — strategy-formatted findings (when a named strategy was used)
+- `conversation` — turn-by-turn conversation summary
+- `goal_achieved`, `turns_used`, `status`
+- `duration_ms`, `strategy`, `goal`, `endpoint_id`
 
 **Key parameters:**
-- `endpoint_id` (required)
-- `strategy` — `"domain_probing"`, `"capability_mapping"`, `"boundary_discovery"`, or `"comprehensive"`. When a strategy is specified, `goal` and `instructions` are generated automatically.
-- `goal` — required only when no `strategy` is specified
-- `instructions` — optional additional guidance
-- `previous_findings` — structured findings from a prior run; the strategy builds on existing knowledge
+- `endpoint_id` (required, path parameter) — UUID of the endpoint
+- `strategy` — `"domain_probing"`, `"capability_mapping"`, `"boundary_discovery"`, or `"comprehensive"`. Generates `goal` and `instructions` automatically.
+- `goal` (required when no `strategy`) — what to learn about the endpoint
+- `instructions` — optional probing instructions
+- `scenario` — optional persona/context for Penelope
+- `restrictions` — optional constraints to verify
+- `previous_findings` — structured findings from a prior run; strategies build on them
 
-**Common mistakes:** Calling this repeatedly with the same goal. If a first run gives enough context, stop and plan. Vary the strategy or goal if you need a second run.
+**Common mistakes:** Calling this with a `strategy` AND a `goal` when you want the strategy to generate the goal automatically. Set only `strategy`, or set only `goal` (no strategy).
 
 See `references/exploration-strategies.md` for strategy details.
 
@@ -161,11 +172,14 @@ Use to verify behavior associations before calling `add_behavior_to_metric`.
 ---
 
 ### `get_job_status`
-Poll the status of a background job (e.g., test generation started by `generate_test_set`).
+Poll the status of a background job started by `explore_endpoint`, `generate_test_set`, or `execute_test_set`.
 
 **Status flow:** PENDING → STARTED → PROGRESS → SUCCESS | FAILURE
 
-When `SUCCESS`: the `result` field contains job-specific data. For test generation: `result.test_set_id`.
+When `SUCCESS`, the `result` field contains job-specific data:
+- `explore_endpoint` — full exploration findings (domain, capabilities, conversation, `strategy_findings`)
+- `generate_test_set` — `test_set_id` (UUID of the created test set)
+- `execute_test_set` — use the `test_run_id` returned in the original response
 
 When `FAILURE`: the `error` field describes what went wrong.
 

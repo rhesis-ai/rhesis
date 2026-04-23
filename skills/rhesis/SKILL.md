@@ -44,7 +44,7 @@ When a user mentions an endpoint or says "test my chatbot / test my AI":
    - **Quick** — domain probing only. Fast; good for familiar endpoints or when the user wants to start quickly.
    - **Comprehensive** — domain probing, then capability mapping and boundary discovery. Thorough; best for unfamiliar endpoints.
    - Default to **Quick** if the user is vague ("just explore it", "go ahead").
-4. Run `explore_endpoint` with the appropriate strategy (see `references/exploration-strategies.md` for details).
+4. Run `explore_endpoint` with the appropriate strategy (see `references/exploration-strategies.md` for details). This is **async** — it returns a `task_id`. Poll `get_job_status(task_id=...)` every 5–10 seconds until status is `SUCCESS`, then read findings from `result`. Typical wait: 30s–2min per strategy, 1–3min for `"comprehensive"`.
 
 ### Compiled observations
 

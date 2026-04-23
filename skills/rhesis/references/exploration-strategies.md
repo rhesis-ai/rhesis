@@ -110,7 +110,12 @@ For each type: baseline probe → stress test (if baseline succeeds) → record 
 
 **How to invoke:**
 ```
+# 1. Launch — returns {task_id, message}
 explore_endpoint(endpoint_id=<uuid>, strategy="comprehensive")
+
+# 2. Poll until SUCCESS
+get_job_status(task_id=<task_id>)
+# → {status: "SUCCESS", result: {findings, strategy_findings, conversation, ...}}
 ```
 
 No `goal` or `instructions` needed.
@@ -123,24 +128,27 @@ You can also chain strategies one at a time, passing `previous_findings` from ea
 
 ```
 # Step 1: Quick domain scan
-findings_1 = explore_endpoint(
-    endpoint_id=<uuid>,
-    strategy="domain_probing"
-)
+task_1 = explore_endpoint(endpoint_id=<uuid>, strategy="domain_probing")
+# → {task_id: "abc"}
+result_1 = get_job_status(task_id="abc")   # poll until SUCCESS
+findings_1 = result_1["result"]
 
 # Step 2: Only if domain probing suggests it's worth deeper exploration
-findings_2 = explore_endpoint(
+task_2 = explore_endpoint(
     endpoint_id=<uuid>,
     strategy="capability_mapping",
     previous_findings=findings_1
 )
+result_2 = get_job_status(task_id=task_2["task_id"])   # poll until SUCCESS
+findings_2 = result_2["result"]
 
 # Step 3: Only if you need to understand limits for safety testing
-findings_3 = explore_endpoint(
+task_3 = explore_endpoint(
     endpoint_id=<uuid>,
     strategy="boundary_discovery",
-    previous_findings={...findings_1, ...findings_2}
+    previous_findings={**findings_1, **findings_2}
 )
+result_3 = get_job_status(task_id=task_3["task_id"])   # poll until SUCCESS
 ```
 
 Use `"comprehensive"` when you know you want all three. Use manual chaining when you want to inspect findings between steps and decide whether to continue.

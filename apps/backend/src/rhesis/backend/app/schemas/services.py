@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
 
@@ -371,6 +371,35 @@ class CreateJiraTicketFromTaskResponse(BaseModel):
 
     issue_key: str  # e.g., "PROJ-123"
     issue_url: str  # Direct link to the created issue
+    message: str
+
+
+# Endpoint Exploration Schemas
+
+
+class ExploreEndpointRequest(BaseModel):
+    """Request body for POST /endpoints/{endpoint_id}/explore."""
+
+    strategy: Optional[
+        Literal["domain_probing", "capability_mapping", "boundary_discovery", "comprehensive"]
+    ] = None
+    goal: Optional[str] = None
+    instructions: Optional[str] = None
+    scenario: Optional[str] = None
+    restrictions: Optional[str] = None
+    previous_findings: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def require_strategy_or_goal(self) -> "ExploreEndpointRequest":
+        if not self.strategy and not (self.goal and self.goal.strip()):
+            raise ValueError("Either 'strategy' or 'goal' must be provided")
+        return self
+
+
+class ExploreEndpointResponse(BaseModel):
+    """Response from POST /endpoints/{endpoint_id}/explore."""
+
+    task_id: str
     message: str
 
 
