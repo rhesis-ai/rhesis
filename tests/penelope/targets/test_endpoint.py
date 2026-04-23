@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rhesis.penelope.targets.base import TargetResponse
+from rhesis.sdk.targets import TargetResponse
 from rhesis.penelope.targets.endpoint import EndpointTarget
 
 

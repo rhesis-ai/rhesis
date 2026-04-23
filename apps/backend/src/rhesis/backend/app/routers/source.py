@@ -2,7 +2,8 @@ import urllib.parse
 import uuid
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -22,6 +23,7 @@ from rhesis.backend.app.services.source import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.odata import apply_select
 
 router = APIRouter(
     prefix="/sources",
@@ -57,6 +59,11 @@ def read_sources(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return (e.g. id,title,description,url)",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -66,7 +73,7 @@ def read_sources(
     Note: Content field is excluded for performance. Use /sources/{id}/content to get content.
     """
     organization_id, user_id = tenant_context
-    return crud.get_sources(
+    results = crud.get_sources(
         db=db,
         skip=skip,
         limit=limit,
@@ -76,6 +83,10 @@ def read_sources(
         organization_id=organization_id,
         user_id=user_id,
     )
+    if select:
+        serialized = jsonable_encoder(results)
+        return JSONResponse(content=apply_select(serialized, select))
+    return results
 
 
 @router.get("/{source_id}", response_model=schemas.Source)

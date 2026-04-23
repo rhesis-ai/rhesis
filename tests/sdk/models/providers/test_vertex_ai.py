@@ -1,6 +1,8 @@
+import asyncio
 import base64
 import json
 import os
+import stat
 import tempfile
 from unittest.mock import Mock, patch
 
@@ -215,7 +217,7 @@ class TestVertexAIConfigLoading:
             assert llm.model["project"] == "override-project"
 
     def test_load_config_invalid_base64(self):
-        """Test that invalid base64 credentials raise error."""
+        """Test that invalid base64 credentials raise error without leaking value."""
         with patch.dict(
             os.environ,
             {
@@ -224,10 +226,10 @@ class TestVertexAIConfigLoading:
             },
             clear=True,
         ):
-            with pytest.raises(
-                ValueError, match="is neither valid base64 nor an existing file path"
-            ):
+            with pytest.raises(ValueError, match="could not be loaded") as exc_info:
                 VertexAILLM()
+            # Ensure the raw credential value is NOT in the error message
+            assert "not-valid-base64!@#$" not in str(exc_info.value)
 
     def test_load_config_file_not_found(self):
         """Test that non-existent credentials file raises error."""
@@ -239,9 +241,7 @@ class TestVertexAIConfigLoading:
             },
             clear=True,
         ):
-            with pytest.raises(
-                ValueError, match="is neither valid base64 nor an existing file path"
-            ):
+            with pytest.raises(ValueError, match="could not be loaded"):
                 VertexAILLM()
 
     def test_load_config_missing_project(self):
@@ -531,6 +531,144 @@ class TestVertexAIRegionalLocations:
         ):
             llm = VertexAILLM()
             assert llm.model["location"] == location
+
+
+class TestVertexAICredentialSecurity:
+    """Test credential security: file permissions, error message masking."""
+
+    def test_temp_file_has_restricted_permissions(self):
+        """Test that temp credentials files are created with 0600 permissions."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            llm = VertexAILLM()
+            credentials_path = llm.model["credentials_path"]
+            file_mode = stat.S_IMODE(os.stat(credentials_path).st_mode)
+            assert file_mode == 0o600, f"Expected 0600, got {oct(file_mode)}"
+
+    def test_error_message_does_not_leak_base64_credentials(self):
+        """Test that base64 credential values are never included in error messages."""
+        # A value that looks like base64 but is invalid JSON after decoding
+        fake_secret = base64.b64encode(b"not-json-content-with-secret-key").decode()
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": fake_secret, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            with pytest.raises(ValueError) as exc_info:
+                VertexAILLM()
+            # The raw base64 value must not appear in the error
+            assert fake_secret not in str(exc_info.value)
+
+    def test_error_message_shows_file_path_when_path_like(self):
+        """Test that file-like paths are shown in error messages (they're not secrets)."""
+        with patch.dict(
+            os.environ,
+            {
+                "GOOGLE_APPLICATION_CREDENTIALS": "/etc/missing/creds.json",
+                "VERTEX_AI_LOCATION": "europe-west3",
+            },
+            clear=True,
+        ):
+            with pytest.raises(ValueError, match="/etc/missing/creds.json"):
+                VertexAILLM()
+
+
+class TestVertexAIGenerateStream:
+    """Test generate_stream method functionality."""
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_generate_stream_yields_chunks(self, mock_acompletion):
+        """Test that generate_stream yields content chunks."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        # Create mock async iterator of chunks
+        chunk1 = Mock()
+        chunk1.choices = [Mock()]
+        chunk1.choices[0].delta = Mock(content="Hello ")
+
+        chunk2 = Mock()
+        chunk2.choices = [Mock()]
+        chunk2.choices[0].delta = Mock(content="world")
+
+        chunk3 = Mock()
+        chunk3.choices = [Mock()]
+        chunk3.choices[0].delta = Mock(content=None)  # Final chunk with no content
+
+        async def mock_stream():
+            for chunk in [chunk1, chunk2, chunk3]:
+                yield chunk
+
+        mock_acompletion.return_value = mock_stream()
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            llm = VertexAILLM()
+
+            async def run():
+                chunks = []
+                async for chunk in llm.generate_stream("Test prompt"):
+                    chunks.append(chunk)
+                return chunks
+
+            result = asyncio.run(run())
+            assert result == ["Hello ", "world"]
+
+            # Verify vertex params were passed
+            call_kwargs = mock_acompletion.call_args[1]
+            assert call_kwargs["vertex_ai_project"] == "test-project"
+            assert call_kwargs["vertex_ai_location"] == "europe-west3"
+            assert call_kwargs["stream"] is True
+
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
+    def test_generate_stream_restores_credentials_env_var(self, mock_acompletion):
+        """Test that generate_stream restores GOOGLE_APPLICATION_CREDENTIALS."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        async def mock_stream():
+            yield Mock(choices=[Mock(delta=Mock(content="hi"))])
+
+        mock_acompletion.return_value = mock_stream()
+
+        original_value = "/path/to/original/credentials.json"
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
+            llm = VertexAILLM(credentials=encoded_creds, location="europe-west3")
+
+            async def run():
+                async for _ in llm.generate_stream("Test"):
+                    pass
+
+            asyncio.run(run())
+            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
 
 
 class TestVertexAICleanup:

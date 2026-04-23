@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         RagasContextRelevance,
         RagasFaithfulness,
     )
+    from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     # Native — per-module import avoids loading all judges when only one is needed
@@ -70,6 +71,10 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "RhesisMetricFactory": (
         "rhesis.sdk.metrics.providers.native.factory",
         "RhesisMetricFactory",
+    ),
+    "MetricSynthesizer": (
+        "rhesis.sdk.metrics.synthesizer",
+        "MetricSynthesizer",
     ),
     # Ragas
     "RagasMetricBase": (
@@ -145,6 +150,7 @@ __all__ = [
     "MetricScope",
     "MetricConfigLoader",
     "MetricFactory",
+    "MetricSynthesizer",
     # Conversational metrics
     "ConversationalMetricBase",
     "ConversationHistory",

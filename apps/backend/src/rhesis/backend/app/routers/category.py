@@ -1,6 +1,8 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -12,7 +14,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.odata import combine_entity_type_filter
+from rhesis.backend.app.utils.odata import apply_select, combine_entity_type_filter
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for Test
@@ -56,6 +58,11 @@ def read_categories(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return",
+    ),
     entity_type: str | None = Query(None, description="Filter categories by entity type"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -65,7 +72,7 @@ def read_categories(
     organization_id, user_id = tenant_context
     filter = combine_entity_type_filter(filter, entity_type)
 
-    return crud.get_categories(
+    results = crud.get_categories(
         db=db,
         skip=skip,
         limit=limit,
@@ -75,6 +82,10 @@ def read_categories(
         organization_id=organization_id,
         user_id=user_id,
     )
+    if select:
+        serialized = jsonable_encoder(results)
+        return JSONResponse(content=apply_select(serialized, select))
+    return results
 
 
 @router.get("/{category_id}")

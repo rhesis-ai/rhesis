@@ -4,7 +4,8 @@ from enum import Enum
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import StreamingResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -38,6 +39,7 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_execution_model,
     validate_generation_model,
 )
+from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
@@ -250,6 +252,11 @@ async def read_test_sets(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return",
+    ),
     has_runs: bool | None = Query(
         None, description="Filter test sets by whether they have test runs"
     ),
@@ -280,7 +287,7 @@ async def read_test_sets(
     logger.info(f"test_sets endpoint called with has_runs={has_runs}")
 
     organization_id, user_id = tenant_context
-    return crud.get_test_sets(
+    results = crud.get_test_sets(
         db=db,
         skip=skip,
         limit=limit,
@@ -291,6 +298,10 @@ async def read_test_sets(
         organization_id=organization_id,
         user_id=user_id,
     )
+    if select:
+        serialized = jsonable_encoder(results)
+        return JSONResponse(content=apply_select(serialized, select))
+    return results
 
 
 @router.get("/stats", response_model=schemas.EntityStats)

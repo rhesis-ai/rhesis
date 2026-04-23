@@ -294,7 +294,7 @@ class TestInfiniteLoopPrevention:
 
     def test_analysis_loop_prevented(self, mock_model):
         """Create scenario that would loop infinitely, verify it stops."""
-        from rhesis.penelope.targets.base import Target
+        from rhesis.sdk.targets import Target
 
         # Create mock target
         class MockTarget(Target):
@@ -344,7 +344,7 @@ class TestInfiniteLoopPrevention:
 
     def test_global_limit_prevents_runaway(self, mock_model):
         """Verify global limit stops execution even with valid patterns."""
-        from rhesis.penelope.targets.base import Target
+        from rhesis.sdk.targets import Target
 
         class MockTarget(Target):
             @property

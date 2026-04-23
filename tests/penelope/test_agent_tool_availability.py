@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.penelope.agent import PenelopeAgent
-from rhesis.penelope.targets.base import Target, TargetResponse
+from rhesis.sdk.targets import Target, TargetResponse
 from rhesis.sdk.models.base import BaseLLM
 
 

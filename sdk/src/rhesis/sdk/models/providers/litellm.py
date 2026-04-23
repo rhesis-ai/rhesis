@@ -11,6 +11,8 @@ from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
+# Prevents "attached to a different loop" errors in threaded/Celery contexts.
+litellm.disable_aiohttp_transport = True
 for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
     logging.getLogger(_logger_name).setLevel(logging.WARNING)
 
@@ -123,6 +125,27 @@ class LiteLLM(BaseLLM):
             validate_llm_response(response_content, schema)
             return response_content
         return response_content
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> AsyncGenerator[str, None]:
+        """Stream LLM response token-by-token via LiteLLM.
+
+        Delegates to ``a_generate(stream=True)`` so that Vertex AI and other
+        subclasses can inject provider-specific parameters before the streaming
+        call reaches ``_a_generate_stream``.
+        """
+        result = await self.a_generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            stream=True,
+            **kwargs,
+        )
+        async for chunk in result:
+            yield chunk
 
     async def _a_generate_stream(
         self,

@@ -16,6 +16,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.constants import MetricBackendType
 from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.app.models.test_set import TestSet, test_set_metric_association
 from rhesis.backend.app.schemas import test_set as test_set_schemas
@@ -311,7 +312,7 @@ class GarakImporter:
 
                 # Only set backend_type if it's missing
                 if not existing_metric.backend_type_id:
-                    update_fields["backend_type"] = "garak"
+                    update_fields["backend_type"] = MetricBackendType.GARAK
 
                 # Fix categorical -> numeric conversion for consistency
                 if existing_metric.score_type == "categorical":
@@ -357,7 +358,7 @@ class GarakImporter:
             context_required=False,
             class_name=self.GARAK_METRIC_CLASS_NAME,
             metric_scope=["Single-Turn"],  # Garak detectors are single-turn
-            backend_type="garak",  # Will be converted to backend_type_id by CRUD
+            backend_type=MetricBackendType.GARAK,  # Will be converted to backend_type_id by CRUD
             metric_type="framework",  # Will be converted to metric_type_id by CRUD
             owner_id=user_uuid,
         )

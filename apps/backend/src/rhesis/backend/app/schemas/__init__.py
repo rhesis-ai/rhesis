@@ -1,3 +1,11 @@
+from .architect import (
+    ArchitectMessage,
+    ArchitectMessageCreate,
+    ArchitectSession,
+    ArchitectSessionCreate,
+    ArchitectSessionDetail,
+    ArchitectSessionUpdate,
+)
 from .base import Base
 from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorUpdate
 from .category import Category, CategoryBase, CategoryCreate, CategoryUpdate
@@ -15,7 +23,16 @@ from .endpoint import (
     EndpointUpdate,
 )
 from .file import FileCreate, FileEntityType, FileResponse, FileUpdate
-from .metric import Metric, MetricBase, MetricCreate, MetricDetail, MetricUpdate, ScoreType
+from .metric import (
+    GenerateMetricRequest,
+    ImproveMetricRequest,
+    Metric,
+    MetricBase,
+    MetricCreate,
+    MetricDetail,
+    MetricUpdate,
+    ScoreType,
+)
 from .model import Model, ModelBase, ModelCreate, ModelRead, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
@@ -135,6 +152,12 @@ from .user import User, UserBase, UserCreate, UserUpdate
 
 __all__ = [
     "Base",
+    "ArchitectSession",
+    "ArchitectSessionCreate",
+    "ArchitectSessionUpdate",
+    "ArchitectSessionDetail",
+    "ArchitectMessage",
+    "ArchitectMessageCreate",
     "Tag",
     "TagBase",
     "TagCreate",
@@ -316,6 +339,8 @@ __all__ = [
     "MetricCreate",
     "MetricUpdate",
     "MetricDetail",
+    "GenerateMetricRequest",
+    "ImproveMetricRequest",
     "ScoreType",
     # Task schemas
     "TaskList",

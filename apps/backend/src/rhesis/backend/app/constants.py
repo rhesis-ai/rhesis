@@ -64,6 +64,23 @@ class TestSetType(Enum):
         return None
 
 
+# Metric TypeLookup values — aligned with initial_data.json and the frontend
+class MetricBackendType:
+    """Values for the BackendType type_lookup used on metrics."""
+
+    CUSTOM = "custom"
+    RHESIS = "rhesis"
+    DEEPEVAL = "deepeval"
+    RAGAS = "ragas"
+    GARAK = "garak"
+
+
+class MetricType:
+    """Values for the MetricType type_lookup used on metrics."""
+
+    CUSTOM_PROMPT = "custom-prompt"
+
+
 # Display name stored in test_set.attributes["metadata"]["behaviors"] for adaptive testing sets
 ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
 

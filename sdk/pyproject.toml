@@ -40,7 +40,7 @@ dependencies = [
     "deepteam>=0.2.5",
     "langchain-google-genai>=2.1.12",
     "ragas>=0.3.7",
-    "mcp>=1.23.0",
+    "mcp==1.26.0",
     "websockets>=12.0",
     "ipython>=8.37.0",
     "ipykernel>=7.1.0",
@@ -143,6 +143,7 @@ dev = [
     "psycopg2-binary==2.9.9", # to match the version in the backend
     "pytest-cov>=7.0.0",
     "garak>=0.14.0",
+    "rhesis-penelope",
     "virtualenv>=20.36.1",
 ]
 
@@ -175,6 +176,7 @@ override-dependencies = ["datasets>=4.0.0", "transformers>=5.0.0"]
 
 [tool.uv.sources]
 rhesis = { path = "../packages/rhesis" }
+rhesis-penelope = { path = "../penelope", editable = true }
 
 [tool.pyright]
 typeCheckingMode = "standard"

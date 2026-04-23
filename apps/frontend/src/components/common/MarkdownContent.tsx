@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import NextLink from 'next/link';
 import Markdown from 'markdown-to-jsx';
 import { Box, Link, useTheme, type TypographyProps } from '@mui/material';
 
@@ -9,6 +10,46 @@ interface MarkdownContentProps {
   content: string;
   /** Typography variant to use for body text (default: 'body1') */
   variant?: TypographyProps['variant'];
+}
+
+function isInternalPath(href: string | undefined): boolean {
+  if (!href) return false;
+  return href.startsWith('/') && !href.startsWith('//');
+}
+
+/**
+ * Repair markdown link patterns that LLMs sometimes break:
+ * - Backtick-wrapped links: `[text](url)` → [text](url)
+ * - Escaped brackets: \[text\](url) → [text](url)
+ * - Whitespace between ] and (: [text] (url) → [text](url)
+ * Only targets URLs starting with / or http(s):// to avoid false positives.
+ */
+function normalizeMarkdownLinks(content: string): string {
+  return content
+    .replace(/`(\[([^\]`]+)\]\(((?:\/|https?:\/\/)[^)\s`]+)\))`/g, '[$2]($3)')
+    .replace(
+      /\\?\[([^\]\\]+)\\?\]\s*\(((?:\/|https?:\/\/)[^)\s]+)\)/g,
+      '[$1]($2)'
+    );
+}
+
+function SmartLink({
+  href,
+  children,
+  ...props
+}: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  if (isInternalPath(href)) {
+    return (
+      <Link component={NextLink} href={href!} target="_blank" {...props}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <Link href={href} target="_blank" rel="noopener noreferrer" {...props}>
+      {children}
+    </Link>
+  );
 }
 
 /**
@@ -72,6 +113,12 @@ export default function MarkdownContent({
         '& p': { mb: 1, '&:last-child': { mb: 0 } },
         '& ul, & ol': { pl: 2.5, mb: 1, '&:last-child': { mb: 0 } },
         '& li': { mb: 0.5 },
+        '& li > input[type="checkbox"]': {
+          mr: 0.75,
+          verticalAlign: 'middle',
+          accentColor: theme.palette.success.main,
+          pointerEvents: 'none',
+        },
         '& pre': {
           bgcolor: 'action.hover',
           p: 1.5,
@@ -133,17 +180,13 @@ export default function MarkdownContent({
           disableParsingRawHTML: true,
           overrides: {
             a: {
-              component: Link,
-              props: {
-                target: '_blank',
-                rel: 'noopener noreferrer',
-              },
+              component: SmartLink,
             },
           },
         }}
       >
         {typeof content === 'string'
-          ? content
+          ? normalizeMarkdownLinks(content)
           : '```json\n' + JSON.stringify(content, null, 2) + '\n```'}
       </Markdown>
     </Box>

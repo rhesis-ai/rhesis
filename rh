@@ -932,7 +932,7 @@ start_worker() {
     uv run celery -A rhesis.backend.worker.app worker \
         --pool threads \
         --loglevel=DEBUG \
-        --queues=celery,execution,telemetry \
+        --queues=celery,execution,telemetry,architect \
         --concurrency=${CELERY_WORKER_CONCURRENCY:-2} \
         --optimization=fair \
         -E &

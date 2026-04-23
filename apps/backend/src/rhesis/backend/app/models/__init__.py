@@ -1,7 +1,7 @@
 # Import base classes first
-from .base import Base
-
 # Import remaining models
+from .architect import ArchitectMessage, ArchitectSession
+from .base import Base
 from .behavior import Behavior
 from .category import Category
 from .chunk import Chunk
@@ -51,6 +51,8 @@ from .user import User
 # This line ensures all models are registered with Base
 __all__ = [
     "Base",
+    "ArchitectSession",
+    "ArchitectMessage",
     "Behavior",
     "TestSet",
     "Category",

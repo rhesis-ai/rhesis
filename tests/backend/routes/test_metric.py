@@ -16,6 +16,7 @@ Run with: python -m pytest tests/backend/routes/test_metric.py -v
 
 import uuid
 from typing import Any, Dict
+from unittest.mock import patch
 
 import pytest
 from faker import Faker
@@ -354,3 +355,217 @@ class TestMetricPerformance(MetricTestMixin, BaseEntityTests):
 
         page_2 = response.json()
         # page_2 might be empty if there aren't enough metrics, which is fine
+
+
+# === METRIC GENERATE ENDPOINT TESTS ===
+
+# Synthesizer response fixtures used across generate tests
+_NUMERIC_SYNTHESIZED = {
+    "name": "Factual Accuracy",
+    "description": "Measures factual accuracy of the response.",
+    "evaluation_prompt": "Evaluate {{response}} for factual accuracy.",
+    "evaluation_steps": "1. Read the response.\n2. Assign a score.",
+    "score_type": "numeric",
+    "min_score": 1.0,
+    "max_score": 5.0,
+    "threshold": 3.0,
+    "threshold_operator": ">=",
+    "categories": None,
+    "passing_categories": None,
+    "metric_scope": ["Single-Turn", "Multi-Turn"],
+}
+
+_CATEGORICAL_SYNTHESIZED = {
+    "name": "Tone Appropriateness",
+    "description": "Checks if the response tone is appropriate.",
+    "evaluation_prompt": "Classify the tone of {{response}}.",
+    "evaluation_steps": None,
+    "score_type": "categorical",
+    "min_score": None,
+    "max_score": None,
+    "threshold": None,
+    "threshold_operator": None,
+    "categories": ["appropriate", "inappropriate"],
+    "passing_categories": ["appropriate"],
+    "metric_scope": ["Single-Turn"],
+}
+
+
+@pytest.mark.integration
+class TestMetricGenerate(MetricTestMixin, BaseEntityTests):
+    """Tests for POST /metrics/generate endpoint."""
+
+    @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.generate")
+    def test_generate_metric_numeric(self, mock_generate, metric_factory):
+        """Generate endpoint creates a numeric metric from a prompt."""
+        mock_generate.return_value = dict(_NUMERIC_SYNTHESIZED)
+
+        response = metric_factory.client.post(
+            self.endpoints.generate,
+            json={"prompt": "Measure factual accuracy on a 1-5 scale"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["name"] == "Factual Accuracy"
+        assert data["score_type"] == "numeric"
+        assert data["threshold"] == 3.0
+        assert data["threshold_operator"] == ">="
+        assert data["id"] is not None
+
+        # Clean up the created metric
+        metric_factory.client.delete(self.endpoints.remove(data["id"]))
+
+    @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.generate")
+    def test_generate_metric_categorical(self, mock_generate, metric_factory):
+        """Generate endpoint creates a categorical metric from a prompt."""
+        mock_generate.return_value = dict(_CATEGORICAL_SYNTHESIZED)
+
+        response = metric_factory.client.post(
+            self.endpoints.generate,
+            json={"prompt": "Check if response tone is appropriate"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["name"] == "Tone Appropriateness"
+        assert data["score_type"] == "categorical"
+        assert data["id"] is not None
+
+        metric_factory.client.delete(self.endpoints.remove(data["id"]))
+
+    @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.generate")
+    def test_generate_metric_sets_custom_types(self, mock_generate, metric_factory):
+        """Generate endpoint sets metric_type and backend_type to custom."""
+        mock_generate.return_value = dict(_NUMERIC_SYNTHESIZED)
+
+        response = metric_factory.client.post(
+            self.endpoints.generate,
+            json={"prompt": "any prompt"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        # backend_type and metric_type are resolved via type_lookups,
+        # so they appear as nested objects with type_value
+        if data.get("backend_type"):
+            assert data["backend_type"]["type_value"] == "custom"
+        if data.get("metric_type"):
+            assert data["metric_type"]["type_value"] == "custom-prompt"
+
+        metric_factory.client.delete(self.endpoints.remove(data["id"]))
+
+    @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.generate")
+    def test_generate_metric_persists(self, mock_generate, metric_factory):
+        """Generated metric is persisted and retrievable via GET."""
+        mock_generate.return_value = dict(_NUMERIC_SYNTHESIZED)
+
+        create_resp = metric_factory.client.post(
+            self.endpoints.generate,
+            json={"prompt": "accuracy metric"},
+        )
+        assert create_resp.status_code == status.HTTP_200_OK
+        metric_id = create_resp.json()["id"]
+
+        get_resp = metric_factory.client.get(self.endpoints.get(metric_id))
+        assert get_resp.status_code == status.HTTP_200_OK
+        assert get_resp.json()["name"] == "Factual Accuracy"
+
+        metric_factory.client.delete(self.endpoints.remove(metric_id))
+
+    def test_generate_metric_missing_prompt(self, metric_factory):
+        """Generate endpoint returns 422 when prompt is missing."""
+        response = metric_factory.client.post(
+            self.endpoints.generate,
+            json={},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.generate")
+    def test_generate_metric_synthesizer_error(self, mock_generate, metric_factory):
+        """Generate endpoint returns 400 when synthesizer raises."""
+        mock_generate.side_effect = RuntimeError("LLM rate limit exceeded")
+
+        response = metric_factory.client.post(
+            self.endpoints.generate,
+            json={"prompt": "anything"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Failed to generate metric" in response.json()["detail"]
+
+
+# === METRIC IMPROVE ENDPOINT TESTS ===
+
+_IMPROVED_NUMERIC = {
+    "name": "Factual Accuracy",
+    "description": "Measures factual accuracy of the response.",
+    "evaluation_prompt": "Evaluate the response for factual accuracy.",
+    "evaluation_steps": "1. Read the response.\n2. Assign a score.",
+    "score_type": "numeric",
+    "min_score": 1.0,
+    "max_score": 5.0,
+    "threshold": 4.0,
+    "threshold_operator": ">=",
+    "categories": None,
+    "passing_categories": None,
+    "metric_scope": ["Single-Turn", "Multi-Turn"],
+}
+
+
+@pytest.mark.integration
+class TestMetricImprove(MetricTestMixin, BaseEntityTests):
+    """Tests for POST /metrics/{metric_id}/improve endpoint."""
+
+    @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.improve")
+    def test_improve_metric_updates_existing(self, mock_improve, metric_factory):
+        """Improve endpoint updates the existing metric in place."""
+        # Create a metric first
+        metric = metric_factory.create(self.get_sample_data())
+        metric_id = metric["id"]
+
+        mock_improve.return_value = dict(_IMPROVED_NUMERIC)
+
+        response = metric_factory.client.post(
+            self.endpoints.improve(metric_id),
+            json={"prompt": "raise the threshold to 4"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["id"] == metric_id
+        assert data["threshold"] == 4.0
+
+    def test_improve_metric_not_found(self, metric_factory):
+        """Improve endpoint returns 404 for non-existent metric."""
+        fake_id = str(uuid.uuid4())
+        response = metric_factory.client.post(
+            self.endpoints.improve(fake_id),
+            json={"prompt": "any edit"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_improve_metric_missing_prompt(self, metric_factory):
+        """Improve endpoint returns 422 when prompt is missing."""
+        metric = metric_factory.create(self.get_sample_data())
+        response = metric_factory.client.post(
+            self.endpoints.improve(metric["id"]),
+            json={},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @patch("rhesis.sdk.metrics.synthesizer.MetricSynthesizer.improve")
+    def test_improve_metric_synthesizer_error(self, mock_improve, metric_factory):
+        """Improve endpoint returns 400 when synthesizer raises."""
+        metric = metric_factory.create(self.get_sample_data())
+
+        mock_improve.side_effect = RuntimeError("LLM error")
+
+        response = metric_factory.client.post(
+            self.endpoints.improve(metric["id"]),
+            json={"prompt": "anything"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Failed to improve metric" in response.json()["detail"]

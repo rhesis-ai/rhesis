@@ -120,14 +120,14 @@ async def create_task(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# @router.get("/{task_id}", response_model=TaskStatus)
+@router.get("/{task_id}")
 async def get_task_status(
     task_id: uuid.UUID, current_user: schemas.User = Depends(require_current_user_or_token)
 ):
-    """Get the status of a task."""
-    result = AsyncResult(task_id, app=celery_app)
+    """Get the status of a background task (e.g. test set generation)."""
+    result = AsyncResult(str(task_id), app=celery_app)
     return {
-        "task_id": task_id,
+        "task_id": str(task_id),
         "status": result.status,
         "result": result.result if result.ready() else None,
         "error": str(result.error) if result.failed() else None,

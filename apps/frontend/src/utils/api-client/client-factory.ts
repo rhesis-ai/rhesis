@@ -1,4 +1,5 @@
 import { AdaptiveTestingClient } from './adaptive-testing-client';
+import { ArchitectClient } from './architect-client';
 import { TestSetsClient } from './test-sets-client';
 import { TokensClient } from './tokens-client';
 import { ServicesClient } from './services-client';
@@ -44,6 +45,7 @@ export class ApiClientFactory {
   private garakClient: GarakClient | null = null;
   private importClient: ImportClient | null = null;
   private filesClient: FilesClient | null = null;
+  private architectClient: ArchitectClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
@@ -206,5 +208,12 @@ export class ApiClientFactory {
       this.filesClient = new FilesClient(this.sessionToken);
     }
     return this.filesClient;
+  }
+
+  getArchitectClient(): ArchitectClient {
+    if (!this.architectClient) {
+      this.architectClient = new ArchitectClient(this.sessionToken);
+    }
+    return this.architectClient;
   }
 }

@@ -1,0 +1,39 @@
+Current Mode: {{ mode }}
+
+User Message: {{ user_query }}
+
+{% if attachments_text %}
+User Context (resolved references and attached files):
+{{ attachments_text }}
+
+{% endif %}
+Available Tools:
+{{ tools_text }}
+
+{% if discovery_state_text %}
+Discovery State (what you know so far):
+{{ discovery_state_text }}
+
+{% endif %}
+{% if plan_text %}
+Current Plan:
+{{ plan_text }}
+
+{% endif %}
+{% if history_text %}
+Conversation & Execution History:
+{{ history_text }}
+
+Based on the user's message, the current mode, available tools, and history above, decide what to do next.
+
+{% else %}
+This is the start of the conversation. Analyze the user's request. If it's a direct action (e.g. update a metric, list entities, link a behavior), execute it immediately using the available tools. Otherwise, begin the discovery phase.
+
+{% endif %}
+Your response should follow this structure:
+- reasoning: Your step-by-step thinking about what to do
+- action: Either "call_tool" (to execute tools) or "finish" (to respond to the user)
+- tool_calls: List of tools to call if action="call_tool" (can be multiple)
+- final_answer: Your response to the user if action="finish"
+
+Think carefully about what information you need and how to progress through the phases efficiently.

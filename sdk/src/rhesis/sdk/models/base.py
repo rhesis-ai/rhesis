@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Dict, List, Optional, Union
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.models.utils import llm_retry
@@ -131,6 +131,26 @@ class BaseLLM(BaseModel):
             f"{self.__class__.__name__} does not implement a_generate(). "
             "Override a_generate() to enable async support."
         )
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> AsyncIterator[str]:
+        """Stream LLM response token-by-token.
+
+        Yields delta content strings. Default implementation falls back
+        to ``generate()`` and yields the full result as a single chunk.
+        Providers should override this for true streaming.
+        """
+        result = self.generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
+        if isinstance(result, dict):
+            import json
+
+            yield json.dumps(result)
+        else:
+            yield result
 
     @abstractmethod
     def generate_batch(self, *args, **kwargs) -> List[Union[str, Dict[str, Any]]]:

@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock
 
-from rhesis.penelope.targets.base import TargetResponse
+from rhesis.sdk.targets import TargetResponse
 from rhesis.penelope.tools.base import ToolResult
 from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 

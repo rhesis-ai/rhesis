@@ -39,6 +39,7 @@ CELERY_CONFIG = {
     "task_routes": {
         "rhesis.backend.tasks.execution.*": {"queue": "execution"},
         "rhesis.backend.tasks.telemetry.*": {"queue": "telemetry"},
+        "rhesis.backend.tasks.architect.*": {"queue": "architect"},
     },
     # Worker settings
     "worker_prefetch_multiplier": 1,
@@ -86,6 +87,7 @@ CELERY_CONFIG = {
         "rhesis.backend.tasks.test_set",
         "rhesis.backend.tasks.execution.results",
         "rhesis.backend.tasks.telemetry.enrich",
+        "rhesis.backend.tasks.architect",
         "rhesis.backend.tasks.telemetry.evaluate",
         "rhesis.backend.tasks.telemetry.post_ingest",
     ],

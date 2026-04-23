@@ -3,6 +3,8 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -14,6 +16,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
@@ -58,7 +61,138 @@ def create_metric(
         raise
 
 
-@router.get("/", response_model=List[MetricDetailSchema])
+@router.post("/generate", response_model=schemas.Metric)
+@handle_database_exceptions(
+    entity_name="metric",
+    custom_unique_message="Metric with this name already exists",
+)
+def generate_metric(
+    request: schemas.GenerateMetricRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Generate a metric from a natural-language prompt.
+
+    An LLM produces all required metric fields (name, evaluation_prompt,
+    score_type, thresholds, etc.) from the description. The resulting
+    metric is persisted and returned.
+    """
+    from rhesis.backend.app.constants import (
+        DEFAULT_GENERATION_MODEL,
+        MetricBackendType,
+        MetricType,
+    )
+    from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
+
+    organization_id, user_id = tenant_context
+
+    try:
+        synthesizer = MetricSynthesizer(model=DEFAULT_GENERATION_MODEL)
+        generated = synthesizer.generate(request.prompt)
+
+        metric_data = schemas.MetricCreate(**generated)
+        metric_data.metric_type = MetricType.CUSTOM_PROMPT
+        metric_data.backend_type = MetricBackendType.CUSTOM
+        if not metric_data.owner_id:
+            metric_data.owner_id = current_user.id
+
+        result = crud.create_metric(
+            db=db,
+            metric=metric_data,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        return result
+    except Exception as e:
+        logger.error(
+            f"Error generating metric from prompt: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to generate metric: {e}",
+        )
+
+
+@router.post("/{metric_id}/improve", response_model=schemas.Metric)
+@handle_database_exceptions(
+    entity_name="metric",
+    custom_unique_message="Metric with this name already exists",
+)
+def improve_metric(
+    metric_id: UUID,
+    request: schemas.ImproveMetricRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Improve an existing metric using natural-language instructions.
+
+    The LLM reads the current metric fields and the edit prompt, then
+    returns updated fields. The metric is updated in place.
+    """
+    from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+    from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
+
+    organization_id, user_id = tenant_context
+
+    db_metric = crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
+    if db_metric is None:
+        raise HTTPException(status_code=404, detail="Metric not found")
+
+    try:
+        existing = {
+            "name": db_metric.name,
+            "description": db_metric.description,
+            "evaluation_prompt": db_metric.evaluation_prompt,
+            "evaluation_steps": db_metric.evaluation_steps,
+            "score_type": (
+                db_metric.score_type.value
+                if hasattr(db_metric.score_type, "value")
+                else db_metric.score_type
+            ),
+            "min_score": db_metric.min_score,
+            "max_score": db_metric.max_score,
+            "threshold": db_metric.threshold,
+            "threshold_operator": (
+                db_metric.threshold_operator.value
+                if hasattr(db_metric.threshold_operator, "value")
+                else db_metric.threshold_operator
+            ),
+            "categories": db_metric.categories,
+            "passing_categories": db_metric.passing_categories,
+            "metric_scope": (
+                [s.value if hasattr(s, "value") else s for s in db_metric.metric_scope]
+                if db_metric.metric_scope
+                else None
+            ),
+        }
+
+        synthesizer = MetricSynthesizer(model=DEFAULT_GENERATION_MODEL)
+        improved = synthesizer.improve(existing, request.prompt)
+
+        update_data = schemas.MetricUpdate(**improved)
+        result = crud.update_metric(
+            db=db,
+            metric_id=metric_id,
+            metric=update_data,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        return result
+    except Exception as e:
+        logger.error(
+            f"Error improving metric {metric_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to improve metric: {e}",
+        )
+
+
+@router.get("/", response_model=list[MetricDetailSchema])
 @with_count_header(model=models.Metric)
 def read_metrics(
     response: Response,
@@ -67,13 +201,18 @@ def read_metrics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all metrics with their related objects"""
     organization_id, user_id = tenant_context
-    metrics = crud.get_metrics(
+    results = crud.get_metrics(
         db,
         skip=skip,
         limit=limit,
@@ -83,7 +222,10 @@ def read_metrics(
         organization_id=organization_id,
         user_id=user_id,
     )
-    return metrics
+    if select:
+        serialized = jsonable_encoder(results)
+        return JSONResponse(content=apply_select(serialized, select))
+    return results
 
 
 @router.get("/{metric_id}", response_model=MetricDetailSchema)
