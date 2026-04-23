@@ -217,9 +217,13 @@ class VertexAICredentialsMixin:
         except Exception:
             pass
 
-        # All methods failed — omit the credential value to avoid leaking secrets.
+        # All methods failed.  Include the value only when it looks like a file
+        # path (starts with "/" or "./") — file paths are not secrets.  Omit
+        # the value otherwise (e.g. base64 blobs) to avoid leaking credentials.
+        looks_like_path = credentials.startswith("/") or credentials.startswith("./")
+        detail = f" (path: {credentials})" if looks_like_path else ""
         raise ValueError(
-            "GOOGLE_APPLICATION_CREDENTIALS could not be loaded: "
+            f"GOOGLE_APPLICATION_CREDENTIALS could not be loaded{detail}: "
             "value is neither valid base64-encoded JSON nor an existing file path."
         )
 
