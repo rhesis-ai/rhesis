@@ -7,6 +7,1082 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-04-23
+
+### Changed
+
+- feat: Rhesis Architect — AI agent for test suite design and execution (#1671)
+
+* feat(sdk): add agents framework with MCP migration
+
+Move MCP client, agent, and executor from services to
+agents package. Add base classes (BaseAgent, BaseTool,
+MCPTool), ArchitectAgent for conversational test suite
+design, event handler system, and shared schemas.
+Update services package to re-export from new location
+for backward compatibility.
+
+- feat(sdk): add ExploreEndpointTool for endpoint capability discovery
+
+Add ExploreEndpointTool that delegates multi-turn endpoint
+exploration to PenelopeAgent. The Architect can describe
+what it wants to learn and Penelope handles the tactical
+probing, returning conversation history and findings.
+
+- feat(backend): add MCP server endpoint for agent tool access
+
+Auto-generate MCP tools from FastAPI routes using a YAML config file.
+Each tool proxies requests to the real FastAPI app via httpx
+ASGITransport (in-process), reusing all existing validation, auth,
+and CRUD logic. Mounted at /mcp with Bearer token forwarding.
+
+- fix(backend,sdk): fix MCP server lifespan and client reconnect
+
+* Start MCP session manager from FastAPI lifespan since Mount
+  doesn't propagate lifespan events to sub-apps
+* Set streamable_http_path="/" so external URL is /mcp not /mcp/mcp
+* Add auth middleware via Starlette's add_middleware instead of
+  external wrapping (preserves lifespan)
+* Add MCPTool auto-reconnect on transport errors (fixes session
+  loss between asyncio.run() calls)
+
+- fix(backend): enrich MCP tool descriptions with required fields
+
+Add required field documentation to create_metric (score_type must
+be "numeric" or "categorical") and create_test_configuration
+(endpoint_id required) to prevent 422 validation errors from the
+LLM omitting required fields.
+
+- fix(backend): require metric_scope in create_metric description
+
+Tell the LLM to always include metric_scope (Single-Turn/Multi-Turn)
+when creating metrics.
+
+- fix(backend): use create_test_set_bulk as primary tool for test sets
+
+Remove create_test_set, create_test, and create_tests_bulk tools —
+the LLM should always use create_test_set_bulk which creates a test
+set with its tests in one operation. Enrich the description with the
+full body format including prompt, behavior, category, and topic.
+
+- fix(backend): accept MCP tool body fields as top-level arguments
+
+LLMs sometimes pass POST body fields directly as top-level arguments
+instead of wrapping them in a body parameter. Add \*\*kwargs fallback
+so that if body is None but kwargs were passed, kwargs become the
+request body.
+
+- refactor(backend): split mcp_server.py into a package
+
+Split the single mcp_server.py module into a proper Python package
+with focused modules for better maintainability:
+
+- schema.py: OpenAPI → JSON Schema utilities
+- tools.py: YAML config loading + MCP Tool/operation map building
+- server.py: MCP server creation, dispatcher, FastAPI integration
+- **init**.py: re-exports setup_mcp_server (import path unchanged)
+
+Move mcp_tools.yaml into the package directory.
+
+- fix(backend,sdk): fix MCP server setup and client reconnect
+
+Update main.py to use the new setup_mcp_server() API that stores the
+session manager on the app instance instead of a module-level getter.
+
+Fix MCP client disconnect to suppress errors during teardown when
+the transport's async generators are already dead. Add \_reset() to
+abandon stale state between asyncio.run() calls.
+
+Fix ArchitectAgent to disconnect MCP tools at the end of each
+chat_async() turn, preventing orphaned async generators.
+
+Add rhesis-penelope as an editable dev dependency.
+
+- refactor(sdk): consolidate agent hierarchy, fix ToolCall.arguments type
+
+Make ArchitectAgent extend BaseAgent so the ReAct loop, tool routing,
+failsafes (timeout, max tool executions), history windowing, event
+emission, and asyncio.Lock thread safety are inherited rather than
+reimplemented.
+
+- Change ToolCall.arguments from str (with secret dict validator) to
+  Dict[str, Any] using Annotated[..., BeforeValidator, WithJsonSchema]
+  so runtime type is dict but LLM schema remains type: "string"
+- Make BaseAgent concrete (remove ABC) with default get_available_tools
+  and execute_tool implementations that route to injected BaseTool and
+  MCPTool instances
+- Extract \_run_loop() from run_async() for reuse by ArchitectAgent's
+  chat_async()
+- Add timeout_seconds, max_tool_executions, history_window, and
+  asyncio.Lock to BaseAgent.**init**
+- Delete ~300 lines of duplicated code from ArchitectAgent
+- Update ObservableMCPAgent.\_execute_iteration signature
+- Add 59 tests covering BaseAgent, ArchitectAgent, and ToolCall schema
+
+* docs(playground): refine MCP tool descriptions with exact parameter specs
+
+Add precise parameter tables from live MCP schemas for all creation
+tools. Document the three root causes of e2e failures (priority as
+string, wrong score_type/threshold_operator enums, empty test sets)
+with concrete examples and working JSON payloads for create_metric.
+
+- fix(backend): add MCP auth and fix session manager lifecycle
+
+* Add bearer token authentication to the MCP ASGI wrapper since
+  AuthenticatedAPIRoute doesn't apply to raw ASGI mounts
+* Fix session manager reference: use app.state instead of private attr
+* Initialize mcp_ctx to None to avoid NameError on shutdown
+
+- fix(sdk): fix MCPAgent type annotation, deduplicate content extraction
+
+* Fix mcp_client parameter type: Optional[MCPClient] instead of bare None default
+* Deduplicate \_extract_content in ToolExecutor to reuse extract_mcp_content from base
+
+- fix(frontend): use Record<string, any> and remove unused interfaces
+
+* Replace Record<string, unknown> with Record<string, any> for test
+  configuration and metadata fields
+* Remove unused ConversationToTest interfaces
+
+- chore(chatbot): add rhesis-penelope to dev dependencies
+
+- feat(metrics): add metric synthesizer, improve endpoint, and multi-turn awareness
+
+* Add MetricSynthesizer with generate() and improve() methods using
+  Jinja templates and structured LLM output (GeneratedMetric schema)
+* Add POST /metrics/{metric_id}/improve endpoint that updates an
+  existing metric in place from natural-language edit instructions
+* Expand generate_metric.jinja with multi-turn vs single-turn
+  evaluation criteria guidance and scope decision framework
+* Add improve_metric.jinja template for editing existing metrics
+* Add ImproveMetricRequest schema and wire up exports
+* Add improve_metric MCP tool and update architect prompt
+* Fix MCP lifespan: recreate StreamableHTTPSessionManager per startup
+  to avoid "run() called twice" error in test suites
+* Add MetricBackendType/MetricType constants, use in garak importer
+* Add architect entity creation order and field constraints
+* Add server-managed field stripping in agent base
+* Export MetricSynthesizer from sdk.metrics
+* Add tests for synthesizer (21 pass) and backend improve endpoint
+  (56 pass total for test_metric.py)
+
+- fix(mcp): read session manager from app state in \_MCPApp
+
+The \_MCPApp ASGI wrapper was closing over the original
+session_manager variable instead of reading the fresh instance
+from app.state.mcp_session_manager. This caused 500 errors
+after backend restarts since the lifespan creates a new
+StreamableHTTPSessionManager but \_MCPApp still delegated to
+the old (stopped) one.
+
+- feat(architect): improve behavior creation, metric linking, and direct requests
+
+* Add create_behavior MCP tool so behaviors are created with descriptions
+  upfront, before test sets reference them
+* Add update_behavior, add_behavior_to_metric, get_metric_behaviors MCP tools
+* Restructure Entity Creation Order: behaviors first, then test sets
+* Add Reuse Before Create and Metric Strategy sections to system prompt
+* Add exploration guidance to avoid redundant explore_endpoint calls
+* Add Direct Requests section for ad-hoc operations (e.g. improve a metric)
+* Increase history content preview from 300 to 2000 chars to prevent
+  ID truncation and hallucinated UUIDs
+* Add efficient tool usage guidance ($filter batching, no redundant calls)
+* Update iteration prompt to support direct actions without forcing discovery
+
+- feat(backend): add architect chat backend with local tool provider
+
+Add full backend support for the Architect chat interface:
+
+- DB models and migration for architect_session and architect_message
+- CRUD operations, Pydantic schemas, and REST API router
+- WebSocket handler and event types for real-time streaming
+- Celery task with WebSocketEventHandler for agent lifecycle events
+- LocalToolProvider: in-process tool dispatch via ASGI transport,
+  skipping MCP protocol overhead with delegation token auth
+- Configurable delegation token lifetime (default 60 min) to support
+  long-running tasks across architect and Polyphemus consumers
+- Worker queue configuration for architect tasks
+
+* feat(frontend): add architect chat interface with streaming
+
+Add the Architect page under Testing navigation:
+
+- Chat UI with message bubbles, streaming indicators, and plan display
+- Welcome screen with suggested prompts and centered input
+- Collapsible session sidebar for conversation history
+- useArchitectChat hook with WebSocket subscription and multi-event
+  handling (thinking, tool calls, plan updates, mode changes)
+- REST client for session CRUD via ApiClientFactory
+- WebSocket event types and payload interfaces for architect events
+
+* fix(backend): resolve architect model and token expiry
+
+- Pass user's configured generation model to ArchitectAgent instead of
+  defaulting to rhesis/rhesis-default (which requires RHESIS_API_KEY)
+- Make SERVICE_DELEGATION_EXPIRE_MINUTES configurable via env var with
+  a production-safe default of 60 minutes
+
+* fix(architect): resolve endpoints by name and offer exploration proactively
+
+- Agent now calls list_endpoints with $filter when user mentions an
+  endpoint by name, instead of asking for the ID
+- Agent proactively offers to explore endpoints instead of claiming
+  it cannot access them
+- Guidelines updated to prefer tool-based lookup over asking the user
+
+* feat(architect): generic entity name resolution with partial matching
+
+- Add "Resolving Entities by Name" section as a top-level principle
+- Support exact match ($filter=name eq '...') and partial match
+  ($filter=contains(name, '...')) across all entity types
+- Agent disambiguates when multiple matches found, reports when none
+- Applies to endpoints, metrics, behaviors, test sets, projects, etc.
+
+* fix(architect): use case-insensitive name matching with tolower()
+
+* style(architect): use body2 variant for markdown content
+
+* feat(architect): add check_endpoint tool for connectivity verification
+
+- Add check_endpoint MCP tool (POST /endpoints/{id}/invoke) to verify
+  endpoint is reachable before designing tests
+- Agent now checks connectivity early in discovery phase and reports
+  issues (connection refused, timeout, auth errors) to the user
+
+* fix(auth): accept service_delegation tokens in JWT verification
+
+verify_jwt_token was rejecting all non-session tokens, which caused
+the Architect agent's LocalToolProvider to get 401 errors when calling
+backend routes via ASGI transport with a delegation token.
+
+- style(architect): use FirstPage/LastPage icons for sidebar toggle
+
+- docs(telemachus): update status and define phases 05-08
+
+Phase 04 (behavior tuning) is complete. New phases:
+
+- 05: Personality (Telemachus character) and auth fix verification
+- 06: Conversational UX (proactive exploration, compiled observations)
+- 07: Entity linking (@mentions) and file support
+- 08: Test execution, result analysis, and iteration
+
+* docs(telemachus): expand phase 08 with result analysis scenarios
+
+Add test run analysis by name/tag, failure mode clustering, metric
+score distributions, run comparison, and ad-hoc result queries.
+
+- fix(auth): consolidate auth modules and fix delegation token support
+
+Replace duplicated auth_utils.py (345 lines) with thin re-export shim
+pointing to canonical modules (token_utils, user_utils, token_validation).
+Fix verify_jwt_token in token_utils to accept service_delegation tokens.
+Update MCP server imports to use canonical modules directly.
+Update all affected tests with correct mock paths.
+
+- feat(architect): add Telemachus personality and refine agent behavior
+
+Add personality.j2 defining Telemachus character (warm, direct, curious)
+injected into system prompt via Jinja2 include. Update check_endpoint
+guidance: only check connectivity when acting on an endpoint, not when
+listing.
+
+- feat(architect): show human-readable tool descriptions in streaming UI
+
+Add label field to mcp_tools.yaml for each tool. Load labels at runtime
+via load_tool_labels(). Generate contextual descriptions in architect
+task (e.g. "Creating behavior: Refuses harmful requests"). Pass
+descriptions through WebSocket events to frontend StreamingIndicator.
+
+- feat(api): add OData $select support to all list endpoints
+
+Add apply_select() utility to odata.py for filtering serialized
+responses to requested fields (id always included). Add $select query
+parameter to all 11 list routers, using JSONResponse bypass when active
+to avoid response_model conflicts. Update MCP tool descriptions and
+agent system prompt to teach $select usage. Increase agent history
+content preview to 4000 chars.
+
+- fix(architect): hide IDs from user messages and require confirmation to run tests
+
+Add guideline to never show UUIDs in user-facing messages — refer to
+entities by name only. Change execution phase to stop after creating
+entities and ask the user before running tests, instead of executing
+autonomously.
+
+- feat(architect): require confirmation before creating and add action buttons
+
+Update system prompt to enforce presenting details before creating,
+modifying, or deleting any entity and waiting for user approval. Add
+Accept/Change buttons to the last assistant message in the chat UI.
+Accept sends confirmation; Change focuses the input for the user to
+type feedback.
+
+- feat(architect): require confirmation before creating and add action buttons
+
+Add needs_confirmation field to AgentAction schema so the LLM signals
+when a response proposes an action requiring user approval. Flow the
+flag through the agent, WebSocket payload, and frontend. Show
+Accept/Change buttons only when needs_confirmation is true. Use pencil
+icon for Change button. Update system prompt to enforce plan-then-confirm
+for all modifying actions and document needs_confirmation in response
+format.
+
+- docs(telemachus): update README with phase 05 completion and entity links requirement
+
+Mark phase 05 as done with summary of all changes (personality, auth,
+streaming UI, $select, agent behavior). Mark phase 06 as in progress.
+Add entity linking requirement: created entities should include
+clickable links (target=\_blank) to the platform. Update key files table.
+
+- style(architect): change nav and chat icon to EngineeringIcon
+
+- feat(architect): add beta label to architect nav item
+
+- chore: remove playground files from git tracking
+
+- feat(architect): add streaming response support
+
+Add two-phase LLM calls: structured JSON for the ReAct loop,
+streaming for user-facing text. Includes generate_stream() on
+LLM providers, streaming events (on_stream_start, on_text_chunk,
+on_stream_end), and backend WebSocket event handlers.
+
+- feat(architect): add scoped write-guard for tool confirmation
+
+Structurally prevent the agent from executing mutating tools
+without user confirmation. Uses explicit requires_confirmation
+metadata from mcp_tools.yaml with HTTP method fallback. Approval
+is scoped to the specific tools that were blocked, not all
+mutating tools.
+
+- feat(architect): improve prompt with naming conventions
+
+Add Title Case naming convention for metrics and behaviors,
+hide tool names from user-facing messages, and show full metric
+details (evaluation prompt, steps, result config) when planning.
+
+- test(architect): add backend test coverage
+
+Add tests for WebSocketEventHandler (streaming events, tool
+descriptions, publish integration) and architect WebSocket
+handler (validation, dispatch, error handling).
+
+- feat(architect): add streaming UI and fix welcome screen race
+
+Handle streaming WebSocket events (stream_start, text_chunk,
+stream_end) for token-by-token response display. Fix welcome
+screen initial message disappearing due to async effect race
+condition using skipLoadRef.
+
+- fix: rebase architect migration and restore prefork pool
+
+* Rebase c4d8e2f1a3b5 down_revision to 5b3d40e898ff (main head)
+* Restore default prefork pool with concurrency=8 in worker config
+* Add architect queue to worker while keeping main's pool settings
+* Remove unused sync completion import from litellm provider
+
+- feat(sdk): centralize Target interface in SDK
+
+Move Target and TargetResponse base classes from penelope to
+sdk.targets so both Penelope and Architect can share them without
+circular dependencies. Add LocalEndpointTarget for direct backend
+service invocation. Penelope's targets.base becomes a re-export shim.
+
+- feat(sdk): implement architect phase 06 conversational UX
+
+Add discovery state tracking, compiled observations, guided discovery
+prompts, progress awareness, and entity links in responses. Wire
+ExploreEndpointTool in backend worker via target_factory. Propagate
+MCP ToolAnnotations (readOnlyHint, destructiveHint) through server
+and client for accurate write-guard classification. Replace magic
+strings with StrEnum constants (Action, Role, ToolMeta, InternalTool).
+Add SmartLink component for internal entity navigation in frontend.
+
+- test(tests): add architect agent tests and fix truncation
+
+Add tests for LocalEndpointTarget, ExploreEndpointTool (bound and
+unbound modes), discovery state formatting, SmartLink, and
+\_make_target_factory. Fix test_result_content_truncation to assert
+the actual 4000-char limit instead of the stale 300-char value.
+
+- fix(architect): resolve session scope error and handle file read errors
+
+* Fix `DetachedInstanceError` by saving the session title status before closing the DB session context in `architect_chat_task`
+* Wrap `FileReader` operations in `ArchitectChatInput` with try/catch, handle error/abort events, and validate data URL formatting to prevent infinite hangs
+
+- feat(agents): require confirmation for explore_endpoint tool and mandate summary
+
+* Update `requires_confirmation` property on `ExploreEndpointTool` to return `True` to ensure user approval before execution.
+* Append a directive to the tool's description instructing the agent to always present a summary of the findings after running the tool.
+
+- fix(architect): persist write-guard state to fix confirmation loop
+
+* Expose `guard_state` property on `ArchitectAgent` to serialize `_needs_confirmation` and `_confirming_tools`
+* Update `architect_chat_task` to save and restore `guard_state` from the DB `agent_state` JSON field
+* This prevents the agent from forgetting user approvals across turns and getting stuck in a loop where it hallucinates success but never actually executes mutating tools (like `create_project` or `create_behavior`).
+
+- docs(playground): update telemachus README with progress and TODOs
+
+- feat(agents): streamline test execution and conceal nano IDs
+
+* Update system prompt to explicitly restrict printing raw nano IDs in prose.
+* Remove complex test configuration management from the agent's workflow; test configurations are now treated as internal backend constructs.
+* Add execute_test_set to mcp_tools.yaml and update the agent's system prompt to use this simplified tool for running tests.
+* Instruct agent that project creation is optional.
+* Update telemachus README with new TODO regarding test execution flow.
+
+- docs(playground): add Phase 11 for advanced multi-turn endpoint exploration
+
+- feat(agents): surface tool internal reasoning to the frontend
+
+* Update AgentEventHandler to accept an optional `reasoning` string on tool start.
+* Pass the LLM's reasoning from `AgentAction` down through `_execute_tools` in `BaseAgent`.
+* Update PenelopeAgent and TurnExecutor to emit `on_tool_start` and `on_tool_end` callbacks, exposing its internal ReAct loop.
+* Use `asyncio.run_coroutine_threadsafe` inside `ExploreEndpointTool` to bridge synchronous Penelope callbacks to the async event loop.
+* Update WebSocket handler to include `reasoning` in the `ARCHITECT_TOOL_START` payload.
+* Update React hooks and component state to track and store `reasoning` for active and completed tools.
+* Conditionally render tool reasoning below tool descriptions in the UI, styled cleanly without hardcoding.
+* Update relevant unit tests to reflect async changes and new type signatures.
+
+- chore: general code formatting and minor fixes
+
+* Fix: LocalToolProvider now raises ValueError on tool not found and handles empty request bodies gracefully.
+* Feat: Add support for YAML-only parameters in MCP schema builder.
+* Feat: Include `attachments_text` in Architect iteration prompt template.
+* Refactor: Move ArchitectChat input area into dedicated `ArchitectChatInput` component.
+* Style: Run Prettier/ESLint to auto-format various frontend components and tests.
+
+- docs(playground): add migration rebase TODO
+
+- feat: add prompt hardening and permission management
+
+Phase 07 (entity linking): restore file/mention chips on session
+reload, add entity-type highlighting in message bubbles.
+
+Phase 08 (test execution): fix test_set_id parameter mismatch,
+remove misleading tools, add execution monitoring guidance.
+
+Phase 09 (prompt hardening): add security boundaries section to
+system prompt (identity, injection resistance, information
+boundaries, tool safety, off-topic). Harden streaming response
+prompt. Add structural argument validation with payload, string,
+and array size limits.
+
+Phase 10 (permission management): add session-level auto-approve
+toggle, plan-level approval (all mutating tools unlocked on
+confirm), end-to-end flow from frontend to SDK.
+
+Tests: 14 prompt hardening tests, 9 auto-approve tests,
+2 backend handler tests, 1 updated plan-approval test.
+
+- feat(frontend): improve architect streaming indicators UX
+
+Replace identical spinners for thinking/tool states with distinct visuals:
+animated dots for thinking, spinning gear icon for active tools, indented
+tool list with collapsible reasoning and entrance animations. Auto-focus
+chat input on new sessions. Show elapsed time next to tool calls.
+
+- feat(sdk): add server-side tool execution duration tracking
+
+Track wall-clock time for tool calls using time.monotonic() in both the
+SDK agent loop and Penelope executor. Propagate duration_ms through
+ToolResult to the backend WebSocket event payload. Frontend prefers
+server-measured duration, falls back to client-side estimate.
+
+- fix(backend): make architect migration idempotent
+
+Use IF NOT EXISTS / DROP IF EXISTS guards so the migration
+can be safely re-run after a rebase without DuplicateTable
+errors.
+
+- feat(sdk): add exploration strategies and optimize perf
+
+Introduce a target-agnostic strategy framework for Penelope:
+
+- DomainProbingStrategy, CapabilityMappingStrategy,
+  BoundaryDiscoveryStrategy with template-method pattern,
+  ACD/AutoRedTeamer-inspired novelty filtering and difficulty
+  calibration
+- ExploreEndpointTool strategy/comprehensive mode support
+- Defer GoalAchievementJudge LLM calls to early-stop-eligible
+  turns only (~60% fewer judge calls per strategy)
+- Parallelize capability_mapping + boundary_discovery in
+  comprehensive mode via asyncio.gather
+
+* feat(sdk): present exploration modes to user
+
+Update Architect system prompt so it asks the user to choose
+between Quick (domain probing) and Comprehensive (all three
+strategies) before starting exploration. Defaults to Quick
+when the user doesn't express a preference.
+
+- fix(sdk): accept duration_ms in on_tool_end callback
+
+The executor passes duration_ms as a third argument to
+on_tool_end but the callback in ExploreEndpointTool only
+accepted two, causing a silent TypeError that prevented
+tool-end events from reaching the frontend.
+
+- fix(frontend): show active tools first, collapse completed
+
+Reorder ToolCallList to render running tools at the top so
+the user sees current progress immediately. When tools are
+active, all completed tools collapse into the "N completed"
+group instead of leaving the last two visible.
+
+- fix(sdk): suppress confirmation UI when auto-approve is on
+
+The LLM's needs_confirmation flag was passed through unchanged
+even when auto_approve_all was true, causing Accept/Change
+buttons to appear despite the toggle being enabled. Override
+needs_confirmation to false in the agent's finish handler when
+auto-approve is active, and also check the toggle state in the
+frontend as a second safeguard.
+
+- fix(frontend): fix broken entity links in architect chat
+
+Remove link patterns for behaviors and test-results which
+have no detail pages (404). Update both system_prompt.j2 and
+streaming_response.j2 to instruct the LLM to refer to those
+entities by name only. Open internal links in a new tab so
+clicking them doesn't navigate away from the chat.
+
+- refactor(sdk): modularize architect agent and enhance plan tracking
+
+Extract configuration, tool registry, and schema generation into
+dedicated modules. Add AgentMode enum, ArchitectConfig dataclass,
+unified tool category registry, and auto-generated save_plan schema
+from Pydantic model. Make project optional, add MappingSpec for
+trackable behavior-metric mappings, and update prompts for
+reuse-aware execution.
+
+- feat(backend): update mcp tools and wire AgentMode enum
+
+Rename synthesize_tests to generate_test_set in mcp_tools.yaml,
+activate job status endpoint, add odata navigation property docs,
+and use AgentMode enum when restoring architect session state.
+
+- fix(frontend): fix architect UI and add session state management
+
+Fix empty confirmation bubble by skipping content-less messages and
+attaching actions to the last message with content. Add plan
+completion indicator with green border and checkmark. Fix plan font
+size, input focus on reject, tool list ordering, markdown link
+normalization, and task list checkbox styling. Reset mode and plan
+on session switch, restore them when loading existing sessions.
+
+- fix(frontend): backfill empty streaming message content
+
+When the agent completes without streaming text chunks (e.g. after
+tool execution), the streaming message was finalized with empty
+content and then hidden by the filter. Now backfills content from
+the response payload so the message is always displayed.
+
+- fix(sdk): enforce plan constraints and fix mapping tracking
+
+* Add ID-to-name resolution so add_behavior_to_metric (which uses
+  UUIDs) can match plan mappings and mark them as completed
+* Add structural guard rejecting create_project when plan has no
+  project and create_metric when name doesn't match the plan
+* Update system prompt to use create_metric with exact plan names
+  instead of generate_metric which produces its own names
+* Update mapping format in prompt to array of MappingSpec objects
+
+- docs: update telemachus implementation status
+
+Mark Phase 11 as done, add Phase 12 (plan-aware execution) and
+Phase 13 (architect refactoring) with detailed write-ups. Add
+UI/UX improvements section and expand key files table.
+
+- feat(backend): add signal-based async task notification
+
+Replace polling-based task monitoring with event-driven approach
+using Celery task_postrun signal and Redis coordination. Adds
+test_run_id matching for chord-based test execution, await_task
+tool for the architect agent, and plan constraint guards.
+
+- fix(backend): enforce default $select and improve UX
+
+Add default_query support to MCP tools so large fields (response,
+evaluation_prompt) are excluded by default. Fix double-confirmation
+on execute_test_set, remove stale polling instructions from prompts,
+and enforce human-readable names in link text instead of UUIDs.
+
+- fix(backend): rebase architect migration on chunk table head
+
+The merge from origin/main introduced d22819b0aa66 (chunk table) as a
+second head alongside c4d8e2f1a3b5 (architect tables), both descending
+from e1f2a3b4c5d6. Update the architect migration's down_revision to
+d22819b0aa66 so Alembic has a single linear head.
+
+- chore: untrack playground/telemachus/README.md
+
+The file is covered by the playground/\* gitignore rule but was
+previously committed. Remove from tracking so local changes
+no longer show up in git status.
+
+- fix(sdk): merge duplicate [tool.uv.sources] table in pyproject.toml
+
+- feat(backend): add run comparison via stats MCP tools
+
+Expose existing /test_results/stats and /test_runs/stats endpoints
+as MCP tools so the Architect can compare test runs by pass rate,
+behavior, and metric. Add comparison workflow guidance to the system
+prompt and streaming response template.
+
+- fix(backend): rebase architect migration on garak head
+
+- feat(backend): add list_sources tool and knowledge source param
+
+* Add list_sources MCP tool (GET /sources/) with title-based filtering,
+  $select, limit/skip pagination, and a 100-item default page size
+* Add sources parameter to generate_test_set for grounding single-turn
+  test generation in platform knowledge sources (ID-only, backend fetches
+  content automatically)
+* Fix null YAML parameter handling in tools.py (bare keys normalised to {})
+* Refine get_test_result and get_test_result_stats descriptions for
+  post-run analysis workflows
+
+- feat(sdk): add knowledge source grounding and result analysis
+
+* Add Knowledge Sources section to system_prompt.j2: ID-only workflow,
+  when to use/skip sources, list_sources → generate_test_set flow, and
+  hard rules (no content fetching, no fact fabrication, single-turn only)
+* Add Result Analysis section to system_prompt.j2: standard analysis
+  workflow, failure pattern interpretation, and actionable suggestion types
+* Update post-execution workflow to include get_test_result_stats (mode=all)
+  and targeted failure drill-down via get_test_result reason field
+* Add single-run analysis output structure to streaming_response.j2
+* Register list_sources in TOOL_REGISTRY with AgentMode.DISCOVERY
+* Pin mcp to 1.26.0 for stable streamable-http support
+
+- feat(frontend): add knowledge source @mention support
+
+* Add source entity type to ENTITY_TYPES in ArchitectChatInput, fetching
+  from /sources/ with title-contains filter
+* Add source mention colour (error.main) in both ArchitectChatInput and
+  ArchitectMessageBubble
+* Extend mentionRegex to recognise @source: prefixed mentions
+
+- feat(frontend): add architect logo to welcome screen
+
+- fix(frontend): reset plan state when user sends a new message
+
+- fix(frontend): fix @-mention listing, search, and UI polish
+
+* enable @-mention dropdown on empty query (show all by default)
+* strip hint markup from inserted mention text on selection
+* add awaiting_task state to show spinner during background jobs
+* tighten welcome screen layout and message bubble rendering
+* expose awaiting_task field from websocket event types
+
+- feat(backend): add server-managed pagination to MCP tools
+
+Introduce page*size in mcp_tools.yaml to give each list*\* tool a
+server-controlled page size. The server requests page_size+1 items
+(peek-ahead), trims to page_size, and wraps the response in a
+\_pagination envelope so the LLM always knows whether more results exist.
+
+- add apply_query_overrides and format_list_response helpers to tools.py
+  and share them between server.py and local_tools.py
+- remove limit from LLM-visible schema for paginated tools so the agent
+  cannot override server-managed page sizes
+- remove dead override_query mechanism (superseded by page_size)
+- downgrade per-call debug logs to logger.debug
+- add Pagination section to architect system prompt explaining the
+  \_pagination envelope and has_more/next_skip usage
+
+* fix(backend): add \$select support to sources and tests endpoints
+
+Without field projection, listing 40+ sources returns full schema
+objects (with source_metadata, tags, counts, nested relations) which
+overflows the LLM context window and causes truncated results.
+
+Adding \$select (already present on endpoints, behaviors, metrics, etc.)
+lets the agent request only the fields it needs, keeping list responses
+small regardless of collection size.
+
+- fix(sdk): disable aiohttp transport and expose awaiting_task status
+
+* disable litellm aiohttp transport to prevent 'attached to a different
+  loop' errors when running inside Celery worker threads
+* expose awaiting_task flag in architect task WebSocket events so the
+  frontend can show a spinner while background jobs are pending
+
+- style(frontend): replace hardcoded borderRadius with theme values
+
+- style(sdk): fix E501 line-length violations
+
+- style(sdk): apply ruff formatting to architect and tools modules
+
+- fix(sdk): fix vertex_ai credential security and streaming
+
+- style(backend): apply ruff formatting
+
+- style(penelope): sort imports to fix ruff I001 violations
+
+- fix(sdk): include file path in credential error but suppress base64 values
+
+- fix: address peqy review — security, header propagation, config alignment
+
+* Verify architect session ownership in WebSocket handler before
+  persisting messages (was missing org/user check unlike REST route)
+* Propagate X-Total-Count header from with_count_header into directly
+  returned Response objects (e.g. JSONResponse on $select paths)
+* Guard apply_select **dict** fallback against \_sa_instance_state and
+  other private SQLAlchemy attrs
+* Log MCP secret-key lookup failures at ERROR instead of swallowing them
+* Align architect_monitor Redis URL to BROKER_URL || REDIS_URL fallback
+* Reduce delegation token default TTL from 60m to 15m; update test
+
+- fix(security): prevent accidental secret leakage in logs
+
+* Remove user message body from INFO logs in chat and architect
+  WebSocket handlers (replace with message length only)
+* Replace raw str(e) in Redis exception logs with type(e).**name**
+  to prevent connection URLs (which may contain passwords) from
+  reaching log aggregators
+* Harden MCP auth log: use a fixed string instead of interpolating
+  the exception, guarding against future HTTPException detail changes
+
+- style(penelope): apply ruff formatting to strategy files
+
+- style(frontend): apply prettier formatting to architect components
+
+- fix(tests): update architect handler tests for session ownership check
+
+* Use valid UUIDs for session_id so UUID() conversion succeeds
+* Mock crud.get_architect_session to return a truthy session object
+* Add explicit test for unauthorized session rejection
+* Also import UUID for use in assertion
+
+- fix(frontend): resolve ESLint errors in architect components
+
+* Use tool.startedAt as stable React key instead of array index in
+  ToolCallList (activeTools and completedTools maps)
+* Use filename+size as stable key instead of array index in
+  ArchitectChatInput file chip list
+* Guard targetType nullability instead of non-null assertion (!)
+* Prefix unused onSessionTitleUpdate prop with \_ in ArchitectChat
+* Add startedAt field to completedTools type in StreamingState and
+  update all test fixtures accordingly
+
+- fix(frontend): resolve TypeScript type check errors in architect components
+
+* Add $filter to PaginationParams so getEndpoints/getMetrics accept OData filters
+* Fix TestRunDetail.name nullable: filter and map to non-optional shape
+* Fix Palette type assertion to go via unknown first
+
+- fix(frontend): fix elliptical chat bubble caused by double borderRadius multiplication
+
+Theme functions returning numbers go through MUI sx borderRadius transform
+a second time, making values 4x too large. Return px strings from theme
+functions to bypass the multiply-by-borderRadius transform.
+
+- style(frontend): apply prettier formatting to architect components
+
+* style(auth): update login page badge label (#1663)
+* Fix Garak probe-coupled detectors and improve pipeline reliability (#1662)
+
+- fix(sdk): normalize detector paths and handle probe-coupled context
+
+Add path normalization so short-form detector paths from the DB
+(e.g. encoding.DecodeMatch) match the full-form keys in
+CONTEXT_REQUIRED_NOTES. Register DecodeMatch, DecodeApprox, and
+AttackRogueString in detectors.yaml with required_note. Replace
+NaN scores with None for PostgreSQL JSONB compatibility. Add
+probe_notes to factory ACCEPTED_PARAMS.
+
+- fix(backend): inject probe notes for garak detectors
+
+Add \_inject_probe_notes with path normalization so garak_notes from
+test_metadata reach probe-coupled detectors regardless of whether the
+DB stores short or full detector paths. Extract per-prompt notes from
+encoding/promptinject probes at import time and store them in
+test_metadata. Add backfill migrations for existing test data.
+
+- test(tests): add garak detector smoke, pipeline, and e2e tests
+
+Add SDK smoke tests for all 20 registered detectors with safe/unsafe
+inputs. Add backend pipeline tests verifying garak_notes flow through
+\_inject_probe_notes, MetricFactory, and evaluate. Add e2e tests
+exercising every detector through the real prepare_metrics pipeline
+including short-path variants that mirror production DB values.
+
+- feat(frontend): add search for garak probes in import dialog
+
+Add a search field that filters modules and probes by name,
+description, category, and topic. Select All/Deselect All now
+operates on the visible (filtered) probes. Empty results show
+a clear "no matches" message.
+
+- fix(garak): exclude visual_jailbreak module to prevent image downloads
+
+FigStep and FigStepFull probes download ~400 images from GitHub during
+instantiation. Since \_extract_prompts_and_notes instantiates every probe
+class, this caused hundreds of HTTP requests on every cache miss.
+
+Exclude visual_jailbreak from enumeration (image-only payloads have no
+meaningful text representation in Rhesis) and bump SCHEMA_VERSION to 5
+to invalidate any cached data built with the old module set.
+
+- refactor(garak): address staff engineer review findings
+
+* Fix: inconclusive MetricResult (score=None, inconclusive=True) was
+  collapsed to is_successful=False by LocalStrategy via ScoreEvaluator.
+  Both \_process_metric_result and \_a_eval_one_with_retry now check the
+  inconclusive flag first and pass is_successful=None through unchanged.
+
+* Fix: deduplicate detector path normalisation into a single
+  normalize_detector_path() helper in the SDK registry, plus an
+  is_context_required() convenience function. Removes the duplicated
+  inline logic in detector_metric.py and evaluation.py, and eliminates
+  the direct CONTEXT_REQUIRED_NOTES import from the backend worker.
+
+* Fix: \_extract_prompts_and_notes now disables follow_prompt_cap when
+  instantiating probes (same as the Alembic backfill migration) so the
+  prompt→trigger map is deterministic and complete for encoding probes.
+
+* Fix: pad prompt_notes with None when len(triggers) < len(prompts) so
+  prompt_notes[i] always corresponds to prompts[i].
+
+* Fix: migration downgrade() now requires test_metadata ? 'garak_notes'
+  to avoid removing legitimately-set notes on rows untouched by upgrade.
+
+* Fix: replace fragile assert len(DETECTORS) == 20 with a structural
+  invariant test that survives YAML additions.
+
+* Fix: SCHEMA_VERSION comment now documents both reasons for v5.
+
+* Test: add TestLocalStrategyInconclusivePassthrough to cover the
+  inconclusive passthrough path end-to-end (23 tests, all green).
+
+- style(backend): fix ruff formatting in service.py and result_builder.py
+
+- fix(garak): address peqy review comments
+
+* Fix: notes or self.\_probe_notes treated explicit {} as falsy, silently
+  falling back to stored probe notes. Changed to notes if notes is not
+  None else self.\_probe_notes so callers can pass {} to intentionally
+  provide no context without being overridden.
+
+* Fix: \_inject_probe_notes early-exit used 'if not probe_notes' which
+  also treated {} as 'no injection'. Changed to 'if probe_notes is None'
+  to consistently distinguish explicit empty from absent.
+
+* Fix: trigger/prompt count mismatch in \_extract_prompts_and_notes was
+  silently dropping extra triggers. Added a warning log so mismatches
+  are surfaced rather than hidden.
+
+* Fix: migration downgrade() now also checks
+  'test_metadata->'garak_notes' ? 'triggers'' to avoid removing notes
+  that were not set by the migration (e.g. unrelated garak_notes keys).
+  Applied to both promptinject and encoding migrations.
+
+- fix(garak): address second peqy review round
+
+* Fix: inconclusive reason message now checks whether the required note
+  key is actually present and non-empty in effective_notes, not just
+  whether effective_notes is truthy. Catches cases where notes={} or
+  notes={"wrong_key": ...} were silently producing the generic message.
+
+* Fix: \_inject_probe_notes reverts early-exit to 'if not probe_notes'
+  (empty dict = nothing to inject) and adopts a non-destructive merge:
+  probe_notes is only set when the key is absent from existing parameters,
+  so a pre-populated MetricConfig is never silently overwritten.
+
+* Fix: \_extract_prompts_and_notes logs the exception (with traceback) at
+  DEBUG level instead of silently returning ([], []), making probe
+  instantiation failures visible during enumeration.
+
+* Fix: encoding backfill migration normalises prompt text with .strip()
+  and \r\n→\n before key lookup so whitespace/line-ending differences
+  between DB storage and generated prompts no longer cause silent misses.
+
+- style(sdk): apply ruff formatting to detector_metric.py
+
+- style(backend): apply ruff formatting to encoding backfill migration
+
+* Temporarly disable default embedding model selection (#1661)
+
+- fix(api): reject models.embedding in PATCH /users/settings
+
+- fix(models-ui): remove embedding default toggle and clarify copy
+
+- docs: add comment for future reference
+
+* docs: update frontend and backend README and CONTRIBUTING (#1654)
+
+- docs: simplify and update the backend README
+
+- docs: remove backend CONTRIBUTING
+
+Remove CONTRIBUTING.md in apps/backend in favour of a single CONTRIBUTING on the main folder
+
+- docs: remove frontend contributing guide
+
+- docs: add command for starting worker
+
+- docs: add smaller backend contributing guide
+
+- docs: trim down frontend readme and contributing guide
+
+- docs: remove type-check and add uv install
+
+- docs: remove playwright since there are no e-2-e tests
+
+- docs: add instructions for e2e frontend testing
+
+* Add adaptive testing embeddings and diversity-aware suggestions (#1656)
+
+- feat: add adaptive testing embedding support
+
+* Backend: CreateAdaptiveTestBody, optional embedding on create and suggestion generation, embeddings service module
+* Frontend: generate_embedding / generate_embeddings flags and types
+* Tests: route coverage for new behavior
+* Worker: uv.lock resolution bump
+
+- feat: add diversity scoring to adaptive testing suggestions
+
+* Backend: Introduced `diversity_score` to `SuggestedTest` and implemented `sort_by_diversity` function to rank suggestions based on Euclidean distance from centroid embeddings.
+* Frontend: Updated `SuggestionsDialog` to display diversity scores in tooltips for better user insight.
+* API: Updated interface to include optional `diversity_score` in suggestions response.
+
+- feat: implement async embedding and suggestion generation
+
+* Backend: Refactored `generate_suggestions` and `generate_suggestions_endpoint` to support async operations, improving performance during suggestion generation.
+* Added `a_generate_embedding_vector` for async embedding of text, enhancing the embedding service's capabilities.
+* Updated embedding calls in suggestion generation to utilize the new async method, allowing for concurrent processing of embeddings.
+* Frontend: Adjusted embedding generation flags to prevent manual test embeddings until full support is implemented.
+
+- feat: enhance embedding service with batch processing and resolver
+
+* Added `resolve_embedder` function to streamline embedding model resolution for users, reducing database lookups.
+* Introduced `a_generate_embedding_vectors_batch` for concurrent embedding of multiple texts, improving performance.
+* Updated `generate_suggestions` to utilize the new batch embedding method, enhancing suggestion generation efficiency.
+
+- feat: implement unified suggestion pipeline for adaptive testing
+
+* Added a new endpoint `/suggestion_pipeline` to handle a unified process for generating suggestions, invoking endpoints, and evaluating results in a single NDJSON stream.
+* Introduced `SuggestionPipelineRequest` schema to encapsulate parameters for the pipeline.
+* Updated frontend to utilize the new pipeline, streamlining the suggestion generation and evaluation process.
+* Enhanced backend services to support concurrent evaluation and output streaming, improving overall performance and user experience.
+
+- feat: implement streaming suggestion generation and progress tracking
+
+* Added support for streaming individual suggestions and embeddings from the LLM in the backend, enhancing real-time feedback during suggestion generation.
+* Updated the `SuggestionsDialog` component in the frontend to track and display the progress of test generation, including completed suggestions and total expected.
+* Introduced new event types for streamed suggestions and embeddings in the API, allowing for a more interactive user experience.
+* Refactored existing interfaces to accommodate the new streaming functionality, improving overall architecture and maintainability.
+
+- refactor: update suggestion pipeline logging and event structure
+
+* Modified the logging format in the suggestion pipeline to include timestamps for better tracking of events.
+* Adjusted the `PipelineEmbeddingEvent` interface to only include the index, removing the embedding vector for a more streamlined event structure.
+* Updated the `SuggestionsDialog` component to reflect changes in the event handling and total counts for outputs and metrics, enhancing the user experience during suggestion generation.
+
+- refactor: clean up imports and enhance diversity scoring in adaptive testing
+
+* Removed unused imports and reorganized import statements for better readability across several files.
+* Updated the `diversity_score` description in the `SuggestedTest` schema to clarify its calculation method.
+* Introduced a new module for adaptive testing diversity strategies, implementing both Euclidean and Cosine centroid diversity metrics.
+* Added unit tests for the new diversity strategies to ensure correct functionality and integration with existing suggestion sorting logic.
+
+- next
+
+- feat: enhance suggestion pipeline with diversity scores
+
+* Updated the suggestion pipeline to include `diversity_scores` alongside `diversity_order`, providing additional metrics for sorted suggestions.
+* Modified the `SuggestionsDialog` component to handle and display diversity scores, ensuring alignment with the updated backend event structure.
+* Adjusted the `PipelineSuggestionsDoneEvent` interface to reflect the new diversity scores, improving the API's clarity and usability.
+
+- refactor: clean up formatting in SuggestionsDialog and related files
+
+* Improved code readability by adjusting formatting in the SuggestionsDialog component, including consistent line breaks and indentation.
+* Streamlined the handling of suggestion outputs and tooltip content for better clarity and maintainability.
+* Minor adjustments in the LiteLLM and RhesisEmbedder classes to enhance code consistency across the SDK.
+* fix(frontend): use host.docker.internal for all default endpoints (#1645)
+
+Update default endpoint URLs for Ollama, vLLM, and LiteLLM proxy to use
+host.docker.internal instead of localhost/0.0.0.0, since the backend runs
+in Docker and cannot reach host services via localhost. Also improve
+helper text to explain why the non-obvious hostname is needed.
+
+- Add flexible model selection and execution model support (#1642)
+
+* feat(backend): add execution model and model override
+
+Introduce separate execution and evaluation model resolution
+throughout the backend. Add DEFAULT_EXECUTION_MODEL env var,
+split the single model parameter into execution_model and
+evaluation_model across batch/sequential execution paths,
+and support per-request model override for test generation,
+execution, and rescoring. Add custom test count validation
+capping at 200 tests.
+
+- feat(frontend): add model selector and custom test count
+
+Add reusable ModelSelector component with provider icons and
+default model resolution. Integrate execution and evaluation
+model selection into test-set execution, test-run, and rerun
+drawers. Add execution model default option to the models
+settings page. Replace misleading test count ranges with exact
+numbers and add custom slider option (1-200) with validation.
+
+- feat(sdk): add execution model and model override support
+
+Add set_default_execution method to Model entity. Update
+TestSet.execute and TestSet.rescore to accept execution_model_id
+and evaluation_model_id parameters for per-request model override.
+
+- test(tests): add tests for model override and execution model
+
+Add unit tests for generation/execution/evaluation model override
+resolution, execution validation with execution model, rescore
+with evaluation model override, and SDK model/test-set execute
+methods. Update existing tests to use split model parameters.
+
+- ci: add DEFAULT_EXECUTION_MODEL to deploy configs
+
+Add DEFAULT_EXECUTION_MODEL environment variable to GitHub Actions
+backend and worker workflows, worker k8s deployment, and
+infrastructure secret configuration scripts.
+
+- fix(frontend): restore model selection on test re-run
+
+Initialize execution and evaluation model selectors from the
+original test configuration attributes when re-running a test,
+so users see the models that were previously used.
+
+- fix(backend): address PR review feedback from peqy
+
+* Remove duplicate test methods in test_rescore.py that caused
+  Python to silently overwrite earlier definitions
+* Add default model fallback in batch and sequential except blocks
+  so models never stay None on resolution failure
+* Validate per-request model_id override in generation router to
+  return a clear 400 instead of a 500 for invalid models
+
+- fix(tests): update test_set execution mock assertion
+
+Add execution_model_id and evaluation_model_id kwargs to the
+\_create_test_configuration mock assertion to match the updated
+service signature.
+
+- fix: address remaining PR review feedback
+
+* Add safe fallback for theme.iconSizes in ModelSelector to prevent
+  errors when rendered outside the app's custom theme
+* Add model override validation to multi-turn generation endpoint
+  for consistency with the single-turn endpoint
+
+- docs: update documentation for flexible model selection
+
+Add execution model as a third model purpose, update test generation
+size options to exact counts with custom slider, add
+DEFAULT_EXECUTION_MODEL to deployment guides, document model settings
+in execution drawer, and add SDK execute/rescore model params.
+
 ## [0.6.12] - 2026-04-09
 
 ### Added

@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-04-15T14:24:35.064456Z"
+exclude-newer = "2026-04-16T10:50:55.623157729Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6304,7 +6304,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.6.11"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6533,7 +6533,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.6.12"
+version = "0.7.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
