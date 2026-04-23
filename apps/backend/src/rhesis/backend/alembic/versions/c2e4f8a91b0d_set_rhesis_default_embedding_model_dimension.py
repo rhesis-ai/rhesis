@@ -26,7 +26,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     bind = op.get_bind()
     session = Session(bind=bind)
-    dim =  768 # Default dimension of vertex text-embedding-005
+    dim = 768  # Default dimension of vertex text-embedding-005
     try:
         result = session.execute(
             sa.text(
@@ -56,7 +56,7 @@ def downgrade() -> None:
     """Clear dimension only where it was set to the default by this migration."""
     bind = op.get_bind()
     session = Session(bind=bind)
-    dim = 768 # Default dimension of vertex text-embedding-005
+    dim = 768  # Default dimension of vertex text-embedding-005
     try:
         result = session.execute(
             sa.text(
