@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { Box, Chip, Tooltip } from '@mui/material';
+import { Box, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
+import { BetaBadge } from '../components/common/BetaBadge';
 import '../styles/fonts.css';
 import {
   DashboardIcon,
@@ -154,21 +155,7 @@ async function getNavigationItems(
       segment: 'architect',
       title: 'Architect',
       icon: <EngineeringIcon key="architect-icon" />,
-      action: (
-        <Chip
-          label="beta"
-          size="small"
-          variant="outlined"
-          color="warning"
-          sx={theme => ({
-            height: theme.spacing(2.25),
-            '& .MuiChip-label': {
-              px: 0.75,
-              fontSize: theme.typography.caption.fontSize,
-            },
-          })}
-        />
-      ),
+      action: <BetaBadge />,
     },
     {
       kind: 'page',
@@ -200,19 +187,7 @@ async function getNavigationItems(
       title: (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box component="span">Adaptive Testing</Box>
-          <Chip
-            label="beta"
-            size="small"
-            color="warning"
-            variant="outlined"
-            sx={theme => ({
-              height: theme.spacing(2.25),
-              '& .MuiChip-label': {
-                px: 0.75,
-                fontSize: theme.typography.caption.fontSize,
-              },
-            })}
-          />
+          <BetaBadge />
         </Box>
       ),
       icon: <AccountTreeIcon key="adaptive-testing-icon" />,
