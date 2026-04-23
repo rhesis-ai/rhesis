@@ -155,7 +155,19 @@ async function getNavigationItems(
       title: 'Architect',
       icon: <EngineeringIcon key="architect-icon" />,
       action: (
-        <Chip label="beta" size="small" variant="outlined" color="warning" />
+        <Chip
+          label="beta"
+          size="small"
+          variant="outlined"
+          color="warning"
+          sx={theme => ({
+            height: theme.spacing(2.25),
+            '& .MuiChip-label': {
+              px: 0.75,
+              fontSize: theme.typography.caption.fontSize,
+            },
+          })}
+        />
       ),
     },
     {
@@ -182,30 +194,29 @@ async function getNavigationItems(
       title: 'Test Sets',
       icon: <CategoryIcon key="test-sets-icon" />,
     },
-    ...(process.env.NODE_ENV === 'development'
-      ? [
-          {
-            kind: 'page' as const,
-            segment: 'adaptive-testing',
-            title: (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box component="span">Adaptive Testing</Box>
-                <Chip
-                  label="beta"
-                  size="small"
-                  color="warning"
-                  variant="outlined"
-                  sx={{
-                    height: 18,
-                    '& .MuiChip-label': { px: 0.75, fontSize: '0.7rem' },
-                  }}
-                />
-              </Box>
-            ),
-            icon: <AccountTreeIcon key="adaptive-testing-icon" />,
-          },
-        ]
-      : []),
+    {
+      kind: 'page' as const,
+      segment: 'adaptive-testing',
+      title: (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box component="span">Adaptive Testing</Box>
+          <Chip
+            label="beta"
+            size="small"
+            color="warning"
+            variant="outlined"
+            sx={theme => ({
+              height: theme.spacing(2.25),
+              '& .MuiChip-label': {
+                px: 0.75,
+                fontSize: theme.typography.caption.fontSize,
+              },
+            })}
+          />
+        </Box>
+      ),
+      icon: <AccountTreeIcon key="adaptive-testing-icon" />,
+    },
     // Results Section
     {
       kind: 'header',
