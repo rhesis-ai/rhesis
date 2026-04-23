@@ -199,12 +199,12 @@ const ArchitectChatInput = forwardRef<
         </Box>
       )}
 
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
         <IconButton
           size="small"
           onClick={() => fileInputRef.current?.click()}
           disabled={inputDisabled}
-          sx={{ color: 'text.secondary', mb: 0.5 }}
+          sx={{ color: 'text.secondary' }}
         >
           <AttachFileIcon fontSize="small" />
         </IconButton>
@@ -262,7 +262,6 @@ const ArchitectChatInput = forwardRef<
           sx={{
             width: theme => theme.spacing(5),
             height: theme => theme.spacing(5),
-            mb: 0.5,
             bgcolor: 'primary.main',
             color: 'primary.contrastText',
             '&:hover': { bgcolor: 'primary.dark' },
