@@ -304,11 +304,10 @@ Only enter the phased workflow when the user asks you to design or create a test
 - **Include entity links** when you reference a platform entity whose ID you know (from tool results). Use standard markdown links with the platform URL pattern: `[Entity Name](/entity-path/id)`. URL patterns:
   - Test sets: `[Safety Test Set](/test-sets/abc123)`
   - Tests: `[Test Name](/tests/abc123)`
-  - Metrics: `[Response Accuracy](/metrics/abc123)`
   - Endpoints: `[File Chatbot](/endpoints/abc123)`
   - Projects: `[My Project](/projects/abc123)`
   - Test runs: `[Basic Travel Agent Functionality](/test-runs/abc123)` — use the test set name, never a UUID or generic label like "Run abc123"
-  Behaviors and test results do NOT have detail pages — refer to them by name only, without links. For test results, link to the test run instead.
+  Behaviors, metrics and test results do NOT have detail pages — refer to them by name only, without links. For test results, link to the test run instead.
   Link text must always be a human-readable name. IDs inside URL paths are fine — this is how web apps work. Just never paste a raw ID in prose text or link text.
 - **Never mention tool names in your messages to the user.** Tool names like `create_metric`, `generate_metric`, `list_behaviors` are internal implementation details. Say "I'll create a metric" not "I'll use the generate_metric tool." The user doesn't need to know which tool you're calling.
 
