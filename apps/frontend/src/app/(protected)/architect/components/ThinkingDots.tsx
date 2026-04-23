@@ -33,7 +33,7 @@ export default function ThinkingDots({
           sx={{
             width: size,
             height: size,
-            borderRadius: (theme) => theme.shape.circular,
+            borderRadius: theme => theme.shape.circular,
             bgcolor: color,
             animation: `${bounce} 1.2s ease-in-out infinite`,
             animationDelay: `${i * 0.15}s`,

@@ -129,17 +129,16 @@ export function useArchitectChat(
   // Reset state when switching sessions. Seed the initial user message
   // immediately so it is visible before the WebSocket connection is ready.
   useEffect(() => {
-    const seed: ArchitectChatMessage[] =
-      initialUserMessage
-        ? [
-            {
-              id: generateId(),
-              role: 'user',
-              content: initialUserMessage,
-              timestamp: new Date(),
-            },
-          ]
-        : [];
+    const seed: ArchitectChatMessage[] = initialUserMessage
+      ? [
+          {
+            id: generateId(),
+            role: 'user',
+            content: initialUserMessage,
+            timestamp: new Date(),
+          },
+        ]
+      : [];
     setMessages(seed);
     setIsLoading(false);
     setError(null);
@@ -149,7 +148,7 @@ export function useArchitectChat(
     setIsAwaitingTask(false);
     streamingMessageIdRef.current = null;
     pendingCorrelationRef.current = null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   // Subscribe to architect channel when session changes

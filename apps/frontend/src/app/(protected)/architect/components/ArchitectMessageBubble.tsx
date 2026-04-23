@@ -96,7 +96,7 @@ export default function ArchitectMessageBubble({
           sx={{
             backgroundColor: alpha(color, 0.15),
             color: 'primary.contrastText',
-            borderRadius: (theme) => theme.shape.borderRadius / 2,
+            borderRadius: theme => theme.shape.borderRadius / 2,
             px: 0.5,
             fontWeight: 500,
           }}
@@ -151,7 +151,7 @@ export default function ArchitectMessageBubble({
           sx={{
             width: AVATAR_SIZES.MEDIUM,
             height: AVATAR_SIZES.MEDIUM,
-            borderRadius: (theme) => theme.shape.circular,
+            borderRadius: theme => theme.shape.circular,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -181,7 +181,7 @@ export default function ArchitectMessageBubble({
               ? 'error.lighter'
               : 'background.paper',
           color: isUser ? 'primary.contrastText' : 'text.primary',
-          borderRadius: (theme) => theme.shape.borderRadius * 2,
+          borderRadius: theme => theme.shape.borderRadius * 2,
           border: isUser ? 'none' : 1,
           borderColor: message.isError ? 'error.light' : 'divider',
           position: 'relative',

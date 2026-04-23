@@ -81,7 +81,14 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
           maxWidth: theme => theme.spacing(85),
         }}
       >
-        <Typography variant="h4" color="text.secondary" sx={{ fontWeight: theme => theme.typography.fontWeightLight, textAlign: 'center' }}>
+        <Typography
+          variant="h4"
+          color="text.secondary"
+          sx={{
+            fontWeight: theme => theme.typography.fontWeightLight,
+            textAlign: 'center',
+          }}
+        >
           What would you like to test?
         </Typography>
 
@@ -133,7 +140,14 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
           }}
         />
 
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 1,
+            justifyContent: 'center',
+          }}
+        >
           {SUGGESTED_PROMPTS.map(({ label, prompt, icon: Icon }) => (
             <Chip
               key={label}
