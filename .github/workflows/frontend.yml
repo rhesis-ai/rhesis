@@ -184,7 +184,6 @@ jobs:
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
               --build-arg NEXT_PUBLIC_API_BASE_URL="$BACKEND_API_URL" \
-              --build-arg NEXT_PUBLIC_APP_URL="$PREVIEW_FRONTEND_URL" \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
               -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/frontend/Dockerfile apps/frontend
@@ -195,7 +194,6 @@ jobs:
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
               --build-arg NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }} \
-              --build-arg NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }} \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
               -t ${{ env.IMAGE_NAME }}:latest -f apps/frontend/Dockerfile apps/frontend
@@ -308,7 +306,6 @@ jobs:
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
-          NEXT_PUBLIC_APP_URL=$PREVIEW_FRONTEND_URL,
           DATABASE_URL=${{ secrets.DATABASE_URL }},
           SMTP_HOST=${{ secrets.SMTP_HOST }},
           SMTP_PORT=${{ secrets.SMTP_PORT }},
@@ -346,7 +343,6 @@ jobs:
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
-          NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }},
           DATABASE_URL=${{ secrets.DATABASE_URL }},
           SMTP_HOST=${{ secrets.SMTP_HOST }},
           SMTP_PORT=${{ secrets.SMTP_PORT }},
@@ -498,7 +494,6 @@ jobs:
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
-          NEXT_PUBLIC_APP_URL=PLACEHOLDER_URL,
           EOF
           )"
 
@@ -555,7 +550,6 @@ jobs:
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
           GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }},
-          NEXT_PUBLIC_APP_URL=$PREVIEW_URL,
           EOF
           )"
 

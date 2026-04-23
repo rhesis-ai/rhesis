@@ -115,7 +115,6 @@ function show_usage() {
   echo "  GOOGLE_CLIENT_SECRET          Google OAuth client secret"
   echo "  GH_CLIENT_ID              GitHub OAuth client ID"
   echo "  GH_CLIENT_SECRET          GitHub OAuth client secret"
-  echo "  NEXT_PUBLIC_APP_URL           Public app URL"
   echo "  DATABASE_URL                  Database URL for frontend"
   echo "  DEFAULT_POLYPHEMUS_URL         URL for Polyphemus adversarial model service"
   echo "  POLYPHEMUS_DEFAULT_MODEL                 Default model for Polyphemus"
@@ -313,7 +312,6 @@ SERVICE_VARS=(
   "GOOGLE_CLIENT_SECRET"
   "GH_CLIENT_ID"
   "GH_CLIENT_SECRET"
-  "NEXT_PUBLIC_APP_URL"
   "DATABASE_URL"
 
   # Polyphemus service variables
@@ -400,17 +398,6 @@ for env in "${ENV_ARRAY[@]}"; do
       fi
       echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
       set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
-    fi
-
-    # Set default APP URL if not provided
-    if [[ -z "${!env_upper}_NEXT_PUBLIC_APP_URL" ]]; then
-      if [[ "$env" == "prd" ]]; then
-        app_url="https://app.rhesis.ai"
-      else
-        app_url="https://$env-app.rhesis.ai"
-      fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_APP_URL not set, using default: $app_url"
-      set_secret "$env" "NEXT_PUBLIC_APP_URL" "$app_url"
     fi
 
     # Set default log level if not provided
