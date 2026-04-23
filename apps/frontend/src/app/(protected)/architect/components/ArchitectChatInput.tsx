@@ -238,6 +238,7 @@ const ArchitectChatInput = forwardRef<
             onKeyDown={handleKeyDown}
             disabled={inputDisabled}
             multiline
+            minRows={1}
             maxRows={6}
             fullWidth
             placeholder={
