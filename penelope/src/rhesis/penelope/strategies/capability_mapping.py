@@ -67,9 +67,7 @@ class CapabilityMappingStrategy(ExplorationStrategy):
         ),
     ]
 
-    def _dimension_note(
-        self, key: str, previous_findings: Optional[Dict[str, Any]]
-    ) -> str:
+    def _dimension_note(self, key: str, previous_findings: Optional[Dict[str, Any]]) -> str:
         if not previous_findings:
             return ""
         caps = previous_findings.get("capabilities")

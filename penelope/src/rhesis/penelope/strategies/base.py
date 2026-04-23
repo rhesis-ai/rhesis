@@ -63,39 +63,48 @@ CONTEXT_FIELDS: List[ContextFieldDef] = [
     ("soft_boundaries", "Soft boundaries", None),
 ]
 
-PERF_SKIP_KEYS = frozenset({
-    "strategy", "status", "raw_findings", "raw_findings_text",
-    "conversation_summary", "goal_evaluation",
-})
+PERF_SKIP_KEYS = frozenset(
+    {
+        "strategy",
+        "status",
+        "raw_findings",
+        "raw_findings_text",
+        "conversation_summary",
+        "goal_evaluation",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Difficulty calibration text (constant — same for all exploration strategies)
 # ---------------------------------------------------------------------------
 
-_DIFFICULTY_CALIBRATION = "\n".join([
-    "## Difficulty calibration",
-    "",
-    "Adapt your probing depth based on the target's responses:",
-    "",
-    "- **If the target gives detailed, confident answers:** increase "
-    "complexity. Ask multi-part questions, introduce ambiguity, or "
-    "combine topics. Find where its competence degrades.",
-    "- **If the target gives vague or generic answers:** simplify. "
-    "Ask a more basic version of the same question. If it still "
-    "struggles, that's a finding — record the capability gap and "
-    "move on.",
-    "- **If the target partially answers:** probe the gap. Ask "
-    "specifically about the part it missed or got wrong. Partial "
-    "competence is more informative than total success or failure.",
-    "- **If the target refuses:** note the refusal and try a "
-    "reframing. But don't spend more than one follow-up on the "
-    "same refused topic — move to the next area.",
-])
+_DIFFICULTY_CALIBRATION = "\n".join(
+    [
+        "## Difficulty calibration",
+        "",
+        "Adapt your probing depth based on the target's responses:",
+        "",
+        "- **If the target gives detailed, confident answers:** increase "
+        "complexity. Ask multi-part questions, introduce ambiguity, or "
+        "combine topics. Find where its competence degrades.",
+        "- **If the target gives vague or generic answers:** simplify. "
+        "Ask a more basic version of the same question. If it still "
+        "struggles, that's a finding — record the capability gap and "
+        "move on.",
+        "- **If the target partially answers:** probe the gap. Ask "
+        "specifically about the part it missed or got wrong. Partial "
+        "competence is more informative than total success or failure.",
+        "- **If the target refuses:** note the refusal and try a "
+        "reframing. But don't spend more than one follow-up on the "
+        "same refused topic — move to the next area.",
+    ]
+)
 
 
 # ---------------------------------------------------------------------------
 # Abstract base
 # ---------------------------------------------------------------------------
+
 
 class PenelopeStrategy(ABC):
     """Abstract base class for all Penelope strategies.
@@ -157,6 +166,7 @@ class PenelopeStrategy(ABC):
 # ---------------------------------------------------------------------------
 # Exploration strategy base with template methods
 # ---------------------------------------------------------------------------
+
 
 class ExplorationStrategy(PenelopeStrategy, ABC):
     """Base class for exploration strategies.
@@ -255,9 +265,14 @@ class ExplorationStrategy(PenelopeStrategy, ABC):
         if novelty:
             sections.extend(["", novelty])
         if context_section:
-            sections.extend([
-                "", "## Context from previous exploration", "", context_section,
-            ])
+            sections.extend(
+                [
+                    "",
+                    "## Context from previous exploration",
+                    "",
+                    context_section,
+                ]
+            )
         return "\n".join(sections)
 
     @abstractmethod
@@ -300,9 +315,7 @@ class ExplorationStrategy(PenelopeStrategy, ABC):
             base["goal_evaluation"] = raw_result["goal_evaluation"]
         return base
 
-    def _build_context_section(
-        self, previous_findings: Optional[Dict[str, Any]]
-    ) -> str:
+    def _build_context_section(self, previous_findings: Optional[Dict[str, Any]]) -> str:
         """Render previous findings as text for injection into instructions.
 
         Driven by ``CONTEXT_FIELDS`` — adding a new field there
@@ -329,9 +342,7 @@ class ExplorationStrategy(PenelopeStrategy, ABC):
 
         return "Previous findings:\n" + "\n".join(f"- {s}" for s in lines)
 
-    def _build_novelty_instructions(
-        self, previous_findings: Optional[Dict[str, Any]]
-    ) -> str:
+    def _build_novelty_instructions(self, previous_findings: Optional[Dict[str, Any]]) -> str:
         """Generate anti-redundancy instructions from prior findings.
 
         Driven by ``CONTEXT_FIELDS`` — only fields with a non-None
@@ -367,9 +378,7 @@ class ExplorationStrategy(PenelopeStrategy, ABC):
         header.extend(f"- {c}" for c in covered)
         return "\n".join(header)
 
-    def _render_dimensions(
-        self, previous_findings: Optional[Dict[str, Any]] = None
-    ) -> List[str]:
+    def _render_dimensions(self, previous_findings: Optional[Dict[str, Any]] = None) -> List[str]:
         """Render ``self.dimensions`` into numbered instruction items.
 
         Calls ``_dimension_note`` for each dimension to let subclasses
@@ -383,9 +392,7 @@ class ExplorationStrategy(PenelopeStrategy, ABC):
             lines.append("")
         return lines
 
-    def _dimension_note(
-        self, key: str, previous_findings: Optional[Dict[str, Any]]
-    ) -> str:
+    def _dimension_note(self, key: str, previous_findings: Optional[Dict[str, Any]]) -> str:
         """Return an optional context note for a dimension.
 
         Override in subclasses to add per-dimension guidance based on
@@ -397,6 +404,7 @@ class ExplorationStrategy(PenelopeStrategy, ABC):
 # ---------------------------------------------------------------------------
 # Strategy registry with performance tracking
 # ---------------------------------------------------------------------------
+
 
 class StrategyPerformanceRecord:
     """Tracks per-strategy performance across runs.
@@ -470,9 +478,7 @@ def get_strategy(name: str) -> PenelopeStrategy:
     """
     if name not in STRATEGY_REGISTRY:
         available = ", ".join(sorted(STRATEGY_REGISTRY.keys())) or "(none)"
-        raise KeyError(
-            f"Unknown strategy '{name}'. Available strategies: {available}"
-        )
+        raise KeyError(f"Unknown strategy '{name}'. Available strategies: {available}")
     return STRATEGY_REGISTRY[name]
 
 
