@@ -55,8 +55,6 @@ export default function ArchitectMessageBubble({
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
 
-  const renderedContent = null;
-
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
@@ -157,11 +155,7 @@ export default function ArchitectMessageBubble({
         )}
 
         {/* Message content */}
-        {isUser && renderedContent ? (
-          renderedContent
-        ) : (
-          <MarkdownContent content={message.content} variant="body2" />
-        )}
+        <MarkdownContent content={message.content} variant="body2" />
 
         {/* File attachment chips (user messages) */}
         {isUser && message.files && message.files.length > 0 && (
