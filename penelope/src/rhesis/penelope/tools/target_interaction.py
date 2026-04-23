@@ -9,8 +9,8 @@ clear examples and usage patterns.
 from typing import Any, Optional
 
 from rhesis.penelope.prompts import TARGET_INTERACTION_TOOL_DESCRIPTION_TEMPLATE
-from rhesis.sdk.targets import Target
 from rhesis.penelope.tools.base import Tool, ToolResult
+from rhesis.sdk.targets import Target
 
 
 class TargetInteractionTool(Tool):

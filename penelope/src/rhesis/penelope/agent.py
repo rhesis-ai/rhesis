@@ -23,7 +23,6 @@ from rhesis.penelope.prompts import (
     DEFAULT_INSTRUCTIONS_TEMPLATE,
     get_system_prompt,
 )
-from rhesis.sdk.targets import Target
 from rhesis.penelope.tools.analysis import AnalyzeTextTool, ExtractTool
 from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.tools.target_interaction import TargetInteractionTool
@@ -39,6 +38,7 @@ from rhesis.penelope.utils import (
 from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.targets import Target
 
 logger = logging.getLogger(__name__)
 
