@@ -695,9 +695,11 @@ class TestEmbeddableMixinEmbeddingListeners:
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        # Parent Test is also EmbeddableMixin; if it stays in the session, commit() can
-        # enqueue for Test (e.g. relationship sync) and mask the TestResult behavior.
+        # Expunge the parent so it is not kept as a live session object; the INSERT may
+        # still load the Test row for the FK, which can trigger after_update and enqueue
+        # for the parent. We only assert that TestResult (user_id=None) is not enqueued.
         test_db.expunge(db_test_with_prompt)
+        mock_instance.enqueue_embedding.reset_mock()
 
         test_result = models.TestResult(
             test_id=db_test_with_prompt.id,
@@ -713,7 +715,15 @@ class TestEmbeddableMixinEmbeddingListeners:
 
         test_db.refresh(test_result)
         assert test_result.user_id is None
-        mock_instance.enqueue_embedding.assert_not_called()
+        test_result_enqueues = [
+            c
+            for c in mock_instance.enqueue_embedding.call_args_list
+            if c.kwargs.get("entity_type") == "TestResult"
+        ]
+        assert not test_result_enqueues, (
+            "user_id=None TestResult should not enqueue embedding; got "
+            f"{test_result_enqueues!r}"
+        )
 
     @patch("rhesis.backend.app.services.embedding.services.EmbeddingService")
     def test_update_skips_enqueue_when_user_id_none(
