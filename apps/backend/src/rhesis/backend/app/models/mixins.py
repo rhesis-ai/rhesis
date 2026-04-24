@@ -1,9 +1,10 @@
 import functools
+import hashlib
 import logging
 
-from sqlalchemy import Column, ForeignKey, and_
+from sqlalchemy import Column, ForeignKey, and_, event
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import declared_attr, relationship
+from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
 
 from .guid import GUID
@@ -361,6 +362,25 @@ class EmbeddableMixin:
             uselist=True,
         )
 
+    def searchable_text_changed(self) -> bool:
+        """
+        Return True if embeddings should be (re)generated for this entity.
+
+        - No rows in ``embedding`` yet → True (first-time embed).
+        - At least one row has ``text_hash`` matching the current searchable text → False.
+        - Otherwise (text changed vs. stored hashes) → True.
+
+        Multiple embedding rows (e.g. different models) are handled by checking whether
+        *any* row already matches the current content hash; the generator still decides
+        per-model work and deduplication.
+        """
+        text = self.to_searchable_text()
+        current_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        existing = self.embeddings
+        if not existing:
+            return True
+        return not any(e.text_hash == current_hash for e in existing)
+
     def to_searchable_text(self) -> str:
         """
         Generate searchable text representation for this entity.
@@ -377,3 +397,95 @@ class EmbeddableMixin:
         raise NotImplementedError(
             f"{self.__class__.__name__} must implement to_searchable_text() method"
         )
+
+
+# Defer embedding work to after commit so we never flush from inside flush (mapper events
+# run during Session.flush, while EmbeddingGenerator may call get_or_create_status → flush).
+_PENDING_EMBEDDING_JOBS_KEY = "pending_embedding_jobs"
+
+
+def _queue_embedding_after_commit(target) -> None:
+    session = object_session(target)
+    if session is None:
+        return
+    try:
+        searchable_text = target.to_searchable_text()
+    except Exception as e:
+        logger.error(
+            "Error computing searchable text for %s %s: %s",
+            target.__class__.__name__,
+            getattr(target, "id", None),
+            e,
+        )
+        return
+    pending = session.info.setdefault(_PENDING_EMBEDDING_JOBS_KEY, [])
+    pending.append(
+        {
+            "entity_type": target.__class__.__name__,
+            "entity_id": str(target.id),
+            "searchable_text": searchable_text,
+            "user_id": str(target.user_id),
+            "organization_id": str(target.organization_id),
+        }
+    )
+
+
+@event.listens_for(Session, "after_commit")
+def _process_pending_embedding_jobs(session: Session) -> None:
+    jobs = session.info.pop(_PENDING_EMBEDDING_JOBS_KEY, None)
+    if not jobs:
+        return
+
+    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.services.embedding.services import EmbeddingService
+
+    for job in jobs:
+        try:
+            with get_db_with_tenant_variables(
+                job["organization_id"],
+                job["user_id"],
+            ) as db:
+                embedding_service = EmbeddingService(db)
+                embedding_service.enqueue_embedding(
+                    entity_type=job["entity_type"],
+                    entity_id=job["entity_id"],
+                    searchable_text=job["searchable_text"],
+                    user_id=job["user_id"],
+                    organization_id=job["organization_id"],
+                )
+        except Exception as e:
+            logger.error(
+                "Error running deferred embedding for %s %s: %s",
+                job.get("entity_type"),
+                job.get("entity_id"),
+                e,
+            )
+
+
+# Event listeners for embedding generation
+@event.listens_for(EmbeddableMixin, "after_insert", propagate=True)
+def on_entity_insert(mapper, connection, target):
+    if getattr(target, "user_id", None) is None:
+        logger.warning(
+            f"Skipping embedding for {target.__class__.__name__} {target.id}: user_id is None"
+        )
+        return
+
+    try:
+        _queue_embedding_after_commit(target)
+    except Exception as e:
+        logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
+
+
+@event.listens_for(EmbeddableMixin, "after_update", propagate=True)
+def on_entity_update(mapper, connection, target):
+    if getattr(target, "user_id", None) is None:
+        logger.warning(
+            f"Skipping embedding for {target.__class__.__name__} {target.id}: user_id is None"
+        )
+        return
+
+    try:
+        _queue_embedding_after_commit(target)
+    except Exception as e:
+        logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")

@@ -1,15 +1,15 @@
 """Tests for EmbeddingService with async/sync orchestration."""
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import TestType
+from rhesis.backend.app.models import Behavior, Category, Prompt, Test, Topic, TypeLookup
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.services.embedding.services import EmbeddingService
-from rhesis.backend.app.models import Behavior, Category, Prompt, Test, TypeLookup, Topic
-from rhesis.backend.app.constants import TestType
 
 
 @pytest.fixture
@@ -63,8 +63,6 @@ def test_entity(
     db_status,
 ):
     """Create a test entity that implements to_searchable_text."""
-    from rhesis.backend.app.models import Behavior, Category, Prompt, Test, TypeLookup, Topic
-    from rhesis.backend.app.constants import TestType
 
     # Create TypeLookup entries
     single_turn_type = TypeLookup(
@@ -184,7 +182,14 @@ class TestEmbeddingService:
         mock_generator_class.return_value = mock_generator
 
         service = EmbeddingService(test_db)
-        service._execute_sync(test_entity, str(embedding_model.id), db_user)
+        service._execute_sync(
+            str(embedding_model.id),
+            entity_type="Test",
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(db_user.id),
+            organization_id=str(db_user.organization_id),
+        )
 
         mock_generator.generate.assert_called_once_with(
             entity_id=str(test_entity.id),
@@ -192,7 +197,8 @@ class TestEmbeddingService:
             organization_id=str(db_user.organization_id),
             user_id=str(db_user.id),
             model_id=str(embedding_model.id),
-            entity=test_entity,
+            searchable_text=test_entity.to_searchable_text(),
+            entity=None,
         )
 
     @patch("rhesis.backend.app.services.embedding.services.task_launcher")
@@ -208,15 +214,23 @@ class TestEmbeddingService:
     ):
         """Test asynchronous task enqueuing."""
         service = EmbeddingService(test_db)
-        service._enqueue_async(test_entity, str(embedding_model.id), db_user)
-
-        mock_launcher.assert_called_once_with(
-            mock_task,
-            entity_id=str(test_entity.id),
+        service._enqueue_async(
+            str(embedding_model.id),
             entity_type="Test",
-            model_id=str(embedding_model.id),
-            current_user=db_user,
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(db_user.id),
+            organization_id=str(db_user.organization_id),
         )
+
+        mock_launcher.assert_called_once()
+        call_kw = mock_launcher.call_args.kwargs
+        assert call_kw["entity_id"] == str(test_entity.id)
+        assert call_kw["entity_type"] == "Test"
+        assert call_kw["model_id"] == str(embedding_model.id)
+        assert call_kw["searchable_text"] == test_entity.to_searchable_text()
+        assert str(call_kw["current_user"].id) == str(db_user.id)
+        assert str(call_kw["current_user"].organization_id) == str(db_user.organization_id)
 
     def test_resolve_model_id_explicit(self, test_db, embedding_model, authenticated_user_id):
         """Test resolving model ID when explicitly provided."""
@@ -269,8 +283,18 @@ class TestEmbeddingService:
         test_entity.user_id = user_with_embedding_model.id
         test_db.commit()
 
+        # Commit triggers EmbeddableMixin listeners; reset mocks to assert only this direct call:
+        mock_execute.reset_mock()
+        mock_enqueue.reset_mock()
+
         service = EmbeddingService(test_db)
-        result = service.enqueue_embedding(test_entity, user_with_embedding_model)
+        result = service.enqueue_embedding(
+            entity_type="Test",
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(user_with_embedding_model.id),
+            organization_id=str(test_entity.organization_id),
+        )
 
         assert result is False
         mock_execute.assert_called_once()
@@ -294,8 +318,17 @@ class TestEmbeddingService:
         test_entity.user_id = user_with_embedding_model.id
         test_db.commit()
 
+        mock_execute.reset_mock()
+        mock_enqueue.reset_mock()
+
         service = EmbeddingService(test_db)
-        result = service.enqueue_embedding(test_entity, user_with_embedding_model)
+        result = service.enqueue_embedding(
+            entity_type="Test",
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(user_with_embedding_model.id),
+            organization_id=str(test_entity.organization_id),
+        )
 
         assert result is True
         mock_enqueue.assert_called_once()
@@ -321,8 +354,17 @@ class TestEmbeddingService:
         test_entity.user_id = user_with_embedding_model.id
         test_db.commit()
 
+        mock_execute.reset_mock()
+        mock_enqueue.reset_mock()
+
         service = EmbeddingService(test_db)
-        result = service.enqueue_embedding(test_entity, user_with_embedding_model)
+        result = service.enqueue_embedding(
+            entity_type="Test",
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(user_with_embedding_model.id),
+            organization_id=str(test_entity.organization_id),
+        )
 
         assert result is False
         mock_enqueue.assert_called_once()
@@ -343,14 +385,20 @@ class TestEmbeddingService:
         mock_workers.return_value = False
 
         service = EmbeddingService(test_db)
-        result = service.enqueue_embedding(test_entity, db_user)
+        result = service.enqueue_embedding(
+            entity_type="Test",
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(db_user.id),
+            organization_id=str(test_entity.organization_id),
+        )
 
         assert result is False
 
     @patch.object(EmbeddingService, "_check_workers_available")
     @patch.object(EmbeddingService, "_execute_sync")
     @patch.object(EmbeddingService, "_enqueue_async")
-    def test_enqueue_embedding_entity_without_user_id(
+    def test_enqueue_embedding_after_test_entity_has_user_id(
         self,
         mock_enqueue,
         mock_execute,
@@ -359,15 +407,24 @@ class TestEmbeddingService:
         test_entity,
         user_with_embedding_model,
     ):
-        """Test enqueue_embedding uses entity's user_id."""
+        """enqueue_embedding works when Test row has user_id set (listeners reset mocks)."""
         mock_workers.return_value = False
         mock_execute.return_value = {"status": "success"}
 
         test_entity.user_id = user_with_embedding_model.id
         test_db.commit()
 
+        mock_execute.reset_mock()
+        mock_enqueue.reset_mock()
+
         service = EmbeddingService(test_db)
-        result = service.enqueue_embedding(test_entity, user_with_embedding_model)
+        result = service.enqueue_embedding(
+            entity_type="Test",
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(user_with_embedding_model.id),
+            organization_id=str(test_entity.organization_id),
+        )
 
         assert result is False
         mock_execute.assert_called_once()
@@ -462,7 +519,13 @@ class TestEmbeddingServiceIntegration:
         test_db.commit()
 
         service = EmbeddingService(test_db)
-        result = service.enqueue_embedding(test_entity, user_with_embedding_model)
+        result = service.enqueue_embedding(
+            entity_type="Test",
+            entity_id=str(test_entity.id),
+            searchable_text=test_entity.to_searchable_text(),
+            user_id=str(user_with_embedding_model.id),
+            organization_id=str(test_entity.organization_id),
+        )
 
         assert result is False
 
