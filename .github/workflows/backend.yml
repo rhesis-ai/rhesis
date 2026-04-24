@@ -180,14 +180,15 @@ jobs:
           echo "BUILD_TAG=$BUILD_TAG" >> $GITHUB_ENV
           echo "build_tag=$BUILD_TAG" >> $GITHUB_OUTPUT
 
+          # Multi-stage image: apps/backend/Dockerfile (--target backend).
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG -f apps/backend/Dockerfile .
+            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG --target backend -f apps/backend/Dockerfile .
             docker tag ${{ env.IMAGE_NAME }}:$BUILD_TAG ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
             echo "Built preview image: ${{ env.IMAGE_NAME }}:$BUILD_TAG"
           else
             # For regular deployments, use unique tag + latest tag
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG -f apps/backend/Dockerfile .
+            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG --target backend -f apps/backend/Dockerfile .
             docker tag ${{ env.IMAGE_NAME }}:$BUILD_TAG ${{ env.IMAGE_NAME }}:latest
             echo "Built regular image: ${{ env.IMAGE_NAME }}:$BUILD_TAG (tagged as latest)"
           fi

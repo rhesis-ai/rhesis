@@ -141,7 +141,8 @@ jobs:
 
       - name: Build Container
         run: |
-          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/worker/Dockerfile .
+          # Multi-stage image: apps/backend/Dockerfile (--target worker).
+          docker build -t ${{ env.IMAGE_NAME }}:latest --target worker -f apps/backend/Dockerfile .
 
       - name: Push Container
         run: |

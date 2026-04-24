@@ -72,6 +72,7 @@ services:
     build:
       context: ..
       dockerfile: apps/backend/Dockerfile
+      target: backend
     environment:
       <<: [*frontend-database-config, *frontend-redis-config, *frontend-backend-config]
     ports:

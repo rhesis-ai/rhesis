@@ -191,12 +191,11 @@ build_service_image() {
             ;;
         backend)
             cd "$PROJECT_ROOT" || exit 1
-            docker build -t rhesis-backend:latest . -f apps/backend/Dockerfile \
-                --build-arg QUICK_START=false
+            docker build -t rhesis-backend:latest . -f apps/backend/Dockerfile --target backend
             ;;
         worker)
             cd "$PROJECT_ROOT" || exit 1
-            docker build -t rhesis-worker:latest -f apps/worker/Dockerfile .
+            docker build -t rhesis-worker:latest -f apps/backend/Dockerfile --target worker .
             ;;
         chatbot)
             cd "$PROJECT_ROOT" || exit 1
