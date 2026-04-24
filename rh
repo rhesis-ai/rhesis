@@ -887,14 +887,14 @@ start_worker() {
 
     LOG_FILE="$SCRIPT_DIR/celery.log"
     FLOWER_PORT="${FLOWER_PORT:-5555}"
-    WORKER_PROJECT="$SCRIPT_DIR/apps/worker"
 
     echo -e "${GREEN}Starting new Celery worker...${NC}"
     echo -e "${BLUE}Logs will be written to: ${LOG_FILE}${NC}"
     echo -e "${YELLOW}Press Ctrl+C to stop the worker and Flower${NC}"
     echo ""
 
-    # Flower is declared in apps/worker; backend cwd keeps .env loading consistent.
+    # Flower is a backend dev dependency (default-groups includes dev).
+    # apps/worker has no Python deps — Docker worker reuses the backend image.
     export PYTHONPATH="${SCRIPT_DIR}/apps/backend/src${PYTHONPATH:+:$PYTHONPATH}"
 
     FLOWER_PID=""
@@ -915,7 +915,7 @@ start_worker() {
     trap 'cleanup_worker_stack; exit 143' TERM
 
     echo -e "${GREEN}Starting Flower (Celery monitor)...${NC}"
-    uv run --project "$WORKER_PROJECT" celery -A rhesis.backend.worker.app flower --port="$FLOWER_PORT" &
+    uv run celery -A rhesis.backend.worker.app flower --port="$FLOWER_PORT" &
     FLOWER_PID=$!
     echo -e "${BLUE}Flower dashboard: http://127.0.0.1:${FLOWER_PORT}/${NC}"
     echo -e "${BLUE}Override the port with: ${WHITE}FLOWER_PORT=<port> ./rh dev worker${NC}"
