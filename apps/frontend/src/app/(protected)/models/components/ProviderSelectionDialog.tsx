@@ -57,9 +57,9 @@ export function ProviderSelectionDialog({
     return true;
   });
 
-  // Check if frontend is running in local mode by detecting localhost in the app URL
-  const isLocalMode =
-    process.env.NEXT_PUBLIC_APP_URL?.includes('localhost') || false;
+  // Enable local-only providers for local/development FRONTEND_ENV builds (set at build in next.config)
+  const fe = process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase();
+  const isLocalMode = fe === 'local' || fe === 'development';
 
   if (!userSelectableProviders || userSelectableProviders.length === 0) {
     return (
@@ -126,7 +126,7 @@ export function ProviderSelectionDialog({
               provider.type_value
             );
             const isLocal = LOCAL_PROVIDERS.includes(provider.type_value);
-            // Enable local providers only when FRONTEND_ENV is 'local'
+            // Enable local providers when FRONTEND_ENV is local or development
             const isEnabled = isSupported && (!isLocal || isLocalMode);
 
             const providerInfo: ProviderInfo = {

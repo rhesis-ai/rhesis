@@ -216,7 +216,7 @@ $DEV_ENV_MARKER on $timestamp
 
 NEXT_PUBLIC_QUICK_START=true
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+FRONTEND_ENV=local
 BACKEND_URL=http://localhost:8080
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=dev-nextauth-secret-change-in-production
