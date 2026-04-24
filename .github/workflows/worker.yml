@@ -141,9 +141,8 @@ jobs:
 
       - name: Build Container
         run: |
-          # Experimental unified image: apps/backend/Dockerfile.unified (--target worker).
-          # Stable Dockerfiles: worker apps/worker/Dockerfile, backend apps/backend/Dockerfile.
-          docker build -t ${{ env.IMAGE_NAME }}:latest --target worker -f apps/backend/Dockerfile.unified .
+          # Multi-stage image: apps/backend/Dockerfile (--target worker).
+          docker build -t ${{ env.IMAGE_NAME }}:latest --target worker -f apps/backend/Dockerfile .
 
       - name: Push Container
         run: |

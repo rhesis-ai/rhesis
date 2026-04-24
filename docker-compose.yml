@@ -124,7 +124,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: apps/backend/Dockerfile.unified
+      dockerfile: apps/backend/Dockerfile
       target: backend
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
@@ -154,7 +154,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/backend/Dockerfile.unified
+      dockerfile: apps/backend/Dockerfile
       target: worker
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]

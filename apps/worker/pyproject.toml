@@ -5,7 +5,7 @@ description = "Celery workers for the Rhesis backend"
 readme = "README.md"
 requires-python = ">=3.12"
 # The worker image reuses the backend venv verbatim (see
-# apps/backend/Dockerfile.unified, target `worker`). All dependencies
+# apps/backend/Dockerfile, target `worker`). All dependencies
 # come transitively from rhesis-backend, so this pyproject intentionally
 # has no dependencies of its own.
 dependencies = []
