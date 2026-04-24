@@ -59,7 +59,7 @@ export function ProviderSelectionDialog({
 
   // Enable local-only providers for local/development FRONTEND_ENV builds (set at build in next.config)
   const fe = process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase();
-  const isLocalMode = fe === 'local' || fe === 'development';
+  const isLocalMode = fe === 'local';
 
   if (!userSelectableProviders || userSelectableProviders.length === 0) {
     return (
