@@ -5,7 +5,7 @@ Set dimension=768 on all org default Rhesis embedding model rows
 since it's the default dimension of vertex text-embedding-005.
 
 Revision ID: c2e4f8a91b0d
-Revises: c4d8e2f1a3b5
+Revises: f3fc3b9e444f9a32
 Create Date: 2026-04-22
 
 """
@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 # revision identifiers, used by Alembic.
 revision: str = "c2e4f8a91b0d"
-down_revision: Union[str, None] = "c4d8e2f1a3b5"
+down_revision: Union[str, None] = "f3fc3b9e444f9a32"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
