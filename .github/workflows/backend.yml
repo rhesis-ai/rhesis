@@ -273,13 +273,11 @@ jobs:
 
           echo "Using image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
 
-          # Create a unique job name for this migration run
-          MIGRATION_JOB_NAME="backend-migrate-$(date +%s)"
+          # Stable job name per environment (create-or-update via deploy)
+          MIGRATION_JOB_NAME="${SERVICE_NAME}-migrate"
+          echo "Deploying/updating Cloud Run Job: $MIGRATION_JOB_NAME"
 
-          echo "Creating Cloud Run Job: $MIGRATION_JOB_NAME"
-
-          # Create a Cloud Run Job to run migrations (executes once)
-          gcloud run jobs create $MIGRATION_JOB_NAME \
+          gcloud run jobs deploy "$MIGRATION_JOB_NAME" \
             --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
@@ -293,23 +291,15 @@ jobs:
             --set-env-vars="SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --args=bash,-c,./migrate.sh
 
-          echo "✅ Migration job created"
+          echo "✅ Migration job definition updated"
 
-          # Execute the migration job
           echo "🚀 Executing migration job..."
-          gcloud run jobs execute $MIGRATION_JOB_NAME \
+          gcloud run jobs execute "$MIGRATION_JOB_NAME" \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --wait
 
           MIGRATION_EXIT_CODE=$?
-
-          # Clean up the job after execution
-          echo "🧹 Cleaning up migration job..."
-          gcloud run jobs delete $MIGRATION_JOB_NAME \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --quiet
 
           if [ $MIGRATION_EXIT_CODE -ne 0 ]; then
             echo "❌ Migration failed with exit code $MIGRATION_EXIT_CODE"
