@@ -277,18 +277,20 @@ jobs:
           MIGRATION_JOB_NAME="${SERVICE_NAME}-migrate"
           echo "Deploying/updating Cloud Run Job: $MIGRATION_JOB_NAME"
 
+          # No VPC: migration only needs Cloud SQL via /cloudsql/... socket
+          # (attached by --set-cloudsql-instances). Dropping the VPC connector
+          # cuts a large chunk of cold-start overhead.
           gcloud run jobs deploy "$MIGRATION_JOB_NAME" \
             --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
-            --vpc-connector=${{ secrets.VPC_CONNECTOR_NAME }} \
-            --vpc-egress=private-ranges-only \
             --max-retries=0 \
             --task-timeout=10m \
             --memory=1Gi \
             --cpu=1 \
             --set-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
             --set-env-vars="SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}" \
+            --clear-vpc-connector \
             --args=bash,-c,./migrate.sh
 
           echo "✅ Migration job definition updated"
