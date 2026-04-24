@@ -207,42 +207,6 @@ jobs:
             echo "Pushed regular images: ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} and :latest"
           fi
 
-      # Experiment: mirror the freshly-built image to a regional Artifact
-      # Registry repo in us-east1 so the migrate Cloud Run Job (which runs in
-      # us-east1) can pull the bytes from the same region. The deploy job
-      # continues to use the gcr.io image unchanged.
-      - name: Mirror image to us-east1 Artifact Registry (migrate experiment)
-        run: |
-          AR_LOCATION="us-east1"
-          AR_REPO="rhesis-migrate"
-          AR_HOST="${AR_LOCATION}-docker.pkg.dev"
-          IMAGE_BASENAME="$(basename "${{ env.IMAGE_NAME }}")"
-          AR_IMAGE="${AR_HOST}/${{ secrets.PROJECT_ID }}/${AR_REPO}/${IMAGE_BASENAME}"
-
-          echo "📦 Preparing AR mirror: $AR_IMAGE"
-
-          # Idempotent repo creation — cheap describe first, create only if missing.
-          if ! gcloud artifacts repositories describe "$AR_REPO" \
-                --location="$AR_LOCATION" \
-                --project="${{ secrets.PROJECT_ID }}" >/dev/null 2>&1; then
-            echo "  Repo does not exist — creating..."
-            gcloud artifacts repositories create "$AR_REPO" \
-              --repository-format=docker \
-              --location="$AR_LOCATION" \
-              --project="${{ secrets.PROJECT_ID }}" \
-              --description="Regional mirror of backend images for fast migrate-job cold starts"
-          else
-            echo "  Repo already exists in $AR_LOCATION"
-          fi
-
-          # Configure docker for this AR host (gcr.io is already configured above).
-          gcloud auth configure-docker "$AR_HOST" --quiet
-
-          # Re-tag the locally built image (no re-build — layers already in place).
-          docker tag "${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}" "${AR_IMAGE}:${{ env.BUILD_TAG }}"
-          docker push "${AR_IMAGE}:${{ env.BUILD_TAG }}"
-          echo "✅ Mirrored to ${AR_IMAGE}:${{ env.BUILD_TAG }}"
-
   migrate:
     needs: [validate-inputs, build]
     runs-on: ubuntu-latest
@@ -307,6 +271,8 @@ jobs:
           # Use the unique BUILD_TAG to ensure we get the freshly built image
           IMAGE_TAG="${{ env.BUILD_TAG }}"
 
+          echo "Using image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
+
           # Cloud Run Jobs cold-start in us-central1 was measured at ~1m 40s
           # steady-state (and ~2m 18s first-execution). The same workload in
           # us-east1 starts in ~11s. We therefore run the migration job in
@@ -314,18 +280,6 @@ jobs:
           # (us-central1). Cross-region DB access adds ~1-2s to Alembic DDL,
           # a tiny cost vs. the ~90s platform cold-start saving.
           MIGRATE_REGION="us-east1"
-
-          # Experiment: pull the migrate image from a regional Artifact
-          # Registry repo in the same region as the job. The image was
-          # mirrored there by the build job. The deploy job (service) still
-          # uses the gcr.io image, unchanged.
-          AR_LOCATION="$MIGRATE_REGION"
-          AR_REPO="rhesis-migrate"
-          AR_HOST="${AR_LOCATION}-docker.pkg.dev"
-          IMAGE_BASENAME="$(basename "${{ env.IMAGE_NAME }}")"
-          MIGRATE_IMAGE="${AR_HOST}/${{ env.PROJECT_ID }}/${AR_REPO}/${IMAGE_BASENAME}"
-
-          echo "Using migrate image: ${MIGRATE_IMAGE}:$IMAGE_TAG"
 
           # Stable job name per environment (create-or-update via deploy)
           MIGRATION_JOB_NAME="${SERVICE_NAME}-migrate"
@@ -335,7 +289,7 @@ jobs:
           # /cloudsql/... socket attached by --set-cloudsql-instances, which
           # works cross-region because sqladmin.googleapis.com is a global API.
           gcloud run jobs deploy "$MIGRATION_JOB_NAME" \
-            --image=${MIGRATE_IMAGE}:$IMAGE_TAG \
+            --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
             --project=${{ env.PROJECT_ID }} \
             --region=$MIGRATE_REGION \
             --max-retries=0 \
