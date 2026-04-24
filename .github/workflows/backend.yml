@@ -295,7 +295,7 @@ jobs:
             --max-retries=0 \
             --task-timeout=10m \
             --memory=1Gi \
-            --cpu=1 \
+            --cpu=2 \
             --set-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
             --set-env-vars="SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --args=bash,-c,./migrate.sh
