@@ -22,7 +22,7 @@ Only tests that still have no garak_notes after the original migration are
 touched.
 
 Revision ID: f3fc3b9e444f9a32
-Revises: 97b38ee1a6e1
+Revises: c4d8e2f1a3b5
 Create Date: 2026-04-24
 """
 
@@ -109,10 +109,10 @@ def _parse_probe_index(garak_probe_id: str) -> Optional[int]:
     parts = garak_probe_id.rsplit(".", 1)
     if len(parts) != 2:
         return None
-    try:
-        return int(parts[1])
-    except ValueError:
+    suffix = parts[1]
+    if not suffix.isdigit():
         return None
+    return int(suffix)
 
 
 def upgrade() -> None:
@@ -193,7 +193,7 @@ def upgrade() -> None:
                 sa.text(
                     """
                     UPDATE test
-                    SET test_metadata = test_metadata || CAST(:patch AS jsonb)
+                    SET test_metadata = COALESCE(test_metadata, '{}'::jsonb) || CAST(:patch AS jsonb)
                     WHERE id = :test_id
                     """
                 ),
