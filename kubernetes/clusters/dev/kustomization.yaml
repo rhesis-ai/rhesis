@@ -18,6 +18,7 @@ resources:
   - loki.yaml
   - alloy.yaml
   - grafana-resources.yaml
+  # CNPG: not deployed in dev; Rhesis uses Bitnami PostgreSQL (see charts/rhesis/values-dev.yaml). Stg/prd use operator + CNPG.
   - rhesis/namespace.yaml
   - rhesis/external-secret-app.yaml
   - rhesis/rhesis-application.yaml
