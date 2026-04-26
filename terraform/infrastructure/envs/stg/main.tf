@@ -100,6 +100,20 @@ module "ingress_stg" {
   depends_on = [module.stg]
 }
 
+module "gcs_stg" {
+  source = "../../modules/storage-buckets/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+  location    = var.region
+
+  file_storage_bucket_name  = var.file_storage_bucket_name
+  cnpg_backup_bucket_name  = var.cnpg_backup_bucket_name
+  force_destroy            = var.gcs_bucket_force_destroy
+  file_storage_iam_members = var.file_storage_iam_members
+  cnpg_backup_iam_members  = var.cnpg_backup_iam_members
+}
+
 module "argocd_stg" {
   source = "../../modules/argocd"
 
