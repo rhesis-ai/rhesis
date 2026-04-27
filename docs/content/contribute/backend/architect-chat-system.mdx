@@ -1,0 +1,140 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Architect Chat System
+
+The backend Architect system combines REST session APIs, WebSocket event streaming, Celery orchestration, and in-process MCP tool dispatch to support conversational test-suite design.
+
+## Overview
+
+The Architect workflow is split into four backend layers:
+
+1. **Session management API** (`/architect/sessions/*`)
+2. **WebSocket ingress and event fanout** (`/ws`, `architect:*` event types)
+3. **Celery chat execution task** (`architect_chat_task`)
+4. **Tool execution via local provider + MCP server** (`LocalToolProvider`, `/mcp`)
+
+## REST API surface
+
+Architect session routes are exposed under:
+
+- `POST /architect/sessions/`
+- `GET /architect/sessions/`
+- `GET /architect/sessions/{session_id}`
+- `PUT /architect/sessions/{session_id}`
+- `DELETE /architect/sessions/{session_id}`
+- `GET /architect/sessions/{session_id}/messages`
+
+Source:
+
+- `apps/backend/src/rhesis/backend/app/routers/architect.py`
+- `apps/backend/src/rhesis/backend/app/schemas/architect.py`
+- `apps/backend/src/rhesis/backend/app/models/architect.py`
+
+### Session fields
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | string \| null | Optional session title |
+| `mode` | string | Current agent phase (`discovery`, `planning`, `creating`, `executing`) |
+| `plan_data` | JSONB \| null | Persisted structured plan payload |
+| `agent_state` | JSONB \| null | Persisted runtime state (discovery, guard, id mapping, pending tasks) |
+
+## WebSocket protocol
+
+Clients connect through `/ws` with a token and send `architect.message` events.
+
+Server event types used by Architect include:
+
+- `architect.thinking`
+- `architect.tool_start`
+- `architect.tool_end`
+- `architect.plan_update`
+- `architect.mode_change`
+- `architect.stream_start`
+- `architect.text_chunk`
+- `architect.stream_end`
+- `architect.response`
+- `architect.error`
+
+Source:
+
+- `apps/backend/src/rhesis/backend/app/routers/websocket.py`
+- `apps/backend/src/rhesis/backend/app/schemas/websocket.py`
+- `apps/backend/src/rhesis/backend/app/services/websocket/handlers/architect.py`
+
+## Celery task lifecycle
+
+The main worker entrypoint is:
+
+- `apps/backend/src/rhesis/backend/tasks/architect.py`
+- task name: `rhesis.backend.tasks.architect.architect_chat_task`
+
+For each user message, the task:
+
+1. Loads session + history from DB
+2. Rebuilds `ArchitectAgent` state (`mode`, `plan_data`, `agent_state`)
+3. Injects tools (`LocalToolProvider`, `ExploreEndpointTool`)
+4. Streams intermediate events with `WebSocketEventHandler`
+5. Persists assistant reply and updated state
+6. Emits final `architect.response`
+
+### Persisted guard and runtime state
+
+The backend stores and restores:
+
+- `guard_state` (`needs_confirmation`, `confirming_tools`, `auto_approve_all`)
+- `discovery_state`
+- `id_to_name`
+- `pending_tasks`
+
+This prevents confirmation loops and enables resumed execution after async jobs complete.
+
+## Background wait and auto-resume
+
+When the agent calls `await_task`, pending IDs are registered in Redis via:
+
+- `apps/backend/src/rhesis/backend/tasks/architect_monitor.py`
+
+Completion is event-driven through Celery `task_postrun` rather than polling. Once all awaited tasks complete, the monitor re-dispatches `architect_chat_task` with a synthetic `[TASK_COMPLETED]` message so the agent can continue the same session.
+
+## Local tool execution and MCP integration
+
+The worker executes platform tools in-process through `LocalToolProvider`, which dispatches directly to FastAPI routes using `httpx.ASGITransport`.
+
+Related code paths:
+
+- `apps/backend/src/rhesis/backend/app/mcp_server/local_tools.py`
+- `apps/backend/src/rhesis/backend/app/mcp_server/server.py`
+- `apps/backend/src/rhesis/backend/app/mcp_server/tools.py`
+- `apps/backend/src/rhesis/backend/app/mcp_server/mcp_tools.yaml`
+
+This architecture keeps:
+
+- auth checks intact (delegation bearer token)
+- tool schema generation centralized
+- list-tool pagination behavior consistent
+
+## MCP tool behavior relevant to Architect
+
+`mcp_tools.yaml` defines:
+
+- tool labels for human-readable UI descriptions
+- `requires_confirmation` metadata
+- `default_query` overrides
+- server-managed `page_size` with `_pagination` envelope
+
+For list tools with `page_size`, `limit` is removed from the LLM-visible schema and enforced server-side with peek-ahead pagination.
+
+## Security notes
+
+- WebSocket handler verifies session ownership before writing user messages
+- MCP mount performs explicit bearer validation in ASGI wrapper
+- Service delegation tokens are accepted by JWT verification (`type=service_delegation`)
+- default delegation TTL is controlled by `SERVICE_DELEGATION_EXPIRE_MINUTES` (default `15`)
+
+## Related pages
+
+- [Worker Architect Background Tasks](/contribute/worker/architect-background-tasks)
+- [Worker Architecture](/contribute/worker/architecture)
+- [Backend API Structure](/contribute/backend/api-structure)
+- [SDK Agents](/sdk/agents)

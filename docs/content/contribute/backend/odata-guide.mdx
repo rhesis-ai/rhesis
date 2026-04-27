@@ -2,7 +2,8 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # OData Query Guide
 
-How to use OData-style `$filter` (and related) query parameters with the Rhesis backend API.
+How to use OData-style query parameters such as `$filter`, `$select`, `skip`, and
+`limit` with the Rhesis backend API.
 
 ## Basic Concepts
 
@@ -21,6 +22,19 @@ All requests require a Bearer token:
 <CodeBlock filename="authentication.sh" language="bash">
 {`curl -H "Authorization: Bearer YOUR_API_KEY" "URL"`}
 </CodeBlock>
+
+### Common query parameters
+
+Use the following parameters together to shape list responses:
+
+| Parameter | Purpose | Example |
+|---|---|---|
+| `$filter` | Filter rows with OData expressions | `$filter=status/name eq 'Active'` |
+| `$select` | Return only selected top-level fields (`id` is always included) | `$select=name,score_type,threshold` |
+| `sort_by` | Choose sort field | `sort_by=created_at` |
+| `sort_order` | Set sort direction (`asc` or `desc`) | `sort_order=desc` |
+| `skip` | Offset for pagination | `skip=20` |
+| `limit` | Max rows returned by REST list endpoints | `limit=50` |
 
 ## Comparison Operators
 
@@ -220,6 +234,52 @@ GET /tests?skip=20&limit=10
 # Combine with filtering
 GET /tests?$filter=status/name eq 'New'&skip=0&limit=50`}
 </CodeBlock>
+
+### Field Selection with `$select`
+
+Use `$select` to return only the fields you need from list endpoints.
+
+`id` is always included by the backend even when omitted from `$select`.
+
+<CodeBlock filename="field-selection.sh" language="bash">
+{`# Return only metric name and scope (id is included automatically)
+GET /metrics?$select=name,metric_scope
+
+# Return lightweight test result rows
+GET /test_results?$filter=test_run_id eq 'run-uuid'&$select=status,prompt,metric_scores`}
+</CodeBlock>
+
+`$select` works across all standard list endpoints generated through the backend routers
+(`tests`, `behaviors`, `categories`, `topics`, `test_sets`, `test_runs`, `test_results`,
+`metrics`, `projects`, `sources`, and related list routes).
+
+### MCP server-managed pagination
+
+When list operations are called through MCP tools (instead of direct REST), some tools define
+a server-managed `page_size` in `mcp_tools.yaml`.
+
+In those cases:
+
+- the MCP tool schema hides `limit` from the model
+- the server applies a fixed page size with peek-ahead (`limit = page_size + 1`)
+- list responses are wrapped with `_pagination` metadata
+
+<CodeBlock filename="mcp-pagination-response.json" language="json">
+{`{
+  "results": [
+    { "id": "a1", "name": "Project A" },
+    { "id": "a2", "name": "Project B" }
+  ],
+  "_pagination": {
+    "returned": 2,
+    "has_more": true,
+    "next_skip": 2,
+    "hint": "Showing 2 results — there are more. Use $filter to narrow or call again with skip=2 for the next page."
+  }
+}`}
+</CodeBlock>
+
+For direct REST API calls, `limit` and `skip` remain fully client-controlled.
 
 ### Combining Parameters
 

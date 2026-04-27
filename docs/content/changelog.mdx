@@ -8,6 +8,75 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.7.0] - 2026-04-23
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.7.0**
+- **Frontend 0.7.0**
+- **SDK 0.7.0**
+
+### Summary
+
+This release introduces the **Rhesis Architect** workflow for conversational test-suite design and execution, together with a new **agent tools stack** (MCP server + SDK agents framework), **metric synthesis and iterative improvement**, and expanded **query efficiency features** for list endpoints.
+
+### Featured Capabilities
+
+**Rhesis Architect (Backend + Frontend + SDK)**
+
+Architect is now available as a full product workflow:
+
+- **Conversational planning and execution**: multi-phase agent flow for discovery, planning, creation, and execution
+- **Streaming chat UX**: real-time thinking/tool/response event streaming in the Architect UI
+- **Stateful sessions**: persisted session history, plan state, and guarded action flow
+- **Safety controls**: explicit confirmation flow for mutating operations and scoped write-guards
+
+**Agent Tooling via MCP**
+
+Agent tools are now delivered through a dedicated MCP architecture:
+
+- **MCP endpoint**: backend `/mcp` tool surface auto-generated from FastAPI routes
+- **Shared tool metadata**: centralized labels, confirmation hints, and default query behavior
+- **Server-managed pagination for list tools**: MCP list responses can include `_pagination` metadata to drive follow-up paging
+- **SDK migration**: MCP client and agent abstractions moved into the SDK `agents` package
+
+**Metrics Authoring and Iteration**
+
+Metric workflows now support generation and refinement loops:
+
+- **SDK `MetricSynthesizer`**: generate and improve metric definitions from natural-language instructions
+- **Backend improve API**: `POST /metrics/{metric_id}/improve` updates existing metrics in place
+- **Architect integration**: metric improvement is available in Architect tool workflows
+- **Expanded guidance**: stronger multi-turn metric generation prompts and constraints
+
+**OData Response Shaping**
+
+List endpoints now support more efficient field retrieval:
+
+- **`$select` support**: choose only required fields for list responses
+- **Consistent behavior**: shared selection handling across router-generated list endpoints
+- **Agent guidance updates**: Architect/MCP tool descriptions now teach field selection patterns
+
+### Backend Highlights
+- Added Architect session/message models, API routes, WebSocket handlers, and Celery orchestration
+- Added MCP server package with route-backed tool execution and confirmation metadata
+- Added OData `$select` support across list endpoints
+- Added metric improvement endpoint and related schemas/prompts
+- Added local tool provider path with delegation-token authentication for in-process tool calls
+
+### Frontend Highlights
+- Added Architect chat page with streaming tool activity, mode changes, and plan updates
+- Added session lifecycle UI, prompt suggestions, and confirmation action controls
+- Added typed Architect WebSocket event handling and REST client integration
+- Improved chat workflow details including auto-approve and streaming behavior handling
+
+### SDK Highlights
+- Added `agents` framework primitives (`BaseAgent`, `BaseTool`, `MCPTool`) and `ArchitectAgent`
+- Added `ExploreEndpointTool` for structured endpoint exploration
+- Added `MetricSynthesizer` and exports for generation/improvement workflows
+- Consolidated agent execution loop behavior and strengthened tool-call schemas/tests
+
 ## [0.6.12] - 2026-04-09
 
 ### Platform Release

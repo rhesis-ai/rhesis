@@ -1,0 +1,140 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Agents
+
+The SDK `agents` package provides the building blocks behind the Rhesis Architect workflow:
+
+- reusable base classes (`BaseAgent`, `BaseTool`, `MCPTool`)
+- a production Architect implementation (`ArchitectAgent`)
+- endpoint exploration tooling (`ExploreEndpointTool`)
+- MCP integration helpers (`get_rhesis_tools`)
+
+Use this module when you need programmable, tool-using agent behavior in Python, especially for test-suite planning and execution workflows.
+
+## Core exports
+
+| Export | Type | Purpose |
+|---|---|---|
+| `ArchitectAgent` | class | Multi-turn planning and execution agent for test-suite design |
+| `ExploreEndpointTool` | class | Runs structured endpoint exploration via Penelope |
+| `MCPTool` | class | Wraps an MCP server as an agent tool source |
+| `BaseAgent` | class | ReAct loop foundation for custom agents |
+| `BaseTool` | class | Interface for custom local tools |
+| `get_rhesis_tools()` | function | Returns MCP-backed Rhesis platform tools from `/mcp` |
+
+## ArchitectAgent
+
+`ArchitectAgent` extends `BaseAgent` and adds stateful conversation features:
+
+- discovery/planning/creating/executing modes
+- plan persistence and progress tracking
+- confirmation guardrails for mutating tools
+- async task waiting state (`await_task`)
+- event hooks for streaming UIs
+
+### Constructor parameters
+
+| Parameter | Required | Description |
+|---|---|---|
+| `model` | No | Model slug or `BaseLLM` instance |
+| `tools` | No | List of `BaseTool` and/or `MCPTool` instances |
+| `config` | No | `ArchitectConfig` for limits and guardrails |
+| `max_iterations` | No | Maximum ReAct iterations for a turn |
+| `max_tool_executions` | No | Safety cap for total tool calls in a turn |
+| `timeout_seconds` | No | Optional wall-clock timeout per turn |
+| `history_window` | No | Number of recent messages/tool steps injected into prompts |
+| `event_handlers` | No | List of `AgentEventHandler` implementations |
+
+### Basic usage
+
+<CodeBlock filename="architect_agent_basic.py" language="python">
+{`from rhesis.sdk.agents import ArchitectAgent, get_rhesis_tools
+
+# Uses RHESIS_BASE_URL and RHESIS_API_KEY if omitted
+tools = get_rhesis_tools()
+
+agent = ArchitectAgent(
+    model="rhesis/rhesis-default",
+    tools=tools,
+    max_iterations=15,
+)
+
+response = agent.chat("Design a single-turn safety test suite for my chatbot.")
+print(response)`}
+</CodeBlock>
+
+### Async usage with attachments
+
+`chat_async()` accepts optional attachments with mention and file payloads.
+
+<CodeBlock filename="architect_agent_async.py" language="python">
+{`import asyncio
+from rhesis.sdk.agents import ArchitectAgent, get_rhesis_tools
+
+agent = ArchitectAgent(tools=get_rhesis_tools())
+
+attachments = {
+    "mentions": [{"type": "endpoint", "id": "endpoint-uuid", "display": "Support Bot"}],
+    "files": [{"filename": "requirements.md", "content": "# Test requirements..."}],
+}
+
+async def run():
+    text = await agent.chat_async(
+        "Use this endpoint and file to propose a test plan.",
+        attachments=attachments,
+    )
+    print(text)
+
+asyncio.run(run())`}
+</CodeBlock>
+
+## ExploreEndpointTool
+
+`ExploreEndpointTool` delegates endpoint probing to Penelope and returns structured findings plus conversation summaries. The tool supports:
+
+- **bound mode**: fixed endpoint at construction time
+- **unbound mode**: endpoint resolved at call time via `target_factory`
+- **strategy mode**: guided exploration with built-in strategies
+
+Available strategies include:
+
+- `domain_probing`
+- `capability_mapping`
+- `boundary_discovery`
+- `comprehensive` (runs all three with dependency-aware ordering)
+
+<CodeBlock filename="explore_endpoint_tool.py" language="python">
+{`import asyncio
+from rhesis.sdk.agents import ExploreEndpointTool
+
+tool = ExploreEndpointTool(endpoint_id="endpoint-uuid", max_turns=5)
+
+async def run():
+    result = await tool.execute(
+        strategy="comprehensive",
+        previous_findings={"domain": "travel booking"},
+    )
+    print(result.success)
+    print(result.content)
+
+asyncio.run(run())`}
+</CodeBlock>
+
+## Event handlers and timing
+
+The base agent emits lifecycle callbacks through `AgentEventHandler`, including:
+
+- `on_tool_start`
+- `on_tool_end`
+- `on_stream_start`
+- `on_text_chunk`
+- `on_stream_end`
+
+Tool execution includes wall-clock timing in `ToolResult.duration_ms`, which is useful for backend telemetry and frontend streaming indicators.
+
+## Related pages
+
+- [Connector](/sdk/connector)
+- [Endpoints entity](/sdk/entities/endpoints)
+- [Backend API Structure](/contribute/backend/api-structure)
+- [Development Changelog](/changelog)

@@ -11,6 +11,9 @@ export default {
   "background-tasks": {
     title: "Background Tasks",
   },
+  "architect-background-tasks": {
+    title: "Architect Background Tasks",
+  },
   "trace-ingestion-pipeline": {
     title: "Trace Ingestion Pipeline",
   },
