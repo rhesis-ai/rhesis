@@ -9,12 +9,10 @@ jest.mock('next-auth/react', () => ({
 }));
 
 jest.mock('@/utils/url-resolver', () => ({
-  getClientApiBaseUrl: () => 'http://127.0.0.1:8080/api/v1',
+  getClientUpstreamApiBaseUrl: () => 'http://127.0.0.1:8080/api/upstream',
 }));
 
 import { signIn } from 'next-auth/react';
-
-const PROVIDERS_URL = 'http://127.0.0.1:8080/api/v1/auth/providers';
 
 const makeProvidersResponse = (overrides: Record<string, unknown> = {}) => ({
   providers: [

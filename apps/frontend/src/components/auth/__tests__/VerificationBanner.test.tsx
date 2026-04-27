@@ -9,7 +9,7 @@ jest.mock('next-auth/react', () => ({
 }));
 
 jest.mock('@/utils/url-resolver', () => ({
-  getClientApiBaseUrl: () => 'http://127.0.0.1:8080/api/v1',
+  getClientUpstreamApiBaseUrl: () => 'http://127.0.0.1:8080/api/upstream',
 }));
 
 import { useSession } from 'next-auth/react';
@@ -80,7 +80,7 @@ describe('VerificationBanner', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://127.0.0.1:8080/api/v1/auth/resend-verification',
+        'http://127.0.0.1:8080/api/upstream/auth/resend-verification',
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ email: 'user@example.com' }),

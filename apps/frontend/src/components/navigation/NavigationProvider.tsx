@@ -6,7 +6,7 @@ import {
   type NavigationItem,
 } from '../../types/navigation';
 import { useEffect, useState, useMemo } from 'react';
-import { isQuickStartEnabled } from '@/utils/quick_start';
+import { isQuickStartHostAllowed } from '@/utils/quick_start';
 
 type NavigationProviderProps = NavigationContextProps & {
   children: React.ReactNode;
@@ -61,14 +61,13 @@ export function NavigationProvider({
   // Use robust multi-factor detection to determine if Quick Start mode is enabled
   // Pass null authentication when Quick Start is enabled to hide account menu
   // SECURITY: Defer computation until after client-side mount to ensure hostname validation
-  // During SSR, window is undefined and hostname checks are skipped, which could allow
-  // Quick Start mode in cloud deployments if NEXT_PUBLIC_QUICK_START is misconfigured.
+  // During SSR, window is undefined and hostname checks are skipped.
   const filteredAuthentication = useMemo(() => {
     // Fail-secure: Don't compute until mounted (client-side) to ensure hostname validation
     if (!mounted) {
       return authentication;
     }
-    return isQuickStartEnabled() ? null : authentication;
+    return isQuickStartHostAllowed() ? null : authentication;
   }, [mounted, authentication]);
 
   // Prevent hydration mismatch by not rendering navigation until client-side

@@ -75,9 +75,8 @@ For a full production file (many more keys), teams often load secrets from Googl
 <Table
   headers={['Variable', 'Description']}
   rows={[
-    ['`NEXT_PUBLIC_QUICK_START`', 'Mirrors backend quick-start; **disable in production** (`false`).'],
-    ['`NEXT_PUBLIC_API_BASE_URL`', 'Backend API URL exposed to the browser, e.g. `http://localhost:8080`.'],
-    ['`BACKEND_URL`', 'Backend URL for server-side requests, e.g. `http://localhost:8080`.'],
+    ['`QUICK_START`', 'Enables local quick-start auto-login; **disable in production** (`false`).'],
+    ['`BACKEND_URL`', 'Backend URL for Next.js rewrites and server-side API calls. Browser data API uses same-origin `/api/*`; FastAPI `/auth/*` uses `/api/upstream/*` so it does not collide with NextAuth at `/api/auth/*` (see `apps/frontend/next.config.mjs`).'],
     ['`NEXTAUTH_URL`', 'Must match how users open the app (same origin as the frontend).'],
     ['`NEXTAUTH_SECRET`', 'NextAuth secret; change for non-local deployments.'],
     ['`NEXT_TELEMETRY_DISABLED`', 'Disables Next.js telemetry in local dev when set (e.g. `1`).'],

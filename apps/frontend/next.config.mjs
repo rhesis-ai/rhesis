@@ -57,14 +57,14 @@ const nextConfig = {
   // date-fns, recharts, etc.) are already optimized by Next.js by default.
 
   // Environment variables available to the client
-  // NEXT_PUBLIC_ prefix guarantees availability in client components
+  // Keep only build metadata here; deployment-specific runtime config should not
+  // be inlined into the browser bundle.
   env: (() => {
     const gitInfo = getGitInfo();
     return {
       APP_VERSION: JSON.parse(
         readFileSync(path.join(__dirname, 'package.json'), 'utf8')
       ).version,
-      NEXT_PUBLIC_FRONTEND_ENV: process.env.FRONTEND_ENV,
       NEXT_PUBLIC_GIT_BRANCH: gitInfo.branch,
       NEXT_PUBLIC_GIT_COMMIT: gitInfo.commit,
     };
@@ -73,9 +73,15 @@ const nextConfig = {
   // API rewrites for cross-container communication
   async rewrites() {
     // Use BACKEND_URL for server-side calls (container-to-container)
-    // Use NEXT_PUBLIC_API_BASE_URL for client-side calls (browser-to-host)
+    // Browser calls use same-origin /api/* (rewritten here); no NEXT_PUBLIC API URL
     const backendUrl = process.env.BACKEND_URL || 'http://backend:8080';
     return [
+      // Backend routes that must not use /api/auth/* (reserved for NextAuth).
+      // Browser calls `${origin}/api/upstream/auth/...` → backend `/auth/...`.
+      {
+        source: '/api/upstream/:path*',
+        destination: `${backendUrl}/:path*`,
+      },
       // Exclude NextAuth.js routes from being proxied (keep them local)
       {
         source: '/api/auth/:path*',

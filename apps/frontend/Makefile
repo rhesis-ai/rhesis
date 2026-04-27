@@ -104,8 +104,7 @@ docker-clean:
 # E2E tests (starts docker automatically)
 # Runs @sanity smoke tests on both Chromium and Firefox, plus @crud interaction tests on Chromium only
 test-e2e: docker-up
-	NEXT_PUBLIC_QUICK_START=true \
-	NEXT_PUBLIC_API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	QUICK_START=true \
 	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
 	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
 	NEXTAUTH_URL=http://localhost:3000 \
@@ -113,8 +112,7 @@ test-e2e: docker-up
 
 # Run only @sanity smoke tests (faster, cross-browser)
 test-e2e-smoke: docker-up
-	NEXT_PUBLIC_QUICK_START=true \
-	NEXT_PUBLIC_API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	QUICK_START=true \
 	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
 	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
 	NEXTAUTH_URL=http://localhost:3000 \

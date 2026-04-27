@@ -13,7 +13,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { ThemeProvider } from '@mui/material/styles';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '@/utils/url-resolver';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 import { lightTheme } from '@/styles/theme';
 
@@ -39,7 +39,7 @@ export default function VerifyEmailPage() {
     const verify = async () => {
       try {
         const response = await fetch(
-          `${getClientApiBaseUrl()}/auth/verify-email`,
+          `${getClientUpstreamApiBaseUrl()}/auth/verify-email`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

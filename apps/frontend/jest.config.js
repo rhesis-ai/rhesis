@@ -10,6 +10,10 @@ const customJestConfig = {
   setupFiles: ['<rootDir>/jest.polyfills.js'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jsdom',
+  // So `window.location.origin` is stable (used by API proxy URL resolution tests)
+  testEnvironmentOptions: {
+    url: 'http://localhost:3000/',
+  },
   // Use v8 coverage provider to avoid inflight/test-exclude compatibility issue
   coverageProvider: 'v8',
   moduleNameMapper: {

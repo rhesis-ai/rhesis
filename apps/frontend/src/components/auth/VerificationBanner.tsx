@@ -13,7 +13,7 @@ import { alpha } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import EmailIcon from '@mui/icons-material/EmailOutlined';
 import { useSession } from 'next-auth/react';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '@/utils/url-resolver';
 
 export default function VerificationBanner() {
   const theme = useTheme();
@@ -33,7 +33,7 @@ export default function VerificationBanner() {
   const handleResend = async () => {
     setResending(true);
     try {
-      await fetch(`${getClientApiBaseUrl()}/auth/resend-verification`, {
+      await fetch(`${getClientUpstreamApiBaseUrl()}/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email }),

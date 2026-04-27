@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
 import AuthPageShell from '../components/auth/AuthPageShell';
-import { getClientApiBaseUrl } from '../utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '../utils/url-resolver';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
 
 export default function LandingPage() {
@@ -17,7 +17,6 @@ export default function LandingPage() {
   const [backendSessionValid, setBackendSessionValid] = useState<
     boolean | null
   >(null);
-  const [autoLoggingIn, setAutoLoggingIn] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isQuickStartMode, setIsQuickStartMode] = useState(false);
 
@@ -27,51 +26,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!mounted) return;
-    import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
-      setIsQuickStartMode(isQuickStartEnabled());
+    import('@/utils/quick_start').then(({ isQuickStartHostAllowed }) => {
+      setIsQuickStartMode(isQuickStartHostAllowed());
     });
   }, [mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
-    import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
-      const quickStartEnabled = isQuickStartEnabled();
-
-      if (quickStartEnabled && status === 'unauthenticated' && !autoLoggingIn) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const isSessionExpired = urlParams.get('session_expired') === 'true';
-        const isForcedLogout = urlParams.get('force_logout') === 'true';
-
-        if (!isSessionExpired && !isForcedLogout) {
-          setAutoLoggingIn(true);
-
-          fetch(`${getClientApiBaseUrl()}/auth/local-login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          })
-            .then(async response => {
-              if (response.ok) {
-                const data = await response.json();
-                const { signIn } = await import('next-auth/react');
-                await signIn('credentials', {
-                  session_token: data.session_token,
-                  refresh_token: data.refresh_token || '',
-                  redirect: true,
-                  callbackUrl: '/dashboard',
-                });
-              } else {
-                console.error('Local auto-login failed');
-                setAutoLoggingIn(false);
-              }
-            })
-            .catch(error => {
-              console.error('Local auto-login error:', error);
-              setAutoLoggingIn(false);
-            });
-        }
-      }
-    });
-  }, [mounted, status, autoLoggingIn]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -100,7 +58,7 @@ export default function LandingPage() {
     ) {
       const validateBackendSession = async () => {
         try {
-          const response = await fetch(`${getClientApiBaseUrl()}/auth/verify`, {
+          const response = await fetch(`${getClientUpstreamApiBaseUrl()}/auth/verify`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -119,7 +77,7 @@ export default function LandingPage() {
           }
 
           try {
-            await fetch(`${getClientApiBaseUrl()}/auth/logout`, {
+            await fetch(`${getClientUpstreamApiBaseUrl()}/auth/logout`, {
               method: 'GET',
               headers: { Accept: 'application/json' },
             });
@@ -139,7 +97,7 @@ export default function LandingPage() {
     }
   }, [session, status, router, sessionExpired, backendSessionValid]);
 
-  if (status === 'loading' || autoLoggingIn) {
+  if (status === 'loading') {
     return (
       <Box
         sx={{
@@ -152,11 +110,6 @@ export default function LandingPage() {
         }}
       >
         <CircularProgress />
-        {autoLoggingIn && (
-          <Typography variant="body2" color="text.secondary">
-            Logging in...
-          </Typography>
-        )}
       </Box>
     );
   }

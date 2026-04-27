@@ -45,26 +45,18 @@ interface WebSocketProviderProps {
   children: React.ReactNode;
 }
 
-/**
- * Get the WebSocket URL from environment variables.
- */
-function getWebSocketUrl(): string | null {
-  // Try NEXT_PUBLIC_WS_URL first
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-  if (wsUrl) {
-    return wsUrl;
+interface WebSocketUrlResponse {
+  url?: string;
+}
+
+async function getWebSocketUrl(): Promise<string | null> {
+  const response = await fetch('/api/websocket-url', { cache: 'no-store' });
+  if (!response.ok) {
+    return null;
   }
 
-  // Derive from API URL if WS URL not set
-  const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (apiUrl) {
-    // Replace http(s) with ws(s) and add /ws endpoint
-    const wsProtocol = apiUrl.startsWith('https://') ? 'wss://' : 'ws://';
-    const baseUrl = apiUrl.replace(/^https?:\/\//, '');
-    return `${wsProtocol}${baseUrl}/ws`;
-  }
-
-  return null;
+  const data = (await response.json()) as WebSocketUrlResponse;
+  return typeof data.url === 'string' && data.url.length > 0 ? data.url : null;
 }
 
 /**
@@ -100,41 +92,50 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       return;
     }
 
-    const wsUrl = getWebSocketUrl();
-    if (!wsUrl) {
-      console.warn(
-        'WebSocket URL not configured. Set NEXT_PUBLIC_WS_URL or NEXT_PUBLIC_API_BASE_URL.'
-      );
-      return;
-    }
+    let cancelled = false;
 
-    // Create WebSocket client
-    const client = new WebSocketClient({
-      url: wsUrl,
-      token: session.session_token,
-      onConnectionChange: connected => {
-        setIsConnected(connected);
-        if (!connected) {
-          setConnectionId(undefined);
+    getWebSocketUrl()
+      .then(wsUrl => {
+        if (cancelled) {
+          return;
         }
-      },
-    });
 
-    // Subscribe to connected event to capture connection ID
-    client.subscribe(EventType.CONNECTED, msg => {
-      const payload = msg.payload as { connection_id?: string } | undefined;
-      if (payload?.connection_id) {
-        setConnectionId(payload.connection_id);
-      }
-    });
+        if (!wsUrl) {
+          console.warn('WebSocket URL not configured.');
+          return;
+        }
 
-    // Connect
-    client.connect();
-    clientRef.current = client;
+        // Create WebSocket client
+        const client = new WebSocketClient({
+          url: wsUrl,
+          token: session.session_token,
+          onConnectionChange: connected => {
+            setIsConnected(connected);
+            if (!connected) {
+              setConnectionId(undefined);
+            }
+          },
+        });
 
-    // Cleanup on unmount or session change
+        // Subscribe to connected event to capture connection ID
+        client.subscribe(EventType.CONNECTED, msg => {
+          const payload = msg.payload as { connection_id?: string } | undefined;
+          if (payload?.connection_id) {
+            setConnectionId(payload.connection_id);
+          }
+        });
+
+        // Connect
+        client.connect();
+        clientRef.current = client;
+      })
+      .catch(error => {
+        console.error('Failed to load WebSocket URL:', error);
+      });
+
     return () => {
-      client.disconnect();
+      cancelled = true;
+      clientRef.current?.disconnect();
       clientRef.current = null;
       setIsConnected(false);
       setConnectionId(undefined);

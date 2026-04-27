@@ -27,15 +27,21 @@
  */
 export function isQuickStartEnabled(hostname?: string): boolean {
   // 1. Check QUICK_START environment variable (default: false for safety)
-  // In Next.js, check both NEXT_PUBLIC_QUICK_START (build-time) and QUICK_START (runtime)
-  const quickStartEnv =
-    process.env.NEXT_PUBLIC_QUICK_START === 'true' ||
-    process.env.QUICK_START === 'true';
+  const quickStartEnv = process.env.QUICK_START === 'true';
 
   if (!quickStartEnv) {
     return false;
   }
 
+  return isQuickStartHostAllowed(hostname);
+}
+
+/**
+ * Validate whether the current hostname is allowed to use Quick Start.
+ * This is split from env detection so client code can combine runtime config
+ * fetched from the server with the same cloud-domain safety checks.
+ */
+export function isQuickStartHostAllowed(hostname?: string): boolean {
   // 2. HOSTNAME/DOMAIN CHECKS - Fail if cloud domain detected
   const checkHostname =
     hostname || (typeof window !== 'undefined' ? window.location.hostname : '');

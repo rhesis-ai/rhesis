@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import Image from 'next/image';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '@/utils/url-resolver';
 
 export default function DemoPage() {
   const [showCredentials, setShowCredentials] = useState(false);
@@ -42,7 +42,7 @@ export default function DemoPage() {
     setIsRedirecting(true);
 
     // Redirect to backend demo endpoint which will redirect to Auth0 with login_hint
-    window.location.href = `${getClientApiBaseUrl()}/auth/demo`;
+    window.location.href = `${getClientUpstreamApiBaseUrl()}/auth/demo`;
   };
 
   return (

@@ -12,7 +12,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { ThemeProvider } from '@mui/material/styles';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '@/utils/url-resolver';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 import { lightTheme } from '@/styles/theme';
 
@@ -36,7 +36,7 @@ export default function MagicLinkPage() {
     const verify = async () => {
       try {
         const response = await fetch(
-          `${getClientApiBaseUrl()}/auth/magic-link/verify`,
+          `${getClientUpstreamApiBaseUrl()}/auth/magic-link/verify`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

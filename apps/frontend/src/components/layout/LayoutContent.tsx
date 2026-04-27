@@ -53,8 +53,8 @@ export function LayoutContent({
   // Check Quick Start mode after mount (client-side only)
   React.useEffect(() => {
     // Dynamic import for client-side only code
-    import('@/utils/quick_start').then(({ isQuickStartEnabled }) => {
-      setIsQuickStartMode(isQuickStartEnabled());
+    import('@/utils/quick_start').then(({ isQuickStartHostAllowed }) => {
+      setIsQuickStartMode(isQuickStartHostAllowed());
     });
   }, []);
 

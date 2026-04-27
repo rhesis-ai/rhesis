@@ -1,6 +1,6 @@
 'use client';
 
-import { API_CONFIG } from './api-client/config';
+import { getClientUpstreamApiBaseUrl } from './url-resolver';
 
 export interface User {
   id: string;
@@ -39,7 +39,7 @@ export async function getSession(): Promise<Session | null> {
   }
 
   try {
-    const response = await fetch(`${API_CONFIG.baseUrl}/auth/verify`, {
+    const response = await fetch(`${getClientUpstreamApiBaseUrl()}/auth/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ export async function clearAllSessionData() {
   const maxRetries = 2;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const logoutUrl = new URL(`${API_CONFIG.baseUrl}/auth/logout`);
+      const logoutUrl = new URL(`${getClientUpstreamApiBaseUrl()}/auth/logout`);
       if (sessionToken) {
         logoutUrl.searchParams.set('session_token', sessionToken);
       }

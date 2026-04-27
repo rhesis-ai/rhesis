@@ -19,11 +19,10 @@ test.describe('Health @sanity', () => {
     await expect(page).toHaveTitle(/Rhesis/i);
   });
 
-  test('API base URL is reachable from the frontend', async ({ request }) => {
-    // Verify the backend health endpoint responds
-    const apiBase =
-      process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
-    const response = await request.get(`${apiBase}/health`);
+  test('backend health is reachable via Next.js /api proxy', async ({
+    request,
+  }) => {
+    const response = await request.get('/api/health');
     expect(response.ok()).toBeTruthy();
   });
 });

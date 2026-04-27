@@ -4,9 +4,6 @@ import { toHaveNoViolations } from 'jest-axe';
 // Extend Jest matchers with accessibility assertions
 expect.extend(toHaveNoViolations);
 
-// Set environment variables for tests
-process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1';
-
 // Mock TextEncoder and TextDecoder for basic compatibility
 global.TextEncoder = global.TextEncoder || require('util').TextEncoder;
 global.TextDecoder = global.TextDecoder || require('util').TextDecoder;
@@ -90,25 +87,7 @@ Object.defineProperty(window, 'scrollTo', {
   writable: true,
 });
 
-// Make window.location mockable for tests
-// Delete first, then redefine to avoid jsdom's built-in location
-delete window.location;
-window.location = {
-  href: 'http://localhost:3000',
-  origin: 'http://localhost:3000',
-  protocol: 'http:',
-  host: 'localhost:3000',
-  hostname: 'localhost',
-  port: '3000',
-  pathname: '/',
-  search: '',
-  hash: '',
-  // Location methods that components may call
-  assign: jest.fn(),
-  replace: jest.fn(),
-  reload: jest.fn(),
-  toString: jest.fn(() => 'http://localhost:3000'),
-};
+// Location comes from jest `testEnvironmentOptions.url` (see jest.config.js)
 
 // Mock localStorage
 const localStorageMock = {

@@ -111,8 +111,9 @@ The base client is implemented in `src/utils/api-client/client.ts` and handles c
 
 <CodeBlock filename="client.ts" language="typescript">
 {`import { getTokens } from '@/auth';
+import { getBaseUrl } from '@/utils/url-resolver';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = getBaseUrl(); // browser: same-origin /api; server: BACKEND_URL
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -442,18 +443,18 @@ export async function deleteProject(id: string) {
 
 ## API Configuration
 
-The Rhesis backend API URL is configured in environment variables:
+The backend URL for rewrites and server-side calls is `BACKEND_URL`. The browser calls same-origin `/api/*`, which Next.js proxies to that backend.
 
 <CodeBlock filename=".env.local" language="bash">
   {`# .env.local
-NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai`}
+BACKEND_URL=https://api.rhesis.ai`}
 </CodeBlock>
 
-For local development, you might point to a local instance of the Rhesis backend:
+For local development, point at a local backend:
 
 <CodeBlock language="bash" filename=".env.local">
 {`# .env.local
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3001`}
+BACKEND_URL=http://localhost:8080`}
 </CodeBlock>
 
 ## Error Handling

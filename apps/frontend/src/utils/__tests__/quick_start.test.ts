@@ -28,8 +28,7 @@ describe('quick_start', () => {
     });
 
     describe('Environment variable validation', () => {
-      it('should return false when NEXT_PUBLIC_QUICK_START is not set', () => {
-        delete process.env.NEXT_PUBLIC_QUICK_START;
+      it('should return false when QUICK_START is not set', () => {
         delete process.env.QUICK_START;
 
         const result = isQuickStartEnabled();
@@ -37,32 +36,31 @@ describe('quick_start', () => {
         expect(result).toBe(false);
       });
 
-      it('should return false when NEXT_PUBLIC_QUICK_START is false', () => {
-        process.env.NEXT_PUBLIC_QUICK_START = 'false';
+      it('should return false when QUICK_START is false', () => {
+        process.env.QUICK_START = 'false';
 
         const result = isQuickStartEnabled();
 
         expect(result).toBe(false);
       });
 
-      it('should return false when NEXT_PUBLIC_QUICK_START is empty', () => {
-        process.env.NEXT_PUBLIC_QUICK_START = '';
+      it('should return false when QUICK_START is empty', () => {
+        process.env.QUICK_START = '';
 
         const result = isQuickStartEnabled();
 
         expect(result).toBe(false);
       });
 
-      it('should return true when NEXT_PUBLIC_QUICK_START is true and no cloud signals', () => {
-        process.env.NEXT_PUBLIC_QUICK_START = 'true';
+      it('should return true when QUICK_START is true and no cloud signals', () => {
+        process.env.QUICK_START = 'true';
 
         const result = isQuickStartEnabled('localhost');
 
         expect(result).toBe(true);
       });
 
-      it('should accept QUICK_START as fallback', () => {
-        delete process.env.NEXT_PUBLIC_QUICK_START;
+      it('should accept QUICK_START', () => {
         process.env.QUICK_START = 'true';
 
         const result = isQuickStartEnabled('localhost');
@@ -73,7 +71,7 @@ describe('quick_start', () => {
 
     describe('Hostname pattern matching', () => {
       beforeEach(() => {
-        process.env.NEXT_PUBLIC_QUICK_START = 'true';
+        process.env.QUICK_START = 'true';
       });
 
       it.each([
@@ -158,7 +156,7 @@ describe('quick_start', () => {
 
     describe('Edge cases', () => {
       beforeEach(() => {
-        process.env.NEXT_PUBLIC_QUICK_START = 'true';
+        process.env.QUICK_START = 'true';
       });
 
       it('should handle empty hostname string', () => {
@@ -208,7 +206,7 @@ describe('quick_start', () => {
 
     describe('Fail-secure behavior', () => {
       it('should return false if environment is true but hostname is cloud', () => {
-        process.env.NEXT_PUBLIC_QUICK_START = 'true';
+        process.env.QUICK_START = 'true';
 
         const result = isQuickStartEnabled('example-app.rhesis.ai');
 
@@ -216,7 +214,7 @@ describe('quick_start', () => {
       });
 
       it('should return false if environment is true but hostname is Cloud Run', () => {
-        process.env.NEXT_PUBLIC_QUICK_START = 'true';
+        process.env.QUICK_START = 'true';
 
         const result = isQuickStartEnabled('my-service.run.app');
 
@@ -224,7 +222,7 @@ describe('quick_start', () => {
       });
 
       it('should return true only when all checks pass', () => {
-        process.env.NEXT_PUBLIC_QUICK_START = 'true';
+        process.env.QUICK_START = 'true';
 
         const result = isQuickStartEnabled('localhost');
 

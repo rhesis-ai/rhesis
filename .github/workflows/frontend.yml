@@ -177,13 +177,12 @@ jobs:
               BACKEND_API_URL=$(echo "${{ inputs.backend_preview_url_encoded }}" | base64 -d)
               echo "🔗 Using decoded backend URL: $BACKEND_API_URL"
             else
-              BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
+              BACKEND_API_URL="${{ secrets.BACKEND_URL }}"
               echo "🔗 Using default backend URL: $BACKEND_API_URL"
             fi
 
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
-              --build-arg NEXT_PUBLIC_API_BASE_URL="$BACKEND_API_URL" \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
               -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/frontend/Dockerfile apps/frontend
@@ -193,7 +192,6 @@ jobs:
             # For regular deployments, use latest tag and original URLs
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
-              --build-arg NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }} \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
               -t ${{ env.IMAGE_NAME }}:latest -f apps/frontend/Dockerfile apps/frontend
@@ -300,7 +298,6 @@ jobs:
               --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=$PREVIEW_FRONTEND_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_API_URL,
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
@@ -337,7 +334,6 @@ jobs:
               --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }},
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }},
           BACKEND_URL=${{ secrets.BACKEND_URL }},
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
@@ -489,7 +485,6 @@ jobs:
             --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=PLACEHOLDER_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_API_URL,
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
@@ -503,7 +498,7 @@ jobs:
           # Prepare environment variables for update
           echo "🔍 Debug backend URL inputs:"
           echo "  - inputs.backend_preview_url_encoded: '${{ inputs.backend_preview_url_encoded }}'"
-          echo "  - secrets.NEXT_PUBLIC_API_BASE_URL: '${{ secrets.NEXT_PUBLIC_API_BASE_URL }}'"
+          echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
           echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
 
           # Check if we have a backend preview URL (encoded)
@@ -513,7 +508,7 @@ jobs:
             BACKEND_URL_VAR="$BACKEND_API_URL"
             echo "  - ✅ Decoded backend preview URL: '$BACKEND_API_URL'"
           else
-            BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
+            BACKEND_API_URL="${{ secrets.BACKEND_URL }}"
             BACKEND_URL_VAR="${{ secrets.BACKEND_URL }}"
             echo "  - ⚠️ WARNING: No backend preview URL provided, using defaults"
             echo "  - This means frontend will NOT communicate with backend preview!"
@@ -545,7 +540,6 @@ jobs:
             --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=$PREVIEW_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_URL_VAR,
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},

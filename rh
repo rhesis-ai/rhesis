@@ -214,8 +214,6 @@ create_frontend_env() {
     cat > "$env_file" << EOF
 $DEV_ENV_MARKER on $timestamp
 
-NEXT_PUBLIC_QUICK_START=true
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
 FRONTEND_ENV=local
 BACKEND_URL=http://localhost:8080
 NEXTAUTH_URL=http://localhost:3000
@@ -547,7 +545,6 @@ start_all() {
             echo "" >> .env.docker.local
             echo "# Local Authentication Bypass" >> .env.docker.local
             echo "QUICK_START=true" >> .env.docker.local
-            echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
             echo -e "${GREEN}✅ Created .env.docker.local with local configuration${NC}"
         else
             # Update existing file
@@ -567,11 +564,6 @@ start_all() {
             # Add QUICK_START if missing
             if ! grep -q "^QUICK_START=" .env.docker.local 2>/dev/null; then
                 echo "QUICK_START=true" >> .env.docker.local
-            fi
-
-            # Add NEXT_PUBLIC_QUICK_START if missing
-            if ! grep -q "^NEXT_PUBLIC_QUICK_START=" .env.docker.local 2>/dev/null; then
-                echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
             fi
 
             echo -e "${GREEN}✅ Local configuration updated in .env.docker.local${NC}"
