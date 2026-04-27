@@ -100,20 +100,7 @@ module "ingress_dev" {
   depends_on = [module.dev]
 }
 
-module "gcs_dev" {
-  source = "../../modules/storage-buckets/gcp"
-
-  project_id  = var.project_id
-  environment = "dev"
-  location    = var.region
-
-  file_storage_bucket_name = var.file_storage_bucket_name
-  cnpg_backup_bucket_name  = var.cnpg_backup_bucket_name
-  force_destroy            = var.gcs_bucket_force_destroy
-  file_storage_iam_members = var.file_storage_iam_members
-  cnpg_backup_iam_members  = var.cnpg_backup_iam_members
-}
-
+# GCS buckets: managed by terraform/infrastructure (root) with the same state as GKE — not duplicated here.
 module "argocd_dev" {
   source = "../../modules/argocd"
 

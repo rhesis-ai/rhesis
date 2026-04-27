@@ -43,7 +43,7 @@ resource "null_resource" "get_credentials" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
+    command     = <<-EOT
       gcloud container clusters get-credentials ${var.cluster_name} \
         --region=${var.region} \
         --project=${var.project_id} \
@@ -115,7 +115,7 @@ resource "null_resource" "argocd_wait" {
   }
 
   provisioner "local-exec" {
-    command = <<-EOT
+    command     = <<-EOT
       kubectl wait --for=condition=available deployment/argocd-server \
         -n argocd --timeout=300s
     EOT
