@@ -76,8 +76,7 @@ class ScoreEvaluator:
         if threshold_operator not in valid_operators:
             valid_ops_str = ", ".join([op.value for op in valid_operators])
             logger.warning(
-                "Operator '%s' is not valid for score type '%s'. "
-                "Valid operators for %s are: %s",
+                "Operator '%s' is not valid for score type '%s'. Valid operators for %s are: %s",
                 threshold_operator.value,
                 score_type.value,
                 score_type.value,

@@ -89,9 +89,7 @@ class DatabaseExceptionHandler:
 
             # Generic foreign key error if no specific field found
             logger.warning(f"Generic foreign key constraint violation in {entity_name}")
-            raise HTTPException(
-                status_code=400, detail=f"Invalid reference in {entity_name} data"
-            )
+            raise HTTPException(status_code=400, detail=f"Invalid reference in {entity_name} data")
 
         # Handle unique constraint violations
         if "unique constraint" in error_msg or "already exists" in error_msg:
