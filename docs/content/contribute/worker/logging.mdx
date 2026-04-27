@@ -101,11 +101,11 @@ INFO:     127.0.0.1:35500 - "GET /debug/redis HTTP/1.1" 200 OK`}
 # Task processing
 [2024-01-15 10:30:15,234: INFO/MainProcess] Received task: rhesis.backend.tasks.execute_test[task-id-123]
 [2024-01-15 10:30:15,456: INFO/ForkPoolWorker-1] Task rhesis.backend.tasks.execute_test[task-id-123] succeeded in 2.34s
-[2024-01-15 10:30:16,789: INFO/MainProcess] Received task: rhesis.backend.tasks.collect_results[chord-id-456]
+[2024-01-15 10:30:16,789: INFO/MainProcess] Received task: rhesis.backend.tasks.collect_results[summary-task-456]
 
 # Errors
 [2024-01-15 10:30:20,123: ERROR/ForkPoolWorker-2] Task rhesis.backend.tasks.execute_test[task-id-789] raised unexpected: ConnectionError('Redis connection failed')
-[2024-01-15 10:30:25,456: WARNING/MainProcess] Chord unlock task chord_unlock[chord-id-456] retry: Retry in 1.0s`}
+[2024-01-15 10:30:22,000: INFO/ForkPoolWorker-1] [BATCH] Starting: 12 tests, concurrency=4, timeout=300s`}
 </CodeBlock>
 
 ### 4. Application Task Logs
@@ -216,8 +216,8 @@ kubectl logs <pod-name> -c worker -n <namespace> | grep "Received task"
 # Find task completions
 kubectl logs <pod-name> -c worker -n <namespace> | grep "succeeded in"
 
-# Find chord activity
-kubectl logs <pod-name> -c worker -n <namespace> | grep -i chord`}
+# Find batch runner markers
+kubectl logs <pod-name> -c worker -n <namespace> | grep "\\[BATCH\\]"}
 </CodeBlock>
 
 #### Search for Health Check Activity
@@ -271,8 +271,8 @@ done`}
 {`# TLS connection delay (normal for Redis TLS)
 ⚠️  TLS detected in broker URL, adjusting timeouts to 10 seconds
 
-# Chord retries (may indicate failed subtasks)
-[WARNING/MainProcess] Chord unlock task chord_unlock[...] retry: Retry in 1.0s
+# Batch cancellation or watchdog messages (investigate run + worker state)
+[INFO/MainProcess] [BATCH] Test <id> cancelled mid-flight
 
 # Health check timeouts (may indicate Redis delays)
 WARNING: Health check took 8.5 seconds (timeout: 10)`}
