@@ -273,29 +273,21 @@ jobs:
 
           echo "Using image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
 
-          # Cloud Run Jobs cold-start in us-central1 was measured at ~1m 40s
-          # steady-state (and ~2m 18s first-execution). The same workload in
-          # us-east1 starts in ~11s. We therefore run the migration job in
-          # us-east1 while Cloud SQL + all other services stay in env.REGION
-          # (us-central1). Cross-region DB access adds ~1-2s to Alembic DDL,
-          # a tiny cost vs. the ~90s platform cold-start saving.
-          MIGRATE_REGION="us-east1"
-
           # Stable job name per environment (create-or-update via deploy)
           MIGRATION_JOB_NAME="${SERVICE_NAME}-migrate"
-          echo "Deploying/updating Cloud Run Job: $MIGRATION_JOB_NAME in $MIGRATE_REGION"
+          echo "Deploying/updating Cloud Run Job: $MIGRATION_JOB_NAME"
 
-          # No VPC on the migrate job: Cloud SQL is reached via the
-          # /cloudsql/... socket attached by --set-cloudsql-instances, which
-          # works cross-region because sqladmin.googleapis.com is a global API.
+          # No VPC: migration only needs Cloud SQL via /cloudsql/... socket
+          # (attached by --set-cloudsql-instances). Dropping the VPC connector
+          # cuts a large chunk of cold-start overhead.
           gcloud run jobs deploy "$MIGRATION_JOB_NAME" \
             --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
             --project=${{ env.PROJECT_ID }} \
-            --region=$MIGRATE_REGION \
+            --region=${{ env.REGION }} \
             --max-retries=0 \
             --task-timeout=10m \
             --memory=1Gi \
-            --cpu=2 \
+            --cpu=1 \
             --set-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
             --set-env-vars="SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --args=bash,-c,./migrate.sh
@@ -305,7 +297,7 @@ jobs:
           echo "🚀 Executing migration job..."
           gcloud run jobs execute "$MIGRATION_JOB_NAME" \
             --project=${{ env.PROJECT_ID }} \
-            --region=$MIGRATE_REGION \
+            --region=${{ env.REGION }} \
             --wait
 
           MIGRATION_EXIT_CODE=$?
