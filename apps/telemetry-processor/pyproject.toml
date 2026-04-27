@@ -21,3 +21,8 @@ packages = ["src"]
 
 [tool.uv]
 exclude-newer = "1 week"
+constraint-dependencies = [
+    "pyasn1>=0.6.3",
+    "orjson>=3.11.7",
+    "tornado>=6.5.5",
+]
