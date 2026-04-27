@@ -92,6 +92,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       return;
     }
 
+    const sessionToken = session.session_token;
     let cancelled = false;
 
     getWebSocketUrl()
@@ -108,7 +109,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         // Create WebSocket client
         const client = new WebSocketClient({
           url: wsUrl,
-          token: session.session_token,
+          token: sessionToken,
           onConnectionChange: connected => {
             setIsConnected(connected);
             if (!connected) {
