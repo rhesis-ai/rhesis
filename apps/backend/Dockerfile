@@ -53,7 +53,13 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_NO_DEV=1
 
-RUN sed -i 's|path = "../../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/pyproject.toml
+# Rewrite all [tool.uv.sources] paths so uv can resolve them. We don't install
+# rhesis-sdk / rhesis-penelope here (they're behind the [all] extra), but uv still
+# parses every source entry up front, so the paths must point somewhere valid.
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
