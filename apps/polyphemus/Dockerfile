@@ -19,17 +19,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install build dependencies including Rust (needed for base2048/maturin)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     git \
     curl \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
-
-# Add Rust to PATH
-ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Copy only the dependency files for polyphemus
 COPY apps/polyphemus/pyproject.toml apps/polyphemus/uv.lock ./
