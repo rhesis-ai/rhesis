@@ -7,67 +7,77 @@ requires-python = ">=3.12"
 # Known unpatched vulnerabilities in transitive dependencies:
 # - orjson (CVE-2025-67221): no recursion limit for deeply nested JSON. No patch available.
 dependencies = [
-    "fastapi",
-    "uvicorn",
+    # --- Core (used by migrations, Polyphemus, and the full backend) ---
+    "rhesis",
     "sqlalchemy",
     "psycopg2-binary==2.9.9",
     "pgvector>=0.3.0",
     "pydantic",
     "alembic",
-    "faker",
-    "jinja2",
     "python-dotenv",
     "pyyaml",
-    "openpyxl",
+    "tomli>=2.0.0",
     "nanoid",
-    "huggingface_hub",
     "PyJWT>=2.12.0",
-    "python-multipart>=0.0.22",
-    "authlib",
     "httpx",
-    "itsdangerous",
     "chardet",
-    "jsonpath-ng==1.7.0",
-    "websockets==15.0.1",
     "tenacity==8.2.3",
-    "psutil==5.9.5",
+    "odata-query==0.10.0",
+    "email-validator>=2.0.0",
+    "cryptography>=46.0.5",
+    "passlib[bcrypt]>=1.7.4",
+    "zxcvbn>=4.4.24",
+    "bcrypt>=4.0.0,<5.0.0",
+    "python-json-logger>=4.0.0",
+    # --- Web framework + auth + workers (small/medium, used everywhere) ---
+    "fastapi",
+    "uvicorn",
+    "gunicorn>=21.2.0",
+    "python-multipart>=0.0.22",
+    "slowapi>=0.1.9",
+    "itsdangerous",
+    "authlib",
     "celery[redis]==5.5.2",
     "kombu==5.5.3",
     "redis>=5.0.0,<6.0.0",
     "portalocker==3.1.1",
-    "yaspin==3.1.0",
+    "websockets==15.0.1",
+    "psutil==5.9.5",
     "pyfiglet==1.0.2",
-    "odata-query==0.10.0",
+    "yaspin==3.1.0",
     "pathspec==0.12.1",
-    "gunicorn>=21.2.0",
-    "tomli>=2.0.0",
-    "google-genai>=1.13.0",
-    "mirascope==1.24.0",
-    "protobuf>=6.33.5",
-    "proto-plus>=1.26.1",
-    "email-validator>=2.0.0",
-    "slowapi>=0.1.9",
-    "rhesis-sdk",
-    "rhesis-penelope",
-    "gcsfs>=2025.9.0",
-    "cryptography>=46.0.5",
+    "jsonpath-ng==1.7.0",
+    "jinja2",
+    "faker",
+    "openpyxl",
     "pillow>=12.1.1",
+    "fastxlsx>=0.2.0",
+    # --- OpenTelemetry (small wheels, eagerly imported by main.py) ---
     "opentelemetry-api>=1.32.1",
     "opentelemetry-sdk>=1.32.1",
     "opentelemetry-exporter-otlp-proto-http>=1.32.1",
     "opentelemetry-instrumentation-fastapi>=0.45b0",
-    "passlib[bcrypt]>=1.7.4",
-    "zxcvbn>=4.4.24",
-    "bcrypt>=4.0.0,<5.0.0",
-    "garak>=0.14.0",
-    "mcp-atlassian>=0.13.0",
-    "fastxlsx>=0.2.0",
+    "protobuf>=6.33.5",
+    "proto-plus>=1.26.1",
+    # --- MCP server bits (small) ---
     "mcp>=1.2.0",
-    "sendgrid>=6.12.5",
-    "python-json-logger>=4.0.0",
 ]
 
 [project.optional-dependencies]
+# Heavy ML/AI/cloud extras. These are NOT needed for migrations or for the
+# Polyphemus auth/crud import chain, so they stay out of the lightweight
+# `migrate` image and out of Polyphemus.
+all = [
+    "rhesis-sdk",
+    "rhesis-penelope",
+    "garak>=0.14.0",
+    "mirascope==1.24.0",
+    "huggingface_hub",
+    "google-genai>=1.13.0",
+    "gcsfs>=2025.9.0",
+    "sendgrid>=6.12.5",
+    "mcp-atlassian>=0.13.0",
+]
 # PyTorch accelerator options - use ONE of these extras
 cpu = ["torch>=2.0"]
 gpu = ["torch>=2.0"]
@@ -127,6 +137,7 @@ torch = [
     # GPU extra: use CUDA on Linux/Windows, fall back to PyPI (CPU) on macOS
     { index = "pytorch-cu128", extra = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
+rhesis = { path = "../../packages/rhesis" }
 rhesis-sdk = { path = "../../sdk", editable = true }
 rhesis-penelope = { path = "../../penelope", editable = true }
 

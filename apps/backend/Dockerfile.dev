@@ -47,10 +47,11 @@ COPY packages/rhesis/pyproject.toml packages/rhesis/README.md packages/rhesis/
 # Fix paths in pyproject.toml for Docker layout (/app), same as production Dockerfile
 RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/pyproject.toml && \
     sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-install-project --no-install-local --extra cpu
+    uv sync --no-install-project --no-install-local --extra all --extra cpu
 
 # Layer 2: full sources, then install local packages
 COPY sdk /app/sdk/
@@ -59,7 +60,7 @@ COPY packages/rhesis /app/packages/rhesis/
 COPY apps/backend/src /app/src/
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra cpu
+    uv sync --extra all --extra cpu
 
 
 # ============================================================================

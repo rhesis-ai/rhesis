@@ -186,11 +186,17 @@ jobs:
             docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG --target backend -f apps/backend/Dockerfile .
             docker tag ${{ env.IMAGE_NAME }}:$BUILD_TAG ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
             echo "Built preview image: ${{ env.IMAGE_NAME }}:$BUILD_TAG"
+            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}-migrate:$BUILD_TAG --target migrate -f apps/backend/Dockerfile .
+            docker tag ${{ env.IMAGE_NAME }}-migrate:$BUILD_TAG ${{ env.IMAGE_NAME }}-migrate:${{ env.COMMIT_SHA }}
+            echo "Built preview migrate image: ${{ env.IMAGE_NAME }}-migrate:$BUILD_TAG"
           else
             # For regular deployments, use unique tag + latest tag
             docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG --target backend -f apps/backend/Dockerfile .
             docker tag ${{ env.IMAGE_NAME }}:$BUILD_TAG ${{ env.IMAGE_NAME }}:latest
             echo "Built regular image: ${{ env.IMAGE_NAME }}:$BUILD_TAG (tagged as latest)"
+            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}-migrate:$BUILD_TAG --target migrate -f apps/backend/Dockerfile .
+            docker tag ${{ env.IMAGE_NAME }}-migrate:$BUILD_TAG ${{ env.IMAGE_NAME }}-migrate:latest
+            echo "Built migrate image: ${{ env.IMAGE_NAME }}-migrate:$BUILD_TAG (tagged as latest)"
           fi
 
       - name: Push Container
@@ -199,12 +205,18 @@ jobs:
             # For preview deployments, push both unique and commit SHA tagged images
             docker push ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
             docker push ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
+            docker push ${{ env.IMAGE_NAME }}-migrate:${{ env.BUILD_TAG }}
+            docker push ${{ env.IMAGE_NAME }}-migrate:${{ env.COMMIT_SHA }}
             echo "Pushed preview images: ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} and :${{ env.COMMIT_SHA }}"
+            echo "Pushed preview migrate images: ${{ env.IMAGE_NAME }}-migrate:${{ env.BUILD_TAG }} and :${{ env.COMMIT_SHA }}"
           else
             # For regular deployments, push both unique tag and latest
             docker push ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
             docker push ${{ env.IMAGE_NAME }}:latest
+            docker push ${{ env.IMAGE_NAME }}-migrate:${{ env.BUILD_TAG }}
+            docker push ${{ env.IMAGE_NAME }}-migrate:latest
             echo "Pushed regular images: ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} and :latest"
+            echo "Pushed migrate images: ${{ env.IMAGE_NAME }}-migrate:${{ env.BUILD_TAG }} and :latest"
           fi
 
   migrate:
@@ -281,7 +293,7 @@ jobs:
           # (attached by --set-cloudsql-instances). Dropping the VPC connector
           # cuts a large chunk of cold-start overhead.
           gcloud run jobs deploy "$MIGRATION_JOB_NAME" \
-            --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
+            --image=${{ env.IMAGE_NAME }}-migrate:$IMAGE_TAG \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --max-retries=0 \

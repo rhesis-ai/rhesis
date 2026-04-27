@@ -1,10 +1,11 @@
 import logging
 from typing import Optional, Union
 
-from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
-from rhesis.sdk.metrics.constants import (
+from rhesis.backend.app.schemas.metric_types import (
     OPERATOR_MAP,
     VALID_OPERATORS_BY_SCORE_TYPE,
+    ScoreType,
+    ThresholdOperator,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,8 +76,12 @@ class ScoreEvaluator:
         if threshold_operator not in valid_operators:
             valid_ops_str = ", ".join([op.value for op in valid_operators])
             logger.warning(
-                f"Operator '{threshold_operator.value}' is not valid for score type '{score_type.value}'. "
-                f"Valid operators for {score_type.value} are: {valid_ops_str}"
+                "Operator '%s' is not valid for score type '%s'. "
+                "Valid operators for %s are: %s",
+                threshold_operator.value,
+                score_type.value,
+                score_type.value,
+                valid_ops_str,
             )
             return False
         return True
@@ -113,14 +118,15 @@ class ScoreEvaluator:
         passing_categories: Optional[list] = None,
     ) -> bool:
         """
-        Evaluate whether a metric score meets the success criteria based on threshold and operator.
-        This method incorporates all the functionality from metric_base.py for comprehensive score evaluation.
+        Evaluate whether a metric score meets success criteria (threshold + operator).
+
+        Incorporates metric_base-style evaluation for numeric and categorical scores.
 
         Args:
             score: The metric score (can be numeric or string)
             threshold: The threshold value for numeric scores
             threshold_operator: The comparison operator ('<', '>', '>=', '<=', '=', '!=')
-            reference_score: Reference score for categorical metrics (deprecated, use passing_categories)
+            reference_score: Reference for categorical metrics (deprecated; use passing_categories)
             score_type: Explicit score type, if not provided will be auto-determined
             categories: List of valid categories for categorical metrics
             passing_categories: List of categories that indicate success
@@ -148,7 +154,9 @@ class ScoreEvaluator:
             else:  # CATEGORICAL
                 sanitized_operator = ThresholdOperator.EQUAL
             logger.debug(
-                f"Using default operator '{sanitized_operator.value}' for score type '{score_type.value}'"
+                "Using default operator '%s' for score type '%s'",
+                sanitized_operator.value,
+                score_type.value,
             )
 
         # Validate operator for score type
@@ -159,7 +167,9 @@ class ScoreEvaluator:
             else:
                 sanitized_operator = ThresholdOperator.EQUAL
             logger.debug(
-                f"Falling back to operator '{sanitized_operator.value}' for score type '{score_type.value}'"
+                "Falling back to operator '%s' for score type '%s'",
+                sanitized_operator.value,
+                score_type.value,
             )
 
         # Handle different score types
@@ -255,8 +265,9 @@ class ScoreEvaluator:
                 return score_str not in passing_cats_lower
             else:
                 logger.warning(
-                    f"Operator '{threshold_operator.value}' not typically used with passing_categories, "
-                    "defaulting to membership check"
+                    "Operator '%s' not typically used with passing_categories; "
+                    "defaulting to membership check",
+                    threshold_operator.value,
                 )
                 return score_str in passing_cats_lower
 
@@ -268,7 +279,8 @@ class ScoreEvaluator:
         else:
             # No passing categories and no reference score
             raise ValueError(
-                f"Either passing_categories or reference_score is required for {score_type.value} score type"
+                "Either passing_categories or reference_score is required for "
+                f"{score_type.value} score type"
             )
 
         # Use operator module for comparison with reference

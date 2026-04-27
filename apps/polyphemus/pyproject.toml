@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",
     "gunicorn>=21.0.0",
+    "slowapi>=0.1.9",
     
     # HTTP client for Vertex AI calls
     "httpx>=0.27.0",

@@ -55,15 +55,12 @@ COPY apps/backend /app/apps/backend/
 RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
     sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
+    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml && \
+    sed -i 's|path = "../../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/apps/backend/pyproject.toml
 
 # Install dependencies using uv sync
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev
-
-# Remove PyTorch to reduce image size (~780MB). Pulled in transitively via
-# rhesis-sdk; Polyphemus does not run local model inference.
-RUN uv pip uninstall torch
 
 # Now copy ALL source code - this layer will invalidate when any source changes
 COPY apps/polyphemus/src /app/src
