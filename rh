@@ -724,8 +724,9 @@ start_backend() {
     }
 
     check_uv
-    echo -e "${BLUE}Installing backend packages (uv sync)...${NC}"
-    uv sync || {
+    # Match apps/backend/Dockerfile build-backend: full optional deps + CPU PyTorch index
+    echo -e "${BLUE}Installing backend packages (uv sync --extra all --extra cpu)...${NC}"
+    uv sync --extra all --extra cpu || {
         echo -e "${RED}❌ Error: uv sync failed${NC}"
         exit 1
     }
@@ -882,6 +883,14 @@ start_worker() {
 
     cd "$SCRIPT_DIR/apps/backend" || {
         echo -e "${RED}❌ Error: Backend directory not found${NC}"
+        exit 1
+    }
+
+    check_uv
+    # Same venv as ./rh dev backend and apps/backend/Dockerfile build-backend
+    echo -e "${BLUE}Syncing backend venv (uv sync --extra all --extra cpu)...${NC}"
+    uv sync --extra all --extra cpu || {
+        echo -e "${RED}❌ Error: uv sync failed${NC}"
         exit 1
     }
 
