@@ -95,13 +95,13 @@ variable "gcs" {
     })
   })
   default = {
-    dev = { file_storage_bucket_name = "sources-rhesis-dev" }
+    dev = { file_storage_bucket_name = "sources-files-rhesis-dev" }
     stg = {
-      file_storage_bucket_name = "sources-rhesis-stg"
+      file_storage_bucket_name = "sources-files-rhesis-stg"
       cnpg_backup_bucket_name  = "cnpg-backup-rhesis-stg"
     }
     prd = {
-      file_storage_bucket_name = "sources-rhesis-prd"
+      file_storage_bucket_name = "sources-files-rhesis-prd"
       cnpg_backup_bucket_name  = "cnpg-backup-rhesis-prd"
     }
   }
