@@ -19,7 +19,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-02T14:42:20.762607Z"
+exclude-newer = "2026-04-20T11:34:24.613456Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -4589,6 +4589,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
     { name = "requests" },
+    { name = "tenacity" },
 ]
 
 [package.optional-dependencies]
@@ -4619,6 +4620,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rhesis-sdk", marker = "extra == 'all'" },
     { name = "rhesis-sdk", marker = "extra == 'sdk'" },
+    { name = "tenacity", specifier = ">=8.2.0" },
 ]
 provides-extras = ["all", "sdk", "telemetry"]
 

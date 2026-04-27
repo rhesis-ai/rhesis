@@ -125,6 +125,9 @@ constraint-dependencies = [
 # The existing environment already uses datasets 4.x; this override keeps them compatible.
 override-dependencies = [
     "datasets>=4.0.0",
+    # Match sdk: litellm>=1.83.7 metadata pins python-dotenv==1.0.1; relax for deepeval/CVE fixes.
+    "python-dotenv>=1.2.2",
+    "pydantic>=2.13.0",
 ]
 # CPU and GPU extras are mutually exclusive
 conflicts = [
