@@ -19,6 +19,11 @@ spec:
           persistence:
             enabled: true
             size: PLACEHOLDER
+        # Nginx gateway is enabled by default in the Loki chart; SingleBinary still routes
+        # traffic through it. Service: <Helm release name>-gateway, port 80 (with release
+        # name "loki" this is loki-gateway:80).
+        gateway:
+          enabled: true
         loki:
           commonConfig:
             replication_factor: 1

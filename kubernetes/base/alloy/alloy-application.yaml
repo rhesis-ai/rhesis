@@ -62,6 +62,8 @@ spec:
 
               loki.write "default" {
                 endpoint {
+                  # Loki chart (6.x) gateway Service: <Helm release>-gateway, port 80; matches
+                  # chart default gateway.service.port when gateway.enabled is true.
                   url = "http://loki-gateway.monitoring.svc:80/loki/api/v1/push"
                   tenant_id = "rhesis"
                 }

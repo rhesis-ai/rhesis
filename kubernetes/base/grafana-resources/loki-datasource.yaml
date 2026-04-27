@@ -13,6 +13,7 @@ spec:
     name: Loki
     type: loki
     access: proxy
+    # Same target as Alloy: Loki chart gateway (release "loki" -> Service loki-gateway, port 80)
     url: http://loki-gateway.monitoring.svc:80
     jsonData:
       httpHeaderName1: X-Scope-OrgID

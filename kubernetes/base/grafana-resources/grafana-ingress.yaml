@@ -23,6 +23,8 @@ spec:
           - path: /
             pathType: Prefix
             backend:
+              # Grafana operator creates a Service named <Grafana metadata.name>-service; CR is
+              # grafana, so the Service is grafana-service on the default Grafana http port 3000.
               service:
                 name: grafana-service
                 port:
