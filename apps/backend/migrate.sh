@@ -40,35 +40,36 @@ wait_for_database() {
 }
 
 # Function to run migrations
+#
+# We use `psql` (not `alembic current`) to read the revision before and after
+# the upgrade. Each `alembic` invocation costs ~5-6s of Python cold-start +
+# SDK/model imports inside the Cloud Run Job, so two diagnostic calls used to
+# add ~10-12s. A `psql` query on `alembic_version` returns in <100 ms and gives
+# us the same information. Verbose Alembic diagnostics still run, but only on
+# failure, where the extra latency does not matter.
 run_migrations() {
-    log "${YELLOW}🔍 Checking current migration status...${NC}"
-    
-    # Navigate to the backend directory
     cd /app/src/rhesis/backend || handle_error "Could not navigate to backend directory"
-    
-    # Check current revision
-    local current_revision
-    current_revision=$(alembic current 2>/dev/null | awk '{print $1}' || echo "None")
-    
-    log "${YELLOW}📦 Running database migrations...${NC}"
-    
-    # Run migrations with proper error handling
-    if alembic upgrade head; then
-        log "${GREEN}✅ Database migrations completed successfully!${NC}"
-        
-        # Show migration status
-        log "${BLUE}📊 Current Migration Status:${NC}"
-        alembic current || log "${YELLOW}⚠️  Could not retrieve current migration status${NC}"
-        
-        # Show tables created (limit output and handle errors)
-        log "${BLUE}📋 Database Tables:${NC}"
-        if PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "\dt" 2>/dev/null | head -20; then
-            :  # Success, do nothing
-        else
-            log "${YELLOW}⚠️  Could not list database tables${NC}"
-        fi
-    else
+
+    local before after
+    before=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
+        -tAc "SELECT version_num FROM alembic_version;" 2>/dev/null | tr -d '[:space:]' || echo "")
+
+    log "${YELLOW}📦 Running migrations (from: ${before:-'fresh DB'})...${NC}"
+
+    if ! alembic upgrade head; then
+        log "${RED}❌ alembic upgrade head failed — gathering diagnostics:${NC}"
+        alembic current || true
+        alembic history --verbose | tail -30 || true
         handle_error "alembic upgrade head command failed"
+    fi
+
+    after=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
+        -tAc "SELECT version_num FROM alembic_version;" 2>/dev/null | tr -d '[:space:]' || echo "")
+
+    if [ "$before" = "$after" ]; then
+        log "${GREEN}ℹ️  Already at head: ${after:-'(unknown)'} (no migrations applied)${NC}"
+    else
+        log "${GREEN}✅ Migrations applied: ${before:-'(none)'} → ${after}${NC}"
     fi
 }
 
