@@ -18,3 +18,8 @@ resources:
   - loki.yaml
   - alloy.yaml
   - grafana-resources.yaml
+  - rhesis/namespace.yaml
+  - rhesis/cnpg-gcs-externalsecret.yaml
+  - rhesis/cnpg-cluster.yaml
+  - rhesis/external-secret-app.yaml
+  - rhesis/rhesis-application.yaml

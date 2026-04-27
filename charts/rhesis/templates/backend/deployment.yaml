@@ -36,6 +36,7 @@ spec:
             - secretRef:
                 name: {{ .Values.existingSecret }}
           env:
+{{- include "rhesis.database.cnpgUserPassEnv" . | nindent 12 }}
             - name: SQLALCHEMY_DATABASE_URL
               value: "postgresql://$(SQLALCHEMY_DB_USER):$(SQLALCHEMY_DB_PASS)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
             - name: REDIS_URL

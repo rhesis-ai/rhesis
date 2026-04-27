@@ -1,22 +1,63 @@
-# Staging environment overrides — scaffold, fill in before deploying to stg.
+# Staging environment overrides — merged on top of values.yaml by ArgoCD.
+# All envs use GCP project rhesis-dev-sandbox.
+#
+# Staging Auth0: create a dedicated application in the Auth0 tenant and set
+# nextPublicAuth0ClientId (and nextPublicAuth0Domain if using a custom domain)
+# before first deploy. Until then, leave client id empty only in non-integrated tests.
 
+# ---------------------------------------------------------------------------
+# Global — Artifact Registry
+# ---------------------------------------------------------------------------
 global:
-  registry: "europe-west4-docker.pkg.dev/<stg-project-id>/rhesis"
+  registry: "europe-west4-docker.pkg.dev/rhesis-dev-sandbox/rhesis"
   imagePullPolicy: Always
   imageTag: "latest"
 
+# DB user/password: CloudNativePG <clustername>-app secret (not rhesis-app-secrets).
+# Cluster manifest: kubernetes/clusters/stg/rhesis/cnpg-cluster.yaml
+database:
+  existingSecret: "rhesis-stg-app"
+  usernameKey: username
+  passwordKey: password
+
+# ---------------------------------------------------------------------------
+# Non-sensitive config
+# ---------------------------------------------------------------------------
 config:
   environment: "staging"
   logLevel: "INFO"
+
+  dbName: "rhesis-db"
+  dbUser: "rhesis-user"
+
+  # Frontend
   nextPublicApiBaseUrl: "https://stg-api.rhesis.ai"
   nextPublicAppUrl: "https://stg-app.rhesis.ai"
   nextauthUrl: "https://stg-app.rhesis.ai"
+  # Replace with the staging Auth0 application client id when ready.
+  nextPublicAuth0ClientId: ""
+  nextPublicAuth0Domain: "stg-rhesis.eu.auth0.com"
+
+  # Backend
   rhesisBaseUrl: "https://stg-api.rhesis.ai"
   frontendUrl: "https://stg-app.rhesis.ai"
   backendUrl: "http://backend:8080"
-  vertexAiProject: "<stg-project-id>"
+
+  # GCP
+  vertexAiProject: "rhesis-dev-sandbox"
+
+  # AI / Vertex (same model stack as dev; override per staging policy if needed)
+  geminiModelName: "gemini-2.5-flash-001"
+  defaultGenerationModel: "vertex_ai/gemini-2.5-flash"
+  defaultEvaluationModel: "vertex_ai/gemini-2.5-flash"
+  defaultExecutionModel: "vertex_ai/gemini-2.5-flash"
+  defaultEmbeddingModel: "vertex_ai/text-embedding-005"
+  vertexAiLocation: "europe-west4"
   azureOpenAiApiVersion: "2024-02-01"
 
+# ---------------------------------------------------------------------------
+# Ingress — stg (internal; VPN / same pattern as dev)
+# ---------------------------------------------------------------------------
 backend:
   ingress:
     enabled: true
@@ -24,6 +65,20 @@ backend:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 90
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 6
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 6
 
 frontend:
   ingress:
@@ -41,12 +96,44 @@ docs:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
-# PostgreSQL disabled for stg — use CNPG Cluster or external DB via ExternalSecret
+chatbot:
+  ingress:
+    enabled: true
+    host: "stg-chatbot.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+polyphemus:
+  ingress:
+    enabled: true
+    host: "stg-polyphemus.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 90
+    periodSeconds: 20
+    timeoutSeconds: 10
+    failureThreshold: 6
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 6
+
+# PostgreSQL disabled for stg — use CNPG Cluster; host must match CNPG Cluster + -rw
 postgresql:
   enabled: false
 
 externalDatabase:
-  host: ""   # resolved from ExternalSecret / CNPG service name
+  # Must match the CNPG read-write Service for your Cluster (metadata.name = rhesis-stg)
+  host: "rhesis-stg-rw.rhesis.svc.cluster.local"
+  port: "5432"
 
 valkey:
   enabled: true
@@ -54,3 +141,7 @@ valkey:
     enabled: true
     existingSecret: "rhesis-app-secrets"
     existingSecretPasswordKey: "REDIS_PASSWORD"
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi

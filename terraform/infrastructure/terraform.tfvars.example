@@ -20,7 +20,11 @@ gke_deletion_protection = {
 }
 
 # GCS: file storage for all envs; CNPG backup buckets for stg/prd only (defaults in variables.tf).
-# Override so bucket names match STORAGE_SERVICE_URI and CNPG backup config in secrets.
+# When stg/prd are enabled and cnpg_backup_bucket_name is non-empty, modules
+# cnpg_barman_stg / cnpg_barman_prd create a Barman GSA, bucket IAM (objectUser),
+# and GSM secrets stg-rhesis-cnpg-gcs-sa-key / prd-rhesis-cnpg-gcs-sa-key (see
+# kubernetes/clusters/<env>/rhesis/cnpg-gcs-externalsecret.yaml).
+# Override so bucket names match STORAGE_SERVICE_URI and CNPG backup.
 # gcs = {
 #   dev = { file_storage_bucket_name = "sources-file-storage-example" }
 #   stg = {
