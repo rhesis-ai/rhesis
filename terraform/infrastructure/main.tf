@@ -430,6 +430,33 @@ module "gcs_prd" {
   cnpg_backup_iam_members  = var.gcs.prd.cnpg_backup_iam_members
 }
 
+# ── CloudNativePG Barman: GSA, bucket IAM, JSON key in Secret Manager (stg/prd) ─
+# Secret IDs must match kubernetes/clusters/<env>/rhesis/cnpg-gcs-externalsecret.yaml
+
+module "cnpg_barman_stg" {
+  count  = local.stg_enabled && var.gcs.stg.cnpg_backup_bucket_name != "" ? 1 : 0
+  source = "./modules/cnpg-barman-sa-gcp"
+
+  project_id               = var.project_id
+  environment              = "stg"
+  backup_bucket_name       = var.gcs.stg.cnpg_backup_bucket_name
+  secret_manager_secret_id = "stg-rhesis-cnpg-gcs-sa-key"
+
+  depends_on = [module.gcs_stg]
+}
+
+module "cnpg_barman_prd" {
+  count  = local.prd_enabled && var.gcs.prd.cnpg_backup_bucket_name != "" ? 1 : 0
+  source = "./modules/cnpg-barman-sa-gcp"
+
+  project_id               = var.project_id
+  environment              = "prd"
+  backup_bucket_name       = var.gcs.prd.cnpg_backup_bucket_name
+  secret_manager_secret_id = "prd-rhesis-cnpg-gcs-sa-key"
+
+  depends_on = [module.gcs_prd]
+}
+
 # ── WireGuard VPN server ─────────────────────────────────────────────
 # Multi-NIC: WireGuard VPC + one NIC per enabled env for kubectl routing.
 # GCP allows max 2 vNICs for <=2 vCPUs; 4 vCPUs → 4 vNICs.

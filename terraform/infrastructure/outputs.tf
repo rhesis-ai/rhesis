@@ -112,6 +112,16 @@ output "gcs_stg_cnpg_backup_uri" {
   description = "gs:// URI for CNPG backup destination in stg"
 }
 
+output "cnpg_barman_stg_service_account_email" {
+  value       = length(module.cnpg_barman_stg) > 0 ? module.cnpg_barman_stg[0].service_account_email : null
+  description = "Barman GSA; roles/storage.objectUser on the stg CNPG backup bucket"
+}
+
+output "cnpg_barman_stg_secret_manager_id" {
+  value       = length(module.cnpg_barman_stg) > 0 ? module.cnpg_barman_stg[0].secret_manager_secret_id : null
+  description = "GSM name containing the Barman key JSON; ESO stg-rhesis cnpg-gcs-externalsecret"
+}
+
 # ── Prd (conditional) ────────────────────────────────────────────────
 
 output "prd_vpc_name" {
@@ -163,4 +173,14 @@ output "gcs_prd_cnpg_backup_bucket_name" {
 output "gcs_prd_cnpg_backup_uri" {
   value       = local.prd_enabled ? module.gcs_prd[0].cnpg_backup_uri : null
   description = "gs:// URI for CNPG backup destination in prd"
+}
+
+output "cnpg_barman_prd_service_account_email" {
+  value       = length(module.cnpg_barman_prd) > 0 ? module.cnpg_barman_prd[0].service_account_email : null
+  description = "Barman GSA; roles/storage.objectUser on the prd CNPG backup bucket"
+}
+
+output "cnpg_barman_prd_secret_manager_id" {
+  value       = length(module.cnpg_barman_prd) > 0 ? module.cnpg_barman_prd[0].secret_manager_secret_id : null
+  description = "GSM name containing the Barman key JSON; ESO prd-rhesis cnpg-gcs-externalsecret"
 }

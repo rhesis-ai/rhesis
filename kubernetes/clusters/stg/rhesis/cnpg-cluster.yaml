@@ -1,0 +1,42 @@
+# CloudNativePG: primary PostgreSQL for stg. Operator: clusters/stg/cnpg-operator.yaml
+# The operator creates the read/write Service <metadata.name>-rw and secret <metadata.name>-app
+# (username, password) referenced by the Helm chart via values.database.existingSecret.
+# pgvector: standard CNPG image may not include it; use a custom imageName and
+# add CREATE EXTENSION vector under bootstrap.initdb.postInitApplicationSQL.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: rhesis-stg
+  namespace: rhesis
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  description: "Rhesis staging PostgreSQL (CloudNativePG)"
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.4-1
+  storage:
+    size: 20Gi
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 2Gi
+  postgresql:
+    parameters:
+      max_connections: "200"
+  bootstrap:
+    initdb:
+      database: rhesis-db
+      owner: rhesis-user
+      postInitApplicationSQL:
+        - 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+  backup:
+    retentionPolicy: 7d
+    barmanObjectStore:
+      destinationPath: gs://cnpg-backup-rhesis-stg
+      serverName: rhesis-stg
+      googleCredentials:
+        applicationCredentials:
+          name: rhesis-stg-cnpg-gcs
+          key: key.json

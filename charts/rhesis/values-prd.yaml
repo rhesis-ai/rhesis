@@ -1,22 +1,65 @@
-# Production environment overrides — scaffold, fill in before deploying to prd.
+# Production environment overrides — merged on top of values.yaml by ArgoCD.
+# All envs use GCP project rhesis-dev-sandbox.
+#
+# Production Auth0: set nextPublicAuth0ClientId and nextPublicAuth0Domain to the
+# production Auth0 application.
+#
+# REQUIRED FOR PROD: set global.imageTag to an immutable release tag. If left empty, the
+# chart coalesces to "latest" (see _helpers.tpl rhesis.image) — do not ship prod on floating latest.
 
+# ---------------------------------------------------------------------------
+# Global — Artifact Registry
+# ---------------------------------------------------------------------------
 global:
-  registry: "europe-west4-docker.pkg.dev/<prd-project-id>/rhesis"
+  registry: "europe-west4-docker.pkg.dev/rhesis-dev-sandbox/rhesis"
   imagePullPolicy: IfNotPresent
-  imageTag: ""   # pin to specific tag for production
+  # Set to a pinned tag before deploy, e.g. "v1.2.3" or the Artifact Registry digest tag.
+  imageTag: ""
 
+# DB user/password: CloudNativePG <clustername>-app secret (not rhesis-app-secrets).
+# Cluster manifest: kubernetes/clusters/prd/rhesis/cnpg-cluster.yaml
+database:
+  existingSecret: "rhesis-prd-app"
+  usernameKey: username
+  passwordKey: password
+
+# ---------------------------------------------------------------------------
+# Non-sensitive config
+# ---------------------------------------------------------------------------
 config:
   environment: "production"
   logLevel: "INFO"
+
+  dbName: "rhesis-db"
+  dbUser: "rhesis-user"
+
+  # Frontend
   nextPublicApiBaseUrl: "https://api.rhesis.ai"
   nextPublicAppUrl: "https://app.rhesis.ai"
   nextauthUrl: "https://app.rhesis.ai"
+  nextPublicAuth0ClientId: ""
+  nextPublicAuth0Domain: "rhesis.eu.auth0.com"
+
+  # Backend
   rhesisBaseUrl: "https://api.rhesis.ai"
   frontendUrl: "https://app.rhesis.ai"
   backendUrl: "http://backend:8080"
-  vertexAiProject: "<prd-project-id>"
+
+  # GCP
+  vertexAiProject: "rhesis-dev-sandbox"
+
+  # AI / Vertex
+  geminiModelName: "gemini-2.5-flash-001"
+  defaultGenerationModel: "vertex_ai/gemini-2.5-flash"
+  defaultEvaluationModel: "vertex_ai/gemini-2.5-flash"
+  defaultExecutionModel: "vertex_ai/gemini-2.5-flash"
+  defaultEmbeddingModel: "vertex_ai/text-embedding-005"
+  vertexAiLocation: "europe-west4"
   azureOpenAiApiVersion: "2024-02-01"
 
+# ---------------------------------------------------------------------------
+# Ingress — prd (external class for public services)
+# ---------------------------------------------------------------------------
 backend:
   replicas: 2
   ingress:
@@ -26,6 +69,20 @@ backend:
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 5
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 5
 
 frontend:
   replicas: 2
@@ -46,12 +103,46 @@ docs:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
-# PostgreSQL disabled for prd — use CNPG Cluster via GitOps directory
+chatbot:
+  ingress:
+    enabled: true
+    host: "chatbot.rhesis.ai"
+    className: external
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+polyphemus:
+  ingress:
+    enabled: true
+    host: "polyphemus.rhesis.ai"
+    className: external
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    timeoutSeconds: 10
+    failureThreshold: 5
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 5
+
+# PostgreSQL disabled for prd — use CNPG Cluster; host must match CNPG Cluster + -rw
 postgresql:
   enabled: false
 
 externalDatabase:
-  host: ""   # resolved from CNPG service name or ExternalSecret
+  # Must match the CNPG read-write Service for your Cluster (metadata.name = rhesis-prd)
+  host: "rhesis-prd-rw.rhesis.svc.cluster.local"
+  port: "5432"
 
 valkey:
   enabled: true

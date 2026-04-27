@@ -23,6 +23,18 @@ fullnameOverride: ""
 existingSecret: "rhesis-app-secrets"
 
 # ---------------------------------------------------------------------------
+# Database credentials (stg / prd with CloudNativePG)
+# When set, SQLALCHEMY_DB_USER and SQLALCHEMY_DB_PASS are taken from this
+# secret (e.g. CNPG-generated <clustername>-app) and override values from
+# the main existingSecret. Keys match CNPG defaults: username, password
+# (see https://cloudnative-pg.io/docs/current/declarative_database/ ).
+# ---------------------------------------------------------------------------
+database:
+  existingSecret: ""
+  usernameKey: username
+  passwordKey: password
+
+# ---------------------------------------------------------------------------
 # Non-sensitive application configuration (safe to store in Git).
 # These are rendered into a ConfigMap by templates/configmap.yaml.
 # ---------------------------------------------------------------------------

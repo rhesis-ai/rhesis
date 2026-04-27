@@ -66,6 +66,26 @@ Otherwise fall back to externalValkey.host.
 {{- end }}
 
 {{/*
+When database.existingSecret is set, inject env vars for DB user and password
+from the CNPG application secret. Explicit env overrides envFrom and ConfigMap
+for the same key names. Must appear before SQLALCHEMY_DATABASE_URL in env lists.
+*/}}
+{{- define "rhesis.database.cnpgUserPassEnv" -}}
+{{- if .Values.database.existingSecret }}
+- name: SQLALCHEMY_DB_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.existingSecret | quote }}
+      key: {{ .Values.database.usernameKey | default "username" | quote }}
+- name: SQLALCHEMY_DB_PASS
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.existingSecret | quote }}
+      key: {{ .Values.database.passwordKey | default "password" | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
 Build a full image reference.
 Usage: include "rhesis.image" (dict "imageValues" .Values.backend "global" .Values.global)
 */}}

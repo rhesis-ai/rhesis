@@ -7,7 +7,7 @@ resources:
 configMapGenerator:
   - name: eso-config
     literals:
-    # need to change to the actual project id and service account email for prd
+    # Prd and dev share the same GCP project; ESO uses a dedicated prd GSA in this project
       - gcp-project-id=rhesis-dev-sandbox
       - eso-service-account-email=eso-prd@rhesis-dev-sandbox.iam.gserviceaccount.com
     options:

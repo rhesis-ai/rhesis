@@ -1,0 +1,39 @@
+# CloudNativePG: HA PostgreSQL for production. See stg/cnpg-cluster.yaml for design notes.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: rhesis-prd
+  namespace: rhesis
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  description: "Rhesis production PostgreSQL (CloudNativePG)"
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.4-1
+  storage:
+    size: 100Gi
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 4Gi
+  postgresql:
+    parameters:
+      max_connections: "300"
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: rhesis-db
+      owner: rhesis-user
+      postInitApplicationSQL:
+        - 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+  backup:
+    retentionPolicy: 30d
+    barmanObjectStore:
+      destinationPath: gs://cnpg-backup-rhesis-prd
+      serverName: rhesis-prd
+      googleCredentials:
+        applicationCredentials:
+          name: rhesis-prd-cnpg-gcs
+          key: key.json
