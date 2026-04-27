@@ -486,6 +486,8 @@ def on_entity_update(mapper, connection, target):
         return
 
     try:
+        if not target.searchable_text_changed():
+            return
         _queue_embedding_after_commit(target)
     except Exception as e:
         logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
