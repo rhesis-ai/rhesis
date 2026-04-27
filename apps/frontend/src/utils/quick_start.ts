@@ -1,48 +1,10 @@
 /**
  * Quick Start mode detection utility for frontend.
  *
- * Quick Start is ONLY enabled when QUICK_START=true AND all signals confirm QUICK START MODE.
- */
-
-/**
- * Determine if QUICK START MODE should be enabled.
- *
- * Quick Start is ONLY enabled when ALL of the following conditions are met:
- * 1. QUICK_START environment variable is explicitly set to 'true'
- * 2. Hostname/domain does NOT indicate cloud deployment
- * 3. Google Cloud Run domains are NOT detected
- *
- * This is a fail-secure function: if ANY signal indicates cloud deployment,
- * it returns false. Default is false for safety.
- *
- * @param hostname - Optional hostname to check (defaults to window.location.hostname)
- * @returns True ONLY if all signals confirm QUICK START MODE, False otherwise
- *
- * @example
- * ```typescript
- * if (isQuickStartEnabled()) {
- *   // Show Quick Start login button
- * }
- * ```
- */
-export function isQuickStartEnabled(hostname?: string): boolean {
-  // 1. Check QUICK_START environment variable (default: false for safety)
-  const quickStartEnv = process.env.QUICK_START === 'true';
-
-  if (!quickStartEnv) {
-    return false;
-  }
-
-  return isQuickStartHostAllowed(hostname);
-}
-
-/**
- * Validate whether the current hostname is allowed to use Quick Start.
- * This is split from env detection so client code can combine runtime config
- * fetched from the server with the same cloud-domain safety checks.
+ * The backend owns the local-login gate. The frontend only checks whether the
+ * current host is safe before attempting backend local-login.
  */
 export function isQuickStartHostAllowed(hostname?: string): boolean {
-  // 2. HOSTNAME/DOMAIN CHECKS - Fail if cloud domain detected
   const checkHostname =
     hostname || (typeof window !== 'undefined' ? window.location.hostname : '');
   if (checkHostname) {

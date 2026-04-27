@@ -41,13 +41,11 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NEXT_PUBLIC_GIT_BRANCH=${GIT_BRANCH}
 ENV NEXT_PUBLIC_GIT_COMMIT=${GIT_COMMIT}
 
-# Browser API uses same-origin /api proxy; BACKEND_URL and QUICK_START are runtime vars.
-ARG QUICK_START=false
+# Browser API uses same-origin /api proxy; BACKEND_URL is a runtime var.
 
 # Create a temporary .env file using build arguments and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
     echo "BACKEND_URL=${BACKEND_URL}" >> .env && \
-    echo "QUICK_START=${QUICK_START}" >> .env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> .env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> .env && \
     echo "AUTH_SECRET=placeholder-auth-secret" >> .env

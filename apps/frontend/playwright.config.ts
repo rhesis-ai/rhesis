@@ -3,8 +3,8 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright configuration for Rhesis frontend E2E tests.
  *
- * Uses Quick Start mode for authentication (QUICK_START=true)
- * to bypass OAuth and enable local-login flow during tests.
+ * Uses backend Quick Start mode to bypass OAuth and enable local-login flow
+ * during tests.
  */
 export default defineConfig({
   testDir: './tests/e2e',
@@ -105,7 +105,6 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
-      QUICK_START: 'true',
       BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
       NEXTAUTH_SECRET:
         process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',

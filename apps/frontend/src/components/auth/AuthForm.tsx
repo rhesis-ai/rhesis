@@ -39,7 +39,7 @@ const HOVER_BG = '#FAFBFC'; // Intentional: auth form hover background
 const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
 
 let quickStartLoginInFlight = false;
-const QUICK_START_LOGIN_ATTEMPTED_KEY = 'quickStartLoginAttempted';
+const LOCAL_LOGIN_ATTEMPTED_KEY = 'quickStartLoginAttempted';
 
 interface ProviderInfo {
   name: string;
@@ -121,7 +121,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   useEffect(() => {
     if (isRegistration || quickStartLoginInFlight) return;
     if (!isQuickStartHostAllowed()) return;
-    if (sessionStorage.getItem(QUICK_START_LOGIN_ATTEMPTED_KEY) === 'true') {
+    if (sessionStorage.getItem(LOCAL_LOGIN_ATTEMPTED_KEY) === 'true') {
       return;
     }
 
@@ -131,7 +131,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     if (isSessionExpired || isForcedLogout) return;
 
     quickStartLoginInFlight = true;
-    sessionStorage.setItem(QUICK_START_LOGIN_ATTEMPTED_KEY, 'true');
+    sessionStorage.setItem(LOCAL_LOGIN_ATTEMPTED_KEY, 'true');
 
     fetch(`${getClientUpstreamApiBaseUrl()}/auth/local-login`, {
       method: 'POST',
@@ -159,7 +159,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   useEffect(() => {
     const fetchProviders = async () => {
       try {
-        const response = await fetch(`${getClientUpstreamApiBaseUrl()}/auth/providers`);
+        const response = await fetch(
+          `${getClientUpstreamApiBaseUrl()}/auth/providers`
+        );
         if (!response.ok) {
           throw new Error('Failed to fetch providers');
         }
@@ -309,11 +311,14 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     setFormError(null);
 
     try {
-      const response = await fetch(`${getClientUpstreamApiBaseUrl()}/auth/magic-link`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      const response = await fetch(
+        `${getClientUpstreamApiBaseUrl()}/auth/magic-link`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();

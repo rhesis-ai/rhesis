@@ -76,7 +76,6 @@ x-telemetry-config: &telemetry-config
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
   NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-  QUICK_START: ${QUICK_START:-false}
   NEXT_TELEMETRY_DISABLED: 1
 
 
@@ -189,7 +188,6 @@ services:
       dockerfile: Dockerfile
       args:
         FRONTEND_ENV: ${FRONTEND_ENV:-local}
-        QUICK_START: ${QUICK_START:-false}
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
