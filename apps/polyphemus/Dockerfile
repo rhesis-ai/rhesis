@@ -45,17 +45,19 @@ ENV UV_NO_MANAGED_PYTHON=1
 ENV UV_NO_DEV=1
 ENV UV_LINK_MODE=copy
 
-# Copy the SDK, Penelope, rhesis meta-package (SDK depends on rhesis[telemetry]), and backend
-COPY sdk /app/sdk/
-COPY penelope /app/penelope/
+# Copy the rhesis meta-package and rhesis-backend (the only path-based deps
+# polyphemus actually pulls in; rhesis-sdk and rhesis-penelope live in
+# rhesis-backend's [all] extra and aren't selected here).
+#
+# packages/rhesis/pyproject.toml uses [tool.hatch.version] with
+# path = "../../sdk/pyproject.toml" to read its version, so we copy that
+# single file in (the rest of sdk/ is unused).
 COPY packages/rhesis /app/packages/rhesis/
 COPY apps/backend /app/apps/backend/
+COPY sdk/pyproject.toml /app/sdk/pyproject.toml
 
 # Fix paths in pyproject.toml to point to the correct locations in Docker
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml && \
+RUN sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/apps/backend/pyproject.toml
 
 # Install dependencies using uv sync
@@ -86,11 +88,11 @@ RUN adduser --disabled-password --gecos '' appuser && \
 # Copy the virtual environment from builder
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 
-# Copy source code and dependencies with proper ownership
+# Copy source code with proper ownership.
+# Only rhesis-backend is editable (its src tree must be on disk at runtime);
+# `rhesis` (meta-package) is installed as a non-editable wheel, so its source
+# tree is not needed once the venv is built.
 COPY --from=builder --chown=appuser:appuser /app/src /app/src
-COPY --from=builder --chown=appuser:appuser /app/sdk /app/sdk
-COPY --from=builder --chown=appuser:appuser /app/penelope /app/penelope
-COPY --from=builder --chown=appuser:appuser /app/packages/rhesis /app/packages/rhesis
 COPY --from=builder --chown=appuser:appuser /app/apps/backend /app/apps/backend
 
 # Clean up any .env files for security

@@ -65,20 +65,6 @@ constraint-dependencies = [
     "orjson>=3.11.7",
     "tornado>=6.5.5",
 ]
-# garak>=0.14.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires
-# datasets>=4.0.0.  This override keeps both packages compatible, matching
-# the same override already present in apps/backend/pyproject.toml.
-override-dependencies = [
-    "datasets>=4.0.0",
-]
-
-[tool.uv.sources.rhesis-sdk]
-path = "../../sdk"
-editable = true
-
-[tool.uv.sources.rhesis-penelope]
-path = "../../penelope"
-editable = true
 
 [tool.uv.sources.rhesis-backend]
 path = "../backend"

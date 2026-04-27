@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-20T08:52:35.042198Z"
+exclude-newer = "2026-04-20T09:10:01.700519Z"
 exclude-newer-span = "P1W"
 
 [manifest]
@@ -23,7 +23,6 @@ constraints = [
     { name = "pyasn1", specifier = ">=0.6.3" },
     { name = "tornado", specifier = ">=6.5.5" },
 ]
-overrides = [{ name = "datasets", specifier = ">=4.0.0" }]
 
 [[package]]
 name = "alembic"
