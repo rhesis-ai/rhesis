@@ -15,12 +15,21 @@ spec:
         spec:
           containers:
             - name: grafana
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
               env:
                 - name: GF_SECURITY_ADMIN_PASSWORD
                   valueFrom:
                     secretKeyRef:
                       name: grafana-admin-credentials
                       key: admin-password
+                - name: GF_USERS_ALLOW_SIGN_UP
+                  value: "false"
   config:
     server:
       root_url: PLACEHOLDER

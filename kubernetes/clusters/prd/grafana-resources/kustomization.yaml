@@ -4,6 +4,9 @@ kind: Kustomization
 resources:
   - ../../../base/grafana-resources
 
+patches:
+  - path: grafana-replicas.yaml
+
 configMapGenerator:
   - name: grafana-config
     literals:

@@ -35,7 +35,8 @@ spec:
                   period: 24h
           limits_config:
             retention_period: PLACEHOLDER
-          auth_enabled: false
+          # Multitenancy header (X-Scope-OrgID) is required; Alloy and Grafana use tenant "rhesis"
+          auth_enabled: true
         chunksCache:
           enabled: false
         resultsCache:

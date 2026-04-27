@@ -7,8 +7,8 @@ resources:
 configMapGenerator:
   - name: loki-config
     literals:
-      - retention-period=720h
-      - storage-size=20Gi
+      - retention-period=360h
+      - storage-size=10Gi
     options:
       annotations:
         config.kubernetes.io/local-config: "true"

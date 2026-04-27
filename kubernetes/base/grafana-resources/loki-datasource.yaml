@@ -14,4 +14,8 @@ spec:
     type: loki
     access: proxy
     url: http://loki-gateway.monitoring.svc:80
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: rhesis
     editable: false

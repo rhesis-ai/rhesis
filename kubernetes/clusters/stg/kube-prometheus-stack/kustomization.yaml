@@ -7,8 +7,8 @@ resources:
 configMapGenerator:
   - name: prometheus-config
     literals:
-      - retention=30d
-      - storage-size=50Gi
+      - retention=15d
+      - storage-size=30Gi
     options:
       annotations:
         config.kubernetes.io/local-config: "true"

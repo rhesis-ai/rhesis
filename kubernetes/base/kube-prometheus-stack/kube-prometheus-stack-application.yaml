@@ -31,10 +31,9 @@ spec:
             ruleSelectorNilUsesHelmValues: false
         defaultRules:
           create: true
+        # Enable Alertmanager when receivers and routes are defined; otherwise alerts are dropped silently
         alertmanager:
-          enabled: true
-          alertmanagerSpec:
-            retention: 120h
+          enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
