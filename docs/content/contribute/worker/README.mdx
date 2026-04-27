@@ -7,8 +7,6 @@ This directory contains documentation related to the Rhesis worker system, which
 ## Contents
 
 - [Background Tasks and Processing](background-tasks.md): Detailed information about Redis-based Celery configuration, task management, tenant context handling, error recovery, and troubleshooting.
-- [Chord Management and Monitoring](chord-management.md): Legacy guide for historical Celery chord workflows used before the async batch execution engine.
-- [Chord Monitoring Quick Reference](chord-monitoring-quick-reference.md): Legacy command reference for chord monitoring workflows.
 - [Troubleshooting Guide](troubleshooting.md): Solutions for common issues with workers, tasks, and the Celery processing system.
 - [GKE Troubleshooting Guide](gke-troubleshooting.md): **NEW** - Comprehensive guide for diagnosing and fixing worker issues in Google Kubernetes Engine.
 - [Logging Guide](logging.md): **NEW** - Complete guide to worker logging, log analysis, and monitoring.
@@ -21,7 +19,6 @@ This directory contains documentation related to the Rhesis worker system, which
 - Worker deployment and scaling in **GKE (Google Kubernetes Engine)**
 - Task management and organization
 - **Async batch execution and cooperative cancellation**
-- **Legacy chord troubleshooting and recovery** (pre-`v0.6.12`)
 - Multi-tenancy in background tasks
 - Error handling and recovery
 - Task monitoring and observability
@@ -79,30 +76,12 @@ If test runs are stuck or not progressing as expected:
 1. **Inspect active tasks**:
 
 <CodeBlock language="bash" isTerminal={true}>
-{`celery -A rhesis.backend.worker.app inspect active`}
+{`celery -A rhesis.backend.worker inspect active`}
 </CodeBlock>
 
 2. **Check worker logs** for batch runner and cancellation-watchdog events.
 3. **Review execution internals**: [Test Execution](test-execution.md) and [Execution Modes](execution-modes.md)
 4. **Use troubleshooting playbooks**: [Troubleshooting Guide](troubleshooting.md)
-
-### For Legacy Chord Monitoring Issues (Pre-v0.6.12)
-If you're investigating historical chord-related incidents:
-
-1. **Quick Status Check**:
-
-<CodeBlock language="bash" isTerminal={true}>
-{`python fix_chords.py`}
-</CodeBlock>
-
-2. **Detailed Monitoring**:
-
-<CodeBlock language="bash" isTerminal={true}>
-{`python -m rhesis.backend.tasks.execution.chord_monitor status`}
-</CodeBlock>
-
-3. **Emergency Recovery**: See [Chord Management Guide](chord-management.md#emergency-recovery)
-4. **Command Reference**: Check [Quick Reference](chord-monitoring-quick-reference.md) for all commands
 
 ## Related Documentation
 

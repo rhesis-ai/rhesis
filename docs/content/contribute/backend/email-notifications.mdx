@@ -175,32 +175,9 @@ def legacy_task(self, params, db=None):
     return {"result": "success"}`}
 </CodeBlock>
 
-### Chord Example
+### Async batch and summary email
 
-When running tasks in parallel with chords, use the decorator appropriately:
-
-<CodeBlock filename="chord-example.py" language="python">
-{`from celery import chord
-
-# These run in parallel - no emails needed (no decorator)
-parallel_tasks = [
-    background_task.s(param1),
-    background_task.s(param2),
-    background_task.s(param3),
-]
-
-# This is the callback when all parallel tasks complete - send email
-@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)
-@app.task(base=BaseTask, bind=True)
-def collect_results_task(self, results):
-    # Process results and return summary
-    return {"total_tests": 10, "tests_passed": 8, "tests_failed": 2}
-
-callback = collect_results_task.s()
-
-# Execute: parallel tasks run silently, only callback sends email
-result = chord(parallel_tasks)(callback)`}
-</CodeBlock>
+Parallel test execution uses an **async batch** inside one Celery task; it does not use Celery `chord`. When the batch finishes, `trigger_results_collection` schedules `collect_results` with the result list so the same summary path (including `@email_notification`) runs as for sequential runs. See `apps/backend/src/rhesis/backend/tasks/execution/shared.py` and `batch/__init__.py`.
 
 ### Current Task Configuration
 
