@@ -356,8 +356,11 @@ Centralized API client with automatic error handling:
 
 <CodeBlock language="typescript" filename="API Client Configuration">
 {`// API client configuration
+import { getBaseUrl } from '@/utils/url-resolver';
+
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  // Browser: same-origin /api rewrite. Server: BACKEND_URL.
+  baseURL: getBaseUrl(),
   timeout: 10000,
 });
 
@@ -510,9 +513,8 @@ npm run build`}
 Key environment variables:
 
 <CodeBlock language="bash" filename=".env.local">
-{`# API Configuration
-NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_WS_URL=ws://localhost:8080
+{`# Backend API proxy target for Next.js rewrites and server-side requests
+BACKEND_URL=http://localhost:8080
 
 # Authentication
 NEXT_PUBLIC_AUTH_DOMAIN=your-auth-domain

@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
+import { getServerBackendUrl } from '@/utils/url-resolver';
 import { deriveWebSocketUrl } from '@/utils/websocket-url';
 
 export function GET() {
-  const backendUrl = process.env.BACKEND_URL || 'http://backend:8080';
-
   return NextResponse.json(
     {
-      url: deriveWebSocketUrl(backendUrl),
+      url: deriveWebSocketUrl(getServerBackendUrl()),
     },
     {
       headers: {

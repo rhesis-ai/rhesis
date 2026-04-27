@@ -32,6 +32,7 @@ RUN find . -name ".env*" -type f -delete
 
 # Define ARG for this stage. Default to production if not set.
 ARG FRONTEND_ENV=production
+ARG BACKEND_URL=http://backend:8080
 
 # Git metadata injected by CI pipeline (NEXT_PUBLIC_ prefix for client-side access)
 ARG GIT_BRANCH
@@ -41,7 +42,8 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NEXT_PUBLIC_GIT_BRANCH=${GIT_BRANCH}
 ENV NEXT_PUBLIC_GIT_COMMIT=${GIT_COMMIT}
 
-# Browser API uses same-origin /api proxy; BACKEND_URL is a runtime var.
+# Browser API uses same-origin /api proxy; Next.js rewrites need BACKEND_URL at build time.
+ENV BACKEND_URL=${BACKEND_URL}
 
 # Create a temporary .env file using build arguments and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \

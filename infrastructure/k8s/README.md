@@ -307,7 +307,9 @@ minikube start --driver=docker
 ```bash
 # Build frontend in local mode (recommended for development)
 cd apps/frontend
-docker build -t rhesis-frontend:latest . --build-arg FRONTEND_ENV=local
+docker build -t rhesis-frontend:latest . \
+  --build-arg FRONTEND_ENV=local \
+  --build-arg BACKEND_URL="${BACKEND_URL:-http://backend:8080}"
 
 # Build backend
 cd ../backend
@@ -571,7 +573,9 @@ kubectl describe pod -n rhesis <pod-name>
 # Solution: Rebuild frontend in local mode
 
 cd apps/frontend
-docker build -t rhesis-frontend:latest . --build-arg FRONTEND_ENV=local
+docker build -t rhesis-frontend:latest . \
+  --build-arg FRONTEND_ENV=local \
+  --build-arg BACKEND_URL="${BACKEND_URL:-http://backend:8080}"
 minikube image load rhesis-frontend:latest
 kubectl rollout restart deployment/frontend -n rhesis
 ```

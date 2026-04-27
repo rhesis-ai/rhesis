@@ -183,6 +183,7 @@ jobs:
 
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
+              --build-arg BACKEND_URL="$BACKEND_API_URL" \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
               -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/frontend/Dockerfile apps/frontend
@@ -192,6 +193,7 @@ jobs:
             # For regular deployments, use latest tag and original URLs
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
+              --build-arg BACKEND_URL="${{ secrets.BACKEND_URL }}" \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
               -t ${{ env.IMAGE_NAME }}:latest -f apps/frontend/Dockerfile apps/frontend
@@ -279,6 +281,14 @@ jobs:
             # URL will be fetched from Cloud Run after tagging
             PREVIEW_FRONTEND_URL="PLACEHOLDER_URL"
             echo "🌐 Preview will be accessible at: $PREVIEW_FRONTEND_URL"
+
+            if [ -n "${{ inputs.backend_preview_url_encoded }}" ]; then
+              BACKEND_API_URL=$(echo "${{ inputs.backend_preview_url_encoded }}" | base64 -d)
+              echo "🔗 Using decoded backend URL: $BACKEND_API_URL"
+            else
+              BACKEND_API_URL="${{ secrets.BACKEND_URL }}"
+              echo "🔗 Using default backend URL: $BACKEND_API_URL"
+            fi
 
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
@@ -459,6 +469,25 @@ jobs:
           # Output for use in other steps or jobs
           echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_ENV
 
+          # Prepare backend URL before every preview redeploy in this shell.
+          echo "🔍 Debug backend URL inputs:"
+          echo "  - inputs.backend_preview_url_encoded: '${{ inputs.backend_preview_url_encoded }}'"
+          echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
+
+          if [ -n "${{ inputs.backend_preview_url_encoded }}" ]; then
+            BACKEND_API_URL=$(echo "${{ inputs.backend_preview_url_encoded }}" | base64 -d)
+            BACKEND_URL_VAR="$BACKEND_API_URL"
+            echo "  - ✅ Decoded backend preview URL: '$BACKEND_API_URL'"
+          else
+            BACKEND_API_URL="${{ secrets.BACKEND_URL }}"
+            BACKEND_URL_VAR="${{ secrets.BACKEND_URL }}"
+            echo "  - ⚠️ WARNING: No backend preview URL provided, using defaults"
+            echo "  - This means frontend will NOT communicate with backend preview!"
+          fi
+
+          echo "  - Final BACKEND_API_URL: '$BACKEND_API_URL'"
+          echo "  - Final BACKEND_URL_VAR: '$BACKEND_URL_VAR'"
+
           # Now redeploy with the correct environment variables
           echo "Updating frontend service with correct preview URL in environment variables..."
 
@@ -494,28 +523,6 @@ jobs:
 
           # Update the service with the actual preview URLs
           echo "🔄 Updating frontend service with actual preview URLs..."
-
-          # Prepare environment variables for update
-          echo "🔍 Debug backend URL inputs:"
-          echo "  - inputs.backend_preview_url_encoded: '${{ inputs.backend_preview_url_encoded }}'"
-          echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
-          echo "  - secrets.BACKEND_URL: '${{ secrets.BACKEND_URL }}'"
-
-          # Check if we have a backend preview URL (encoded)
-          if [ -n "${{ inputs.backend_preview_url_encoded }}" ]; then
-            # Decode the base64 encoded backend URL
-            BACKEND_API_URL=$(echo "${{ inputs.backend_preview_url_encoded }}" | base64 -d)
-            BACKEND_URL_VAR="$BACKEND_API_URL"
-            echo "  - ✅ Decoded backend preview URL: '$BACKEND_API_URL'"
-          else
-            BACKEND_API_URL="${{ secrets.BACKEND_URL }}"
-            BACKEND_URL_VAR="${{ secrets.BACKEND_URL }}"
-            echo "  - ⚠️ WARNING: No backend preview URL provided, using defaults"
-            echo "  - This means frontend will NOT communicate with backend preview!"
-          fi
-
-          echo "  - Final BACKEND_API_URL: '$BACKEND_API_URL'"
-          echo "  - Final BACKEND_URL_VAR: '$BACKEND_URL_VAR'"
 
           # Deploy a new revision with the correct environment variables
           # This revision will replace the tagged revision and receive the preview traffic

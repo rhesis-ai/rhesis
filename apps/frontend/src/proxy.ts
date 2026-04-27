@@ -64,7 +64,7 @@ async function createSessionClearingResponse(
   // If requested, call backend logout first to clear server-side session
   if (shouldCallBackendLogout) {
     try {
-      const logoutUrl = new URL('/auth/logout', process.env.BACKEND_URL);
+      const logoutUrl = new URL('/auth/logout', getServerBackendUrl());
       if (sessionToken) {
         logoutUrl.searchParams.set('session_token', sessionToken);
       }

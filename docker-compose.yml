@@ -188,6 +188,7 @@ services:
       dockerfile: Dockerfile
       args:
         FRONTEND_ENV: ${FRONTEND_ENV:-local}
+        BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
