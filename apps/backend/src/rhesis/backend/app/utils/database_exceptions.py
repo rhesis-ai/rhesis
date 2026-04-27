@@ -138,7 +138,7 @@ class DatabaseExceptionHandler:
                     raise HTTPException(status_code=400, detail=str(e))
                 raise
             except HTTPException:
-                # Re-raise HTTPExceptions (like 404s) without modification
+                # Re-raise HTTP exceptions (like 400s) without modification
                 raise
             except Exception as e:
                 self.handle_database_error(
@@ -192,7 +192,7 @@ def handle_database_exceptions(
                         raise HTTPException(status_code=400, detail=str(e))
                     raise
                 except HTTPException:
-                    # Re-raise HTTPExceptions (like 404s) without modification
+                    # Re-raise HTTP exceptions without modification
                     raise
                 except Exception as e:
                     DatabaseExceptionHandler.handle_database_error(
@@ -214,7 +214,7 @@ def handle_database_exceptions(
                         raise HTTPException(status_code=400, detail=str(e))
                     raise
                 except HTTPException:
-                    # Re-raise HTTPExceptions (like 404s) without modification
+                    # Re-raise HTTP exceptions without modification
                     raise
                 except Exception as e:
                     DatabaseExceptionHandler.handle_database_error(
@@ -261,7 +261,7 @@ def with_database_error_handling(
             if issubclass(exc_type, ValueError):
                 raise HTTPException(status_code=400, detail=str(exc_val))
             elif issubclass(exc_type, HTTPException):
-                # Re-raise HTTPExceptions without modification
+                # Re-raise HTTP exceptions without modification
                 return False
             elif issubclass(exc_type, Exception):
                 DatabaseExceptionHandler.handle_database_error(

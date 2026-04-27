@@ -18,8 +18,6 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.endpoint import AutoConfigureRequest, AutoConfigureResult
 from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreEndpointResponse
 from rhesis.backend.app.services.endpoint import EndpointService
-from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
@@ -28,6 +26,8 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.tasks import task_launcher
+from rhesis.backend.tasks.endpoint.explore import run_exploration_task
 
 logger = logging.getLogger(__name__)
 

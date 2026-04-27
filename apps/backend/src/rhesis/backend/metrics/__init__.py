@@ -9,6 +9,12 @@ This module provides:
 
 # Backend-specific orchestration
 # Re-export SDK classes for convenience
+from rhesis.backend.app.schemas.metric_types import (
+    OPERATOR_MAP,
+    VALID_OPERATORS_BY_SCORE_TYPE,
+    ScoreType,
+    ThresholdOperator,
+)
 from rhesis.sdk.metrics import (
     BaseMetric,
     CategoricalJudge,
@@ -22,11 +28,6 @@ from rhesis.sdk.metrics import (
     RagasAspectCritic,
     RagasContextRelevance,
     RagasFaithfulness,
-)
-from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
-from rhesis.sdk.metrics.constants import (
-    OPERATOR_MAP,
-    VALID_OPERATORS_BY_SCORE_TYPE,
 )
 
 from .evaluator import MetricEvaluator as Evaluator

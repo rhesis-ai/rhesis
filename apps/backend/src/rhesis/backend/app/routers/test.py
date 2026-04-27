@@ -3,6 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -22,14 +24,12 @@ from rhesis.backend.app.services.test import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     validate_execution_model,
 )
+from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 

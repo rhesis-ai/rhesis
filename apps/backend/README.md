@@ -7,11 +7,11 @@ FastAPI service for evaluations, test execution, models, and related APIs. Pytho
 From `apps/backend`:
 
 ```bash
-uv sync --dev
+uv sync --dev --extra all --extra cpu
 source .venv/bin/activate
 ```
 
-The SDK is pulled in as an editable path dependency via `pyproject.toml`; no extra `pip install` steps.
+The default install is **core** (migrations / light consumers). The full API, worker, and SDK stack require `--extra all` (and `--extra cpu` or `--extra gpu` for PyTorch). Path deps (`rhesis-sdk`, `rhesis-penelope`) are declared under `[all]`; no extra `pip install` beyond `uv sync` is needed.
 
 ## Run
 
