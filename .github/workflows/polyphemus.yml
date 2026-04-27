@@ -155,19 +155,6 @@ jobs:
         run: |
           gcloud auth configure-docker
 
-      - name: Free up disk space
-        run: |
-          echo "Available disk space before cleanup:"
-          df -h
-          # Remove unnecessary software to free up disk space on GitHub Actions runner
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
-          echo "Available disk space after cleanup:"
-          df -h
-
       - name: Build Container
         timeout-minutes: 60
         run: |
