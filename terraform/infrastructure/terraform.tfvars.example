@@ -19,6 +19,20 @@ gke_deletion_protection = {
   prd = true
 }
 
+# GCS: file storage for all envs; CNPG backup buckets for stg/prd only (defaults in variables.tf).
+# Override so bucket names match STORAGE_SERVICE_URI and CNPG backup config in secrets.
+# gcs = {
+#   dev = { file_storage_bucket_name = "sources-file-storage-example" }
+#   stg = {
+#     file_storage_bucket_name  = "sources-file-storage-example"
+#     cnpg_backup_bucket_name  = "cnpg-backup-storage-example"
+#   }
+#   prd = {
+#     file_storage_bucket_name  = "sources-file-storage-example"
+#     cnpg_backup_bucket_name  = "cnpg-backup-storage-example"
+#   }
+# }
+
 # WireGuard VPN peers configuration
 # Each peer gets a unique IP within the WireGuard network (10.0.0.0/24)
 # and access to specific environment subnets

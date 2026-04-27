@@ -49,6 +49,16 @@ output "internal_dns_dev_tsig_key_secret_id" {
   )
 }
 
+output "gcs_dev_file_storage_bucket_name" {
+  value       = local.dev_enabled ? module.gcs_dev[0].file_storage_bucket_name : null
+  description = "GCS bucket for backend file storage; match dev STORAGE_SERVICE_URI in secrets"
+}
+
+output "gcs_dev_file_storage_uri" {
+  value       = local.dev_enabled ? module.gcs_dev[0].file_storage_uri : null
+  description = "gs:// URI for file storage in dev"
+}
+
 # ── Stg (conditional) ────────────────────────────────────────────────
 
 output "stg_vpc_name" {
@@ -82,6 +92,26 @@ output "internal_dns_stg_tsig_key_secret_id" {
   )
 }
 
+output "gcs_stg_file_storage_bucket_name" {
+  value       = local.stg_enabled ? module.gcs_stg[0].file_storage_bucket_name : null
+  description = "GCS bucket for backend file storage; match stg STORAGE_SERVICE_URI in secrets"
+}
+
+output "gcs_stg_file_storage_uri" {
+  value       = local.stg_enabled ? module.gcs_stg[0].file_storage_uri : null
+  description = "gs:// URI for file storage in stg"
+}
+
+output "gcs_stg_cnpg_backup_bucket_name" {
+  value       = local.stg_enabled ? module.gcs_stg[0].cnpg_backup_bucket_name : null
+  description = "GCS bucket for CloudNativePG backups in stg"
+}
+
+output "gcs_stg_cnpg_backup_uri" {
+  value       = local.stg_enabled ? module.gcs_stg[0].cnpg_backup_uri : null
+  description = "gs:// URI for CNPG backup destination in stg"
+}
+
 # ── Prd (conditional) ────────────────────────────────────────────────
 
 output "prd_vpc_name" {
@@ -113,4 +143,24 @@ output "internal_dns_prd_tsig_key_secret_id" {
     ? module.internal_dns_prd[0].tsig_key_secret_id
     : null
   )
+}
+
+output "gcs_prd_file_storage_bucket_name" {
+  value       = local.prd_enabled ? module.gcs_prd[0].file_storage_bucket_name : null
+  description = "GCS bucket for backend file storage; match prd STORAGE_SERVICE_URI in secrets"
+}
+
+output "gcs_prd_file_storage_uri" {
+  value       = local.prd_enabled ? module.gcs_prd[0].file_storage_uri : null
+  description = "gs:// URI for file storage in prd"
+}
+
+output "gcs_prd_cnpg_backup_bucket_name" {
+  value       = local.prd_enabled ? module.gcs_prd[0].cnpg_backup_bucket_name : null
+  description = "GCS bucket for CloudNativePG backups in prd"
+}
+
+output "gcs_prd_cnpg_backup_uri" {
+  value       = local.prd_enabled ? module.gcs_prd[0].cnpg_backup_uri : null
+  description = "gs:// URI for CNPG backup destination in prd"
 }
