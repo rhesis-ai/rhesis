@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Validate environment parameter
         uses: ./.github/actions/validate-environment
@@ -85,7 +85,7 @@ jobs:
       commit_sha: ${{ steps.set_env.outputs.commit_sha }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
@@ -162,7 +162,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
