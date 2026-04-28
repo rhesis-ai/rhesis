@@ -1525,6 +1525,58 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
+        {
+            "ENVIRONMENT": "",
+            "BACKEND_ENV": "",
+            "FRONTEND_URL": "http://localhost:3000",
+            "BACKEND_URL": "",
+        },
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_frontend_url_localhost_uses_localhost(self, mock_qs):
+        """Local FRONTEND_URL should preserve non-secure local OAuth sessions."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="localhost", port=8080)
+        url = get_callback_url(request)
+        assert url == "http://localhost:8080/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {
+            "ENVIRONMENT": "",
+            "BACKEND_ENV": "",
+            "FRONTEND_URL": "",
+            "BACKEND_URL": "http://127.0.0.1:8080",
+        },
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_backend_url_localhost_uses_localhost(self, mock_qs):
+        """Local BACKEND_URL should preserve non-secure local OAuth sessions."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="127.0.0.1", port=8080)
+        url = get_callback_url(request)
+        assert url == "http://127.0.0.1:8080/auth/callback"
+
+    @patch.dict(
+        os.environ,
         {"ENVIRONMENT": "local"},
         clear=False,
     )
@@ -1567,7 +1619,7 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
-        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
         clear=False,
     )
     @patch(
@@ -1592,7 +1644,7 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
-        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
         clear=False,
     )
     @patch(
@@ -1617,7 +1669,7 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
-        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
         clear=False,
     )
     @patch(
@@ -1642,7 +1694,7 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
-        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
         clear=False,
     )
     @patch(
@@ -1667,7 +1719,7 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
-        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
         clear=False,
     )
     @patch(
