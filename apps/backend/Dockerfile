@@ -42,51 +42,43 @@ COPY packages/rhesis /app/packages/rhesis/
 # =============================================================================
 FROM base-build AS build-core
 
+# Match monorepo layout so [tool.uv.sources] path deps resolve without rewriting.
+WORKDIR /app/apps/backend
+
 COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/README.md ./
 
-RUN mkdir -p /app/src/rhesis/backend
-COPY apps/backend/src/rhesis/__init__.py /app/src/rhesis/__init__.py
-COPY apps/backend/src/rhesis/backend/__init__.py /app/src/rhesis/backend/__init__.py
+RUN mkdir -p src/rhesis/backend
+COPY apps/backend/src/rhesis/__init__.py src/rhesis/__init__.py
+COPY apps/backend/src/rhesis/backend/__init__.py src/rhesis/backend/__init__.py
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_NO_MANAGED_PYTHON=1 \
     UV_LINK_MODE=copy \
     UV_NO_DEV=1
 
-# Rewrite all [tool.uv.sources] paths so uv can resolve them. We don't install
-# rhesis-sdk / rhesis-penelope here (they're behind the [all] extra), but uv still
-# parses every source entry up front, so the paths must point somewhere valid.
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
-
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
     uv sync
 
-COPY apps/backend/src /app/src
+COPY apps/backend/src ./src
 
 # =============================================================================
 # build-backend: full backend venv (API + worker)
 # =============================================================================
 FROM base-build AS build-backend
 
+WORKDIR /app/apps/backend
+
 COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/README.md ./
 
-RUN mkdir -p /app/src/rhesis/backend
-COPY apps/backend/src/rhesis/__init__.py /app/src/rhesis/__init__.py
-COPY apps/backend/src/rhesis/backend/__init__.py /app/src/rhesis/backend/__init__.py
+RUN mkdir -p src/rhesis/backend
+COPY apps/backend/src/rhesis/__init__.py src/rhesis/__init__.py
+COPY apps/backend/src/rhesis/backend/__init__.py src/rhesis/backend/__init__.py
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_NO_MANAGED_PYTHON=1 \
     UV_LINK_MODE=copy \
     UV_NO_DEV=1
-
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
@@ -94,7 +86,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 RUN uv pip uninstall torch
 
-COPY apps/backend/src /app/src
+COPY apps/backend/src ./src
 
 # =============================================================================
 # base-runtime: shared slim runtime + uv + rhesis-user + full backend payload
@@ -102,7 +94,7 @@ COPY apps/backend/src /app/src
 FROM mirror.gcr.io/library/python:3.12.8-slim AS base-runtime
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-WORKDIR /app
+WORKDIR /app/apps/backend
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -121,12 +113,12 @@ ENV PYTHONUNBUFFERED=1 \
 RUN adduser --disabled-password --gecos '' rhesis-user && \
     chown rhesis-user:rhesis-user /app
 
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/.venv /app/.venv
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/src /app/src
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/apps/backend/.venv .venv
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/apps/backend/src src
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
-COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/pyproject.toml /app/pyproject.toml
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/apps/backend/pyproject.toml pyproject.toml
 
 RUN find /app -name ".env" -type f -delete
 
@@ -138,7 +130,7 @@ EXPOSE 8080
 FROM mirror.gcr.io/library/python:3.12.8-slim AS migrate
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-WORKDIR /app
+WORKDIR /app/apps/backend
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -157,21 +149,21 @@ ENV PYTHONUNBUFFERED=1 \
 RUN adduser --disabled-password --gecos '' rhesis-user && \
     chown rhesis-user:rhesis-user /app
 
-COPY --from=build-core --chown=rhesis-user:rhesis-user /app/.venv /app/.venv
-COPY --from=build-core --chown=rhesis-user:rhesis-user /app/src /app/src
+COPY --from=build-core --chown=rhesis-user:rhesis-user /app/apps/backend/.venv .venv
+COPY --from=build-core --chown=rhesis-user:rhesis-user /app/apps/backend/src src
 COPY --from=build-core --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
-COPY --from=build-core --chown=rhesis-user:rhesis-user /app/pyproject.toml /app/pyproject.toml
+COPY --from=build-core --chown=rhesis-user:rhesis-user /app/apps/backend/pyproject.toml pyproject.toml
 
 RUN find /app -name ".env" -type f -delete
 
-COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh ./migrate.sh
 
 USER rhesis-user
 
-ENV PYTHONPATH=/app \
-    PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH=/app/apps/backend/src \
+    PATH="/app/apps/backend/.venv/bin:$PATH"
 
-CMD ["/app/migrate.sh"]
+CMD ["./migrate.sh"]
 
 # =============================================================================
 # backend: Bun/npx, postgresql-client, FastAPI entrypoint
@@ -203,15 +195,16 @@ RUN apt-get update && \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
-COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh /app/start.sh
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh ./migrate.sh
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh ./start.sh
 
 USER rhesis-user
 
-ENV PYTHONPATH=/app \
-    PATH="/usr/local/bin:/app/.venv/bin:$PATH"
+ENV RHESIS_BACKEND_CONTAINER=1 \
+    PYTHONPATH=/app/apps/backend/src \
+    PATH="/usr/local/bin:/app/apps/backend/.venv/bin:$PATH"
 
-CMD ["/app/start.sh"]
+CMD ["./start.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
@@ -244,8 +237,8 @@ ENV PYTHONHASHSEED=0 \
     MALLOC_TRIM_THRESHOLD_=100000 \
     MALLOC_MMAP_THRESHOLD_=131072 \
     MALLOC_TOP_PAD_=131072 \
-    PATH="/app/.venv/bin:$PATH" \
-    PYTHONPATH=/app \
+    PATH="/app/apps/backend/.venv/bin:$PATH" \
+    PYTHONPATH=/app/apps/backend/src \
     CELERY_OPTIMIZATION=fair \
     CELERY_DISABLE_RATE_LIMITS=True \
     CELERY_TASK_ALWAYS_EAGER=False \

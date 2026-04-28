@@ -48,7 +48,9 @@ wait_for_database() {
 # us the same information. Verbose Alembic diagnostics still run, but only on
 # failure, where the extra latency does not matter.
 run_migrations() {
-    cd /app/src/rhesis/backend || handle_error "Could not navigate to backend directory"
+    local backend_root
+    backend_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    cd "$backend_root/src/rhesis/backend" || handle_error "Could not navigate to backend directory"
 
     local before after
     before=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
