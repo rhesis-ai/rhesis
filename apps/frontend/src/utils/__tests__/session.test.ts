@@ -70,7 +70,7 @@ describe('getSession', () => {
     const session = await getSession();
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:3000/api/upstream/auth/verify',
+      '/api/upstream/auth/verify',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ session_token: 'plain-jwt-token' }),

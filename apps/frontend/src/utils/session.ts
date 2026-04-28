@@ -98,7 +98,10 @@ export async function clearAllSessionData() {
   const maxRetries = 2;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const logoutUrl = new URL(`${getClientUpstreamApiBaseUrl()}/auth/logout`);
+      const logoutUrl = new URL(
+        `${getClientUpstreamApiBaseUrl()}/auth/logout`,
+        window.location.origin
+      );
       if (sessionToken) {
         logoutUrl.searchParams.set('session_token', sessionToken);
       }

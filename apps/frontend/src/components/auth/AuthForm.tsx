@@ -41,6 +41,19 @@ const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
 let quickStartLoginInFlight = false;
 const LOCAL_LOGIN_ATTEMPTED_KEY = 'quickStartLoginAttempted';
 
+export function buildOAuthLoginUrl(
+  providerName: string,
+  returnTo: string,
+  origin: string = window.location.origin
+): string {
+  const loginUrl = new URL(
+    `${getClientUpstreamApiBaseUrl()}/auth/login/${providerName}`,
+    origin
+  );
+  loginUrl.searchParams.set('return_to', returnTo);
+  return loginUrl.toString();
+}
+
 interface ProviderInfo {
   name: string;
   display_name: string;
@@ -207,12 +220,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     const returnTo = searchParams.get('return_to') || '/dashboard';
 
     // Redirect to backend OAuth endpoint
-    const loginUrl = new URL(
-      `${getClientUpstreamApiBaseUrl()}/auth/login/${providerName}`
-    );
-    loginUrl.searchParams.set('return_to', returnTo);
-
-    window.location.href = loginUrl.toString();
+    window.location.href = buildOAuthLoginUrl(providerName, returnTo);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {

@@ -2,14 +2,14 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import AuthForm from '../AuthForm';
+import AuthForm, { buildOAuthLoginUrl } from '../AuthForm';
 
 jest.mock('next-auth/react', () => ({
   signIn: jest.fn(),
 }));
 
 jest.mock('@/utils/url-resolver', () => ({
-  getClientUpstreamApiBaseUrl: () => 'http://127.0.0.1:8080/api/upstream',
+  getClientUpstreamApiBaseUrl: () => '/api/upstream',
 }));
 
 import { signIn } from 'next-auth/react';
@@ -151,6 +151,18 @@ describe('AuthForm — login mode', () => {
     ).toBeInTheDocument();
     // OAuth redirect should NOT have happened (signIn was not called)
     expect(signIn).not.toHaveBeenCalled();
+  });
+
+  it('builds the Google OAuth redirect from the same-origin upstream path', async () => {
+    const loginUrl = buildOAuthLoginUrl(
+      'google',
+      '/dashboard',
+      'http://localhost:3000'
+    );
+
+    expect(loginUrl).toBe(
+      'http://localhost:3000/api/upstream/auth/login/google?return_to=%2Fdashboard'
+    );
   });
 
   it('removes T&C warning after the checkbox is ticked', async () => {
