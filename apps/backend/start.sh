@@ -60,9 +60,9 @@ run_migrations() {
         CMD_PREFIX="uv run "
     fi
 
-    # Docker: use migrate.sh, Local: run alembic directly
-    if [ -d "/app/src/rhesis/backend" ]; then
-        # Docker environment - use migrate.sh
+    # Docker image layout: migrate.sh with DB wait + psql revision hints. Local dev:
+    # alembic directly (no pg_isready requirement).
+    if [ -d "/app/apps/backend/src/rhesis/backend" ]; then
         log "${BLUE}📍 Running migrations via migrate.sh (Docker)${NC}"
         if ./migrate.sh; then
             log "${GREEN}✅ Database migrations completed successfully${NC}"
