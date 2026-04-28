@@ -72,7 +72,7 @@ jobs:
       git_branch: ${{ steps.set_env.outputs.git_branch }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
@@ -160,7 +160,7 @@ jobs:
       ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'dev' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
