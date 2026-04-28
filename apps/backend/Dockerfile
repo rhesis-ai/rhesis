@@ -200,8 +200,7 @@ COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh ./start.s
 
 USER rhesis-user
 
-ENV RHESIS_BACKEND_CONTAINER=1 \
-    PYTHONPATH=/app/apps/backend/src \
+ENV PYTHONPATH=/app/apps/backend/src \
     PATH="/usr/local/bin:/app/apps/backend/.venv/bin:$PATH"
 
 CMD ["./start.sh"]

@@ -113,7 +113,6 @@ USER rhesis-user
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    RHESIS_BACKEND_CONTAINER=1 \
     PYTHONPATH=/app/apps/backend/src \
     PATH="/usr/local/bin:/app/apps/backend/.venv/bin:$PATH"
 

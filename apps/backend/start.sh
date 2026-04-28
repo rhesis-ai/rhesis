@@ -60,10 +60,10 @@ run_migrations() {
         CMD_PREFIX="uv run "
     fi
 
-    # Container image (see RHESIS_BACKEND_CONTAINER in Dockerfile): migrate.sh with
-    # DB wait + psql revision hints. Local dev: alembic directly (no pg_isready requirement).
-    if [ "${RHESIS_BACKEND_CONTAINER:-}" = "1" ]; then
-        log "${BLUE}📍 Running migrations via migrate.sh (container)${NC}"
+    # Docker image layout: migrate.sh with DB wait + psql revision hints. Local dev:
+    # alembic directly (no pg_isready requirement).
+    if [ -d "/app/apps/backend/src/rhesis/backend" ]; then
+        log "${BLUE}📍 Running migrations via migrate.sh (Docker)${NC}"
         if ./migrate.sh; then
             log "${GREEN}✅ Database migrations completed successfully${NC}"
         else
