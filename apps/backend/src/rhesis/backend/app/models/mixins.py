@@ -1,8 +1,7 @@
 import functools
-import hashlib
 import logging
 
-from sqlalchemy import Column, Connection, ForeignKey, and_, event, text
+from sqlalchemy import Column, ForeignKey, and_, event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
@@ -361,37 +360,6 @@ class EmbeddableMixin:
             viewonly=True,
             uselist=True,
         )
-
-    def searchable_text_changed(self, connection: Connection) -> bool:
-        """
-        Return True if embeddings should be (re)generated for this entity.
-        - No rows in embedding yet -> True.
-        - At least one row has text_hash matching current searchable text -> False.
-        - Otherwise -> True.
-        """
-        searchable_text = self.to_searchable_text()
-        current_hash = hashlib.sha256(searchable_text.encode("utf-8")).hexdigest()
-
-        stmt = text("""
-            SELECT EXISTS (
-                SELECT 1
-                FROM embedding
-                WHERE entity_id = :entity_id
-                  AND entity_type = :entity_type
-                  AND text_hash = :text_hash
-            )
-        """)
-        has_match = bool(
-            connection.execute(
-                stmt,
-                {
-                    "entity_id": self.id,
-                    "entity_type": self.__class__.__name__,
-                    "text_hash": current_hash,
-                },
-            ).scalar_one()
-        )
-        return not has_match
 
     def to_searchable_text(self) -> str:
         """
