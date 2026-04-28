@@ -1628,6 +1628,121 @@ class TestGetCallbackUrl:
     )
     @patch(
         "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://dev-api.rhesis.ai",
+    )
+    def test_production_frontend_proxy_callback_preserves_session_cookie(self, mock_qs):
+        """OAuth callbacks should return through the frontend proxy when initiated there."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="dev-api.rhesis.ai",
+            port=443,
+            headers={
+                "host": "dev-api.rhesis.ai",
+                "referer": "https://dev-app.rhesis.ai/",
+            },
+        )
+        url = get_callback_url(request)
+        assert url == "https://dev-app.rhesis.ai/api/upstream/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://stg-api.rhesis.ai",
+    )
+    def test_staging_frontend_proxy_callback_preserves_session_cookie(self, mock_qs):
+        """Staging OAuth callbacks should also return through the frontend proxy."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="stg-api.rhesis.ai",
+            port=443,
+            headers={
+                "host": "stg-api.rhesis.ai",
+                "referer": "https://stg-app.rhesis.ai/",
+            },
+        )
+        url = get_callback_url(request)
+        assert url == "https://stg-app.rhesis.ai/api/upstream/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://dev-api.rhesis.ai",
+    )
+    def test_production_forwarded_host_proxy_callback_preserves_session_cookie(
+        self, mock_qs
+    ):
+        """OAuth callbacks should honor trusted forwarded frontend hosts."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="dev-api.rhesis.ai",
+            port=443,
+            headers={
+                "host": "dev-api.rhesis.ai",
+                "x-forwarded-host": "dev-app.rhesis.ai",
+                "x-forwarded-proto": "https",
+            },
+        )
+        url = get_callback_url(request)
+        assert url == "https://dev-app.rhesis.ai/api/upstream/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://dev-api.rhesis.ai",
+    )
+    def test_production_rejects_untrusted_frontend_callback_origin(self, mock_qs):
+        """Untrusted referers must not influence OAuth callback URLs."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="dev-api.rhesis.ai",
+            port=443,
+            headers={
+                "host": "dev-api.rhesis.ai",
+                "referer": "https://dev-app.rhesis.ai.evil.com/",
+            },
+        )
+        url = get_callback_url(request)
+        assert url == "https://dev-api.rhesis.ai/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": "", "FRONTEND_URL": "", "BACKEND_URL": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
         "https://api.rhesis.ai",
     )
     def test_production_uses_rhesis_base_url(self, mock_qs):

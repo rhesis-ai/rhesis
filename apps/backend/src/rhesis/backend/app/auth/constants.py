@@ -29,6 +29,7 @@ UNAUTHORIZED_MESSAGE = "Authentication required"
 FRONTEND_DOMAINS = [
     "app.rhesis.ai",
     "dev-app.rhesis.ai",  # development environment
+    "stg-app.rhesis.ai",  # staging environment
     "localhost:3000",  # development
 ]
 

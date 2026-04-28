@@ -11,7 +11,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
-from rhesis.backend.app.auth.constants import AuthProviderType
+from rhesis.backend.app.auth.constants import FRONTEND_DOMAINS, AuthProviderType
 from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
 from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.refresh_token_utils import (
@@ -177,6 +177,7 @@ class RefreshTokenRequest(BaseModel):
 # =============================================================================
 
 _LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
+_UPSTREAM_AUTH_CALLBACK_PATH = "/api/upstream/auth/callback"
 
 
 def is_running_locally() -> bool:
@@ -212,6 +213,39 @@ def is_running_locally() -> bool:
     return False
 
 
+def _get_allowed_frontend_origin(request: Request) -> Optional[str]:
+    """Return a trusted frontend origin from browser navigation headers.
+
+    OAuth initiated through the frontend proxy must also callback through
+    that same frontend origin so the signed session cookie is available.
+    """
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    if origin:
+        parsed_origin = urlparse(origin)
+        if parsed_origin.scheme in {"http", "https"} and parsed_origin.netloc:
+            if (
+                parsed_origin.hostname == "localhost"
+                or parsed_origin.netloc in FRONTEND_DOMAINS
+            ):
+                return f"{parsed_origin.scheme}://{parsed_origin.netloc}"
+
+    forwarded_host = (
+        request.headers.get("x-forwarded-host", "").split(",")[0].strip()
+    )
+    if forwarded_host:
+        forwarded_proto = request.headers.get("x-forwarded-proto", "https")
+        forwarded_proto = forwarded_proto.split(",")[0].strip()
+        if forwarded_proto in {"http", "https"}:
+            parsed_forwarded = urlparse(f"{forwarded_proto}://{forwarded_host}")
+            if (
+                parsed_forwarded.hostname == "localhost"
+                or parsed_forwarded.netloc in FRONTEND_DOMAINS
+            ):
+                return f"{forwarded_proto}://{parsed_forwarded.netloc}"
+
+    return None
+
+
 def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     """Generate the OAuth callback URL.
 
@@ -221,7 +255,14 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     accepted; any other value falls back to 'localhost'. For
     production, uses RHESIS_BASE_URL.
     """
-    if is_running_locally():
+    running_locally = is_running_locally()
+
+    if not running_locally:
+        frontend_origin = _get_allowed_frontend_origin(request)
+        if frontend_origin:
+            return f"{frontend_origin}{_UPSTREAM_AUTH_CALLBACK_PATH}"
+
+    if running_locally:
         # Local: use request hostname to match session cookie domain
         # (e.g., 127.0.0.1 vs localhost). Whitelist ensures that even
         # if is_running_locally() fires on a misconfigured server,
