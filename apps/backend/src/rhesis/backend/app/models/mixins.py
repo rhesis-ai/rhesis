@@ -2,11 +2,12 @@ import functools
 import hashlib
 import logging
 
-from sqlalchemy import Column, ForeignKey, and_, event
+from sqlalchemy import Column, Connection, ForeignKey, and_, event, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
 
+from .enums import EmbeddingStatus
 from .guid import GUID
 
 logger = logging.getLogger(__name__)
@@ -362,24 +363,51 @@ class EmbeddableMixin:
             uselist=True,
         )
 
-    def searchable_text_changed(self) -> bool:
+    def searchable_text_changed(self, connection: Connection) -> bool:
         """
         Return True if embeddings should be (re)generated for this entity.
-
-        - No rows in ``embedding`` yet → True (first-time embed).
-        - At least one row has ``text_hash`` matching the current searchable text → False.
-        - Otherwise (text changed vs. stored hashes) → True.
-
-        Multiple embedding rows (e.g. different models) are handled by checking whether
-        *any* row already matches the current content hash; the generator still decides
-        per-model work and deduplication.
+        - No rows in embedding yet -> True.
+        - At least one ACTIVE row has text_hash matching current searchable text -> False.
+        - Otherwise -> True.
         """
-        text = self.to_searchable_text()
-        current_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        existing = self.embeddings
-        if not existing:
-            return True
-        return not any(e.text_hash == current_hash for e in existing)
+        searchable_text = self.to_searchable_text()
+        current_hash = hashlib.sha256(searchable_text.encode("utf-8")).hexdigest()
+
+        stmt = text("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM embedding
+                WHERE entity_id = :entity_id
+                  AND entity_type = :entity_type
+                  AND text_hash = :text_hash
+                  AND status_id = (
+                      SELECT s.id
+                      FROM status s
+                      JOIN type_lookup tl ON tl.id = s.entity_type_id
+                      WHERE s.name = :active_status
+                        AND (
+                            s.organization_id = :organization_id
+                            OR (s.organization_id IS NULL AND :organization_id IS NULL)
+                        )
+                        AND tl.type_name = 'EntityType'
+                        AND tl.type_value = 'Embedding'
+                      LIMIT 1
+                  )
+            )
+        """)
+        has_match = bool(
+            connection.execute(
+                stmt,
+                {
+                    "entity_id": self.id,
+                    "entity_type": self.__class__.__name__,
+                    "text_hash": current_hash,
+                    "active_status": EmbeddingStatus.ACTIVE.value,
+                    "organization_id": self.organization_id,
+                },
+            ).scalar_one()
+        )
+        return not has_match
 
     def to_searchable_text(self) -> str:
         """
@@ -486,6 +514,8 @@ def on_entity_update(mapper, connection, target):
         return
 
     try:
+        if not target.searchable_text_changed(connection):
+            return
         _queue_embedding_after_commit(target)
     except Exception as e:
         logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")

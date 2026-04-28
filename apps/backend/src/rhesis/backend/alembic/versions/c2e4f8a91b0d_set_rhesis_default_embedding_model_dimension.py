@@ -28,7 +28,7 @@ def upgrade() -> None:
     session = Session(bind=bind)
     dim = 768  # Default dimension of vertex text-embedding-005
     try:
-        result = session.execute(
+        session.execute(
             sa.text(
                 """
                 UPDATE model
@@ -44,7 +44,6 @@ def upgrade() -> None:
             {"dim": dim},
         )
         session.commit()
-        print(f"✓ Set dimension={dim} on {result.rowcount} Rhesis Default Embedding model(s)")
     except Exception:
         session.rollback()
         raise
@@ -58,7 +57,7 @@ def downgrade() -> None:
     session = Session(bind=bind)
     dim = 768  # Default dimension of vertex text-embedding-005
     try:
-        result = session.execute(
+        session.execute(
             sa.text(
                 """
                 UPDATE model
@@ -75,7 +74,6 @@ def downgrade() -> None:
             {"dim": dim},
         )
         session.commit()
-        print(f"✓ Cleared dimension on {result.rowcount} Rhesis Default Embedding model(s)")
     except Exception:
         session.rollback()
         raise
