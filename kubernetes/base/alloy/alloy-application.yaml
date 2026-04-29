@@ -20,8 +20,6 @@ spec:
           tolerations:
             - operator: Exists
         alloy:
-          mounts:
-            varlog: true
           configMap:
             content: |
               discovery.kubernetes "pods" {
@@ -43,28 +41,16 @@ spec:
                   source_labels = ["__meta_kubernetes_pod_container_name"]
                   target_label  = "container"
                 }
-                rule {
-                  source_labels = [
-                    "__meta_kubernetes_pod_uid",
-                    "__meta_kubernetes_pod_container_name",
-                  ]
-                  separator    = "/"
-                  regex        = "(.*)"
-                  replacement  = "/var/log/pods/*$1/*.log"
-                  target_label = "__path__"
-                }
               }
 
-              loki.source.file "pod_logs" {
+              loki.source.kubernetes "pods" {
                 targets    = discovery.relabel.pod_logs.output
                 forward_to = [loki.write.default.receiver]
               }
 
               loki.write "default" {
                 endpoint {
-                  // Loki chart (6.x) gateway Service: <Helm release>-gateway, port 80; matches
-                  // chart default gateway.service.port when gateway.enabled is true.
-                  url = "http://loki-gateway.monitoring.svc:80/loki/api/v1/push"
+                  url       = "http://loki-gateway.monitoring.svc:80/loki/api/v1/push"
                   tenant_id = "rhesis"
                 }
               }
