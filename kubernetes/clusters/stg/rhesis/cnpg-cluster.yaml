@@ -27,6 +27,7 @@ spec:
       max_connections: "200"
   bootstrap:
     initdb:
+      # Keep aligned with charts/rhesis values-stg.yaml config.dbName / config.dbUser
       database: rhesis-db
       owner: rhesis-user
       postInitApplicationSQL:

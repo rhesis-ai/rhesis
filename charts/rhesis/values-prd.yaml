@@ -30,6 +30,7 @@ config:
   environment: "production"
   logLevel: "INFO"
 
+  # Must match kubernetes/clusters/prd/rhesis/cnpg-cluster.yaml spec.bootstrap.initdb.{database,owner}
   dbName: "rhesis-db"
   dbUser: "rhesis-user"
 

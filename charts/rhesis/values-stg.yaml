@@ -27,6 +27,7 @@ config:
   environment: "staging"
   logLevel: "INFO"
 
+  # Must match kubernetes/clusters/stg/rhesis/cnpg-cluster.yaml spec.bootstrap.initdb.{database,owner}
   dbName: "rhesis-db"
   dbUser: "rhesis-user"
 

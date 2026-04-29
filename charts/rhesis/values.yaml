@@ -44,6 +44,8 @@ config:
 
   # Database (host/port/name/user are computed from subchart or externalDatabase)
   dbPort: "5432"
+  # Per-env overrides: values-dev.yaml ties Bitnami auth + POSTGRES_DB to this name; stg/prd must
+  # keep the same strings as kubernetes/clusters/*/rhesis/cnpg-cluster.yaml bootstrap.initdb.
   dbName: "rhesis-db"
   dbUser: "rhesis-user"
   dbDriver: "postgresql"

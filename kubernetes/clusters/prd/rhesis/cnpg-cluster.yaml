@@ -24,6 +24,7 @@ spec:
   primaryUpdateStrategy: unsupervised
   bootstrap:
     initdb:
+      # Keep aligned with charts/rhesis values-prd.yaml config.dbName / config.dbUser
       database: rhesis-db
       owner: rhesis-user
       postInitApplicationSQL:
