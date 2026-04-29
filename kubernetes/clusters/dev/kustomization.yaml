@@ -19,5 +19,5 @@ resources:
   - grafana-resources.yaml
   # CNPG: not deployed in dev; Rhesis uses Bitnami PostgreSQL (see charts/rhesis/values-dev.yaml). Stg/prd use operator + CNPG.
   - rhesis/namespace.yaml
-  - rhesis/external-secret-app.yaml
+  # rhesis-app-secrets: see clusters/dev/external-secrets/kustomization.yaml (same sync tree as ESO)
   - rhesis/rhesis-application.yaml

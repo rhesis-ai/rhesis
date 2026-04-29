@@ -3,6 +3,8 @@ kind: Kustomization
 
 resources:
   - ../../../base/external-secrets
+  # Synced by dev-external-secrets Application (same tree as ESO) so CRDs exist before apply.
+  - rhesis-app-secrets.yaml
 
 configMapGenerator:
   - name: eso-config
