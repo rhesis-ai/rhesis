@@ -12,17 +12,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Generate bot token
-        id: generate-token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.RHEO_APP_ID }}
-          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Set up Docker
         uses: docker/setup-docker-action@v5
