@@ -1,0 +1,10 @@
+# Higher availability in production: single-replica default lives in base.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  deployment:
+    spec:
+      replicas: 2

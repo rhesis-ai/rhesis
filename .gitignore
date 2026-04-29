@@ -263,8 +263,10 @@ infrastructure/scripts/trigger-infrastructure.sh
 
 # Service secrets configuration
 infrastructure/scripts/service-secrets-config.sh
+infrastructure/config/service-secrets-file.json
 !infrastructure/scripts/service-secrets-config.sh.example
 !infrastructure/scripts/service-secrets-create.sh
+
 
 # Anything with a -key.json
 *-key.json

@@ -70,6 +70,10 @@ kubernetes/
         ├── external-dns/          # DNS automation
         ├── external-secrets/      # Kustomize overlay (env-specific values)
         ├── cnpg-operator.yaml     # Argo CD Application for CNPG stack (path + Git ref per env)
+        ├── grafana-resources/     # Grafana CR, ingress, Prometheus/Loki datasources (after CRDs)
+        ├── kube-prometheus-stack/ # Prometheus Operator stack (Grafana disabled)
+        ├── loki/                  # Loki singleBinary
+        ├── alloy/                 # Grafana Alloy (logs to Loki)
         └── rhesis/                # Application manifests
 ```
 
@@ -81,6 +85,8 @@ Any YAML added under `clusters/<env>/` and pushed to `main` is automatically dep
 - **Stg and prd** (`kubernetes/clusters/stg/cnpg-operator.yaml` and `kubernetes/clusters/prd/cnpg-operator.yaml`): `spec.source.targetRevision` points at a **release branch** (for example `release/v1.2.3`). Create that branch from the commit you intend to ship before syncing. **Automated sync is disabled** on the nested `cnpg-operator` Application: use **manual Sync** in Argo CD after the Git ref is updated. **Promotion:** validate on stg, then bump `targetRevision` on prd to the same ref and sync prd.
 - **Chart version per environment:** edit `kubernetes/clusters/<env>/cnpg-system/cnpg-operator-helm-chart.yaml` (e.g. upgrade stg first, then prd).
 - **AppProject:** `cnpg-system` restricts sources and destinations for the CNPG Helm Application (`kubernetes/base/cnpg-system/argocd-project.yaml`).
+
+Before syncing the monitoring stack, create the Grafana admin password in GCP Secret Manager per environment — see [`monitoring/PREREQUISITES.md`](monitoring/PREREQUISITES.md).
 
 ---
 
