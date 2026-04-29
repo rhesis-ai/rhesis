@@ -24,6 +24,20 @@ jobs:
         with:
           token: ${{ steps.generate-token.outputs.token }}
 
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v5
+        with:
+          daemon-config: |
+            {
+              "debug": true,
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -34,21 +48,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create tiny GHCR smoke Dockerfile
-        run: |
-          {
-            echo "FROM alpine:3.20"
-            echo 'LABEL org.opencontainers.image.source="${{ github.server_url }}/${{ github.repository }}"'
-            echo 'CMD ["sh", "-c", "echo GHCR smoke image works"]'
-          } > "${RUNNER_TEMP}/Dockerfile.ghcr-smoke"
-
-      - name: Build and push tiny GHCR smoke image
+      - name: Build and push backend image
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ${{ runner.temp }}/Dockerfile.ghcr-smoke
-          platforms: linux/amd64
+          file: ./apps/backend/Dockerfile
+          target: backend
+          platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ghcr.io/rhesis-ai/backend:ghcr-smoke
-            ghcr.io/rhesis-ai/backend:ghcr-smoke-${{ github.run_id }}
+          tags: ghcr.io/rhesis-ai/backend:latest
