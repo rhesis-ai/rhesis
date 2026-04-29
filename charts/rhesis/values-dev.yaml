@@ -17,9 +17,10 @@ config:
   environment: "development"
   logLevel: "DEBUG"
 
-  # Database (resolved to rhesis-postgresql service by Bitnami subchart)
-  dbName: "rhesis-db"
-  dbUser: "rhesis-user"
+  # Single source of truth for app DB name (ConfigMap SQLALCHEMY_DB_NAME) and Bitnami PostgreSQL.
+  # Anchors reused under postgresql.auth / extraEnvVars below.
+  dbName: &rhesis_db_name "rhesis-db"
+  dbUser: &rhesis_db_user "rhesis-user"
 
   # Frontend
   nextPublicApiBaseUrl: "https://dev-api.rhesis.ai"
@@ -120,7 +121,9 @@ polyphemus:
     failureThreshold: 90
 # ---------------------------------------------------------------------------
 # PostgreSQL — Bitnami subchart enabled for dev (no CNPG in this branch)
-# Uses pgvector image for vector extension support.
+# Uses pgvector image (official Postgres entrypoint). That entrypoint reads POSTGRES_DB
+# on first init; the Bitnami chart only sets POSTGRES_DATABASE (Bitnami image). Setting
+# POSTGRES_DB via extraEnvVars ensures the database exists on fresh PVCs.
 # ---------------------------------------------------------------------------
 postgresql:
   enabled: true
@@ -130,13 +133,16 @@ postgresql:
     tag: pg16
     pullPolicy: IfNotPresent
   auth:
-    database: "rhesis-db"
-    username: "rhesis-user"
+    database: *rhesis_db_name
+    username: *rhesis_db_user
     existingSecret: "rhesis-app-secrets"
     secretKeys:
       adminPasswordKey: "SQLALCHEMY_DB_PASS"
       userPasswordKey: "SQLALCHEMY_DB_PASS"
   primary:
+    extraEnvVars:
+      - name: POSTGRES_DB
+        value: *rhesis_db_name
     persistence:
       enabled: true
       size: 5Gi
