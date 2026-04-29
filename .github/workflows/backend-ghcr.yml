@@ -57,3 +57,13 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ghcr.io/rhesis-ai/backend:latest
+
+      - name: Build and push worker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./apps/backend/Dockerfile
+          target: worker
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/rhesis-ai/worker:latest
