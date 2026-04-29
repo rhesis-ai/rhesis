@@ -491,3 +491,8 @@ def on_entity_update(mapper, connection, target):
         _queue_embedding_after_commit(target)
     except Exception as e:
         logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
+
+
+@event.listens_for(Session, "after_soft_rollback")
+def _clear_pending_embedding_jobs(session: Session) -> None:
+    session.info.pop(_PENDING_EMBEDDING_JOBS_KEY, None)
