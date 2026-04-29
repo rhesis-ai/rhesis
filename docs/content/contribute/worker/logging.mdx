@@ -217,7 +217,7 @@ kubectl logs <pod-name> -c worker -n <namespace> | grep "Received task"
 kubectl logs <pod-name> -c worker -n <namespace> | grep "succeeded in"
 
 # Find batch runner markers
-kubectl logs <pod-name> -c worker -n <namespace> | grep "\\[BATCH\\]"}
+kubectl logs <pod-name> -c worker -n <namespace> | grep "\\[BATCH\\]"`}
 </CodeBlock>
 
 #### Search for Health Check Activity
@@ -425,7 +425,6 @@ kubectl logs <pod-name> -c worker -n <namespace> | grep -E "(failed|exception|er
 # Check worker status
 kubectl exec -it <pod-name> -n <namespace> -- curl localhost:8080/debug | jq '.celery_status'`}
 </CodeBlock>
-```
 
 ## Best Practices
 
