@@ -11,7 +11,6 @@ resources:
   - ingress-nginx-external.yaml
   - ingress-nginx-internal.yaml
   - internal-dns.yaml
-  - cnpg-operator.yaml
   # Monitoring stack (sync-wave on each wrapper defers grafana-resources until CRDs exist)
   - grafana-operator.yaml
   - kube-prometheus-stack.yaml
