@@ -21,5 +21,5 @@ resources:
   - rhesis/namespace.yaml
   - rhesis/cnpg-gcs-externalsecret.yaml
   - rhesis/cnpg-cluster.yaml
-  - rhesis/external-secret-app.yaml
+  # rhesis-app-secrets: see clusters/stg/external-secrets/rhesis-app-secrets.yaml
   - rhesis/rhesis-application.yaml

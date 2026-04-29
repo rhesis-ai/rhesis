@@ -1,6 +1,5 @@
-# Must exist before ExternalSecret (sync wave 5) and the rhesis Helm Application (wave 10).
-# CreateNamespace on the rhesis child Application is not run until that Application is applied,
-# which is after the ExternalSecret in the same parent sync.
+# Must exist before prd-external-secrets sync applies rhesis-app-secrets (namespace rhesis)
+# and before the rhesis Helm Application (wave 10).
 apiVersion: v1
 kind: Namespace
 metadata:
