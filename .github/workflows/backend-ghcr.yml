@@ -1,0 +1,59 @@
+name: "[Build] Backend GHCR"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate bot token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v5
+        with:
+          daemon-config: |
+            {
+              "debug": true,
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: rheo-app[bot]
+          password: ${{ steps.generate-token.outputs.token }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./apps/backend/Dockerfile
+          target: backend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/rhesis-ai/backend:latest
