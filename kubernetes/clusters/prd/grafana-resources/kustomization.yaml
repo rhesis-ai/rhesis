@@ -10,8 +10,8 @@ patches:
 configMapGenerator:
   - name: grafana-config
     literals:
-      - grafana-hostname=grafana.prd.rhesis.ai
-      - grafana-root-url=https://grafana.prd.rhesis.ai
+      - grafana-hostname=grafana.rhesis.ai
+      - grafana-root-url=https://grafana.rhesis.ai
     options:
       annotations:
         config.kubernetes.io/local-config: "true"

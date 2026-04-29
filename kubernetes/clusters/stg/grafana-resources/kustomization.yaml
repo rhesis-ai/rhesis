@@ -7,8 +7,8 @@ resources:
 configMapGenerator:
   - name: grafana-config
     literals:
-      - grafana-hostname=grafana.stg.rhesis.ai
-      - grafana-root-url=https://grafana.stg.rhesis.ai
+      - grafana-hostname=stg-grafana.rhesis.ai
+      - grafana-root-url=https://stg-grafana.rhesis.ai
     options:
       annotations:
         config.kubernetes.io/local-config: "true"
