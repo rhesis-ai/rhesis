@@ -47,6 +47,7 @@ jobs:
           target: backend
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: false
           tags: ghcr.io/rhesis-ai/backend:latest
 
       - name: Build and push worker image
@@ -57,4 +58,5 @@ jobs:
           target: worker
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: false
           tags: ghcr.io/rhesis-ai/worker:latest
