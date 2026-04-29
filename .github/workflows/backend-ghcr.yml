@@ -31,8 +31,8 @@ jobs:
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
-          username: rheo-app[bot]
-          password: ${{ steps.generate-token.outputs.token }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create tiny GHCR smoke Dockerfile
         run: |
