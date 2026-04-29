@@ -8,6 +8,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
+  disableDefaultAdminSecret: true
   deployment:
     spec:
       replicas: 1
