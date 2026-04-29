@@ -494,5 +494,5 @@ def on_entity_update(mapper, connection, target):
 
 
 @event.listens_for(Session, "after_soft_rollback")
-def _clear_pending_embedding_jobs(session: Session) -> None:
+def _clear_pending_embedding_jobs(session: Session, transaction) -> None:
     session.info.pop(_PENDING_EMBEDDING_JOBS_KEY, None)
