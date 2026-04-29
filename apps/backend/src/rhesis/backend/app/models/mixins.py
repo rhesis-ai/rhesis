@@ -1,13 +1,11 @@
 import functools
-import hashlib
 import logging
 
-from sqlalchemy import Column, Connection, ForeignKey, and_, event, text
+from sqlalchemy import Column, ForeignKey, and_, event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
 
-from .enums import EmbeddingStatus
 from .guid import GUID
 
 logger = logging.getLogger(__name__)
@@ -363,52 +361,6 @@ class EmbeddableMixin:
             uselist=True,
         )
 
-    def searchable_text_changed(self, connection: Connection) -> bool:
-        """
-        Return True if embeddings should be (re)generated for this entity.
-        - No rows in embedding yet -> True.
-        - At least one ACTIVE row has text_hash matching current searchable text -> False.
-        - Otherwise -> True.
-        """
-        searchable_text = self.to_searchable_text()
-        current_hash = hashlib.sha256(searchable_text.encode("utf-8")).hexdigest()
-
-        stmt = text("""
-            SELECT EXISTS (
-                SELECT 1
-                FROM embedding
-                WHERE entity_id = :entity_id
-                  AND entity_type = :entity_type
-                  AND text_hash = :text_hash
-                  AND status_id = (
-                      SELECT s.id
-                      FROM status s
-                      JOIN type_lookup tl ON tl.id = s.entity_type_id
-                      WHERE s.name = :active_status
-                        AND (
-                            s.organization_id = :organization_id
-                            OR (s.organization_id IS NULL AND :organization_id IS NULL)
-                        )
-                        AND tl.type_name = 'EntityType'
-                        AND tl.type_value = 'Embedding'
-                      LIMIT 1
-                  )
-            )
-        """)
-        has_match = bool(
-            connection.execute(
-                stmt,
-                {
-                    "entity_id": self.id,
-                    "entity_type": self.__class__.__name__,
-                    "text_hash": current_hash,
-                    "active_status": EmbeddingStatus.ACTIVE.value,
-                    "organization_id": self.organization_id,
-                },
-            ).scalar_one()
-        )
-        return not has_match
-
     def to_searchable_text(self) -> str:
         """
         Generate searchable text representation for this entity.
@@ -436,14 +388,10 @@ def _queue_embedding_after_commit(target) -> None:
     session = object_session(target)
     if session is None:
         return
-    try:
-        searchable_text = target.to_searchable_text()
-    except Exception as e:
-        logger.error(
-            "Error computing searchable text for %s %s: %s",
-            target.__class__.__name__,
-            getattr(target, "id", None),
-            e,
+    if target.organization_id is None or target.user_id is None:
+        logger.warning(
+            f"Skipping embedding for {target.__class__.__name__} {target.id}: "
+            "organization_id or user_id is None"
         )
         return
     pending = session.info.setdefault(_PENDING_EMBEDDING_JOBS_KEY, [])
@@ -451,7 +399,6 @@ def _queue_embedding_after_commit(target) -> None:
         {
             "entity_type": target.__class__.__name__,
             "entity_id": str(target.id),
-            "searchable_text": searchable_text,
             "user_id": str(target.user_id),
             "organization_id": str(target.organization_id),
         }
@@ -473,11 +420,38 @@ def _process_pending_embedding_jobs(session: Session) -> None:
                 job["organization_id"],
                 job["user_id"],
             ) as db:
+                from rhesis.backend.app import models
+
+                model_class = getattr(models, job["entity_type"], None)
+                if model_class is None:
+                    logger.warning(
+                        "Skipping deferred embedding: unknown entity type %s",
+                        job["entity_type"],
+                    )
+                    continue
+
+                entity = db.query(model_class).filter(model_class.id == job["entity_id"]).first()
+                if entity is None:
+                    logger.warning(
+                        "Skipping deferred embedding: entity not found %s %s",
+                        job["entity_type"],
+                        job["entity_id"],
+                    )
+                    continue
+
+                if not hasattr(entity, "to_searchable_text"):
+                    logger.warning(
+                        "Skipping deferred embedding: %s does not implement to_searchable_text",
+                        job["entity_type"],
+                    )
+                    continue
+
+                searchable_text = entity.to_searchable_text()
                 embedding_service = EmbeddingService(db)
                 embedding_service.enqueue_embedding(
                     entity_type=job["entity_type"],
                     entity_id=job["entity_id"],
-                    searchable_text=job["searchable_text"],
+                    searchable_text=searchable_text,
                     user_id=job["user_id"],
                     organization_id=job["organization_id"],
                 )
@@ -514,8 +488,11 @@ def on_entity_update(mapper, connection, target):
         return
 
     try:
-        if not target.searchable_text_changed(connection):
-            return
         _queue_embedding_after_commit(target)
     except Exception as e:
         logger.error(f"Error enqueuing embedding for {target.__class__.__name__} {target.id}: {e}")
+
+
+@event.listens_for(Session, "after_soft_rollback")
+def _clear_pending_embedding_jobs(session: Session, transaction) -> None:
+    session.info.pop(_PENDING_EMBEDDING_JOBS_KEY, None)
