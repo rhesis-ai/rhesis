@@ -18,6 +18,7 @@ override.tf.json
 
 # Infra secrets configuration
 config/infra-secrets-*.sh
+config/service-secrets-file.json
 !config/infra-secrets-config.sh.example
 !config/infra-secrets-create.sh
 
