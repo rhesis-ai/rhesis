@@ -17,7 +17,7 @@ Single-turn metrics evaluate individual exchanges between user input and system 
 - **Safety & Compliance**: Bias, toxicity, PII leakage, and other safety concerns
 - **Custom Evaluations**: Domain-specific quality assessments
 
-[**View Single-Turn Metrics Documentation →**](./single-turn)
+[**View Single-Turn Metrics Documentation →**](/sdk/metrics/single-turn)
 
 ### Conversational Metrics
 
@@ -30,7 +30,7 @@ Conversational metrics (multi-turn metrics) evaluate the quality of interactions
 - **Tool Usage**: Appropriate selection and utilization of available tools
 - **Conversation Completeness**: Whether conversations reach satisfactory conclusions
 
-[**View Conversational Metrics Documentation →**](./conversational)
+[**View Conversational Metrics Documentation →**](/sdk/metrics/conversational)
 
 ## Metric Scopes
 
@@ -134,13 +134,13 @@ For full details on how trace metrics evaluation works — including the two-pha
 
 Rhesis integrates with the following open-source evaluation frameworks:
 
-- **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0  
+- **[DeepEval](https://github.com/confident-ai/deepeval)** - Apache License 2.0
   The LLM Evaluation Framework by Confident AI
-- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Apache License 2.0  
+- **[DeepTeam](https://github.com/confident-ai/deepteam)** - Apache License 2.0
   The LLM Red Teaming Framework by Confident AI
-- **[Ragas](https://github.com/explodinggradients/ragas)** - Apache License 2.0  
+- **[Ragas](https://github.com/explodinggradients/ragas)** - Apache License 2.0
   Supercharge Your LLM Application Evaluations by Exploding Gradients
-- **[Garak](https://github.com/NVIDIA/garak)** - Apache License 2.0  
+- **[Garak](https://github.com/NVIDIA/garak)** - Apache License 2.0
   LLM Vulnerability Scanner by NVIDIA
 
 These tools are used through their public APIs. The original licenses and copyright notices can be found in their respective repositories. Rhesis is not affiliated with these projects.
@@ -158,7 +158,7 @@ These tools are used through their public APIs. The original licenses and copyri
 os.environ["RHESIS_API_KEY"] = "your-api-key"`}
 </CodeBlock>
 
-For more information, see the [Installation & Setup](../installation) guide.
+For more information, see the [Installation & Setup](/sdk/installation) guide.
 
 </Callout>
 
@@ -255,13 +255,12 @@ metric = NumericJudge.pull(name="response_clarity")`}
 
 ## Next Steps
 
-- [**Single-Turn Metrics**](./single-turn) - Learn about all available single-turn metrics
-- [**Conversational Metrics**](./conversational) - Learn about all available conversational metrics
+- [**Single-Turn Metrics**](/sdk/metrics/single-turn) - Learn about all available single-turn metrics
+- [**Conversational Metrics**](/sdk/metrics/conversational) - Learn about all available conversational metrics
 - [**Trace Metrics**](/docs/metrics/trace-metrics) - Automatic evaluation on live production traces
-- [**Models Documentation**](../models) - Configure LLM models for evaluation
-- [**Installation & Setup**](../installation) - Setup instructions
+- [**Models Documentation**](/sdk/models) - Configure LLM models for evaluation
+- [**Installation & Setup**](/sdk/installation) - Setup instructions
 
 ## Need Help?
 
 If any metrics are missing from the list, or you would like to use a different provider, please let us know by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
-
