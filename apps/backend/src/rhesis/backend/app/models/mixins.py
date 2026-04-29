@@ -388,6 +388,12 @@ def _queue_embedding_after_commit(target) -> None:
     session = object_session(target)
     if session is None:
         return
+    if target.organization_id is None or target.user_id is None:
+        logger.warning(
+            f"Skipping embedding for {target.__class__.__name__} {target.id}: "
+            "organization_id or user_id is None"
+        )
+        return
     pending = session.info.setdefault(_PENDING_EMBEDDING_JOBS_KEY, [])
     pending.append(
         {
