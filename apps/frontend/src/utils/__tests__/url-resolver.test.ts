@@ -1,6 +1,7 @@
 import {
   resolveLocalhostUrl,
   getClientApiBaseUrl,
+  getClientUpstreamApiBaseUrl,
   getServerBackendUrl,
   getBaseUrl,
 } from '../url-resolver';
@@ -30,30 +31,14 @@ describe('resolveLocalhostUrl', () => {
 });
 
 describe('getClientApiBaseUrl', () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
+  it('returns relative /api for same-origin browser requests', () => {
+    expect(getClientApiBaseUrl()).toBe('/api');
   });
+});
 
-  afterAll(() => {
-    process.env = originalEnv;
-  });
-
-  it('uses NEXT_PUBLIC_API_BASE_URL when set', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:9090/api';
-    expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:9090/api');
-  });
-
-  it('falls back to default when env var is not set', () => {
-    delete (process.env as Record<string, string | undefined>)
-      .NEXT_PUBLIC_API_BASE_URL;
-    expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:8080');
-  });
-
-  it('resolves localhost in the URL', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:3000';
-    expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:3000');
+describe('getClientUpstreamApiBaseUrl', () => {
+  it('returns relative /api/upstream for backend auth paths', () => {
+    expect(getClientUpstreamApiBaseUrl()).toBe('/api/upstream');
   });
 });
 
@@ -90,9 +75,7 @@ describe('getBaseUrl', () => {
     process.env = originalEnv;
   });
 
-  it('returns client URL when window is defined (browser)', () => {
-    // window is defined in jsdom
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:5000';
-    expect(getBaseUrl()).toBe('http://127.0.0.1:5000');
+  it('returns client proxy URL when window is defined (browser)', () => {
+    expect(getBaseUrl()).toBe('/api');
   });
 });

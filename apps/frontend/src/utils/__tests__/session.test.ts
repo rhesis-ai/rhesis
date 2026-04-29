@@ -7,12 +7,6 @@
  *    localhost vs deployed branching, localStorage/sessionStorage clearing
  */
 
-jest.mock('../api-client/config', () => ({
-  API_CONFIG: {
-    baseUrl: 'http://127.0.0.1:8080/api/v1',
-  },
-}));
-
 // jsdom's window.location is non-configurable, but individual properties on the
 // underlying Location object (like hostname) can be redefined on the instance.
 
@@ -76,7 +70,7 @@ describe('getSession', () => {
     const session = await getSession();
 
     expect(global.fetch).toHaveBeenCalledWith(
-      'http://127.0.0.1:8080/api/v1/auth/verify',
+      '/api/upstream/auth/verify',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ session_token: 'plain-jwt-token' }),

@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '@/utils/url-resolver';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 import { lightTheme } from '@/styles/theme';
 
@@ -46,7 +46,7 @@ export default function SignIn() {
           setStatus('Exchanging auth code...');
 
           const exchangeResponse = await fetch(
-            `${getClientApiBaseUrl()}/auth/exchange-code`,
+            `${getClientUpstreamApiBaseUrl()}/auth/exchange-code`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

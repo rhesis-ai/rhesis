@@ -5,9 +5,9 @@ import { LoginPage } from './pages/LoginPage';
 /**
  * Authentication setup — runs once before all tests.
  *
- * Relies on Quick Start mode (NEXT_PUBLIC_QUICK_START=true) which
- * auto-logs in via the /auth/local-login endpoint and redirects
- * to /dashboard. The resulting browser state (cookies, localStorage)
+ * Relies on backend Quick Start mode, which auto-logs in via the
+ * /auth/local-login endpoint and redirects to /dashboard. The resulting
+ * browser state (cookies, localStorage)
  * is persisted to tests/e2e/.auth/user.json so every test project that
  * depends on "setup" starts already authenticated.
  */

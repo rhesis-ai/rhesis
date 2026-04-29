@@ -13,7 +13,7 @@ import {
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useState, useEffect } from 'react';
-import { getClientApiBaseUrl } from '../../utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '../../utils/url-resolver';
 
 interface Props {
   clientId: string;
@@ -59,7 +59,7 @@ export default function CustomAuthForm({
     // Reset warning if previously shown
     setShowTermsWarning(false);
 
-    const redirectUri = `${getClientApiBaseUrl()}/auth/login`;
+    const redirectUri = `${getClientUpstreamApiBaseUrl()}/auth/login`;
 
     // Create URL with search params
     const loginUrl = new URL(redirectUri);

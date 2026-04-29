@@ -1,6 +1,5 @@
 export function validateEnv() {
   const requiredEnvVars = [
-    'NEXT_PUBLIC_API_BASE_URL',
     'AUTH_SECRET',
     'GOOGLE_CLIENT_ID',
     'GOOGLE_CLIENT_SECRET',

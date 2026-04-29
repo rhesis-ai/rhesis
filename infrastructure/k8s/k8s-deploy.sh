@@ -186,8 +186,7 @@ build_service_image() {
             cd "$PROJECT_ROOT/apps/frontend" || exit 1
             docker build -t rhesis-frontend:latest . \
                 --build-arg FRONTEND_ENV=local \
-                --build-arg NEXT_PUBLIC_QUICK_START=false \
-                --build-arg NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+                --build-arg BACKEND_URL="${BACKEND_URL:-http://backend:8080}"
             ;;
         backend)
             cd "$PROJECT_ROOT" || exit 1

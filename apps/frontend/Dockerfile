@@ -32,6 +32,7 @@ RUN find . -name ".env*" -type f -delete
 
 # Define ARG for this stage. Default to production if not set.
 ARG FRONTEND_ENV=production
+ARG BACKEND_URL=http://backend:8080
 
 # Git metadata injected by CI pipeline (NEXT_PUBLIC_ prefix for client-side access)
 ARG GIT_BRANCH
@@ -41,15 +42,12 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NEXT_PUBLIC_GIT_BRANCH=${GIT_BRANCH}
 ENV NEXT_PUBLIC_GIT_COMMIT=${GIT_COMMIT}
 
-# Define build arguments only for NEXT_PUBLIC_ variables
-ARG NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
-ARG NEXT_PUBLIC_QUICK_START=false
+# Browser API uses same-origin /api proxy; Next.js rewrites need BACKEND_URL at build time.
+ENV BACKEND_URL=${BACKEND_URL}
 
-# Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
+# Create a temporary .env file using build arguments and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
-    echo "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" >> .env && \
     echo "BACKEND_URL=${BACKEND_URL}" >> .env && \
-    echo "NEXT_PUBLIC_QUICK_START=${NEXT_PUBLIC_QUICK_START}" >> .env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> .env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> .env && \
     echo "AUTH_SECRET=placeholder-auth-secret" >> .env

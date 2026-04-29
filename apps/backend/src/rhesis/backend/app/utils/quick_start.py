@@ -8,8 +8,21 @@ Quick Start is ONLY enabled when QUICK_START=true AND all signals confirm local 
 import logging
 import os
 from typing import Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+def _is_local_host(value: str) -> bool:
+    """Return true for local/private dev hosts, with or without scheme/port."""
+    if not value:
+        return False
+
+    parsed = urlparse(value if "://" in value else f"//{value}")
+    hostname = (parsed.hostname or value.split(":")[0]).lower()
+    return hostname in {"localhost", "127.0.0.1", "0.0.0.0", "::1"} or hostname.endswith(
+        ".local"
+    )
 
 
 def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dict] = None) -> bool:
@@ -81,13 +94,16 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
                 logger.warning(f" Quick Start disabled: Cloud Host header detected ({host})")
                 return False
 
-        # Check for X-Forwarded-Host (proxy/load balancer indicator)
+        # Check for X-Forwarded-Host. Local Next.js rewrites include this header
+        # (e.g. localhost:3000), so only reject non-local forwarded hosts.
         forwarded_host = headers.get("x-forwarded-host", headers.get("X-Forwarded-Host", ""))
         if forwarded_host:
-            logger.warning(
-                f" Quick Start disabled: X-Forwarded-Host header present ({forwarded_host})"
-            )
-            return False
+            if not _is_local_host(forwarded_host):
+                logger.warning(
+                    " Quick Start disabled: non-local X-Forwarded-Host header present "
+                    f"({forwarded_host})"
+                )
+                return False
 
         # Check for Cloud Run specific headers
         cloud_run_headers = [

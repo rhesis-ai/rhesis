@@ -31,6 +31,23 @@ interface ProviderSelectionDialogProps {
   modelType?: 'language' | 'embedding';
 }
 
+function allowsLocalProviders(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const hostname = window.location.hostname.toLowerCase();
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '::1' ||
+    hostname.endsWith('.local') ||
+    hostname === 'dev-app.rhesis.ai' ||
+    hostname === 'stg-app.rhesis.ai'
+  );
+}
+
 export function ProviderSelectionDialog({
   open,
   onClose,
@@ -57,9 +74,8 @@ export function ProviderSelectionDialog({
     return true;
   });
 
-  // Enable local-only providers for local/development FRONTEND_ENV builds (set at build in next.config)
-  const fe = process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase();
-  const isLocalMode = fe === 'local';
+  // Enable local-only providers for local, development, and staging app hosts.
+  const canUseLocalProviders = allowsLocalProviders();
 
   if (!userSelectableProviders || userSelectableProviders.length === 0) {
     return (
@@ -126,8 +142,8 @@ export function ProviderSelectionDialog({
               provider.type_value
             );
             const isLocal = LOCAL_PROVIDERS.includes(provider.type_value);
-            // Enable local providers when FRONTEND_ENV is local or development
-            const isEnabled = isSupported && (!isLocal || isLocalMode);
+            // Enable local providers only in local/dev/staging app contexts.
+            const isEnabled = isSupported && (!isLocal || canUseLocalProviders);
 
             const providerInfo: ProviderInfo = {
               id: provider.type_value,

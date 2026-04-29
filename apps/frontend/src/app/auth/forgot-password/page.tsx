@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/EmailOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '@/utils/url-resolver';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 
 const SUBTLE_TEXT = '#6B7280'; // Intentional: auth form subtle text
@@ -30,7 +30,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const response = await fetch(
-        `${getClientApiBaseUrl()}/auth/forgot-password`,
+        `${getClientUpstreamApiBaseUrl()}/auth/forgot-password`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

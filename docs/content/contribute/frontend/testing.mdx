@@ -90,9 +90,6 @@ The test environment is configured in `jest.setup.js`:
 <CodeBlock language="javascript" filename="jest.setup.js">
 {`import "@testing-library/jest-dom";
 
-// Set environment variables for tests
-process.env.NEXT_PUBLIC_API_BASE_URL = "http://localhost:8080/api/v1";
-
 // Mock Next.js router
 jest.mock("next/router", () => ({
   useRouter() {
@@ -535,8 +532,8 @@ test:
 <div className="space-y-4">
   <div>
     <h3>Environment Variables Missing</h3>
-    <pre><code>{`# Add to jest.setup.js
-process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1';`}</code></pre>
+    <pre><code>{`# Server-side tests: set BACKEND_URL if needed
+process.env.BACKEND_URL = 'http://localhost:8080';`}</code></pre>
   </div>
 
 <div>

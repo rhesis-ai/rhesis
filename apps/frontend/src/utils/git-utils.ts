@@ -18,12 +18,9 @@ export interface VersionInfo {
  * Returns true for all non-production environments (development, staging, etc.).
  */
 export function shouldShowGitInfo(): boolean {
-  const frontendEnv = (
-    process.env.NEXT_PUBLIC_FRONTEND_ENV || process.env.FRONTEND_ENV
-  )?.toLowerCase();
   const nodeEnv = process.env.NODE_ENV?.toLowerCase();
 
-  return frontendEnv !== 'production' || nodeEnv === 'development';
+  return nodeEnv === 'development';
 }
 
 /**

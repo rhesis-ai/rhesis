@@ -19,15 +19,22 @@ export function resolveLocalhostUrl(url: string): string {
 }
 
 /**
- * Gets the API base URL for client-side requests with localhost resolution
- * Uses NEXT_PUBLIC_API_BASE_URL environment variable or falls back to default
+ * Gets the API base URL for browser requests: relative `/api` so Next.js
+ * rewrites can proxy to `BACKEND_URL` without changing the browser origin.
  *
- * @returns Resolved API base URL
+ * @returns Relative API base URL
  */
 export function getClientApiBaseUrl(): string {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
-  return resolveLocalhostUrl(baseUrl);
+  return '/api';
+}
+
+/**
+ * Same-origin base for FastAPI `/auth/*` (and similar) from the browser.
+ * Must not use `/api/auth/*` — that path is reserved for NextAuth.
+ * Proxied by `next.config.mjs` via `/api/upstream/:path*` → `BACKEND_URL/:path*`.
+ */
+export function getClientUpstreamApiBaseUrl(): string {
+  return '/api/upstream';
 }
 
 /**
@@ -43,7 +50,7 @@ export function getServerBackendUrl(): string {
 
 /**
  * Gets the appropriate base URL based on execution environment
- * - Client-side: Uses NEXT_PUBLIC_API_BASE_URL for browser-to-host communication
+ * - Client-side: Same-origin `/api` (proxied to backend by Next.js)
  * - Server-side: Uses BACKEND_URL for container-to-container communication
  *
  * @returns Resolved base URL appropriate for the current environment
@@ -53,7 +60,6 @@ export function getBaseUrl(): string {
     // Server-side: use BACKEND_URL for container-to-container communication
     return getServerBackendUrl();
   } else {
-    // Client-side: use NEXT_PUBLIC_API_BASE_URL for browser-to-host communication
     return getClientApiBaseUrl();
   }
 }

@@ -24,7 +24,8 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
-import { getClientApiBaseUrl } from '../../utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '../../utils/url-resolver';
+import { isQuickStartHostAllowed } from '../../utils/quick_start';
 import {
   DEFAULT_PASSWORD_POLICY,
   validatePassword,
@@ -36,6 +37,22 @@ const FORM_BORDER = '#E5E7EB'; // Intentional: auth form border color
 const HOVER_BORDER = '#D1D5DB'; // Intentional: auth form hover border
 const HOVER_BG = '#FAFBFC'; // Intentional: auth form hover background
 const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
+
+let quickStartLoginInFlight = false;
+const LOCAL_LOGIN_ATTEMPTED_KEY = 'quickStartLoginAttempted';
+
+export function buildOAuthLoginUrl(
+  providerName: string,
+  returnTo: string,
+  origin: string = window.location.origin
+): string {
+  const loginUrl = new URL(
+    `${getClientUpstreamApiBaseUrl()}/auth/login/${providerName}`,
+    origin
+  );
+  loginUrl.searchParams.set('return_to', returnTo);
+  return loginUrl.toString();
+}
 
 interface ProviderInfo {
   name: string;
@@ -111,11 +128,53 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     }
   }, []);
 
+  // In local Quick Start, the backend is the source of truth. Try local-login
+  // once when the login form is shown; if disabled, the backend rejects it and
+  // the normal login UI remains.
+  useEffect(() => {
+    if (isRegistration || quickStartLoginInFlight) return;
+    if (!isQuickStartHostAllowed()) return;
+    if (sessionStorage.getItem(LOCAL_LOGIN_ATTEMPTED_KEY) === 'true') {
+      return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const isSessionExpired = urlParams.get('session_expired') === 'true';
+    const isForcedLogout = urlParams.get('force_logout') === 'true';
+    if (isSessionExpired || isForcedLogout) return;
+
+    quickStartLoginInFlight = true;
+    sessionStorage.setItem(LOCAL_LOGIN_ATTEMPTED_KEY, 'true');
+
+    fetch(`${getClientUpstreamApiBaseUrl()}/auth/local-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(async response => {
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json();
+        await signIn('credentials', {
+          session_token: data.session_token,
+          refresh_token: data.refresh_token || '',
+          redirect: true,
+          callbackUrl: '/dashboard',
+        });
+      })
+      .catch(error => {
+        console.error('Local auto-login error:', error);
+      });
+  }, [isRegistration]);
+
   // Fetch available providers from backend
   useEffect(() => {
     const fetchProviders = async () => {
       try {
-        const response = await fetch(`${getClientApiBaseUrl()}/auth/providers`);
+        const response = await fetch(
+          `${getClientUpstreamApiBaseUrl()}/auth/providers`
+        );
         if (!response.ok) {
           throw new Error('Failed to fetch providers');
         }
@@ -161,12 +220,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     const returnTo = searchParams.get('return_to') || '/dashboard';
 
     // Redirect to backend OAuth endpoint
-    const loginUrl = new URL(
-      `${getClientApiBaseUrl()}/auth/login/${providerName}`
-    );
-    loginUrl.searchParams.set('return_to', returnTo);
-
-    window.location.href = loginUrl.toString();
+    window.location.href = buildOAuthLoginUrl(providerName, returnTo);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -187,8 +241,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
     try {
       const endpoint = isRegistration
-        ? `${getClientApiBaseUrl()}/auth/register`
-        : `${getClientApiBaseUrl()}/auth/login/email`;
+        ? `${getClientUpstreamApiBaseUrl()}/auth/register`
+        : `${getClientUpstreamApiBaseUrl()}/auth/login/email`;
 
       const body = isRegistration
         ? { email, password, name: name || undefined }
@@ -265,11 +319,14 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     setFormError(null);
 
     try {
-      const response = await fetch(`${getClientApiBaseUrl()}/auth/magic-link`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      const response = await fetch(
+        `${getClientUpstreamApiBaseUrl()}/auth/magic-link`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json();

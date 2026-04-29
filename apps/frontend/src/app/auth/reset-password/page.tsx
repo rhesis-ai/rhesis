@@ -17,7 +17,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSearchParams } from 'next/navigation';
 import { ThemeProvider } from '@mui/material/styles';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getClientUpstreamApiBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
@@ -75,7 +75,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const fetchPolicy = async () => {
       try {
-        const res = await fetch(`${getClientApiBaseUrl()}/auth/providers`);
+        const res = await fetch(`${getClientUpstreamApiBaseUrl()}/auth/providers`);
         if (res.ok) {
           const data = await res.json();
           setPasswordPolicy(data.password_policy || null);
@@ -107,7 +107,7 @@ export default function ResetPasswordPage() {
 
     try {
       const response = await fetch(
-        `${getClientApiBaseUrl()}/auth/reset-password`,
+        `${getClientUpstreamApiBaseUrl()}/auth/reset-password`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
