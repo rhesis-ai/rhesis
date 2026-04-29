@@ -24,6 +24,8 @@ spec:
                   cpu: 500m
                   memory: 512Mi
               env:
+                - name: GF_SECURITY_ADMIN_USER
+                  value: "admin"
                 - name: GF_SECURITY_ADMIN_PASSWORD
                   valueFrom:
                     secretKeyRef:
