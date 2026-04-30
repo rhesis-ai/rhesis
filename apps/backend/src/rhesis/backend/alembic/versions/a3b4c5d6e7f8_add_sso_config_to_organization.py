@@ -21,19 +21,36 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("organization", sa.Column("sso_config", sa.JSON(), nullable=True))
+    conn = op.get_bind()
 
-    op.create_check_constraint(
-        "ck_organization_sso_config_valid",
-        "organization",
-        """
-        sso_config IS NULL
-        OR (
-            sso_config->>'issuer_url' IS NOT NULL
-            AND sso_config->>'client_id' IS NOT NULL
+    col_exists = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name='organization' AND column_name='sso_config'"
         )
-        """,
-    )
+    ).fetchone()
+    if not col_exists:
+        op.add_column("organization", sa.Column("sso_config", sa.JSON(), nullable=True))
+
+    constraint_exists = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.table_constraints "
+            "WHERE table_name='organization' "
+            "AND constraint_name='ck_organization_sso_config_valid'"
+        )
+    ).fetchone()
+    if not constraint_exists:
+        op.create_check_constraint(
+            "ck_organization_sso_config_valid",
+            "organization",
+            """
+            sso_config IS NULL
+            OR (
+                sso_config->>'issuer_url' IS NOT NULL
+                AND sso_config->>'client_id' IS NOT NULL
+            )
+            """,
+        )
 
 
 def downgrade() -> None:

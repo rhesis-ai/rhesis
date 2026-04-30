@@ -20,11 +20,28 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "organization",
-        sa.Column("slug", sa.String(50), nullable=True),
-    )
-    op.create_index("ix_organization_slug", "organization", ["slug"], unique=True)
+    conn = op.get_bind()
+
+    col_exists = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_name='organization' AND column_name='slug'"
+        )
+    ).fetchone()
+    if not col_exists:
+        op.add_column(
+            "organization",
+            sa.Column("slug", sa.String(50), nullable=True),
+        )
+
+    index_exists = conn.execute(
+        sa.text(
+            "SELECT 1 FROM pg_indexes "
+            "WHERE tablename='organization' AND indexname='ix_organization_slug'"
+        )
+    ).fetchone()
+    if not index_exists:
+        op.create_index("ix_organization_slug", "organization", ["slug"], unique=True)
 
 
 def downgrade() -> None:
