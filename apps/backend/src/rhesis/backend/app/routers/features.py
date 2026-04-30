@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_db_session
+from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.features import FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
@@ -40,7 +40,7 @@ class FeaturesResponse(BaseModel):
 @router.get("", response_model=FeaturesResponse)
 def list_features(
     current_user: User = Depends(require_current_user_or_token),
-    db: Session = Depends(get_db_session),
+    db: Session = Depends(get_tenant_db_session),
 ) -> FeaturesResponse:
     """Return license info and the set of features enabled for the current user's org."""
     org = db.get(Organization, current_user.organization_id)
