@@ -30,7 +30,6 @@ replace_if_match() {
   sed -i "s|${PLACEHOLDER}|${ESCAPED}|g" "$_f"
 }
 
-# Client and server bundles under .next; standalone entry may be at /app/server.js
 find /app/.next -type f \( -name '*.js' -o -name '*.html' \) 2>/dev/null | while IFS= read -r f; do
   replace_if_match "$f"
 done
@@ -38,6 +37,8 @@ done
 if test -f /app/server.js; then
   replace_if_match /app/server.js
 fi
+
+printf '[entrypoint] using NEXT_PUBLIC_API_BASE_URL=%s (set at runtime)\n' "$RUNTIME_VALUE"
 
 export NEXT_PUBLIC_API_BASE_URL="$RUNTIME_VALUE"
 
