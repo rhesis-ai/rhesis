@@ -32,10 +32,18 @@ resource "google_service_account" "cnpg_barman" {
   depends_on = [google_project_service.iamcredentials]
 }
 
-# Read, write, and list objects; sufficient for Barman
+# Object read/write/list for Barman WAL and base backups
 resource "google_storage_bucket_iam_member" "cnpg_backup_rw" {
   bucket = var.backup_bucket_name
   role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.cnpg_barman.email}"
+}
+
+# Bucket metadata read (storage.buckets.get). objectUser alone does not include it;
+# the GCS client used by CNPG/Barman checks the bucket before object operations.
+resource "google_storage_bucket_iam_member" "cnpg_backup_bucket_viewer" {
+  bucket = var.backup_bucket_name
+  role   = "roles/storage.bucketViewer"
   member = "serviceAccount:${google_service_account.cnpg_barman.email}"
 }
 
