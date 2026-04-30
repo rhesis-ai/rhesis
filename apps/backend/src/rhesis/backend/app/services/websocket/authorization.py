@@ -36,7 +36,12 @@ class ChannelAuthorizer:
 
     # Resource channels that require organization ownership verification
     # These resources have an organization_id field in the database
-    PROTECTED_RESOURCE_PREFIXES = ["test_run:", "test_set:", "project:"]
+    PROTECTED_RESOURCE_PREFIXES = [
+        "test_run:",
+        "test_set:",
+        "project:",
+        "architect:",
+    ]
 
     # UUID regex pattern for validation
     UUID_PATTERN = re.compile(

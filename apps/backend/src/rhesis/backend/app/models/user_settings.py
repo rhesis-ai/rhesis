@@ -52,7 +52,12 @@ class UserSettingsManager:
         """Return default settings structure."""
         return {
             "version": 1,
-            "models": {"generation": {}, "evaluation": {}, "embedding": {}},
+            "models": {
+                "generation": {},
+                "evaluation": {},
+                "execution": {},
+                "embedding": {},
+            },
         }
 
     @property
@@ -146,6 +151,11 @@ class ModelsSettingsAccessor:
     def evaluation(self) -> "ModelSettingsAccessor":
         """Access evaluation model settings."""
         return ModelSettingsAccessor(self._data.get("evaluation", {}))
+
+    @property
+    def execution(self) -> "ModelSettingsAccessor":
+        """Access execution model settings (Penelope / multi-turn)."""
+        return ModelSettingsAccessor(self._data.get("execution", {}))
 
     @property
     def embedding(self) -> "ModelSettingsAccessor":

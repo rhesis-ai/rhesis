@@ -114,6 +114,9 @@ async def _run_metrics_on_text(
 ) -> Dict[str, Any]:
     """Run all *sdk_metrics* against a single (input, output) pair.
 
+    Metrics are evaluated **concurrently** via ``asyncio.gather`` so that
+    independent LLM/rubric calls overlap rather than running serially.
+
     Returns a dict keyed by metric name with ``score`` and
     ``is_successful`` for each metric that succeeded.
     """
@@ -123,8 +126,7 @@ async def _run_metrics_on_text(
 
     score_evaluator = ScoreEvaluator()
 
-    metric_results: Dict[str, Any] = {}
-    for metric, config in sdk_metrics:
+    async def _eval_single(metric, config) -> Tuple[str, Dict[str, Any]]:
         sig = inspect.signature(metric.a_evaluate)
         params = sig.parameters
         kwargs: Dict[str, Any] = {}
@@ -168,7 +170,21 @@ async def _run_metrics_on_text(
         if serialized_details:
             entry["details"] = serialized_details
 
-        metric_results[metric.name] = entry
+        return metric.name, entry
+
+    results = await asyncio.gather(
+        *[_eval_single(m, c) for m, c in sdk_metrics],
+        return_exceptions=True,
+    )
+
+    metric_results: Dict[str, Any] = {}
+    for i, res in enumerate(results):
+        if isinstance(res, BaseException):
+            metric_name = sdk_metrics[i][0].name
+            logger.warning("Metric %s failed: %s", metric_name, res, exc_info=res)
+            continue
+        name, entry = res  # type: ignore[misc]
+        metric_results[name] = entry
 
     return metric_results
 

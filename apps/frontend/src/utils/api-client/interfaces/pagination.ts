@@ -10,6 +10,8 @@ export interface PaginationParams {
   sort_by?: string;
   /** Sort order ('asc' or 'desc') */
   sort_order?: 'asc' | 'desc';
+  /** OData $filter expression */
+  $filter?: string;
 }
 
 /**

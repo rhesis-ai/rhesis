@@ -17,7 +17,7 @@ from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 from rhesis.backend.tasks.execution.executors.metrics import determine_status_from_metrics
 from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
-from rhesis.backend.tasks.execution.test import get_evaluation_model
+from rhesis.backend.tasks.execution.test import get_evaluation_model, get_execution_model
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +59,15 @@ async def execute_test_in_place(
     """
     start_time = datetime.utcnow()
 
-    # Get user's default evaluation model
-    user_model = get_evaluation_model(db, user_id)
+    evaluation_model = get_evaluation_model(db, user_id)
+    execution_model = get_execution_model(db, user_id)
     logger.info(
-        f"[InPlaceExecution] Using model for user {user_id}: "
-        f"{type(user_model).__name__ if not isinstance(user_model, str) else user_model}"
+        f"[InPlaceExecution] Using evaluation model for user {user_id}: "
+        f"{type(evaluation_model).__name__ if not isinstance(evaluation_model, str) else evaluation_model}"
+    )
+    logger.info(
+        f"[InPlaceExecution] Using execution model for user {user_id}: "
+        f"{type(execution_model).__name__ if not isinstance(execution_model, str) else execution_model}"
     )
 
     # Determine if using existing test or creating temporary one
@@ -111,7 +115,8 @@ async def execute_test_in_place(
             endpoint_id=endpoint_id,
             organization_id=organization_id,
             user_id=user_id,
-            model=user_model,
+            execution_model=execution_model,
+            evaluation_model=evaluation_model,
             evaluate_metrics=evaluate_metrics,
             start_time=start_time,
         )
@@ -124,7 +129,7 @@ async def execute_test_in_place(
             endpoint_id=endpoint_id,
             organization_id=organization_id,
             user_id=user_id,
-            model=user_model,
+            evaluation_model=evaluation_model,
             evaluate_metrics=evaluate_metrics,
             start_time=start_time,
         )
@@ -215,14 +220,13 @@ async def _execute_single_turn_in_place(
     endpoint_id: str,
     organization_id: str,
     user_id: str,
-    model: Any,
+    evaluation_model: Any,
     evaluate_metrics: bool,
     start_time: datetime,
 ) -> Dict[str, Any]:
     """Execute single-turn test in-place without persistence."""
     test_id = str(test.id)
 
-    # Run core execution (shared with executor)
     runner = SingleTurnRunner()
     execution_time, processed_result, metrics_results = await runner.run(
         db=db,
@@ -230,7 +234,7 @@ async def _execute_single_turn_in_place(
         endpoint_id=endpoint_id,
         organization_id=organization_id,
         user_id=user_id,
-        model=model,  # Use user's default evaluation model
+        model=evaluation_model,
         prompt_content=prompt_content,
         expected_response=expected_response,
         evaluate_metrics=evaluate_metrics,
@@ -264,14 +268,14 @@ async def _execute_multi_turn_in_place(
     endpoint_id: str,
     organization_id: str,
     user_id: str,
-    model: Any,
+    execution_model: Any,
+    evaluation_model: Any,
     evaluate_metrics: bool,
     start_time: datetime,
 ) -> Dict[str, Any]:
     """Execute multi-turn test in-place without persistence."""
     test_id = str(test.id)
 
-    # Run core execution (shared with executor)
     runner = MultiTurnRunner()
     execution_time, penelope_trace, metrics_results = await runner.run(
         db=db,
@@ -279,7 +283,8 @@ async def _execute_multi_turn_in_place(
         endpoint_id=endpoint_id,
         organization_id=organization_id,
         user_id=user_id,
-        model=model,  # Use user's default evaluation model (also for Penelope)
+        execution_model=execution_model,
+        evaluation_model=evaluation_model,
     )
 
     # Build API response (no DB persistence)

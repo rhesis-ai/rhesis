@@ -138,7 +138,7 @@ Once running, access the platform at:
 The local setup works out-of-the-box. To enable test generation, you need an AI provider. You have two options:
 
 <Callout type="info">
-By default, the system uses `rhesis/rhesis-default` as the AI model, which requires a `RHESIS_API_KEY`. If you prefer to use your own provider (e.g., OpenAI, Gemini), you must also set `DEFAULT_GENERATION_MODEL` and `DEFAULT_EVALUATION_MODEL` to that provider — otherwise the system will still try to use the Rhesis model and fail.
+By default, the system uses `rhesis/rhesis-default` as the AI model, which requires a `RHESIS_API_KEY`. If you prefer to use your own provider (e.g., OpenAI, Gemini), you must also set `DEFAULT_GENERATION_MODEL`, `DEFAULT_EVALUATION_MODEL`, and `DEFAULT_EXECUTION_MODEL` to that provider — otherwise the system will still try to use the Rhesis model and fail.
 </Callout>
 
 **Option 1: Use Rhesis API (Recommended)**
@@ -160,6 +160,7 @@ GEMINI_API_KEY=your-gemini-api-key
 GOOGLE_API_KEY=your-google-api-key
 DEFAULT_GENERATION_MODEL=gemini/gemini-2.0-flash-001
 DEFAULT_EVALUATION_MODEL=gemini/gemini-2.0-flash-001
+DEFAULT_EXECUTION_MODEL=gemini/gemini-2.0-flash-001
 
 # Or Azure OpenAI
 AZURE_OPENAI_ENDPOINT=your-endpoint
@@ -168,11 +169,13 @@ AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AZURE_OPENAI_API_VERSION=your-version
 DEFAULT_GENERATION_MODEL=azure/gpt-4o
 DEFAULT_EVALUATION_MODEL=azure/gpt-4o
+DEFAULT_EXECUTION_MODEL=azure/gpt-4o
 
 # Or OpenAI
 OPENAI_API_KEY=your-openai-key
 DEFAULT_GENERATION_MODEL=openai/gpt-4o
-DEFAULT_EVALUATION_MODEL=openai/gpt-4o`}
+DEFAULT_EVALUATION_MODEL=openai/gpt-4o
+DEFAULT_EXECUTION_MODEL=openai/gpt-4o`}
 </CodeBlock>
 
 After updating, restart services:

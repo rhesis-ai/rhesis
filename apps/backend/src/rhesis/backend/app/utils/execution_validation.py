@@ -16,6 +16,7 @@ from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.user_model_utils import (
     validate_user_evaluation_model,
+    validate_user_execution_model,
     validate_user_generation_model,
 )
 
@@ -36,10 +37,10 @@ def validate_execution_model(
     current_user: User = Depends(require_current_user_or_token),
 ) -> None:
     """
-    Validate that user's evaluation model is properly configured.
+    Validate that user's evaluation and execution models are properly configured.
 
     This is a FastAPI dependency for test execution endpoints that ensures
-    the user has a valid evaluation model before running tests.
+    the user has valid evaluation and execution models before running tests.
 
     Args:
         db: Database session (injected by FastAPI)
@@ -55,6 +56,7 @@ def validate_execution_model(
     """
     try:
         validate_user_evaluation_model(db, current_user)
+        validate_user_execution_model(db, current_user)
     except ValueError as e:
         raise _convert_model_error_to_http_exception(e, "execution")
 

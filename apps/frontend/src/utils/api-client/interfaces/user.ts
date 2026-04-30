@@ -11,6 +11,7 @@ export interface LLMModelSettings {
 export interface ModelsSettings {
   generation?: LLMModelSettings;
   evaluation?: LLMModelSettings;
+  execution?: LLMModelSettings;
   embedding?: LLMModelSettings;
 }
 

@@ -34,6 +34,113 @@ export enum EventType {
   CHAT_MESSAGE = 'chat.message',
   CHAT_RESPONSE = 'chat.response',
   CHAT_ERROR = 'chat.error',
+
+  // Architect events (for architect chat)
+  ARCHITECT_MESSAGE = 'architect.message',
+  ARCHITECT_RESPONSE = 'architect.response',
+  ARCHITECT_THINKING = 'architect.thinking',
+  ARCHITECT_TOOL_START = 'architect.tool_start',
+  ARCHITECT_TOOL_END = 'architect.tool_end',
+  ARCHITECT_PLAN_UPDATE = 'architect.plan_update',
+  ARCHITECT_MODE_CHANGE = 'architect.mode_change',
+  ARCHITECT_ERROR = 'architect.error',
+  ARCHITECT_STREAM_START = 'architect.stream_start',
+  ARCHITECT_TEXT_CHUNK = 'architect.text_chunk',
+  ARCHITECT_STREAM_END = 'architect.stream_end',
+}
+
+/**
+ * Architect message payload (sent to server).
+ */
+export interface ArchitectMessagePayload {
+  session_id: string;
+  message: string;
+  attachments?: Record<string, unknown>;
+  /** When true, skip per-action confirmations for this session. */
+  auto_approve?: boolean;
+}
+
+/**
+ * Architect response payload (received from server).
+ */
+export interface ArchitectResponsePayload {
+  session_id: string;
+  content: string;
+  mode?: string;
+  plan?: string;
+  needs_confirmation?: boolean;
+  /** Server-side auto-approve state (echoed back for UI sync). */
+  auto_approve_all?: boolean;
+  /** True when the agent has dispatched a background task and is waiting for it to finish. */
+  awaiting_task?: boolean;
+}
+
+/**
+ * Architect thinking payload (received from server).
+ */
+export interface ArchitectThinkingPayload {
+  status: string;
+  iteration?: number;
+  session_id?: string;
+}
+
+/**
+ * Architect tool event payload (received from server).
+ */
+export interface ArchitectToolPayload {
+  tool: string;
+  description?: string;
+  args?: Record<string, unknown>;
+  reasoning?: string;
+  success?: boolean;
+  preview?: string;
+  duration_ms?: number;
+}
+
+/**
+ * Architect plan update payload (received from server).
+ */
+export interface ArchitectPlanUpdatePayload {
+  plan: string;
+}
+
+/**
+ * Architect mode change payload (received from server).
+ */
+export interface ArchitectModeChangePayload {
+  old_mode: string;
+  new_mode: string;
+}
+
+/**
+ * Architect stream start payload (received from server).
+ */
+export interface ArchitectStreamStartPayload {
+  needs_confirmation?: boolean;
+}
+
+/**
+ * Architect text chunk payload (received from server).
+ */
+export interface ArchitectTextChunkPayload {
+  chunk: string;
+}
+
+/**
+ * Architect stream end payload (received from server).
+ */
+export interface ArchitectStreamEndPayload {
+  content: string;
+  error?: string | null;
+}
+
+/**
+ * Architect error payload (received from server).
+ */
+export interface ArchitectErrorPayload {
+  error: string;
+  error_type?: string;
+  session_id?: string;
 }
 
 /**

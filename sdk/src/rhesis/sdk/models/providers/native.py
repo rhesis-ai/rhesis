@@ -5,7 +5,6 @@ import time
 from typing import Any, Dict, List, Optional, Type, Union
 
 import aiohttp
-import requests
 from pydantic import BaseModel
 
 from rhesis.sdk.async_utils import run_sync
@@ -266,30 +265,17 @@ class RhesisEmbedder(BaseEmbedder):
             "Content-Type": "application/json",
         }
 
-    def generate(self, text: str, **kwargs: Any) -> List[float]:
-        """Generate embedding for a single text.
-
-        Args:
-            text: The input text to embed.
-            **kwargs: Additional parameters (unused for Rhesis).
-
-        Returns:
-            A list of floats representing the embedding vector.
-
-        Raises:
-            requests.exceptions.HTTPError: If the API request fails.
-        """
+    async def a_generate(self, text: str, **kwargs: Any) -> List[float]:
+        """Generate embedding for a single text via async HTTP."""
+        url = self.client.get_url("services/generate/embedding")
         try:
-            url = self.client.get_url("services/generate/embedding")
-            response = requests.post(
-                url,
-                headers=self.headers,
-                json={"text": text},
-            )
-            response.raise_for_status()
-            result = response.json()
-            return result
-        except requests.exceptions.HTTPError as e:
+            timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(url, headers=self.headers, json={"text": text}) as response:
+                    response.raise_for_status()
+                    result: List[float] = await response.json()
+                    return result
+        except aiohttp.ClientResponseError as e:
             logger.error(f"Error generating embedding: {e}", exc_info=True)
             raise
 
@@ -307,6 +293,6 @@ class RhesisEmbedder(BaseEmbedder):
             A list of embedding vectors, one for each input text.
 
         Raises:
-            requests.exceptions.HTTPError: If any API request fails.
+            aiohttp.ClientResponseError: If any API request fails.
         """
         return [self.generate(text, **kwargs) for text in texts]

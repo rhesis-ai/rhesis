@@ -1,84 +1,11 @@
 [project]
 name = "rhesis-worker"
 version = "0.1.0"
-description = "Worker manages long running tasks in Rhesis backend"
+description = "Celery workers for the Rhesis backend"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "alembic>=1.16.4",
-    "authlib>=1.6.1",
-    "celery[redis]==5.5.2",
-    "chardet>=5.2.0",
-    "email-validator>=2.0.0",
-    "faker>=37.5.3",
-    "fastapi>=0.116.1",
-    "flower==2.0.1",
-    "garak>=0.14.0",
-    "google-genai==1.13.0",
-    "gunicorn>=21.2.0",
-    "httpx>=0.28.1",
-    "huggingface-hub>=0.34.4",
-    "itsdangerous>=2.2.0",
-    "jinja2>=3.1.6",
-    "jsonpath-ng==1.7.0",
-    "kombu==5.5.3",
-    "mirascope==1.24.0",
-    "nanoid>=2.0.0",
-    "odata-query==0.10.0",
-    "openpyxl>=3.1.5",
-    "pandas==2.2.2",
-    "passlib[bcrypt]>=1.7.4",
-    "pathspec==0.12.1",
-    "pgvector>=0.3.0",
-    "portalocker==3.1.1",
-    "proto-plus>=1.26.1",
-    "protobuf>=6.33.5",
-    "psutil==5.9.5",
-    "psycopg2-binary==2.9.9",
-    "pydantic>=2.11.7",
-    "pyfiglet==1.0.2",
-    "python-dotenv>=1.1.1",
-    "PyJWT[crypto]>=2.12.0",
-    "python-multipart>=0.0.22",
-    "pyyaml>=6.0.2",
-    "redis>=4.5.2,!=4.5.5,<6.0.0",
-    "slowapi>=0.1.9",
-    "sqlalchemy>=2.0.43",
-    "tenacity==8.2.3",
-    "tomli>=2.0.0",
-    "torch",  # Explicit dep to force CPU-only via [tool.uv.sources]
-    "uvicorn>=0.35.0",
-    "websockets==15.0.1",
-    "yaspin==3.0.2",
-    "rhesis-sdk",
-    "rhesis-penelope",
-    "sendgrid",
-]
-
-[tool.uv]
-exclude-newer = "1 week"
-exclude-newer-package = { torch = false }
-# Use CPU-only PyTorch to reduce image size (~200MB instead of ~3GB)
-# garak requires torch, but the worker doesn't need GPU support
-# Force minimum versions for transitive dependencies with security advisories
-constraint-dependencies = [
-    "pyasn1>=0.6.3",
-    "orjson>=3.11.7",
-    "langgraph>=1.0.10",
-    "tornado>=6.5.5",
-]
-# garak>=0.14.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires datasets>=4.0.0.
-# The existing environment already uses datasets 4.x; this override keeps them compatible.
-override-dependencies = [
-    "datasets>=4.0.0",
-]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = { index = "pytorch-cpu" }
-rhesis-sdk = { path = "../../sdk", editable = true }
-rhesis-penelope = { path = "../../penelope", editable = true }
+# The worker image reuses the backend venv verbatim (see
+# apps/backend/Dockerfile, target `worker`). All dependencies
+# come transitively from rhesis-backend, so this pyproject intentionally
+# has no dependencies of its own.
+dependencies = []

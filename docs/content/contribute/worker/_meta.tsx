@@ -23,12 +23,6 @@ export default {
   "execution-modes": {
     title: "Execution Modes",
   },
-  "chord-management": {
-    title: "Chord Management",
-  },
-  "chord-monitoring-quick-reference": {
-    title: "Chord Monitoring Quick Reference",
-  },
   logging: {
     title: "Logging",
   },

@@ -28,6 +28,7 @@ import {
   CallSplit as CallSplitIcon,
 } from '@mui/icons-material';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import ModelSelector from '@/components/common/ModelSelector';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
@@ -106,6 +107,11 @@ export default function RerunTestRunDrawer({
   // Scoring target state
   const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
 
+  // Model override state
+  const [selectedExecutionModelId, setSelectedExecutionModelId] = useState('');
+  const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
+    useState('');
+
   // Fetch test set metrics and determine original metric source when drawer opens
   useEffect(() => {
     const fetchTestSetMetricsAndDetermineMode = async () => {
@@ -158,10 +164,15 @@ export default function RerunTestRunDrawer({
 
     if (open) {
       fetchTestSetMetricsAndDetermineMode();
-      // Reset tags, execution mode, and scoring target when drawer opens
       setTags([]);
       setExecutionMode('Parallel');
       setScoringTarget('fresh');
+      setSelectedExecutionModelId(
+        (rerunConfig.originalAttributes?.execution_model_id as string) || ''
+      );
+      setSelectedEvaluationModelId(
+        (rerunConfig.originalAttributes?.evaluation_model_id as string) || ''
+      );
     }
   }, [
     sessionToken,
@@ -214,6 +225,16 @@ export default function RerunTestRunDrawer({
           name: m.name,
           scope: m.scope,
         }));
+      }
+
+      // Add model overrides if specified
+      if (selectedExecutionModelId) {
+        testConfigurationAttributes.execution_model_id =
+          selectedExecutionModelId;
+      }
+      if (selectedEvaluationModelId) {
+        testConfigurationAttributes.evaluation_model_id =
+          selectedEvaluationModelId;
       }
 
       // Add reference_test_run_id if reusing outputs from current run
@@ -424,6 +445,34 @@ export default function RerunTestRunDrawer({
               re-evaluated.
             </Alert>
           )}
+
+          <Divider />
+
+          {/* Model Settings Section */}
+          <Typography variant="subtitle2" color="text.secondary">
+            Model Settings
+          </Typography>
+
+          <ModelSelector
+            sessionToken={sessionToken}
+            value={selectedEvaluationModelId}
+            onChange={setSelectedEvaluationModelId}
+            label="Evaluation Model"
+            purpose="evaluation"
+            helperText="Used for scoring test results"
+          />
+
+          {scoringTarget === 'fresh' &&
+            rerunConfig.testSetType === 'Multi-Turn' && (
+              <ModelSelector
+                sessionToken={sessionToken}
+                value={selectedExecutionModelId}
+                onChange={setSelectedExecutionModelId}
+                label="Execution Model"
+                purpose="execution"
+                helperText="Used for multi-turn test execution with Penelope"
+              />
+            )}
 
           <Divider />
 

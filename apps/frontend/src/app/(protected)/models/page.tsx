@@ -187,6 +187,7 @@ export default function ModelsPage() {
 
     const defaultGenerationId = userSettings?.models?.generation?.model_id;
     const defaultEvaluationId = userSettings?.models?.evaluation?.model_id;
+    const defaultExecutionId = userSettings?.models?.execution?.model_id;
     const defaultEmbeddingId = userSettings?.models?.embedding?.model_id;
 
     // Clear validation status for models that are NOT currently defaults
@@ -196,6 +197,7 @@ export default function ModelsPage() {
         const isDefault =
           model.id === defaultGenerationId ||
           model.id === defaultEvaluationId ||
+          model.id === defaultExecutionId ||
           model.id === defaultEmbeddingId;
         if (!isDefault && newStatus.has(model.id)) {
           // Remove validation status for non-default models
@@ -229,16 +231,30 @@ export default function ModelsPage() {
       }
     }
 
+    // Validate default execution model
+    if (defaultExecutionId) {
+      const defaultExecutionModel = connectedModels.find(
+        m => m.id === defaultExecutionId
+      );
+      if (
+        defaultExecutionModel &&
+        defaultExecutionModel.id !== defaultGenerationId &&
+        defaultExecutionModel.id !== defaultEvaluationId
+      ) {
+        validateModel(defaultExecutionModel.id);
+      }
+    }
+
     // Validate default embedding model
     if (defaultEmbeddingId) {
       const defaultEmbeddingModel = connectedModels.find(
         m => m.id === defaultEmbeddingId
       );
-      // Only validate if it's different from generation and evaluation models
       if (
         defaultEmbeddingModel &&
         defaultEmbeddingModel.id !== defaultGenerationId &&
-        defaultEmbeddingModel.id !== defaultEvaluationId
+        defaultEmbeddingModel.id !== defaultEvaluationId &&
+        defaultEmbeddingModel.id !== defaultExecutionId
       ) {
         validateModel(defaultEmbeddingModel.id);
       }
@@ -247,6 +263,7 @@ export default function ModelsPage() {
     connectedModels,
     userSettings?.models?.generation?.model_id,
     userSettings?.models?.evaluation?.model_id,
+    userSettings?.models?.execution?.model_id,
     userSettings?.models?.embedding?.model_id,
     session?.session_token,
     validateModel,
@@ -292,10 +309,10 @@ export default function ModelsPage() {
         prev.map(model => (model.id === modelId ? updatedModel : model))
       );
 
-      // Re-validate if this is a default model (generation, evaluation, or embedding)
       if (
         userSettings?.models?.generation?.model_id === modelId ||
         userSettings?.models?.evaluation?.model_id === modelId ||
+        userSettings?.models?.execution?.model_id === modelId ||
         userSettings?.models?.embedding?.model_id === modelId
       ) {
         validateModel(modelId);
@@ -351,8 +368,10 @@ export default function ModelsPage() {
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect language models for test generation and
-          language-model-as-judge evaluation, and embedding models for semantic
-          search. Set your default models for each purpose.
+          language-model-as-judge evaluation, and embedding models for platform
+          use (including semantic search where applicable). Set your defaults
+          for generation, evaluation, and execution; the embedding default is
+          not user-configurable.
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>

@@ -48,6 +48,7 @@ function show_usage() {
   echo "  GEMINI_MODEL_NAME             Google Gemini model name"
   echo "  DEFAULT_GENERATION_MODEL      Default model for generation (format: provider/model_name)"
   echo "  DEFAULT_EVALUATION_MODEL      Default model for evaluation (format: provider/model_name)"
+  echo "  DEFAULT_EXECUTION_MODEL       Default model for multi-turn execution (format: provider/model_name)"
   echo "  DEFAULT_EMBEDDING_MODEL       Default model for embeddings (format: provider/model_name)"
   echo "  GOOGLE_APPLICATION_CREDENTIALS Base64-encoded Google Cloud service account JSON"
   echo "  VERTEX_AI_LOCATION            GCP region for Vertex AI (e.g., europe-west4, us-central1)"
@@ -114,7 +115,6 @@ function show_usage() {
   echo "  GOOGLE_CLIENT_SECRET          Google OAuth client secret"
   echo "  GH_CLIENT_ID              GitHub OAuth client ID"
   echo "  GH_CLIENT_SECRET          GitHub OAuth client secret"
-  echo "  NEXT_PUBLIC_APP_URL           Public app URL"
   echo "  DATABASE_URL                  Database URL for frontend"
   echo "  DEFAULT_POLYPHEMUS_URL         URL for Polyphemus adversarial model service"
   echo "  POLYPHEMUS_DEFAULT_MODEL                 Default model for Polyphemus"
@@ -248,6 +248,7 @@ SERVICE_VARS=(
   "GEMINI_MODEL_NAME"
   "DEFAULT_GENERATION_MODEL"
   "DEFAULT_EVALUATION_MODEL"
+  "DEFAULT_EXECUTION_MODEL"
   "DEFAULT_EMBEDDING_MODEL"
   "GOOGLE_APPLICATION_CREDENTIALS"
   "VERTEX_AI_LOCATION"
@@ -311,7 +312,6 @@ SERVICE_VARS=(
   "GOOGLE_CLIENT_SECRET"
   "GH_CLIENT_ID"
   "GH_CLIENT_SECRET"
-  "NEXT_PUBLIC_APP_URL"
   "DATABASE_URL"
 
   # Polyphemus service variables
@@ -398,17 +398,6 @@ for env in "${ENV_ARRAY[@]}"; do
       fi
       echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
       set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
-    fi
-
-    # Set default APP URL if not provided
-    if [[ -z "${!env_upper}_NEXT_PUBLIC_APP_URL" ]]; then
-      if [[ "$env" == "prd" ]]; then
-        app_url="https://app.rhesis.ai"
-      else
-        app_url="https://$env-app.rhesis.ai"
-      fi
-      echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_APP_URL not set, using default: $app_url"
-      set_secret "$env" "NEXT_PUBLIC_APP_URL" "$app_url"
     fi
 
     # Set default log level if not provided

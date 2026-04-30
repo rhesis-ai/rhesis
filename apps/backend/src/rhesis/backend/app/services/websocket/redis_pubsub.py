@@ -122,7 +122,7 @@ class RedisSubscriber:
             except Exception as e:
                 # Log at debug level to avoid noisy logs when Redis isn't available
                 # (common in local development)
-                logger.debug(f"Redis subscriber error: {e}")
+                logger.debug("Redis subscriber error: %s", type(e).__name__)
                 if self._running:
                     logger.debug(f"Reconnecting in {retry_delay} seconds...")
                     await asyncio.sleep(retry_delay)
@@ -146,7 +146,7 @@ class RedisSubscriber:
             try:
                 await self._handle_message(message["data"])
             except Exception as e:
-                logger.error(f"Error handling Redis message: {e}")
+                logger.error("Error handling Redis message: %s", type(e).__name__)
 
     async def _handle_message(self, data: bytes) -> None:
         """Handle a message received from Redis.
@@ -167,12 +167,12 @@ class RedisSubscriber:
 
             logger.debug(f"Forwarded Redis event {message.type} to {sent_count} connections")
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse Redis message: {e}")
+        except json.JSONDecodeError:
+            logger.error("Failed to parse Redis message: invalid JSON")
         except KeyError as e:
-            logger.error(f"Missing field in Redis message: {e}")
+            logger.error("Missing field in Redis message: %s", e)
         except Exception as e:
-            logger.error(f"Error processing Redis message: {e}")
+            logger.error("Error processing Redis message: %s", type(e).__name__)
 
     @property
     def is_running(self) -> bool:

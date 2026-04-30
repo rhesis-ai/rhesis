@@ -16,7 +16,7 @@ if _test_dir not in sys.path:
 # This is needed because the SDK imports DeepEval metrics which try to initialize OpenAI clients
 if "OPENAI_API_KEY" not in os.environ:
     os.environ["OPENAI_API_KEY"] = "mock-api-key-for-testing"
-from rhesis.penelope.targets.base import Target, TargetResponse
+from rhesis.sdk.targets import Target, TargetResponse
 from rhesis.penelope.tools.base import Tool, ToolResult
 from rhesis.sdk.models.base import BaseLLM
 

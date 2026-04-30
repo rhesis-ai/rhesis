@@ -29,7 +29,7 @@ def _set_session_variables(db: Session, organization_id: str = "", user_id: str 
     try:
         db.execute(
             text("""
-                SELECT 
+                SELECT
                     set_config('app.current_organization', :org_id, false),
                     set_config('app.current_user', :user_id, false)
             """),
@@ -86,7 +86,7 @@ engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     # More conservative pool settings
     pool_size=10,  # Adjust based on concurrent load
-    max_overflow=20,  # Total max: 30 connections per instance
+    max_overflow=20,  # Total max: 20 connections per instance
     pool_pre_ping=True,  # Keep this
     pool_recycle=3600,  # 1 hour instead of 30 min
     pool_timeout=10,  # Slightly shorter timeout
@@ -110,7 +110,7 @@ SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine,
-    expire_on_commit=False,  # Expire objects after commit
+    expire_on_commit=False,  # Do not expire objects after commit
 )
 Base = declarative_base()
 

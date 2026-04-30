@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.constants import ADAPTIVE_TESTING_BEHAVIOR
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import (
@@ -17,11 +18,7 @@ from rhesis.backend.app.utils.crud_utils import (
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
 from .topics import create_topic_node
-from .utils import (
-    ADAPTIVE_TESTING_BEHAVIOR,
-    _db_test_to_node,
-    convert_to_sdk_tree,
-)
+from .utils import _db_test_to_node, convert_to_sdk_tree
 
 logger = logging.getLogger(__name__)
 

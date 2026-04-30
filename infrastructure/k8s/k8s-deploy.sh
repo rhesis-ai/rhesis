@@ -187,17 +187,15 @@ build_service_image() {
             docker build -t rhesis-frontend:latest . \
                 --build-arg FRONTEND_ENV=local \
                 --build-arg NEXT_PUBLIC_QUICK_START=false \
-                --build-arg NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 \
-                --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3000
+                --build-arg NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
             ;;
         backend)
             cd "$PROJECT_ROOT" || exit 1
-            docker build -t rhesis-backend:latest . -f apps/backend/Dockerfile \
-                --build-arg QUICK_START=false
+            docker build -t rhesis-backend:latest . -f apps/backend/Dockerfile --target backend
             ;;
         worker)
             cd "$PROJECT_ROOT" || exit 1
-            docker build -t rhesis-worker:latest -f apps/worker/Dockerfile .
+            docker build -t rhesis-worker:latest -f apps/backend/Dockerfile --target worker .
             ;;
         chatbot)
             cd "$PROJECT_ROOT" || exit 1

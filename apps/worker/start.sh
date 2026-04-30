@@ -262,10 +262,10 @@ echo "Worker context identifier: $CELERY_WORKER_NAME"
 # Uses the threads pool: no fork(), so no fork-safety issues with native
 # libraries (SSL, gRPC, Kerberos/CoreFoundation). Works well for I/O-bound
 # work (LLM API calls, DB queries). -E enables events for Flower/monitoring.
-CELERY_CMD="celery -A rhesis.backend.worker.app worker --pool threads --queues=celery,execution,telemetry --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --optimization=fair -E ${CELERY_WORKER_OPTS}"
+CELERY_CMD="celery -A rhesis.backend.worker.app worker --pool threads --queues=celery,execution,telemetry,architect --loglevel=${CELERY_WORKER_LOGLEVEL:-WARNING} --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --optimization=fair -E ${CELERY_WORKER_OPTS}"
 
 echo "Command: $CELERY_CMD"
-echo "Queues: celery,execution,telemetry"
+echo "Queues: celery,execution,telemetry,architect"
 echo "Pool: threads"
 echo "Concurrency: ${CELERY_WORKER_CONCURRENCY:-2}"
 echo "Log level: ${CELERY_WORKER_LOGLEVEL}"

@@ -216,7 +216,7 @@ $DEV_ENV_MARKER on $timestamp
 
 NEXT_PUBLIC_QUICK_START=true
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+FRONTEND_ENV=local
 BACKEND_URL=http://localhost:8080
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=dev-nextauth-secret-change-in-production
@@ -723,6 +723,13 @@ start_backend() {
         exit 1
     }
 
+    check_uv
+    # Match apps/backend/Dockerfile build-backend: full optional deps + CPU PyTorch index
+    echo -e "${BLUE}Installing backend packages (uv sync --extra all --extra cpu)...${NC}"
+    uv sync --extra all --extra cpu || {
+        echo -e "${RED}❌ Error: uv sync failed${NC}"
+        exit 1
+    }
 
     source .venv/bin/activate || {
         echo -e "${RED}❌ Error: Failed to activate virtual environment${NC}"
@@ -879,16 +886,24 @@ start_worker() {
         exit 1
     }
 
+    check_uv
+    # Same venv as ./rh dev backend and apps/backend/Dockerfile build-backend
+    echo -e "${BLUE}Syncing backend venv (uv sync --extra all --extra cpu)...${NC}"
+    uv sync --extra all --extra cpu || {
+        echo -e "${RED}❌ Error: uv sync failed${NC}"
+        exit 1
+    }
+
     LOG_FILE="$SCRIPT_DIR/celery.log"
     FLOWER_PORT="${FLOWER_PORT:-5555}"
-    WORKER_PROJECT="$SCRIPT_DIR/apps/worker"
 
     echo -e "${GREEN}Starting new Celery worker...${NC}"
     echo -e "${BLUE}Logs will be written to: ${LOG_FILE}${NC}"
     echo -e "${YELLOW}Press Ctrl+C to stop the worker and Flower${NC}"
     echo ""
 
-    # Flower is declared in apps/worker; backend cwd keeps .env loading consistent.
+    # Flower is a backend dev dependency (default-groups includes dev).
+    # apps/worker has no Python deps — Docker worker reuses the backend image.
     export PYTHONPATH="${SCRIPT_DIR}/apps/backend/src${PYTHONPATH:+:$PYTHONPATH}"
 
     FLOWER_PID=""
@@ -909,7 +924,7 @@ start_worker() {
     trap 'cleanup_worker_stack; exit 143' TERM
 
     echo -e "${GREEN}Starting Flower (Celery monitor)...${NC}"
-    uv run --project "$WORKER_PROJECT" celery -A rhesis.backend.worker.app flower --port="$FLOWER_PORT" &
+    uv run celery -A rhesis.backend.worker.app flower --port="$FLOWER_PORT" &
     FLOWER_PID=$!
     echo -e "${BLUE}Flower dashboard: http://127.0.0.1:${FLOWER_PORT}/${NC}"
     echo -e "${BLUE}Override the port with: ${WHITE}FLOWER_PORT=<port> ./rh dev worker${NC}"
@@ -926,7 +941,7 @@ start_worker() {
     uv run celery -A rhesis.backend.worker.app worker \
         --pool threads \
         --loglevel=DEBUG \
-        --queues=celery,execution,telemetry \
+        --queues=celery,execution,telemetry,architect \
         --concurrency=${CELERY_WORKER_CONCURRENCY:-2} \
         --optimization=fair \
         -E &

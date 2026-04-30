@@ -36,11 +36,14 @@ export class DashboardPage extends BasePage {
   /**
    * Click a navigation item in the sidebar by its visible text.
    * Works for top-level sidebar items rendered by Toolpad's DashboardLayout.
+   * Scrolls the item into view first to handle long sidebars.
    */
   async navigateTo(itemText: string) {
     const navItem = this.page
       .locator('nav')
       .getByRole('link', { name: itemText });
+    await navItem.waitFor({ state: 'visible', timeout: 10_000 });
+    await navItem.scrollIntoViewIfNeeded();
     await navItem.click();
   }
 

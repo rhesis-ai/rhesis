@@ -15,6 +15,7 @@ cd rhesis
 ./rh dev init         # Initialize env files (one-time setup)
 ./rh dev up           # Start dev infrastructure (postgres + redis)
 ./rh dev backend      # Start backend server (auto-login enabled)
+./rh dev worker       # Start worker for background tasks
 ./rh dev frontend     # Start frontend server
 ```
 

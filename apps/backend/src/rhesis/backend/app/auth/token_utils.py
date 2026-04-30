@@ -20,7 +20,7 @@ from rhesis.backend.app.utils.redact import redact_email
 logger = logging.getLogger(__name__)
 
 # Token expiry defaults (in minutes)
-SERVICE_DELEGATION_EXPIRE_MINUTES = 5  # 5 minutes, short-lived for service-to-service calls
+SERVICE_DELEGATION_EXPIRE_MINUTES = int(os.getenv("SERVICE_DELEGATION_EXPIRE_MINUTES", "15"))
 EMAIL_VERIFICATION_EXPIRE_MINUTES = 60 * 24  # 24 hours
 PASSWORD_RESET_EXPIRE_MINUTES = 60  # 1 hour
 MAGIC_LINK_EXPIRE_MINUTES = 15  # 15 minutes
@@ -112,8 +112,9 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
             },
         )
 
-        # Check if it's a session token
-        if payload.get("type") != "session":
+        # Check token type — allow session and service delegation tokens
+        allowed_types = {"session", "service_delegation"}
+        if payload.get("type") not in allowed_types:
             logger.warning(f"Invalid token type: {payload.get('type')}")
             raise JWTError("Invalid token type")
 

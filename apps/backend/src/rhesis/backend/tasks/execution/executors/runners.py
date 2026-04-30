@@ -92,7 +92,6 @@ class BaseRunner(ABC):
         endpoint_id: str,
         organization_id: str,
         user_id: Optional[str] = None,
-        model: Optional[Any] = None,
         **kwargs: Any,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
@@ -104,8 +103,8 @@ class BaseRunner(ABC):
             endpoint_id: Endpoint to test
             organization_id: Organization ID
             user_id: User ID (optional)
-            model: Optional model override for evaluation
-            **kwargs: Additional runner-specific parameters
+            **kwargs: Additional runner-specific parameters (e.g., model,
+                execution_model, evaluation_model)
 
         Returns:
             Tuple of (execution_time_ms, test_output, metrics_results)
@@ -294,7 +293,8 @@ class MultiTurnRunner(BaseRunner):
         endpoint_id: str,
         organization_id: str,
         user_id: Optional[str] = None,
-        model: Optional[Any] = None,
+        execution_model: Optional[Any] = None,
+        evaluation_model: Optional[Any] = None,
         test_execution_context: Optional[Dict[str, str]] = None,
         test_set: Optional[Any] = None,
         test_configuration: Optional[Any] = None,
@@ -309,7 +309,8 @@ class MultiTurnRunner(BaseRunner):
             endpoint_id: Endpoint to test
             organization_id: Organization ID
             user_id: User ID
-            model: Optional model override for Penelope
+            execution_model: Optional model for Penelope (multi-turn execution)
+            evaluation_model: Optional model for metric evaluation
             test_execution_context: Optional dict with test_run_id,
                 test_result_id, test_id
             test_set: Optional TestSet model instance for metric override
@@ -329,7 +330,7 @@ class MultiTurnRunner(BaseRunner):
         """
         # --- Entity 1: Get output ---
         if output_provider is None:
-            output_provider = MultiTurnOutput(model=model)
+            output_provider = MultiTurnOutput(model=execution_model)
 
         output = await output_provider.get_output(
             db=db,
@@ -364,7 +365,7 @@ class MultiTurnRunner(BaseRunner):
                 db=db,
                 organization_id=organization_id,
                 user_id=user_id,
-                model=model,
+                model=evaluation_model,
                 test_set=test_set,
                 test_configuration=test_configuration,
                 exclude_class_names=PENELOPE_EVALUATED_METRICS,
@@ -381,7 +382,7 @@ class MultiTurnRunner(BaseRunner):
                 db=db,
                 organization_id=organization_id,
                 user_id=user_id,
-                model=model,
+                model=evaluation_model,
                 test_set=test_set,
                 test_configuration=test_configuration,
                 project_id=ep_project_id,

@@ -4,26 +4,11 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 ## Overview
 
-Human reviews complement automated metrics by allowing human evaluators to review, adjust, or override automated test outcomes.
-Each test result can include one or more **reviews**, representing human judgments with structured metadata.
+Human **reviews** on each test result sit beside automated `test_metrics`: multiple reviewers, metric- or whole-test scope, and CRUD via the API. Nested `metadata` holds rollups for quick list views.
 
-This schema separates **automated metrics** (`test_metrics`) from **human-provided evaluations** (`test_reviews`), enabling clearer data management, traceability, and aggregation.
+## Design goals
 
-**Status**: ✅ **Fully Implemented and Tested**
-
----
-
-## Design Goals
-
-- **Separation of concerns:** Keep human feedback separate from machine metrics.
-- **Support multiple reviewers and rounds:** Allow several humans to evaluate the same test.
-- **Granular scope:** Reviews can target specific metrics or the overall test.
-- **Traceability:** Include timestamps, reviewer identity, and status references.
-- **Efficient access:** Include top-level metadata for quick lookups and summaries.
-- **Full CRUD operations:** Create, read, update, and delete reviews via REST API.
-- **Automatic metadata management:** Metadata updates automatically on all operations.
-
----
+Separate machine vs human judgements, support several rounds, keep reviewer and status IDs traceable, and refresh top-level metadata when reviews change.
 
 ## Top-Level Structure
 
@@ -31,8 +16,6 @@ The `test_reviews` field is stored as a JSON object with two parts:
 
 - `metadata`: Summary information about the reviews collection.
 - `reviews`: List of individual review objects.
-
----
 
 ## JSON Schema
 
@@ -106,8 +89,6 @@ The `test_reviews` field is stored as a JSON object with two parts:
 {`{ "type": "test", "reference": null }
 { "type": "metric", "reference": "Refusal Detection" }`}
 </CodeBlock>
-
----
 
 ## Implementation Details
 

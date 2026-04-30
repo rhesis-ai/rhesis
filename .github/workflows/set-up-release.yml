@@ -63,7 +63,7 @@ jobs:
           private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
 
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ steps.generate-token.outputs.token }}
 

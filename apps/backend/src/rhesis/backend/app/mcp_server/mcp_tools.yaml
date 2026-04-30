@@ -1,0 +1,616 @@
+tools:
+  # ── Projects ──────────────────────────────────────────────
+  - name: list_projects
+    label: Listing projects
+    method: GET
+    path: /projects/
+    page_size: 50
+    description: >
+      List projects in the current organization. Use $select to request
+      only the fields you need (e.g. $select=name,id).
+
+  - name: create_project
+    label: Creating project
+    method: POST
+    path: /projects/
+    requires_confirmation: true
+    description: >
+      Create a new project to organize test suites. A project groups
+      related test sets, test configurations, and test runs.
+
+  # ── Test Sets ─────────────────────────────────────────────
+  - name: list_test_sets
+    label: Listing test sets
+    method: GET
+    path: /test_sets/
+    page_size: 20
+    description: >
+      List test sets in the organization. Test sets group related tests
+      that share a common behavior, category, or theme. Use $select to
+      request only the fields you need (e.g. $select=name,id,description).
+
+  - name: create_test_set_bulk
+    label: Creating test set
+    method: POST
+    path: /test_sets/bulk
+    requires_confirmation: true
+    description: >
+      Create a test set with manually specified tests. Prefer
+      generate_test_set for AI-generated test content — use this tool
+      only when importing specific, user-provided test prompts that
+      must be used verbatim. The "tests" array is REQUIRED and must
+      contain at least one test object. Do NOT send server-managed
+      fields (id, user_id, organization_id, created_at, updated_at).
+    parameters:
+      name:
+        description: "Test set name (required, string)"
+      description:
+        description: "Detailed description of the test set's purpose (string)"
+      short_description:
+        description: "Brief summary, one line (string)"
+      priority:
+        description: >
+          Integer priority value (e.g. 1, 2, 3). Must be an integer, NOT
+          a string like "High" or "Low". Omit if unsure.
+      tests:
+        description: >
+          REQUIRED array of test objects (must not be empty). Each object:
+          {"prompt": {"content": "the test prompt text",
+          "language_code": "en", "expected_response": "optional expected
+          answer"}, "behavior": "behavior name", "category": "category
+          name", "topic": "topic name"}. behavior/category/topic are
+          plain-text names (not UUIDs) — the server resolves or creates
+          them automatically. Use list_behaviors, list_categories, and
+          list_topics to discover existing values first.
+
+  - name: generate_test_set
+    label: Generating test set
+    method: POST
+    path: /test_sets/generate
+    requires_confirmation: true
+    description: >
+      Generate a test set using the Rhesis synthesizer. An LLM creates
+      diverse, well-structured test prompts based on the generation config
+      you provide. The tests are persisted to the database automatically.
+      This runs as a background task — the response includes a task_id.
+      Poll get_job_status with that task_id until status is "SUCCESS",
+      then extract test_set_id from the result.
+      Supports both single-turn and multi-turn test generation via the
+      test_type parameter.
+    parameters:
+      config:
+        description: >
+          REQUIRED. Object with generation parameters:
+          - generation_prompt (string): Describe WHAT to test and HOW
+            (e.g. "Generate tests that verify the travel agent provides
+            accurate destination info, handles ambiguous queries, and
+            refuses off-topic requests"). Be specific — the synthesizer
+            uses this to craft test prompts.
+          - behaviors (list of strings): REQUIRED. Behavior names the
+            tests should target (e.g. ["Provides Accurate Information",
+            "Refuses Off-Topic Requests"]). At least one is required.
+          - categories (list of strings): Optional category names
+            (e.g. ["Functional", "Safety"]).
+          - topics (list of strings): Optional topic names
+            (e.g. ["Travel advisory", "Booking"]).
+      num_tests:
+        description: >
+          Number of tests to generate (integer, default 5). Typical
+          range: 3–20 per test set.
+      test_type:
+        description: >
+          "Single-Turn" or "Multi-Turn". Single-turn tests send one
+          prompt and evaluate the response. Multi-turn tests generate
+          a goal and instructions for a multi-turn conversation.
+          Default: "Single-Turn".
+      name:
+        description: >
+          Name for the generated test set (string). Use the test set
+          name from your plan.
+      sources:
+        description: >
+          Optional. List of knowledge source objects to ground the generated
+          tests in real content. Each object must contain only the id field:
+          [{"id": "<source-uuid>"}]. The backend fetches the source content
+          by ID automatically and injects it into the synthesizer — do NOT
+          attempt to load or pass source content yourself. Use list_sources
+          to discover available sources and pass their IDs here.
+          LIMITATION: only single-turn test generation uses sources.
+          Multi-turn tests currently ignore this parameter.
+
+  - name: execute_test_set
+    label: Running test set
+    method: POST
+    path: /test_sets/{test_set_identifier}/execute/{endpoint_id}
+    requires_confirmation: false
+    description: >
+      Run a complete test set against an endpoint. The backend
+      automatically creates the internal test configuration and queues
+      a test run — you do NOT need to create these manually. The
+      response includes a test_run_id you can use with get_test_run
+      to monitor progress and list_test_results to fetch results once
+      the run completes.
+    parameters:
+      test_set_identifier:
+        description: "REQUIRED. The UUID of the test set to execute (path parameter)."
+      endpoint_id:
+        description: "REQUIRED. The UUID of the target endpoint (path parameter)."
+
+  # ── Tests ─────────────────────────────────────────────────
+  - name: list_tests
+    label: Listing tests
+    method: GET
+    path: /tests/
+    default_query:
+      $select: "id,prompt,behavior,category,topic,test_set"
+    page_size: 20
+    description: >
+      List tests in the organization. Each test defines a prompt,
+      expected response behavior, and optional metadata. By default
+      only core fields are returned. Add fields to $select if needed.
+
+  # ── Test Runs ─────────────────────────────────────────────
+  - name: list_test_runs
+    label: Checking test runs
+    method: GET
+    path: /test_runs/
+    page_size: 20
+    description: >
+      List test runs in the organization. Each test run tracks one
+      execution of a test set. Key fields: id, status, test_set,
+      endpoint, created_at, completed_at. Status values: Queued,
+      Running, Completed, Failed. Use $select to request only the
+      fields you need (e.g. $select=id,status,test_set,created_at).
+      Use $filter to narrow results (e.g. $filter=status eq 'Completed').
+
+  - name: get_test_run
+    label: Checking test run status
+    method: GET
+    path: /test_runs/{test_run_id}
+    description: >
+      Get details of a specific test run including its status, timing,
+      test configuration, endpoint, and test set information.
+      The attributes field contains summary stats (total_tests,
+      execution_mode, started_at). Always use this for accurate
+      test counts rather than counting items from list_test_results.
+
+  # ── Test Results ──────────────────────────────────────────
+  - name: list_test_results
+    label: Retrieving test results
+    method: GET
+    path: /test_results/
+    default_query:
+      $select: "id,status,prompt,behavior,metric_scores"
+    page_size: 20
+    description: >
+      List test results. Each result contains the prompt sent, the
+      response received, status (Passed/Failed), and evaluation scores.
+      Filter by test run: $filter=test_run_id eq '<uuid>'. By default
+      only lightweight fields are returned (id, status, prompt, behavior,
+      metric_scores). To include the full response text, add 'response'
+      to $select explicitly. Key fields: status (Passed/Failed),
+      prompt (the input), metric_scores (array of score objects with
+      metric name, score, and threshold).
+
+  - name: get_test_result
+    label: Retrieving test result
+    method: GET
+    path: /test_results/{test_result_id}
+    description: >
+      Get full details of a specific test result. Use this to drill into
+      individual failures and understand why a test failed.
+
+      Key fields in the response:
+      - test_output.output: the endpoint's actual response text
+      - test_metrics.metrics: dict of metric name → evaluation result.
+        Each evaluation result contains:
+        - is_successful (bool): whether this metric passed
+        - score (float or string): the numeric or categorical score
+        - reason (string): the evaluator's explanation of why this score
+          was given — this is the most useful field for failure analysis
+        - threshold (float): the pass/fail threshold (numeric metrics)
+      - status: overall pass/fail for this test result
+
+      Use the result IDs from list_test_results (filtered to failures) to
+      identify which specific results to drill into. Focus on the 2-3 most
+      informative failures rather than fetching every failing result.
+
+  # ── Behaviors ─────────────────────────────────────────────
+  - name: list_behaviors
+    label: Looking up behaviors
+    method: GET
+    path: /behaviors/
+    page_size: 20
+    description: >
+      List available behaviors. Behaviors define what an endpoint should
+      do (e.g., "answer questions accurately", "refuse harmful requests").
+      Use $select to request only the fields you need.
+
+  - name: create_behavior
+    label: Creating behavior
+    method: POST
+    path: /behaviors/
+    requires_confirmation: true
+    description: >
+      Create a behavior with a name AND description upfront. Use this
+      BEFORE create_test_set_bulk so that when test objects reference
+      the behavior by name, the server finds the pre-created behavior
+      (with its description) instead of auto-creating a description-less
+      one. Do NOT send server-managed fields (id, user_id, organization_id,
+      created_at, updated_at).
+    parameters:
+      name:
+        description: "REQUIRED. Behavior name (string, e.g. 'Refuses harmful requests')."
+      description:
+        description: "REQUIRED. Explain what this behavior means and how it should be evaluated."
+
+  # ── Categories & Topics ───────────────────────────────────
+  - name: list_categories
+    label: Listing categories
+    method: GET
+    path: /categories/
+    page_size: 20
+    description: >
+      List available categories. Categories classify tests by type
+      (e.g., "functional", "safety", "robustness"). Use $select to
+      request only the fields you need.
+
+  - name: list_topics
+    label: Listing topics
+    method: GET
+    path: /topics/
+    page_size: 20
+    description: >
+      List available topics. Topics define subject areas for tests
+      (e.g., "healthcare", "finance", "general knowledge"). Use $select
+      to request only the fields you need.
+
+  - name: update_behavior
+    label: Updating behavior
+    method: PUT
+    path: /behaviors/{behavior_id}
+    requires_confirmation: true
+    description: >
+      Update an existing behavior's fields. Use this to add a description
+      to a behavior that was auto-created by create_test_set_bulk (which
+      only sets the name). A behavior with a clear description is more
+      useful for test planning and metric evaluation.
+    parameters:
+      behavior_id:
+        description: "REQUIRED. UUID of the behavior to update."
+      name:
+        description: "Behavior name (string). Omit to keep unchanged."
+      description:
+        description: "Behavior description (string). Explain what this behavior means and how it should be evaluated."
+
+  - name: list_metrics
+    label: Checking existing metrics
+    method: GET
+    path: /metrics/
+    default_query:
+      $select: "id,name,description,score_type,threshold,metric_scope"
+    page_size: 20
+    description: >
+      List available metrics for evaluating test results. Metrics
+      define how endpoint responses are scored (e.g., accuracy,
+      safety compliance, response quality). By default only summary
+      fields are returned (excludes evaluation_prompt). Add fields
+      to $select if you need the full evaluation prompt.
+
+  - name: create_metric
+    label: Creating metric
+    method: POST
+    path: /metrics/
+    requires_confirmation: true
+    description: >
+      Create a new evaluation metric. Do NOT send server-managed fields
+      (id, user_id, organization_id, created_at, updated_at, owner_id,
+      assignee_id, status_id, model_id, backend_type_id, metric_type_id).
+      If you only have a natural-language description, prefer
+      generate_metric instead.
+    parameters:
+      name:
+        description: "Metric name, unique within the organization (required, string)"
+      metric_type:
+        description: >
+          Must be "custom-prompt" for user-defined metrics. Always
+          include this field.
+      backend_type:
+        description: >
+          Must be "custom" for user-defined metrics. Always include
+          this field.
+      score_type:
+        description: >
+          REQUIRED. Must be exactly "numeric" or "categorical" (string
+          enum). No other values are accepted.
+      evaluation_prompt:
+        description: >
+          REQUIRED. The prompt template used to evaluate endpoint
+          responses. May reference {{prompt}}, {{response}}, and
+          {{expected_response}} placeholders (string).
+      metric_scope:
+        description: >
+          List of strings. Each value must be exactly "Single-Turn" or
+          "Multi-Turn". Always include this field.
+      min_score:
+        description: "Minimum score value, number (numeric metrics only)"
+      max_score:
+        description: "Maximum score value, number (numeric metrics only)"
+      threshold:
+        description: "Pass/fail threshold, number (numeric metrics only)"
+      threshold_operator:
+        description: >
+          Comparison operator for the threshold. Must be exactly one of:
+          "=", "<", ">", "<=", ">=", "!=". Default is ">=".
+          Only used for numeric metrics.
+      categories:
+        description: >
+          List of category label strings (categorical metrics only).
+          Must be a non-empty list when score_type is "categorical".
+      passing_categories:
+        description: >
+          Subset of categories that indicate a pass (categorical metrics
+          only). Must be a non-empty list of strings that also appear in
+          "categories".
+
+  - name: generate_metric
+    label: Generating metric
+    method: POST
+    path: /metrics/generate
+    requires_confirmation: true
+    description: >
+      Auto-generate a complete metric from a natural-language description.
+      An LLM produces all required fields (name, evaluation_prompt,
+      score_type, thresholds, categories, etc.) and the metric is
+      persisted automatically. Use this when you know WHAT to measure
+      but don't want to fill every field manually. Returns the created
+      metric object.
+    parameters:
+      prompt:
+        description: >
+          REQUIRED. Natural-language description of what the metric
+          should evaluate (e.g. "measure whether responses are factually
+          accurate, on a 1-5 numeric scale").
+
+  - name: improve_metric
+    label: Improving metric
+    method: POST
+    path: /metrics/{metric_id}/improve
+    requires_confirmation: true
+    description: >
+      Improve an existing metric using natural-language edit instructions.
+      The LLM reads the current metric fields and applies the requested
+      changes (e.g. "make the threshold stricter", "add multi-turn
+      support"). The metric is updated in place and returned.
+    parameters:
+      metric_id:
+        description: "REQUIRED. UUID of the metric to improve (path parameter)."
+      prompt:
+        description: >
+          REQUIRED. Natural-language instructions describing what to change
+          (e.g. "lower the threshold to 2", "switch to categorical with
+          pass/fail categories").
+
+  - name: add_behavior_to_metric
+    label: Linking behavior to metric
+    method: POST
+    path: /metrics/{metric_id}/behaviors/{behavior_id}
+    requires_confirmation: true
+    description: >
+      Link a behavior to a metric, so the metric is used to evaluate
+      that behavior during test runs. Both the metric and the behavior
+      must already exist. Call this after creating or generating a metric
+      to wire it to the relevant behaviors. Idempotent — calling it
+      again for the same pair is a no-op.
+    parameters:
+      metric_id:
+        description: "REQUIRED. UUID of the metric."
+      behavior_id:
+        description: "REQUIRED. UUID of the behavior to associate."
+
+  - name: get_metric_behaviors
+    label: Checking metric behaviors
+    method: GET
+    path: /metrics/{metric_id}/behaviors/
+    page_size: 20
+    description: >
+      List all behaviors currently linked to a metric. Use this to
+      verify which behaviors a metric evaluates or to check whether a
+      specific behavior is already associated before calling
+      add_behavior_to_metric.
+    parameters:
+      metric_id:
+        description: "REQUIRED. UUID of the metric."
+
+  - name: list_endpoints
+    label: Finding endpoints
+    method: GET
+    path: /endpoints/
+    page_size: 50
+    description: >
+      List configured endpoints. Endpoints are the AI systems being
+      tested (chat APIs, completion APIs, etc.). Use $select to request
+      only the fields you need (e.g. $select=name,id,url,description).
+
+  - name: check_endpoint
+    label: Checking endpoint connectivity
+    method: POST
+    path: /endpoints/{endpoint_id}/invoke
+    requires_confirmation: false
+    description: >
+      Send a test message to an endpoint to verify it is reachable and
+      responding. Only use this when you are about to act on the endpoint
+      (explore, run tests, send a request) — not when simply listing or
+      looking up endpoints. Send a simple input like {"input": "hello"}
+      and check whether the response is valid. Report any errors to the
+      user (e.g. connection refused, timeout, auth failure).
+    parameters:
+      endpoint_id:
+        description: "REQUIRED. UUID of the endpoint to check."
+      input:
+        description: "A simple test message string (e.g. 'hello')."
+
+  - name: explore_endpoint
+    label: Exploring endpoint
+    method: POST
+    path: /endpoints/{endpoint_id}/explore
+    requires_confirmation: true
+    description: >
+      Run a multi-turn exploration of an endpoint using Penelope to
+      discover its domain, capabilities, limits, and response patterns.
+      This runs as a background task — the response includes a task_id.
+      Poll get_job_status with that task_id until status is "SUCCESS",
+      then read the findings from the result field. Typical duration:
+      30s–2min for single strategies, 1–3min for "comprehensive".
+      Either strategy or goal is required.
+    parameters:
+      endpoint_id:
+        description: "REQUIRED. UUID of the endpoint to explore (path parameter)."
+      strategy:
+        description: >
+          Exploration strategy. One of "domain_probing" (discovers
+          domain, purpose, and persona), "capability_mapping" (enumerates
+          features and interaction patterns), "boundary_discovery" (finds
+          refusal patterns and limits), or "comprehensive" (runs all three
+          in sequence). When set, goal and instructions are generated
+          automatically. Either strategy or goal is required.
+      goal:
+        description: >
+          What to learn about the endpoint. Required only when no strategy
+          is specified. Example: "Understand the endpoint's domain and
+          restrictions."
+      instructions:
+        description: "Optional step-by-step probing instructions."
+      scenario:
+        description: "Optional persona/context, e.g. 'You are a new user'."
+      restrictions:
+        description: "Optional constraints to verify during exploration."
+      previous_findings:
+        description: >
+          Optional structured findings from a prior exploration run.
+          The strategy uses them to build on earlier results.
+
+  # ── Statistics & Comparison ──────────────────────────────
+  - name: get_test_result_stats
+    label: Analyzing test results
+    method: GET
+    path: /test_results/stats
+    default_query:
+      mode: test_runs
+    description: >
+      Get aggregated statistics for test results. Use this for single-run
+      analysis (which behaviors/metrics failed?) and multi-run comparison
+      (did results improve?). The mode parameter controls what is returned:
+
+      - **all**: Complete stats for a single run — behavior pass rates,
+        metric pass rates, overall totals, and timeline. Use with a single
+        test_run_id immediately after execution for a full analysis in one
+        call. This is the most efficient option for post-run analysis.
+      - **behavior**: Pass rates grouped by behavior. Use with test_run_id
+        to see which behaviors passed/failed in a specific run.
+      - **metrics**: Pass rates grouped by metric name. Use with test_run_id
+        to see which metrics are the problem areas.
+      - **test_runs**: Per-run pass/fail summary with pass rates. Best for
+        comparing two or more runs side by side. Pass multiple test_run_ids.
+      - **summary**: Lightweight overall pass/fail totals only.
+
+      For single-run analysis: use mode=all with test_run_id.
+      For multi-run comparison: use mode=test_runs with test_run_ids.
+      Filter by behavior_ids or test_set_ids for targeted analysis.
+    parameters:
+      mode:
+        description: >
+          Stats mode: "test_runs" (per-run comparison), "behavior"
+          (by behavior), "metrics" (by metric), "summary" (totals),
+          "all" (everything). Default: "test_runs".
+      test_run_ids:
+        description: >
+          Filter to specific test runs (array of UUIDs). Pass two or
+          more run IDs to compare them side by side.
+      test_run_id:
+        description: >
+          Filter to a single test run (UUID). Use test_run_ids for
+          multi-run comparison.
+      test_set_ids:
+        description: "Filter by test set UUIDs (array)."
+      behavior_ids:
+        description: "Filter by behavior UUIDs (array)."
+      start_date:
+        description: "Start date in ISO format (e.g. 2026-01-01)."
+      end_date:
+        description: "End date in ISO format."
+
+  - name: get_test_run_stats
+    label: Analyzing test runs
+    method: GET
+    path: /test_runs/stats
+    default_query:
+      mode: summary
+    description: >
+      Get run-level analytics: how many runs by status, which test sets
+      are run most often, who runs tests, and run volume over time.
+      Use this for operational overview, NOT for comparing pass/fail
+      outcomes between runs (use get_test_result_stats for that).
+
+      Modes: "summary" (totals), "status" (status distribution),
+      "results" (result distribution), "test_sets" (most run test sets),
+      "executors" (top executors), "timeline" (monthly trends),
+      "all" (everything).
+    parameters:
+      mode:
+        description: >
+          Stats mode: "summary", "status", "results", "test_sets",
+          "executors", "timeline", "all". Default: "summary".
+      test_run_ids:
+        description: "Filter to specific test runs (array of UUIDs)."
+      endpoint_ids:
+        description: "Filter by endpoint UUIDs (array)."
+      test_set_ids:
+        description: "Filter by test set UUIDs (array)."
+      months:
+        description: "Months of history to include (default: 6)."
+      start_date:
+        description: "Start date in ISO format (overrides months)."
+      end_date:
+        description: "End date in ISO format (overrides months)."
+
+  # ── Knowledge Sources ────────────────────────────────────
+  - name: list_sources
+    label: Listing knowledge sources
+    method: GET
+    path: /sources/
+    page_size: 50
+    default_query:
+      $select: "id,title,description,url,source_type_id,status_id,organization_id,user_id"
+    description: >
+      Discover available knowledge sources by title and description.
+      Use this when the user mentions documentation, reference material,
+      or says things like "based on our FAQ", "use the product spec",
+      "I have reference material". Search by name with
+      $filter=contains(tolower(title), 'keyword'). The agent should
+      NEVER fetch source content — pass IDs directly to generate_test_set
+      and the backend handles content injection.
+    parameters:
+      $filter:
+
+  # ── Background Jobs ─────────────────────────────────────
+  - name: get_job_status
+    label: Checking job status
+    method: GET
+    path: /jobs/{task_id}
+    requires_confirmation: false
+    description: >
+      Check the status of a background job. Poll this endpoint until
+      the status is "SUCCESS" or "FAILURE". Status values: PENDING →
+      STARTED → PROGRESS → SUCCESS (or FAILURE). When SUCCESS, the
+      "result" field contains job-specific data:
+      - explore_endpoint: full exploration findings including domain,
+        capabilities, limits, conversation summary, and strategy_findings.
+      - generate_test_set: "test_set_id" (UUID of the created test set).
+      - execute_test_set: use the test_run_id from the original response.
+      If FAILURE, the "error" field describes what went wrong.
+    parameters:
+      task_id:
+        description: >
+          REQUIRED. The task ID returned by explore_endpoint,
+          generate_test_set, or execute_test_set (path parameter).

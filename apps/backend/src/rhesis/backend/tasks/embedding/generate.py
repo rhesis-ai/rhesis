@@ -5,8 +5,8 @@ This task generates embeddings for entities in a background worker.
 
 import logging
 
-from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.celery.core import app
+from rhesis.backend.tasks.base import SilentTask
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,13 @@ logger = logging.getLogger(__name__)
     bind=True,
     display_name="Embedding Generation",
 )
-def generate_embedding_task(self, entity_id: str, entity_type: str, model_id: str | None = None):
+def generate_embedding_task(
+    self,
+    entity_id: str,
+    entity_type: str,
+    model_id: str | None = None,
+    searchable_text: str | None = None,
+):
     from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
 
     organization_id, user_id = self.get_tenant_context()
@@ -37,6 +43,7 @@ def generate_embedding_task(self, entity_id: str, entity_type: str, model_id: st
             organization_id=organization_id,
             user_id=user_id,
             model_id=model_id,
+            searchable_text=searchable_text,
         )
 
     self.log_with_context("info", "Embedding generated successfully", status=result["status"])

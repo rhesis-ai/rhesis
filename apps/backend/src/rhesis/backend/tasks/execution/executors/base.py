@@ -35,7 +35,8 @@ class BaseTestExecutor(ABC):
         endpoint_id: str,
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
-        model: Optional[Any] = None,
+        execution_model: Optional[Any] = None,
+        evaluation_model: Optional[Any] = None,
         output_provider: Optional[OutputProvider] = None,
     ) -> Dict[str, Any]:
         """
@@ -49,7 +50,8 @@ class BaseTestExecutor(ABC):
             endpoint_id: UUID string of the endpoint
             organization_id: UUID string of the organization (optional)
             user_id: UUID string of the user (optional)
-            model: Optional model override for metric evaluation
+            execution_model: Optional model for multi-turn execution (Penelope)
+            evaluation_model: Optional model override for metric evaluation
             output_provider: Optional OutputProvider for obtaining test
                 output. If None, the executor uses its default provider
                 (live endpoint invocation or Penelope execution).

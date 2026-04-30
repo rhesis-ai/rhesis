@@ -16,7 +16,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     // Click "Add Tests" — the button that opens the first wizard modal
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
@@ -58,7 +61,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
     const addVisible = await addBtn
@@ -122,7 +128,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
     const addVisible = await addBtn
@@ -164,7 +173,8 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, '"Start Writing" button not found — skipping');
       return;
     }
-    await manualBtn.click();
+    // The button has pointerEvents:none (the Card handles the click); force bypasses that.
+    await manualBtn.click({ force: true });
 
     // Should navigate to the manual writer page
     const navSucceeded = await page
@@ -175,6 +185,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Manual writer page URL not reached — skipping');
       return;
     }
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
@@ -189,7 +203,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
     const addVisible = await addBtn
@@ -229,7 +246,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, '"Start Writing" button not found — skipping');
       return;
     }
-    await manualBtn.click();
+    await manualBtn.click({ force: true });
 
     const navSucceeded = await page
       .waitForURL(/\/tests\/(create|new|manual)/, { timeout: 15_000 })
@@ -239,7 +256,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Manual writer page URL not reached — skipping');
       return;
     }
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     // Fill in the first test row — look for a test prompt input
     const promptInput = page
@@ -285,7 +305,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     const addBtn = page.getByRole('button', { name: /add tests/i }).first();
     const addVisible = await addBtn
@@ -325,7 +348,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, '"Start Writing" button not found — skipping');
       return;
     }
-    await manualBtn.click();
+    await manualBtn.click({ force: true });
 
     const navSucceeded = await page
       .waitForURL(/\/tests\/(create|new|manual)/, { timeout: 15_000 })
@@ -335,7 +358,10 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Manual writer page URL not reached — skipping');
       return;
     }
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
 
     // Fill in the test prompt
     const promptInput = page
@@ -350,6 +376,22 @@ test.describe('Tests — manual creation wizard @crud', () => {
     }
     await promptInput.fill('e2e manual test — save flow');
 
+    // handleSave() requires prompt, category, topic, and behavior for single-turn rows.
+    const classifiers = page
+      .locator('table')
+      .first()
+      .getByPlaceholder('Select or type new...');
+    if ((await classifiers.count()) < 3) {
+      test.skip(
+        true,
+        'Category/topic/behavior fields not found — skipping save flow'
+      );
+      return;
+    }
+    await classifiers.nth(0).fill('e2e-category');
+    await classifiers.nth(1).fill('e2e-topic');
+    await classifiers.nth(2).fill('e2e-behavior');
+
     // Click Save
     const saveBtn = page.getByRole('button', { name: /^save$/i }).first();
     const hasSave = await saveBtn
@@ -361,27 +403,28 @@ test.describe('Tests — manual creation wizard @crud', () => {
     }
     await saveBtn.click();
 
-    // A save dialog should appear
+    // A save dialog should appear — use waitFor so we don't miss a delayed open
     const saveDialog = page.getByRole('dialog');
-    const dialogVisible = await saveDialog
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
+    await saveDialog
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .catch(() => {});
+    const dialogVisible = await saveDialog.isVisible().catch(() => false);
+
     if (dialogVisible) {
       // Optionally enter a test set name
       const setNameInput = saveDialog
         .getByRole('textbox', { name: /test set name/i })
         .first();
-      const hasSetName = await setNameInput
-        .isVisible({ timeout: 3_000 })
-        .catch(() => false);
+      const hasSetName = await setNameInput.isVisible().catch(() => false);
       if (hasSetName) await setNameInput.fill(UNIQUE_SET_NAME);
 
       // Confirm save
       await saveDialog.getByRole('button', { name: /^save$/i }).click();
     }
 
-    // Should redirect to /tests after saving
-    await page.waitForURL(/\/tests($|\?)/, { timeout: 20_000 });
+    // When a test-set name is provided the app redirects to /test-sets/{id};
+    // without one it redirects to /tests.
+    await page.waitForURL(/\/(tests($|\?)|test-sets\/)/, { timeout: 20_000 });
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );

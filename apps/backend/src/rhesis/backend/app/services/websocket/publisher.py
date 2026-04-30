@@ -101,7 +101,7 @@ class EventPublisher:
             )
             return result
         except Exception as e:
-            logger.error(f"Failed to publish event to Redis: {e}")
+            logger.error("Failed to publish event to Redis: %s", type(e).__name__)
             return 0
 
     async def publish_async(self, message: WebSocketMessage, target: Target) -> int:
@@ -126,7 +126,7 @@ class EventPublisher:
             )
             return result
         except Exception as e:
-            logger.error(f"Failed to publish event to Redis: {e}")
+            logger.error("Failed to publish event to Redis: %s", type(e).__name__)
             return 0
 
     def _serialize_event(self, message: WebSocketMessage, target: Target) -> str:

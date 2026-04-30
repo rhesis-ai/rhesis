@@ -7,7 +7,7 @@ import pytest
 from rhesis.penelope.context import TestContext, TestState
 from rhesis.penelope.executor import TurnExecutor
 from rhesis.penelope.schemas import SendMessageParams
-from rhesis.penelope.targets.base import Target, TargetResponse
+from rhesis.sdk.targets import Target, TargetResponse
 from rhesis.penelope.tools.base import ToolResult
 from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 from rhesis.sdk.models.base import BaseLLM

@@ -1,7 +1,9 @@
 """
-Base target interface for Penelope.
+Backward-compatibility shim.
 
-A Target represents any system that Penelope can test through interaction.
+The canonical ``Target`` and ``TargetResponse`` classes now live in
+``rhesis.sdk.targets``.  This module re-exports them so existing
+imports from ``rhesis.penelope.targets.base`` continue to work.
 """
 
 import asyncio

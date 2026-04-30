@@ -277,7 +277,33 @@ async def lifespan(app: FastAPI):
 
     garak_cache_task.add_done_callback(_log_task_exception)
 
+    # Start MCP session manager (Mount doesn't propagate lifespan).
+    # StreamableHTTPSessionManager.run() can only be called once per
+    # instance, so create a fresh one each time the lifespan starts
+    # (matters for test suites that restart the app multiple times).
+    mcp_ctx = None
+    mcp_server_obj = getattr(app.state, "mcp_server", None)
+    if mcp_server_obj is not None:
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        fresh_sm = StreamableHTTPSessionManager(
+            app=mcp_server_obj,
+            stateless=True,
+            security_settings=TransportSecuritySettings(
+                enable_dns_rebinding_protection=False,
+            ),
+        )
+        app.state.mcp_session_manager = fresh_sm
+        mcp_ctx = fresh_sm.run()
+        await mcp_ctx.__aenter__()
+        logger.info("MCP session manager started")
+
     yield  # Application is running
+
+    # Shutdown MCP session manager
+    if mcp_ctx is not None:
+        await mcp_ctx.__aexit__(None, None, None)
 
     # Shutdown: Clean up Redis connections
     if redis_manager.is_available:
@@ -501,6 +527,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 for router in routers:
     router.route_class = AuthenticatedAPIRoute
     app.include_router(router)
+
+# Mount MCP server for agent tool access
+from rhesis.backend.app.mcp_server import setup_mcp_server
+
+setup_mcp_server(app)
 
 
 @app.get("/", include_in_schema=True)

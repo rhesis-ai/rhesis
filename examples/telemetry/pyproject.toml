@@ -31,6 +31,12 @@ constraint-dependencies = [
     "pyasn1>=0.6.3",
     "orjson>=3.11.7",
     "tornado>=6.5.5",
+    "aiohttp>=3.13.5",
+    "langchain-openai>=1.1.14",
+]
+override-dependencies = [
+    "python-dotenv>=1.2.2",
+    "pydantic>=2.13.0",
 ]
 
 [tool.uv.sources]

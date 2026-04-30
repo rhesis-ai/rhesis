@@ -29,6 +29,7 @@ import CheckIcon from '@mui/icons-material/CheckOutlined';
 import { useTheme } from '@mui/material/styles';
 import {
   type AdaptiveMetricEvalDetail,
+  type SuggestionPipelineEvent,
   SuggestedTest,
   TestNodeCreate,
 } from '@/utils/api-client/interfaces/adaptive-testing';
@@ -139,6 +140,7 @@ function buildTestNodeCreateFromSuggestion(row: SuggestionRow): TestNodeCreate {
     input: row.input,
     output: row.output || undefined,
     labeler: 'suggestion',
+    generate_embedding: true,
   };
   if (row.topic) {
     data.topic = row.topic;
@@ -185,6 +187,8 @@ export default function SuggestionsDialog({
   const [acceptAllInProgress, setAcceptAllInProgress] = useState(false);
   const hasStarted = useRef(false);
   const [testGenStatus, setTestGenStatus] = useState<PhaseStatus>('idle');
+  const [testGenCompleted, setTestGenCompleted] = useState(0);
+  const [testGenTotal, setTestGenTotal] = useState(0);
 
   const [outputsStatus, setOutputsStatus] = useState<PhaseStatus>('idle');
   const [outputsCompleted, setOutputsCompleted] = useState(0);
@@ -224,209 +228,251 @@ export default function SuggestionsDialog({
     setError(null);
     setCurrentStep('suggestions');
     setTestGenStatus('running');
+    setTestGenCompleted(0);
+    setTestGenTotal(20);
     setOutputsStatus('idle');
     setOutputsCompleted(0);
-    setOutputsTotal(0);
+    setOutputsTotal(20);
     seenOutputIndices.current = new Set();
     setMetricsStatus('idle');
     setMetricsCompleted(0);
-    setMetricsTotal(0);
+    setMetricsTotal(20);
     seenMetricIndices.current = new Set();
+
+    let rows: SuggestionRow[] = [];
+    let outputsFailed = 0;
+    let evalsFailed = 0;
+
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const client = clientFactory.getAdaptiveTestingClient();
       const trimmedFeedback = regenerationGuide.trim();
-      const suggestionsResult = await client.generateSuggestions(testSetId, {
-        topic: topic ?? undefined,
-        num_examples: 10,
-        num_suggestions: 20,
-        ...(trimmedFeedback ? { user_feedback: trimmedFeedback } : {}),
-      });
-      const rows: SuggestionRow[] = suggestionsResult.suggestions.map(
-        (s, idx) => ({
-          ...s,
-          _id: `suggestion-${idx}-${Date.now()}`,
-        })
-      );
-      setSuggestions(rows);
-      if (rows.length === 0) {
-        setTestGenStatus('idle');
-        setError('No suggestions were generated. The test set may be empty.');
-        return;
-      }
-      setTestGenStatus('done');
-      setLoading(false);
 
-      const eligibleForOutputs = rows.filter(s => s.input.trim());
-      let rowsWithOutputs = rows;
-      setOutputsTotal(eligibleForOutputs.length);
-      setOutputsStatus(eligibleForOutputs.length > 0 ? 'running' : 'done');
-      if (eligibleForOutputs.length > 0) {
-        setCurrentStep('outputs');
-        setOutputsLoading(true);
-        try {
-          const eligibleIds = eligibleForOutputs.map(s => s._id);
-          const eligibleIdSet = new Set(eligibleIds);
-          rowsWithOutputs = rowsWithOutputs.map(s =>
-            eligibleIdSet.has(s._id) ? { ...s, output_pending: true } : s
-          );
-          setSuggestions(rowsWithOutputs);
+      await client.suggestionPipeline(
+        testSetId,
+        {
+          topic: topic ?? undefined,
+          num_examples: 10,
+          num_suggestions: 20,
+          generate_embeddings: true,
+          ...(trimmedFeedback ? { user_feedback: trimmedFeedback } : {}),
+        },
+        {
+          onEvent: (event: SuggestionPipelineEvent) => {
+            switch (event.type) {
+              // ── Streaming: individual suggestion from LLM ──
+              case 'suggestion': {
+                const hasInput = event.input.trim().length > 0;
+                const newRow: SuggestionRow = {
+                  topic: event.topic,
+                  input: event.input,
+                  output: '',
+                  label: '',
+                  labeler: '',
+                  model_score: 0,
+                  _id: `suggestion-${event.index}-${Date.now()}`,
+                  output_pending: hasInput,
+                };
+                rows = [...rows, newRow];
+                setSuggestions(rows);
+                setTestGenCompleted(rows.length);
 
-          let streamedGenerated = 0;
-          let streamedTotal = eligibleForOutputs.length;
-          let streamedFailed = 0;
+                if (hasInput) {
+                  setOutputsStatus('running');
+                  setOutputsLoading(true);
+                }
+                break;
+              }
 
-          await client.generateSuggestionOutputsStream(
-            testSetId,
-            {
-              suggestions: eligibleForOutputs.map(s => ({
-                input: s.input,
-                topic: s.topic,
-              })),
-            },
-            {
-              onEvent: event => {
-                if (event.type === 'item') {
-                  if (!seenOutputIndices.current.has(event.index)) {
-                    seenOutputIndices.current.add(event.index);
-                    setOutputsCompleted(prev => prev + 1);
-                  }
-                  const targetId = eligibleIds[event.index];
-                  if (!targetId) return;
-                  if (event.error) {
-                    streamedFailed += 1;
-                  }
-                  rowsWithOutputs = rowsWithOutputs.map(s => {
-                    if (s._id !== targetId) return s;
+              // ── Streaming: embedding completed for a suggestion ──
+              case 'embedding': {
+                break;
+              }
+
+              // ── Streaming: all suggestions + embeddings done ──
+              case 'suggestions_done': {
+                setTestGenTotal(event.total);
+                setTestGenCompleted(event.total);
+
+                const order = event.diversity_order;
+                const scores = event.diversity_scores;
+                let shouldFlushSuggestions = false;
+                if (order?.length && scores?.length === order.length) {
+                  const scoreByOriginalIndex = new Map<number, number | null>();
+                  order.forEach((origIdx, displayIdx) => {
+                    scoreByOriginalIndex.set(
+                      origIdx,
+                      scores[displayIdx] ?? null
+                    );
+                  });
+                  rows = rows.map((row, idx) => {
+                    if (!scoreByOriginalIndex.has(idx)) {
+                      return row;
+                    }
                     return {
-                      ...s,
-                      output: event.output,
-                      output_error: event.error,
-                      output_pending: false,
+                      ...row,
+                      diversity_score: scoreByOriginalIndex.get(idx) ?? null,
                     };
                   });
-                  setSuggestions(rowsWithOutputs);
-                } else if (event.type === 'summary') {
-                  streamedGenerated = event.generated;
-                  streamedTotal = event.total;
+                  shouldFlushSuggestions = true;
                 }
-              },
-            }
-          );
 
-          if (streamedFailed > 0) {
-            notifications.show(
-              `Got ${streamedGenerated} outputs; ${streamedFailed} failed.`,
-              { severity: 'warning' }
-            );
-          } else if (streamedGenerated === 0 && streamedTotal > 0) {
-            notifications.show('No suggestion outputs were generated.', {
-              severity: 'warning',
-            });
-          }
-        } catch (err) {
-          notifications.show(
-            err instanceof Error
-              ? err.message
-              : 'Failed to get suggestion outputs.',
-            { severity: 'error' }
-          );
-        } finally {
-          setOutputsLoading(false);
-          setOutputsStatus('done');
-        }
-      }
-
-      const eligibleForEvaluation = rowsWithOutputs.filter(
-        s => s.input.trim() && s.output.trim() && s.output !== '[no output]'
-      );
-      setMetricsTotal(eligibleForEvaluation.length);
-      setMetricsStatus(eligibleForEvaluation.length > 0 ? 'running' : 'done');
-      if (eligibleForEvaluation.length > 0) {
-        setCurrentStep('evaluate');
-        setEvaluateLoading(true);
-        try {
-          const eligibleEvalIds = eligibleForEvaluation.map(s => s._id);
-          const eligibleEvalIdSet = new Set(eligibleEvalIds);
-
-          rowsWithOutputs = rowsWithOutputs.map(s =>
-            eligibleEvalIdSet.has(s._id) ? { ...s, eval_pending: true } : s
-          );
-          setSuggestions(rowsWithOutputs);
-
-          let streamedEvaluated = 0;
-          let streamedTotal = eligibleForEvaluation.length;
-          let streamedFailed = 0;
-
-          await client.evaluateSuggestionsStream(
-            testSetId,
-            {
-              suggestions: eligibleForEvaluation.map(s => ({
-                input: s.input,
-                output: s.output,
-              })),
-            },
-            {
-              onEvent: event => {
-                if (event.type === 'item') {
-                  if (!seenMetricIndices.current.has(event.index)) {
-                    seenMetricIndices.current.add(event.index);
-                    setMetricsCompleted(prev => prev + 1);
+                if (order) {
+                  const reordered = order.map(i => rows[i]).filter(Boolean);
+                  if (reordered.length === rows.length) {
+                    rows = reordered;
+                    shouldFlushSuggestions = true;
                   }
-                  const targetId = eligibleEvalIds[event.index];
-                  if (!targetId) return;
+                }
 
-                  if (event.error) {
-                    streamedFailed += 1;
-                  }
+                if (shouldFlushSuggestions) {
+                  setSuggestions(rows);
+                }
 
-                  rowsWithOutputs = rowsWithOutputs.map(s => {
-                    if (s._id !== targetId) return s;
-                    return {
-                      ...s,
-                      label: event.label,
-                      labeler: event.labeler,
-                      model_score: event.model_score,
-                      metrics: event.metrics,
-                      eval_error: event.error,
-                      eval_pending: false,
-                    };
+                if (rows.length === 0) {
+                  setTestGenStatus('idle');
+                  setError(
+                    'No suggestions were generated. The test set may be empty.'
+                  );
+                  return;
+                }
+
+                setTestGenStatus('done');
+                setLoading(false);
+                break;
+              }
+
+              // ── Bulk suggestions (legacy / non-streaming fallback) ──
+              case 'suggestions': {
+                const newRows: SuggestionRow[] = event.suggestions.map(
+                  (s, idx) => ({
+                    ...s,
+                    _id: `suggestion-${idx}-${Date.now()}`,
+                  })
+                );
+                rows = newRows;
+                setSuggestions(rows);
+
+                if (rows.length === 0) {
+                  setTestGenStatus('idle');
+                  setError(
+                    'No suggestions were generated. The test set may be empty.'
+                  );
+                  return;
+                }
+
+                setTestGenStatus('done');
+                setLoading(false);
+
+                const eligible = rows.filter(s => s.input.trim());
+                setOutputsTotal(eligible.length);
+                setOutputsStatus(eligible.length > 0 ? 'running' : 'done');
+                setCurrentStep('outputs');
+                setOutputsLoading(true);
+
+                rows = rows.map(s =>
+                  s.input.trim() ? { ...s, output_pending: true } : s
+                );
+                setSuggestions(rows);
+                break;
+              }
+
+              case 'output': {
+                if (!seenOutputIndices.current.has(event.index)) {
+                  seenOutputIndices.current.add(event.index);
+                  setOutputsCompleted(prev => prev + 1);
+                }
+                if (event.error) outputsFailed += 1;
+
+                rows = rows.map((s, idx) => {
+                  if (idx !== event.index) return s;
+                  return {
+                    ...s,
+                    output: event.output,
+                    output_error: event.error,
+                    output_pending: false,
+                    eval_pending:
+                      !event.error &&
+                      !!event.output &&
+                      event.output !== '[no output]',
+                  };
+                });
+                setSuggestions(rows);
+
+                if (
+                  !event.error &&
+                  event.output &&
+                  event.output !== '[no output]'
+                ) {
+                  setMetricsStatus('running');
+                  setCurrentStep('evaluate');
+                  setEvaluateLoading(true);
+                }
+                break;
+              }
+
+              case 'evaluation': {
+                if (!seenMetricIndices.current.has(event.index)) {
+                  seenMetricIndices.current.add(event.index);
+                  setMetricsCompleted(prev => prev + 1);
+                }
+                if (event.error) evalsFailed += 1;
+
+                rows = rows.map((s, idx) => {
+                  if (idx !== event.index) return s;
+                  return {
+                    ...s,
+                    label: event.label,
+                    labeler: event.labeler,
+                    model_score: event.model_score,
+                    metrics: event.metrics,
+                    eval_error: event.error,
+                    eval_pending: false,
+                  };
+                });
+                setSuggestions(rows);
+                break;
+              }
+
+              case 'output_summary': {
+                setOutputsStatus('done');
+                setOutputsLoading(false);
+                if (outputsFailed > 0) {
+                  notifications.show(
+                    `Got ${event.generated} outputs; ${outputsFailed} failed.`,
+                    { severity: 'warning' }
+                  );
+                } else if (event.generated === 0 && event.total > 0) {
+                  notifications.show('No suggestion outputs were generated.', {
+                    severity: 'warning',
                   });
-                  setSuggestions(rowsWithOutputs);
-                } else if (event.type === 'summary') {
-                  streamedEvaluated = event.evaluated;
-                  streamedTotal = event.total;
                 }
-              },
-            }
-          );
+                break;
+              }
 
-          if (streamedFailed > 0) {
-            notifications.show(
-              `Evaluated ${streamedEvaluated} suggestions; ${streamedFailed} failed.`,
-              { severity: 'warning' }
-            );
-          } else if (streamedEvaluated === 0 && streamedTotal > 0) {
-            notifications.show('No suggestions were evaluated.', {
-              severity: 'warning',
-            });
-          }
-        } catch (err) {
-          notifications.show(
-            err instanceof Error
-              ? err.message
-              : 'Failed to evaluate suggestions.',
-            { severity: 'error' }
-          );
-        } finally {
-          setEvaluateLoading(false);
-          setMetricsStatus('done');
+              case 'eval_summary': {
+                setMetricsStatus('done');
+                setEvaluateLoading(false);
+                if (evalsFailed > 0) {
+                  notifications.show(
+                    `Evaluated ${event.evaluated} suggestions; ${evalsFailed} failed.`,
+                    { severity: 'warning' }
+                  );
+                } else if (event.evaluated === 0 && event.total > 0) {
+                  notifications.show('No suggestions were evaluated.', {
+                    severity: 'warning',
+                  });
+                }
+                break;
+              }
+
+              case 'done': {
+                break;
+              }
+            }
+          },
         }
-      } else {
-        notifications.show('No suggestions with outputs to evaluate.', {
-          severity: 'warning',
-        });
-      }
+      );
     } catch (err) {
       setTestGenStatus('idle');
       setError(
@@ -450,6 +496,8 @@ export default function SuggestionsDialog({
     if (!open) {
       hasStarted.current = false;
       setTestGenStatus('idle');
+      setTestGenCompleted(0);
+      setTestGenTotal(0);
       setOutputsStatus('idle');
       setOutputsCompleted(0);
       setOutputsTotal(0);
@@ -564,20 +612,38 @@ export default function SuggestionsDialog({
       headerName: 'Input',
       flex: 2,
       minWidth: 200,
-      renderCell: (params: GridRenderCellParams) => (
-        <Tooltip title={params.value || ''} arrow placement="top">
-          <Typography
-            variant="body2"
-            sx={{
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
+      renderCell: (params: GridRenderCellParams) => {
+        const row = params.row as SuggestionRow;
+        const tooltipContent =
+          row.diversity_score != null
+            ? `Diversity: ${row.diversity_score.toFixed(3)}\n\n${params.value || ''}`
+            : params.value || '';
+        return (
+          <Tooltip
+            title={
+              <Box
+                component="span"
+                sx={{ whiteSpace: 'pre-line', display: 'block' }}
+              >
+                {tooltipContent}
+              </Box>
+            }
+            arrow
+            placement="top"
           >
-            {params.value || '-'}
-          </Typography>
-        </Tooltip>
-      ),
+            <Typography
+              variant="body2"
+              sx={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {params.value || '-'}
+            </Typography>
+          </Tooltip>
+        );
+      },
     },
     {
       field: 'output',
@@ -657,16 +723,26 @@ export default function SuggestionsDialog({
 
   const progressSegments = [
     {
-      label: 'Test generation',
-      active: currentStep === 'suggestions',
-      fraction: testGenStatus === 'done' ? 1 : 0,
+      label:
+        testGenStatus !== 'idle' && testGenTotal > 0
+          ? `Test generation (${testGenCompleted}/${testGenTotal})`
+          : 'Test generation',
+      active: testGenStatus === 'running',
+      fraction:
+        testGenStatus === 'idle'
+          ? 0
+          : testGenStatus === 'done'
+            ? 1
+            : testGenTotal > 0
+              ? testGenCompleted / testGenTotal
+              : 0,
     },
     {
       label:
         outputsStatus !== 'idle' && outputsTotal > 0
           ? `Output generation (${outputsCompleted}/${outputsTotal})`
           : 'Output generation',
-      active: currentStep === 'outputs',
+      active: outputsStatus === 'running',
       fraction:
         outputsStatus === 'idle'
           ? 0
@@ -681,7 +757,7 @@ export default function SuggestionsDialog({
         metricsStatus !== 'idle' && metricsTotal > 0
           ? `Metric generation (${metricsCompleted}/${metricsTotal})`
           : 'Metric generation',
-      active: currentStep === 'evaluate',
+      active: metricsStatus === 'running',
       fraction:
         metricsStatus === 'idle'
           ? 0

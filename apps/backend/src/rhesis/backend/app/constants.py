@@ -64,6 +64,23 @@ class TestSetType(Enum):
         return None
 
 
+# Metric TypeLookup values — aligned with initial_data.json and the frontend
+class MetricBackendType:
+    """Values for the BackendType type_lookup used on metrics."""
+
+    CUSTOM = "custom"
+    RHESIS = "rhesis"
+    DEEPEVAL = "deepeval"
+    RAGAS = "ragas"
+    GARAK = "garak"
+
+
+class MetricType:
+    """Values for the MetricType type_lookup used on metrics."""
+
+    CUSTOM_PROMPT = "custom-prompt"
+
+
 # Display name stored in test_set.attributes["metadata"]["behaviors"] for adaptive testing sets
 ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
 
@@ -93,6 +110,9 @@ DEFAULT_GENERATION_MODEL = os.getenv(
 DEFAULT_EVALUATION_MODEL = os.getenv(
     "DEFAULT_EVALUATION_MODEL", "rhesis/rhesis-default"
 )  # Default model for evaluation (language-model-as-a-judge)
+DEFAULT_EXECUTION_MODEL = os.getenv(
+    "DEFAULT_EXECUTION_MODEL", "rhesis/rhesis-default"
+)  # Default model for multi-turn test execution (Penelope)
 DEFAULT_EMBEDDING_MODEL = os.getenv("DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005")
 
 DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(

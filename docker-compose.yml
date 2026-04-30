@@ -77,7 +77,6 @@ x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
   NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
   NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
-  NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
   NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
   NEXT_TELEMETRY_DISABLED: 1
 
@@ -126,6 +125,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: backend
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
@@ -154,7 +154,8 @@ services:
   worker:
     build:
       context: .
-      dockerfile: apps/worker/Dockerfile
+      dockerfile: apps/backend/Dockerfile
+      target: worker
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
       LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
@@ -190,7 +191,6 @@ services:
       args:
         FRONTEND_ENV: ${FRONTEND_ENV:-local}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
         NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]

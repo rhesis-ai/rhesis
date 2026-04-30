@@ -5,11 +5,11 @@ from typing import List, Optional, Union
 from pydantic import UUID4, ConfigDict, model_validator
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
 from rhesis.backend.app.schemas.status import Status
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
 from rhesis.backend.app.schemas.user import UserReference
-from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
 
 
 class MetricScope(str, Enum):
@@ -95,3 +95,21 @@ class MetricDetail(Metric):
     status: Optional[Status] = None
     assignee: Optional[UserReference] = None
     owner: Optional[UserReference] = None
+
+
+class GenerateMetricRequest(Base):
+    """Request body for POST /metrics/generate.
+
+    The LLM uses the prompt to produce all required metric fields.
+    """
+
+    prompt: str
+
+
+class ImproveMetricRequest(Base):
+    """Request body for POST /metrics/{metric_id}/improve.
+
+    The LLM uses the prompt to update the existing metric fields.
+    """
+
+    prompt: str

@@ -314,6 +314,7 @@ export interface GenerateTestsRequest {
   sources?: SourceData[];
   name?: string; // Only used for bulk generation
   test_type?: 'single_turn' | 'multi_turn'; // Type of tests to generate
+  model_id?: string; // Override user's default generation model for this request
 }
 
 /**

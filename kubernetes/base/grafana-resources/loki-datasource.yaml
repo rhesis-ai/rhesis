@@ -1,0 +1,22 @@
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDatasource
+metadata:
+  name: loki
+  namespace: monitoring
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  instanceSelector:
+    matchLabels:
+      dashboards: grafana
+  datasource:
+    name: Loki
+    type: loki
+    access: proxy
+    # Same target as Alloy: Loki chart gateway (release "loki" -> Service loki-gateway, port 80)
+    url: http://loki-gateway.monitoring.svc:80
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: rhesis
+    editable: false

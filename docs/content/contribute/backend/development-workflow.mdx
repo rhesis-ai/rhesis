@@ -2,9 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Development Workflow
 
-## Overview
-
-This document outlines the recommended development workflow for working with the Rhesis backend. Following these practices will help maintain code quality and consistency across the project.
+Recommended day-to-day workflow for the backend.
 
 ## Local Development Setup
 
@@ -54,7 +52,7 @@ Fix automatically fixable issues:
 
 ### Type Checking
 
-Although not strictly enforced, adding type hints to your code is encouraged for better IDE support and code quality.
+Type hints are encouraged for readability and IDE support; enforcement is not strict everywhere.
 
 ## Database Changes
 
@@ -161,77 +159,12 @@ For interactive debugging:
 
 ## Git Workflow
 
-### Branching Strategy
-
-1. `main`: Production-ready code
-2. `develop`: Integration branch for feature development
-3. Feature branches: Created from `develop` for new features
-4. Hotfix branches: Created from `main` for urgent fixes
-
-### Commit Guidelines
-
-Follow these guidelines for commit messages:
-
-1. Use present tense ("Add feature" not "Added feature")
-2. First line is a summary (max 50 characters)
-3. Optionally followed by a blank line and detailed description
-4. Reference issue numbers where appropriate
-
-Example:
-
-<CodeBlock filename="commit-message-example.txt" language="text">
-{`Add user authentication endpoint
-
-- Implement JWT token generation
-- Add user validation
-- Set up authentication configuration
-
-Fixes #123`}
-</CodeBlock>
-
-### Pull Requests
-
-When creating pull requests:
-
-1. Provide a clear description of the changes
-2. Reference any related issues
-3. Ensure all tests pass
-4. Request review from appropriate team members
+Use short-lived branches from the integration branch your team uses, conventional commit messages (present tense, ~50-char subject), PRs with description and linked issues, and green tests before merge.
 
 ## Deployment
 
-### Preparing for Deployment
-
-Before deploying:
-
-1. Ensure all tests pass
-2. Check for any security vulnerabilities in dependencies
-3. Update documentation if necessary
-4. Verify environment variables are correctly set
-
-### Deployment Process
-
-The deployment process varies by environment but typically involves:
-
-1. Building a Docker image
-2. Running database migrations
-3. Deploying the new container
-4. Verifying the deployment
+See [Deployment](./deployment). Before release: tests green, dependency review if you bumped packages, env vars and migrations checked.
 
 ## Troubleshooting
 
-### Common Issues
-
-1. **Database connection errors**: Check your database connection string and ensure PostgreSQL is running
-2. **Missing environment variables**: Verify your `.env` file contains all required variables
-3. **Import errors**: Check your Python path and virtual environment
-4. **Authentication issues**: Verify JWT configuration and authentication settings
-
-### Getting Help
-
-If you encounter issues:
-
-1. Check the project documentation
-2. Review relevant code and comments
-3. Ask for help in the project's communication channels
-4. Create an issue on the project's issue tracker
+Typical issues: bad `SQLALCHEMY_DATABASE_URL` or Postgres not running, missing `.env` keys, wrong `PYTHONPATH`/venv, or JWT/auth misconfiguration. Check logs and [Environment configuration](./environment-config).

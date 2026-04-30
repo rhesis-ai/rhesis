@@ -28,6 +28,9 @@ class ModelsSettings(BaseModel):
     evaluation: Optional[LLMModelSettings] = Field(
         default_factory=LLMModelSettings, description="Settings for LLM-as-judge evaluation"
     )
+    execution: Optional[LLMModelSettings] = Field(
+        default_factory=LLMModelSettings, description="Settings for multi-turn test execution"
+    )
     embedding: Optional[LLMModelSettings] = Field(
         default_factory=LLMModelSettings, description="Settings for embedding generation"
     )

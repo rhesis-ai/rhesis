@@ -47,10 +47,15 @@ export function ConnectedModelCard({
     userSettings?.models?.generation?.model_id === model.id;
   const isEvaluationDefault =
     userSettings?.models?.evaluation?.model_id === model.id;
+  const isExecutionDefault =
+    userSettings?.models?.execution?.model_id === model.id;
   const isEmbeddingDefault =
     userSettings?.models?.embedding?.model_id === model.id;
   const isAnyDefault =
-    isGenerationDefault || isEvaluationDefault || isEmbeddingDefault;
+    isGenerationDefault ||
+    isEvaluationDefault ||
+    isExecutionDefault ||
+    isEmbeddingDefault;
 
   const showValidationError =
     validationStatus &&
@@ -216,13 +221,30 @@ export function ConnectedModelCard({
               />
               <Box component="span">
                 Default:{' '}
-                {isGenerationDefault && isEvaluationDefault
-                  ? 'Generation & Evaluation'
-                  : isGenerationDefault
-                    ? 'Generation'
-                    : isEvaluationDefault
-                      ? 'Evaluation'
-                      : 'Embedding'}
+                {[
+                  isGenerationDefault && 'Generation',
+                  isEvaluationDefault && 'Evaluation',
+                  isExecutionDefault && 'Execution',
+                  isEmbeddingDefault && (
+                    <Tooltip
+                      key="embedding-default"
+                      title="Platform-managed; cannot be changed in settings"
+                    >
+                      <Box component="span">Embedding</Box>
+                    </Tooltip>
+                  ),
+                ]
+                  .filter(Boolean)
+                  .map((part, index) => (
+                    <React.Fragment
+                      key={
+                        typeof part === 'string' ? part : 'embedding-default'
+                      }
+                    >
+                      {index > 0 && ' & '}
+                      {part}
+                    </React.Fragment>
+                  ))}
               </Box>
             </Typography>
           )}

@@ -74,36 +74,82 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Validate environment parameter
         uses: ./.github/actions/validate-environment
         with:
           environment: ${{ github.event.inputs.environment }}
 
-  build:
+  prepare_build:
     needs: validate-inputs
+    runs-on: ubuntu-latest
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+    outputs:
+      environment: ${{ steps.set_build_metadata.outputs.environment }}
+      commit_sha: ${{ steps.set_build_metadata.outputs.commit_sha }}
+      git_branch: ${{ steps.set_build_metadata.outputs.git_branch }}
+      is_preview: ${{ steps.set_build_metadata.outputs.is_preview }}
+      build_tag: ${{ steps.set_build_metadata.outputs.build_tag }}
+
+    steps:
+      - name: Set build metadata
+        id: set_build_metadata
+        run: |
+          echo "environment=${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+
+          # Get commit SHA (short version for URLs)
+          COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+          # Get branch name
+          GIT_BRANCH="${{ github.ref_name }}"
+          echo "git_branch=$GIT_BRANCH" >> $GITHUB_OUTPUT
+
+          # Check if this is a preview deployment
+          if [ "${{ inputs.preview }}" = "true" ] || [ "${{ github.event.inputs.preview }}" = "true" ]; then
+            IS_PREVIEW="true"
+          else
+            IS_PREVIEW="false"
+          fi
+          echo "is_preview=$IS_PREVIEW" >> $GITHUB_OUTPUT
+          echo "🔍 Preview deployment mode: $IS_PREVIEW"
+
+          # Use one shared tag so parallel image builds publish a matched pair.
+          BUILD_TAG="$COMMIT_SHA-$(date +%s)"
+          echo "build_tag=$BUILD_TAG" >> $GITHUB_OUTPUT
+          echo "Building images with unique tag: $BUILD_TAG"
+
+  build_backend:
+    needs: prepare_build
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+    environment: ${{ needs.prepare_build.outputs.environment }}
 
     env:
-      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      ENVIRONMENT: ${{ needs.prepare_build.outputs.environment }}
       SERVICE: backend
+      COMMIT_SHA: ${{ needs.prepare_build.outputs.commit_sha }}
+      GIT_BRANCH: ${{ needs.prepare_build.outputs.git_branch }}
+      IS_PREVIEW: ${{ needs.prepare_build.outputs.is_preview }}
+      BUILD_TAG: ${{ needs.prepare_build.outputs.build_tag }}
 
     outputs:
-      image_name: ${{ steps.set_env.outputs.image_name }}
-      service_name: ${{ steps.set_env.outputs.service_name }}
-      environment: ${{ env.ENVIRONMENT }}
-      commit_sha: ${{ steps.set_env.outputs.commit_sha }}
-      git_branch: ${{ steps.set_env.outputs.git_branch }}
-      is_preview: ${{ steps.set_env.outputs.is_preview }}
-      build_tag: ${{ steps.set_build_tag.outputs.build_tag }}
+      image_name: ${{ steps.setup_service_env.outputs.image-name }}
+      service_name: ${{ steps.setup_service_env.outputs.service-name }}
+      environment: ${{ needs.prepare_build.outputs.environment }}
+      commit_sha: ${{ needs.prepare_build.outputs.commit_sha }}
+      git_branch: ${{ needs.prepare_build.outputs.git_branch }}
+      is_preview: ${{ needs.prepare_build.outputs.is_preview }}
+      build_tag: ${{ needs.prepare_build.outputs.build_tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
@@ -123,35 +169,108 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
       - name: Set environment variables
-        id: set_env
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
 
-          # Get commit SHA (short version for URLs)
-          COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
-          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
-          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+      - name: Setup service environment
+        id: setup_service_env
+        uses: ./.github/actions/setup-service-env
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          service-type: backend
+          project-id: ${{ secrets.PROJECT_ID }}
 
-          # Get branch name
-          GIT_BRANCH="${{ github.ref_name }}"
-          echo "GIT_BRANCH=$GIT_BRANCH" >> $GITHUB_ENV
-          echo "git_branch=$GIT_BRANCH" >> $GITHUB_OUTPUT
+      - name: Set additional environment variables
+        run: |
+          echo "CLOUDSQL_INSTANCE=${{ secrets.CLOUDSQL_INSTANCE }}" >> $GITHUB_ENV
 
-          # Check if this is a preview deployment
-          if [ "${{ inputs.preview }}" = "true" ] || [ "${{ github.event.inputs.preview }}" = "true" ]; then
-            IS_PREVIEW="true"
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+
+      - name: Build Backend Container
+        run: |
+          # Build without cache to ensure all migration files are always up-to-date
+          # Use commit SHA for all builds to avoid GCR/Cloud Run caching issues
+          echo "Building backend image with unique tag: $BUILD_TAG"
+
+          # Multi-stage image: apps/backend/Dockerfile (--target backend).
+          if [ "$IS_PREVIEW" = "true" ]; then
+            # For preview deployments, tag with commit SHA
+            docker build --no-cache --pull -t "$IMAGE_NAME:$BUILD_TAG" --target backend -f apps/backend/Dockerfile .
+            docker tag "$IMAGE_NAME:$BUILD_TAG" "$IMAGE_NAME:$COMMIT_SHA"
+            echo "Built preview image: $IMAGE_NAME:$BUILD_TAG"
           else
-            IS_PREVIEW="false"
+            # For regular deployments, use unique tag + latest tag
+            docker build --no-cache --pull -t "$IMAGE_NAME:$BUILD_TAG" --target backend -f apps/backend/Dockerfile .
+            docker tag "$IMAGE_NAME:$BUILD_TAG" "$IMAGE_NAME:latest"
+            echo "Built regular image: $IMAGE_NAME:$BUILD_TAG (tagged as latest)"
           fi
-          echo "IS_PREVIEW=$IS_PREVIEW" >> $GITHUB_ENV
-          echo "is_preview=$IS_PREVIEW" >> $GITHUB_OUTPUT
-          echo "🔍 Preview deployment mode: $IS_PREVIEW"
+
+      - name: Push Backend Container
+        run: |
+          if [ "$IS_PREVIEW" = "true" ]; then
+            # For preview deployments, push both unique and commit SHA tagged images
+            docker push "$IMAGE_NAME:$BUILD_TAG"
+            docker push "$IMAGE_NAME:$COMMIT_SHA"
+            echo "Pushed preview images: $IMAGE_NAME:$BUILD_TAG and :$COMMIT_SHA"
+          else
+            # For regular deployments, push both unique tag and latest
+            docker push "$IMAGE_NAME:$BUILD_TAG"
+            docker push "$IMAGE_NAME:latest"
+            echo "Pushed regular images: $IMAGE_NAME:$BUILD_TAG and :latest"
+          fi
+
+  build_migrate:
+    needs: prepare_build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.prepare_build.outputs.environment }}
+
+    env:
+      ENVIRONMENT: ${{ needs.prepare_build.outputs.environment }}
+      SERVICE: backend
+      COMMIT_SHA: ${{ needs.prepare_build.outputs.commit_sha }}
+      IS_PREVIEW: ${{ needs.prepare_build.outputs.is_preview }}
+      BUILD_TAG: ${{ needs.prepare_build.outputs.build_tag }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create and validate service account key file
+        id: sa_key
+        run: |
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
 
       - name: Setup service environment
         uses: ./.github/actions/setup-service-env
@@ -168,61 +287,56 @@ jobs:
         run: |
           gcloud auth configure-docker
 
-      - name: Build Container
-        id: set_build_tag
+      - name: Build Migrate Container
         run: |
           # Build without cache to ensure all migration files are always up-to-date
           # Use commit SHA for all builds to avoid GCR/Cloud Run caching issues
-          COMMIT_SHA_FULL="${{ github.sha }}"
-          BUILD_TAG="${{ env.COMMIT_SHA }}-$(date +%s)"
+          echo "Building migrate image with unique tag: $BUILD_TAG"
 
-          echo "Building image with unique tag: $BUILD_TAG"
-          echo "BUILD_TAG=$BUILD_TAG" >> $GITHUB_ENV
-          echo "build_tag=$BUILD_TAG" >> $GITHUB_OUTPUT
-
-          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+          # Multi-stage image: apps/backend/Dockerfile (--target migrate).
+          if [ "$IS_PREVIEW" = "true" ]; then
             # For preview deployments, tag with commit SHA
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG -f apps/backend/Dockerfile .
-            docker tag ${{ env.IMAGE_NAME }}:$BUILD_TAG ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
-            echo "Built preview image: ${{ env.IMAGE_NAME }}:$BUILD_TAG"
+            docker build --no-cache --pull -t "$IMAGE_NAME-migrate:$BUILD_TAG" --target migrate -f apps/backend/Dockerfile .
+            docker tag "$IMAGE_NAME-migrate:$BUILD_TAG" "$IMAGE_NAME-migrate:$COMMIT_SHA"
+            echo "Built preview migrate image: $IMAGE_NAME-migrate:$BUILD_TAG"
           else
             # For regular deployments, use unique tag + latest tag
-            docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG -f apps/backend/Dockerfile .
-            docker tag ${{ env.IMAGE_NAME }}:$BUILD_TAG ${{ env.IMAGE_NAME }}:latest
-            echo "Built regular image: ${{ env.IMAGE_NAME }}:$BUILD_TAG (tagged as latest)"
+            docker build --no-cache --pull -t "$IMAGE_NAME-migrate:$BUILD_TAG" --target migrate -f apps/backend/Dockerfile .
+            docker tag "$IMAGE_NAME-migrate:$BUILD_TAG" "$IMAGE_NAME-migrate:latest"
+            echo "Built migrate image: $IMAGE_NAME-migrate:$BUILD_TAG (tagged as latest)"
           fi
 
-      - name: Push Container
+      - name: Push Migrate Container
         run: |
-          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
+          if [ "$IS_PREVIEW" = "true" ]; then
             # For preview deployments, push both unique and commit SHA tagged images
-            docker push ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
-            docker push ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
-            echo "Pushed preview images: ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} and :${{ env.COMMIT_SHA }}"
+            docker push "$IMAGE_NAME-migrate:$BUILD_TAG"
+            docker push "$IMAGE_NAME-migrate:$COMMIT_SHA"
+            echo "Pushed preview migrate images: $IMAGE_NAME-migrate:$BUILD_TAG and :$COMMIT_SHA"
           else
             # For regular deployments, push both unique tag and latest
-            docker push ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
-            docker push ${{ env.IMAGE_NAME }}:latest
-            echo "Pushed regular images: ${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} and :latest"
+            docker push "$IMAGE_NAME-migrate:$BUILD_TAG"
+            docker push "$IMAGE_NAME-migrate:latest"
+            echo "Pushed migrate images: $IMAGE_NAME-migrate:$BUILD_TAG and :latest"
           fi
 
   migrate:
-    needs: [validate-inputs, build]
+    needs: [validate-inputs, build_backend, build_migrate]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+    environment: ${{ needs.build_backend.outputs.environment || inputs.environment || github.event.inputs.environment }}
 
     env:
-      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
-      COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
-      IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
-      BUILD_TAG: ${{ needs.build.outputs.build_tag }}
+      ENVIRONMENT: ${{ needs.build_backend.outputs.environment || inputs.environment || github.event.inputs.environment }}
+      COMMIT_SHA: ${{ needs.build_backend.outputs.commit_sha }}
+      IS_PREVIEW: ${{ needs.build_backend.outputs.is_preview }}
+      BUILD_TAG: ${{ needs.build_backend.outputs.build_tag }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
@@ -242,7 +356,7 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
@@ -272,18 +386,17 @@ jobs:
 
           echo "Using image: ${{ env.IMAGE_NAME }}:$IMAGE_TAG"
 
-          # Create a unique job name for this migration run
-          MIGRATION_JOB_NAME="backend-migrate-$(date +%s)"
+          # Stable job name per environment (create-or-update via deploy)
+          MIGRATION_JOB_NAME="${SERVICE_NAME}-migrate"
+          echo "Deploying/updating Cloud Run Job: $MIGRATION_JOB_NAME"
 
-          echo "Creating Cloud Run Job: $MIGRATION_JOB_NAME"
-
-          # Create a Cloud Run Job to run migrations (executes once)
-          gcloud run jobs create $MIGRATION_JOB_NAME \
-            --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
+          # No VPC: migration only needs Cloud SQL via /cloudsql/... socket
+          # (attached by --set-cloudsql-instances). Dropping the VPC connector
+          # cuts a large chunk of cold-start overhead.
+          gcloud run jobs deploy "$MIGRATION_JOB_NAME" \
+            --image=${{ env.IMAGE_NAME }}-migrate:$IMAGE_TAG \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
-            --vpc-connector=${{ secrets.VPC_CONNECTOR_NAME }} \
-            --vpc-egress=private-ranges-only \
             --max-retries=0 \
             --task-timeout=10m \
             --memory=1Gi \
@@ -292,23 +405,15 @@ jobs:
             --set-env-vars="SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --args=bash,-c,./migrate.sh
 
-          echo "✅ Migration job created"
+          echo "✅ Migration job definition updated"
 
-          # Execute the migration job
           echo "🚀 Executing migration job..."
-          gcloud run jobs execute $MIGRATION_JOB_NAME \
+          gcloud run jobs execute "$MIGRATION_JOB_NAME" \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --wait
 
           MIGRATION_EXIT_CODE=$?
-
-          # Clean up the job after execution
-          echo "🧹 Cleaning up migration job..."
-          gcloud run jobs delete $MIGRATION_JOB_NAME \
-            --project=${{ env.PROJECT_ID }} \
-            --region=${{ env.REGION }} \
-            --quiet
 
           if [ $MIGRATION_EXIT_CODE -ne 0 ]; then
             echo "❌ Migration failed with exit code $MIGRATION_EXIT_CODE"
@@ -318,19 +423,19 @@ jobs:
           echo "✅ Database migrations completed successfully"
 
   deploy:
-    needs: [validate-inputs, build, migrate]
+    needs: [validate-inputs, build_backend, migrate]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    environment: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
+    environment: ${{ needs.build_backend.outputs.environment || inputs.environment || github.event.inputs.environment }}
 
     env:
-      ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment }}
-      COMMIT_SHA: ${{ needs.build.outputs.commit_sha }}
-      GIT_BRANCH: ${{ needs.build.outputs.git_branch }}
-      IS_PREVIEW: ${{ needs.build.outputs.is_preview }}
-      BUILD_TAG: ${{ needs.build.outputs.build_tag }}
+      ENVIRONMENT: ${{ needs.build_backend.outputs.environment || inputs.environment || github.event.inputs.environment }}
+      COMMIT_SHA: ${{ needs.build_backend.outputs.commit_sha }}
+      GIT_BRANCH: ${{ needs.build_backend.outputs.git_branch }}
+      IS_PREVIEW: ${{ needs.build_backend.outputs.is_preview }}
+      BUILD_TAG: ${{ needs.build_backend.outputs.build_tag }}
 
     outputs:
       backend_preview_url_encoded: ${{ steps.output_url.outputs.backend_preview_url_encoded }}
@@ -338,7 +443,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
@@ -358,7 +463,7 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
@@ -464,6 +569,7 @@ jobs:
           GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
           DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL }},
           DEFAULT_EVALUATION_MODEL=${{ secrets.DEFAULT_EVALUATION_MODEL }},
+          DEFAULT_EXECUTION_MODEL=${{ secrets.DEFAULT_EXECUTION_MODEL }},
           DEFAULT_EMBEDDING_MODEL=${{ secrets.DEFAULT_EMBEDDING_MODEL }},
           GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
           VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }},
@@ -544,6 +650,7 @@ jobs:
           GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
           DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL }},
           DEFAULT_EVALUATION_MODEL=${{ secrets.DEFAULT_EVALUATION_MODEL }},
+          DEFAULT_EXECUTION_MODEL=${{ secrets.DEFAULT_EXECUTION_MODEL }},
           DEFAULT_EMBEDDING_MODEL=${{ secrets.DEFAULT_EMBEDDING_MODEL }},
           GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
           VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }},
@@ -744,6 +851,7 @@ jobs:
           GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
           DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL }},
           DEFAULT_EVALUATION_MODEL=${{ secrets.DEFAULT_EVALUATION_MODEL }},
+          DEFAULT_EXECUTION_MODEL=${{ secrets.DEFAULT_EXECUTION_MODEL }},
           DEFAULT_EMBEDDING_MODEL=${{ secrets.DEFAULT_EMBEDDING_MODEL }},
           GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
           VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }},
@@ -831,6 +939,7 @@ jobs:
           GEMINI_MODEL_NAME=${{ secrets.GEMINI_MODEL_NAME }},
           DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL }},
           DEFAULT_EVALUATION_MODEL=${{ secrets.DEFAULT_EVALUATION_MODEL }},
+          DEFAULT_EXECUTION_MODEL=${{ secrets.DEFAULT_EXECUTION_MODEL }},
           DEFAULT_EMBEDDING_MODEL=${{ secrets.DEFAULT_EMBEDDING_MODEL }},
           GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
           VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }},

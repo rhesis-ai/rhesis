@@ -4,6 +4,8 @@ from typing import List, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -21,6 +23,7 @@ from rhesis.backend.app.services.review_override import (
 from rhesis.backend.app.services.stats import get_test_result_stats
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 TestResultDetailSchema = create_detailed_schema(
@@ -100,7 +103,7 @@ def create_test_result(
     )
 
 
-@router.get("/", response_model=List[TestResultDetailSchema])
+@router.get("/", response_model=list[TestResultDetailSchema])
 @with_count_header(model=models.TestResult)
 def read_test_results(
     response: Response,
@@ -109,13 +112,18 @@ def read_test_results(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all test results"""
     organization_id, user_id = tenant_context
-    test_results = crud.get_test_results(
+    results = crud.get_test_results(
         db,
         skip=skip,
         limit=limit,
@@ -125,7 +133,10 @@ def read_test_results(
         organization_id=organization_id,
         user_id=user_id,
     )
-    return test_results
+    if select:
+        serialized = jsonable_encoder(results)
+        return JSONResponse(content=apply_select(serialized, select))
+    return results
 
 
 @router.get("/stats", response_model=schemas.TestResultStatsResponse)

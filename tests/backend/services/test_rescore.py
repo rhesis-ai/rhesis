@@ -68,6 +68,17 @@ class TestTestRunRescoreRequestSchema:
         )
         assert len(req.metrics) == 3
 
+    def test_with_evaluation_model_id(self):
+        """Request with evaluation_model_id stores the value correctly."""
+        model_id = uuid4()
+        req = TestRunRescoreRequest(evaluation_model_id=model_id)
+        assert req.evaluation_model_id == model_id
+
+    def test_empty_request_has_no_evaluation_model_id(self):
+        """Empty request defaults evaluation_model_id to None."""
+        req = TestRunRescoreRequest()
+        assert req.evaluation_model_id is None
+
 
 # ============================================================================
 # rescore_test_run service tests

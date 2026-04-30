@@ -72,7 +72,7 @@ jobs:
       git_branch: ${{ steps.set_env.outputs.git_branch }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
@@ -95,7 +95,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
@@ -141,7 +141,8 @@ jobs:
 
       - name: Build Container
         run: |
-          docker build -t ${{ env.IMAGE_NAME }}:latest -f apps/worker/Dockerfile .
+          # Multi-stage image: apps/backend/Dockerfile (--target worker).
+          docker build -t ${{ env.IMAGE_NAME }}:latest --target worker -f apps/backend/Dockerfile .
 
       - name: Push Container
         run: |
@@ -159,7 +160,7 @@ jobs:
       ENVIRONMENT: ${{ needs.build.outputs.environment || inputs.environment || github.event.inputs.environment || 'dev' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create and validate service account key file
         id: sa_key
@@ -182,7 +183,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
@@ -286,6 +287,7 @@ jobs:
             --from-literal=SQLALCHEMY_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --from-literal=DB_ENCRYPTION_KEY="${{ secrets.DB_ENCRYPTION_KEY }}" \
             --from-literal=JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+            --from-literal=SESSION_SECRET_KEY="${{ secrets.SESSION_SECRET_KEY }}" \
             --from-literal=JWT_ALGORITHM="${{ secrets.JWT_ALGORITHM }}" \
             --from-literal=JWT_ACCESS_TOKEN_EXPIRE_MINUTES="${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}" \
             --from-literal=LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
@@ -297,6 +299,7 @@ jobs:
             --from-literal=GEMINI_MODEL_NAME="${{ secrets.GEMINI_MODEL_NAME }}" \
             --from-literal=DEFAULT_GENERATION_MODEL="${{ secrets.DEFAULT_GENERATION_MODEL }}" \
             --from-literal=DEFAULT_EVALUATION_MODEL="${{ secrets.DEFAULT_EVALUATION_MODEL }}" \
+            --from-literal=DEFAULT_EXECUTION_MODEL="${{ secrets.DEFAULT_EXECUTION_MODEL }}" \
             --from-literal=DEFAULT_EMBEDDING_MODEL="${{ secrets.DEFAULT_EMBEDDING_MODEL }}" \
             --from-literal=GOOGLE_APPLICATION_CREDENTIALS="${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}" \
             --from-literal=VERTEX_AI_LOCATION="${{ secrets.VERTEX_AI_LOCATION }}" \

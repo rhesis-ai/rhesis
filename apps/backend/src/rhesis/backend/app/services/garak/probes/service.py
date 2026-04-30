@@ -23,10 +23,13 @@ class GarakProbeService:
 
     # Modules excluded from enumeration entirely.
     # 'base' and 'test' are internal garak modules.
-    # 'audio' and 'fileformats' operate on binary payloads and cannot be synthesised
-    # as text prompts, so they have no meaningful representation in Rhesis.
+    # 'audio', 'fileformats', and 'visual_jailbreak' operate on binary payloads
+    # (audio, binary files, images) and cannot be synthesised as text prompts,
+    # so they have no meaningful representation in Rhesis.  'visual_jailbreak'
+    # is also excluded because instantiating its probes downloads hundreds of
+    # images from GitHub at startup.
     # NOTE: These are also intentionally absent from GarakTaxonomy.MODULE_MAPPINGS.
-    EXCLUDED_MODULES = {"base", "test", "audio", "fileformats"}
+    EXCLUDED_MODULES = {"base", "test", "audio", "fileformats", "visual_jailbreak"}
 
     def __init__(self):
         self._probe_cache: Dict[str, GarakModuleInfo] = {}
@@ -290,11 +293,20 @@ class GarakProbeService:
                 if isinstance(probe_tags, (list, tuple, set)):
                     tags = list(probe_tags)
 
-            # Get prompts using the extractor
-            prompts = self._extractor.extract_prompts(probe_class)
-
             # Get detector (handles primary_detector / recommended_detector)
             detector = compat.get_probe_detector(probe_class)
+
+            # Try to obtain prompts AND per-prompt notes from a single instantiation.
+            # This is critical for probes like encoding.InjectBase64 where each prompt
+            # encodes a *different* payload: prompts[i] <-> triggers[i] are aligned, and
+            # a second instantiation with random sampling may produce a different order.
+            prompts, prompt_notes = self._extract_prompts_and_notes(probe_class)
+
+            # Fall back to the extractor for probes that cannot be instantiated
+            # (e.g. those that require external resources or a live model).
+            if not prompts:
+                prompts = self._extractor.extract_prompts(probe_class)
+                prompt_notes = []
 
             prompt_count = len(prompts)
             return GarakProbeInfo(
@@ -307,6 +319,7 @@ class GarakProbeService:
                 prompts=prompts,
                 prompt_count=prompt_count,
                 detector=detector,
+                prompt_notes=prompt_notes,
                 # A probe is "dynamic" when it has no static prompts after all
                 # extraction strategies have been exhausted.  Such probes generate
                 # test inputs at runtime (e.g. via RL, NLTK, or an external model)
@@ -317,6 +330,80 @@ class GarakProbeService:
         except Exception as e:
             logger.warning(f"Error extracting probe info for {module_name}.{class_name}: {e}")
             return None
+
+    def _extract_prompts_and_notes(
+        self, probe_class: type
+    ) -> tuple[List[str], List[Optional[Dict]]]:
+        """
+        Instantiate a probe once and return (prompts, per-prompt notes) together.
+
+        Probe-coupled detectors (AttackRogueString, DecodeMatch, DecodeApprox) require
+        context in attempt.notes["triggers"] at evaluation time.  There are two patterns:
+
+        - PromptInject probes: the *same* rogue string applies to every prompt in the
+          class.  Extracted from instance.pi_prompts[0]["settings"]["attack_rogue_string"].
+
+        - Encoding probes (InjectBase64, InjectAscii85, …): each prompt encodes a
+          *different* payload.  instance.prompts[i] and instance.triggers[i] are aligned
+          at construction time; a second instantiation with random sampling may produce a
+          different order, so both must be captured in the same call.
+
+        Returns:
+            Tuple (prompts, prompt_notes) where prompt_notes[i] is the notes dict for
+            prompts[i], or None if no special context is needed for that prompt.
+            Both lists have the same length.  Returns ([], []) on failure.
+        """
+        try:
+            # Encoding probes use follow_prompt_cap to limit the number of prompts
+            # sampled at runtime. Disable it temporarily so we get the *complete*,
+            # deterministic prompt→trigger mapping — the same strategy used by the
+            # Alembic backfill migration (97b38ee1a6e1) to ensure consistency.
+            original_cap = getattr(probe_class, "follow_prompt_cap", None)
+            if original_cap is not None:
+                probe_class.follow_prompt_cap = False
+            try:
+                instance = probe_class()
+            finally:
+                if original_cap is not None:
+                    probe_class.follow_prompt_cap = original_cap
+
+            prompts = (
+                list(instance.prompts) if hasattr(instance, "prompts") and instance.prompts else []
+            )
+            if not prompts:
+                return [], []
+
+            # PromptInject: same rogue string applies to all prompts in the class.
+            if hasattr(instance, "pi_prompts") and instance.pi_prompts:
+                trigger = instance.pi_prompts[0].get("settings", {}).get("attack_rogue_string")
+                if trigger:
+                    notes: Dict = {"triggers": [trigger]}
+                    return prompts, [notes] * len(prompts)
+
+            # Encoding probes: per-prompt triggers aligned with instance.prompts.
+            if hasattr(instance, "triggers") and instance.triggers:
+                n_triggers = len(instance.triggers)
+                n_prompts = len(prompts)
+                if n_triggers != n_prompts:
+                    logger.warning(
+                        f"Trigger/prompt count mismatch for {probe_class.__name__}: "
+                        f"{n_triggers} triggers vs {n_prompts} prompts. "
+                        "Extra triggers will be dropped; missing triggers padded with None."
+                    )
+                prompt_notes = [{"triggers": [str(t)]} for t in instance.triggers[:n_prompts]]
+                # Pad so prompt_notes[i] always corresponds to prompts[i].
+                if len(prompt_notes) < n_prompts:
+                    prompt_notes += [None] * (n_prompts - len(prompt_notes))
+                return prompts, prompt_notes
+
+            return prompts, []
+
+        except Exception as exc:
+            logger.debug(
+                f"Could not instantiate {probe_class.__name__} for prompt/notes extraction: {exc}",
+                exc_info=True,
+            )
+            return [], []
 
     def get_all_probes(self) -> Dict[str, List[GarakProbeInfo]]:
         """

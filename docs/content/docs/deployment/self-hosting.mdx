@@ -253,7 +253,7 @@ FROM_EMAIL=your_from_email`}
 
 #### AI Model Configuration
 
-An AI provider is required for test generation and evaluation. By default, the system uses `rhesis/rhesis-default` as the model, which requires a `RHESIS_API_KEY`. If you do not configure either a `RHESIS_API_KEY` or an alternative provider with matching `DEFAULT_GENERATION_MODEL` and `DEFAULT_EVALUATION_MODEL`, test generation will fail.
+An AI provider is required for test generation, evaluation, and multi-turn execution. By default, the system uses `rhesis/rhesis-default` as the model, which requires a `RHESIS_API_KEY`. If you do not configure either a `RHESIS_API_KEY` or an alternative provider with matching `DEFAULT_GENERATION_MODEL`, `DEFAULT_EVALUATION_MODEL`, and `DEFAULT_EXECUTION_MODEL`, test generation and execution will fail.
 
 **Option 1: Use Rhesis API (Recommended)**
 
@@ -274,6 +274,7 @@ GEMINI_API_KEY=your-gemini-api-key
 GOOGLE_API_KEY=your-google-api-key
 DEFAULT_GENERATION_MODEL=gemini/gemini-2.0-flash-001
 DEFAULT_EVALUATION_MODEL=gemini/gemini-2.0-flash-001
+DEFAULT_EXECUTION_MODEL=gemini/gemini-2.0-flash-001
 
 # Or Azure OpenAI
 AZURE_OPENAI_ENDPOINT=YOUR_AZURE_OPENAI_API_ENDPOINT
@@ -282,11 +283,13 @@ AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AZURE_OPENAI_API_VERSION=YOUR_AZURE_OPENAI_API_VERSION
 DEFAULT_GENERATION_MODEL=azure/gpt-4o
 DEFAULT_EVALUATION_MODEL=azure/gpt-4o
+DEFAULT_EXECUTION_MODEL=azure/gpt-4o
 
 # Or OpenAI
 OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 DEFAULT_GENERATION_MODEL=openai/gpt-4o
-DEFAULT_EVALUATION_MODEL=openai/gpt-4o`}
+DEFAULT_EVALUATION_MODEL=openai/gpt-4o
+DEFAULT_EXECUTION_MODEL=openai/gpt-4o`}
 </CodeBlock>
 
 Supported provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`, `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`.

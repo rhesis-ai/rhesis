@@ -1,8 +1,9 @@
 import json
-from typing import List, Optional, Type, Union
+import logging
+from typing import AsyncGenerator, List, Optional, Type, Union
 
 import litellm
-from litellm import acompletion, batch_completion, embedding
+from litellm import acompletion, aembedding, batch_completion, embedding
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -10,6 +11,10 @@ from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
+# Prevents "attached to a different loop" errors in threaded/Celery contexts.
+litellm.disable_aiohttp_transport = True
+for _logger_name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
+    logging.getLogger(_logger_name).setLevel(logging.WARNING)
 
 
 def _unique_ordered_model_ids(models: List[str]) -> List[str]:
@@ -68,9 +73,10 @@ class LiteLLM(BaseLLM):
         prompt: str,
         system_prompt: Optional[str] = None,
         schema: Optional[Union[Type[BaseModel], dict]] = None,
+        stream: bool = False,
         *args,
         **kwargs,
-    ) -> Union[str, dict]:
+    ) -> Union[str, dict, AsyncGenerator[str, None]]:
         """
         Run an async chat completion using LiteLLM, returning the response.
         The schema will be used to validate the response if provided.
@@ -82,9 +88,13 @@ class LiteLLM(BaseLLM):
             prompt: The user prompt
             system_prompt: Optional system prompt
             schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
+            stream: When True, return an async generator of token chunks.
+                Schema validation is skipped; the caller is responsible
+                for parsing and validating the accumulated output.
 
         Returns:
-            str or dict: Raw text if no schema, validated dict if schema provided
+            str or dict when stream=False; AsyncGenerator[str, None] when
+            stream=True.
         """
         messages = (
             [
@@ -94,6 +104,9 @@ class LiteLLM(BaseLLM):
             if system_prompt
             else [{"role": "user", "content": prompt}]
         )
+
+        if stream:
+            return self._a_generate_stream(messages, schema, *args, **kwargs)
 
         response = await acompletion(
             model=self.model_name,
@@ -112,6 +125,51 @@ class LiteLLM(BaseLLM):
             validate_llm_response(response_content, schema)
             return response_content
         return response_content
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> AsyncGenerator[str, None]:
+        """Stream LLM response token-by-token via LiteLLM.
+
+        Delegates to ``a_generate(stream=True)`` so that Vertex AI and other
+        subclasses can inject provider-specific parameters before the streaming
+        call reaches ``_a_generate_stream``.
+        """
+        result = await self.a_generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            stream=True,
+            **kwargs,
+        )
+        async for chunk in result:
+            yield chunk
+
+    async def _a_generate_stream(
+        self,
+        messages: list,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        *args,
+        **kwargs,
+    ) -> AsyncGenerator[str, None]:
+        """Yield token chunks from a streaming LiteLLM completion."""
+        response = await acompletion(
+            model=self.model_name,
+            messages=messages,
+            response_format=schema,
+            stream=True,
+            api_key=self.api_key,
+            api_base=self.api_base,
+            api_version=self.api_version,
+            *args,
+            **kwargs,
+        )
+        async for chunk in response:  # type: ignore[union-attr]
+            content = chunk.choices[0].delta.content
+            if content:
+                yield content
 
     def generate_batch(
         self,
@@ -229,26 +287,14 @@ class LiteLLMEmbedder(BaseEmbedder):
         self.api_key = api_key
         self.dimensions = dimensions
 
-    def generate(self, text: str, **kwargs) -> Embedding:
-        """Generate embedding for a single text.
-
-        Args:
-            text: The input text to embed.
-            **kwargs: Additional parameters passed to litellm.embedding().
-
-        Returns:
-            A list of floats representing the embedding vector.
-
-        Raises:
-            TypeError: If text is not a string.
-        """
+    async def a_generate(self, text: str, **kwargs) -> Embedding:
+        """Generate embedding for a single text (async, via LiteLLM)."""
         if not isinstance(text, str):
             raise TypeError(f"text must be a string, got {type(text).__name__}")
 
-        # Allow overriding dimensions per call
         dimensions = kwargs.pop("dimensions", self.dimensions)
 
-        response = embedding(
+        response = await aembedding(
             model=self.model_name,
             input=[text],
             api_key=self.api_key,

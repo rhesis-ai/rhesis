@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.6.12"
+version = "0.7.0"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -36,11 +36,11 @@ dependencies = [
     "tenacity>=8.2.3",
     "pyyaml>=6.0",
     "pydantic>=2.0.0",
-    "litellm>=1.83.0",
+    "litellm>=1.83.7",
     "deepteam>=0.2.5",
     "langchain-google-genai>=2.1.12",
-    "ragas>=0.3.7",
-    "mcp>=1.23.0",
+    "ragas>=0.3.7,<0.4",
+    "mcp==1.26.0",
     "websockets>=12.0",
     "ipython>=8.37.0",
     "ipykernel>=7.1.0",
@@ -143,6 +143,7 @@ dev = [
     "psycopg2-binary==2.9.9", # to match the version in the backend
     "pytest-cov>=7.0.0",
     "garak>=0.14.0",
+    "rhesis-penelope",
     "virtualenv>=20.36.1",
 ]
 
@@ -170,11 +171,19 @@ constraint-dependencies = [
     "tornado>=6.5.5",
     "pyasn1>=0.6.3",
     "orjson>=3.11.7",
+    "langchain-openai>=1.1.14",
 ]
-override-dependencies = ["datasets>=4.0.0", "transformers>=5.0.0"]
+override-dependencies = [
+    "datasets>=4.0.0",
+    "transformers>=5.0.0",
+    # litellm 1.83.7+ metadata pins python-dotenv==1.0.1 and pydantic==2.12.5; relax for deepeval/CVEs.
+    "python-dotenv>=1.2.2",
+    "pydantic>=2.13.0",
+]
 
 [tool.uv.sources]
 rhesis = { path = "../packages/rhesis" }
+rhesis-penelope = { path = "../penelope", editable = true }
 
 [tool.pyright]
 typeCheckingMode = "standard"

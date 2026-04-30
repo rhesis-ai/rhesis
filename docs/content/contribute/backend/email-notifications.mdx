@@ -4,16 +4,13 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 ## Overview
 
-The Rhesis backend includes an automated email notification system that sends notifications to users when their background tasks complete. This system integrates with the Celery task system and can use any SMTP provider, including SendGrid.
+The worker can email users when selected Celery tasks finish. SMTP is pluggable (SendGrid and others). Sending is non-blocking and respects tenant context.
 
 ## Features
 
-- 📧 **Automatic notifications**: Users receive emails when their tasks complete successfully or fail
-- 🎨 **Rich HTML emails**: Professional-looking emails with both HTML and plain text versions
-- 🔗 **Direct links**: Clickable links to view results in the frontend application
-- 🏢 **Multi-tenant aware**: Respects organization and user context
-- 🛡️ **Error handling**: Graceful degradation if email service is unavailable
-- ⚡ **Performance**: Email sending doesn't block task execution
+- Optional per-task via `@email_notification` (avoids noisy mail when many parallel tasks run)
+- HTML and plain text bodies with links into the app when results include IDs
+- Graceful no-op if SMTP is misconfigured
 
 ## Configuration
 
@@ -70,15 +67,9 @@ SMTP_PASSWORD=your-mailgun-smtp-password`}
 
 ## How It Works
 
-### Selective Email Notifications
+### Opt-in: `@email_notification`
 
-**Important:** Email notifications are now **opt-in** using the `@email_notification` decorator to prevent spam when running parallel tasks. Only tasks that explicitly use the decorator will send email notifications.
-
-### Email Notification Decorator
-
-#### Using the `@email_notification` Decorator
-
-The new decorator approach provides fine-grained control over email notifications:
+Only tasks decorated with `@email_notification` send mail (parallel subtasks usually stay silent; use a chord callback for one summary email).
 
 <CodeBlock filename="email-notification-decorator.py" language="python">
 {`from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
@@ -92,60 +83,13 @@ from rhesis.backend.worker import app
 @app.task(base=BaseTask, name="your.user.facing.task", bind=True)
 @with_tenant_context
 def user_facing_task(self, params, db=None):
-    """This task will send email notifications using the specified template."""
     # Your task logic here
     return {"result": "success", "test_run_id": "optional-for-links"}`}
 </CodeBlock>
 
-#### Available Email Templates
+Templates: `EmailTemplate.TASK_COMPLETION` (generic) or `EmailTemplate.TEST_EXECUTION_SUMMARY` (runs). Optional `subject_template=` uses the same context variables.
 
-<CodeBlock filename="email-templates.py" language="python">
-{`from rhesis.backend.notifications.email.template_service import EmailTemplate
-
-# For general task completion
-@email_notification(template=EmailTemplate.TASK_COMPLETION)
-
-# For test execution summaries with detailed results
-@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)`}
-</CodeBlock>
-
-#### Custom Subject Templates
-
-You can customize the email subject using template variables:
-
-<CodeBlock filename="custom-subject-template.py" language="python">
-{`@email_notification(
-    template=EmailTemplate.TEST_EXECUTION_SUMMARY,
-    subject_template="Test Execution Complete: {test_set_name} - {status.title()}"
-)`}
-</CodeBlock>
-
-### Task Types
-
-#### 1. **Tasks with Email Notifications** - Using Decorator
-
-Use the decorator for tasks that users directly submit and want to be notified about:
-
-<CodeBlock filename="task-with-email.py" language="python">
-{`from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
-from rhesis.backend.notifications.email.template_service import EmailTemplate
-from rhesis.backend.worker import app
-
-@email_notification(
-    template=EmailTemplate.TASK_COMPLETION,
-    subject_template="Task Complete: {task_name} - {status.title()}"
-)
-@app.task(base=BaseTask, name="your.user.facing.task", bind=True)
-@with_tenant_context
-def user_facing_task(self, params, db=None):
-    """This task will send email notifications on completion."""
-    # Your task logic here
-    return {"result": "success", "test_run_id": "optional-for-links"}`}
-</CodeBlock>
-
-#### 2. **Silent Tasks** - No Decorator
-
-Tasks without the decorator will not send email notifications:
+**Without the decorator:** no notification. **Legacy:** `EmailEnabledTask` still sends basic completion emails.
 
 <CodeBlock filename="silent-task.py" language="python">
 {`from rhesis.backend.tasks.base import BaseTask, with_tenant_context
@@ -154,72 +98,22 @@ from rhesis.backend.worker import app
 @app.task(base=BaseTask, name="your.background.task", bind=True)
 @with_tenant_context
 def background_task(self, params, db=None):
-    """This task will NOT send email notifications."""
-    # Your parallel task logic here
     return {"result": "success"}`}
 </CodeBlock>
 
-#### 3. **Legacy EmailEnabledTask** - Still Supported
+### Async batch and summary email
 
-The old `EmailEnabledTask` is still supported for backward compatibility:
-
-<CodeBlock filename="legacy-email-task.py" language="python">
-{`from rhesis.backend.tasks.base import EmailEnabledTask, with_tenant_context
-from rhesis.backend.worker import app
-
-@app.task(base=EmailEnabledTask, name="your.legacy.task", bind=True)
-@with_tenant_context
-def legacy_task(self, params, db=None):
-    """This task will send basic task completion emails."""
-    # Your task logic here
-    return {"result": "success"}`}
-</CodeBlock>
-
-### Chord Example
-
-When running tasks in parallel with chords, use the decorator appropriately:
-
-<CodeBlock filename="chord-example.py" language="python">
-{`from celery import chord
-
-# These run in parallel - no emails needed (no decorator)
-parallel_tasks = [
-    background_task.s(param1),
-    background_task.s(param2),
-    background_task.s(param3),
-]
-
-# This is the callback when all parallel tasks complete - send email
-@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)
-@app.task(base=BaseTask, bind=True)
-def collect_results_task(self, results):
-    # Process results and return summary
-    return {"total_tests": 10, "tests_passed": 8, "tests_failed": 2}
-
-callback = collect_results_task.s()
-
-# Execute: parallel tasks run silently, only callback sends email
-result = chord(parallel_tasks)(callback)`}
-</CodeBlock>
+Parallel test execution uses an **async batch** inside one Celery task; it does not use Celery `chord`. When the batch finishes, `trigger_results_collection` schedules `collect_results` with the result list so the same summary path (including `@email_notification`) runs as for sequential runs. See `apps/backend/src/rhesis/backend/tasks/execution/shared.py` and `batch/__init__.py`.
 
 ### Current Task Configuration
 
-- ✅ **`collect_results`** - Uses `@email_notification(template=EmailTemplate.TEST_EXECUTION_SUMMARY)` (sends detailed test summaries)
-- ✅ **`email_notification_test`** - Uses `@email_notification(template=EmailTemplate.TASK_COMPLETION)` (sends basic completion emails)
-- ✅ **Individual test execution tasks** - No decorator (no emails)
-- ✅ **Utility tasks** - No decorator (no emails)
+- `collect_results` — `TEST_EXECUTION_SUMMARY`
+- `email_notification_test` — `TASK_COMPLETION`
+- Per-test execution and utility tasks — no decorator (no mail)
 
 ### Automatic Integration
 
-When a task with the `@email_notification` decorator completes (either successfully or fails permanently), the system:
-
-1. **Retrieves user information** from the task context
-2. **Skips placeholder emails** (internal system users)
-3. **Calculates execution time** if available
-4. **Uses the specified template** to generate email content
-5. **Applies template variables** from task results and context
-6. **Sends HTML email** using the centralized email service
-7. **Logs the outcome** without failing the task
+On success or final failure, the worker loads the user from task context (skips placeholder addresses), renders the template with task return values and timing, sends via `EmailService`, and logs errors without failing the task.
 
 ### Template Variables
 
@@ -248,25 +142,6 @@ def test_task(self):
         'test_set_name': 'API Tests',
         'project_name': 'My Project'
     }`}
-</CodeBlock>
-
-### Task Integration
-
-<CodeBlock filename="task-integration.py" language="python">
-{`from rhesis.backend.tasks.base import BaseTask, with_tenant_context, email_notification
-from rhesis.backend.notifications.email.template_service import EmailTemplate
-from rhesis.backend.worker import app
-
-@email_notification(
-    template=EmailTemplate.TASK_COMPLETION,
-    subject_template="Task Complete: {task_name} - {status.title()}"
-)
-@app.task(base=BaseTask, name="your.task.name", bind=True)
-@with_tenant_context
-def your_task(self, your_params, db=None):
-    """Your task automatically gets email notifications."""
-    # Your task logic here
-    return {"result": "success", "test_run_id": "optional-for-links"}`}
 </CodeBlock>
 
 ## Email Service Architecture
@@ -326,7 +201,7 @@ When users submit tasks through the API (e.g., test configurations), they automa
 <CodeBlock filename="success-email-example.txt" language="text">
 {`Subject: Task Completed: Execute Test Configuration - Success
 
-✅ Task Completed
+Task completed
 
 Hello John Doe,
 
@@ -462,17 +337,6 @@ Monitor email notifications through:
 
 - **User context**: Emails only sent to the user who submitted the task
 - **Organization isolation**: Multi-tenant architecture prevents cross-organization emails
-
-## Future Enhancements
-
-Potential improvements to consider:
-
-- **Email preferences**: Allow users to opt-out of notifications
-- **Notification types**: Different notifications for different task types
-- **Email templates**: Customizable email templates per organization
-- **Delivery status**: Track email delivery and bounce handling
-- **Digest emails**: Summary emails for multiple completed tasks
-- **Mobile optimization**: Enhanced mobile email experience
 
 ## Deployment
 

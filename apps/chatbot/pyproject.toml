@@ -9,7 +9,7 @@ dependencies = [
     "gunicorn>=21.2.0",
     "slowapi>=0.1.9",
     "pydantic>=2.11.7",
-    "python-dotenv>=1.1.1",
+    "python-dotenv>=1.2.2",
     "streamlit>=1.41.1",
     "rhesis-sdk",
 ]
@@ -21,6 +21,11 @@ constraint-dependencies = [
     "pyasn1>=0.6.3",
     "orjson>=3.11.7",
     "tornado>=6.5.5",
+]
+# Match sdk lock resolution: litellm>=1.83.7 vs deepeval/python-dotenv.
+override-dependencies = [
+    "python-dotenv>=1.2.2",
+    "pydantic>=2.13.0",
 ]
 
 [tool.uv.sources.rhesis-sdk]

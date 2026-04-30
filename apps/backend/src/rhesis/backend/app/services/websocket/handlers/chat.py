@@ -80,7 +80,10 @@ async def handle_chat_message(
         return
 
     logger.info(
-        f"Chat message from conn={conn_id} to endpoint={endpoint_id}: {user_message[:100]}..."
+        "Chat message from conn=%s to endpoint=%s (len=%d)",
+        conn_id,
+        endpoint_id,
+        len(user_message),
     )
 
     try:

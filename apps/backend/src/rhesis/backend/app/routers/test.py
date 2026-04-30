@@ -3,6 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,7 @@ from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     validate_execution_model,
 )
+from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 logger = logging.getLogger(__name__)
@@ -229,6 +232,11 @@ def read_tests(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return (e.g. id,prompt,behavior)",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -245,6 +253,9 @@ def read_tests(
         organization_id=organization_id,
         user_id=user_id,
     )
+    if select:
+        serialized = jsonable_encoder(tests)
+        return JSONResponse(content=apply_select(serialized, select))
     return tests
 
 

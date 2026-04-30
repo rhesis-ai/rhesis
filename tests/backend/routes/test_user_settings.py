@@ -166,6 +166,36 @@ class TestUserSettingsRoutes:
         assert data["ui"]["theme"] == sample_ui_settings["theme"]
         assert data["ui"]["default_page_size"] == sample_ui_settings["default_page_size"]
 
+    def test_patch_settings_rejects_models_embedding(
+        self, authenticated_client, settings_endpoint
+    ):
+        """❌ PATCH cannot change models.embedding via user settings"""
+        get_before = authenticated_client.get(settings_endpoint)
+        assert get_before.status_code == status.HTTP_200_OK
+        before_models = get_before.json().get("models") or {}
+
+        payload = {"models": {"embedding": {"model_id": str(uuid.uuid4())}}}
+        response = authenticated_client.patch(settings_endpoint, json=payload)
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "embedding" in response.json().get("detail", "").lower()
+
+        get_after = authenticated_client.get(settings_endpoint)
+        assert get_after.status_code == status.HTTP_200_OK
+        assert (get_after.json().get("models") or {}) == before_models
+
+    def test_patch_settings_models_generation_only_still_ok(
+        self, authenticated_client, settings_endpoint
+    ):
+        """✅ PATCH only models.generation still succeeds (not blocked with embedding rule)"""
+        gen_id = str(uuid.uuid4())
+        response = authenticated_client.patch(
+            settings_endpoint,
+            json={"models": {"generation": {"model_id": gen_id}}},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["models"]["generation"]["model_id"] == gen_id
+
     def test_patch_settings_models_with_uuid(
         self, authenticated_client, settings_endpoint, sample_model_settings
     ):

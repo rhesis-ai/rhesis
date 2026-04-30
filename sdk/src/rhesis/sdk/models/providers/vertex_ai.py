@@ -117,10 +117,16 @@ class VertexAICredentialsMixin:
         temp_dir = Path(tempfile.gettempdir())
         temp_file_path = temp_dir / f"vertex_ai_creds_{creds_hash}.json"
 
-        # Write credentials to the persistent temp file (idempotent)
-        # If file already exists, we'll just overwrite it (safe since content is the same)
+        # Write credentials to the persistent temp file with restricted permissions
+        # (0o600 = owner read/write only). Use os.open so the mode is set atomically
+        # at creation time rather than relying on a post-creation chmod.
         try:
-            with open(temp_file_path, "w") as f:
+            fd = os.open(
+                str(temp_file_path),
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                0o600,
+            )
+            with os.fdopen(fd, "w") as f:
                 json.dump(credentials_json, f)
 
             # Track this file for cleanup at process exit
@@ -211,10 +217,14 @@ class VertexAICredentialsMixin:
         except Exception:
             pass
 
-        # All methods failed
+        # All methods failed.  Include the value only when it looks like a file
+        # path (starts with "/" or "./") — file paths are not secrets.  Omit
+        # the value otherwise (e.g. base64 blobs) to avoid leaking credentials.
+        looks_like_path = credentials.startswith("/") or credentials.startswith("./")
+        detail = f" (path: {credentials})" if looks_like_path else ""
         raise ValueError(
-            f"GOOGLE_APPLICATION_CREDENTIALS is neither valid base64 nor an existing file path: "
-            f"{credentials}"
+            f"GOOGLE_APPLICATION_CREDENTIALS could not be loaded{detail}: "
+            "value is neither valid base64-encoded JSON nor an existing file path."
         )
 
     def _load_vertex_config(self) -> dict:
@@ -573,6 +583,13 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
             TypeError: If text is not a string.
         """
         return self._with_vertex_credentials(super().generate, text, **kwargs)
+
+    async def a_generate(self, text: str, **kwargs) -> Embedding:
+        """Async embedding for a single text using Vertex AI."""
+        kwargs["vertex_project"] = self._vertex_config["project"]
+        kwargs["vertex_location"] = self._vertex_config["location"]
+        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+        return await super().a_generate(text, **kwargs)
 
     def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:
         """Generate embeddings for multiple texts using Vertex AI.

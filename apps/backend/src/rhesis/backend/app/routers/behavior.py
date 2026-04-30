@@ -3,6 +3,8 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import create_model
 from sqlalchemy.orm import Session
 
@@ -16,6 +18,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.metric import MetricDetail as MetricDetailSchema
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.odata import apply_select
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +57,7 @@ def create_behavior(
     )
 
 
-@router.get("/", response_model=List[BehaviorWithMetricsSchema])
+@router.get("/", response_model=list[BehaviorWithMetricsSchema])
 @with_count_header(model=models.Behavior)
 def read_behaviors(
     response: Response,
@@ -63,6 +66,11 @@ def read_behaviors(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return",
+    ),
     db: Session = Depends(get_tenant_db_session),  # ← Uses drop-in replacement
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -70,7 +78,7 @@ def read_behaviors(
     """Get all behaviors with automatic session variables for RLS."""
     organization_id, user_id = tenant_context
 
-    return crud.get_items_detail(
+    results = crud.get_items_detail(
         db=db,
         model=models.Behavior,
         skip=skip,
@@ -82,6 +90,10 @@ def read_behaviors(
         organization_id=organization_id,
         user_id=user_id,
     )
+    if select:
+        serialized = jsonable_encoder(results)
+        return JSONResponse(content=apply_select(serialized, select))
+    return results
 
 
 @router.get("/{behavior_id}")
