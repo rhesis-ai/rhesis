@@ -27,6 +27,9 @@ spec:
         - /metadata/managedFields
         - /status
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=false
       # CNPG CRDs (especially poolers.postgresql.cnpg.io) exceed client-side apply
