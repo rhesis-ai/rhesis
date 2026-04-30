@@ -164,7 +164,7 @@ export default function SSOConfigForm({
       delete configToSave.login_url;
 
       await client.updateSSOConfig(organization.id, configToSave as SSOConfig);
-      notifications.show('SSO configuration saved', 'success');
+      notifications.show('SSO configuration saved', { severity: 'success', autoHideDuration: 3000 });
 
       const loaded: SSOConfig = {
         ...formData,
@@ -177,7 +177,7 @@ export default function SSOConfigForm({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to save SSO configuration';
       setError(message);
-      notifications.show(message, 'error');
+      notifications.show(message, { severity: 'error', autoHideDuration: 3000 });
     } finally {
       setSaving(false);
     }
@@ -207,7 +207,7 @@ export default function SSOConfigForm({
       const apiFactory = new ApiClientFactory(sessionToken);
       const client = apiFactory.getOrganizationsClient();
       await client.deleteSSOConfig(organization.id);
-      notifications.show('SSO configuration removed', 'success');
+      notifications.show('SSO configuration removed', { severity: 'success', autoHideDuration: 3000 });
       setFormData(DEFAULT_SSO_CONFIG);
       setInitialData(JSON.stringify(DEFAULT_SSO_CONFIG));
       setHasExistingConfig(false);
@@ -216,7 +216,7 @@ export default function SSOConfigForm({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to remove SSO configuration';
       setError(message);
-      notifications.show(message, 'error');
+      notifications.show(message, { severity: 'error', autoHideDuration: 3000 });
     } finally {
       setDeleting(false);
     }
@@ -295,7 +295,7 @@ export default function SSOConfigForm({
                       onClick={() => {
                         const url = `${SSO_DISPLAY_BASE_URL}/auth/sso/${formData.slug}`;
                         navigator.clipboard.writeText(url);
-                        notifications.show('URL copied to clipboard', 'success');
+                        notifications.show('URL copied to clipboard', { severity: 'success', autoHideDuration: 3000 });
                       }}
                     >
                       <CopyIcon fontSize="small" />
