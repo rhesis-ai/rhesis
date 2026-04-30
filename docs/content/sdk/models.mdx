@@ -142,6 +142,15 @@ Language-model providers in the SDK are async-first. You can use:
   `generate(...)` internally bridges to `a_generate(...)`. If your application is already async, prefer `a_generate(...)` directly.
 </Callout>
 
+`a_generate(...)` automatically retries transient language-model failures. The retry policy covers
+connection errors, timeouts, HTTP `429`, and HTTP `500` / `502` / `503` / `504` responses. The SDK
+makes one initial attempt plus up to three retries with exponential jitter. Client-side errors such
+as HTTP `400`, `401`, `403`, and `404` are not retried.
+
+You can pass provider-specific keyword arguments through `generate(...)` or `a_generate(...)`.
+For example, streaming is exposed through `stream=True` on providers that support token streaming,
+and structured output is requested with the `schema` argument.
+
 **Generate text using prompt only:**
 
 <CodeBlock filename="generate_text.py" language="python">

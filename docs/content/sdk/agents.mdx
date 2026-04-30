@@ -1,0 +1,163 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Agents
+
+The SDK agents framework lets you build conversational workflows that can reason, call tools, and return structured results. Use it when a workflow needs multiple tool calls, user-facing progress events, or Model Context Protocol (MCP) access to the Rhesis API.
+
+<Callout type="info">
+  Agents are available from `rhesis.sdk.agents`. The framework includes `BaseAgent`, `BaseTool`, `MCPTool`, `ArchitectAgent`, `ExploreEndpointTool`, and shared result schemas.
+</Callout>
+
+## Core concepts
+
+| Concept | Purpose |
+| --- | --- |
+| `BaseAgent` | Runs the ReAct loop, formats tool schemas, tracks execution history, and emits lifecycle events. |
+| `BaseTool` | Async tool interface for SDK-side tools. Implement `name`, `description`, `parameters_schema`, and `execute`. |
+| `MCPTool` | Adapts an MCP server into the same tool interface used by agents. |
+| `AgentEventHandler` | Receives lifecycle events for logging, WebSockets, telemetry, or UI updates. |
+| `ToolCall` / `ToolResult` | Typed schemas for tool input and tool output. |
+
+`BaseAgent` accepts these runtime controls:
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `max_iterations` | `10` | Maximum ReAct loop iterations before the agent stops. |
+| `max_tool_executions` | `max_iterations * 3` | Maximum number of tool calls allowed in a run. |
+| `timeout_seconds` | `None` | Optional wall-clock timeout for the run. |
+| `history_window` | `20` | Number of execution steps included in the next prompt. |
+| `event_handlers` | `[]` | Async handlers for lifecycle, streaming, and Architect-specific events. |
+
+## Connect to Rhesis tools over MCP
+
+Use `get_rhesis_tools()` to connect an agent to the Rhesis backend MCP endpoint. It uses `RHESIS_BASE_URL` and `RHESIS_API_KEY` from SDK configuration unless you pass explicit values.
+
+<CodeBlock filename="rhesis_tools.py" language="python">
+{`from rhesis.sdk.agents import BaseAgent, get_rhesis_tools
+
+agent = BaseAgent(
+    model="vertex_ai/gemini-2.0-flash",
+    tools=get_rhesis_tools(),
+    max_iterations=8,
+)
+
+result = agent.run("List my endpoints and summarize what each one tests.")
+print(result.final_answer)`}
+</CodeBlock>
+
+`MCPTool` reconnects when the underlying transport or session is lost, which makes it safe to use across repeated script or notebook calls that create new event loops.
+
+## Create a custom tool
+
+Subclass `BaseTool` when your agent needs SDK-side behavior that is not exposed by MCP.
+
+<CodeBlock filename="custom_tool.py" language="python">
+{`from rhesis.sdk.agents import BaseAgent, BaseTool
+from rhesis.sdk.agents.schemas import ToolResult
+
+class EchoTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "echo"
+
+    @property
+    def description(self) -> str:
+        return "Echoes a short message back to the caller."
+
+    @property
+    def parameters_schema(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "description": "Message to echo back.",
+                },
+            },
+            "required": ["message"],
+        }
+
+    async def execute(self, message: str, **kwargs) -> ToolResult:
+        return ToolResult(tool_name=self.name, success=True, content=message)
+
+agent = BaseAgent(tools=[EchoTool()])
+result = agent.run("Call echo with the message hello.")
+print(result.final_answer)`}
+</CodeBlock>
+
+## Handle agent events
+
+Event handlers are async no-ops by default. Override only the events your integration needs.
+
+<CodeBlock filename="agent_events.py" language="python">
+{`from rhesis.sdk.agents import AgentEventHandler, BaseAgent, get_rhesis_tools
+
+class ConsoleEvents(AgentEventHandler):
+    async def on_tool_start(self, *, tool_name, arguments, reasoning=None, **kwargs):
+        print(f"Starting {tool_name}: {arguments}")
+
+    async def on_tool_end(self, *, tool_name, result, **kwargs):
+        print(f"Finished {tool_name}: success={result.success}")
+
+agent = BaseAgent(
+    tools=get_rhesis_tools(),
+    event_handlers=[ConsoleEvents()],
+)
+
+agent.run("Show the first five test sets.")`}
+</CodeBlock>
+
+Common events include:
+
+| Event | When it fires |
+| --- | --- |
+| `on_agent_start` / `on_agent_end` | Run lifecycle starts or completes. |
+| `on_iteration_start` / `on_iteration_end` | Each ReAct iteration starts or completes. |
+| `on_llm_start` / `on_llm_end` | The model call starts or returns a parsed action. |
+| `on_tool_start` / `on_tool_end` | A tool call starts or completes. |
+| `on_stream_start` / `on_text_chunk` / `on_stream_end` | Final response streaming starts, emits chunks, and completes. |
+| `on_mode_change` / `on_plan_update` | Architect-specific mode and plan updates. |
+
+## Explore endpoints with Penelope
+
+`ExploreEndpointTool` delegates endpoint probing to Penelope. Use it when an agent needs to learn what an endpoint does before designing tests.
+
+The tool supports two modes:
+
+| Mode | How to configure | Use case |
+| --- | --- | --- |
+| Bound | Pass `endpoint_id` or a loaded `Endpoint`. | Scripts and notebooks exploring one endpoint. |
+| Unbound | Pass `target_factory`. | Backend workers where the agent resolves `endpoint_id` at call time. |
+
+Named strategies are:
+
+| Strategy | Purpose |
+| --- | --- |
+| `domain_probing` | Discover the endpoint domain and purpose. |
+| `capability_mapping` | Enumerate supported behaviors and interaction patterns. |
+| `boundary_discovery` | Find refusal patterns, limitations, and edge cases. |
+| `comprehensive` | Run domain probing first, then capability mapping and boundary discovery. |
+
+<CodeBlock filename="explore_endpoint.py" language="python">
+{`import asyncio
+from rhesis.sdk.agents import ExploreEndpointTool
+from rhesis.sdk.entities import Endpoint
+
+endpoint = Endpoint(id="00000000-0000-0000-0000-000000000000")
+endpoint.pull()
+
+tool = ExploreEndpointTool(endpoint=endpoint, max_turns=5)
+
+async def main():
+    result = await tool.execute(strategy="domain_probing")
+    print(result.content)
+
+asyncio.run(main())`}
+</CodeBlock>
+
+## Related pages
+
+- [SDK Models](/sdk/models)
+- [SDK Metrics](/sdk/metrics)
+- [Endpoint Management](/docs/endpoints/management)
+- [MCP](/docs/mcp)
