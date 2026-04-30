@@ -14,15 +14,13 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status as http_status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.features import FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.app.models.user import User
 
 router = APIRouter(prefix="/features", tags=["features"])
 
@@ -39,11 +37,27 @@ class FeaturesResponse(BaseModel):
 
 @router.get("", response_model=FeaturesResponse)
 def list_features(
-    current_user: User = Depends(require_current_user_or_token),
+    tenant_context: tuple = Depends(get_tenant_context),
     db: Session = Depends(get_tenant_db_session),
 ) -> FeaturesResponse:
-    """Return license info and the set of features enabled for the current user's org."""
-    org = db.get(Organization, current_user.organization_id)
+    """Return license info and the set of features enabled for the current user's org.
+
+    Both dependencies resolve through the same ``require_current_user_or_token``
+    call (FastAPI deduplicates it). ``tenant_context`` provides the
+    authenticated organization ID so we never accept user-supplied input.
+    """
+    organization_id, _user_id = tenant_context
+    if not organization_id:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Organization context required",
+        )
+    org = db.get(Organization, organization_id)
+    if org is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="Organization not found",
+        )
     enabled = [f.name.value for f in FeatureRegistry.enabled_features(org)]
     info = FeatureRegistry.license_info()
     return FeaturesResponse(
