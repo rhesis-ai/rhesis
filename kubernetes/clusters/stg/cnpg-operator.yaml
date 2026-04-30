@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
     # Promote by merging a bump to this ref after validation on the prior release.
-    targetRevision: release/v1.2.3
+    targetRevision: feat/deploy-rhesis-app-into-gke
     path: kubernetes/clusters/stg/cnpg-system
   destination:
     server: https://kubernetes.default.svc
