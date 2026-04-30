@@ -525,6 +525,7 @@ async def update_sso_config(
             auto_provision_users=body.auto_provision_users,
             allowed_domains=body.allowed_domains,
             allowed_auth_methods=body.allowed_auth_methods,
+            allow_insecure_tls=body.allow_insecure_tls,
         )
     except ValueError as e:
         raise HTTPException(
