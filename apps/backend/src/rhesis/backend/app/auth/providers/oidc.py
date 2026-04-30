@@ -335,6 +335,13 @@ class OIDCProvider(AuthProvider):
 
         try:
             resp = await self._http.post(token_endpoint, data=token_data)
+            if not resp.is_success:
+                logger.error(
+                    "Token exchange HTTP %s for %s: %s",
+                    resp.status_code,
+                    token_endpoint,
+                    resp.text[:500],
+                )
             resp.raise_for_status()
             token_response = resp.json()
         except SSRFError:
