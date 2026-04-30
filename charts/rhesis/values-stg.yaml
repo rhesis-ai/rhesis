@@ -11,7 +11,7 @@
 global:
   registry: "europe-west4-docker.pkg.dev/rhesis-dev-sandbox/rhesis"
   imagePullPolicy: Always
-  imageTag: "stg-latest"
+  imageTag: "latest"
 
 # DB user/password: CloudNativePG <clustername>-app secret (not rhesis-app-secrets).
 # Cluster manifest: kubernetes/clusters/stg/rhesis/cnpg-cluster.yaml
@@ -82,6 +82,7 @@ backend:
     failureThreshold: 6
 
 frontend:
+  imageTag: "stg-latest"
   ingress:
     enabled: true
     host: "stg-app.rhesis.ai"

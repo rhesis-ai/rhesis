@@ -151,7 +151,7 @@ frontend:
   enabled: true
   image:
     repository: rhesis-frontend
-    tag: ""
+    tag: "stg-latest"
   replicas: 1
   resources:
     requests:
