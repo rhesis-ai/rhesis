@@ -12,3 +12,7 @@ spec:
     path: kubernetes/clusters/stg/cnpg-system
   destination:
     server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

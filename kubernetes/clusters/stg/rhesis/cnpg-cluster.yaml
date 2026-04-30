@@ -10,6 +10,7 @@ metadata:
   namespace: rhesis
   annotations:
     argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   description: "Rhesis staging PostgreSQL (CloudNativePG)"
   instances: 1
