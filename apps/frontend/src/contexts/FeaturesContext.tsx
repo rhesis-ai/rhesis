@@ -58,6 +58,11 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Reset to loading each time the token changes (e.g. after re-login).
+    // Without this the component stays in the previous error/stale state
+    // while the new fetch is in flight, keeping gated UI hidden.
+    setState(DEFAULT_STATE);
+
     let cancelled = false;
     const client = new ApiClientFactory(session.session_token).getFeaturesClient();
 
