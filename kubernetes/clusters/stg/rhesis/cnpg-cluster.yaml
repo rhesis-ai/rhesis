@@ -33,6 +33,7 @@ spec:
       owner: rhesis-user
       postInitApplicationSQL:
         - 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+        - 'CREATE EXTENSION IF NOT EXISTS vector;'
   backup:
     retentionPolicy: 7d
     barmanObjectStore:
