@@ -1,0 +1,104 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Rhesis Architect
+
+Rhesis Architect is a conversational agent for designing and maintaining test suites. Use it
+when you want the platform to help discover endpoint behavior, propose behaviors and metrics,
+create test sets, or refine existing evaluation assets through a guided chat workflow.
+
+Architect is available from the Testing navigation. It keeps a session history, streams agent
+activity as work happens, and asks for confirmation before mutating platform data unless the
+request is explicitly approved through the UI.
+
+<Callout type="info">
+  Architect refers to entities by human-readable names in user-facing messages. Internal IDs
+  are resolved through tools and are not normally shown in chat responses.
+</Callout>
+
+## Workflow
+
+An Architect session usually follows this loop:
+
+1. Start a session and describe the endpoint, behavior, metric, or test suite goal.
+2. Architect resolves referenced entities by name and may explore an endpoint with Penelope.
+3. It presents a plan or proposed changes for review.
+4. You confirm, request changes, or continue the conversation.
+5. Architect creates or updates platform entities and reports the outcome.
+
+The chat UI includes message streaming, tool activity, plan updates, session history, and action
+buttons for confirmation. The backend persists session state so later turns can continue from the
+same mode, plan, and conversation history.
+
+## Session API
+
+Architect sessions are managed with REST endpoints under `/architect/sessions`.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /architect/sessions/` | Create a new chat session |
+| `GET /architect/sessions/` | List sessions for the current user and organization |
+| `GET /architect/sessions/{session_id}` | Read one session with messages |
+| `PUT /architect/sessions/{session_id}` | Update title, mode, plan data, or agent state |
+| `DELETE /architect/sessions/{session_id}` | Delete a session |
+| `GET /architect/sessions/{session_id}/messages` | List session messages |
+
+<CodeBlock filename="create-architect-session.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/architect/sessions/" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "title": "Checkout safety test design",
+    "mode": "discovery"
+  }'`}
+</CodeBlock>
+
+## Streaming chat events
+
+User messages are sent over the platform WebSocket as `architect.message` events. The backend
+persists the user message, dispatches a Celery task, and streams progress back on an
+`architect:{session_id}` channel.
+
+| Event type | Sent when |
+| --- | --- |
+| `architect.thinking` | A turn starts or an agent iteration begins |
+| `architect.tool_start` | Architect starts a tool call |
+| `architect.tool_end` | A tool call completes |
+| `architect.plan_update` | The active plan changes |
+| `architect.mode_change` | The agent changes mode |
+| `architect.stream_start` | Final response streaming begins |
+| `architect.text_chunk` | A response token or chunk is available |
+| `architect.stream_end` | Final response streaming ends |
+| `architect.response` | The completed assistant response is persisted |
+| `architect.error` | The turn fails or validation rejects the message |
+
+<CodeBlock filename="architect-message.json" language="json">
+{`{
+  "type": "architect.message",
+  "channel": "architect:00000000-0000-0000-0000-000000000000",
+  "correlation_id": "client-turn-1",
+  "payload": {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "message": "Design safety tests for the Checkout Assistant endpoint.",
+    "auto_approve": false
+  }
+}`}
+</CodeBlock>
+
+## Tool execution and confirmations
+
+Architect uses platform tools to list, create, update, and connect entities. In backend worker
+execution, those tools are provided by `LocalToolProvider`, which dispatches directly to FastAPI
+routes through an in-process ASGI transport. Authentication uses short-lived service delegation
+tokens so calls still run with the initiating user's organization and permissions.
+
+Mutating tools carry confirmation metadata. When Architect proposes creating, modifying, or
+deleting entities, the UI shows confirmation controls so you can accept the proposal or ask for a
+change before the operation runs.
+
+## Related pages
+
+- [Agent Skill](/docs/agent-skill)
+- [MCP](/docs/mcp)
+- [Adaptive Testing](/docs/test-sets/adaptive-testing)
+- [Metrics](/docs/metrics)
+- [Environment Variables](/contribute/environment-variables)

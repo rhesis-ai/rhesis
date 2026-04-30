@@ -241,6 +241,48 @@ metric = ConversationalJudge(
 )`}
 </CodeBlock>
 
+## Generate and improve metrics with `MetricSynthesizer`
+
+`MetricSynthesizer` creates metric definitions from natural-language instructions. Use it when
+you know what you want to evaluate but want the SDK to draft the metric fields needed by the
+platform.
+
+The synthesizer returns a dictionary suitable for a `Metric` entity or the backend metric create
+payload.
+
+| Method | Input | Output |
+| --- | --- | --- |
+| `generate(prompt)` | Natural-language metric description | New metric fields such as `name`, `evaluation_prompt`, `score_type`, and thresholds |
+| `improve(existing_metric, prompt)` | Current metric dictionary plus edit instructions | Updated metric fields for the same metric |
+
+<CodeBlock filename="metric_synthesis.py" language="python">
+{`from rhesis.sdk.entities import Metric
+from rhesis.sdk.metrics import MetricSynthesizer
+
+synthesizer = MetricSynthesizer(model="vertex_ai/gemini-2.0-flash")
+
+metric_data = synthesizer.generate(
+    "Create a numeric metric that scores whether a support answer is complete, "
+    "accurate, and directly addresses the user question."
+)
+
+metric = Metric(**metric_data)
+metric.push()
+
+improved_data = synthesizer.improve(
+    metric_data,
+    "Make the threshold stricter and add evaluation steps for checking citations.",
+)`}
+</CodeBlock>
+
+The generated fields follow the same metric schema used by custom judges:
+
+| Field | Notes |
+| --- | --- |
+| `score_type` | Must be `numeric` or `categorical`. |
+| `threshold_operator` | Used for numeric metrics; valid values include `=`, `<`, `>`, `<=`, `>=`, and `!=`. |
+| `metric_scope` | Can include `Single-Turn` and `Multi-Turn` depending on the intended evaluation context. |
+
 ## Platform Integration
 
 Metrics can be managed both in the platform and in the SDK. The SDK provides `push` and `pull` methods to synchronize metrics with the platform.
