@@ -179,6 +179,8 @@ tests/airtable.toml
 
 #  RHESIS cli
 .rhesis_cli_history
+#  ./rh quickstart: ghcr vs build compose merge (written by rh start/restart)
+.rhesis-quickstart-compose.mode
 
 # Knowledge Base
 kb/*
