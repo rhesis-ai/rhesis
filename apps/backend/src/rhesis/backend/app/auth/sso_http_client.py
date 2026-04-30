@@ -229,16 +229,21 @@ class SSOHttpClient:
     validating the resolved IPs, and pinning the validated IP directly
     into the outbound request URL. The original hostname is sent as the
     Host header so TLS SNI and virtual hosting still work.
+
+    Set ``verify_ssl=False`` only for IdPs with self-signed certificates
+    (e.g. on-premise Keycloak in dev/staging). TLS is always verified in
+    production unless this flag is explicitly set on the SSOConfig.
     """
 
-    def __init__(self, timeout: float = 10.0):
+    def __init__(self, timeout: float = 10.0, verify_ssl: bool = True):
         self._timeout = timeout
+        self._verify_ssl = verify_ssl
 
     def _prepare(self, url: str, kwargs: dict) -> Tuple[str, bool]:
         """Resolve, validate, and pin the URL. Injects the Host header.
 
-        Returns (pinned_url, is_localhost_dev) so callers can relax TLS
-        verification for local development IdPs.
+        Returns (pinned_url, skip_tls). TLS is skipped when the caller
+        passed verify_ssl=False, or when running in dev against localhost.
         """
         parsed = urlparse(url)
         hostname = parsed.hostname
@@ -260,7 +265,8 @@ class SSOHttpClient:
             is_dev_environment()
             and hostname.lower() in _LOCALHOST_NAMES
         )
-        return pinned_url, is_localhost_dev
+        skip_tls = is_localhost_dev or (not self._verify_ssl)
+        return pinned_url, skip_tls
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
         pinned_url, skip_tls = self._prepare(url, kwargs)

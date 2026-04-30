@@ -114,7 +114,7 @@ class OIDCProvider(AuthProvider):
 
     def __init__(self, sso_config: SSOConfig):
         self._config = sso_config
-        self._http = SSOHttpClient()
+        self._http = SSOHttpClient(verify_ssl=not sso_config.allow_insecure_tls)
 
     @property
     def name(self) -> str:

@@ -35,6 +35,7 @@ class SSOConfig(BaseModel):
     auto_provision_users: bool = False
     allowed_domains: Optional[List[str]] = None
     allowed_auth_methods: Optional[List[str]] = None
+    allow_insecure_tls: bool = False
 
     @field_validator("issuer_url")
     @classmethod

@@ -48,6 +48,7 @@ const DEFAULT_SSO_CONFIG: SSOConfig = {
   auto_provision_users: false,
   allowed_domains: null,
   allowed_auth_methods: null,
+  allow_insecure_tls: false,
   slug: '',
 };
 
@@ -108,7 +109,7 @@ export default function SSOConfigForm({
       setTestResult(null);
     };
 
-  const handleToggle = (field: 'enabled' | 'auto_provision_users') =>
+  const handleToggle = (field: 'enabled' | 'auto_provision_users' | 'allow_insecure_tls') =>
     (_: React.ChangeEvent<HTMLInputElement>, checked: boolean) => {
       setFormData({ ...formData, [field]: checked });
       setError(null);
@@ -375,6 +376,19 @@ export default function SSOConfigForm({
                   />
                 }
                 label="Auto-provision new users on first SSO login"
+              />
+            </Grid>
+
+            <Grid size={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.allow_insecure_tls}
+                    onChange={handleToggle('allow_insecure_tls')}
+                    color="warning"
+                  />
+                }
+                label="Allow self-signed / untrusted TLS certificates (use only for on-premise IdPs)"
               />
             </Grid>
 

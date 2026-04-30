@@ -347,15 +347,25 @@ async def sso_login(
     redirect_uri = _get_sso_callback_url(request)
 
     provider = OIDCProvider(sso_config)
-    auth_url = await provider.get_authorization_url(
-        request,
-        redirect_uri=redirect_uri,
-        org_id=org_id,
-        code_verifier=code_verifier,
-        code_challenge=code_challenge,
-        nonce=nonce,
-        return_to=return_to,
-    )
+    try:
+        auth_url = await provider.get_authorization_url(
+            request,
+            redirect_uri=redirect_uri,
+            org_id=org_id,
+            code_verifier=code_verifier,
+            code_challenge=code_challenge,
+            nonce=nonce,
+            return_to=return_to,
+        )
+    except (ValueError, SSRFError) as e:
+        logger.error("SSO login initiation failed for org %s: %s", org_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Could not reach the SSO provider. "
+                "Please verify the issuer URL and try again."
+            ),
+        )
 
     return RedirectResponse(url=auth_url, status_code=302)
 
@@ -375,6 +385,7 @@ class SSOConfigRequest(BaseModel):
     auto_provision_users: bool = False
     allowed_domains: Optional[List[str]] = None
     allowed_auth_methods: Optional[List[str]] = None
+    allow_insecure_tls: bool = False
     slug: Optional[str] = None
 
 
