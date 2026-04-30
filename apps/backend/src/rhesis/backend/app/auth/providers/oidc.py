@@ -365,6 +365,12 @@ class OIDCProvider(AuthProvider):
 
         email = claims.get("email")
         if not email:
+            logger.warning(
+                "email claim missing from ID token for issuer %s; "
+                "falling back to userinfo endpoint. Available claims: %s",
+                self._config.issuer_url,
+                list(claims.keys()),
+            )
             userinfo_endpoint = metadata.get("userinfo_endpoint")
             if userinfo_endpoint:
                 access_token = token_response.get("access_token", "")
@@ -373,11 +379,18 @@ class OIDCProvider(AuthProvider):
                         userinfo_endpoint,
                         headers={"Authorization": f"Bearer {access_token}"},
                     )
+                    if not ui_resp.is_success:
+                        logger.error(
+                            "Userinfo endpoint HTTP %s: %s",
+                            ui_resp.status_code,
+                            ui_resp.text[:300],
+                        )
                     ui_resp.raise_for_status()
                     userinfo = ui_resp.json()
+                    logger.debug("Userinfo response keys: %s", list(userinfo.keys()))
                     email = userinfo.get("email")
-                except Exception:
-                    pass
+                except Exception as ue:
+                    logger.error("Userinfo endpoint call failed: %s", ue)
 
         if not email:
             raise ValueError("Could not determine user email from IdP")
