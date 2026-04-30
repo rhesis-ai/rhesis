@@ -1,0 +1,14 @@
+# Override for ./rh start (default): use prebuilt images from GHCR instead of local builds.
+# See .github/workflows/backend-ghcr.yml for publish workflow.
+services:
+  backend:
+    image: ghcr.io/rhesis-ai/backend:latest
+    build: !reset null
+
+  worker:
+    image: ghcr.io/rhesis-ai/worker:latest
+    build: !reset null
+
+  frontend:
+    image: ghcr.io/rhesis-ai/frontend:latest
+    build: !reset null
