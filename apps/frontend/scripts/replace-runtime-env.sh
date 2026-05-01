@@ -27,6 +27,7 @@ replace_if_match() {
   if ! grep -q "$PLACEHOLDER" "$_f" 2>/dev/null; then
     return 0
   fi
+  printf '[entrypoint] replacing placeholder in %s\n' "$_f"
   sed -i "s|${PLACEHOLDER}|${ESCAPED}|g" "$_f"
 }
 
