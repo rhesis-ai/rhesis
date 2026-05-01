@@ -228,31 +228,44 @@ def set_logger():
         from pythonjsonlogger.json import JsonFormatter
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
+        log_dir_path = Path(LOG_DIR)
+        try:
+            log_dir_path.mkdir(parents=True, exist_ok=True)
+            probe = log_dir_path / ".rhesis_log_write_probe"
+            probe.write_text("", encoding="utf-8")
+            probe.unlink()
+        except OSError as exc:
+            # Typical in Docker: non-root user, cwd or LOG_DIR not writable (Permission denied).
+            root_logger.warning(
+                "Skipping file logging under LOG_DIR=%r (%s: %s). Console logging only.",
+                LOG_DIR,
+                type(exc).__name__,
+                exc,
+            )
+        else:
+            log_file_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.log")
+            file_handler = logging.FileHandler(log_file_path)
+            file_handler.setLevel(LOG_LEVEL)
+            file_handler.setFormatter(RedactingFormatter(_create_formatter(color=False)))
+            root_logger.addHandler(file_handler)
 
-        log_file_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.log")
-        file_handler = logging.FileHandler(log_file_path)
-        file_handler.setLevel(LOG_LEVEL)
-        file_handler.setFormatter(RedactingFormatter(_create_formatter(color=False)))
-        root_logger.addHandler(file_handler)
-
-        json_log_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.json.log")
-        json_handler = logging.FileHandler(json_log_path)
-        json_handler.setLevel(LOG_LEVEL)
-        json_handler.setFormatter(
-            RedactingFormatter(
-                JsonFormatter(
-                    fmt="%(asctime)s %(name)s %(levelname)s %(message)s",
-                    datefmt=LOG_DATE_FORMAT,
-                    rename_fields={
-                        "asctime": "timestamp",
-                        "levelname": "level",
-                        "name": "logger",
-                    },
+            json_log_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.json.log")
+            json_handler = logging.FileHandler(json_log_path)
+            json_handler.setLevel(LOG_LEVEL)
+            json_handler.setFormatter(
+                RedactingFormatter(
+                    JsonFormatter(
+                        fmt="%(asctime)s %(name)s %(levelname)s %(message)s",
+                        datefmt=LOG_DATE_FORMAT,
+                        rename_fields={
+                            "asctime": "timestamp",
+                            "levelname": "level",
+                            "name": "logger",
+                        },
+                    )
                 )
             )
-        )
-        root_logger.addHandler(json_handler)
+            root_logger.addHandler(json_handler)
 
     for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "websockets", "fastapi"):
         logger = logging.getLogger(name)
