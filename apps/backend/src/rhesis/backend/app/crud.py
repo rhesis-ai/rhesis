@@ -538,7 +538,7 @@ def get_test_sets(
 
         query_builder = query_builder.with_custom_filter(has_runs_filter)
 
-    # Exclude test sets used for adaptive testing (they use the dedicated adaptive_testing API)
+    # Exclude test sets used for adaptive testing (they use the dedicated /explorer API)
     adaptive_marker = cast([ADAPTIVE_TESTING_BEHAVIOR], JSONB)
     behaviors_json = models.TestSet.attributes["metadata"]["behaviors"]
 

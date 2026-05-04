@@ -65,7 +65,7 @@ import {
   TestNodeCreate,
   TestNodeUpdate,
   Topic,
-} from '@/utils/api-client/interfaces/adaptive-testing';
+} from '@/utils/api-client/interfaces/explorer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -87,7 +87,7 @@ interface TopicTreeNode {
   avgScore: number | null;
 }
 
-interface AdaptiveTestingDetailProps {
+interface ExplorerDetailProps {
   tests: TestNode[];
   topics: Topic[];
   testSetName: string;
@@ -1551,13 +1551,13 @@ function TestsList({
 // Main Component
 // ============================================================================
 
-export default function AdaptiveTestingDetail({
+export default function ExplorerDetail({
   tests: initialTests,
   topics: initialTopics,
   testSetName: _testSetName,
   testSetId,
   sessionToken,
-}: AdaptiveTestingDetailProps) {
+}: ExplorerDetailProps) {
   type EndpointOption = {
     endpointId: string;
     endpointName: string;
@@ -1745,7 +1745,7 @@ export default function AdaptiveTestingDetail({
 
   const loadAdaptiveSettings = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
-    const adaptiveClient = clientFactory.getAdaptiveTestingClient();
+    const adaptiveClient = clientFactory.getExplorerClient();
     const metricsClient = clientFactory.getMetricsClient();
     try {
       const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
@@ -1888,7 +1888,7 @@ export default function AdaptiveTestingDetail({
     setGenerateSubmitting(true);
     setGenerateError(null);
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
     const effectiveTopic = options?.topic ?? generateOutputsTopic;
     const effectiveIncludeSubtopics =
       options?.includeSubtopics ?? generateOutputsIncludeSubtopics;
@@ -1967,7 +1967,7 @@ export default function AdaptiveTestingDetail({
     setEvaluateSubmitting(true);
     setEvaluateError(null);
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
     const effectiveTopic = options?.topic ?? evaluateTopic;
     const effectiveIncludeSubtopics =
       options?.includeSubtopics ?? evaluateIncludeSubtopics;
@@ -2045,7 +2045,7 @@ export default function AdaptiveTestingDetail({
 
     // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
 
     client.createTopic(testSetId, { path: topicPath }).catch(() => {
       // Rollback: remove the optimistic topic
@@ -2079,7 +2079,7 @@ export default function AdaptiveTestingDetail({
     });
 
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
 
     try {
       const created = await client.createTest(testSetId, {
@@ -2157,7 +2157,7 @@ export default function AdaptiveTestingDetail({
     setNewTestProcessing(true);
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getAdaptiveTestingClient();
+      const client = clientFactory.getExplorerClient();
 
       const created = await client.createTest(testSetId, {
         input: trimmedInput,
@@ -2215,7 +2215,7 @@ export default function AdaptiveTestingDetail({
 
   const handleSuggestionAccepted = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
     const [treeNodes, updatedTopics] = await Promise.all([
       client.getTree(testSetId),
       client.getTopics(testSetId),
@@ -2278,7 +2278,7 @@ export default function AdaptiveTestingDetail({
 
     // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
 
     client.updateTest(testSetId, testId, data).catch(() => {
       // Rollback on error
@@ -2304,7 +2304,7 @@ export default function AdaptiveTestingDetail({
 
       // Fire API call in background
       const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getAdaptiveTestingClient();
+      const client = clientFactory.getExplorerClient();
 
       client
         .updateTest(testSetId, testId, {
@@ -2373,7 +2373,7 @@ export default function AdaptiveTestingDetail({
 
     // Fire API call in background
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
 
     client.deleteTopic(testSetId, removedTopicPath).catch(err => {
       // Rollback
@@ -2460,7 +2460,7 @@ export default function AdaptiveTestingDetail({
 
     // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
 
     client
       .updateTopic(testSetId, topicPath, {
@@ -2495,7 +2495,7 @@ export default function AdaptiveTestingDetail({
 
     // Fire API call in background
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
 
     client.deleteTest(testSetId, removedTest.id).catch(() => {
       // Rollback: re-add the test
@@ -2520,7 +2520,7 @@ export default function AdaptiveTestingDetail({
     setBulkDeleteConfirmOpen(false);
 
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
 
     try {
       const results = await Promise.allSettled(
@@ -2593,7 +2593,7 @@ export default function AdaptiveTestingDetail({
     setSettingsError(null);
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const adaptiveClient = clientFactory.getAdaptiveTestingClient();
+      const adaptiveClient = clientFactory.getExplorerClient();
       await adaptiveClient.updateAdaptiveSettings(testSetId, {
         default_endpoint_id: settingsEndpoint.endpointId,
         metric_ids: [settingsMetric.id],
@@ -2630,7 +2630,7 @@ export default function AdaptiveTestingDetail({
 
   const handleExportToTestSet = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const client = clientFactory.getExplorerClient();
     setExportSubmitting(true);
     try {
       const result = await client.exportRegularTestSetFromAdaptive(testSetId);

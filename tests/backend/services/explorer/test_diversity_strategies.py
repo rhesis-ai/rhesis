@@ -3,12 +3,12 @@
 import numpy as np
 import pytest
 
-from rhesis.backend.app.services.adaptive_testing.diversity_strategies import (
+from rhesis.backend.app.services.explorer.diversity_strategies import (
     CosineCentroidDiversity,
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
     EuclideanCentroidDiversity,
 )
-from rhesis.backend.app.services.adaptive_testing.embeddings import sort_by_diversity
+from rhesis.backend.app.services.explorer.embeddings import sort_by_diversity
 
 
 def test_euclidean_centroid_middle_is_least_diverse() -> None:

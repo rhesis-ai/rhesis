@@ -32,7 +32,7 @@ import {
   type SuggestionPipelineEvent,
   SuggestedTest,
   TestNodeCreate,
-} from '@/utils/api-client/interfaces/adaptive-testing';
+} from '@/utils/api-client/interfaces/explorer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
@@ -245,7 +245,7 @@ export default function SuggestionsDialog({
 
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getAdaptiveTestingClient();
+      const client = clientFactory.getExplorerClient();
       const trimmedFeedback = regenerationGuide.trim();
 
       await client.suggestionPipeline(
@@ -513,7 +513,7 @@ export default function SuggestionsDialog({
     setAcceptingIds(prev => new Set(prev).add(row._id));
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getAdaptiveTestingClient();
+      const client = clientFactory.getExplorerClient();
       await client.createTest(
         testSetId,
         buildTestNodeCreateFromSuggestion(row)
@@ -547,7 +547,7 @@ export default function SuggestionsDialog({
     let shouldCloseAfterAcceptAll = false;
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getAdaptiveTestingClient();
+      const client = clientFactory.getExplorerClient();
       const results = await Promise.allSettled(
         toAccept.map(row =>
           client.createTest(testSetId, buildTestNodeCreateFromSuggestion(row))

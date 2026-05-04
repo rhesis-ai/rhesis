@@ -386,7 +386,7 @@ async def generate_suggestions(
     ]
 
     if generate_embeddings:
-        from rhesis.backend.app.services.adaptive_testing.embeddings import (
+        from rhesis.backend.app.services.explorer.embeddings import (
             a_generate_embedding_vectors_batch,
             resolve_embedder,
             sort_by_diversity,
@@ -486,7 +486,7 @@ async def suggestion_pipeline_stream(
 
     embedder = None
     if generate_embeddings:
-        from rhesis.backend.app.services.adaptive_testing.embeddings import (
+        from rhesis.backend.app.services.explorer.embeddings import (
             a_generate_embedding_vector,
             resolve_embedder,
         )
@@ -697,7 +697,7 @@ async def suggestion_pipeline_stream(
     diversity_order: Optional[List[int]] = None
     diversity_scores: Optional[List[Optional[float]]] = None
     if generate_embeddings and suggestions:
-        from rhesis.backend.app.services.adaptive_testing.embeddings import (
+        from rhesis.backend.app.services.explorer.embeddings import (
             sort_by_diversity,
         )
 

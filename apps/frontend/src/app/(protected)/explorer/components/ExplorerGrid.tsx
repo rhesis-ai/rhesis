@@ -27,24 +27,24 @@ import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import type {
   AdaptiveTestSet,
   ImportAdaptiveTestSetResponse,
-} from '@/utils/api-client/interfaces/adaptive-testing';
-import ImportAdaptiveTestSetDialog from './ImportAdaptiveTestSetDialog';
+} from '@/utils/api-client/interfaces/explorer';
+import ImportExplorerTestSetDialog from './ImportExplorerTestSetDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useSession } from 'next-auth/react';
 
-interface AdaptiveTestingGridProps {
+interface ExplorerGridProps {
   testSets: AdaptiveTestSet[];
   loading: boolean;
   sessionToken?: string;
 }
 
-export default function AdaptiveTestingGrid({
+export default function ExplorerGrid({
   testSets: initialTestSets,
   loading,
   sessionToken,
-}: AdaptiveTestingGridProps) {
+}: ExplorerGridProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const notifications = useNotifications();
@@ -127,7 +127,7 @@ export default function AdaptiveTestingGrid({
   ];
 
   const handleRowClick = (params: GridRowParams) => {
-    router.push(`/adaptive-testing/${params.id}`);
+    router.push(`/explorer/${params.id}`);
   };
 
   const handleOpenDialog = () => {
@@ -155,14 +155,14 @@ export default function AdaptiveTestingGrid({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const client = new ApiClientFactory(token).getAdaptiveTestingClient();
+      const client = new ApiClientFactory(token).getExplorerClient();
       const created = await client.createAdaptiveTestSet(
         trimmedName,
         description.trim() || undefined
       );
       setDialogOpen(false);
       router.refresh();
-      router.push(`/adaptive-testing/${created.id}?openSettings=1`);
+      router.push(`/explorer/${created.id}?openSettings=1`);
     } catch (err) {
       setSubmitError((err as Error).message);
     } finally {
@@ -185,7 +185,7 @@ export default function AdaptiveTestingGrid({
 
     setIsExporting(true);
     try {
-      const client = new ApiClientFactory(token).getAdaptiveTestingClient();
+      const client = new ApiClientFactory(token).getExplorerClient();
       const result = await client.exportRegularTestSetFromAdaptive(
         String(selectedRows[0])
       );
@@ -231,7 +231,7 @@ export default function AdaptiveTestingGrid({
       });
       setImportDialogOpen(false);
       router.refresh();
-      router.push(`/adaptive-testing/${created.id}?openSettings=1`);
+      router.push(`/explorer/${created.id}?openSettings=1`);
     },
     [notifications, router]
   );
@@ -244,7 +244,7 @@ export default function AdaptiveTestingGrid({
 
     try {
       setIsDeleting(true);
-      const client = new ApiClientFactory(token).getAdaptiveTestingClient();
+      const client = new ApiClientFactory(token).getExplorerClient();
       await Promise.all(
         selectedRows.map(id => client.deleteAdaptiveTestSet(String(id)))
       );
@@ -431,7 +431,7 @@ export default function AdaptiveTestingGrid({
         </DialogActions>
       </Dialog>
       {authToken ? (
-        <ImportAdaptiveTestSetDialog
+        <ImportExplorerTestSetDialog
           open={importDialogOpen}
           onClose={() => setImportDialogOpen(false)}
           onImported={handleImportedAdaptiveSet}

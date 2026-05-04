@@ -13,7 +13,7 @@ from rhesis.backend.app.schemas.test_set import TestSet as TestSetSchema
 
 
 class CreateAdaptiveTestBody(BaseModel):
-    """JSON body for POST /adaptive_testing/{{id}}/tests.
+    """JSON body for POST /explorer/{{id}}/tests.
 
     Single model avoids FastAPI multi-``Body()`` parsing edge cases with the
     client JSON (e.g. ``generate_embedding`` being dropped or misread).
@@ -42,7 +42,7 @@ class CreateAdaptiveTestBody(BaseModel):
 
 
 class ImportAdaptiveTestSetResponse(Base):
-    """Response for POST /adaptive_testing/import/{source_test_set_id}."""
+    """Response for POST /explorer/import/{source_test_set_id}."""
 
     test_set: TestSetSchema
     imported: int = 0
@@ -51,7 +51,7 @@ class ImportAdaptiveTestSetResponse(Base):
 
 
 class ExportAdaptiveTestSetResponse(Base):
-    """Response for POST /adaptive_testing/export/{source_test_set_id}."""
+    """Response for POST /explorer/export/{source_test_set_id}."""
 
     test_set: TestSetSchema
     exported: int = 0

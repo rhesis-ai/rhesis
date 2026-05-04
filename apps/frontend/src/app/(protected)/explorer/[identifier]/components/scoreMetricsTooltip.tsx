@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
 import type { TooltipProps } from '@mui/material/Tooltip';
-import type { AdaptiveMetricEvalDetail } from '@/utils/api-client/interfaces/adaptive-testing';
+import type { AdaptiveMetricEvalDetail } from '@/utils/api-client/interfaces/explorer';
 
 function resolveMetricReason(m: AdaptiveMetricEvalDetail): string | null {
   if (typeof m.reason === 'string' && m.reason.trim()) {

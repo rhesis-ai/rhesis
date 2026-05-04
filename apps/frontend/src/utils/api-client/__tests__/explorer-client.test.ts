@@ -1,4 +1,4 @@
-import { AdaptiveTestingClient } from '../adaptive-testing-client';
+import { ExplorerClient } from '../explorer-client';
 
 const BASE_URL = 'http://127.0.0.1:8080/api/v1';
 const TEST_SET_ID = 'ts-001';
@@ -17,12 +17,12 @@ function makeFetch(body: unknown, status = 200) {
   } as unknown as Response);
 }
 
-describe('AdaptiveTestingClient', () => {
-  let client: AdaptiveTestingClient;
+describe('ExplorerClient', () => {
+  let client: ExplorerClient;
   let fetchMock: jest.Mock;
 
   beforeEach(() => {
-    client = new AdaptiveTestingClient('test-token');
+    client = new ExplorerClient('test-token');
     fetchMock = jest.fn();
     global.fetch = fetchMock;
   });
@@ -39,7 +39,7 @@ describe('AdaptiveTestingClient', () => {
     await client.getAdaptiveTestSets();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`${BASE_URL}/adaptive_testing`),
+      expect.stringContaining(`${BASE_URL}/explorer`),
       expect.any(Object)
     );
   });
@@ -50,7 +50,7 @@ describe('AdaptiveTestingClient', () => {
     await client.createAdaptiveTestSet('My Set', 'Optional desc');
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/adaptive_testing');
+    expect(url).toContain('/explorer');
     expect(opts.method).toBe('POST');
     const body = JSON.parse(opts.body);
     expect(body.name).toBe('My Set');
@@ -72,7 +72,7 @@ describe('AdaptiveTestingClient', () => {
     await client.deleteAdaptiveTestSet('at-del');
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/adaptive_testing/at-del');
+    expect(url).toContain('/explorer/at-del');
     expect(opts.method).toBe('DELETE');
   });
 
@@ -92,7 +92,7 @@ describe('AdaptiveTestingClient', () => {
     expect(result.skipped).toBe(1);
     expect(result.test_set.id).toBe('new-adaptive');
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/adaptive_testing/import/source-ts-1');
+    expect(url).toContain('/explorer/import/source-ts-1');
     expect(opts.method).toBe('POST');
   });
 
@@ -113,7 +113,7 @@ describe('AdaptiveTestingClient', () => {
     expect(result.skipped).toBe(2);
     expect(result.test_set.id).toBe('new-regular');
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/adaptive_testing/export/adaptive-ts-1');
+    expect(url).toContain('/explorer/export/adaptive-ts-1');
     expect(opts.method).toBe('POST');
   });
 
@@ -125,7 +125,7 @@ describe('AdaptiveTestingClient', () => {
     await client.getAdaptiveSettings(TEST_SET_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/settings`),
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/settings`),
       expect.objectContaining({ cache: 'no-store' })
     );
   });
@@ -144,7 +144,7 @@ describe('AdaptiveTestingClient', () => {
     });
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/adaptive_testing/${TEST_SET_ID}/settings`);
+    expect(url).toContain(`/explorer/${TEST_SET_ID}/settings`);
     expect(opts.method).toBe('PUT');
     const body = JSON.parse(opts.body);
     expect(body.default_endpoint_id).toBe('ep1');
@@ -161,7 +161,7 @@ describe('AdaptiveTestingClient', () => {
     await client.getTree(TEST_SET_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/tree`),
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/tree`),
       expect.any(Object)
     );
   });
@@ -172,7 +172,7 @@ describe('AdaptiveTestingClient', () => {
     await client.validateTree(TEST_SET_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/validate`),
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/validate`),
       expect.any(Object)
     );
   });
@@ -185,7 +185,7 @@ describe('AdaptiveTestingClient', () => {
     await client.getTreeStats(TEST_SET_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/stats`),
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/stats`),
       expect.any(Object)
     );
   });
@@ -200,7 +200,7 @@ describe('AdaptiveTestingClient', () => {
     await client.getTopics(TEST_SET_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/topics`),
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/topics`),
       expect.any(Object)
     );
   });
@@ -221,7 +221,7 @@ describe('AdaptiveTestingClient', () => {
     await client.createTopic(TEST_SET_ID, topic as never);
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/adaptive_testing/${TEST_SET_ID}/topics`);
+    expect(url).toContain(`/explorer/${TEST_SET_ID}/topics`);
     expect(opts.method).toBe('POST');
   });
 
@@ -233,7 +233,7 @@ describe('AdaptiveTestingClient', () => {
     } as never);
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/adaptive_testing/${TEST_SET_ID}/topics/Safety`);
+    expect(url).toContain(`/explorer/${TEST_SET_ID}/topics/Safety`);
     expect(opts.method).toBe('PUT');
   });
 
@@ -256,7 +256,7 @@ describe('AdaptiveTestingClient', () => {
     await client.getTests(TEST_SET_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/tests`),
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/tests`),
       expect.any(Object)
     );
   });
@@ -276,7 +276,7 @@ describe('AdaptiveTestingClient', () => {
     await client.getTest(TEST_SET_ID, 'tn1');
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/adaptive_testing/${TEST_SET_ID}/tests/tn1`),
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/tests/tn1`),
       expect.any(Object)
     );
   });
@@ -324,7 +324,7 @@ describe('AdaptiveTestingClient', () => {
     });
 
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain(`/adaptive_testing/${TEST_SET_ID}/generate_outputs`);
+    expect(url).toContain(`/explorer/${TEST_SET_ID}/generate_outputs`);
     expect(opts.method).toBe('POST');
     const body = JSON.parse(opts.body);
     expect(body.endpoint_id).toBe('ep1');

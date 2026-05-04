@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.services.adaptive_testing import generate_outputs_for_tests, get_tree_tests
+from rhesis.backend.app.services.explorer import generate_outputs_for_tests, get_tree_tests
 
 
 def _mock_db_context(test_db):

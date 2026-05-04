@@ -5,9 +5,9 @@ import Paper from '@mui/material/Paper';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import AdaptiveTestingGrid from './components/AdaptiveTestingGrid';
+import ExplorerGrid from './components/ExplorerGrid';
 
-export default async function AdaptiveTestingPage() {
+export default async function ExplorerPage() {
   try {
     const session = await auth();
 
@@ -16,10 +16,10 @@ export default async function AdaptiveTestingPage() {
     }
 
     const clientFactory = new ApiClientFactory(session.session_token);
-    const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
+    const explorerClient = clientFactory.getExplorerClient();
 
     // Fetch adaptive test sets using the dedicated endpoint
-    const testSets = await adaptiveTestingClient.getAdaptiveTestSets();
+    const testSets = await explorerClient.getAdaptiveTestSets();
 
     return (
       <PageContainer title="Test explorer" breadcrumbs={[]}>
@@ -31,7 +31,7 @@ export default async function AdaptiveTestingPage() {
 
         <Paper sx={{ width: '100%', mb: 2 }}>
           <Box sx={{ p: 2 }}>
-            <AdaptiveTestingGrid
+            <ExplorerGrid
               testSets={testSets}
               loading={false}
               sessionToken={session.session_token}

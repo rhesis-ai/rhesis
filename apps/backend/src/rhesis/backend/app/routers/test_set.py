@@ -268,7 +268,7 @@ async def read_test_sets(
     Get test sets with flexible filtering.
 
     Test sets configured for adaptive testing (metadata.behaviors includes
-    "Adaptive Testing") are omitted; list those via GET /adaptive_testing/.
+    "Adaptive Testing") are omitted; list those via GET /explorer/.
 
     Args:
         skip: Number of items to skip

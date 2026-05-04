@@ -5,14 +5,14 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.services.adaptive_testing import (
+from rhesis.backend.app.services.explorer import (
     evaluate_tests_for_adaptive_set,
     get_tree_nodes,
     get_tree_tests,
 )
 
 _FACTORY_PATCH = "rhesis.sdk.metrics.factory.MetricFactory.create"
-_RUN_METRICS_PATCH = "rhesis.backend.app.services.adaptive_testing.evaluation._run_metrics_on_text"
+_RUN_METRICS_PATCH = "rhesis.backend.app.services.explorer.evaluation._run_metrics_on_text"
 
 
 def _create_metric(db, name, organization_id, user_id):

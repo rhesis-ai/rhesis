@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.app.services.adaptive_testing import (
+from rhesis.backend.app.services.explorer import (
     create_adaptive_test_set,
     create_test_node,
     delete_adaptive_test_set,

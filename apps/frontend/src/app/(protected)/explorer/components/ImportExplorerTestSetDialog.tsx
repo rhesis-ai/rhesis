@@ -12,26 +12,26 @@ import CircularProgress from '@mui/material/CircularProgress';
 import type { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
-import type { ImportAdaptiveTestSetResponse } from '@/utils/api-client/interfaces/adaptive-testing';
+import type { ImportAdaptiveTestSetResponse } from '@/utils/api-client/interfaces/explorer';
 
 function isAdaptiveTestingTestSet(testSet: TestSet): boolean {
   const behaviors = testSet.attributes?.metadata?.behaviors;
   return Array.isArray(behaviors) && behaviors.includes('Adaptive Testing');
 }
 
-interface ImportAdaptiveTestSetDialogProps {
+interface ImportExplorerTestSetDialogProps {
   open: boolean;
   onClose: () => void;
   onImported: (result: ImportAdaptiveTestSetResponse) => void;
   sessionToken: string;
 }
 
-export default function ImportAdaptiveTestSetDialog({
+export default function ImportExplorerTestSetDialog({
   open,
   onClose,
   onImported,
   sessionToken,
-}: ImportAdaptiveTestSetDialogProps) {
+}: ImportExplorerTestSetDialogProps) {
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -133,7 +133,7 @@ export default function ImportAdaptiveTestSetDialog({
     setSubmitting(true);
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const adaptiveClient = clientFactory.getAdaptiveTestingClient();
+      const adaptiveClient = clientFactory.getExplorerClient();
       const result = await adaptiveClient.importAdaptiveTestSetFromSource(
         String(selectedTestSet.id)
       );

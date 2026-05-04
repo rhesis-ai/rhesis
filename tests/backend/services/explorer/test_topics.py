@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.database import without_soft_delete_filter
-from rhesis.backend.app.services.adaptive_testing import (
+from rhesis.backend.app.services.explorer import (
     create_topic_node,
     get_tree_nodes,
     get_tree_tests,

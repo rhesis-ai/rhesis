@@ -186,7 +186,7 @@ export default {
   "playground": {
     display: "hidden",
   },
-  "adaptive-testing": {
+  "explorer": {
     display: "hidden",
   },
   "test-set-type": {

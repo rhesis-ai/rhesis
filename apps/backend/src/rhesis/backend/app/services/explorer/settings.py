@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.app.schemas.adaptive_testing import (
+from rhesis.backend.app.schemas.explorer import (
     AdaptiveSettingsEndpoint,
     AdaptiveSettingsMetric,
     AdaptiveSettingsResponse,

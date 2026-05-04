@@ -3,17 +3,17 @@ import Box from '@mui/material/Box';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import AdaptiveTestingDetail from './components/AdaptiveTestingDetail';
+import ExplorerDetail from './components/ExplorerDetail';
 
-interface AdaptiveTestingDetailPageProps {
+interface ExplorerDetailPageProps {
   params: Promise<{
     identifier: string;
   }>;
 }
 
-export default async function AdaptiveTestingDetailPage({
+export default async function ExplorerDetailPage({
   params,
-}: AdaptiveTestingDetailPageProps) {
+}: ExplorerDetailPageProps) {
   try {
     const { identifier } = await params;
     const session = await auth();
@@ -23,12 +23,12 @@ export default async function AdaptiveTestingDetailPage({
     }
 
     const clientFactory = new ApiClientFactory(session.session_token);
-    const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
+    const explorerClient = clientFactory.getExplorerClient();
 
     // Fetch tree data (all nodes) and topics in parallel
     const [treeNodes, topics] = await Promise.all([
-      adaptiveTestingClient.getTree(identifier),
-      adaptiveTestingClient.getTopics(identifier),
+      explorerClient.getTree(identifier),
+      explorerClient.getTopics(identifier),
     ]);
 
     // Separate tests from topic markers
@@ -50,12 +50,12 @@ export default async function AdaptiveTestingDetailPage({
         breadcrumbs={[
           {
             title: 'Test explorer',
-            path: '/adaptive-testing',
+            path: '/explorer',
           },
           { title: testSetName, path: '' },
         ]}
       >
-        <AdaptiveTestingDetail
+        <ExplorerDetail
           tests={tests}
           topics={topics}
           testSetName={testSetName}

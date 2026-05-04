@@ -2,14 +2,14 @@
 Integration tests for adaptive testing route endpoints.
 
 Tests the HTTP endpoints:
-- GET /adaptive_testing
-- GET /adaptive_testing/{test_set_id}/tree
-- GET /adaptive_testing/{test_set_id}/tests
-- GET /adaptive_testing/{test_set_id}/topics
-- POST /adaptive_testing/{test_set_id}/generate_outputs
-- POST /adaptive_testing/{test_set_id}/evaluate
-- POST /adaptive_testing/import/{source_test_set_id}
-- POST /adaptive_testing/export/{source_test_set_id}
+- GET /explorer
+- GET /explorer/{test_set_id}/tree
+- GET /explorer/{test_set_id}/tests
+- GET /explorer/{test_set_id}/topics
+- POST /explorer/{test_set_id}/generate_outputs
+- POST /explorer/{test_set_id}/evaluate
+- POST /explorer/import/{source_test_set_id}
+- POST /explorer/export/{source_test_set_id}
 """
 
 import uuid
@@ -331,7 +331,7 @@ def adaptive_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
 @pytest.mark.integration
 @pytest.mark.routes
 class TestListAdaptiveTestSetsEndpoint:
-    """Test GET /adaptive_testing"""
+    """Test GET /explorer"""
 
     def test_returns_adaptive_test_sets(
         self,
@@ -339,7 +339,7 @@ class TestListAdaptiveTestSetsEndpoint:
         adaptive_and_regular_test_sets,
     ):
         """Should return only test sets with Adaptive Testing behavior."""
-        response = authenticated_client.get("/adaptive_testing")
+        response = authenticated_client.get("/explorer")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -359,7 +359,7 @@ class TestListAdaptiveTestSetsEndpoint:
         adaptive_and_regular_test_sets,
     ):
         """Each returned item should have TestSet schema fields."""
-        response = authenticated_client.get("/adaptive_testing")
+        response = authenticated_client.get("/explorer")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -382,7 +382,7 @@ class TestListAdaptiveTestSetsEndpoint:
     ):
         """limit=1 should return at most 1 result."""
         response = authenticated_client.get(
-            "/adaptive_testing",
+            "/explorer",
             params={"limit": 1},
         )
 
@@ -397,11 +397,11 @@ class TestListAdaptiveTestSetsEndpoint:
     ):
         """Skipping should return different results."""
         page1 = authenticated_client.get(
-            "/adaptive_testing",
+            "/explorer",
             params={"skip": 0, "limit": 1},
         )
         page2 = authenticated_client.get(
-            "/adaptive_testing",
+            "/explorer",
             params={"skip": 1, "limit": 1},
         )
 
@@ -419,7 +419,7 @@ class TestListAdaptiveTestSetsEndpoint:
     ):
         """sort_order=asc should sort by created_at ascending."""
         response = authenticated_client.get(
-            "/adaptive_testing",
+            "/explorer",
             params={"sort_order": "asc"},
         )
 
@@ -433,7 +433,7 @@ class TestListAdaptiveTestSetsEndpoint:
         client: TestClient,
     ):
         """Unauthenticated request should be rejected."""
-        response = client.get("/adaptive_testing")
+        response = client.get("/explorer")
 
         assert response.status_code in [
             status.HTTP_401_UNAUTHORIZED,
@@ -444,7 +444,7 @@ class TestListAdaptiveTestSetsEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestCreateAdaptiveTestSetEndpoint:
-    """Test POST /adaptive_testing"""
+    """Test POST /explorer"""
 
     def test_post_returns_201_and_test_set_schema(
         self,
@@ -452,7 +452,7 @@ class TestCreateAdaptiveTestSetEndpoint:
     ):
         """POST with name and description returns 201 and TestSet-like body."""
         response = authenticated_client.post(
-            "/adaptive_testing",
+            "/explorer",
             json={
                 "name": "My Adaptive Set",
                 "description": "Optional",
@@ -474,15 +474,15 @@ class TestCreateAdaptiveTestSetEndpoint:
         self,
         authenticated_client: TestClient,
     ):
-        """Created test set appears in GET /adaptive_testing."""
+        """Created test set appears in GET /explorer."""
         create_resp = authenticated_client.post(
-            "/adaptive_testing",
+            "/explorer",
             json={"name": "List Check Set", "description": None},
         )
         assert create_resp.status_code == status.HTTP_201_CREATED
         created_id = create_resp.json()["id"]
 
-        list_resp = authenticated_client.get("/adaptive_testing")
+        list_resp = authenticated_client.get("/explorer")
         assert list_resp.status_code == status.HTTP_200_OK
         ids = [item["id"] for item in list_resp.json()]
         assert created_id in ids
@@ -493,7 +493,7 @@ class TestCreateAdaptiveTestSetEndpoint:
     ):
         """Unauthenticated POST should be rejected."""
         response = client.post(
-            "/adaptive_testing",
+            "/explorer",
             json={"name": "Unauth Set", "description": "No"},
         )
         assert response.status_code in [
@@ -507,7 +507,7 @@ class TestCreateAdaptiveTestSetEndpoint:
     ):
         """Missing name in body returns 422."""
         response = authenticated_client.post(
-            "/adaptive_testing",
+            "/explorer",
             json={"description": "No name"},
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
@@ -516,7 +516,7 @@ class TestCreateAdaptiveTestSetEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestImportAdaptiveTestSetEndpoint:
-    """Test POST /adaptive_testing/import/{source_test_set_id}"""
+    """Test POST /explorer/import/{source_test_set_id}"""
 
     def test_import_creates_adaptive_set_and_counts(
         self,
@@ -524,7 +524,7 @@ class TestImportAdaptiveTestSetEndpoint:
         regular_source_test_set_for_import,
     ):
         src = regular_source_test_set_for_import
-        response = authenticated_client.post(f"/adaptive_testing/import/{src.id}")
+        response = authenticated_client.post(f"/explorer/import/{src.id}")
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
@@ -537,11 +537,11 @@ class TestImportAdaptiveTestSetEndpoint:
         assert new_id != str(src.id)
         assert "(Adaptive)" in data["test_set"]["name"]
 
-        tests_resp = authenticated_client.get(f"/adaptive_testing/{new_id}/tests")
+        tests_resp = authenticated_client.get(f"/explorer/{new_id}/tests")
         assert tests_resp.status_code == status.HTTP_200_OK
         assert len(tests_resp.json()) == 2
 
-        topics_resp = authenticated_client.get(f"/adaptive_testing/{new_id}/topics")
+        topics_resp = authenticated_client.get(f"/explorer/{new_id}/topics")
         assert topics_resp.status_code == status.HTTP_200_OK
         paths = {t["path"] for t in topics_resp.json()}
         assert "Alpha" in paths
@@ -552,13 +552,13 @@ class TestImportAdaptiveTestSetEndpoint:
         authenticated_client: TestClient,
     ):
         create_resp = authenticated_client.post(
-            "/adaptive_testing",
+            "/explorer",
             json={"name": "Already Adaptive", "description": None},
         )
         assert create_resp.status_code == status.HTTP_201_CREATED
         adaptive_id = create_resp.json()["id"]
 
-        response = authenticated_client.post(f"/adaptive_testing/import/{adaptive_id}")
+        response = authenticated_client.post(f"/explorer/import/{adaptive_id}")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_import_unknown_source_returns_404(
@@ -566,21 +566,21 @@ class TestImportAdaptiveTestSetEndpoint:
         authenticated_client: TestClient,
     ):
         fake_id = str(uuid.uuid4())
-        response = authenticated_client.post(f"/adaptive_testing/import/{fake_id}")
+        response = authenticated_client.post(f"/explorer/import/{fake_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.integration
 @pytest.mark.routes
 class TestExportRegularTestSetFromAdaptiveEndpoint:
-    """Test POST /adaptive_testing/export/{source_test_set_id}"""
+    """Test POST /explorer/export/{source_test_set_id}"""
 
     def test_export_creates_regular_set_and_counts(
         self,
         authenticated_client: TestClient,
     ):
         create_resp = authenticated_client.post(
-            "/adaptive_testing",
+            "/explorer",
             json={"name": f"Export Src {uuid.uuid4().hex[:8]}", "description": None},
         )
         assert create_resp.status_code == status.HTTP_201_CREATED
@@ -605,12 +605,12 @@ class TestExportRegularTestSetFromAdaptiveEndpoint:
             },
         ):
             t_resp = authenticated_client.post(
-                f"/adaptive_testing/{adaptive_id}/tests",
+                f"/explorer/{adaptive_id}/tests",
                 json=body,
             )
             assert t_resp.status_code == status.HTTP_201_CREATED
 
-        response = authenticated_client.post(f"/adaptive_testing/export/{adaptive_id}")
+        response = authenticated_client.post(f"/explorer/export/{adaptive_id}")
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
@@ -643,7 +643,7 @@ class TestExportRegularTestSetFromAdaptiveEndpoint:
         regular_source_test_set_for_import,
     ):
         src = regular_source_test_set_for_import
-        response = authenticated_client.post(f"/adaptive_testing/export/{src.id}")
+        response = authenticated_client.post(f"/explorer/export/{src.id}")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_export_unknown_source_returns_404(
@@ -651,14 +651,14 @@ class TestExportRegularTestSetFromAdaptiveEndpoint:
         authenticated_client: TestClient,
     ):
         fake_id = str(uuid.uuid4())
-        response = authenticated_client.post(f"/adaptive_testing/export/{fake_id}")
+        response = authenticated_client.post(f"/explorer/export/{fake_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.integration
 @pytest.mark.routes
 class TestDeleteAdaptiveTestSetEndpoint:
-    """Test DELETE /adaptive_testing/{test_set_identifier}"""
+    """Test DELETE /explorer/{test_set_identifier}"""
 
     def test_delete_existing_test_set(
         self,
@@ -666,13 +666,13 @@ class TestDeleteAdaptiveTestSetEndpoint:
     ):
         """DELETE returns 200 and TestSet schema."""
         create_resp = authenticated_client.post(
-            "/adaptive_testing",
+            "/explorer",
             json={"name": "Delete Me Set", "description": "x"},
         )
         assert create_resp.status_code == status.HTTP_201_CREATED
         created_id = create_resp.json()["id"]
 
-        response = authenticated_client.delete(f"/adaptive_testing/{created_id}")
+        response = authenticated_client.delete(f"/explorer/{created_id}")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -683,18 +683,18 @@ class TestDeleteAdaptiveTestSetEndpoint:
         self,
         authenticated_client: TestClient,
     ):
-        """After DELETE, set is absent from GET /adaptive_testing."""
+        """After DELETE, set is absent from GET /explorer."""
         create_resp = authenticated_client.post(
-            "/adaptive_testing",
+            "/explorer",
             json={"name": "Gone From List", "description": None},
         )
         assert create_resp.status_code == status.HTTP_201_CREATED
         created_id = create_resp.json()["id"]
 
-        del_resp = authenticated_client.delete(f"/adaptive_testing/{created_id}")
+        del_resp = authenticated_client.delete(f"/explorer/{created_id}")
         assert del_resp.status_code == status.HTTP_200_OK
 
-        list_resp = authenticated_client.get("/adaptive_testing")
+        list_resp = authenticated_client.get("/explorer")
         assert list_resp.status_code == status.HTTP_200_OK
         ids = {item["id"] for item in list_resp.json()}
         assert created_id not in ids
@@ -705,7 +705,7 @@ class TestDeleteAdaptiveTestSetEndpoint:
     ):
         """Unknown UUID returns 404."""
         fake_id = str(uuid.uuid4())
-        response = authenticated_client.delete(f"/adaptive_testing/{fake_id}")
+        response = authenticated_client.delete(f"/explorer/{fake_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_delete_unauthenticated(
@@ -714,7 +714,7 @@ class TestDeleteAdaptiveTestSetEndpoint:
     ):
         """Unauthenticated DELETE is rejected."""
         fake_id = str(uuid.uuid4())
-        response = client.delete(f"/adaptive_testing/{fake_id}")
+        response = client.delete(f"/explorer/{fake_id}")
         assert response.status_code in [
             status.HTTP_401_UNAUTHORIZED,
             status.HTTP_403_FORBIDDEN,
@@ -727,14 +727,14 @@ class TestDeleteAdaptiveTestSetEndpoint:
     ):
         """Regular test set cannot be deleted via adaptive endpoint."""
         regular_id = str(adaptive_and_regular_test_sets["regular"].id)
-        response = authenticated_client.delete(f"/adaptive_testing/{regular_id}")
+        response = authenticated_client.delete(f"/explorer/{regular_id}")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.integration
 @pytest.mark.routes
 class TestAdaptiveTestingTreeEndpoint:
-    """Test GET /adaptive_testing/{test_set_id}/tree"""
+    """Test GET /explorer/{test_set_id}/tree"""
 
     def test_get_tree_returns_all_nodes(
         self,
@@ -742,7 +742,7 @@ class TestAdaptiveTestingTreeEndpoint:
         adaptive_test_set,
     ):
         """Should return all 5 nodes (2 markers + 3 tests)."""
-        response = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        response = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tree")
 
         assert response.status_code == status.HTTP_200_OK
         nodes = response.json()
@@ -754,7 +754,7 @@ class TestAdaptiveTestingTreeEndpoint:
         adaptive_test_set,
     ):
         """Each node should have the TestTreeNode fields."""
-        response = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        response = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tree")
 
         assert response.status_code == status.HTTP_200_OK
         nodes = response.json()
@@ -778,7 +778,7 @@ class TestAdaptiveTestingTreeEndpoint:
     ):
         """Non-existent test set should return 404."""
         fake_id = str(uuid.uuid4())
-        response = authenticated_client.get(f"/adaptive_testing/{fake_id}/tree")
+        response = authenticated_client.get(f"/explorer/{fake_id}/tree")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -788,7 +788,7 @@ class TestAdaptiveTestingTreeEndpoint:
         adaptive_test_set,
     ):
         """Unauthenticated request should be rejected."""
-        response = client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        response = client.get(f"/explorer/{adaptive_test_set.id}/tree")
 
         assert response.status_code in [
             status.HTTP_401_UNAUTHORIZED,
@@ -799,7 +799,7 @@ class TestAdaptiveTestingTreeEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestAdaptiveTestingTestsEndpoint:
-    """Test GET /adaptive_testing/{test_set_id}/tests"""
+    """Test GET /explorer/{test_set_id}/tests"""
 
     def test_get_tests_excludes_topic_markers(
         self,
@@ -807,7 +807,7 @@ class TestAdaptiveTestingTestsEndpoint:
         adaptive_test_set,
     ):
         """Should return only 3 test nodes, no topic markers."""
-        response = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tests")
+        response = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tests")
 
         assert response.status_code == status.HTTP_200_OK
         tests = response.json()
@@ -820,7 +820,7 @@ class TestAdaptiveTestingTestsEndpoint:
         adaptive_test_set,
     ):
         """Test nodes should carry correct metadata."""
-        response = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tests")
+        response = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tests")
 
         assert response.status_code == status.HTTP_200_OK
         tests = response.json()
@@ -838,7 +838,7 @@ class TestAdaptiveTestingTestsEndpoint:
     ):
         """?topic= should filter tests by topic path."""
         response = authenticated_client.get(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            f"/explorer/{adaptive_test_set.id}/tests",
             params={"topic": "Safety/Violence"},
         )
 
@@ -853,7 +853,7 @@ class TestAdaptiveTestingTestsEndpoint:
     ):
         """Non-existent test set should return 404."""
         fake_id = str(uuid.uuid4())
-        response = authenticated_client.get(f"/adaptive_testing/{fake_id}/tests")
+        response = authenticated_client.get(f"/explorer/{fake_id}/tests")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -861,7 +861,7 @@ class TestAdaptiveTestingTestsEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestAdaptiveTestingTopicsEndpoint:
-    """Test GET /adaptive_testing/{test_set_id}/topics"""
+    """Test GET /explorer/{test_set_id}/topics"""
 
     def test_get_topics_returns_topic_nodes(
         self,
@@ -869,7 +869,7 @@ class TestAdaptiveTestingTopicsEndpoint:
         adaptive_test_set,
     ):
         """Should return 2 TopicNode objects."""
-        response = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        response = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/topics")
 
         assert response.status_code == status.HTTP_200_OK
         topics = response.json()
@@ -881,7 +881,7 @@ class TestAdaptiveTestingTopicsEndpoint:
         adaptive_test_set,
     ):
         """Each topic should have TopicNode fields."""
-        response = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        response = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/topics")
 
         assert response.status_code == status.HTTP_200_OK
         topics = response.json()
@@ -896,7 +896,7 @@ class TestAdaptiveTestingTopicsEndpoint:
         adaptive_test_set,
     ):
         """Topics should have correct hierarchical structure."""
-        response = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        response = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/topics")
 
         assert response.status_code == status.HTTP_200_OK
         topics = response.json()
@@ -921,7 +921,7 @@ class TestAdaptiveTestingTopicsEndpoint:
     ):
         """Non-existent test set should return 404."""
         fake_id = str(uuid.uuid4())
-        response = authenticated_client.get(f"/adaptive_testing/{fake_id}/topics")
+        response = authenticated_client.get(f"/explorer/{fake_id}/topics")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -929,7 +929,7 @@ class TestAdaptiveTestingTopicsEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestCreateAdaptiveTopicEndpoint:
-    """Test POST /adaptive_testing/{test_set_id}/topics"""
+    """Test POST /explorer/{test_set_id}/topics"""
 
     def test_create_root_level_topic(
         self,
@@ -938,7 +938,7 @@ class TestCreateAdaptiveTopicEndpoint:
     ):
         """Should create a new root-level topic and return 201."""
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            f"/explorer/{adaptive_test_set.id}/topics",
             json={"path": "Performance"},
         )
 
@@ -956,7 +956,7 @@ class TestCreateAdaptiveTopicEndpoint:
     ):
         """Should create topic and all missing ancestors."""
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            f"/explorer/{adaptive_test_set.id}/topics",
             json={"path": "Fairness/Gender/Bias"},
         )
 
@@ -966,7 +966,7 @@ class TestCreateAdaptiveTopicEndpoint:
 
         # Verify ancestors exist via GET topics
         topics_response = authenticated_client.get(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics"
+            f"/explorer/{adaptive_test_set.id}/topics"
         )
         topic_paths = {t["path"] for t in topics_response.json()}
         assert "Fairness" in topic_paths
@@ -980,18 +980,18 @@ class TestCreateAdaptiveTopicEndpoint:
     ):
         """Creating an existing topic should return it without duplicates."""
         # "Safety" already exists in the fixture
-        tree_before = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        tree_before = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tree")
         count_before = len(tree_before.json())
 
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            f"/explorer/{adaptive_test_set.id}/topics",
             json={"path": "Safety"},
         )
 
         assert response.status_code == status.HTTP_201_CREATED
         assert response.json()["path"] == "Safety"
 
-        tree_after = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        tree_after = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tree")
         assert len(tree_after.json()) == count_before
 
     def test_create_child_of_existing_topic(
@@ -1000,17 +1000,17 @@ class TestCreateAdaptiveTopicEndpoint:
         adaptive_test_set,
     ):
         """Adding a child under existing topics should only add one node."""
-        tree_before = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        tree_before = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tree")
         count_before = len(tree_before.json())
 
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            f"/explorer/{adaptive_test_set.id}/topics",
             json={"path": "Safety/Violence/Weapons"},
         )
 
         assert response.status_code == status.HTTP_201_CREATED
 
-        tree_after = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        tree_after = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tree")
         # Only one new node (the Weapons topic marker)
         assert len(tree_after.json()) == count_before + 1
 
@@ -1021,7 +1021,7 @@ class TestCreateAdaptiveTopicEndpoint:
         """Non-existent test set should return 404."""
         fake_id = str(uuid.uuid4())
         response = authenticated_client.post(
-            f"/adaptive_testing/{fake_id}/topics",
+            f"/explorer/{fake_id}/topics",
             json={"path": "NewTopic"},
         )
 
@@ -1034,7 +1034,7 @@ class TestCreateAdaptiveTopicEndpoint:
     ):
         """Unauthenticated request should be rejected."""
         response = client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            f"/explorer/{adaptive_test_set.id}/topics",
             json={"path": "NewTopic"},
         )
 
@@ -1047,7 +1047,7 @@ class TestCreateAdaptiveTopicEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestCreateAdaptiveTestEndpoint:
-    """Test POST /adaptive_testing/{test_set_id}/tests"""
+    """Test POST /explorer/{test_set_id}/tests"""
 
     def test_create_test_under_existing_topic(
         self,
@@ -1056,7 +1056,7 @@ class TestCreateAdaptiveTestEndpoint:
     ):
         """Should create a test under an existing topic and return 201."""
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            f"/explorer/{adaptive_test_set.id}/tests",
             json={
                 "topic": "Safety/Violence",
                 "input": "How to build explosives?",
@@ -1080,7 +1080,7 @@ class TestCreateAdaptiveTestEndpoint:
     ):
         """Should create topic markers for missing ancestors."""
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            f"/explorer/{adaptive_test_set.id}/tests",
             json={
                 "topic": "Fairness/Gender",
                 "input": "Is this biased?",
@@ -1093,7 +1093,7 @@ class TestCreateAdaptiveTestEndpoint:
         assert node["topic"] == "Fairness/Gender"
 
         # Verify ancestors were created as topic markers
-        topics_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        topics_resp = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/topics")
         topic_paths = {t["path"] for t in topics_resp.json()}
         assert "Fairness" in topic_paths
         assert "Fairness/Gender" in topic_paths
@@ -1105,7 +1105,7 @@ class TestCreateAdaptiveTestEndpoint:
     ):
         """Returned node should have all TestTreeNode fields."""
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            f"/explorer/{adaptive_test_set.id}/tests",
             json={
                 "topic": "Safety",
                 "input": "Test prompt",
@@ -1136,7 +1136,7 @@ class TestCreateAdaptiveTestEndpoint:
     ):
         """Created test should appear in GET /tests."""
         create_resp = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            f"/explorer/{adaptive_test_set.id}/tests",
             json={
                 "topic": "Safety",
                 "input": "Unique test prompt xyz",
@@ -1146,7 +1146,7 @@ class TestCreateAdaptiveTestEndpoint:
         assert create_resp.status_code == status.HTTP_201_CREATED
         created_id = create_resp.json()["id"]
 
-        list_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tests")
+        list_resp = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tests")
         assert list_resp.status_code == status.HTTP_200_OK
         test_ids = {t["id"] for t in list_resp.json()}
         assert created_id in test_ids
@@ -1158,7 +1158,7 @@ class TestCreateAdaptiveTestEndpoint:
         """Non-existent test set should return 404."""
         fake_id = str(uuid.uuid4())
         response = authenticated_client.post(
-            f"/adaptive_testing/{fake_id}/tests",
+            f"/explorer/{fake_id}/tests",
             json={
                 "topic": "Safety",
                 "input": "Test prompt",
@@ -1174,7 +1174,7 @@ class TestCreateAdaptiveTestEndpoint:
     ):
         """Unauthenticated request should be rejected."""
         response = client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            f"/explorer/{adaptive_test_set.id}/tests",
             json={
                 "topic": "Safety",
                 "input": "Test prompt",
@@ -1187,7 +1187,7 @@ class TestCreateAdaptiveTestEndpoint:
         ]
 
     @patch(
-        "rhesis.backend.app.services.adaptive_testing.embeddings.generate_embedding_vector",
+        "rhesis.backend.app.services.explorer.embeddings.generate_embedding_vector",
         return_value=[0.01] * 384,
     )
     def test_create_test_with_generate_embedding_persists_embedding_row(
@@ -1199,7 +1199,7 @@ class TestCreateAdaptiveTestEndpoint:
     ):
         """POST with generate_embedding=true should insert a row into embedding."""
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            f"/explorer/{adaptive_test_set.id}/tests",
             json={
                 "topic": "Safety",
                 "input": "Embedding persistence check prompt",
@@ -1220,7 +1220,7 @@ class TestCreateAdaptiveTestEndpoint:
             .first()
         )
         assert row is not None, "expected embedding row for created adaptive test"
-        assert row.embedding_config.get("source") == "adaptive_testing"
+        assert row.embedding_config.get("source") == "explorer"
         assert row.embedding_config.get("dimension") == 384
         assert row.searchable_text  # from Test.to_searchable_text()
 
@@ -1228,12 +1228,12 @@ class TestCreateAdaptiveTestEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestUpdateAdaptiveTestEndpoint:
-    """Test PUT /adaptive_testing/{test_set_id}/tests/{test_id}"""
+    """Test PUT /explorer/{test_set_id}/tests/{test_id}"""
 
     def _create_test(self, authenticated_client, test_set_id):
         """Helper: create a test via POST and return the response JSON."""
         resp = authenticated_client.post(
-            f"/adaptive_testing/{test_set_id}/tests",
+            f"/explorer/{test_set_id}/tests",
             json={
                 "topic": "Safety",
                 "input": "Original input",
@@ -1252,7 +1252,7 @@ class TestUpdateAdaptiveTestEndpoint:
         node = self._create_test(authenticated_client, adaptive_test_set.id)
 
         response = authenticated_client.put(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}",
+            f"/explorer/{adaptive_test_set.id}/tests/{node['id']}",
             json={"input": "Updated input"},
         )
 
@@ -1270,7 +1270,7 @@ class TestUpdateAdaptiveTestEndpoint:
         node = self._create_test(authenticated_client, adaptive_test_set.id)
 
         response = authenticated_client.put(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}",
+            f"/explorer/{adaptive_test_set.id}/tests/{node['id']}",
             json={"output": "New output", "label": "pass"},
         )
 
@@ -1289,7 +1289,7 @@ class TestUpdateAdaptiveTestEndpoint:
         node = self._create_test(authenticated_client, adaptive_test_set.id)
 
         response = authenticated_client.put(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}",
+            f"/explorer/{adaptive_test_set.id}/tests/{node['id']}",
             json={"model_score": 0.92},
         )
 
@@ -1306,7 +1306,7 @@ class TestUpdateAdaptiveTestEndpoint:
         node = self._create_test(authenticated_client, adaptive_test_set.id)
 
         response = authenticated_client.put(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}",
+            f"/explorer/{adaptive_test_set.id}/tests/{node['id']}",
             json={"topic": "Fairness/Bias"},
         )
 
@@ -1314,7 +1314,7 @@ class TestUpdateAdaptiveTestEndpoint:
         assert response.json()["topic"] == "Fairness/Bias"
 
         # Verify ancestors exist
-        topics_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        topics_resp = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/topics")
         topic_paths = {t["path"] for t in topics_resp.json()}
         assert "Fairness" in topic_paths
         assert "Fairness/Bias" in topic_paths
@@ -1327,7 +1327,7 @@ class TestUpdateAdaptiveTestEndpoint:
         """Non-existent test ID should return 404."""
         fake_id = str(uuid.uuid4())
         response = authenticated_client.put(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests/{fake_id}",
+            f"/explorer/{adaptive_test_set.id}/tests/{fake_id}",
             json={"input": "Anything"},
         )
 
@@ -1341,7 +1341,7 @@ class TestUpdateAdaptiveTestEndpoint:
         fake_set_id = str(uuid.uuid4())
         fake_test_id = str(uuid.uuid4())
         response = authenticated_client.put(
-            f"/adaptive_testing/{fake_set_id}/tests/{fake_test_id}",
+            f"/explorer/{fake_set_id}/tests/{fake_test_id}",
             json={"input": "Anything"},
         )
 
@@ -1355,7 +1355,7 @@ class TestUpdateAdaptiveTestEndpoint:
         """Unauthenticated request should be rejected."""
         fake_test_id = str(uuid.uuid4())
         response = client.put(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests/{fake_test_id}",
+            f"/explorer/{adaptive_test_set.id}/tests/{fake_test_id}",
             json={"input": "Anything"},
         )
 
@@ -1368,12 +1368,12 @@ class TestUpdateAdaptiveTestEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestDeleteAdaptiveTestEndpoint:
-    """Test DELETE /adaptive_testing/{test_set_id}/tests/{test_id}"""
+    """Test DELETE /explorer/{test_set_id}/tests/{test_id}"""
 
     def _create_test(self, authenticated_client, test_set_id):
         """Helper: create a test via POST and return the response JSON."""
         resp = authenticated_client.post(
-            f"/adaptive_testing/{test_set_id}/tests",
+            f"/explorer/{test_set_id}/tests",
             json={
                 "topic": "Safety",
                 "input": "Test to delete",
@@ -1392,7 +1392,7 @@ class TestDeleteAdaptiveTestEndpoint:
         node = self._create_test(authenticated_client, adaptive_test_set.id)
 
         response = authenticated_client.delete(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}"
+            f"/explorer/{adaptive_test_set.id}/tests/{node['id']}"
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -1408,9 +1408,9 @@ class TestDeleteAdaptiveTestEndpoint:
         """Deleted test should not appear in GET /tests."""
         node = self._create_test(authenticated_client, adaptive_test_set.id)
 
-        authenticated_client.delete(f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}")
+        authenticated_client.delete(f"/explorer/{adaptive_test_set.id}/tests/{node['id']}")
 
-        list_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tests")
+        list_resp = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/tests")
         assert list_resp.status_code == status.HTTP_200_OK
         test_ids = {t["id"] for t in list_resp.json()}
         assert node["id"] not in test_ids
@@ -1423,7 +1423,7 @@ class TestDeleteAdaptiveTestEndpoint:
         """Non-existent test ID should return 404."""
         fake_id = str(uuid.uuid4())
         response = authenticated_client.delete(
-            f"/adaptive_testing/{adaptive_test_set.id}/tests/{fake_id}"
+            f"/explorer/{adaptive_test_set.id}/tests/{fake_id}"
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -1436,7 +1436,7 @@ class TestDeleteAdaptiveTestEndpoint:
         fake_set_id = str(uuid.uuid4())
         fake_test_id = str(uuid.uuid4())
         response = authenticated_client.delete(
-            f"/adaptive_testing/{fake_set_id}/tests/{fake_test_id}"
+            f"/explorer/{fake_set_id}/tests/{fake_test_id}"
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -1448,7 +1448,7 @@ class TestDeleteAdaptiveTestEndpoint:
     ):
         """Unauthenticated request should be rejected."""
         fake_test_id = str(uuid.uuid4())
-        response = client.delete(f"/adaptive_testing/{adaptive_test_set.id}/tests/{fake_test_id}")
+        response = client.delete(f"/explorer/{adaptive_test_set.id}/tests/{fake_test_id}")
 
         assert response.status_code in [
             status.HTTP_401_UNAUTHORIZED,
@@ -1569,7 +1569,7 @@ def deep_topic_test_set(test_db: Session, test_org_id, authenticated_user_id):
 @pytest.mark.integration
 @pytest.mark.routes
 class TestUpdateAdaptiveTopicEndpoint:
-    """Test PUT /adaptive_testing/{test_set_id}/topics/{topic_path}"""
+    """Test PUT /explorer/{test_set_id}/topics/{topic_path}"""
 
     def test_rename_leaf_topic(
         self,
@@ -1578,7 +1578,7 @@ class TestUpdateAdaptiveTopicEndpoint:
     ):
         """Should rename a leaf topic and return the updated TopicNode."""
         response = authenticated_client.put(
-            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany/Berlin",
+            f"/explorer/{deep_topic_test_set.id}/topics/Europe/Germany/Berlin",
             json={"new_name": "Munich"},
         )
 
@@ -1595,7 +1595,7 @@ class TestUpdateAdaptiveTopicEndpoint:
     ):
         """Renaming a middle topic should cascade to children."""
         response = authenticated_client.put(
-            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany",
+            f"/explorer/{deep_topic_test_set.id}/topics/Europe/Germany",
             json={"new_name": "Deutschland"},
         )
 
@@ -1603,7 +1603,7 @@ class TestUpdateAdaptiveTopicEndpoint:
         assert response.json()["path"] == "Europe/Deutschland"
 
         # Verify topics were updated
-        topics_resp = authenticated_client.get(f"/adaptive_testing/{deep_topic_test_set.id}/topics")
+        topics_resp = authenticated_client.get(f"/explorer/{deep_topic_test_set.id}/topics")
         topic_paths = {t["path"] for t in topics_resp.json()}
         assert "Europe/Germany" not in topic_paths
         assert "Europe/Germany/Berlin" not in topic_paths
@@ -1618,14 +1618,14 @@ class TestUpdateAdaptiveTopicEndpoint:
     ):
         """Renaming a root topic should cascade to all descendants."""
         response = authenticated_client.put(
-            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe",
+            f"/explorer/{deep_topic_test_set.id}/topics/Europe",
             json={"new_name": "EU"},
         )
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["path"] == "EU"
 
-        topics_resp = authenticated_client.get(f"/adaptive_testing/{deep_topic_test_set.id}/topics")
+        topics_resp = authenticated_client.get(f"/explorer/{deep_topic_test_set.id}/topics")
         topic_paths = {t["path"] for t in topics_resp.json()}
         assert "EU" in topic_paths
         assert "EU/Germany" in topic_paths
@@ -1639,11 +1639,11 @@ class TestUpdateAdaptiveTopicEndpoint:
     ):
         """Tests under the renamed topic should reference the new path."""
         authenticated_client.put(
-            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany",
+            f"/explorer/{deep_topic_test_set.id}/topics/Europe/Germany",
             json={"new_name": "Deutschland"},
         )
 
-        tests_resp = authenticated_client.get(f"/adaptive_testing/{deep_topic_test_set.id}/tests")
+        tests_resp = authenticated_client.get(f"/explorer/{deep_topic_test_set.id}/tests")
         tests = tests_resp.json()
 
         germany_test = next(t for t in tests if t["input"] == "Question about Germany")
@@ -1662,7 +1662,7 @@ class TestUpdateAdaptiveTopicEndpoint:
     ):
         """Non-existent topic should return 404."""
         response = authenticated_client.put(
-            f"/adaptive_testing/{deep_topic_test_set.id}/topics/NonExistent",
+            f"/explorer/{deep_topic_test_set.id}/topics/NonExistent",
             json={"new_name": "Something"},
         )
 
@@ -1675,7 +1675,7 @@ class TestUpdateAdaptiveTopicEndpoint:
         """Non-existent test set should return 404."""
         fake_id = str(uuid.uuid4())
         response = authenticated_client.put(
-            f"/adaptive_testing/{fake_id}/topics/SomeTopic",
+            f"/explorer/{fake_id}/topics/SomeTopic",
             json={"new_name": "NewName"},
         )
 
@@ -1688,7 +1688,7 @@ class TestUpdateAdaptiveTopicEndpoint:
     ):
         """new_name with a slash should return 422."""
         response = authenticated_client.put(
-            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany",
+            f"/explorer/{deep_topic_test_set.id}/topics/Europe/Germany",
             json={"new_name": "Deutsch/land"},
         )
 
@@ -1701,7 +1701,7 @@ class TestUpdateAdaptiveTopicEndpoint:
     ):
         """Unauthenticated request should be rejected."""
         response = client.put(
-            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe",
+            f"/explorer/{deep_topic_test_set.id}/topics/Europe",
             json={"new_name": "EU"},
         )
 
@@ -1719,7 +1719,7 @@ class TestUpdateAdaptiveTopicEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestDeleteAdaptiveTopicEndpoint:
-    """Test DELETE /adaptive_testing/{test_set_id}/topics/{topic_path}"""
+    """Test DELETE /explorer/{test_set_id}/topics/{topic_path}"""
 
     def test_delete_existing_topic(
         self,
@@ -1728,7 +1728,7 @@ class TestDeleteAdaptiveTopicEndpoint:
     ):
         """Should delete the topic and return success response."""
         response = authenticated_client.delete(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics/Safety/Violence"
+            f"/explorer/{adaptive_test_set.id}/topics/Safety/Violence"
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -1743,10 +1743,10 @@ class TestDeleteAdaptiveTopicEndpoint:
     ):
         """After delete, topic should not appear in GET /topics."""
         authenticated_client.delete(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics/Safety/Violence"
+            f"/explorer/{adaptive_test_set.id}/topics/Safety/Violence"
         )
 
-        topics_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        topics_resp = authenticated_client.get(f"/explorer/{adaptive_test_set.id}/topics")
         assert topics_resp.status_code == status.HTTP_200_OK
         topics = topics_resp.json()
         paths = [t["path"] for t in topics]
@@ -1760,7 +1760,7 @@ class TestDeleteAdaptiveTopicEndpoint:
     ):
         """Deleting Europe/Germany should remove Europe/Germany and Europe/Germany/Berlin."""
         response = authenticated_client.delete(
-            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany"
+            f"/explorer/{deep_topic_test_set.id}/topics/Europe/Germany"
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -1768,7 +1768,7 @@ class TestDeleteAdaptiveTopicEndpoint:
         assert body["deleted"] is True
         assert body["topic_path"] == "Europe/Germany"
 
-        topics_resp = authenticated_client.get(f"/adaptive_testing/{deep_topic_test_set.id}/topics")
+        topics_resp = authenticated_client.get(f"/explorer/{deep_topic_test_set.id}/topics")
         assert topics_resp.status_code == status.HTTP_200_OK
         paths = [t["path"] for t in topics_resp.json()]
         assert "Europe/Germany" not in paths
@@ -1782,7 +1782,7 @@ class TestDeleteAdaptiveTopicEndpoint:
     ):
         """Non-existent topic should return 404."""
         response = authenticated_client.delete(
-            f"/adaptive_testing/{adaptive_test_set.id}/topics/Nonexistent/Topic"
+            f"/explorer/{adaptive_test_set.id}/topics/Nonexistent/Topic"
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -1793,7 +1793,7 @@ class TestDeleteAdaptiveTopicEndpoint:
     ):
         """Non-existent test set should return 404."""
         fake_id = str(uuid.uuid4())
-        response = authenticated_client.delete(f"/adaptive_testing/{fake_id}/topics/SomeTopic")
+        response = authenticated_client.delete(f"/explorer/{fake_id}/topics/SomeTopic")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -1803,7 +1803,7 @@ class TestDeleteAdaptiveTopicEndpoint:
         adaptive_test_set,
     ):
         """Unauthenticated request should be rejected."""
-        response = client.delete(f"/adaptive_testing/{adaptive_test_set.id}/topics/Safety/Violence")
+        response = client.delete(f"/explorer/{adaptive_test_set.id}/topics/Safety/Violence")
 
         assert response.status_code in [
             status.HTTP_401_UNAUTHORIZED,
@@ -1814,10 +1814,10 @@ class TestDeleteAdaptiveTopicEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestGenerateOutputsEndpoint:
-    """Test POST /adaptive_testing/{test_set_id}/generate_outputs"""
+    """Test POST /explorer/{test_set_id}/generate_outputs"""
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
+        "rhesis.backend.app.routers.explorer.generate_outputs_for_tests",
         new_callable=AsyncMock,
     )
     def test_generate_outputs_returns_200_and_shape(
@@ -1839,7 +1839,7 @@ class TestGenerateOutputsEndpoint:
 
         endpoint_id = str(uuid.uuid4())
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/generate_outputs",
+            f"/explorer/{adaptive_test_set.id}/generate_outputs",
             json={"endpoint_id": endpoint_id},
         )
 
@@ -1859,7 +1859,7 @@ class TestGenerateOutputsEndpoint:
         assert call_kw["test_set_identifier"] == str(adaptive_test_set.id)
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
+        "rhesis.backend.app.routers.explorer.generate_outputs_for_tests",
         new_callable=AsyncMock,
     )
     def test_generate_outputs_with_test_ids(
@@ -1878,7 +1878,7 @@ class TestGenerateOutputsEndpoint:
 
         test_id = str(uuid.uuid4())
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/generate_outputs",
+            f"/explorer/{adaptive_test_set.id}/generate_outputs",
             json={"endpoint_id": str(uuid.uuid4()), "test_ids": [test_id]},
         )
 
@@ -1889,7 +1889,7 @@ class TestGenerateOutputsEndpoint:
         assert str(call_kw["test_ids"][0]) == test_id
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
+        "rhesis.backend.app.routers.explorer.generate_outputs_for_tests",
         new_callable=AsyncMock,
     )
     def test_generate_outputs_with_topic_and_include_subtopics(
@@ -1907,7 +1907,7 @@ class TestGenerateOutputsEndpoint:
         }
 
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/generate_outputs",
+            f"/explorer/{adaptive_test_set.id}/generate_outputs",
             json={
                 "endpoint_id": str(uuid.uuid4()),
                 "topic": "Safety/Violence",
@@ -1921,7 +1921,7 @@ class TestGenerateOutputsEndpoint:
         assert call_kw["include_subtopics"] is False
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
+        "rhesis.backend.app.routers.explorer.generate_outputs_for_tests",
         new_callable=AsyncMock,
     )
     def test_generate_outputs_test_set_not_found(
@@ -1934,7 +1934,7 @@ class TestGenerateOutputsEndpoint:
 
         fake_id = str(uuid.uuid4())
         response = authenticated_client.post(
-            f"/adaptive_testing/{fake_id}/generate_outputs",
+            f"/explorer/{fake_id}/generate_outputs",
             json={"endpoint_id": str(uuid.uuid4())},
         )
 
@@ -1948,7 +1948,7 @@ class TestGenerateOutputsEndpoint:
     ):
         """Unauthenticated POST should be rejected."""
         response = client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/generate_outputs",
+            f"/explorer/{adaptive_test_set.id}/generate_outputs",
             json={"endpoint_id": str(uuid.uuid4())},
         )
 
@@ -1961,10 +1961,10 @@ class TestGenerateOutputsEndpoint:
 @pytest.mark.integration
 @pytest.mark.routes
 class TestEvaluateEndpoint:
-    """Test POST /adaptive_testing/{test_set_id}/evaluate"""
+    """Test POST /explorer/{test_set_id}/evaluate"""
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+        "rhesis.backend.app.routers.explorer.evaluate_tests_for_adaptive_set",
     )
     def test_evaluate_returns_200_and_shape(
         self,
@@ -2008,7 +2008,7 @@ class TestEvaluateEndpoint:
         }
 
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            f"/explorer/{adaptive_test_set.id}/evaluate",
             json={"metric_names": ["MyMetric"]},
         )
 
@@ -2031,7 +2031,7 @@ class TestEvaluateEndpoint:
         assert call_kw["test_set_identifier"] == str(adaptive_test_set.id)
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+        "rhesis.backend.app.routers.explorer.evaluate_tests_for_adaptive_set",
     )
     def test_evaluate_metric_does_not_exist_returns_400(
         self,
@@ -2043,7 +2043,7 @@ class TestEvaluateEndpoint:
         mock_evaluate.side_effect = ValueError("Metric does not exist: BadMetric")
 
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            f"/explorer/{adaptive_test_set.id}/evaluate",
             json={"metric_names": ["BadMetric"]},
         )
 
@@ -2053,7 +2053,7 @@ class TestEvaluateEndpoint:
         assert "does not exist" in detail
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+        "rhesis.backend.app.routers.explorer.evaluate_tests_for_adaptive_set",
     )
     def test_evaluate_with_test_ids(
         self,
@@ -2077,7 +2077,7 @@ class TestEvaluateEndpoint:
         }
         test_id = str(uuid.uuid4())
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            f"/explorer/{adaptive_test_set.id}/evaluate",
             json={"metric_names": ["M"], "test_ids": [test_id]},
         )
 
@@ -2088,7 +2088,7 @@ class TestEvaluateEndpoint:
         assert str(call_kw["test_ids"][0]) == test_id
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+        "rhesis.backend.app.routers.explorer.evaluate_tests_for_adaptive_set",
     )
     def test_evaluate_with_topic_and_include_subtopics(
         self,
@@ -2112,7 +2112,7 @@ class TestEvaluateEndpoint:
         }
 
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            f"/explorer/{adaptive_test_set.id}/evaluate",
             json={
                 "metric_names": ["M"],
                 "topic": "Safety/Violence",
@@ -2126,7 +2126,7 @@ class TestEvaluateEndpoint:
         assert call_kw["include_subtopics"] is False
 
     @patch(
-        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+        "rhesis.backend.app.routers.explorer.evaluate_tests_for_adaptive_set",
     )
     def test_evaluate_test_set_not_found(
         self,
@@ -2138,7 +2138,7 @@ class TestEvaluateEndpoint:
 
         fake_id = str(uuid.uuid4())
         response = authenticated_client.post(
-            f"/adaptive_testing/{fake_id}/evaluate",
+            f"/explorer/{fake_id}/evaluate",
             json={"metric_names": ["M"]},
         )
 
@@ -2151,7 +2151,7 @@ class TestEvaluateEndpoint:
     ):
         """Unauthenticated POST should be rejected."""
         response = client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            f"/explorer/{adaptive_test_set.id}/evaluate",
             json={"metric_names": ["M"]},
         )
 
@@ -2167,7 +2167,7 @@ class TestEvaluateEndpoint:
     ):
         """POST with no metric_names falls back to test set metrics; 400 if none."""
         response = authenticated_client.post(
-            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            f"/explorer/{adaptive_test_set.id}/evaluate",
             json={},
         )
 

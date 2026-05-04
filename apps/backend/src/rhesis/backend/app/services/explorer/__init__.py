@@ -1,4 +1,4 @@
-"""Adaptive testing service package."""
+"""Explorer (adaptive test tree) service package."""
 
 from .embeddings import (
     a_generate_embedding_vectors_batch,

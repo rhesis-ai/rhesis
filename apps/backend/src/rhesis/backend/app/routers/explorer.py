@@ -22,7 +22,7 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.adaptive_testing import (
+from rhesis.backend.app.schemas.explorer import (
     AdaptiveSettingsResponse,
     AdaptiveSettingsUpdate,
     CreateAdaptiveTestBody,
@@ -43,7 +43,7 @@ from rhesis.backend.app.schemas.adaptive_testing import (
     SuggestedTest,
     SuggestionPipelineRequest,
 )
-from rhesis.backend.app.services.adaptive_testing import (
+from rhesis.backend.app.services.explorer import (
     create_adaptive_test_set,
     create_test_node,
     create_topic_node,
@@ -74,8 +74,8 @@ from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/adaptive_testing",
-    tags=["adaptive_testing"],
+    prefix="/explorer",
+    tags=["explorer"],
     responses={404: {"description": "Not found"}},
 )
 
@@ -540,7 +540,7 @@ def create_adaptive_test(
 
     if body.generate_embedding:
         try:
-            from rhesis.backend.app.services.adaptive_testing.embeddings import (
+            from rhesis.backend.app.services.explorer.embeddings import (
                 create_test_embedding,
                 generate_embedding_vector,
                 load_test_for_embedding,

@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: 'Test explorer',
 };
 
-export default function AdaptiveTestingLayout({
+export default function ExplorerLayout({
   children,
 }: {
   children: React.ReactNode;

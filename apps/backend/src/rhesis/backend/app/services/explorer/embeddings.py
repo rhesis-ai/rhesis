@@ -17,14 +17,14 @@ from rhesis.backend.app.models.embedding import EmbeddingConfig
 from rhesis.backend.app.models.enums import EmbeddingStatus, ModelType
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.services.adaptive_testing.diversity_strategies import (
+from rhesis.backend.app.services.explorer.diversity_strategies import (
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
 )
 from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 from rhesis.sdk.models.factory import get_model
 
 if TYPE_CHECKING:
-    from rhesis.backend.app.services.adaptive_testing.diversity_strategies import (
+    from rhesis.backend.app.services.explorer.diversity_strategies import (
         EmbeddingDiversityStrategy,
     )
 
@@ -41,9 +41,9 @@ def sort_by_diversity(
 ) -> List[Dict[str, Any]]:
     """Sort suggestions by a centroid-based embedding diversity metric.
 
-    Uses :class:`~rhesis.backend.app.services.adaptive_testing.diversity_strategies.EmbeddingDiversityStrategy`
+    Uses :class:`~rhesis.backend.app.services.explorer.diversity_strategies.EmbeddingDiversityStrategy`
     to score rows after building a single batch matrix. The default strategy is
-    :class:`~rhesis.backend.app.services.adaptive_testing.diversity_strategies.CosineCentroidDiversity`
+    :class:`~rhesis.backend.app.services.explorer.diversity_strategies.CosineCentroidDiversity`
     (one minus cosine similarity to the mean direction). Larger scores are more
     diverse and sort first. Sets ``diversity_score`` on each item. Items without a
     usable embedding are placed last with ``diversity_score`` set to ``None``.
@@ -382,7 +382,7 @@ def create_test_embedding(
         "model_name": model_name,
         "dimension": dimension,
         "model_id": model_id,
-        "source": "adaptive_testing",
+        "source": "explorer",
     }
     config_hash = _compute_hash(config)
     text_hash = _compute_hash(stripped)

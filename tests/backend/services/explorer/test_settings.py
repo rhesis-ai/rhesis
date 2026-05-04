@@ -4,13 +4,13 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.services.adaptive_testing.settings import (
+from rhesis.backend.app.services.explorer.settings import (
     get_adaptive_settings,
     resolve_endpoint_id,
     resolve_metric_names,
     update_adaptive_settings,
 )
-from rhesis.backend.app.services.adaptive_testing.tests import create_adaptive_test_set
+from rhesis.backend.app.services.explorer.tests import create_adaptive_test_set
 
 
 def _create_adaptive_set(db: Session, organization_id: str, user_id: str) -> models.TestSet:

@@ -159,9 +159,9 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'adaptive-testing',
+      segment: 'explorer',
       title: 'Explorer',
-      icon: <AccountTreeIcon key="adaptive-testing-icon" />,
+      icon: <AccountTreeIcon key="explorer-icon" />,
       action: <BetaBadge />,
     },
     {

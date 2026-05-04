@@ -31,17 +31,17 @@ import {
   AdaptiveSettingsUpdateRequest,
   SuggestionPipelineRequest,
   SuggestionPipelineEvent,
-} from './interfaces/adaptive-testing';
+} from './interfaces/explorer';
 
 /**
- * API client for adaptive testing CRUD operations.
+ * API client for Explorer (test tree) HTTP endpoints.
  *
  * Provides methods for managing test tree data within a TestSet,
  * including operations on topics and tests.
  */
-export class AdaptiveTestingClient extends BaseApiClient {
+export class ExplorerClient extends BaseApiClient {
   private getBasePath(testSetId: string): string {
-    return `${API_ENDPOINTS.adaptiveTesting}/${testSetId}`;
+    return `${API_ENDPOINTS.explorer}/${testSetId}`;
   }
 
   private async *readNdjsonStream(
@@ -101,7 +101,7 @@ export class AdaptiveTestingClient extends BaseApiClient {
       sort_order: sortOrder,
     });
     return this.fetch<AdaptiveTestSet[]>(
-      `${API_ENDPOINTS.adaptiveTesting}?${params.toString()}`,
+      `${API_ENDPOINTS.explorer}?${params.toString()}`,
       { cache: 'no-store' }
     );
   }
@@ -115,7 +115,7 @@ export class AdaptiveTestingClient extends BaseApiClient {
     name: string,
     description?: string
   ): Promise<AdaptiveTestSet> {
-    return this.fetch<AdaptiveTestSet>(API_ENDPOINTS.adaptiveTesting, {
+    return this.fetch<AdaptiveTestSet>(API_ENDPOINTS.explorer, {
       method: 'POST',
       body: JSON.stringify({ name, description: description ?? null }),
       headers: {
@@ -129,7 +129,7 @@ export class AdaptiveTestingClient extends BaseApiClient {
    * @param testSetId The test set identifier (UUID, nano_id, or slug)
    */
   async deleteAdaptiveTestSet(testSetId: string): Promise<void> {
-    return this.fetch<void>(`${API_ENDPOINTS.adaptiveTesting}/${testSetId}`, {
+    return this.fetch<void>(`${API_ENDPOINTS.explorer}/${testSetId}`, {
       method: 'DELETE',
     });
   }
@@ -143,7 +143,7 @@ export class AdaptiveTestingClient extends BaseApiClient {
   ): Promise<ImportAdaptiveTestSetResponse> {
     const encoded = encodeURIComponent(sourceTestSetId);
     return this.fetch<ImportAdaptiveTestSetResponse>(
-      `${API_ENDPOINTS.adaptiveTesting}/import/${encoded}`,
+      `${API_ENDPOINTS.explorer}/import/${encoded}`,
       { method: 'POST' }
     );
   }
@@ -157,7 +157,7 @@ export class AdaptiveTestingClient extends BaseApiClient {
   ): Promise<ExportAdaptiveTestSetResponse> {
     const encoded = encodeURIComponent(adaptiveTestSetId);
     return this.fetch<ExportAdaptiveTestSetResponse>(
-      `${API_ENDPOINTS.adaptiveTesting}/export/${encoded}`,
+      `${API_ENDPOINTS.explorer}/export/${encoded}`,
       { method: 'POST' }
     );
   }

@@ -1,6 +1,6 @@
 /**
- * Interfaces for adaptive testing API.
- * Matches the backend schemas in apps/backend/src/rhesis/backend/app/schemas/adaptive_testing.py
+ * Interfaces for Explorer (test tree) API.
+ * Matches the backend schemas in apps/backend/src/rhesis/backend/app/schemas/explorer.py
  */
 
 // =============================================================================
@@ -21,7 +21,7 @@ export interface AdaptiveTestSet {
   updated_at?: string;
 }
 
-/** Response from POST /adaptive_testing/import/{source_test_set_id} */
+/** Response from POST /explorer/import/{source_test_set_id} */
 export interface ImportAdaptiveTestSetResponse {
   test_set: AdaptiveTestSet;
   imported: number;
@@ -29,7 +29,7 @@ export interface ImportAdaptiveTestSetResponse {
   skipped_test_ids: string[];
 }
 
-/** Response from POST /adaptive_testing/export/{source_test_set_id} */
+/** Response from POST /explorer/export/{source_test_set_id} */
 export interface ExportAdaptiveTestSetResponse {
   test_set: AdaptiveTestSet;
   exported: number;
