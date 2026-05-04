@@ -8,6 +8,7 @@ const styles = {
     paddingBottom: '56.25%',
     height: 0,
     overflow: 'hidden',
+    marginTop: '2rem',
     marginBottom: '2rem',
   },
   iframe: {
