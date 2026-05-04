@@ -36,7 +36,7 @@ class TestGenerateOutputsForTests:
     async def test_updates_test_metadata_output(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -49,7 +49,7 @@ class TestGenerateOutputsForTests:
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -63,7 +63,7 @@ class TestGenerateOutputsForTests:
         test_db.commit()
         nodes = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -95,14 +95,14 @@ class TestGenerateOutputsForTests:
     async def test_filter_by_test_ids(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
         """When test_ids is provided, only those tests are invoked."""
         tests = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -116,7 +116,7 @@ class TestGenerateOutputsForTests:
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -133,14 +133,14 @@ class TestGenerateOutputsForTests:
     async def test_failed_invocation_recorded(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
         """When invoke_endpoint raises for one test, it is recorded in failed."""
         _ = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -161,7 +161,7 @@ class TestGenerateOutputsForTests:
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -176,7 +176,7 @@ class TestGenerateOutputsForTests:
     async def test_generate_outputs_filter_by_topic_include_subtopics(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -189,7 +189,7 @@ class TestGenerateOutputsForTests:
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -206,7 +206,7 @@ class TestGenerateOutputsForTests:
     async def test_generate_outputs_filter_by_topic_exclude_subtopics(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -219,7 +219,7 @@ class TestGenerateOutputsForTests:
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -236,7 +236,7 @@ class TestGenerateOutputsForTests:
     async def test_generate_outputs_filter_by_leaf_topic(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -249,7 +249,7 @@ class TestGenerateOutputsForTests:
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -264,7 +264,7 @@ class TestGenerateOutputsForTests:
     async def test_skips_tests_with_existing_output(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -277,7 +277,7 @@ class TestGenerateOutputsForTests:
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -289,7 +289,7 @@ class TestGenerateOutputsForTests:
     async def test_overwrite_regenerates_existing_output(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -302,7 +302,7 @@ class TestGenerateOutputsForTests:
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,

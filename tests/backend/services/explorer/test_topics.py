@@ -17,7 +17,6 @@ from rhesis.sdk.adaptive_testing.schemas import TopicNode
 
 from .conftest import _associate_tests_with_test_set, _create_test_with_metadata
 
-
 # ============================================================================
 # Fixture for update_topic_node / remove_topic_node
 # ============================================================================
@@ -121,12 +120,12 @@ class TestCreateTopicNode:
     """Test create_topic_node - creates topic markers in a test set."""
 
     def test_creates_root_level_topic(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should create a new root-level topic marker."""
         result = create_topic_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Performance",
@@ -138,7 +137,7 @@ class TestCreateTopicNode:
         # Verify the topic marker appears in the tree
         topics = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -146,12 +145,12 @@ class TestCreateTopicNode:
         assert "Performance" in topic_paths
 
     def test_creates_nested_topic_with_ancestors(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should create the topic and any missing ancestor markers."""
         result = create_topic_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Fairness/Gender/Bias",
@@ -162,7 +161,7 @@ class TestCreateTopicNode:
         # All three levels should now exist in the tree
         topics = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -172,19 +171,19 @@ class TestCreateTopicNode:
         assert "Fairness/Gender/Bias" in topic_paths
 
     def test_returns_existing_topic_without_duplicates(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should return existing topic and not create duplicate markers."""
         nodes_before = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
 
         result = create_topic_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety",
@@ -194,19 +193,19 @@ class TestCreateTopicNode:
 
         nodes_after = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
         assert len(nodes_after) == len(nodes_before)
 
     def test_creates_only_missing_ancestors(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """When parent topics exist, should only create the missing child."""
         nodes_before = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -215,7 +214,7 @@ class TestCreateTopicNode:
         # only "Safety/Violence/Weapons" should be created.
         result = create_topic_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety/Violence/Weapons",
@@ -225,7 +224,7 @@ class TestCreateTopicNode:
 
         nodes_after = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -233,12 +232,12 @@ class TestCreateTopicNode:
         assert len(nodes_after) == len(nodes_before) + 1
 
     def test_created_topic_has_correct_hierarchy(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Newly created topic should have correct name, depth, and parent."""
         create_topic_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety/Privacy",
@@ -246,7 +245,7 @@ class TestCreateTopicNode:
 
         topics = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -268,12 +267,12 @@ class TestRemoveTopicNode:
     """Test remove_topic_node - removes topics and ensures topic markers are deleted."""
 
     def test_returns_false_when_topic_not_found(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should return False when topic path does not exist in the tree."""
         result = remove_topic_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic_path="Nonexistent/Topic",
@@ -281,12 +280,12 @@ class TestRemoveTopicNode:
         assert result is False
 
     def test_removes_leaf_topic_and_moves_tests_to_parent(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Removing a leaf topic should move its tests to parent and remove its marker."""
         topics_before = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -294,7 +293,7 @@ class TestRemoveTopicNode:
 
         result = remove_topic_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic_path="Safety/Violence",
@@ -304,7 +303,7 @@ class TestRemoveTopicNode:
 
         topics_after = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -313,7 +312,7 @@ class TestRemoveTopicNode:
 
         tests = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -413,12 +412,12 @@ class TestRemoveTopicNode:
                 )
 
     def test_topic_markers_removed_from_tree_after_remove(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """After removing a topic, no topic marker for that path may appear in the tree."""
         nodes_before = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -429,7 +428,7 @@ class TestRemoveTopicNode:
 
         remove_topic_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic_path="Safety/Violence",
@@ -437,7 +436,7 @@ class TestRemoveTopicNode:
 
         nodes_after = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )

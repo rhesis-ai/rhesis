@@ -2,35 +2,33 @@ import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { joinUrl } from '@/utils/url';
 import {
-  AdaptiveTestSet,
-  ExportAdaptiveTestSetResponse,
-  ImportAdaptiveTestSetResponse,
+  DeleteTopicResponse,
+  DeleteTestResponse,
+  EvaluateRequest,
+  EvaluateResponse,
+  EvaluateSuggestionsRequest,
+  EvaluateSuggestionsResponse,
+  ExplorerSettings,
+  ExplorerSettingsUpdateRequest,
+  ExplorerTestSet,
+  ExportExplorerTestSetResponse,
+  GenerateOutputsRequest,
+  GenerateOutputsResponse,
+  GenerateSuggestionOutputsRequest,
+  GenerateSuggestionOutputsResponse,
+  GenerateSuggestionsRequest,
+  GenerateSuggestionsResponse,
+  ImportExplorerTestSetResponse,
+  SuggestionEvalStreamEvent,
+  SuggestionOutputStreamEvent,
+  SuggestionPipelineEvent,
+  SuggestionPipelineRequest,
   TestNode,
   TestNodeCreate,
   TestNodeUpdate,
   Topic,
   TopicCreate,
   TopicUpdate,
-  TreeValidation,
-  TreeStats,
-  DeleteTopicResponse,
-  DeleteTestResponse,
-  GenerateOutputsRequest,
-  GenerateOutputsResponse,
-  EvaluateRequest,
-  EvaluateResponse,
-  GenerateSuggestionsRequest,
-  GenerateSuggestionsResponse,
-  GenerateSuggestionOutputsRequest,
-  GenerateSuggestionOutputsResponse,
-  SuggestionOutputStreamEvent,
-  SuggestionEvalStreamEvent,
-  EvaluateSuggestionsRequest,
-  EvaluateSuggestionsResponse,
-  AdaptiveSettings,
-  AdaptiveSettingsUpdateRequest,
-  SuggestionPipelineRequest,
-  SuggestionPipelineEvent,
 } from './interfaces/explorer';
 
 /**
@@ -78,44 +76,44 @@ export class ExplorerClient extends BaseApiClient {
   }
 
   // ===========================================================================
-  // Adaptive Test Set Operations
+  // Explorer test set operations
   // ===========================================================================
 
   /**
-   * List all test sets configured for adaptive testing.
+   * List explorer test sets (Adaptive Testing behavior in metadata).
    * @param skip Pagination offset
    * @param limit Maximum number of records
    * @param sortBy Field to sort by
    * @param sortOrder Sort direction
    */
-  async getAdaptiveTestSets(
+  async getExplorerTestSets(
     skip: number = 0,
     limit: number = 100,
     sortBy: string = 'created_at',
     sortOrder: string = 'desc'
-  ): Promise<AdaptiveTestSet[]> {
+  ): Promise<ExplorerTestSet[]> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
       sort_by: sortBy,
       sort_order: sortOrder,
     });
-    return this.fetch<AdaptiveTestSet[]>(
+    return this.fetch<ExplorerTestSet[]>(
       `${API_ENDPOINTS.explorer}?${params.toString()}`,
       { cache: 'no-store' }
     );
   }
 
   /**
-   * Create a new test set configured for adaptive testing.
+   * Create a new explorer test set.
    * @param name Test set name
    * @param description Optional description
    */
-  async createAdaptiveTestSet(
+  async createExplorerTestSet(
     name: string,
     description?: string
-  ): Promise<AdaptiveTestSet> {
-    return this.fetch<AdaptiveTestSet>(API_ENDPOINTS.explorer, {
+  ): Promise<ExplorerTestSet> {
+    return this.fetch<ExplorerTestSet>(API_ENDPOINTS.explorer, {
       method: 'POST',
       body: JSON.stringify({ name, description: description ?? null }),
       headers: {
@@ -125,56 +123,56 @@ export class ExplorerClient extends BaseApiClient {
   }
 
   /**
-   * Delete a test set configured for adaptive testing.
+   * Delete an explorer test set.
    * @param testSetId The test set identifier (UUID, nano_id, or slug)
    */
-  async deleteAdaptiveTestSet(testSetId: string): Promise<void> {
+  async deleteExplorerTestSet(testSetId: string): Promise<void> {
     return this.fetch<void>(`${API_ENDPOINTS.explorer}/${testSetId}`, {
       method: 'DELETE',
     });
   }
 
   /**
-   * Create a new adaptive test set by importing from an existing regular test set.
+   * Import from an existing regular test set into a new explorer test set.
    * @param sourceTestSetId Source test set identifier (UUID, nano_id, or slug)
    */
-  async importAdaptiveTestSetFromSource(
+  async importExplorerTestSetFromSource(
     sourceTestSetId: string
-  ): Promise<ImportAdaptiveTestSetResponse> {
+  ): Promise<ImportExplorerTestSetResponse> {
     const encoded = encodeURIComponent(sourceTestSetId);
-    return this.fetch<ImportAdaptiveTestSetResponse>(
+    return this.fetch<ImportExplorerTestSetResponse>(
       `${API_ENDPOINTS.explorer}/import/${encoded}`,
       { method: 'POST' }
     );
   }
 
   /**
-   * Create a new regular test set by exporting from an adaptive test set.
-   * @param adaptiveTestSetId Adaptive test set identifier (UUID, nano_id, or slug)
+   * Export an explorer test set to a new regular test set.
+   * @param explorerTestSetId Explorer test set identifier (UUID, nano_id, or slug)
    */
-  async exportRegularTestSetFromAdaptive(
-    adaptiveTestSetId: string
-  ): Promise<ExportAdaptiveTestSetResponse> {
-    const encoded = encodeURIComponent(adaptiveTestSetId);
-    return this.fetch<ExportAdaptiveTestSetResponse>(
+  async exportRegularTestSetFromExplorer(
+    explorerTestSetId: string
+  ): Promise<ExportExplorerTestSetResponse> {
+    const encoded = encodeURIComponent(explorerTestSetId);
+    return this.fetch<ExportExplorerTestSetResponse>(
       `${API_ENDPOINTS.explorer}/export/${encoded}`,
       { method: 'POST' }
     );
   }
 
-  async getAdaptiveSettings(testSetId: string): Promise<AdaptiveSettings> {
+  async getExplorerSettings(testSetId: string): Promise<ExplorerSettings> {
     const basePath = this.getBasePath(testSetId);
-    return this.fetch<AdaptiveSettings>(`${basePath}/settings`, {
+    return this.fetch<ExplorerSettings>(`${basePath}/settings`, {
       cache: 'no-store',
     });
   }
 
-  async updateAdaptiveSettings(
+  async updateExplorerSettings(
     testSetId: string,
-    body: AdaptiveSettingsUpdateRequest
-  ): Promise<AdaptiveSettings> {
+    body: ExplorerSettingsUpdateRequest
+  ): Promise<ExplorerSettings> {
     const basePath = this.getBasePath(testSetId);
-    return this.fetch<AdaptiveSettings>(`${basePath}/settings`, {
+    return this.fetch<ExplorerSettings>(`${basePath}/settings`, {
       method: 'PUT',
       body: JSON.stringify(body),
       headers: { 'Content-Type': 'application/json' },
@@ -182,7 +180,7 @@ export class ExplorerClient extends BaseApiClient {
   }
 
   /**
-   * Get the full adaptive testing tree for a test set.
+   * Get the full test tree for a test set.
    * Returns all nodes including both test nodes and topic markers.
    * @param testSetId The test set identifier (UUID, nano_id, or slug)
    */
@@ -206,18 +204,6 @@ export class ExplorerClient extends BaseApiClient {
     const basePath = this.getBasePath(testSetId);
     const queryParams = parent ? `?parent=${encodeURIComponent(parent)}` : '';
     return this.fetch<Topic[]>(`${basePath}/topics${queryParams}`, {
-      cache: 'no-store',
-    });
-  }
-
-  /**
-   * Get a specific topic by path.
-   * @param testSetId The test set identifier
-   * @param topicPath The topic path (URL-encoded)
-   */
-  async getTopic(testSetId: string, topicPath: string): Promise<Topic> {
-    const basePath = this.getBasePath(testSetId);
-    return this.fetch<Topic>(`${basePath}/topics/${topicPath}`, {
       cache: 'no-store',
     });
   }
@@ -344,30 +330,8 @@ export class ExplorerClient extends BaseApiClient {
   }
 
   // ===========================================================================
-  // Tree Operations
+  // Outputs and evaluation
   // ===========================================================================
-
-  /**
-   * Validate the test tree structure.
-   * @param testSetId The test set identifier
-   */
-  async validateTree(testSetId: string): Promise<TreeValidation> {
-    const basePath = this.getBasePath(testSetId);
-    return this.fetch<TreeValidation>(`${basePath}/validate`, {
-      cache: 'no-store',
-    });
-  }
-
-  /**
-   * Get statistics about the test tree.
-   * @param testSetId The test set identifier
-   */
-  async getTreeStats(testSetId: string): Promise<TreeStats> {
-    const basePath = this.getBasePath(testSetId);
-    return this.fetch<TreeStats>(`${basePath}/stats`, {
-      cache: 'no-store',
-    });
-  }
 
   /**
    * Generate outputs for tests by invoking the given endpoint.

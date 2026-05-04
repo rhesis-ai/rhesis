@@ -23,7 +23,7 @@ async def generate_outputs_for_tests(
     include_subtopics: bool = True,
     overwrite: bool = False,
 ) -> Dict[str, Any]:
-    """Generate outputs for adaptive testing tests by invoking an endpoint.
+    """Generate outputs for explorer test-set tests by invoking an endpoint.
 
     For each test in the test set (with a prompt), invokes the given endpoint
     with the test input, extracts the response output using the same logic as

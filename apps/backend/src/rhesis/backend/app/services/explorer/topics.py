@@ -111,7 +111,7 @@ def update_topic_node(
     topic_path: str,
     new_name: str,
 ) -> Optional[TopicNode]:
-    """Rename a topic in the adaptive testing tree.
+    """Rename a topic in the explorer test tree.
 
     Only the last segment (current level name) of the topic path is changed.
     For example, renaming ``"Europe/Germany"`` with ``new_name="Deutschland"``
@@ -221,7 +221,7 @@ def remove_topic_node(
     user_id: str,
     topic_path: str,
 ) -> bool:
-    """Remove a topic from the adaptive testing tree.
+    """Remove a topic from the explorer test tree.
 
     If the topic has subtopics, they are removed as well (their topic
     markers are deleted). All tests that belonged to the topic or any

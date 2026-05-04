@@ -1,4 +1,4 @@
-"""Adaptive-testing scoped embedding helpers (SDK vectorization + embedding table)."""
+"""Explorer-scoped embedding helpers (SDK vectorization + embedding table)."""
 
 from __future__ import annotations
 
@@ -30,9 +30,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Adaptive testing persists to ``embedding`` columns (see EmbeddingConfig.SUPPORTED_DIMENSIONS).
+# Explorer test sets persist to ``embedding`` columns (see EmbeddingConfig.SUPPORTED_DIMENSIONS).
 # Force this output size so providers defaulting to large vectors (e.g. Gemini 3072) still store.
-ADAPTIVE_TESTING_EMBEDDING_DIMENSION = 768
+EXPLORER_EMBEDDING_DIMENSION = 768
 
 
 def sort_by_diversity(
@@ -41,7 +41,8 @@ def sort_by_diversity(
 ) -> List[Dict[str, Any]]:
     """Sort suggestions by a centroid-based embedding diversity metric.
 
-    Uses :class:`~rhesis.backend.app.services.explorer.diversity_strategies.EmbeddingDiversityStrategy`
+    Uses
+    :class:`~rhesis.backend.app.services.explorer.diversity_strategies.EmbeddingDiversityStrategy`
     to score rows after building a single batch matrix. The default strategy is
     :class:`~rhesis.backend.app.services.explorer.diversity_strategies.CosineCentroidDiversity`
     (one minus cosine similarity to the mean direction). Larger scores are more
@@ -113,7 +114,7 @@ def resolve_embedder(db: Session, user_id: str):
     """Resolve the embedding model for a user once.
 
     Returns a ready-to-use SDK ``BaseEmbedder`` instance configured with
-    :data:`ADAPTIVE_TESTING_EMBEDDING_DIMENSION`.  Call this once and pass the
+    :data:`EXPLORER_EMBEDDING_DIMENSION`.  Call this once and pass the
     result to :func:`generate_embedding_vector`, :func:`a_generate_embedding_vector`,
     or :func:`a_generate_embedding_vectors_batch` to avoid repeated DB lookups.
     """
@@ -121,7 +122,7 @@ def resolve_embedder(db: Session, user_id: str):
     if not user:
         raise ValueError(f"User not found: {user_id}")
 
-    target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
+    target_dim = EXPLORER_EMBEDDING_DIMENSION
     resolved = get_user_embedding_model(db, user)
     if isinstance(resolved, str):
         return get_model(resolved, model_type="embedding", dimensions=target_dim)
@@ -137,7 +138,7 @@ def generate_embedding_vector(
 ) -> List[float]:
     """Embed plain text using the user's configured embedding model or platform default.
 
-    Always requests :data:`ADAPTIVE_TESTING_EMBEDDING_DIMENSION` (768) so vectors match
+    Always requests :data:`EXPLORER_EMBEDDING_DIMENSION` (768) so vectors match
     supported ``embedding`` table columns regardless of provider defaults.
 
     Parameters
@@ -153,12 +154,12 @@ def generate_embedding_vector(
     if embedder is None:
         embedder = resolve_embedder(db, user_id)
 
-    target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
+    target_dim = EXPLORER_EMBEDDING_DIMENSION
     vector = embedder.generate(text=stripped, dimensions=target_dim)
     out = list(vector)
     if len(out) != target_dim:
         logger.warning(
-            "Adaptive embedding length %s != requested %s (provider may ignore dimensions); "
+            "Explorer embedding length %s != requested %s (provider may ignore dimensions); "
             "persistence may be skipped",
             len(out),
             target_dim,
@@ -190,12 +191,12 @@ async def a_generate_embedding_vector(
     if embedder is None:
         embedder = resolve_embedder(db, user_id)
 
-    target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
+    target_dim = EXPLORER_EMBEDDING_DIMENSION
     vector = await embedder.a_generate(text=stripped, dimensions=target_dim)
     out = list(vector)
     if len(out) != target_dim:
         logger.warning(
-            "Adaptive embedding length %s != requested %s (provider may ignore dimensions); "
+            "Explorer embedding length %s != requested %s (provider may ignore dimensions); "
             "persistence may be skipped",
             len(out),
             target_dim,
@@ -226,7 +227,7 @@ async def a_generate_embedding_vectors_batch(
     if embedder is None:
         embedder = resolve_embedder(db, user_id)
 
-    target_dim = ADAPTIVE_TESTING_EMBEDDING_DIMENSION
+    target_dim = EXPLORER_EMBEDDING_DIMENSION
     semaphore = asyncio.Semaphore(concurrency)
 
     async def _embed_one(text: str) -> Optional[List[float]]:
@@ -239,7 +240,7 @@ async def a_generate_embedding_vectors_batch(
                 out = list(vector)
                 if len(out) != target_dim:
                     logger.warning(
-                        "Adaptive embedding length %s != requested %s; persistence may be skipped",
+                        "Explorer embedding length %s != requested %s; persistence may be skipped",
                         len(out),
                         target_dim,
                     )
@@ -328,20 +329,20 @@ def create_test_embedding(
         fallback = _organization_default_embedding_model(db, organization_id)
         if not fallback:
             logger.info(
-                "Skipping adaptive test embedding persistence: no embedding model_id in user "
+                "Skipping explorer test embedding persistence: no embedding model_id in user "
                 f"settings and no org default embedding model (user_id={user.id})"
             )
             return None
         model_id = str(fallback.id)
         logger.debug(
-            "Using organization default embedding model for adaptive test persistence "
+            "Using organization default embedding model for explorer test persistence "
             f"(user_id={user.id}, model_id={model_id})"
         )
 
     model = crud.get_model(db, UUIDType(model_id), organization_id, user_id)
     if not model:
         logger.warning(
-            "Skipping adaptive test embedding persistence: model not found "
+            "Skipping explorer test embedding persistence: model not found "
             f"(model_id={model_id}, user_id={user_id})"
         )
         return None
@@ -356,14 +357,14 @@ def create_test_embedding(
         dimension = vec_len
         if model.dimension is not None and model.dimension != vec_len:
             logger.info(
-                "Adaptive test embedding: storing vector length %s; model.dimension is %s "
-                "(adaptive testing may request a fixed output size)",
+                "Explorer test embedding: storing vector length %s; model.dimension is %s "
+                "(explorer may request a fixed output size)",
                 vec_len,
                 model.dimension,
             )
     else:
         logger.warning(
-            "Skipping adaptive test embedding persistence: vector length %s is not supported "
+            "Skipping explorer test embedding persistence: vector length %s is not supported "
             "(supported: %s; model.dimension=%s)",
             vec_len,
             tuple(sorted(EmbeddingConfig.SUPPORTED_DIMENSIONS.keys())),
@@ -374,7 +375,7 @@ def create_test_embedding(
     searchable_text = test.to_searchable_text()
     stripped = (searchable_text or "").strip()
     if not stripped:
-        logger.info("Skipping adaptive test embedding persistence: empty searchable text")
+        logger.info("Skipping explorer test embedding persistence: empty searchable text")
         return None
 
     config = {
@@ -425,7 +426,7 @@ def create_test_embedding(
         status_id=active_status.id,
     )
     if existing:
-        logger.debug("Adaptive test embedding already exists for test_id=%s", entity_id)
+        logger.debug("Explorer test embedding already exists for test_id=%s", entity_id)
         return existing
 
     embedding_vector = vector

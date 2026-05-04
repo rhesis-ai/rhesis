@@ -40,8 +40,8 @@ class TestSetCreate(TestSetBase):
     test_set_type_id: UUID4
 
 
-class AdaptiveTestSetCreate(Base):
-    """Request body for creating a test set configured for adaptive testing."""
+class ExplorerTestSetCreate(Base):
+    """Request body for creating a test set for Explorer (test tree)."""
 
     name: str
     description: Optional[str] = None

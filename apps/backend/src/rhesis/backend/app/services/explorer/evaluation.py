@@ -189,7 +189,7 @@ async def _run_metrics_on_text(
     return metric_results
 
 
-async def evaluate_tests_for_adaptive_set(
+async def evaluate_tests_for_explorer_set(
     db: Session,
     test_set_identifier: str,
     organization_id: str,
@@ -200,7 +200,7 @@ async def evaluate_tests_for_adaptive_set(
     include_subtopics: bool = True,
     overwrite: bool = False,
 ) -> Dict[str, Any]:
-    """Evaluate adaptive testing tests with the specified metrics.
+    """Evaluate explorer test-set tests with the specified metrics.
 
     Uses SDK metric instances directly via ``a_evaluate`` with up to
     ``_EVAL_MAX_CONCURRENCY`` items evaluated concurrently.

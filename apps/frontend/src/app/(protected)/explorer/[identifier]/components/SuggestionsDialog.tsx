@@ -28,7 +28,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
 import { useTheme } from '@mui/material/styles';
 import {
-  type AdaptiveMetricEvalDetail,
+  type ExplorerMetricEvalDetail,
   type SuggestionPipelineEvent,
   SuggestedTest,
   TestNodeCreate,
@@ -39,7 +39,7 @@ import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 
 interface SuggestionRow extends SuggestedTest {
   _id: string;
-  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
   output_error?: string | null;
   output_pending?: boolean;
   eval_error?: string | null;

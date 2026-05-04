@@ -73,7 +73,7 @@ def get_tree_topics(
     return tree_data.topics.get_all()
 
 
-def get_adaptive_test_sets(
+def get_explorer_test_sets(
     db: Session,
     organization_id: str,
     skip: int = 0,
@@ -104,7 +104,7 @@ def get_adaptive_test_sets(
     Returns
     -------
     List[models.TestSet]
-        Test sets configured for adaptive testing
+        Test sets configured for Explorer (Adaptive Testing behavior)
     """
     target = cast(
         [ADAPTIVE_TESTING_BEHAVIOR],
@@ -125,24 +125,22 @@ def get_adaptive_test_sets(
 
     test_sets = query.offset(skip).limit(limit).all()
 
-    logger.info(
-        f"Found {len(test_sets)} adaptive testing test sets for organization={organization_id}"
-    )
+    logger.info(f"Found {len(test_sets)} explorer test sets for organization={organization_id}")
 
     return test_sets
 
 
-def create_adaptive_test_set(
+def create_explorer_test_set(
     db: Session,
     organization_id: str,
     user_id: str,
     name: str,
     description: Optional[str] = None,
 ) -> models.TestSet:
-    """Create a new test set configured for adaptive testing.
+    """Create a new test set for Explorer.
 
     The created test set has attributes.metadata.behaviors containing
-    "Adaptive Testing" so it appears in get_adaptive_test_sets.
+    "Adaptive Testing" so it appears in get_explorer_test_sets.
 
     Parameters
     ----------
@@ -193,7 +191,7 @@ def create_adaptive_test_set(
     )
 
 
-def _is_adaptive_test_set(test_set: models.TestSet) -> bool:
+def _is_explorer_test_set(test_set: models.TestSet) -> bool:
     """True if the test set has Adaptive Testing in metadata.behaviors."""
     attrs = test_set.attributes or {}
     metadata = attrs.get("metadata") or {}
@@ -201,13 +199,13 @@ def _is_adaptive_test_set(test_set: models.TestSet) -> bool:
     return ADAPTIVE_TESTING_BEHAVIOR in behaviors
 
 
-def delete_adaptive_test_set(
+def delete_explorer_test_set(
     db: Session,
     test_set_identifier: str,
     organization_id: str,
     user_id: str,
 ) -> models.TestSet:
-    """Delete a test set that is configured for adaptive testing.
+    """Delete a test set that is configured for Explorer.
 
     Resolves the test set by UUID, nano_id, or slug. Raises ValueError if the
     set is missing or does not include the Adaptive Testing behavior.
@@ -215,8 +213,8 @@ def delete_adaptive_test_set(
     db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id)
     if db_test_set is None:
         raise ValueError("Test set not found with provided identifier")
-    if not _is_adaptive_test_set(db_test_set):
-        raise ValueError("Test set is not configured for adaptive testing")
+    if not _is_explorer_test_set(db_test_set):
+        raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
     deleted = crud.delete_test_set(
         db,
         test_set_id=db_test_set.id,
@@ -228,7 +226,7 @@ def delete_adaptive_test_set(
     return deleted
 
 
-def _unique_adaptive_import_name(db: Session, organization_id: str, base_name: str) -> str:
+def _unique_explorer_import_name(db: Session, organization_id: str, base_name: str) -> str:
     """Pick a test set name that does not collide within the organization."""
     candidate = base_name
     counter = 0
@@ -247,13 +245,13 @@ def _unique_adaptive_import_name(db: Session, organization_id: str, base_name: s
         candidate = f"{base_name} ({counter})"
 
 
-def import_adaptive_test_set_from_source(
+def import_explorer_test_set_from_source(
     db: Session,
     source_test_set_identifier: str,
     organization_id: str,
     user_id: str,
 ) -> dict:
-    """Create a new adaptive test set by copying tests from a regular test set.
+    """Create a new explorer test set by copying tests from a regular test set.
 
     Topic hierarchy is rebuilt via topic markers. Tests without prompt content
     (e.g. multi-turn-only) and topic-marker rows are skipped.
@@ -278,19 +276,19 @@ def import_adaptive_test_set_from_source(
     Raises
     ------
     ValueError
-        If the source set is missing, or already configured for adaptive testing.
+        If the source set is missing, or already configured for Explorer.
     """
     db_source = crud.resolve_test_set(source_test_set_identifier, db, organization_id)
     if db_source is None:
         raise ValueError("Test set not found with provided identifier")
 
-    if _is_adaptive_test_set(db_source):
-        raise ValueError("Source test set is already configured for adaptive testing")
+    if _is_explorer_test_set(db_source):
+        raise ValueError("Source test set is already configured for Explorer")
 
     base_name = f"{db_source.name} (Adaptive)"
-    new_name = _unique_adaptive_import_name(db, organization_id, base_name)
+    new_name = _unique_explorer_import_name(db, organization_id, base_name)
 
-    new_set = create_adaptive_test_set(
+    new_set = create_explorer_test_set(
         db=db,
         organization_id=organization_id,
         user_id=user_id,
@@ -302,10 +300,10 @@ def import_adaptive_test_set_from_source(
 
     # Copy adaptive_settings from source (e.g. default endpoint) if present
     src_attrs = db_source.attributes or {}
-    adaptive_src = src_attrs.get("adaptive_settings")
-    if adaptive_src and isinstance(adaptive_src, dict):
+    explorer_settings_src = src_attrs.get("adaptive_settings")
+    if explorer_settings_src and isinstance(explorer_settings_src, dict):
         attrs = dict(new_set.attributes or {})
-        attrs["adaptive_settings"] = dict(adaptive_src)
+        attrs["adaptive_settings"] = dict(explorer_settings_src)
         new_set.attributes = attrs
         db.add(new_set)
         db.flush()
@@ -384,16 +382,16 @@ def import_adaptive_test_set_from_source(
     }
 
 
-def export_regular_test_set_from_adaptive(
+def export_regular_test_set_from_explorer(
     db: Session,
     source_test_set_identifier: str,
     organization_id: str,
     user_id: str,
 ) -> dict:
-    """Create a new regular test set by copying tests from an adaptive test set.
+    """Create a new regular test set by copying tests from an explorer test set.
 
     Skips topic-marker rows and tests without prompt content. Does not copy
-    adaptive-only test set metadata (behaviors, adaptive_settings). Preserves
+    explorer-only test set metadata (behaviors, adaptive_settings). Preserves
     each real test's topic via ``topic_id`` (and prompt / metadata fields
     compatible with regular test sets).
 
@@ -402,7 +400,7 @@ def export_regular_test_set_from_adaptive(
     db : Session
         Database session
     source_test_set_identifier : str
-        UUID, nano_id, or slug of the adaptive source test set
+        UUID, nano_id, or slug of the explorer source test set
     organization_id : str
         Tenant organization id
     user_id : str
@@ -417,17 +415,19 @@ def export_regular_test_set_from_adaptive(
     Raises
     ------
     ValueError
-        If the source set is missing, or is not configured for adaptive testing.
+        If the source set is missing, or is not configured for Explorer.
     """
     db_source = crud.resolve_test_set(source_test_set_identifier, db, organization_id)
     if db_source is None:
         raise ValueError("Test set not found with provided identifier")
 
-    if not _is_adaptive_test_set(db_source):
-        raise ValueError("Source test set is not configured for adaptive testing")
+    if not _is_explorer_test_set(db_source):
+        raise ValueError(
+            "Source test set is not configured for Explorer (Adaptive Testing behavior)"
+        )
 
     base_name = f"{db_source.name} (Exported)"
-    new_name = _unique_adaptive_import_name(db, organization_id, base_name)
+    new_name = _unique_explorer_import_name(db, organization_id, base_name)
 
     test_set_type_lookup = get_or_create_type_lookup(
         db=db,
@@ -564,7 +564,7 @@ def create_test_node(
     label: str = "",
     model_score: float = 0.0,
 ) -> TestTreeNode:
-    """Create a test node in the adaptive testing tree.
+    """Create a test node in the explorer test tree.
 
     Creates the underlying DB objects (Topic, Prompt, Test) and
     associates the test with the given test set.  If the topic does
@@ -678,7 +678,7 @@ def update_test_node(
     topic: Optional[str] = None,
     model_score: Optional[float] = None,
 ) -> Optional[TestTreeNode]:
-    """Update a test node in the adaptive testing tree.
+    """Update a test node in the explorer test tree.
 
     Only the provided (non-None) fields are updated; the rest are
     left unchanged.
@@ -782,7 +782,7 @@ def delete_test_node(
     organization_id: str,
     user_id: str,
 ) -> bool:
-    """Delete a test node from the adaptive testing tree.
+    """Delete a test node from the explorer test tree.
 
     Removes the test-to-test-set association and soft-deletes the
     underlying Test (and its Prompt) so the node no longer appears

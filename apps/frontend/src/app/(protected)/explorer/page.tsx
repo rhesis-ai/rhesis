@@ -18,8 +18,8 @@ export default async function ExplorerPage() {
     const clientFactory = new ApiClientFactory(session.session_token);
     const explorerClient = clientFactory.getExplorerClient();
 
-    // Fetch adaptive test sets using the dedicated endpoint
-    const testSets = await explorerClient.getAdaptiveTestSets();
+    // Fetch explorer test sets using the dedicated endpoint
+    const testSets = await explorerClient.getExplorerTestSets();
 
     return (
       <PageContainer title="Test explorer" breadcrumbs={[]}>

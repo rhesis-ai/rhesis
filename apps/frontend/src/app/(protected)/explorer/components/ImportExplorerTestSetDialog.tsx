@@ -12,9 +12,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import type { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
-import type { ImportAdaptiveTestSetResponse } from '@/utils/api-client/interfaces/explorer';
+import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interfaces/explorer';
 
-function isAdaptiveTestingTestSet(testSet: TestSet): boolean {
+function isExplorerTestSet(testSet: TestSet): boolean {
   const behaviors = testSet.attributes?.metadata?.behaviors;
   return Array.isArray(behaviors) && behaviors.includes('Adaptive Testing');
 }
@@ -22,7 +22,7 @@ function isAdaptiveTestingTestSet(testSet: TestSet): boolean {
 interface ImportExplorerTestSetDialogProps {
   open: boolean;
   onClose: () => void;
-  onImported: (result: ImportAdaptiveTestSetResponse) => void;
+  onImported: (result: ImportExplorerTestSetResponse) => void;
   sessionToken: string;
 }
 
@@ -87,7 +87,7 @@ export default function ImportExplorerTestSetDialog({
 
         const response = await testSetsClient.getTestSets(queryParams);
         const filtered = response.data.filter(
-          ts => !isAdaptiveTestingTestSet(ts)
+          ts => !isExplorerTestSet(ts)
         );
         setTestSets(filtered);
       } catch (_error) {
@@ -133,8 +133,8 @@ export default function ImportExplorerTestSetDialog({
     setSubmitting(true);
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const adaptiveClient = clientFactory.getExplorerClient();
-      const result = await adaptiveClient.importAdaptiveTestSetFromSource(
+      const explorerClient = clientFactory.getExplorerClient();
+      const result = await explorerClient.importExplorerTestSetFromSource(
         String(selectedTestSet.id)
       );
       onImported(result);

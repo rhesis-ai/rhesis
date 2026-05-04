@@ -1,7 +1,7 @@
-"""Router for adaptive testing tree endpoints.
+"""Router for Explorer test-tree HTTP endpoints.
 
-Provides views over test set data as adaptive testing trees:
-- List all adaptive testing test sets
+Provides views over test set data as explorer trees:
+- List explorer test sets (metadata includes Adaptive Testing behavior)
 - Full tree (all nodes including topic markers)
 - Tests only (excludes topic markers)
 - Topics only (hierarchical topic structure)
@@ -23,15 +23,15 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.explorer import (
-    AdaptiveSettingsResponse,
-    AdaptiveSettingsUpdate,
-    CreateAdaptiveTestBody,
+    CreateExplorerTestBody,
     EvaluateFailedItem,
     EvaluateRequest,
     EvaluateResponse,
     EvaluateResultItem,
     EvaluateSuggestionsRequest,
-    ExportAdaptiveTestSetResponse,
+    ExplorerSettingsResponse,
+    ExplorerSettingsUpdate,
+    ExportExplorerTestSetResponse,
     GenerateOutputsFailedItem,
     GenerateOutputsRequest,
     GenerateOutputsResponse,
@@ -39,33 +39,33 @@ from rhesis.backend.app.schemas.explorer import (
     GenerateSuggestionOutputsRequest,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
-    ImportAdaptiveTestSetResponse,
+    ImportExplorerTestSetResponse,
     SuggestedTest,
     SuggestionPipelineRequest,
 )
 from rhesis.backend.app.services.explorer import (
-    create_adaptive_test_set,
+    create_explorer_test_set,
     create_test_node,
     create_topic_node,
-    delete_adaptive_test_set,
+    delete_explorer_test_set,
     delete_test_node,
     evaluate_suggestions_stream,
-    evaluate_tests_for_adaptive_set,
-    export_regular_test_set_from_adaptive,
+    evaluate_tests_for_explorer_set,
+    export_regular_test_set_from_explorer,
     generate_outputs_for_tests,
     generate_suggestions,
-    get_adaptive_settings,
-    get_adaptive_test_sets,
+    get_explorer_settings,
+    get_explorer_test_sets,
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
-    import_adaptive_test_set_from_source,
+    import_explorer_test_set_from_source,
     invoke_endpoint_for_suggestions_stream,
     remove_topic_node,
     resolve_endpoint_id,
     resolve_metric_names,
     suggestion_pipeline_stream,
-    update_adaptive_settings,
+    update_explorer_settings,
     update_test_node,
     update_topic_node,
 )
@@ -96,18 +96,18 @@ def _resolve_test_set_or_raise(identifier: str, db: Session, organization_id: st
     response_model=schemas.TestSet,
     status_code=201,
 )
-def create_adaptive_test_set_endpoint(
-    body: schemas.AdaptiveTestSetCreate,
+def create_explorer_test_set_endpoint(
+    body: schemas.ExplorerTestSetCreate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new test set configured for adaptive testing.
+    """Create a new test set for Explorer.
 
-    The created test set will appear in the list of adaptive test sets.
+    The created test set will appear in the explorer test-set list.
     """
     organization_id, user_id = tenant_context
-    return create_adaptive_test_set(
+    return create_explorer_test_set(
         db=db,
         organization_id=str(organization_id),
         user_id=str(user_id),
@@ -118,23 +118,23 @@ def create_adaptive_test_set_endpoint(
 
 @router.post(
     "/import/{source_test_set_identifier}",
-    response_model=ImportAdaptiveTestSetResponse,
+    response_model=ImportExplorerTestSetResponse,
     status_code=201,
 )
-def import_adaptive_test_set_endpoint(
+def import_explorer_test_set_endpoint(
     source_test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new adaptive test set by importing from an existing test set.
+    """Create a new explorer test set by importing from an existing test set.
 
-    Copies single-turn tests with prompts into the adaptive tree (topics and
+    Copies single-turn tests with prompts into the explorer tree (topics and
     markers). Skips topic markers and tests without prompt content.
     """
     organization_id, user_id = tenant_context
     try:
-        result = import_adaptive_test_set_from_source(
+        result = import_explorer_test_set_from_source(
             db=db,
             source_test_set_identifier=source_test_set_identifier,
             organization_id=str(organization_id),
@@ -146,7 +146,7 @@ def import_adaptive_test_set_endpoint(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return ImportAdaptiveTestSetResponse(
+    return ImportExplorerTestSetResponse(
         test_set=result["test_set"],
         imported=result["imported"],
         skipped=result["skipped"],
@@ -156,23 +156,23 @@ def import_adaptive_test_set_endpoint(
 
 @router.post(
     "/export/{source_test_set_identifier}",
-    response_model=ExportAdaptiveTestSetResponse,
+    response_model=ExportExplorerTestSetResponse,
     status_code=201,
 )
-def export_regular_test_set_from_adaptive_endpoint(
+def export_regular_test_set_from_explorer_endpoint(
     source_test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new regular test set by exporting from an adaptive test set.
+    """Create a new regular test set by exporting from an explorer test set.
 
     Copies tests with prompts; skips topic markers and empty prompts. The new
     set has no Adaptive Testing behavior or adaptive_settings.
     """
     organization_id, user_id = tenant_context
     try:
-        result = export_regular_test_set_from_adaptive(
+        result = export_regular_test_set_from_explorer(
             db=db,
             source_test_set_identifier=source_test_set_identifier,
             organization_id=str(organization_id),
@@ -184,7 +184,7 @@ def export_regular_test_set_from_adaptive_endpoint(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return ExportAdaptiveTestSetResponse(
+    return ExportExplorerTestSetResponse(
         test_set=result["test_set"],
         exported=result["exported"],
         skipped=result["skipped"],
@@ -196,7 +196,7 @@ def export_regular_test_set_from_adaptive_endpoint(
     "/",
     response_model=List[schemas.TestSet],
 )
-def list_adaptive_test_sets(
+def list_explorer_test_sets(
     skip: int = 0,
     limit: int = 100,
     sort_by: str = "created_at",
@@ -205,12 +205,12 @@ def list_adaptive_test_sets(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """List all test sets configured for adaptive testing.
+    """List explorer test sets.
 
     Returns test sets whose behavior includes Adaptive Testing.
     """
     organization_id, _user_id = tenant_context
-    return get_adaptive_test_sets(
+    return get_explorer_test_sets(
         db=db,
         organization_id=str(organization_id),
         skip=skip,
@@ -224,20 +224,20 @@ def list_adaptive_test_sets(
     "/{test_set_identifier}",
     response_model=schemas.TestSet,
 )
-def delete_adaptive_test_set_endpoint(
+def delete_explorer_test_set_endpoint(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Delete a test set configured for adaptive testing.
+    """Delete a test set configured for Explorer.
 
     Only test sets that include the Adaptive Testing behavior can be removed
     through this endpoint.
     """
     organization_id, user_id = tenant_context
     try:
-        return delete_adaptive_test_set(
+        return delete_explorer_test_set(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),
@@ -249,15 +249,15 @@ def delete_adaptive_test_set_endpoint(
 
 @router.get(
     "/{test_set_identifier}/settings",
-    response_model=AdaptiveSettingsResponse,
+    response_model=ExplorerSettingsResponse,
 )
-def get_adaptive_settings_endpoint(
+def get_explorer_settings_endpoint(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get adaptive testing settings for a test set.
+    """Get explorer settings for a test set.
 
     Returns the default endpoint (if configured) and metrics assigned to
     the test set.
@@ -266,7 +266,7 @@ def get_adaptive_settings_endpoint(
     db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
     try:
-        return get_adaptive_settings(
+        return get_explorer_settings(
             db=db,
             test_set=db_test_set,
             organization_id=str(organization_id),
@@ -278,16 +278,16 @@ def get_adaptive_settings_endpoint(
 
 @router.put(
     "/{test_set_identifier}/settings",
-    response_model=AdaptiveSettingsResponse,
+    response_model=ExplorerSettingsResponse,
 )
-def update_adaptive_settings_endpoint(
+def update_explorer_settings_endpoint(
     test_set_identifier: str,
-    body: AdaptiveSettingsUpdate,
+    body: ExplorerSettingsUpdate,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update adaptive testing settings for a test set.
+    """Update explorer settings for a test set.
 
     Supports updating the default endpoint and replacing the metric list.
     """
@@ -295,7 +295,7 @@ def update_adaptive_settings_endpoint(
     db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
 
     try:
-        return update_adaptive_settings(
+        return update_explorer_settings(
             db=db,
             test_set=db_test_set,
             organization_id=str(organization_id),
@@ -314,13 +314,13 @@ def update_adaptive_settings_endpoint(
     "/{test_set_identifier}/tree",
     response_model=List[TestTreeNode],
 )
-def get_adaptive_tree(
+def get_explorer_tree(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get the full adaptive testing tree for a test set.
+    """Get the full explorer test tree for a test set.
 
     Returns all nodes including both test nodes and topic markers.
     """
@@ -339,7 +339,7 @@ def get_adaptive_tree(
     "/{test_set_identifier}/tests",
     response_model=List[TestTreeNode],
 )
-def get_adaptive_tests(
+def get_explorer_tests(
     test_set_identifier: str,
     topic: Optional[str] = Query(
         None,
@@ -349,7 +349,7 @@ def get_adaptive_tests(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get only test nodes from the adaptive testing tree.
+    """Get only test nodes from the explorer test tree.
 
     Excludes topic marker nodes. Optionally filter by topic path.
     """
@@ -369,13 +369,13 @@ def get_adaptive_tests(
     "/{test_set_identifier}/topics",
     response_model=List[TopicNode],
 )
-def get_adaptive_topics(
+def get_explorer_topics(
     test_set_identifier: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get the topic hierarchy from the adaptive testing tree.
+    """Get the topic hierarchy from the explorer test tree.
 
     Returns TopicNode objects with path, name, parent_path, and depth.
     """
@@ -395,14 +395,14 @@ def get_adaptive_topics(
     response_model=TopicNode,
     status_code=201,
 )
-def create_adaptive_topic(
+def create_explorer_topic(
     test_set_identifier: str,
     path: str = Body(..., embed=True, description="Topic path to create"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new topic in the adaptive testing tree.
+    """Create a new topic in the explorer test tree.
 
     Accepts a topic path (e.g. ``"Safety"`` or ``"Safety/Violence"``).
     Automatically creates any missing ancestor topic markers.
@@ -423,7 +423,7 @@ def create_adaptive_topic(
     "/{test_set_identifier}/topics/{topic_path:path}",
     response_model=TopicNode,
 )
-def update_adaptive_topic(
+def update_explorer_topic(
     test_set_identifier: str,
     topic_path: str,
     new_name: str = Body(
@@ -435,7 +435,7 @@ def update_adaptive_topic(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Rename a topic in the adaptive testing tree.
+    """Rename a topic in the explorer test tree.
 
     Only the current level name can be changed. For example, given
     ``Europe/Germany/Berlin``, renaming ``Germany`` to ``Deutschland``
@@ -472,14 +472,14 @@ def update_adaptive_topic(
 @router.delete(
     "/{test_set_identifier}/topics/{topic_path:path}",
 )
-def delete_adaptive_topic(
+def delete_explorer_topic(
     test_set_identifier: str,
     topic_path: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Remove a topic from the adaptive testing tree.
+    """Remove a topic from the explorer test tree.
 
     If the topic has subtopics, they are removed as well. All tests under
     the topic (and its subtopics) are moved to the parent of the removed topic.
@@ -509,14 +509,14 @@ def delete_adaptive_topic(
     response_model=TestTreeNode,
     status_code=201,
 )
-def create_adaptive_test(
+def create_explorer_test(
     test_set_identifier: str,
-    body: CreateAdaptiveTestBody,
+    body: CreateExplorerTestBody,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Create a new test node in the adaptive testing tree.
+    """Create a new test node in the explorer test tree.
 
     Automatically ensures the topic and all its ancestor topic markers
     exist before creating the test. Topic is optional; tests without a
@@ -549,7 +549,7 @@ def create_adaptive_test(
             db_test = load_test_for_embedding(db, node.id, str(organization_id))
             if not db_test:
                 logger.warning(
-                    "Adaptive test embedding skipped: Test row not found after create "
+                    "Explorer test embedding skipped: Test row not found after create "
                     "(test_id=%s, organization_id=%s)",
                     node.id,
                     organization_id,
@@ -560,13 +560,13 @@ def create_adaptive_test(
                 stored = create_test_embedding(db, db_test, vector, current_user)
                 if stored is None:
                     logger.warning(
-                        "Adaptive test embedding not persisted (test_id=%s); "
+                        "Explorer test embedding not persisted (test_id=%s); "
                         "see earlier create_test_embedding logs for the reason",
                         node.id,
                     )
         except Exception as e:
             logger.warning(
-                "Adaptive test embedding skipped after create (test_id=%s): %s",
+                "Explorer test embedding skipped after create (test_id=%s): %s",
                 node.id,
                 e,
                 exc_info=True,
@@ -579,7 +579,7 @@ def create_adaptive_test(
     "/{test_set_identifier}/tests/{test_id}",
     response_model=TestTreeNode,
 )
-def update_adaptive_test(
+def update_explorer_test(
     test_set_identifier: str,
     test_id: UUID,
     input: Optional[str] = Body(None, description="New input text"),
@@ -591,7 +591,7 @@ def update_adaptive_test(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Update a test node in the adaptive testing tree.
+    """Update a test node in the explorer test tree.
 
     Only provided fields are updated; omitted fields remain unchanged.
     """
@@ -623,14 +623,14 @@ def update_adaptive_test(
 @router.delete(
     "/{test_set_identifier}/tests/{test_id}",
 )
-def delete_adaptive_test(
+def delete_explorer_test(
     test_set_identifier: str,
     test_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Delete a test node from the adaptive testing tree.
+    """Delete a test node from the explorer test tree.
 
     Removes the test-test_set association and soft-deletes
     the underlying test record.
@@ -736,7 +736,7 @@ async def evaluate_tests(
             organization_id=str(organization_id),
             request_metric_names=body.metric_names,
         )
-        result = await evaluate_tests_for_adaptive_set(
+        result = await evaluate_tests_for_explorer_set(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),

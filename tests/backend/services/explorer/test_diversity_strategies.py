@@ -1,11 +1,11 @@
-"""Unit tests for adaptive-testing embedding diversity strategies."""
+"""Unit tests for explorer embedding diversity strategies."""
 
 import numpy as np
 import pytest
 
 from rhesis.backend.app.services.explorer.diversity_strategies import (
-    CosineCentroidDiversity,
     DEFAULT_EMBEDDING_DIVERSITY_STRATEGY,
+    CosineCentroidDiversity,
     EuclideanCentroidDiversity,
 )
 from rhesis.backend.app.services.explorer.embeddings import sort_by_diversity

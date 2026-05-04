@@ -33,10 +33,10 @@ describe('ExplorerClient', () => {
   // Test Set Operations
   // -------------------------------------------------------------------------
 
-  it('lists adaptive test sets', async () => {
+  it('lists explorer test sets', async () => {
     fetchMock.mockResolvedValue(makeFetch([{ id: 'at1' }]));
 
-    await client.getAdaptiveTestSets();
+    await client.getExplorerTestSets();
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(`${BASE_URL}/explorer`),
@@ -44,10 +44,10 @@ describe('ExplorerClient', () => {
     );
   });
 
-  it('creates an adaptive test set with POST', async () => {
+  it('creates an explorer test set with POST', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: 'new-at', name: 'My Set' }));
 
-    await client.createAdaptiveTestSet('My Set', 'Optional desc');
+    await client.createExplorerTestSet('My Set', 'Optional desc');
 
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toContain('/explorer');
@@ -57,19 +57,19 @@ describe('ExplorerClient', () => {
     expect(body.description).toBe('Optional desc');
   });
 
-  it('uses null description when omitted in createAdaptiveTestSet', async () => {
+  it('uses null description when omitted in createExplorerTestSet', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: 'at2' }));
 
-    await client.createAdaptiveTestSet('Set Without Desc');
+    await client.createExplorerTestSet('Set Without Desc');
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.description).toBeNull();
   });
 
-  it('deletes an adaptive test set with DELETE', async () => {
+  it('deletes an explorer test set with DELETE', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: 'at-del', name: 'Gone' }));
 
-    await client.deleteAdaptiveTestSet('at-del');
+    await client.deleteExplorerTestSet('at-del');
 
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toContain('/explorer/at-del');
@@ -86,7 +86,7 @@ describe('ExplorerClient', () => {
       })
     );
 
-    const result = await client.importAdaptiveTestSetFromSource('source-ts-1');
+    const result = await client.importExplorerTestSetFromSource('source-ts-1');
 
     expect(result.imported).toBe(3);
     expect(result.skipped).toBe(1);
@@ -107,22 +107,22 @@ describe('ExplorerClient', () => {
     );
 
     const result =
-      await client.exportRegularTestSetFromAdaptive('adaptive-ts-1');
+      await client.exportRegularTestSetFromExplorer('explorer-ts-1');
 
     expect(result.exported).toBe(2);
     expect(result.skipped).toBe(2);
     expect(result.test_set.id).toBe('new-regular');
     const [url, opts] = fetchMock.mock.calls[0];
-    expect(url).toContain('/explorer/export/adaptive-ts-1');
+    expect(url).toContain('/explorer/export/explorer-ts-1');
     expect(opts.method).toBe('POST');
   });
 
-  it('fetches adaptive settings for a test set', async () => {
+  it('fetches explorer settings for a test set', async () => {
     fetchMock.mockResolvedValue(
       makeFetch({ default_endpoint: null, metrics: [] })
     );
 
-    await client.getAdaptiveSettings(TEST_SET_ID);
+    await client.getExplorerSettings(TEST_SET_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(`/explorer/${TEST_SET_ID}/settings`),
@@ -130,7 +130,7 @@ describe('ExplorerClient', () => {
     );
   });
 
-  it('updates adaptive settings for a test set', async () => {
+  it('updates explorer settings for a test set', async () => {
     fetchMock.mockResolvedValue(
       makeFetch({
         default_endpoint: { id: 'ep1', name: 'Endpoint 1' },
@@ -138,7 +138,7 @@ describe('ExplorerClient', () => {
       })
     );
 
-    await client.updateAdaptiveSettings(TEST_SET_ID, {
+    await client.updateExplorerSettings(TEST_SET_ID, {
       default_endpoint_id: 'ep1',
       metric_ids: ['m1'],
     });
@@ -162,30 +162,6 @@ describe('ExplorerClient', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining(`/explorer/${TEST_SET_ID}/tree`),
-      expect.any(Object)
-    );
-  });
-
-  it('validates the tree structure', async () => {
-    fetchMock.mockResolvedValue(makeFetch({ valid: true, errors: [] }));
-
-    await client.validateTree(TEST_SET_ID);
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/explorer/${TEST_SET_ID}/validate`),
-      expect.any(Object)
-    );
-  });
-
-  it('fetches tree statistics', async () => {
-    fetchMock.mockResolvedValue(
-      makeFetch({ total_nodes: 10, total_topics: 3, total_tests: 7 })
-    );
-
-    await client.getTreeStats(TEST_SET_ID);
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/explorer/${TEST_SET_ID}/stats`),
       expect.any(Object)
     );
   });

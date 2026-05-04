@@ -25,8 +25,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import type {
-  AdaptiveTestSet,
-  ImportAdaptiveTestSetResponse,
+  ExplorerTestSet,
+  ImportExplorerTestSetResponse,
 } from '@/utils/api-client/interfaces/explorer';
 import ImportExplorerTestSetDialog from './ImportExplorerTestSetDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -35,7 +35,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useSession } from 'next-auth/react';
 
 interface ExplorerGridProps {
-  testSets: AdaptiveTestSet[];
+  testSets: ExplorerTestSet[];
   loading: boolean;
   sessionToken?: string;
 }
@@ -48,7 +48,7 @@ export default function ExplorerGrid({
   const router = useRouter();
   const { data: session } = useSession();
   const notifications = useNotifications();
-  const [rows, setRows] = useState<AdaptiveTestSet[]>(initialTestSets);
+  const [rows, setRows] = useState<ExplorerTestSet[]>(initialTestSets);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -156,7 +156,7 @@ export default function ExplorerGrid({
     setSubmitError(null);
     try {
       const client = new ApiClientFactory(token).getExplorerClient();
-      const created = await client.createAdaptiveTestSet(
+      const created = await client.createExplorerTestSet(
         trimmedName,
         description.trim() || undefined
       );
@@ -186,7 +186,7 @@ export default function ExplorerGrid({
     setIsExporting(true);
     try {
       const client = new ApiClientFactory(token).getExplorerClient();
-      const result = await client.exportRegularTestSetFromAdaptive(
+      const result = await client.exportRegularTestSetFromExplorer(
         String(selectedRows[0])
       );
       const { exported, skipped, test_set: created } = result;
@@ -218,8 +218,8 @@ export default function ExplorerGrid({
     sessionToken,
   ]);
 
-  const handleImportedAdaptiveSet = useCallback(
-    (result: ImportAdaptiveTestSetResponse) => {
+  const handleImportedExplorerSet = useCallback(
+    (result: ImportExplorerTestSetResponse) => {
       const { imported, skipped, test_set: created } = result;
       const parts = [`Imported ${imported} test(s)`];
       if (skipped > 0) {
@@ -246,7 +246,7 @@ export default function ExplorerGrid({
       setIsDeleting(true);
       const client = new ApiClientFactory(token).getExplorerClient();
       await Promise.all(
-        selectedRows.map(id => client.deleteAdaptiveTestSet(String(id)))
+        selectedRows.map(id => client.deleteExplorerTestSet(String(id)))
       );
 
       notifications.show(
@@ -434,7 +434,7 @@ export default function ExplorerGrid({
         <ImportExplorerTestSetDialog
           open={importDialogOpen}
           onClose={() => setImportDialogOpen(false)}
-          onImported={handleImportedAdaptiveSet}
+          onImported={handleImportedExplorerSet}
           sessionToken={authToken}
         />
       ) : null}

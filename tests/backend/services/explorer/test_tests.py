@@ -5,23 +5,22 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.services.explorer import (
-    create_adaptive_test_set,
+    create_explorer_test_set,
     create_test_node,
-    delete_adaptive_test_set,
+    delete_explorer_test_set,
     delete_test_node,
-    export_regular_test_set_from_adaptive,
-    get_adaptive_test_sets,
+    export_regular_test_set_from_explorer,
+    get_explorer_test_sets,
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
-    import_adaptive_test_set_from_source,
+    import_explorer_test_set_from_source,
     update_test_node,
 )
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
-
 # ============================================================================
-# Helpers and Fixtures for get_adaptive_test_sets
+# Helpers and Fixtures for get_explorer_test_sets
 # ============================================================================
 
 
@@ -40,7 +39,7 @@ def _make_test_set(db, name, attributes, organization_id, user_id):
 
 
 @pytest.fixture
-def adaptive_and_regular_test_sets(test_db: Session, test_org_id, authenticated_user_id):
+def explorer_and_regular_test_sets(test_db: Session, test_org_id, authenticated_user_id):
     """Create a mix of adaptive and non-adaptive test sets.
 
     Creates:
@@ -85,8 +84,8 @@ def adaptive_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
         test_db.refresh(ts)
 
     return {
-        "adaptive_1": ts_adaptive_1,
-        "adaptive_2": ts_adaptive_2,
+        "explorer_1": ts_adaptive_1,
+        "explorer_2": ts_adaptive_2,
         "regular": ts_regular,
         "no_attrs": ts_no_attrs,
     }
@@ -99,16 +98,16 @@ def adaptive_and_regular_test_sets(test_db: Session, test_org_id, authenticated_
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestAdaptiveTestingTreeNodes:
+class TestExplorerTreeNodes:
     """Test get_tree_nodes - returns all nodes including topic markers."""
 
     def test_returns_all_nodes(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """All 5 nodes (2 topic markers + 3 tests) should be returned."""
         nodes = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -117,12 +116,12 @@ class TestAdaptiveTestingTreeNodes:
         assert all(isinstance(n, TestTreeNode) for n in nodes)
 
     def test_nodes_have_correct_types(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Nodes should include both topic markers and test nodes."""
         nodes = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -155,16 +154,16 @@ class TestAdaptiveTestingTreeNodes:
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestAdaptiveTestingTreeTests:
+class TestExplorerTreeTests:
     """Test get_tree_tests - returns only test nodes (no topic markers)."""
 
     def test_excludes_topic_markers(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Only the 3 actual test nodes should be returned."""
         tests = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -174,12 +173,12 @@ class TestAdaptiveTestingTreeTests:
         assert all(t.label != "topic_marker" for t in tests)
 
     def test_preserves_metadata(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Test nodes should carry their metadata (label, output, etc.)."""
         tests = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -194,11 +193,11 @@ class TestAdaptiveTestingTreeTests:
         assert pass_test.labeler == "human"
         assert pass_test.model_score == 0.95
 
-    def test_filter_by_topic(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+    def test_filter_by_topic(self, test_db, explorer_test_set, test_org_id, authenticated_user_id):
         """Filtering by topic should return only tests under that topic."""
         tests = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety/Violence",
@@ -210,16 +209,16 @@ class TestAdaptiveTestingTreeTests:
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestAdaptiveTestingTreeTopics:
+class TestExplorerTreeTopics:
     """Test get_tree_topics - returns TopicNode objects."""
 
     def test_returns_topic_nodes(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should return TopicNode objects for each topic marker."""
         topics = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -227,11 +226,11 @@ class TestAdaptiveTestingTreeTopics:
         assert len(topics) == 2
         assert all(isinstance(t, TopicNode) for t in topics)
 
-    def test_topic_hierarchy(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+    def test_topic_hierarchy(self, test_db, explorer_test_set, test_org_id, authenticated_user_id):
         """Topics should have correct path, name, and depth."""
         topics = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -252,43 +251,43 @@ class TestAdaptiveTestingTreeTopics:
 
 
 # ============================================================================
-# Tests for get_adaptive_test_sets
+# Tests for get_explorer_test_sets
 # ============================================================================
 
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestGetAdaptiveTestSets:
-    """Test get_adaptive_test_sets - returns test sets with Adaptive Testing."""
+class TestGetExplorerTestSets:
+    """Test get_explorer_test_sets - returns test sets with Adaptive Testing."""
 
     def test_returns_only_adaptive_test_sets(
         self,
         test_db,
-        adaptive_and_regular_test_sets,
+        explorer_and_regular_test_sets,
         test_org_id,
     ):
         """Should return only the 2 test sets with Adaptive Testing behavior."""
-        result = get_adaptive_test_sets(
+        result = get_explorer_test_sets(
             db=test_db,
             organization_id=test_org_id,
         )
 
         result_ids = {str(ts.id) for ts in result}
-        sets = adaptive_and_regular_test_sets
+        sets = explorer_and_regular_test_sets
 
-        assert str(sets["adaptive_1"].id) in result_ids
-        assert str(sets["adaptive_2"].id) in result_ids
+        assert str(sets["explorer_1"].id) in result_ids
+        assert str(sets["explorer_2"].id) in result_ids
         assert str(sets["regular"].id) not in result_ids
         assert str(sets["no_attrs"].id) not in result_ids
 
     def test_returns_test_set_model_instances(
         self,
         test_db,
-        adaptive_and_regular_test_sets,
+        explorer_and_regular_test_sets,
         test_org_id,
     ):
         """Returned items should be TestSet model instances."""
-        result = get_adaptive_test_sets(
+        result = get_explorer_test_sets(
             db=test_db,
             organization_id=test_org_id,
         )
@@ -298,11 +297,11 @@ class TestGetAdaptiveTestSets:
     def test_pagination_skip_and_limit(
         self,
         test_db,
-        adaptive_and_regular_test_sets,
+        explorer_and_regular_test_sets,
         test_org_id,
     ):
         """skip/limit should paginate correctly."""
-        all_results = get_adaptive_test_sets(
+        all_results = get_explorer_test_sets(
             db=test_db,
             organization_id=test_org_id,
             skip=0,
@@ -310,7 +309,7 @@ class TestGetAdaptiveTestSets:
         )
         assert len(all_results) >= 2
 
-        page = get_adaptive_test_sets(
+        page = get_explorer_test_sets(
             db=test_db,
             organization_id=test_org_id,
             skip=0,
@@ -318,7 +317,7 @@ class TestGetAdaptiveTestSets:
         )
         assert len(page) == 1
 
-        page2 = get_adaptive_test_sets(
+        page2 = get_explorer_test_sets(
             db=test_db,
             organization_id=test_org_id,
             skip=1,
@@ -330,11 +329,11 @@ class TestGetAdaptiveTestSets:
     def test_sort_order_asc(
         self,
         test_db,
-        adaptive_and_regular_test_sets,
+        explorer_and_regular_test_sets,
         test_org_id,
     ):
         """sort_order='asc' should sort ascending by created_at."""
-        result = get_adaptive_test_sets(
+        result = get_explorer_test_sets(
             db=test_db,
             organization_id=test_org_id,
             sort_order="asc",
@@ -353,7 +352,7 @@ class TestGetAdaptiveTestSets:
         Uses a fake org ID so no pre-existing data interferes.
         """
         fake_org_id = str(uuid.uuid4())
-        result = get_adaptive_test_sets(
+        result = get_explorer_test_sets(
             db=test_db,
             organization_id=fake_org_id,
         )
@@ -362,18 +361,18 @@ class TestGetAdaptiveTestSets:
 
 
 # ============================================================================
-# Tests for create_adaptive_test_set
+# Tests for create_explorer_test_set
 # ============================================================================
 
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestCreateAdaptiveTestSet:
-    """Test create_adaptive_test_set - creates a test set for adaptive testing."""
+class TestCreateExplorerTestSet:
+    """Test create_explorer_test_set - creates a test set for adaptive testing."""
 
     def test_returns_test_set_model(self, test_db, test_org_id, authenticated_user_id):
         """Creating with name and optional description returns a TestSet model."""
-        result = create_adaptive_test_set(
+        result = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -388,7 +387,7 @@ class TestCreateAdaptiveTestSet:
         self, test_db, test_org_id, authenticated_user_id
     ):
         """Created test set has attributes.metadata.behaviors containing Adaptive Testing."""
-        result = create_adaptive_test_set(
+        result = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -401,7 +400,7 @@ class TestCreateAdaptiveTestSet:
 
     def test_has_correct_organization_and_user(self, test_db, test_org_id, authenticated_user_id):
         """Created test set has correct organization_id and user_id."""
-        result = create_adaptive_test_set(
+        result = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -412,7 +411,7 @@ class TestCreateAdaptiveTestSet:
 
     def test_description_optional(self, test_db, test_org_id, authenticated_user_id):
         """Created test set has the given name; description can be omitted."""
-        result = create_adaptive_test_set(
+        result = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -423,18 +422,18 @@ class TestCreateAdaptiveTestSet:
 
 
 # ============================================================================
-# Tests for delete_adaptive_test_set
+# Tests for delete_explorer_test_set
 # ============================================================================
 
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestDeleteAdaptiveTestSet:
-    """Test delete_adaptive_test_set - removes adaptive test sets only."""
+class TestDeleteExplorerTestSet:
+    """Test delete_explorer_test_set - removes adaptive test sets only."""
 
     def test_delete_existing_adaptive_set(self, test_db, test_org_id, authenticated_user_id):
         """Created adaptive set is deleted and no longer listed."""
-        created = create_adaptive_test_set(
+        created = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -442,7 +441,7 @@ class TestDeleteAdaptiveTestSet:
         )
         created_id = str(created.id)
 
-        deleted = delete_adaptive_test_set(
+        deleted = delete_explorer_test_set(
             db=test_db,
             test_set_identifier=created_id,
             organization_id=test_org_id,
@@ -450,14 +449,14 @@ class TestDeleteAdaptiveTestSet:
         )
 
         assert deleted.id == created.id
-        listed = get_adaptive_test_sets(db=test_db, organization_id=test_org_id, limit=500)
+        listed = get_explorer_test_sets(db=test_db, organization_id=test_org_id, limit=500)
         assert all(str(ts.id) != created_id for ts in listed)
 
     def test_delete_nonexistent_set(self, test_db, test_org_id, authenticated_user_id):
         """Fake UUID raises ValueError."""
         fake_id = str(uuid.uuid4())
         with pytest.raises(ValueError, match="not found"):
-            delete_adaptive_test_set(
+            delete_explorer_test_set(
                 db=test_db,
                 test_set_identifier=fake_id,
                 organization_id=test_org_id,
@@ -465,12 +464,12 @@ class TestDeleteAdaptiveTestSet:
             )
 
     def test_delete_non_adaptive_set(
-        self, test_db, adaptive_and_regular_test_sets, test_org_id, authenticated_user_id
+        self, test_db, explorer_and_regular_test_sets, test_org_id, authenticated_user_id
     ):
         """Regular test set without Adaptive Testing behavior raises ValueError."""
-        regular = adaptive_and_regular_test_sets["regular"]
-        with pytest.raises(ValueError, match="not configured for adaptive testing"):
-            delete_adaptive_test_set(
+        regular = explorer_and_regular_test_sets["regular"]
+        with pytest.raises(ValueError, match="not configured for Explorer"):
+            delete_explorer_test_set(
                 db=test_db,
                 test_set_identifier=str(regular.id),
                 organization_id=test_org_id,
@@ -489,12 +488,12 @@ class TestCreateTestNode:
     """Test create_test_node - creates test nodes in a test set."""
 
     def test_creates_test_under_existing_topic(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should create a test under an existing topic."""
         result = create_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety",
@@ -510,7 +509,7 @@ class TestCreateTestNode:
         # Verify it appears in the tree tests
         tests = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety",
@@ -519,12 +518,12 @@ class TestCreateTestNode:
         assert "Is this harmful?" in inputs
 
     def test_creates_test_with_new_topic_and_ancestors(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should auto-create topic markers when topic is new."""
         result = create_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Fairness/Gender",
@@ -536,7 +535,7 @@ class TestCreateTestNode:
         # Verify ancestor topic markers were created
         topics = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -545,12 +544,12 @@ class TestCreateTestNode:
         assert "Fairness/Gender" in topic_paths
 
     def test_returns_correct_test_tree_node(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Returned TestTreeNode should have all correct fields."""
         result = create_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety/Violence",
@@ -569,19 +568,19 @@ class TestCreateTestNode:
         assert result.id  # Should have an ID
 
     def test_created_test_is_associated_with_test_set(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Tree node count should increase after adding a test."""
         nodes_before = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
 
         create_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             topic="Safety",
@@ -590,7 +589,7 @@ class TestCreateTestNode:
 
         nodes_after = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -608,11 +607,11 @@ class TestCreateTestNode:
 class TestUpdateTestNode:
     """Test update_test_node - updates test nodes in a test set."""
 
-    def _create_test(self, test_db, adaptive_test_set, test_org_id, user_id):
+    def _create_test(self, test_db, explorer_test_set, test_org_id, user_id):
         """Helper to create a test node for update tests."""
         return create_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=user_id,
             topic="Safety",
@@ -621,13 +620,13 @@ class TestUpdateTestNode:
             labeler="user",
         )
 
-    def test_update_input(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+    def test_update_input(self, test_db, explorer_test_set, test_org_id, authenticated_user_id):
         """Should update the test input text."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         result = update_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.UUID(node.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -639,13 +638,13 @@ class TestUpdateTestNode:
         assert result.output == "Original output"
         assert result.topic == "Safety"
 
-    def test_update_output(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+    def test_update_output(self, test_db, explorer_test_set, test_org_id, authenticated_user_id):
         """Should update the test output."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         result = update_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.UUID(node.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -656,13 +655,13 @@ class TestUpdateTestNode:
         assert result.output == "Updated output"
         assert result.input == "Original input"
 
-    def test_update_label(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+    def test_update_label(self, test_db, explorer_test_set, test_org_id, authenticated_user_id):
         """Should update the label."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         result = update_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.UUID(node.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -673,14 +672,14 @@ class TestUpdateTestNode:
         assert result.label == "pass"
 
     def test_update_model_score(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should update the model score."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         result = update_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.UUID(node.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -690,13 +689,13 @@ class TestUpdateTestNode:
         assert result is not None
         assert result.model_score == 0.85
 
-    def test_update_topic(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+    def test_update_topic(self, test_db, explorer_test_set, test_org_id, authenticated_user_id):
         """Should change the topic and create ancestors if needed."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         result = update_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.UUID(node.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -709,7 +708,7 @@ class TestUpdateTestNode:
         # Verify ancestors were created
         topics = get_tree_topics(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -718,12 +717,12 @@ class TestUpdateTestNode:
         assert "Fairness/Gender" in topic_paths
 
     def test_returns_none_for_nonexistent_test(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should return None when test ID does not exist."""
         result = update_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.uuid4(),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -743,11 +742,11 @@ class TestUpdateTestNode:
 class TestDeleteTestNode:
     """Test delete_test_node - deletes test nodes from a test set."""
 
-    def _create_test(self, test_db, adaptive_test_set, test_org_id, user_id):
+    def _create_test(self, test_db, explorer_test_set, test_org_id, user_id):
         """Helper to create a test node for deletion tests."""
         return create_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=user_id,
             topic="Safety",
@@ -757,14 +756,14 @@ class TestDeleteTestNode:
         )
 
     def test_deletes_existing_test(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should return True when test exists and is deleted."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         result = delete_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.UUID(node.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -773,14 +772,14 @@ class TestDeleteTestNode:
         assert result is True
 
     def test_deleted_test_no_longer_in_tree(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Deleted test should not appear in get_tree_tests."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         delete_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.UUID(node.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -788,7 +787,7 @@ class TestDeleteTestNode:
 
         tests = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -796,21 +795,21 @@ class TestDeleteTestNode:
         assert node.id not in test_ids
 
     def test_node_count_decreases_after_delete(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Tree node count should decrease after deleting a test."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         nodes_before = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
 
         delete_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.UUID(node.id),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -818,7 +817,7 @@ class TestDeleteTestNode:
 
         nodes_after = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -826,12 +825,12 @@ class TestDeleteTestNode:
         assert len(nodes_after) < len(nodes_before)
 
     def test_returns_false_for_nonexistent_test(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should return False when test ID does not exist."""
         result = delete_test_node(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             test_id=uuid.uuid4(),
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -840,10 +839,10 @@ class TestDeleteTestNode:
         assert result is False
 
     def test_returns_false_for_wrong_test_set(
-        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+        self, test_db, explorer_test_set, test_org_id, authenticated_user_id
     ):
         """Should return False when test exists but in a different test set."""
-        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+        node = self._create_test(test_db, explorer_test_set, test_org_id, authenticated_user_id)
 
         result = delete_test_node(
             db=test_db,
@@ -857,13 +856,13 @@ class TestDeleteTestNode:
 
 
 # ============================================================================
-# Tests for import_adaptive_test_set_from_source
+# Tests for import_explorer_test_set_from_source
 # ============================================================================
 
 
 @pytest.mark.service
-class TestImportAdaptiveTestSetFromSource:
-    """Test import_adaptive_test_set_from_source."""
+class TestImportExplorerTestSetFromSource:
+    """Test import_explorer_test_set_from_source."""
 
     def test_imports_tests_and_skips_markers_and_empty_prompts(
         self,
@@ -873,7 +872,7 @@ class TestImportAdaptiveTestSetFromSource:
         regular_test_set_for_import,
     ):
         src = regular_test_set_for_import
-        result = import_adaptive_test_set_from_source(
+        result = import_explorer_test_set_from_source(
             db=test_db,
             source_test_set_identifier=str(src.id),
             organization_id=test_org_id,
@@ -883,9 +882,9 @@ class TestImportAdaptiveTestSetFromSource:
         assert result["imported"] == 2
         assert result["skipped"] == 1
         new_set = result["test_set"]
-        assert "Adaptive Testing" in (
-            (new_set.attributes or {}).get("metadata") or {}
-        ).get("behaviors", [])
+        assert "Adaptive Testing" in ((new_set.attributes or {}).get("metadata") or {}).get(
+            "behaviors", []
+        )
 
         tests = get_tree_tests(
             db=test_db,
@@ -904,7 +903,7 @@ class TestImportAdaptiveTestSetFromSource:
         test_org_id,
         authenticated_user_id,
     ):
-        adaptive = create_adaptive_test_set(
+        adaptive = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -912,8 +911,8 @@ class TestImportAdaptiveTestSetFromSource:
         )
         test_db.commit()
 
-        with pytest.raises(ValueError, match="already configured for adaptive"):
-            import_adaptive_test_set_from_source(
+        with pytest.raises(ValueError, match="already configured for Explorer"):
+            import_explorer_test_set_from_source(
                 db=test_db,
                 source_test_set_identifier=str(adaptive.id),
                 organization_id=test_org_id,
@@ -927,7 +926,7 @@ class TestImportAdaptiveTestSetFromSource:
         authenticated_user_id,
     ):
         with pytest.raises(ValueError, match="not found"):
-            import_adaptive_test_set_from_source(
+            import_explorer_test_set_from_source(
                 db=test_db,
                 source_test_set_identifier=str(uuid.uuid4()),
                 organization_id=test_org_id,
@@ -936,13 +935,13 @@ class TestImportAdaptiveTestSetFromSource:
 
 
 # ============================================================================
-# Tests for export_regular_test_set_from_adaptive
+# Tests for export_regular_test_set_from_explorer
 # ============================================================================
 
 
 @pytest.mark.service
-class TestExportRegularTestSetFromAdaptive:
-    """Test export_regular_test_set_from_adaptive."""
+class TestExportRegularTestSetFromExplorer:
+    """Test export_regular_test_set_from_explorer."""
 
     def test_exports_tests_skips_markers_and_preserves_topics(
         self,
@@ -950,7 +949,7 @@ class TestExportRegularTestSetFromAdaptive:
         test_org_id,
         authenticated_user_id,
     ):
-        adaptive = create_adaptive_test_set(
+        adaptive = create_explorer_test_set(
             db=test_db,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
@@ -984,7 +983,7 @@ class TestExportRegularTestSetFromAdaptive:
         )
         test_db.commit()
 
-        result = export_regular_test_set_from_adaptive(
+        result = export_regular_test_set_from_explorer(
             db=test_db,
             source_test_set_identifier=str(adaptive.id),
             organization_id=test_org_id,
@@ -995,9 +994,7 @@ class TestExportRegularTestSetFromAdaptive:
         assert result["skipped"] == 2
         new_set = result["test_set"]
         assert "(Exported)" in new_set.name
-        meta_behaviors = (
-            (new_set.attributes or {}).get("metadata") or {}
-        ).get("behaviors") or []
+        meta_behaviors = ((new_set.attributes or {}).get("metadata") or {}).get("behaviors") or []
         assert "Adaptive Testing" not in meta_behaviors
         assert (new_set.attributes or {}).get("adaptive_settings") is None
 
@@ -1025,8 +1022,8 @@ class TestExportRegularTestSetFromAdaptive:
         regular_test_set_for_import,
     ):
         src = regular_test_set_for_import
-        with pytest.raises(ValueError, match="not configured for adaptive"):
-            export_regular_test_set_from_adaptive(
+        with pytest.raises(ValueError, match="not configured for Explorer"):
+            export_regular_test_set_from_explorer(
                 db=test_db,
                 source_test_set_identifier=str(src.id),
                 organization_id=test_org_id,
@@ -1040,7 +1037,7 @@ class TestExportRegularTestSetFromAdaptive:
         authenticated_user_id,
     ):
         with pytest.raises(ValueError, match="not found"):
-            export_regular_test_set_from_adaptive(
+            export_regular_test_set_from_explorer(
                 db=test_db,
                 source_test_set_identifier=str(uuid.uuid4()),
                 organization_id=test_org_id,

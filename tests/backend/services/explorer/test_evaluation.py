@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services.explorer import (
-    evaluate_tests_for_adaptive_set,
+    evaluate_tests_for_explorer_set,
     get_tree_nodes,
     get_tree_tests,
 )
@@ -39,13 +39,13 @@ def _mock_evaluator_result(metric_name, label, score):
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.service
-class TestEvaluateTestsForAdaptiveSet:
-    """Test evaluate_tests_for_adaptive_set."""
+class TestEvaluateTestsForExplorerSet:
+    """Test evaluate_tests_for_explorer_set."""
 
     async def test_evaluate_returns_shape(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -59,9 +59,9 @@ class TestEvaluateTestsForAdaptiveSet:
                 new=AsyncMock(return_value=_mock_evaluator_result("TestMetric", "pass", 0.9)),
             ),
         ):
-            result = await evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
@@ -87,7 +87,7 @@ class TestEvaluateTestsForAdaptiveSet:
     async def test_evaluate_persists_metadata(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -106,9 +106,9 @@ class TestEvaluateTestsForAdaptiveSet:
                 new=AsyncMock(return_value=_mock_evaluator_result("PersistMetric", "fail", 0.3)),
             ),
         ):
-            result = await evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
@@ -127,14 +127,14 @@ class TestEvaluateTestsForAdaptiveSet:
     async def test_evaluate_metric_does_not_exist_raises(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
         with pytest.raises(ValueError, match="[Mm]etric.*does not exist"):
-            await evaluate_tests_for_adaptive_set(
+            await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=["NonExistentMetric"],
@@ -150,7 +150,7 @@ class TestEvaluateTestsForAdaptiveSet:
         test_db.commit()
         with patch(_FACTORY_PATCH, return_value=MagicMock()):
             with pytest.raises(ValueError, match="[Tt]est set not found"):
-                await evaluate_tests_for_adaptive_set(
+                await evaluate_tests_for_explorer_set(
                     db=test_db,
                     test_set_identifier=str(uuid.uuid4()),
                     organization_id=test_org_id,
@@ -161,7 +161,7 @@ class TestEvaluateTestsForAdaptiveSet:
     async def test_evaluate_filter_by_test_ids(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -170,7 +170,7 @@ class TestEvaluateTestsForAdaptiveSet:
 
         tests = get_tree_tests(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -183,9 +183,9 @@ class TestEvaluateTestsForAdaptiveSet:
                 new=AsyncMock(return_value=_mock_evaluator_result("FilterMetric", "pass", 0.8)),
             ),
         ):
-            result = await evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
@@ -200,7 +200,7 @@ class TestEvaluateTestsForAdaptiveSet:
     async def test_evaluate_filter_by_topic_include_subtopics(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -214,9 +214,9 @@ class TestEvaluateTestsForAdaptiveSet:
                 new=AsyncMock(return_value=_mock_evaluator_result("TopicMetric", "pass", 0.7)),
             ),
         ):
-            result = await evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
@@ -230,7 +230,7 @@ class TestEvaluateTestsForAdaptiveSet:
     async def test_evaluate_filter_by_topic_exclude_subtopics(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -246,14 +246,12 @@ class TestEvaluateTestsForAdaptiveSet:
             patch(_FACTORY_PATCH, return_value=MagicMock()),
             patch(
                 _RUN_METRICS_PATCH,
-                new=AsyncMock(
-                    return_value=_mock_evaluator_result("TopicNoSubMetric", "pass", 0.6)
-                ),
+                new=AsyncMock(return_value=_mock_evaluator_result("TopicNoSubMetric", "pass", 0.6)),
             ),
         ):
-            result = await evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
@@ -267,7 +265,7 @@ class TestEvaluateTestsForAdaptiveSet:
     async def test_evaluate_skips_topic_markers(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -281,9 +279,9 @@ class TestEvaluateTestsForAdaptiveSet:
                 new=AsyncMock(return_value=_mock_evaluator_result("SkipMarker", "pass", 1.0)),
             ),
         ):
-            result = await evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
@@ -293,7 +291,7 @@ class TestEvaluateTestsForAdaptiveSet:
         result_ids = {r["test_id"] for r in result["results"]}
         tree = get_tree_nodes(
             db=test_db,
-            test_set_id=adaptive_test_set.id,
+            test_set_id=explorer_test_set.id,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -303,7 +301,7 @@ class TestEvaluateTestsForAdaptiveSet:
     async def test_evaluate_skips_already_labeled(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -318,9 +316,9 @@ class TestEvaluateTestsForAdaptiveSet:
                 new=AsyncMock(return_value=_mock_evaluator_result("SkipMetric", "pass", 1.0)),
             ),
         ):
-            result = await evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
@@ -334,7 +332,7 @@ class TestEvaluateTestsForAdaptiveSet:
     async def test_evaluate_overwrite_relabels(
         self,
         test_db: Session,
-        adaptive_test_set,
+        explorer_test_set,
         test_org_id,
         authenticated_user_id,
     ):
@@ -346,14 +344,12 @@ class TestEvaluateTestsForAdaptiveSet:
             patch(_FACTORY_PATCH, return_value=MagicMock()),
             patch(
                 _RUN_METRICS_PATCH,
-                new=AsyncMock(
-                    return_value=_mock_evaluator_result("OverwriteMetric", "pass", 1.0)
-                ),
+                new=AsyncMock(return_value=_mock_evaluator_result("OverwriteMetric", "pass", 1.0)),
             ),
         ):
-            result = await evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_explorer_set(
                 db=test_db,
-                test_set_identifier=str(adaptive_test_set.id),
+                test_set_identifier=str(explorer_test_set.id),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],

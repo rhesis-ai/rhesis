@@ -5,16 +5,16 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services.explorer.settings import (
-    get_adaptive_settings,
+    get_explorer_settings,
     resolve_endpoint_id,
     resolve_metric_names,
-    update_adaptive_settings,
+    update_explorer_settings,
 )
-from rhesis.backend.app.services.explorer.tests import create_adaptive_test_set
+from rhesis.backend.app.services.explorer.tests import create_explorer_test_set
 
 
-def _create_adaptive_set(db: Session, organization_id: str, user_id: str) -> models.TestSet:
-    test_set = create_adaptive_test_set(
+def _create_explorer_set(db: Session, organization_id: str, user_id: str) -> models.TestSet:
+    test_set = create_explorer_test_set(
         db=db,
         organization_id=organization_id,
         user_id=user_id,
@@ -67,11 +67,11 @@ def _create_metric(db: Session, organization_id: str, user_id: str, name: str) -
 
 @pytest.mark.integration
 @pytest.mark.service
-class TestAdaptiveSettings:
+class TestExplorerSettings:
     def test_get_settings_empty(self, test_db: Session, test_org_id, authenticated_user_id):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
 
-        result = get_adaptive_settings(
+        result = get_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -82,11 +82,11 @@ class TestAdaptiveSettings:
         assert result.metrics == []
 
     def test_update_default_endpoint(self, test_db: Session, test_org_id, authenticated_user_id):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         project = _create_project(test_db, test_org_id, authenticated_user_id)
         endpoint = _create_endpoint(test_db, test_org_id, authenticated_user_id, project.id)
 
-        result = update_adaptive_settings(
+        result = update_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -99,10 +99,10 @@ class TestAdaptiveSettings:
         assert result.default_endpoint.name == endpoint.name
 
     def test_update_metrics(self, test_db: Session, test_org_id, authenticated_user_id):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         metric = _create_metric(test_db, test_org_id, authenticated_user_id, "adaptive-metric-a")
 
-        result = update_adaptive_settings(
+        result = update_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -115,12 +115,12 @@ class TestAdaptiveSettings:
         assert result.metrics[0].name == metric.name
 
     def test_update_both(self, test_db: Session, test_org_id, authenticated_user_id):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         project = _create_project(test_db, test_org_id, authenticated_user_id)
         endpoint = _create_endpoint(test_db, test_org_id, authenticated_user_id, project.id)
         metric = _create_metric(test_db, test_org_id, authenticated_user_id, "adaptive-metric-b")
 
-        result = update_adaptive_settings(
+        result = update_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -135,10 +135,10 @@ class TestAdaptiveSettings:
         assert str(result.metrics[0].id) == str(metric.id)
 
     def test_update_endpoint_not_found(self, test_db: Session, test_org_id, authenticated_user_id):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
 
         with pytest.raises(ValueError, match="Endpoint not found"):
-            update_adaptive_settings(
+            update_explorer_settings(
                 db=test_db,
                 test_set=test_set,
                 organization_id=test_org_id,
@@ -147,10 +147,10 @@ class TestAdaptiveSettings:
             )
 
     def test_update_metric_not_found(self, test_db: Session, test_org_id, authenticated_user_id):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
 
         with pytest.raises(ValueError, match="Metric with id"):
-            update_adaptive_settings(
+            update_explorer_settings(
                 db=test_db,
                 test_set=test_set,
                 organization_id=test_org_id,
@@ -159,18 +159,18 @@ class TestAdaptiveSettings:
             )
 
     def test_update_replaces_metrics(self, test_db: Session, test_org_id, authenticated_user_id):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         metric_1 = _create_metric(test_db, test_org_id, authenticated_user_id, "adaptive-metric-c1")
         metric_2 = _create_metric(test_db, test_org_id, authenticated_user_id, "adaptive-metric-c2")
 
-        update_adaptive_settings(
+        update_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             metric_ids=[metric_1.id],
         )
-        result = update_adaptive_settings(
+        result = update_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -181,13 +181,15 @@ class TestAdaptiveSettings:
         assert len(result.metrics) == 1
         assert str(result.metrics[0].id) == str(metric_2.id)
 
-    def test_get_settings_returns_updated(self, test_db: Session, test_org_id, authenticated_user_id):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+    def test_get_settings_returns_updated(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         project = _create_project(test_db, test_org_id, authenticated_user_id)
         endpoint = _create_endpoint(test_db, test_org_id, authenticated_user_id, project.id)
         metric = _create_metric(test_db, test_org_id, authenticated_user_id, "adaptive-metric-d")
 
-        update_adaptive_settings(
+        update_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -195,7 +197,7 @@ class TestAdaptiveSettings:
             default_endpoint_id=endpoint.id,
             metric_ids=[metric.id],
         )
-        result = get_adaptive_settings(
+        result = get_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -210,7 +212,7 @@ class TestAdaptiveSettings:
     def test_resolve_endpoint_id_prefers_request_value(
         self, test_db: Session, test_org_id, authenticated_user_id
     ):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         request_endpoint_id = uuid.uuid4()
 
         resolved = resolve_endpoint_id(
@@ -223,10 +225,10 @@ class TestAdaptiveSettings:
     def test_resolve_endpoint_id_falls_back_to_settings(
         self, test_db: Session, test_org_id, authenticated_user_id
     ):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         project = _create_project(test_db, test_org_id, authenticated_user_id)
         endpoint = _create_endpoint(test_db, test_org_id, authenticated_user_id, project.id)
-        update_adaptive_settings(
+        update_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -245,7 +247,7 @@ class TestAdaptiveSettings:
     def test_resolve_endpoint_id_raises_when_missing_everywhere(
         self, test_db: Session, test_org_id, authenticated_user_id
     ):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
 
         with pytest.raises(
             ValueError,
@@ -256,7 +258,7 @@ class TestAdaptiveSettings:
     def test_resolve_metric_names_prefers_request_value(
         self, test_db: Session, test_org_id, authenticated_user_id
     ):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         metric_names = ["answer_relevancy", "faithfulness"]
 
         resolved = resolve_metric_names(
@@ -271,9 +273,9 @@ class TestAdaptiveSettings:
     def test_resolve_metric_names_falls_back_to_settings(
         self, test_db: Session, test_org_id, authenticated_user_id
     ):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
         metric = _create_metric(test_db, test_org_id, authenticated_user_id, "adaptive-metric-e")
-        update_adaptive_settings(
+        update_explorer_settings(
             db=test_db,
             test_set=test_set,
             organization_id=test_org_id,
@@ -294,7 +296,7 @@ class TestAdaptiveSettings:
     def test_resolve_metric_names_raises_when_missing_everywhere(
         self, test_db: Session, test_org_id, authenticated_user_id
     ):
-        test_set = _create_adaptive_set(test_db, test_org_id, authenticated_user_id)
+        test_set = _create_explorer_set(test_db, test_org_id, authenticated_user_id)
 
         with pytest.raises(
             ValueError,

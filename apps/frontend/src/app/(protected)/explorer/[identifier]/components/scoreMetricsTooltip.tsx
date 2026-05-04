@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
 import type { TooltipProps } from '@mui/material/Tooltip';
-import type { AdaptiveMetricEvalDetail } from '@/utils/api-client/interfaces/explorer';
+import type { ExplorerMetricEvalDetail } from '@/utils/api-client/interfaces/explorer';
 
-function resolveMetricReason(m: AdaptiveMetricEvalDetail): string | null {
+function resolveMetricReason(m: ExplorerMetricEvalDetail): string | null {
   if (typeof m.reason === 'string' && m.reason.trim()) {
     return m.reason.trim();
   }
@@ -22,7 +22,7 @@ export function ScoreMetricsTooltip({
   metrics,
   children,
 }: {
-  metrics: Record<string, AdaptiveMetricEvalDetail> | null | undefined;
+  metrics: Record<string, ExplorerMetricEvalDetail> | null | undefined;
   children: TooltipProps['children'];
 }) {
   return (
@@ -72,7 +72,7 @@ export function ScoreMetricsTooltip({
 
 /** Tooltip title: Name / Reason lines for each metric. */
 export function renderScoreMetricsTooltip(
-  metrics: Record<string, AdaptiveMetricEvalDetail> | null | undefined
+  metrics: Record<string, ExplorerMetricEvalDetail> | null | undefined
 ): ReactNode {
   if (!metrics || Object.keys(metrics).length === 0) {
     return (

@@ -81,7 +81,7 @@ class MetricType:
     CUSTOM_PROMPT = "custom-prompt"
 
 
-# Display name stored in test_set.attributes["metadata"]["behaviors"] for adaptive testing sets
+# Display name stored in test_set.attributes["metadata"]["behaviors"] for explorer test sets
 ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
 
 

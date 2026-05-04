@@ -7,20 +7,20 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.schemas.explorer import (
-    AdaptiveSettingsEndpoint,
-    AdaptiveSettingsMetric,
-    AdaptiveSettingsResponse,
+    ExplorerSettingsEndpoint,
+    ExplorerSettingsMetric,
+    ExplorerSettingsResponse,
 )
 
-from .tests import _is_adaptive_test_set
+from .tests import _is_explorer_test_set
 
 
 def _get_default_endpoint_id_from_attributes(
     test_set: models.TestSet,
 ) -> Optional[UUID]:
     attrs = test_set.attributes or {}
-    adaptive_settings = attrs.get("adaptive_settings") or {}
-    raw_id = adaptive_settings.get("default_endpoint_id")
+    explorer_settings = attrs.get("adaptive_settings") or {}
+    raw_id = explorer_settings.get("default_endpoint_id")
     if not raw_id:
         return None
     try:
@@ -61,14 +61,14 @@ def resolve_metric_names(
     return metric_names
 
 
-def get_adaptive_settings(
+def get_explorer_settings(
     db: Session,
     test_set: models.TestSet,
     organization_id: str,
     user_id: str,
-) -> AdaptiveSettingsResponse:
-    if not _is_adaptive_test_set(test_set):
-        raise ValueError("Test set is not configured for adaptive testing")
+) -> ExplorerSettingsResponse:
+    if not _is_explorer_test_set(test_set):
+        raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
 
     endpoint_ref = None
     endpoint_id = _get_default_endpoint_id_from_attributes(test_set)
@@ -80,26 +80,26 @@ def get_adaptive_settings(
             user_id=user_id,
         )
         if endpoint is not None:
-            endpoint_ref = AdaptiveSettingsEndpoint(id=endpoint.id, name=endpoint.name)
+            endpoint_ref = ExplorerSettingsEndpoint(id=endpoint.id, name=endpoint.name)
 
     metrics = [
-        AdaptiveSettingsMetric(id=metric.id, name=metric.name)
+        ExplorerSettingsMetric(id=metric.id, name=metric.name)
         for metric in (test_set.metrics or [])
     ]
 
-    return AdaptiveSettingsResponse(default_endpoint=endpoint_ref, metrics=metrics)
+    return ExplorerSettingsResponse(default_endpoint=endpoint_ref, metrics=metrics)
 
 
-def update_adaptive_settings(
+def update_explorer_settings(
     db: Session,
     test_set: models.TestSet,
     organization_id: str,
     user_id: str,
     default_endpoint_id: Optional[UUID] = None,
     metric_ids: Optional[list[UUID]] = None,
-) -> AdaptiveSettingsResponse:
-    if not _is_adaptive_test_set(test_set):
-        raise ValueError("Test set is not configured for adaptive testing")
+) -> ExplorerSettingsResponse:
+    if not _is_explorer_test_set(test_set):
+        raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
 
     if default_endpoint_id is not None:
         endpoint = crud.get_endpoint(
@@ -112,9 +112,9 @@ def update_adaptive_settings(
             raise ValueError(f"Endpoint not found: {default_endpoint_id}")
 
         attrs = dict(test_set.attributes or {})
-        adaptive_settings = dict(attrs.get("adaptive_settings") or {})
-        adaptive_settings["default_endpoint_id"] = str(default_endpoint_id)
-        attrs["adaptive_settings"] = adaptive_settings
+        explorer_settings = dict(attrs.get("adaptive_settings") or {})
+        explorer_settings["default_endpoint_id"] = str(default_endpoint_id)
+        attrs["adaptive_settings"] = explorer_settings
         test_set.attributes = attrs
         db.add(test_set)
 
@@ -146,7 +146,7 @@ def update_adaptive_settings(
 
     db.flush()
     db.refresh(test_set)
-    return get_adaptive_settings(
+    return get_explorer_settings(
         db=db,
         test_set=test_set,
         organization_id=organization_id,

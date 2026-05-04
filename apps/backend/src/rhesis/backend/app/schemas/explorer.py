@@ -1,4 +1,4 @@
-"""Schemas for adaptive testing API (generate outputs, evaluate, etc.)."""
+"""Schemas for Explorer API (generate outputs, evaluate, etc.)."""
 
 from typing import Any, Dict, List, Optional
 
@@ -8,11 +8,11 @@ from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.test_set import TestSet as TestSetSchema
 
 # ---------------------------------------------------------------------------
-# Create / update adaptive test nodes
+# Create / update explorer test nodes
 # ---------------------------------------------------------------------------
 
 
-class CreateAdaptiveTestBody(BaseModel):
+class CreateExplorerTestBody(BaseModel):
     """JSON body for POST /explorer/{{id}}/tests.
 
     Single model avoids FastAPI multi-``Body()`` parsing edge cases with the
@@ -41,7 +41,7 @@ class CreateAdaptiveTestBody(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class ImportAdaptiveTestSetResponse(Base):
+class ImportExplorerTestSetResponse(Base):
     """Response for POST /explorer/import/{source_test_set_id}."""
 
     test_set: TestSetSchema
@@ -50,7 +50,7 @@ class ImportAdaptiveTestSetResponse(Base):
     skipped_test_ids: List[str] = Field(default_factory=list)
 
 
-class ExportAdaptiveTestSetResponse(Base):
+class ExportExplorerTestSetResponse(Base):
     """Response for POST /explorer/export/{source_test_set_id}."""
 
     test_set: TestSetSchema
@@ -103,7 +103,7 @@ class GenerateOutputsResponse(Base):
 
 
 class EvaluateRequest(Base):
-    """Request body for evaluating adaptive tests with specified metrics."""
+    """Request body for evaluating explorer tests with specified metrics."""
 
     metric_names: Optional[List[str]] = None
     test_ids: Optional[List[UUID4]] = None
@@ -112,7 +112,7 @@ class EvaluateRequest(Base):
     overwrite: bool = False
 
 
-class AdaptiveMetricEvalDetail(BaseModel):
+class ExplorerMetricEvalDetail(BaseModel):
     """Per-metric evaluation row (keyed by metric name on the parent model)."""
 
     score: float
@@ -128,7 +128,7 @@ class EvaluateResultItem(BaseModel):
     label: str
     labeler: str
     model_score: float
-    metrics: Optional[Dict[str, AdaptiveMetricEvalDetail]] = None
+    metrics: Optional[Dict[str, ExplorerMetricEvalDetail]] = None
 
 
 class EvaluateFailedItem(BaseModel):
@@ -269,7 +269,7 @@ class SuggestionEvalItem(BaseModel):
     label: str = ""
     labeler: str = ""
     model_score: float = 0.0
-    metrics: Optional[Dict[str, AdaptiveMetricEvalDetail]] = None
+    metrics: Optional[Dict[str, ExplorerMetricEvalDetail]] = None
     error: Optional[str] = None
 
 
@@ -319,12 +319,12 @@ class SuggestionPipelineRequest(Base):
 
 
 # ---------------------------------------------------------------------------
-# Adaptive testing settings
+# Explorer settings (stored under attributes.adaptive_settings)
 # ---------------------------------------------------------------------------
 
 
-class AdaptiveSettingsUpdate(Base):
-    """Request body for updating adaptive testing settings.
+class ExplorerSettingsUpdate(Base):
+    """Request body for updating explorer test-set settings.
 
     Both fields are optional so callers can update only what changed.
     """
@@ -333,22 +333,22 @@ class AdaptiveSettingsUpdate(Base):
     metric_ids: Optional[List[UUID4]] = None
 
 
-class AdaptiveSettingsMetric(BaseModel):
+class ExplorerSettingsMetric(BaseModel):
     """Lightweight metric reference returned inside settings."""
 
     id: UUID4
     name: str
 
 
-class AdaptiveSettingsEndpoint(BaseModel):
+class ExplorerSettingsEndpoint(BaseModel):
     """Lightweight endpoint reference returned inside settings."""
 
     id: UUID4
     name: str
 
 
-class AdaptiveSettingsResponse(Base):
-    """Response for GET/PUT adaptive testing settings."""
+class ExplorerSettingsResponse(Base):
+    """Response for GET/PUT explorer test-set settings."""
 
-    default_endpoint: Optional[AdaptiveSettingsEndpoint] = None
-    metrics: List[AdaptiveSettingsMetric] = []
+    default_endpoint: Optional[ExplorerSettingsEndpoint] = None
+    metrics: List[ExplorerSettingsMetric] = []

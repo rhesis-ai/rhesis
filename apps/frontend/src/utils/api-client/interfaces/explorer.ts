@@ -4,10 +4,10 @@
  */
 
 // =============================================================================
-// Adaptive Test Set Interface
+// Explorer test set (TestSet JSON from GET /explorer)
 // =============================================================================
 
-export interface AdaptiveTestSet {
+export interface ExplorerTestSet {
   id: string;
   name: string;
   description?: string;
@@ -22,16 +22,16 @@ export interface AdaptiveTestSet {
 }
 
 /** Response from POST /explorer/import/{source_test_set_id} */
-export interface ImportAdaptiveTestSetResponse {
-  test_set: AdaptiveTestSet;
+export interface ImportExplorerTestSetResponse {
+  test_set: ExplorerTestSet;
   imported: number;
   skipped: number;
   skipped_test_ids: string[];
 }
 
 /** Response from POST /explorer/export/{source_test_set_id} */
-export interface ExportAdaptiveTestSetResponse {
-  test_set: AdaptiveTestSet;
+export interface ExportExplorerTestSetResponse {
+  test_set: ExplorerTestSet;
   exported: number;
   skipped: number;
   skipped_test_ids: string[];
@@ -42,7 +42,7 @@ export interface ExportAdaptiveTestSetResponse {
 // =============================================================================
 
 /** Per-metric evaluation row (tree/API key is metric name). */
-export interface AdaptiveMetricEvalDetail {
+export interface ExplorerMetricEvalDetail {
   score: number;
   is_successful: boolean;
   reason?: string | null;
@@ -58,7 +58,7 @@ export interface TestNode {
   labeler: string;
   to_eval: boolean;
   model_score: number;
-  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
 }
 
 export interface TestNodeCreate {
@@ -105,23 +105,6 @@ export interface TopicCreate {
 export interface TopicUpdate {
   new_name?: string;
   new_path?: string;
-}
-
-// =============================================================================
-// Tree Interfaces
-// =============================================================================
-
-export interface TreeValidation {
-  valid: boolean;
-  missing_markers: string[];
-  topics_with_tests: string[];
-  topics_with_markers: string[];
-}
-
-export interface TreeStats {
-  total_tests: number;
-  total_topics: number;
-  tests_by_topic: Record<string, number>;
 }
 
 // =============================================================================
@@ -184,7 +167,7 @@ export interface EvaluateResultItem {
   label: string;
   labeler: string;
   model_score: number;
-  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
 }
 
 export interface EvaluateFailedItem {
@@ -296,7 +279,7 @@ export interface SuggestionEvalStreamItemEvent {
   label: string;
   labeler: string;
   model_score: number;
-  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
   error: string | null;
 }
 
@@ -370,7 +353,7 @@ export interface PipelineEvaluationEvent {
   label: string;
   labeler: string;
   model_score: number;
-  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
   error: string | null;
 }
 
@@ -402,25 +385,25 @@ export type SuggestionPipelineEvent =
   | PipelineDoneEvent;
 
 // =============================================================================
-// Adaptive Settings
+// Explorer settings (stored server-side under adaptive_settings)
 // =============================================================================
 
-export interface AdaptiveSettingsMetric {
+export interface ExplorerSettingsMetric {
   id: string;
   name: string;
 }
 
-export interface AdaptiveSettingsEndpoint {
+export interface ExplorerSettingsEndpoint {
   id: string;
   name: string;
 }
 
-export interface AdaptiveSettings {
-  default_endpoint: AdaptiveSettingsEndpoint | null;
-  metrics: AdaptiveSettingsMetric[];
+export interface ExplorerSettings {
+  default_endpoint: ExplorerSettingsEndpoint | null;
+  metrics: ExplorerSettingsMetric[];
 }
 
-export interface AdaptiveSettingsUpdateRequest {
+export interface ExplorerSettingsUpdateRequest {
   default_endpoint_id?: string | null;
   metric_ids?: string[] | null;
 }
@@ -430,7 +413,7 @@ export interface SuggestionEvalItem {
   label: string;
   labeler: string;
   model_score: number;
-  metrics?: Record<string, AdaptiveMetricEvalDetail> | null;
+  metrics?: Record<string, ExplorerMetricEvalDetail> | null;
   error?: string | null;
 }
 

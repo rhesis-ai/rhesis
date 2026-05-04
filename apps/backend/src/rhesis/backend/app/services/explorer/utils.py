@@ -118,7 +118,7 @@ def convert_to_sdk_tree(
             nodes.append(node)
 
     logger.info(
-        f"Built adaptive testing tree for test_set={test_set_id} "
+        f"Built explorer test tree for test_set={test_set_id} "
         f"with {len(nodes)} nodes from {len(db_tests)} tests"
     )
 

@@ -42,6 +42,6 @@ uv run pytest ../../tests/backend/ -v
 3. Run a specific test file or test class:
 ```bash
 cd apps/backend
-uv run pytest ../../tests/backend/services/explorer/test_tests.py::TestCreateAdaptiveTestSet -v
+uv run pytest ../../tests/backend/services/explorer/test_tests.py::TestCreateExplorerTestSet -v
 ```
 4. Do not run backend tests from the project root (e.g. `uv run pytest tests/backend/...` from repo root); pytest will not be found or paths will be wrong.

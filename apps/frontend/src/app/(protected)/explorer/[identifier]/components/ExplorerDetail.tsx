@@ -1650,7 +1650,7 @@ export default function ExplorerDetail({
     null
   );
   /** Resolved labels for on-page display; null means initial load not finished */
-  const [adaptiveConfigSummary, setAdaptiveConfigSummary] = useState<{
+  const [explorerConfigSummary, setExplorerConfigSummary] = useState<{
     endpointLabel: string | null;
     endpointEnvironment: Endpoint['environment'] | null;
     metrics: { id: string; name: string; hasDetailPage: boolean }[];
@@ -1743,12 +1743,12 @@ export default function ExplorerDetail({
     };
   }, [sessionToken]);
 
-  const loadAdaptiveSettings = useCallback(async () => {
+  const loadExplorerSettings = useCallback(async () => {
     const clientFactory = new ApiClientFactory(sessionToken);
-    const adaptiveClient = clientFactory.getExplorerClient();
+    const explorerClient = clientFactory.getExplorerClient();
     const metricsClient = clientFactory.getMetricsClient();
     try {
-      const settings = await adaptiveClient.getAdaptiveSettings(testSetId);
+      const settings = await explorerClient.getExplorerSettings(testSetId);
       const resolvedEndpoint =
         endpointOptions.find(
           e => e.endpointId === settings.default_endpoint?.id
@@ -1782,7 +1782,7 @@ export default function ExplorerDetail({
           }
         })
       );
-      setAdaptiveConfigSummary({
+      setExplorerConfigSummary({
         endpointLabel,
         endpointEnvironment,
         metrics: metricsSummary,
@@ -1795,7 +1795,7 @@ export default function ExplorerDetail({
           : null
       );
     } catch {
-      setAdaptiveConfigSummary({
+      setExplorerConfigSummary({
         endpointLabel: null,
         endpointEnvironment: null,
         metrics: [],
@@ -1805,8 +1805,8 @@ export default function ExplorerDetail({
 
   useEffect(() => {
     if (endpointOptions.length === 0 && metrics.length === 0) return;
-    void loadAdaptiveSettings();
-  }, [endpointOptions, metrics, loadAdaptiveSettings]);
+    void loadExplorerSettings();
+  }, [endpointOptions, metrics, loadExplorerSettings]);
 
   useEffect(() => {
     if (searchParams.get('openSettings') !== '1') return;
@@ -2593,12 +2593,12 @@ export default function ExplorerDetail({
     setSettingsError(null);
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const adaptiveClient = clientFactory.getExplorerClient();
-      await adaptiveClient.updateAdaptiveSettings(testSetId, {
+      const explorerClient = clientFactory.getExplorerClient();
+      await explorerClient.updateExplorerSettings(testSetId, {
         default_endpoint_id: settingsEndpoint.endpointId,
         metric_ids: [settingsMetric.id],
       });
-      setAdaptiveConfigSummary({
+      setExplorerConfigSummary({
         endpointLabel: `${settingsEndpoint.projectName} › ${settingsEndpoint.endpointName}`,
         endpointEnvironment: settingsEndpoint.environment,
         metrics:
@@ -2633,7 +2633,7 @@ export default function ExplorerDetail({
     const client = clientFactory.getExplorerClient();
     setExportSubmitting(true);
     try {
-      const result = await client.exportRegularTestSetFromAdaptive(testSetId);
+      const result = await client.exportRegularTestSetFromExplorer(testSetId);
       const { exported, skipped, test_set: created } = result;
       const parts = [
         `Created "${created.name}"`,
@@ -2737,7 +2737,7 @@ export default function ExplorerDetail({
         </Box>
 
         <Box sx={{ p: 2.5 }}>
-          {adaptiveConfigSummary === null ? (
+          {explorerConfigSummary === null ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <CircularProgress size={18} />
               <Typography variant="body2" color="text.secondary">
@@ -2780,7 +2780,7 @@ export default function ExplorerDetail({
                     Selected endpoint
                   </Typography>
                 </Box>
-                {adaptiveConfigSummary.endpointLabel ? (
+                {explorerConfigSummary.endpointLabel ? (
                   <Box
                     sx={{
                       display: 'flex',
@@ -2790,7 +2790,7 @@ export default function ExplorerDetail({
                     }}
                   >
                     <Chip
-                      label={adaptiveConfigSummary.endpointLabel}
+                      label={explorerConfigSummary.endpointLabel}
                       size="medium"
                       variant="outlined"
                       sx={{
@@ -2807,7 +2807,7 @@ export default function ExplorerDetail({
                         },
                       }}
                     />
-                    {adaptiveConfigSummary.endpointEnvironment ? (
+                    {explorerConfigSummary.endpointEnvironment ? (
                       <Typography
                         variant="caption"
                         sx={{
@@ -2817,13 +2817,13 @@ export default function ExplorerDetail({
                             theme.shape.borderRadius * 0.25,
                           bgcolor: 'action.hover',
                           color: getEnvironmentColor(
-                            adaptiveConfigSummary.endpointEnvironment
+                            explorerConfigSummary.endpointEnvironment
                           ),
                           fontWeight: 'medium',
                         }}
                       >
                         {formatEnvironment(
-                          adaptiveConfigSummary.endpointEnvironment
+                          explorerConfigSummary.endpointEnvironment
                         )}
                       </Typography>
                     ) : null}
@@ -2868,9 +2868,9 @@ export default function ExplorerDetail({
                     Selected metric
                   </Typography>
                 </Box>
-                {adaptiveConfigSummary.metrics.length > 0 ? (
+                {explorerConfigSummary.metrics.length > 0 ? (
                   <Stack spacing={1.25}>
-                    {adaptiveConfigSummary.metrics.map(m => (
+                    {explorerConfigSummary.metrics.map(m => (
                       <Box
                         key={m.id}
                         sx={{
@@ -3851,7 +3851,7 @@ export default function ExplorerDetail({
               mode="embedded"
               onClose={() => setMetricEditorMetricId(null)}
               onSaved={() => {
-                void loadAdaptiveSettings();
+                void loadExplorerSettings();
               }}
             />
           </Box>

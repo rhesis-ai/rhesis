@@ -83,7 +83,7 @@ def _associate_tests_with_test_set(db, test_set, tests, organization_id, user_id
 
 
 @pytest.fixture
-def adaptive_test_set(test_db: Session, test_org_id, authenticated_user_id):
+def explorer_test_set(test_db: Session, test_org_id, authenticated_user_id):
     """Create a test set with adaptive testing data.
 
     Creates a test set containing:
