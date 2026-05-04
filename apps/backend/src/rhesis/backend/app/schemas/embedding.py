@@ -41,19 +41,23 @@ class EmbeddingUpdate(EmbeddingBase):
 class Embedding(EmbeddingBase):
     embedding: Optional[List[float]] = None
 
+
 class Point(Base):
     entity_id: UUID4
     entity_type: str
+
 
 class ScatterPoint2D(Point):
     cluster_id: str
     x: float
     y: float
 
+
 class Cluster(Base):
-    id: str # "cluster_1", "cluster_2", etc.
-    label: str # A descriptive, LLM-generated label
-    size: int # number of entities in the cluster
+    id: str  # "cluster_1", "cluster_2", etc.
+    label: str  # A descriptive, LLM-generated label
+    size: int  # number of entities in the cluster
+
 
 class Scatter2DGraph(Base):
     computed_at: datetime.datetime
