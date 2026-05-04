@@ -19,7 +19,8 @@ resources:
   - alloy.yaml
   - grafana-resources.yaml
   - rhesis/namespace.yaml
-  - rhesis/cnpg-gcs-externalsecret.yaml
+  # cnpg-gcs-externalsecret.yaml is synced by stg-external-secrets (external-secrets/kustomization.yaml)
+  # so the ExternalSecret CRD exists before the resource is applied.
   - rhesis/cnpg-cluster.yaml
   # rhesis-app-secrets: see clusters/stg/external-secrets/rhesis-app-secrets.yaml
   - rhesis/rhesis-application.yaml
