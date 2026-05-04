@@ -1,13 +1,15 @@
-name: "[Deploy] Polyphemus Model"
+name: "[Deploy] Polyphemus on Vertex AI (Agent Platform)"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/polyphemus/model_deployment/**'
-      - '.github/workflows/polyphemus-vertex-ai.yml'
   workflow_dispatch:
     inputs:
+      confirm_deployment:
+        description: >
+          ⚠️ WARNING: This will deploy resources to Vertex AI that incur GCP costs.
+          Any deployed resources (models, endpoints) must be manually destroyed after use
+          to avoid ongoing charges. Type "yes" to confirm you understand and accept this.
+        required: true
+        type: string
       environment:
         description: 'Environment to deploy to'
         required: true
@@ -61,6 +63,15 @@ jobs:
   validate-inputs:
     runs-on: ubuntu-latest
     steps:
+      - name: Confirm deployment intent
+        run: |
+          if [ "${{ github.event.inputs.confirm_deployment }}" != "yes" ]; then
+            echo "❌ Deployment aborted: confirmation not provided."
+            echo "Please re-run the workflow and type 'yes' in the confirmation field."
+            exit 1
+          fi
+          echo "✅ Deployment confirmed."
+
       - name: Checkout repository
         uses: actions/checkout@v6
 
@@ -225,10 +236,16 @@ jobs:
           - **HuggingFace**: Public or private models (with token)
           - **GCS**: Pre-downloaded models from \`${{ env.POLYPHEMUS_MODEL_PATH || 'gs://your-bucket/models' }}\` (model: \`${{ env.POLYPHEMUS_DEFAULT_MODEL }}\`)
           
+          ## ⚠️ Cleanup Required
+          Vertex AI resources (models and endpoints) deployed by this workflow **must be manually destroyed** after use to avoid ongoing GCP charges.
+          - Delete endpoints: [Vertex AI Endpoints](https://console.cloud.google.com/vertex-ai/endpoints?project=${{ env.GCP_PROJECT_ID }})
+          - Delete models: [Vertex AI Model Registry](https://console.cloud.google.com/vertex-ai/models?project=${{ env.GCP_PROJECT_ID }})
+
           ## Next Steps
           1. Check the GCP Services console to verify deployments
           2. Test the endpoints using the Vertex AI Python client
           3. Monitor the deployment logs for any issues
+          4. **Destroy all Vertex AI resources once testing is complete**
           
           ## Resources
           - [GCP Services Console](https://console.cloud.google.com/vertex-ai/endpoints?project=${{ env.GCP_PROJECT_ID }})
