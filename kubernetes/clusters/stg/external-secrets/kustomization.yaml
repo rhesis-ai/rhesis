@@ -6,7 +6,7 @@ resources:
   # Both ExternalSecret resources below are synced by stg-external-secrets (same tree as the
   # ESO Helm chart) so the ExternalSecret CRD is guaranteed to exist before apply.
   - rhesis-app-secrets.yaml
-  - ../rhesis/cnpg-gcs-externalsecret.yaml
+  - cnpg-gcs-externalsecret.yaml
 
 configMapGenerator:
   - name: eso-config
