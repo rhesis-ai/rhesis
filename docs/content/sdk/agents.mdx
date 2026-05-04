@@ -30,7 +30,7 @@ The SDK agents framework lets you build conversational workflows that can reason
 
 ## Connect to Rhesis tools over MCP
 
-Use `get_rhesis_tools()` to connect an agent to the Rhesis backend MCP endpoint. It reads `RHESIS_BASE_URL` and `RHESIS_API_KEY` from SDK configuration unless you pass explicit values. Note that the SDK uses `RHESIS_API_KEY` — this is distinct from `RHESIS_API_TOKEN`, which is used for direct REST authentication.
+Use `get_rhesis_tools()` to connect an agent to the Rhesis backend MCP endpoint. It reads `RHESIS_BASE_URL` and `RHESIS_API_KEY` from SDK configuration unless you pass explicit values.
 
 <CodeBlock filename="rhesis_tools.py" language="python">
 {`from rhesis.sdk.agents import BaseAgent, get_rhesis_tools
