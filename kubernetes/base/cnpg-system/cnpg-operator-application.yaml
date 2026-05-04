@@ -35,3 +35,7 @@ spec:
       # CNPG CRDs (especially poolers.postgresql.cnpg.io) exceed client-side apply
       # annotation limits; SSA is required for Argo CD. See cloudnative-pg/charts#544.
       - ServerSideApply=true
+      # PodMonitor CRD (monitoring.coreos.com/v1) is installed by kube-prometheus-stack,
+      # which deploys in parallel. Skip dry-run so the sync is not rejected when that
+      # CRD is not yet available; selfHeal applies the PodMonitor once the CRD exists.
+      - SkipDryRunOnMissingResource=true
