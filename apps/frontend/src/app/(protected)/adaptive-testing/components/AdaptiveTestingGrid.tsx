@@ -250,7 +250,7 @@ export default function AdaptiveTestingGrid({
       );
 
       notifications.show(
-        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}`,
+        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}`,
         { severity: 'success', autoHideDuration: 4000 }
       );
 
@@ -259,7 +259,7 @@ export default function AdaptiveTestingGrid({
       setSelectedRows([]);
       router.refresh();
     } catch {
-      notifications.show('Failed to delete test sets', {
+      notifications.show('Failed to delete sessions', {
         severity: 'error',
         autoHideDuration: 6000,
       });
@@ -288,7 +288,7 @@ export default function AdaptiveTestingGrid({
       disabled?: boolean;
     }[] = [
       {
-        label: 'Add test set',
+        label: 'New session',
         icon: <AddIcon />,
         variant: 'contained' as const,
         onClick: handleOpenDialog,
@@ -315,7 +315,7 @@ export default function AdaptiveTestingGrid({
 
     if (selectedRows.length > 0) {
       buttons.push({
-        label: selectedRows.length > 1 ? 'Delete test sets' : 'Delete test set',
+        label: selectedRows.length > 1 ? 'Delete sessions' : 'Delete session',
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
@@ -331,8 +331,8 @@ export default function AdaptiveTestingGrid({
       {rows.length === 0 ? (
         <Box sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            No adaptive testing test sets found. Create a test set with the
-            &quot;Adaptive Testing&quot; behavior to get started.
+            No explorer sessions yet. Start with New session or load an existing
+            test set.
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
             <Button
@@ -341,7 +341,7 @@ export default function AdaptiveTestingGrid({
               disabled={!authToken}
               startIcon={<AddIcon />}
             >
-              Add test set
+              New session
             </Button>
             <Button
               variant="outlined"
@@ -380,9 +380,9 @@ export default function AdaptiveTestingGrid({
         onClose={handleDeleteCancel}
         onConfirm={handleDeleteConfirm}
         isLoading={isDeleting}
-        title="Delete adaptive test sets"
-        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? Related tests in the tree will be removed with this record.`}
-        itemType="adaptive test sets"
+        title="Delete explorer sessions"
+        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'session' : 'sessions'}? Related tests in the tree will be removed with this record.`}
+        itemType="explorer sessions"
       />
       <Dialog
         open={dialogOpen}
@@ -390,7 +390,7 @@ export default function AdaptiveTestingGrid({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Add test set</DialogTitle>
+        <DialogTitle>New session</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus

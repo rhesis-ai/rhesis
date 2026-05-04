@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Adaptive Testing',
+  title: 'Test explorer',
 };
 
 export default function AdaptiveTestingLayout({

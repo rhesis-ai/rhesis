@@ -159,6 +159,13 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
+      segment: 'adaptive-testing',
+      title: 'Explorer',
+      icon: <AccountTreeIcon key="adaptive-testing-icon" />,
+      action: <BetaBadge />,
+    },
+    {
+      kind: 'page',
       segment: 'generation',
       title: 'Generation',
       icon: <BoltIcon key="generation-icon" />,
@@ -180,17 +187,6 @@ async function getNavigationItems(
       segment: 'test-sets',
       title: 'Test Sets',
       icon: <CategoryIcon key="test-sets-icon" />,
-    },
-    {
-      kind: 'page' as const,
-      segment: 'adaptive-testing',
-      title: (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box component="span">Adaptive Testing</Box>
-          <BetaBadge />
-        </Box>
-      ),
-      icon: <AccountTreeIcon key="adaptive-testing-icon" />,
     },
     // Results Section
     {

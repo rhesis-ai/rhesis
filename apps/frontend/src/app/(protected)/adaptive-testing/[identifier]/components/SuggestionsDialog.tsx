@@ -76,7 +76,7 @@ function SegmentedProgressBar({
           height: 8,
           width: '100%',
         }}
-        aria-label="Adaptive testing generation progress"
+        aria-label="Explorer generation progress"
       >
         {segments.map(seg => (
           <Box

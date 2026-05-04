@@ -22,10 +22,10 @@ export default async function AdaptiveTestingPage() {
     const testSets = await adaptiveTestingClient.getAdaptiveTestSets();
 
     return (
-      <PageContainer title="Adaptive Testing" breadcrumbs={[]}>
+      <PageContainer title="Test explorer" breadcrumbs={[]}>
         <Box sx={{ mb: 2 }}>
           <Typography variant="body1" color="text.secondary">
-            Test sets configured for adaptive testing
+            Explorer sessions
           </Typography>
         </Box>
 
@@ -45,7 +45,7 @@ export default async function AdaptiveTestingPage() {
     return (
       <Box sx={{ p: 3 }}>
         <Typography color="error">
-          Error loading adaptive testing: {errorMessage}
+          Error loading test explorer: {errorMessage}
         </Typography>
       </Box>
     );
