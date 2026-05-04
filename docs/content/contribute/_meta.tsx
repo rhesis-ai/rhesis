@@ -39,6 +39,7 @@ const meta: MetaRecord = {
   frontend: 'Frontend',
   backend: 'Backend',
   worker: 'Worker',
+  sdk: 'SDK',
   'tracing-system': 'Tracing System',
   polyphemus: 'Polyphemus',
   connector: 'Connector',

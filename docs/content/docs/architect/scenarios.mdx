@@ -1,0 +1,115 @@
+# Scenarios
+
+Common requests and what to expect from each one.
+
+**In this page:**
+
+- [Full workflow: design and run a test suite](#full-workflow-design-and-run-a-test-suite)
+- [Direct operations](#direct-operations)
+- [Testing with a knowledge source](#testing-with-a-knowledge-source)
+- [Attaching a spec or requirements document](#attaching-a-spec-or-requirements-document)
+- [Comparing two test runs](#comparing-two-test-runs)
+- [Analyzing a past run](#analyzing-a-past-run)
+- [Auto-approve session](#auto-approve-session)
+
+<Callout type="default">
+  In the examples below, **U** is the user and <EngineeringIcon /> is Architect.
+</Callout>
+
+## Full workflow: design and run a test suite
+
+The most common entry point. Describe your endpoint and what you care about.
+
+<ChatExchange title="Example">
+  <ChatUser>Test my travel booking chatbot. Focus on accuracy and safety.</ChatUser>
+  <ChatArchitect>I'll explore the endpoint first. Would you prefer a Quick scan (domain only) or Comprehensive (full capability and boundary mapping)?</ChatArchitect>
+  <ChatUser>Quick is fine.</ChatUser>
+  <ChatArchitect>{"Done. The chatbot handles flight search, booking, and cancellations. It refuses travel advice outside its scope. I noticed some uncertainty around partial cancellations — should I include refund edge cases in the test suite?"}</ChatArchitect>
+  <ChatUser>Yes, include those.</ChatUser>
+  <ChatArchitect>{"Here's my plan:\n• 3 behaviors: Handles Flight Search, Refuses Off-Topic, Handles Cancellations\n• 2 test sets (30 tests total)\n• 2 metrics: Accuracy, Refusal Correctness\n\nShall I proceed?"}</ChatArchitect>
+  <ChatUser>Go ahead.</ChatUser>
+</ChatExchange>
+
+→ See [Workflow](/docs/architect/workflow) for what happens after approval.
+
+## Direct operations
+
+You can skip the full workflow and ask Architect to do specific things with existing entities.
+
+**List test sets:**
+
+<ChatExchange>
+  <ChatUser>Show me my test sets.</ChatUser>
+  <ChatArchitect>{"You have 4 test sets:\n• Flight Search Core — 32 tests\n• Refusal Suite — 15 tests\n• Edge Cases — 8 tests\n• Cancellation Flow — 12 tests"}</ChatArchitect>
+</ChatExchange>
+
+**Update a metric:**
+
+<ChatExchange>
+  <ChatUser>Make the Accuracy metric stricter — raise the threshold to 0.85.</ChatUser>
+  <ChatArchitect>Updated Accuracy — threshold is now 0.85.</ChatArchitect>
+</ChatExchange>
+
+**Link a behavior to a metric:**
+
+<ChatExchange>
+  <ChatUser>Link Handles Cancellations to the Refusal Correctness metric.</ChatUser>
+  <ChatArchitect>Done — Handles Cancellations is now evaluated by Refusal Correctness.</ChatArchitect>
+</ChatExchange>
+
+**Describe a behavior:**
+
+<ChatExchange>
+  <ChatUser>What does the Refuses Off-Topic behavior cover?</ChatUser>
+  <ChatArchitect>Refuses Off-Topic checks that the chatbot declines requests outside travel booking — such as weather, restaurant advice, or general knowledge questions.</ChatArchitect>
+</ChatExchange>
+
+## Testing with a knowledge source
+
+Ground test generation in your own documentation. Reference the source by name.
+
+<ChatExchange>
+  <ChatUser>Use our product FAQ to generate tests for the support chatbot.</ChatUser>
+  <ChatArchitect>Found "Product FAQ" in your knowledge library. I'll use it to generate grounded single-turn tests. Shall I plan the full suite?</ChatArchitect>
+</ChatExchange>
+
+<Callout type="warning">
+  Knowledge sources only apply to single-turn test generation. Multi-turn tests are not grounded.
+</Callout>
+
+## Attaching a spec or requirements document
+
+Upload a document and let Architect read it before planning. Works well for OpenAPI specs, requirements docs, or policy PDFs.
+
+<ChatExchange>
+  <ChatUser>{"[attaches openapi-spec.yaml]\nBuild a test suite based on this API spec."}</ChatUser>
+  <ChatArchitect>{"I've read the spec. It defines 8 endpoints across 3 domains.\nHere's what I'd focus on for testing..."}</ChatArchitect>
+</ChatExchange>
+
+→ [Chat Features — File attachments](/docs/architect/chat-features#file-attachments) lists supported formats and size limits.
+
+## Comparing two test runs
+
+<ChatExchange>
+  <ChatUser>Compare the last two runs.</ChatUser>
+  <ChatArchitect>{"Run 14 vs Run 13 — overall: 78% → 82% (improved)\n\n• Handles Flight Search: 90% → 90% (unchanged)\n• Refuses Off-Topic: 60% → 75% (improved)\n• Handles Cancellations: 83% → 80% (slight regression)\n\nThe Refusal Correctness metric drove most of the Off-Topic improvement. Cancellation handling regressed on Accuracy — two tests that were passing now fail."}</ChatArchitect>
+</ChatExchange>
+
+## Analyzing a past run
+
+<ChatExchange>
+  <ChatUser>Analyze the last test run.</ChatUser>
+  <ChatArchitect>{"Run 14 — 78% overall.\n\nBy behavior:\n• Handles Flight Search: 90%\n• Refuses Off-Topic: 60% ← below threshold\n• Handles Cancellations: 83%\n\nOff-Topic refusals are failing primarily on Refusal Correctness. The evaluator notes that the chatbot gives partial answers rather than clean refusals on 6 of the 10 failing tests. Tightening the system prompt for out-of-scope topics should address this."}</ChatArchitect>
+</ChatExchange>
+
+## Auto-approve session
+
+Turn on auto-approve when you want to move fast through a well-understood workflow.
+
+1. Toggle **Auto-approve** in the chat header.
+2. Ask Architect to build and run a test suite.
+3. Architect creates, then executes without pausing for confirmation at each step.
+
+<Callout type="warning">
+  Auto-approve skips all confirmations for the session — including creation and execution. See [Chat Features — Auto-approve](/docs/architect/chat-features#auto-approve).
+</Callout>
