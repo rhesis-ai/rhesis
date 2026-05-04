@@ -92,7 +92,7 @@ def _resolve_test_set_or_raise(identifier: str, db: Session, organization_id: st
 
 
 @router.post(
-    "",
+    "/",
     response_model=schemas.TestSet,
     status_code=201,
 )
@@ -193,7 +193,7 @@ def export_regular_test_set_from_adaptive_endpoint(
 
 
 @router.get(
-    "",
+    "/",
     response_model=List[schemas.TestSet],
 )
 def list_adaptive_test_sets(
