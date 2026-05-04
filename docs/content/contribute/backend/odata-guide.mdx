@@ -228,6 +228,25 @@ GET /tests?$filter=status/name eq 'New'&skip=0&limit=50`}
 GET /tests?$filter=contains(tolower(behavior/name),'rel')&sort_by=created_at&sort_order=desc&skip=0&limit=25`}
 </CodeBlock>
 
+### Field Selection
+
+Use `$select` to return only the fields a list view or tool call needs. The backend accepts a
+comma-separated list of serialized response fields and always includes `id` so each entity remains
+addressable.
+
+<CodeBlock filename="select-fields.sh" language="bash">
+{`# Return only id, name, and description for metrics
+GET /metrics?$select=name,description
+
+# Combine field selection with filtering and pagination
+GET /test_sets?$filter=contains(tolower(name),'safety')&$select=name,created_at&limit=10`}
+</CodeBlock>
+
+<Callout type="info">
+  `$select` filters serialized response objects after the query runs. It reduces payload size for
+  list responses, but it does not change which rows match `$filter`.
+</Callout>
+
 ## Complete Examples
 
 ### Example 1: Case-Insensitive Behavior Search

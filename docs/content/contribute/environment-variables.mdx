@@ -61,6 +61,7 @@ These are not added by `./rh dev init` but are commonly needed when you deploy, 
     ['`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `FROM_EMAIL`, …', 'Optional', 'Outbound email.'],
     ['`SQLALCHEMY_DB_MODE`, `SQLALCHEMY_DATABASE_TEST_URL`', 'Optional', 'Database mode and test DB URL for automated tests.'],
     ['`OTEL_*` (e.g. `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`)', 'Optional', 'OpenTelemetry export and service metadata.'],
+    ['`SERVICE_DELEGATION_EXPIRE_MINUTES`', 'Default: `15`', 'Lifetime, in minutes, for short-lived service delegation JWTs used by backend worker flows such as Architect local tool calls.'],
     ['`WS_MAX_MESSAGE_SIZE`, `WS_IDLE_TIMEOUT`, `WS_RATE_LIMIT`', 'Defaults documented in code', 'SDK connector WebSocket limits (`/connector/ws`).'],
     ['`CELERY_WORKER_*`', 'Defaults documented in code', 'Celery worker process tuning.'],
   ]}

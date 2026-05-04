@@ -154,6 +154,56 @@ In the UI, suggestions now support:
 - **Accept all** to persist all current suggestions in one action
 - A **Tests without topic** filter in the adaptive tree panel
 
+### Diversity-aware suggestions (v0.7.0+)
+
+Suggestion generation can request embeddings for generated suggestions and sort the
+result by diversity before returning it. This is useful when a test set already has many
+similar examples and you want the next batch to cover meaningfully different scenarios.
+
+| Parameter | Type | Default | Behavior |
+| --- | --- | --- | --- |
+| `generate_embeddings` | `boolean` | `false` | Computes suggestion embeddings and diversity scores when enabled |
+| `stream` | `boolean` | `false` | Streams suggestions as they are parsed from the LLM output |
+| `num_examples` | `int` | `10` | Existing tests sampled as examples for the LLM prompt |
+| `num_suggestions` | `int` | `20` | Number of suggestions requested from the LLM |
+
+For non-streaming calls, `generate_embeddings=true` adds an `embedding` vector and
+`diversity_score` to each suggestion, then sorts higher-diversity suggestions first.
+Adaptive embeddings request `768` dimensions so vectors match the supported backend
+embedding storage shape.
+
+<CodeBlock filename="generate-diverse-suggestions.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/adaptive_testing/$TEST_SET_ID/generate_suggestions" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "topic": "Safety/Jailbreak",
+    "num_examples": 10,
+    "num_suggestions": 20,
+    "generate_embeddings": true
+  }'`}
+</CodeBlock>
+
+<Callout type="info">
+  Streaming suggestion generation emits suggestions immediately. In the unified
+  pipeline stream, embeddings are generated incrementally and the final
+  `suggestions_done` event includes `diversity_order` and `diversity_scores` when
+  diversity sorting is available.
+</Callout>
+
+The unified suggestion pipeline returns newline-delimited JSON events:
+
+| Event | Payload highlights |
+| --- | --- |
+| `suggestion` | `index`, `topic`, `input` |
+| `embedding` | `index` |
+| `output` | `index`, `input`, `output`, `error` |
+| `evaluation` | `index`, `input`, `label`, `labeler`, `model_score`, `metrics`, `error` |
+| `suggestions_done` | `total`, `num_examples_used`, `diversity_order`, `diversity_scores` |
+| `output_summary` | `generated`, `total` |
+| `eval_summary` | `evaluated`, `total` |
+| `done` | Stream complete |
+
 ## Export Adaptive Test Set to a Regular Test Set (v0.6.12+)
 
 You can convert an adaptive set into a regular test set with:
