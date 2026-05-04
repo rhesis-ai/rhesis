@@ -16,7 +16,7 @@ def apply_odata_filter(query: Query, model: Type, filter_expr: str | None) -> Qu
         try:
             return apply_odata_query(query, filter_expr)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Error processing filter: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Error processing filter: {str(e)}") from e
     return query
 
 

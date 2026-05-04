@@ -81,7 +81,7 @@ Test run statuses reflect **execution completion**, not test assertion results. 
 
 ## Status Determination Logic
 
-The status is determined in the chord callback (`collect_results`) after all tests complete:
+After all tests complete, the `collect_results` task runs (scheduled when the async batch or sequential runner finishes). `TestRunProcessor` in `result_processor.py` aggregates stored test results and sets the final run status:
 
 <CodeBlock filename="status-determination-logic.py" language="python">
 {`# 1. No tests at all → FAILED

@@ -21,6 +21,18 @@ make format_diff
 make lint_diff
 ```
 
-## Tests and checks
+## Tests
 
-From `apps/backend`, see `Makefile`: `make test` (uses the test Docker profile), `make format`, `make lint`, `make all`.
+From `apps/backend`:
+
+- **Full suite** — `make test` starts the test Docker profile (PostgreSQL and Redis on host ports 12001 and 12002), then runs `pytest` on `../../tests/backend` (see the `Makefile` for flags).
+- **Single test or file** — start the same stack, then run pytest yourself:
+
+  ```bash
+  make docker-up
+  uv run --extra cpu pytest ../../tests/backend/models/test_foo.py::TestClass::test_name -v
+  ```
+
+  Your usual **dev** database containers (different ports) are not used; tests expect the `backend` profile in `tests/docker-compose.test.yml`.
+
+- **Teardown** — `make docker-down` (or `make docker-clean` to remove volumes).

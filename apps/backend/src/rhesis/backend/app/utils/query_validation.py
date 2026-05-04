@@ -71,5 +71,8 @@ def validate_odata_filter(model: Type, filter_str: Optional[str]) -> None:
             if not has_odata_syntax:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid filter. Must use valid fields: {', '.join(valid_fields)} or valid OData syntax",
+                    detail=(
+                        f"Invalid filter. Must use valid fields: {', '.join(valid_fields)} "
+                        "or valid OData syntax"
+                    ),
                 )

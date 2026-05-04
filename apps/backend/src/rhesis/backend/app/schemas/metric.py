@@ -5,11 +5,11 @@ from typing import List, Optional, Union
 from pydantic import UUID4, ConfigDict, model_validator
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
 from rhesis.backend.app.schemas.status import Status
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
 from rhesis.backend.app.schemas.user import UserReference
-from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
 
 
 class MetricScope(str, Enum):

@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - grafana-instance.yaml
+  - grafana-ingress.yaml
+  - prometheus-datasource.yaml
+  - loki-datasource.yaml

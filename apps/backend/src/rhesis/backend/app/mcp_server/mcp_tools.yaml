@@ -450,6 +450,46 @@ tools:
       input:
         description: "A simple test message string (e.g. 'hello')."
 
+  - name: explore_endpoint
+    label: Exploring endpoint
+    method: POST
+    path: /endpoints/{endpoint_id}/explore
+    requires_confirmation: true
+    description: >
+      Run a multi-turn exploration of an endpoint using Penelope to
+      discover its domain, capabilities, limits, and response patterns.
+      This runs as a background task — the response includes a task_id.
+      Poll get_job_status with that task_id until status is "SUCCESS",
+      then read the findings from the result field. Typical duration:
+      30s–2min for single strategies, 1–3min for "comprehensive".
+      Either strategy or goal is required.
+    parameters:
+      endpoint_id:
+        description: "REQUIRED. UUID of the endpoint to explore (path parameter)."
+      strategy:
+        description: >
+          Exploration strategy. One of "domain_probing" (discovers
+          domain, purpose, and persona), "capability_mapping" (enumerates
+          features and interaction patterns), "boundary_discovery" (finds
+          refusal patterns and limits), or "comprehensive" (runs all three
+          in sequence). When set, goal and instructions are generated
+          automatically. Either strategy or goal is required.
+      goal:
+        description: >
+          What to learn about the endpoint. Required only when no strategy
+          is specified. Example: "Understand the endpoint's domain and
+          restrictions."
+      instructions:
+        description: "Optional step-by-step probing instructions."
+      scenario:
+        description: "Optional persona/context, e.g. 'You are a new user'."
+      restrictions:
+        description: "Optional constraints to verify during exploration."
+      previous_findings:
+        description: >
+          Optional structured findings from a prior exploration run.
+          The strategy uses them to build on earlier results.
+
   # ── Statistics & Comparison ──────────────────────────────
   - name: get_test_result_stats
     label: Analyzing test results
@@ -560,13 +600,17 @@ tools:
     path: /jobs/{task_id}
     requires_confirmation: false
     description: >
-      Check the status of a background job (e.g. test set generation
-      started by generate_test_set). Poll this endpoint until the status
-      is "SUCCESS" or "FAILURE". Status values: PENDING → STARTED →
-      PROGRESS → SUCCESS (or FAILURE). When SUCCESS, the "result"
-      field contains job-specific data — for test generation this
-      includes "test_set_id" (the UUID of the created test set).
+      Check the status of a background job. Poll this endpoint until
+      the status is "SUCCESS" or "FAILURE". Status values: PENDING →
+      STARTED → PROGRESS → SUCCESS (or FAILURE). When SUCCESS, the
+      "result" field contains job-specific data:
+      - explore_endpoint: full exploration findings including domain,
+        capabilities, limits, conversation summary, and strategy_findings.
+      - generate_test_set: "test_set_id" (UUID of the created test set).
+      - execute_test_set: use the test_run_id from the original response.
       If FAILURE, the "error" field describes what went wrong.
     parameters:
       task_id:
-        description: "REQUIRED. The task ID returned by generate_test_set (path parameter)."
+        description: >
+          REQUIRED. The task ID returned by explore_endpoint,
+          generate_test_set, or execute_test_set (path parameter).

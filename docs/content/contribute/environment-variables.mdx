@@ -61,6 +61,7 @@ These are not added by `./rh dev init` but are commonly needed when you deploy, 
     ['`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `FROM_EMAIL`, …', 'Optional', 'Outbound email.'],
     ['`SQLALCHEMY_DB_MODE`, `SQLALCHEMY_DATABASE_TEST_URL`', 'Optional', 'Database mode and test DB URL for automated tests.'],
     ['`OTEL_*` (e.g. `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`)', 'Optional', 'OpenTelemetry export and service metadata.'],
+    ['`SERVICE_DELEGATION_EXPIRE_MINUTES`', 'Default: `15`', 'Lifetime, in minutes, for short-lived service delegation JWTs used by backend worker flows such as Architect local tool calls.'],
     ['`WS_MAX_MESSAGE_SIZE`, `WS_IDLE_TIMEOUT`, `WS_RATE_LIMIT`', 'Defaults documented in code', 'SDK connector WebSocket limits (`/connector/ws`).'],
     ['`CELERY_WORKER_*`', 'Defaults documented in code', 'Celery worker process tuning.'],
   ]}
@@ -77,7 +78,6 @@ For a full production file (many more keys), teams often load secrets from Googl
   rows={[
     ['`NEXT_PUBLIC_QUICK_START`', 'Mirrors backend quick-start; **disable in production** (`false`).'],
     ['`NEXT_PUBLIC_API_BASE_URL`', 'Backend API URL exposed to the browser, e.g. `http://localhost:8080`.'],
-    ['`NEXT_PUBLIC_APP_URL`', 'Public app URL, e.g. `http://localhost:3000`.'],
     ['`BACKEND_URL`', 'Backend URL for server-side requests, e.g. `http://localhost:8080`.'],
     ['`NEXTAUTH_URL`', 'Must match how users open the app (same origin as the frontend).'],
     ['`NEXTAUTH_SECRET`', 'NextAuth secret; change for non-local deployments.'],

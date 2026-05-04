@@ -38,28 +38,28 @@ ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_NO_MANAGED_PYTHON=1
 
-# Layer 1: dependency manifests only (invalidates on lock / pyproject changes)
-COPY apps/backend/uv.lock apps/backend/pyproject.toml apps/backend/README.md ./
-COPY sdk/uv.lock sdk/pyproject.toml sdk/
-COPY penelope/uv.lock penelope/pyproject.toml penelope/
-COPY packages/rhesis/pyproject.toml packages/rhesis/README.md packages/rhesis/
+# Layer 1: dependency manifests only (invalidates on lock / pyproject changes).
+# Layout matches the monorepo so [tool.uv.sources] paths need no rewriting.
+COPY sdk/uv.lock sdk/pyproject.toml /app/sdk/
+COPY penelope/uv.lock penelope/pyproject.toml /app/penelope/
+COPY packages/rhesis/pyproject.toml packages/rhesis/README.md /app/packages/rhesis/
 
-# Fix paths in pyproject.toml for Docker layout (/app), same as production Dockerfile
-RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
-    sed -i 's|path = "../packages/rhesis"|path = "/app/packages/rhesis"|g' /app/sdk/pyproject.toml
+WORKDIR /app/apps/backend
+COPY apps/backend/uv.lock apps/backend/pyproject.toml apps/backend/README.md ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-install-project --no-install-local --extra cpu
+    uv sync --no-install-project --no-install-local --extra all --extra cpu
 
 # Layer 2: full sources, then install local packages
+WORKDIR /app
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
-COPY apps/backend/src /app/src/
+COPY apps/backend/src /app/apps/backend/src/
 
+WORKDIR /app/apps/backend
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra cpu
+    uv sync --extra all --extra cpu
 
 
 # ============================================================================
@@ -73,7 +73,7 @@ COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
 # Create npx alias to bunx for compatibility (users can write npx, Docker will use bunx)
 RUN ln -s /usr/local/bin/bunx /usr/local/bin/npx
 
-WORKDIR /app
+WORKDIR /app/apps/backend
 
 # Install only runtime dependencies (no build tools)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -94,15 +94,15 @@ RUN adduser --disabled-password --gecos '' rhesis-user && \
     chown rhesis-user:rhesis-user /app
 
 # Copy the virtual environment from builder
-COPY --from=builder --chown=rhesis-user:rhesis-user /app/.venv /app/.venv
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/apps/backend/.venv .venv
 
 # Copy source code and scripts with proper ownership and permissions
-COPY --from=builder --chown=rhesis-user:rhesis-user /app/src /app/src
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/apps/backend/src src
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
-COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh /app/migrate.sh
-COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh /app/start.sh
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh ./migrate.sh
+COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh ./start.sh
 
 # Remove .env files
 RUN find /app -name ".env" -type f -delete
@@ -113,14 +113,14 @@ USER rhesis-user
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app \
-    PATH="/usr/local/bin:/app/.venv/bin:$PATH"
+    PYTHONPATH=/app/apps/backend/src \
+    PATH="/usr/local/bin:/app/apps/backend/.venv/bin:$PATH"
 
 # Expose port
 EXPOSE 8080
 
 # Use the improved startup script
-CMD ["/app/start.sh"]
+CMD ["./start.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1

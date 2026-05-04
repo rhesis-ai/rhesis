@@ -1,0 +1,80 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: alloy
+    targetRevision: 1.6.2
+    helm:
+      valuesObject:
+        controller:
+          type: daemonset
+          # Tolerate all taints so log collection runs on every node (including GPU/dedicated pools).
+          # If Alloy should be excluded from some pools, replace with explicit key/effect pairs.
+          tolerations:
+            - operator: Exists
+        alloy:
+          mounts:
+            varlog: true
+          configMap:
+            content: |
+              discovery.kubernetes "pods" {
+                role = "pod"
+              }
+
+              discovery.relabel "pod_logs" {
+                targets = discovery.kubernetes.pods.targets
+
+                rule {
+                  source_labels = ["__meta_kubernetes_namespace"]
+                  target_label  = "namespace"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_name"]
+                  target_label  = "pod"
+                }
+                rule {
+                  source_labels = ["__meta_kubernetes_pod_container_name"]
+                  target_label  = "container"
+                }
+                rule {
+                  source_labels = [
+                    "__meta_kubernetes_pod_uid",
+                    "__meta_kubernetes_pod_container_name",
+                  ]
+                  separator    = "/"
+                  regex        = "(.*)"
+                  replacement  = "/var/log/pods/*$1/*.log"
+                  target_label = "__path__"
+                }
+              }
+
+              loki.source.file "pod_logs" {
+                targets    = discovery.relabel.pod_logs.output
+                forward_to = [loki.write.default.receiver]
+              }
+
+              loki.write "default" {
+                endpoint {
+                  # Loki chart (6.x) gateway Service: <Helm release>-gateway, port 80; matches
+                  # chart default gateway.service.port when gateway.enabled is true.
+                  url = "http://loki-gateway.monitoring.svc:80/loki/api/v1/push"
+                  tenant_id = "rhesis"
+                }
+              }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Ensure monitoring exists before Helm rbac reconcile; sibling apps sync in parallel
+      - CreateNamespace=true

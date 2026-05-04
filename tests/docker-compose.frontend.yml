@@ -28,7 +28,7 @@ x-frontend-backend-config: &frontend-backend-config
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
   LOG_LEVEL: INFO
   ENVIRONMENT: test
-  BACKEND_ENV: test
+  BACKEND_ENV: local
   QUICK_START: true
   RHESIS_CONNECTOR_DISABLED: true
 
@@ -72,6 +72,7 @@ services:
     build:
       context: ..
       dockerfile: apps/backend/Dockerfile
+      target: backend
     environment:
       <<: [*frontend-database-config, *frontend-redis-config, *frontend-backend-config]
     ports:

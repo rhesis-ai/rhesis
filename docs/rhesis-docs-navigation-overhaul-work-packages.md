@@ -219,7 +219,7 @@ Every current page accounted for:
 "Development" is a sidebar section containing 50+ pages of internal architecture documentation:
 - **Backend:** 22 pages (Soft Deletion, Cascade Operations, Database Field Encryption, Encryption Troubleshooting, OData Query Guide, etc.)
 - **Frontend:** 10 pages
-- **Worker:** 12 pages (Multi-Worker RPC, Chord Management, Chord Monitoring Quick Reference, GKE Troubleshooting, etc.)
+- **Worker:** pages include Multi-Worker RPC, test execution, GKE troubleshooting, etc.
 - **Tracing System:** 4 pages
 - **Polyphemus:** 1 page
 - **Connector:** 1 page
@@ -277,7 +277,6 @@ Contribute (top nav → /contribute)
     ├── Test Execution
     ├── Test Types
     ├── Execution Modes
-    ├── Chord Management             (merge: Chord Management + Chord Monitoring Quick Ref)
     └── Troubleshooting              (merge: Troubleshooting + GKE Troubleshooting)
   Tracing System
     ├── Overview
@@ -302,7 +301,6 @@ Contribute (top nav → /contribute)
 | Backend: Security | Security Features + Security Improvements | 2 → 1 |
 | Backend: Database Encryption | Database Field Encryption + Encryption Troubleshooting | 2 → 1 |
 | Worker: Architecture | Architecture + Multi-Worker RPC + Background Tasks | 3 → 1 |
-| Worker: Chord Management | Chord Management + Chord Monitoring Quick Reference | 2 → 1 |
 | Worker: Troubleshooting | Troubleshooting + GKE Troubleshooting | 2 → 1 |
 | **Total** | **18 pages** | **→ 8 pages (10 removed)** |
 

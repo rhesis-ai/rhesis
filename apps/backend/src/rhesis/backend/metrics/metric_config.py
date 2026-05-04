@@ -4,10 +4,10 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
+from rhesis.backend.app.schemas.metric_types import ScoreType
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig
-from rhesis.sdk.metrics.base import ScoreType
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 logger = logging.getLogger(__name__)

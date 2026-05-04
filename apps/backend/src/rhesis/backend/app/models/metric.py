@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, Float, ForeignKey, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.sdk.metrics.base import ThresholdOperator
+from rhesis.backend.app.schemas.metric_types import ThresholdOperator
 
 from .base import Base
 from .guid import GUID

@@ -1,0 +1,12 @@
+{
+  "name": "rhesis",
+  "description": "Design, run, and analyze AI test suites on the Rhesis platform. Connects to the Rhesis MCP server and loads the rhesis skill for the full explore-plan-create-execute-analyze workflow.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Rhesis AI",
+    "url": "https://rhesis.ai"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/rhesis-ai/rhesis/tree/main/skills/rhesis",
+  "repository": "https://github.com/rhesis-ai/rhesis"
+}
