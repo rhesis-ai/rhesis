@@ -1,0 +1,68 @@
+# Chat Features
+
+## File attachments
+
+You can attach documents to any message. Architect extracts the text and uses it as context for that turn — for example, to ground test generation in a spec you upload, or to inform a plan based on requirements.
+
+**Supported formats:**
+
+| Category | Extensions |
+| --- | --- |
+| Documents | `.pdf`, `.docx`, `.pptx`, `.xlsx` |
+| Plain text | `.txt`, `.md`, `.csv` |
+| Data | `.json`, `.yaml`, `.yml`, `.xml` |
+| Web | `.html`, `.htm` |
+| Code | `.py`, `.js`, `.ts` |
+
+**Limit:** 5 MB per file. Multiple files per message are supported.
+
+To attach a file, click the paperclip icon in the input bar or drag and drop directly into the chat.
+
+<Callout type="info">
+  Attachment content only applies to the message it's attached to. If you want to reference the same document in a later message, attach it again.
+</Callout>
+
+## Auto-approve
+
+By default, Architect asks for confirmation before each action that modifies the platform (creating an entity, running a test set). The **Auto-approve** toggle, visible in the chat header, skips these confirmations for the rest of the session.
+
+Use auto-approve when you trust the plan and want to move quickly. Architect still reports each step as it happens — you just don't need to confirm them individually.
+
+<Callout type="warning">
+  Auto-approve applies to the current session only. It resets when you start a new conversation.
+</Callout>
+
+## Plan panel
+
+The plan panel opens on the right side of the chat when Architect enters the planning phase. It shows the proposed test suite as a checklist.
+
+As Architect creates each entity, the corresponding checkbox is ticked. The panel gives a live view of creation progress without scrolling through tool activity in the chat.
+
+The panel collapses automatically after execution completes and the results summary is shown.
+
+## Mode chip
+
+The mode chip in the chat header shows the current phase:
+
+| Chip | Phase |
+| --- | --- |
+| `discovery` | Architect is exploring your endpoint |
+| `planning` | Architect is formulating or refining a plan |
+| `creating` | Architect is building entities on the platform |
+| `executing` | Architect is running tests and waiting for results |
+
+→ See [Workflow](/docs/architect/workflow) for what happens in each phase.
+
+## Session sidebar
+
+Past sessions appear in the left sidebar under the Architect heading. Each session is named automatically based on the initial request. Click any session to restore it and continue the conversation.
+
+<Callout type="info">
+  Sessions are per-organization. Members of the same organization see the same session list.
+</Callout>
+
+## Suggested prompts
+
+On a new session, the welcome screen shows a set of suggested prompts to help you get started. Click any chip to send it as your first message.
+
+These suggestions cover the most common entry points: exploring a new endpoint, analyzing a past run, or kicking off a quick test.

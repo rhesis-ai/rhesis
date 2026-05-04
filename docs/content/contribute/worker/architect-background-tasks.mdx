@@ -1,0 +1,132 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Architect Background Tasks
+
+This page documents the worker-side runtime for Architect chat execution and async resume behavior.
+
+The implementation lives in:
+
+- `apps/backend/src/rhesis/backend/tasks/architect.py`
+- `apps/backend/src/rhesis/backend/tasks/architect_monitor.py`
+
+## Overview
+
+Architect chat runs through Celery so long-running planning and execution work does not block WebSocket handlers.
+
+High-level flow:
+
+1. WebSocket handler receives `architect.message`
+2. `architect_chat_task` runs in Celery
+3. Agent streams lifecycle events through Redis pub/sub
+4. Final response and session state are persisted
+5. If background tasks are pending, session is auto-resumed when they complete
+
+## Primary task: `architect_chat_task`
+
+Task definition:
+
+<CodeBlock filename="architect_task_signature.py" language="python">
+{`@app.task(
+    base=SilentTask,
+    name="rhesis.backend.tasks.architect.architect_chat_task",
+    bind=True,
+    max_retries=1,
+    soft_time_limit=300,
+    time_limit=360,
+)
+def architect_chat_task(
+    self,
+    session_id: str,
+    user_message: str,
+    attachments: Optional[Dict[str, Any]] = None,
+    auto_approve: Optional[bool] = None,
+    **kwargs: Any,
+) -> Dict[str, Any]: ...`}
+</CodeBlock>
+
+### What it restores before each turn
+
+From `architect_session` + `architect_message` records, the task restores:
+
+- mode
+- plan data
+- guard state
+- discovery state
+- id-to-name cache
+- conversation history
+
+This ensures the agent continues correctly across turns and worker boundaries.
+
+### What it persists after each turn
+
+After `chat_async()` returns, the task writes:
+
+- assistant message
+- updated mode
+- serialized plan (`plan_data`)
+- serialized `agent_state` including:
+  - `discovery_state`
+  - `guard_state`
+  - `pending_tasks`
+  - `id_to_name`
+
+## Streaming bridge
+
+`WebSocketEventHandler` maps agent events to Redis-published WebSocket events, including:
+
+- `architect.thinking`
+- `architect.tool_start`
+- `architect.tool_end`
+- `architect.mode_change`
+- `architect.plan_update`
+- `architect.stream_start`
+- `architect.text_chunk`
+- `architect.stream_end`
+- `architect.error`
+
+This is how the frontend receives near real-time progress while the agent is running in Celery.
+
+## Async waiting and auto-resume
+
+When the agent uses internal `await_task`, `architect_chat_task` registers pending IDs with:
+
+`register_awaiting_tasks(session_id, task_ids, org_id, user_id, auto_approve)`
+
+The monitor (`architect_monitor.py`) stores this in Redis:
+
+- `arch:task:<id>` for lookup
+- `arch:count:<session_id>` as a countdown
+- `arch:result:<session_id>:<task_id>` for completed task summaries
+
+On Celery `task_postrun`, the monitor:
+
+1. checks whether the completed task is awaited
+2. stores summarized result
+3. decrements countdown
+4. when countdown reaches zero, dispatches a new `architect_chat_task` turn with a `[TASK_COMPLETED]` system message
+
+This removes polling loops and uses event-driven completion.
+
+## Configuration and limits
+
+Key defaults:
+
+| Setting | Value | Source |
+|---|---|---|
+| Task soft limit | `300` seconds | `architect_chat_task` |
+| Task hard limit | `360` seconds | `architect_chat_task` |
+| Awaiting keys TTL | `7200` seconds | `architect_monitor.py` |
+
+## Common operational checks
+
+- Confirm worker has Redis connectivity (await/resume depends on Redis keys and `task_postrun`).
+- Confirm WebSocket Redis subscriber is running (for streamed event fan-out).
+- Confirm delegation token auth is valid for local tool provider calls.
+- Confirm session ownership checks pass before task dispatch.
+
+## Related pages
+
+- [Worker Architecture](/contribute/worker/architecture)
+- [Backend Architect Chat System](/contribute/backend/architect-chat-system)
+- [Frontend Architect Chat UI](/contribute/frontend/architect-chat-ui)
+- [Background Tasks](/contribute/backend/background-tasks)

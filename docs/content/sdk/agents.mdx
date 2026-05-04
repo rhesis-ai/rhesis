@@ -30,7 +30,7 @@ The SDK agents framework lets you build conversational workflows that can reason
 
 ## Connect to Rhesis tools over MCP
 
-Use `get_rhesis_tools()` to connect an agent to the Rhesis backend MCP endpoint. It uses `RHESIS_BASE_URL` and `RHESIS_API_KEY` from SDK configuration unless you pass explicit values.
+Use `get_rhesis_tools()` to connect an agent to the Rhesis backend MCP endpoint. It reads `RHESIS_BASE_URL` and `RHESIS_API_KEY` from SDK configuration unless you pass explicit values.
 
 <CodeBlock filename="rhesis_tools.py" language="python">
 {`from rhesis.sdk.agents import BaseAgent, get_rhesis_tools
@@ -45,7 +45,7 @@ result = agent.run("List my endpoints and summarize what each one tests.")
 print(result.final_answer)`}
 </CodeBlock>
 
-`MCPTool` reconnects when the underlying transport or session is lost, which makes it safe to use across repeated script or notebook calls that create new event loops.
+`MCPTool` reconnects on the next call when the underlying transport or session is lost. This makes it safe to reuse across repeated script or notebook calls that create new event loops. If the transport drops *during* a tool call, that call fails and the caller is responsible for retrying.
 
 ## Create a custom tool
 
@@ -118,6 +118,56 @@ Common events include:
 | `on_stream_start` / `on_text_chunk` / `on_stream_end` | Final response streaming starts, emits chunks, and completes. |
 | `on_mode_change` / `on_plan_update` | Architect-specific mode and plan updates. |
 
+Tool execution includes wall-clock timing in `ToolResult.duration_ms`, which is useful for backend telemetry and frontend streaming indicators.
+
+## ArchitectAgent
+
+`ArchitectAgent` extends `BaseAgent` and adds stateful conversation features for test-suite design and execution:
+
+- discovery/planning/creating/executing modes
+- plan persistence and progress tracking
+- confirmation guardrails for mutating tools
+- async task waiting state (`await_task`)
+- event hooks for streaming UIs
+
+### Constructor parameters
+
+| Parameter | Required | Description |
+|---|---|---|
+| `model` | No | Model slug or `BaseLLM` instance |
+| `tools` | No | List of `BaseTool` and/or `MCPTool` instances |
+| `config` | No | `ArchitectConfig` for limits and guardrails |
+| `max_iterations` | No | Maximum ReAct iterations for a turn |
+| `max_tool_executions` | No | Safety cap for total tool calls in a turn |
+| `timeout_seconds` | No | Optional wall-clock timeout per turn |
+| `history_window` | No | Number of recent messages/tool steps injected into prompts |
+| `event_handlers` | No | List of `AgentEventHandler` implementations |
+
+### Async usage with attachments
+
+`chat_async()` accepts optional attachments with mention and file payloads.
+
+<CodeBlock filename="architect_agent_async.py" language="python">
+{`import asyncio
+from rhesis.sdk.agents import ArchitectAgent, get_rhesis_tools
+
+agent = ArchitectAgent(tools=get_rhesis_tools())
+
+attachments = {
+    "mentions": [{"type": "endpoint", "id": "endpoint-uuid", "display": "Support Bot"}],
+    "files": [{"filename": "requirements.md", "content": "# Test requirements..."}],
+}
+
+async def run():
+    text = await agent.chat_async(
+        "Use this endpoint and file to propose a test plan.",
+        attachments=attachments,
+    )
+    print(text)
+
+asyncio.run(run())`}
+</CodeBlock>
+
 ## Explore endpoints with Penelope
 
 `ExploreEndpointTool` delegates endpoint probing to Penelope. Use it when an agent needs to learn what an endpoint does before designing tests.
@@ -161,3 +211,6 @@ asyncio.run(main())`}
 - [SDK Metrics](/sdk/metrics)
 - [Endpoint Management](/docs/endpoints/management)
 - [MCP](/docs/mcp)
+- [Architect overview](/docs/architect) — user guide for the web Architect chat UI
+- [Architect workflow](/docs/architect/workflow), [Scenarios](/docs/architect/scenarios) — phases and request cookbook
+- [SDK contributor guide — Architect Agent](/contribute/sdk/architect-agent) — `ArchitectAgent` internals, config, plan model, write guard
