@@ -54,7 +54,7 @@ export default function CreateTokenModal({
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName) return;
-    
+
     try {
       let expiresInDays: number | null = null;
 
