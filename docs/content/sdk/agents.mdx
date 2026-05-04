@@ -30,7 +30,7 @@ The SDK agents framework lets you build conversational workflows that can reason
 
 ## Connect to Rhesis tools over MCP
 
-Use `get_rhesis_tools()` to connect an agent to the Rhesis backend MCP endpoint. It uses `RHESIS_BASE_URL` and `RHESIS_API_KEY` from SDK configuration unless you pass explicit values.
+Use `get_rhesis_tools()` to connect an agent to the Rhesis backend MCP endpoint. It reads `RHESIS_BASE_URL` and `RHESIS_API_KEY` from SDK configuration unless you pass explicit values. Note that the SDK uses `RHESIS_API_KEY` — this is distinct from `RHESIS_API_TOKEN`, which is used for direct REST authentication.
 
 <CodeBlock filename="rhesis_tools.py" language="python">
 {`from rhesis.sdk.agents import BaseAgent, get_rhesis_tools
@@ -45,7 +45,7 @@ result = agent.run("List my endpoints and summarize what each one tests.")
 print(result.final_answer)`}
 </CodeBlock>
 
-`MCPTool` reconnects when the underlying transport or session is lost, which makes it safe to use across repeated script or notebook calls that create new event loops.
+`MCPTool` reconnects on the next call when the underlying transport or session is lost. This makes it safe to reuse across repeated script or notebook calls that create new event loops. If the transport drops *during* a tool call, that call fails and the caller is responsible for retrying.
 
 ## Create a custom tool
 
