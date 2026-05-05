@@ -1127,6 +1127,70 @@ class TestArchitectPromptHardening:
 
 
 @pytest.mark.unit
+class TestArchitectNameResolutionGuidance:
+    """Verify the prompt teaches a typo-tolerant name-resolution ladder.
+
+    The agent must walk through progressively broader filters when
+    resolving an entity name — exact match, whole-string contains,
+    token-OR contains, and finally a suggestion fallback over an
+    unfiltered page. Without the token-OR step, single-character
+    typos like "rosalinf" instead of "rosalind" dead-end with
+    "no match found" because OData ``contains`` is a substring
+    operator, not a fuzzy operator.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    def test_resolution_section_present(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "## Resolving Entities by Name" in prompt
+
+    def test_exact_match_tier_documented(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "Exact match" in prompt
+        assert "tolower(name) eq" in prompt
+
+    def test_whole_string_contains_tier_documented(self, mock_model):
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        assert "Whole-string contains" in prompt
+        assert "contains(tolower(name)" in prompt
+
+    def test_token_or_typo_fallback_documented(self, mock_model):
+        """The token-OR fallback is the typo-tolerance mechanism."""
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt.lower()
+        assert "token-or contains" in prompt
+        assert "typo" in prompt
+        # The example must illustrate the failure mode (typo'd name
+        # matched via clean tokens) so the LLM can pattern-match
+        # on real cases.
+        assert "rosalinf" in prompt
+        assert "rosalind" in prompt
+
+    def test_suggestion_fallback_documented(self, mock_model):
+        """When all filters fail, the agent should suggest candidates."""
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt.lower()
+        assert "suggestion fallback" in prompt
+        assert "did you mean" in prompt
+
+    def test_resolution_tiers_appear_in_order(self, mock_model):
+        """Tiers must be listed in escalation order so the LLM walks them top-down."""
+        agent = _make_agent(mock_model)
+        prompt = agent.system_prompt
+        exact_pos = prompt.index("Exact match")
+        whole_pos = prompt.index("Whole-string contains")
+        token_pos = prompt.index("Token-OR contains")
+        suggest_pos = prompt.index("Suggestion fallback")
+        assert exact_pos < whole_pos < token_pos < suggest_pos
+
+
+@pytest.mark.unit
 class TestArchitectArgumentValidation:
     """Test structural argument validation (Phase 09)."""
 
