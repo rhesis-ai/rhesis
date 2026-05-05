@@ -170,7 +170,7 @@ def run_exploration_task(
         # task — so the handler is a cheap pass-through for non-architect
         # callers and avoids the start-of-task race that would otherwise
         # silently drop the entire progress trail.
-        event_handlers: List[Any] = [_PenelopeProgressHandler(_emit)] if task_id else []
+        event_handlers: List[Any] = [_PenelopeProgressHandler(_emit)]
 
         result = asyncio.run(
             tool.execute(

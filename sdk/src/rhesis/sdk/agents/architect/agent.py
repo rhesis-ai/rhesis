@@ -30,7 +30,7 @@ from rhesis.sdk.agents.schemas import (
 from rhesis.sdk.models.base import BaseLLM
 
 from .config import ArchitectConfig, _default_discovery_state
-from .plan import ArchitectPlan, _INTERNAL_FIELDS, build_save_plan_tool
+from .plan import _INTERNAL_FIELDS, ArchitectPlan, build_save_plan_tool
 from .tool_registry import mode_for, plan_category_for
 
 logger = logging.getLogger(__name__)
@@ -166,8 +166,16 @@ class ArchitectAgent(BaseAgent):
 
         self._discovery_state: Dict[str, Any] = _default_discovery_state()
 
-        # UUID → entity name for resolving IDs in mapping tools
+        # UUID → entity name for resolving IDs in mapping tools.
+        # Populated from any successful tool result that contains {id, name}.
         self._id_to_name: Dict[str, str] = {}
+
+        # Type-scoped ID→name maps, populated only from behavior / metric
+        # tool results respectively. Used in reconciliation to avoid false
+        # completions caused by name collisions with other entity types
+        # (endpoints, projects, test sets) that share _id_to_name.
+        self._behavior_id_names: Dict[str, str] = {}
+        self._metric_id_names: Dict[str, str] = {}
 
         # Successful (behavior_name_lower, metric_name_lower) links observed
         # in this session via ``add_behavior_to_metric``. Tracked outside
@@ -175,6 +183,10 @@ class ArchitectAgent(BaseAgent):
         # not lost — ``_execute_save_plan`` consults this set to seed
         # ``MappingSpec.completed`` and ``MappingSpec.linked_metrics``.
         self._linked_pairs: Set[Tuple[str, str]] = set()
+
+        # Raw (behavior_id, metric_id) pairs from add_behavior_to_metric.
+        # Fallback when the IDs weren't yet resolved to names at link time.
+        self._linked_id_pairs: Set[Tuple[str, str]] = set()
 
         # Async task waiting: when the agent calls await_task,
         # the turn ends and the backend monitors the task.
@@ -349,7 +361,10 @@ class ArchitectAgent(BaseAgent):
         self._attachments = None
         self._discovery_state = _default_discovery_state()
         self._id_to_name.clear()
+        self._behavior_id_names.clear()
+        self._metric_id_names.clear()
         self._linked_pairs.clear()
+        self._linked_id_pairs.clear()
         self._pending_tasks.clear()
         self._awaiting_task = False
         self._await_message = ""
@@ -687,6 +702,7 @@ class ArchitectAgent(BaseAgent):
         result = await super().execute_tool(tool_call)
         if result.success:
             self._collect_id_names(result)
+            self._collect_typed_entity_names(tool_call, result)
             self._record_link_if_mapping(tool_call)
             if self._plan:
                 await self._track_plan_progress(tool_call, result)
@@ -698,11 +714,18 @@ class ArchitectAgent(BaseAgent):
         Recorded outside ``self._plan`` so links made BEFORE ``save_plan``
         is ever called still seed ``MappingSpec.completed`` when the plan
         is later saved (see ``_reconcile_plan_with_session_evidence``).
+
+        Always stores the raw (behavior_id, metric_id) pair in
+        ``_linked_id_pairs`` as a fallback for cases where the IDs weren't
+        yet in ``_id_to_name`` at the time of the call (e.g. the plan's
+        ``existing_id`` was used without a prior ``list_*`` call).
         """
         if tool_call.tool_name != "add_behavior_to_metric":
             return
-        behavior_id = tool_call.arguments.get("behavior_id", "")
-        metric_id = tool_call.arguments.get("metric_id", "")
+        behavior_id = str(tool_call.arguments.get("behavior_id", ""))
+        metric_id = str(tool_call.arguments.get("metric_id", ""))
+        if behavior_id and metric_id:
+            self._linked_id_pairs.add((behavior_id, metric_id))
         bname = self._id_to_name.get(behavior_id, "").lower()
         mname = self._id_to_name.get(metric_id, "").lower()
         if bname and mname:
@@ -721,15 +744,18 @@ class ArchitectAgent(BaseAgent):
         except Exception as e:
             return self._save_plan_unexpected_failure(tool_call, e)
 
-        # Seed _id_to_name from any (reuse) IDs the LLM included; these
-        # would otherwise only become known when the LLM later calls a
-        # list_* tool.
+        # Seed both the global and type-scoped ID→name maps from any
+        # (reuse) IDs the LLM included in the plan. Without this, reused
+        # entities would only become known when the LLM later calls a
+        # list_* tool — leaving the reconciliation check blind to them.
         for b in plan.behaviors:
             if b.existing_id and b.name:
                 self._id_to_name[str(b.existing_id)] = b.name
+                self._behavior_id_names[str(b.existing_id)] = b.name
         for m in plan.metrics:
             if m.existing_id and m.name:
                 self._id_to_name[str(m.existing_id)] = m.name
+                self._metric_id_names[str(m.existing_id)] = m.name
 
         self._reconcile_plan_with_session_evidence(plan)
 
@@ -766,36 +792,68 @@ class ArchitectAgent(BaseAgent):
 
         We use the agent's own session evidence to recover:
 
-        - ``self._id_to_name`` is updated by ``_collect_id_names`` after
-          every successful ``create_*`` and ``list_*``, so its values
-          are the canonical platform names of entities the agent has
-          touched this session. Any plan item whose name appears here
-          is genuinely on the platform.
+        - ``self._behavior_id_names`` / ``self._metric_id_names`` are
+          type-scoped maps populated only from behavior / metric tool
+          results. Using these (rather than the global ``_id_to_name``)
+          prevents false completions when an endpoint, project, or test
+          set shares a name with a behavior or metric.
         - ``self._linked_pairs`` records every successful
-          ``add_behavior_to_metric`` regardless of plan state.
+          ``add_behavior_to_metric`` resolved to (behavior_name_lower,
+          metric_name_lower). ``self._linked_id_pairs`` records the same
+          links as raw (behavior_id, metric_id) pairs for cases where the
+          IDs weren't yet in ``_id_to_name`` at link time.
 
-        For behaviors and metrics, ``existing_id`` set OR ``reuse_status
-        == "reuse"`` OR a name match against ``_id_to_name`` triggers
-        completion. For mappings, completion requires every planned
-        metric to be in ``_linked_pairs`` for that behavior.
+        For behaviors/metrics: ``existing_id`` set OR ``reuse_status ==
+        "reuse"`` OR a name match in the type-scoped map triggers
+        completion. For mappings: all planned metrics must appear in
+        either ``_linked_pairs`` (by name) or ``_linked_id_pairs`` (by
+        ID, using ``existing_id`` from the plan items).
         """
-        created_names = {v.lower() for v in self._id_to_name.values() if v}
+        created_behavior_names = {v.lower() for v in self._behavior_id_names.values() if v}
+        created_metric_names = {v.lower() for v in self._metric_id_names.values() if v}
 
-        def _completed_via_evidence(name: str, existing_id: Optional[str]) -> bool:
+        def _behavior_completed(name: str, existing_id: Optional[str]) -> bool:
             if existing_id:
                 return True
-            return bool(name) and name.lower() in created_names
+            return bool(name) and name.lower() in created_behavior_names
+
+        def _metric_completed(name: str, existing_id: Optional[str]) -> bool:
+            if existing_id:
+                return True
+            return bool(name) and name.lower() in created_metric_names
 
         for b in plan.behaviors:
-            if b.reuse_status == "reuse" or _completed_via_evidence(b.name, b.existing_id):
+            if b.reuse_status == "reuse" or _behavior_completed(b.name, b.existing_id):
                 b.completed = True
         for m in plan.metrics:
-            if m.reuse_status == "reuse" or _completed_via_evidence(m.name, m.existing_id):
+            if m.reuse_status == "reuse" or _metric_completed(m.name, m.existing_id):
                 m.completed = True
+
+        # Build a lookup from behavior/metric name to their existing_id so we
+        # can check the raw ID-pair fallback for reused entities.
+        behavior_name_to_id = {
+            b.name.lower(): str(b.existing_id)
+            for b in plan.behaviors
+            if b.existing_id
+        }
+        metric_name_to_id = {
+            m.name.lower(): str(m.existing_id)
+            for m in plan.metrics
+            if m.existing_id
+        }
+
+        def _metric_linked(bkey: str, mname: str) -> bool:
+            if (bkey, mname) in self._linked_pairs:
+                return True
+            bid = behavior_name_to_id.get(bkey)
+            mid = metric_name_to_id.get(mname)
+            if bid and mid and (bid, mid) in self._linked_id_pairs:
+                return True
+            return False
 
         for mp in plan.behavior_metric_mappings:
             bkey = mp.behavior.lower()
-            linked = [m for m in mp.metrics if (bkey, m.lower()) in self._linked_pairs]
+            linked = [m for m in mp.metrics if _metric_linked(bkey, m.lower())]
             mp.linked_metrics = linked
             if mp.metrics and len(linked) == len(mp.metrics):
                 mp.completed = True
@@ -1013,6 +1071,44 @@ class ArchitectAgent(BaseAgent):
                 ename = item.get("name")
                 if eid and ename:
                     self._id_to_name[str(eid)] = ename
+
+    _BEHAVIOR_TOOLS: FrozenSet[str] = frozenset(
+        {"create_behavior", "list_behaviors", "get_behavior"}
+    )
+    _METRIC_TOOLS: FrozenSet[str] = frozenset(
+        {"create_metric", "list_metrics", "get_metric", "improve_metric", "generate_metric"}
+    )
+
+    def _collect_typed_entity_names(self, tool_call: ToolCall, result: ToolResult) -> None:
+        """Populate type-scoped ID→name maps from behavior / metric tool results.
+
+        Unlike the generic ``_collect_id_names``, this method scopes each ID
+        to the entity type implied by the tool, preventing false completions
+        in ``_reconcile_plan_with_session_evidence`` when a different entity
+        type (endpoint, project, test set) happens to share the same name.
+        """
+        if not result.success or not result.content:
+            return
+        target: Optional[Dict[str, str]]
+        if tool_call.tool_name in self._BEHAVIOR_TOOLS:
+            target = self._behavior_id_names
+        elif tool_call.tool_name in self._METRIC_TOOLS:
+            target = self._metric_id_names
+        else:
+            return
+        try:
+            data = json.loads(result.content)
+        except (json.JSONDecodeError, TypeError):
+            return
+        items, _ = _unwrap_list_envelope(data)
+        if items is None:
+            items = [data] if isinstance(data, dict) else []
+        for item in items:
+            if isinstance(item, dict):
+                eid = item.get("id")
+                ename = item.get("name")
+                if eid and ename:
+                    target[str(eid)] = ename
 
     @staticmethod
     def _compact_list_result_for_history(

@@ -2735,6 +2735,8 @@ class TestArchitectSavePlanReconciliation:
             "b-health": "Provides Accurate Health Info",
             "m-health": "Health Information Accuracy",
         }
+        agent._behavior_id_names = {"b-health": "Provides Accurate Health Info"}
+        agent._metric_id_names = {"m-health": "Health Information Accuracy"}
 
         result = await agent._execute_save_plan(self._save_call(self._plan_payload()))
         assert result.success is True
@@ -2758,6 +2760,8 @@ class TestArchitectSavePlanReconciliation:
             "b-health": "Provides Accurate Health Info",
             "m-health": "Health Information Accuracy",
         }
+        agent._behavior_id_names = {"b-health": "Provides Accurate Health Info"}
+        agent._metric_id_names = {"m-health": "Health Information Accuracy"}
         agent._record_link_if_mapping(
             self._link_call("b-health", "m-health")
         )
@@ -2820,6 +2824,8 @@ class TestArchitectSavePlanReconciliation:
 
         # Only one of the two planned entities was actually created.
         agent._id_to_name = {"b-health": "Provides Accurate Health Info"}
+        agent._behavior_id_names = {"b-health": "Provides Accurate Health Info"}
+        # _metric_id_names intentionally empty — metric was never observed
 
         result = await agent._execute_save_plan(self._save_call(self._plan_payload()))
         assert result.success is True
@@ -2847,6 +2853,11 @@ class TestArchitectSavePlanReconciliation:
 
         agent._id_to_name = {
             "b-core": "Core",
+            "m-pricing": "Pricing Accuracy",
+            "m-hallucination": "Hallucination Detection",
+        }
+        agent._behavior_id_names = {"b-core": "Core"}
+        agent._metric_id_names = {
             "m-pricing": "Pricing Accuracy",
             "m-hallucination": "Hallucination Detection",
         }
@@ -2915,17 +2926,22 @@ class TestArchitectSavePlanReconciliation:
         )
         assert agent._linked_pairs == set()
 
-    def test_record_link_skips_when_ids_not_resolved(self, mock_model):
+    def test_record_link_skips_name_pair_when_ids_not_resolved(self, mock_model):
+        """When IDs aren't in _id_to_name yet, no name-based pair is stored,
+        but the raw ID pair is always recorded as a fallback."""
         agent = _make_agent(mock_model)
         agent._id_to_name = {}  # neither id known yet
         agent._record_link_if_mapping(self._link_call("b-x", "m-x"))
-        assert agent._linked_pairs == set()
+        assert agent._linked_pairs == set()  # name pair not stored
+        assert agent._linked_id_pairs == {("b-x", "m-x")}  # ID fallback stored
 
     def test_linked_pairs_cleared_on_reset(self, mock_model):
         agent = _make_agent(mock_model)
         agent._linked_pairs.add(("b", "m"))
+        agent._linked_id_pairs.add(("bid", "mid"))
         agent.reset()
         assert agent._linked_pairs == set()
+        assert agent._linked_id_pairs == set()
 
     @pytest.mark.asyncio
     async def test_execution_order_reconciles_before_checking(self, mock_model):
@@ -2945,6 +2961,8 @@ class TestArchitectSavePlanReconciliation:
         # and record the behavior→metric link — without calling save_plan.
         agent._id_to_name["b-id"] = "Provides Accurate Health Info"
         agent._id_to_name["m-id"] = "Health Information Accuracy"
+        agent._behavior_id_names["b-id"] = "Provides Accurate Health Info"
+        agent._metric_id_names["m-id"] = "Health Information Accuracy"
         agent._linked_pairs.add(("provides accurate health info", "health information accuracy"))
 
         tc = ToolCall(tool_name="generate_test_set", arguments=json.dumps({}))

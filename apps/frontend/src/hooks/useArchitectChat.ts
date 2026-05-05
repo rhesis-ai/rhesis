@@ -30,13 +30,6 @@ export interface ArchitectChatMessage {
    * back and still see which step actually finished.
    */
   taskCompleted?: boolean;
-  /**
-   * Per-step progress trail emitted by the worker running the awaited
-   * task (e.g. exploration). Each entry corresponds to one
-   * `architect.task_progress` event. Persistent so the user can scroll
-   * back and see what the worker did during the long task.
-   */
-  taskProgress?: TaskProgressEntry[];
   files?: Array<{
     filename: string;
     content_type: string;
@@ -71,21 +64,6 @@ export interface StreamingState {
   }>;
 }
 
-/**
- * One progress entry from a worker-side task the architect is awaiting.
- * Mirrors the `ARCHITECT_TASK_PROGRESS` payload (see types.ts), with
- * camelCase field names for frontend ergonomics.
- */
-export interface TaskProgressEntry {
-  taskId: string;
-  status: 'started' | 'progress' | 'completed' | 'failed';
-  label: string;
-  step?: number;
-  total?: number;
-  durationMs?: number;
-  /** Wall-clock time the entry was received (for UI sorting/display). */
-  receivedAt: number;
-}
 
 interface UseArchitectChatOptions {
   sessionId: string | null;
@@ -147,8 +125,8 @@ const initialStreamingState: StreamingState = {
  * misleading:
  *
  * - `save_plan`: synchronous Pydantic validation — the LLM frequently
- *   fails on the first attempt and self-corrects; showing "Save Plan ❌
- *   → Save Plan ✓" implies a real failure when it's just internal retry.
+ *   fails on the first attempt and self-corrects; showing "Save Plan (fail)
+ *   -> Save Plan (ok)" implies a real failure when it's just internal retry.
  * - `await_task`: returns "Turn paused…" — not a user-facing action; it
  *   would render as a completed tool in `ToolCallList` after every
  *   background-task wait.

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import jinja2
+from pydantic import ValidationError
 
 from rhesis.sdk.agents.constants import Action, InternalTool
 from rhesis.sdk.agents.events import AgentEventHandler, _emit
@@ -703,11 +704,12 @@ class BaseAgent:
             )
             await _emit(self._event_handlers, "on_llm_end", action=action)
             return action
-        except (ValueError, TypeError, KeyError) as e:
+        except (ValueError, TypeError, KeyError, ValidationError) as e:
             # These arise when the LLM produces malformed or non-schema-
             # compliant JSON (e.g. AgentAction(**response) fails because a
-            # required field is missing or has the wrong type). That is a
-            # model capability issue, so surface the friendly hint.
+            # required field is missing or has the wrong type, raising
+            # pydantic.ValidationError). That is a model capability issue,
+            # so surface the friendly hint.
             logger.error(
                 f"[Agent] Failed to parse LLM response: {e}",
                 exc_info=True,
