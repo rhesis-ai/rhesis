@@ -185,13 +185,18 @@ export default function ArchitectMessageBubble({
         {/* Message content */}
         <MarkdownContent content={message.content} variant="body2" />
 
-        {/* Live progress trail for awaited background tasks */}
-        {message.taskProgress && message.taskProgress.length > 0 && (
-          <TaskProgressList
-            entries={message.taskProgress}
-            isAwaiting={!!showWaitingSpinner}
-          />
-        )}
+        {/* Live progress trail for awaited background tasks. Hidden once
+            the task has completed — at that point the bubble's "Done."
+            footer is the only signal that needs to remain. The per-turn
+            entries are operational detail that's noisy in scroll-back. */}
+        {message.taskProgress &&
+          message.taskProgress.length > 0 &&
+          !message.taskCompleted && (
+            <TaskProgressList
+              entries={message.taskProgress}
+              isAwaiting={!!showWaitingSpinner}
+            />
+          )}
 
         {/* File attachment chips (user messages) */}
         {isUser && message.files && message.files.length > 0 && (

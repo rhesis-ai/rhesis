@@ -385,7 +385,11 @@ describe('ArchitectMessageBubble', () => {
       ).toBeNull();
     });
 
-    it('keeps the trail visible after the awaited task finishes', () => {
+    it('keeps the trail visible after the worker emits a "completed" event but the bubble has not yet been marked taskCompleted', () => {
+      // The worker can emit a final progress event before the agent
+      // resumes; in that brief window the trail still belongs to a
+      // bubble whose ``taskCompleted`` flag is still false. The trail
+      // must keep rendering until the bubble itself flips state.
       render(
         <ArchitectMessageBubble
           message={createMessage({
@@ -405,6 +409,47 @@ describe('ArchitectMessageBubble', () => {
 
       expect(screen.getByText('Exploration completed')).toBeInTheDocument();
       expect(screen.getByText('1.5s')).toBeInTheDocument();
+    });
+
+    it('hides the entire trail once the bubble is marked taskCompleted', () => {
+      // Once the awaited task is permanently done, the per-turn
+      // breakdown is operational noise — the bubble's "Done." footer
+      // is the only signal that needs to remain. The user should be
+      // able to scroll back without seeing every intermediate turn.
+      const { container } = render(
+        <ArchitectMessageBubble
+          message={createMessage({
+            taskCompleted: true,
+            taskProgress: [
+              {
+                taskId: 't1',
+                status: 'progress',
+                label: 'Turn 1: probing endpoint',
+                receivedAt: 1,
+              },
+              {
+                taskId: 't1',
+                status: 'completed',
+                label: 'Exploration completed',
+                durationMs: 2500,
+                receivedAt: 2,
+              },
+            ],
+          })}
+          showWaitingSpinner={false}
+          showTaskComplete
+        />
+      );
+
+      // The trail container itself should no longer be rendered.
+      expect(
+        container.querySelector('[aria-label="Task progress"]')
+      ).toBeNull();
+      expect(screen.queryByText('Turn 1: probing endpoint')).toBeNull();
+      expect(screen.queryByText('Exploration completed')).toBeNull();
+
+      // The "Done." footer takes over.
+      expect(screen.getByText('Done.')).toBeInTheDocument();
     });
 
     it('hides the footer "Working…" while the trail has an active entry', () => {
