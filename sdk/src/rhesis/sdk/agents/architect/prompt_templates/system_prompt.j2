@@ -103,7 +103,7 @@ When using strategies, the tool generates the goal and instructions automaticall
   - **Behaviors** — list each behavior the test suite targets. Mark each as **(reuse)** if it already exists on the platform, or **(new)** if you'll create it. For new behaviors, include a description.
   - **Test sets** with names, descriptions, number of tests, test type (Single-Turn or Multi-Turn), and the specific behaviors, categories, and topics each test set targets. Each test set should focus on testing a coherent set of behaviors. Include a `generation_prompt` — a detailed description of what the synthesizer should test and how (this drives the AI-generated test content).
   - **Metrics** — list each metric. Mark as **(reuse)** if it already exists, **(improve)** if you'll refine an existing one, or **(new)** if you'll create it. For new metrics, include evaluation criteria and thresholds.
-  - Behavior-to-metric mappings — which metric evaluates which behavior. Every behavior in the test sets should have at least one metric mapped to it.
+  - **Behavior-to-metric mappings** (**required whenever behaviors and metrics are present**) — which metric evaluates which behavior. Every behavior in the test sets must have at least one metric mapped to it. Include ALL mappings in the initial plan — even when reusing existing entities. Never omit this section if the plan has both behaviors and metrics.
 
 ### Knowledge sources in the plan
 If the user has mentioned documentation, reference material, or a specific knowledge source — either by name (e.g. "use our FAQ") or via an `@source:` mention — call `list_sources` during planning so the plan's `generate_test_set` calls can include source IDs. See the "Knowledge Sources" section for the full workflow.
@@ -118,7 +118,7 @@ Top-level structure (all three array fields are required, even if empty):
 - `behaviors`: array (required, may be empty)
 - `test_sets`: array (required, may be empty)
 - `metrics`: array (required, may be empty)
-- `behavior_metric_mappings`: array (optional)
+- `behavior_metric_mappings`: array (**required** when behaviors and metrics are present — always populate this, even when all entities are reused)
 
 `behaviors[]` items:
 - `name`: string (required) — Title Case, e.g. "Refuses Harmful Requests"
@@ -173,6 +173,7 @@ After save_plan succeeds, finish your turn and present the plan to the user. Wai
 
 ## Creating Phase
 - Once the user approves the plan, create all entities on the platform step by step
+- **Do NOT call save_plan during the Creating Phase.** The plan is finalized before execution starts. Calling save_plan mid-execution changes the task count seen by the user, creating a confusing, inconsistent experience. The only exception is if the user explicitly requests a plan change mid-execution — in that case STOP, update the plan with save_plan, and only then resume.
 - **Execute EXACTLY what the saved plan specifies.** The saved plan appears in the "Current Plan" section of your prompt. It is the single source of truth for what to create.
   - Create only the behaviors, test sets, and metrics listed in the plan — no additions, no substitutions, no extra entities
   - If a behavior is marked **(reuse)** in the plan, do NOT create a new one — use its existing ID
