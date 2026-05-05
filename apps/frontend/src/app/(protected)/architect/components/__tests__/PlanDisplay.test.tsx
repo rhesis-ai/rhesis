@@ -103,6 +103,26 @@ describe('countProgress', () => {
       total: 0,
     });
   });
+
+  it('skips items with any *(tag)* annotation, not just existing/reuse', () => {
+    const plan = [
+      '- [x] Done item *(reuse)*',
+      '- [x] Done item *(existing)*',
+      '- [x] Done item *(improve)*',
+      '- [ ] Real pending item',
+    ].join('\n');
+
+    expect(countProgress(plan)).toEqual({ done: 0, total: 1 });
+  });
+
+  it('does not match - [x] appearing mid-line in prose', () => {
+    const plan = [
+      'Use - [x] to mark done items',
+      '- [x] Real checklist item',
+    ].join('\n');
+
+    expect(countProgress(plan)).toEqual({ done: 1, total: 1 });
+  });
 });
 
 describe('isPlanComplete', () => {

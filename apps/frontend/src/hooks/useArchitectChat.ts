@@ -423,16 +423,24 @@ export function useArchitectChat(
           // pointing at the waiting bubble so ARCHITECT_THINKING knows to close
           // it when the task completes.
         } else {
-          // Fallback: no streaming message exists (backward compatibility)
+          // Fallback: no streaming message exists (backward compatibility).
+          // If awaiting_task=true we still need to mark the message as
+          // streaming and register it as the waiting bubble so that
+          // ARCHITECT_TASK_PROGRESS events can attach to it.
+          const fallbackId = generateId();
           const assistantMessage: ArchitectChatMessage = {
-            id: generateId(),
+            id: fallbackId,
             role: 'assistant',
             content: payload.content || '',
             timestamp: new Date(),
             needsConfirmation: payload.needs_confirmation ?? false,
+            isStreaming: payload.awaiting_task ? true : undefined,
           };
           setMessages(prev => [...prev, assistantMessage]);
-          if (!payload.awaiting_task) {
+          if (payload.awaiting_task) {
+            streamingMessageIdRef.current = fallbackId;
+            waitingMessageIdRef.current = fallbackId;
+          } else {
             setStreamingState(initialStreamingState);
           }
         }

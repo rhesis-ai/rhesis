@@ -13,17 +13,23 @@
  * on the platform before this session and don't represent work the
  * agent still needs to do.
  */
+/** Matches any `*(tag)*`-style status annotation on a checklist line. */
+const STATUS_TAG_RE = /\*\([^)]+\)\*/;
+
 export function countProgress(plan: string): { done: number; total: number } {
   const lines = plan.split('\n');
   let total = 0;
   let done = 0;
   for (const line of lines) {
-    const isExisting = line.includes('*(existing)*') || line.includes('*(reuse)*');
-    if (isExisting) continue;
-    if (line.includes('- [x]')) {
+    const trimmed = line.trimStart();
+    if (!trimmed.startsWith('- [')) continue;
+    // Skip items tagged with any *(…)* status annotation — these represent
+    // already-existing entities and are not actionable work for this session.
+    if (STATUS_TAG_RE.test(line)) continue;
+    if (trimmed.startsWith('- [x]')) {
       total++;
       done++;
-    } else if (line.includes('- [ ]')) {
+    } else if (trimmed.startsWith('- [ ]')) {
       total++;
     }
   }
