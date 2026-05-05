@@ -1,0 +1,63 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Framework telemetry integrations (SDK)
+
+The Rhesis Python SDK wires **automatic** tracing for some AI frameworks through small integration classes under `sdk/src/rhesis/sdk/telemetry/integrations/`. Each integration subclasses `BaseIntegration` and is registered in `get_all_integrations()` so [`auto_instrument()`](/docs/tracing/auto-instrumentation) can discover it.
+
+This page is for contributors who want to add or extend an integration the same way LangChain and LangGraph do today.
+
+## `BaseIntegration` contract
+
+Defined in `sdk/src/rhesis/sdk/telemetry/integrations/base.py`:
+
+| Piece | Role |
+| --- | --- |
+| `framework_name` | Stable string key (for example `"langchain"`) used in `auto_instrument("…")`. |
+| `is_installed()` | Return `True` when optional deps for that framework are importable. |
+| `_create_callback()` | Build the framework-specific callback, patch handle, or `None` if not applicable. |
+| `enable()` / `disable()` | Turn observation on or off; `enable()` should return `False` if the framework is not installed or setup fails. |
+| `callback()` | Return the live handler; the base implementation can call `enable()` if needed. |
+| `enabled` | Whether this integration is currently active. |
+
+**Reference implementations:**
+
+- **LangChain** — `sdk/src/rhesis/sdk/telemetry/integrations/langchain/integration.py`: singleton, `set_default_callback_manager`, optional fallback registration, `BaseTool.invoke` / `ainvoke` patching via `ToolPatchState` and `ensure_callback_in_config`.
+- **LangGraph** — `sdk/src/rhesis/sdk/telemetry/integrations/langgraph.py`: enables the **same** LangChain singleton callback, then patches compiled graph methods and sets `tracing_v2_callback_var` when available (`GraphPatchState` guards idempotent patching).
+
+## Public registration
+
+1. Implement a `get_integration()` factory that returns a **module-level singleton** (see existing modules).
+2. Add the integration to `get_all_integrations()` in `sdk/src/rhesis/sdk/telemetry/integrations/__init__.py`.
+3. Export any helpers (for example `get_callback`) from the framework package if users need manual wiring.
+4. Add an optional dependency group in `sdk/pyproject.toml` if the integration needs extra packages.
+5. Add tests under `tests/sdk/telemetry/integrations/` (patch state resets, enable/disable, and at least one smoke path through the framework API).
+
+## Checklist for a new framework
+
+- [ ] Subclass `BaseIntegration` with a clear `framework_name`.
+- [ ] Implement `is_installed()` with a narrow `import` check.
+- [ ] Implement `_create_callback()` (or override `enable()` if patching must happen before/after, like LangGraph).
+- [ ] Register in `get_all_integrations()`.
+- [ ] Document user-facing behavior in [Auto-Instrumentation](/docs/tracing/auto-instrumentation) when the feature is ready for end users.
+- [ ] Avoid advertising `auto_instrument("…")` for placeholders that still return `None` from `_create_callback()` — prefer `@observe` in docs until the hook is real.
+
+## Manual callback pattern
+
+LangChain exposes `get_callback()` for advanced injection when auto-patching does not run (custom wrappers). New integrations can follow the same idea: a small module-level helper that returns the active handler **after** `enable()` has succeeded.
+
+<CodeBlock filename="pattern.py" language="python">
+{`# Illustrative — see langchain/integration.py for the real API
+
+from rhesis.sdk.telemetry.integrations.myframework import get_integration
+
+def get_handler():
+    integration = get_integration()
+    if integration.enabled:
+        return integration.callback()
+    return None`}
+</CodeBlock>
+
+## Related code paths
+
+- Global orchestration: `sdk/src/rhesis/sdk/telemetry/observer.py` (`auto_instrument`, `disable_auto_instrument`).
+- LangChain callback and agent/heuristic logic: `sdk/src/rhesis/sdk/telemetry/integrations/langchain/callback.py`, `extractors.py`.
