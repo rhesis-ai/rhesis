@@ -49,8 +49,8 @@ export default async function AdaptiveTestingDetailPage({
         title={testSetName}
         breadcrumbs={[
           {
-            title: 'Adaptive Testing',
-            path: '/adaptive-testing',
+            title: 'Test explorer',
+            path: '/explorer',
           },
           { title: testSetName, path: '' },
         ]}
@@ -69,7 +69,7 @@ export default async function AdaptiveTestingDetailPage({
     return (
       <Box sx={{ p: 3 }}>
         <Typography color="error">
-          Error loading adaptive testing details: {errorMessage}
+          Error loading test explorer: {errorMessage}
         </Typography>
       </Box>
     );

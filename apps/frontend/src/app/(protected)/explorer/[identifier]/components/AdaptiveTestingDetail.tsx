@@ -2614,7 +2614,7 @@ export default function AdaptiveTestingDetail({
               ]
             : [],
       });
-      notifications.show('Adaptive testing settings saved.', {
+      notifications.show('Explorer settings saved.', {
         severity: 'success',
       });
       setSettingsDialogOpen(false);
@@ -2703,7 +2703,7 @@ export default function AdaptiveTestingDetail({
             </Box>
             <Box>
               <Typography variant="subtitle1" fontWeight={600} component="div">
-                Adaptive configuration
+                Explorer configuration
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Endpoint and metrics for generation and evaluation
@@ -3105,6 +3105,13 @@ export default function AdaptiveTestingDetail({
 
           {/* Right Panel - Tests Grid */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="overline"
+              color="text.secondary"
+              sx={{ display: 'block', letterSpacing: 0.8, mb: 0.5 }}
+            >
+              Explorer
+            </Typography>
             <Box
               sx={{
                 mb: 1,
@@ -3232,6 +3239,13 @@ export default function AdaptiveTestingDetail({
       {/* List View - All tests in a flat table */}
       {activeTab === 1 && (
         <Box>
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ display: 'block', letterSpacing: 0.8, mb: 0.5 }}
+          >
+            Explorer
+          </Typography>
           <Box
             sx={{
               mb: 1,
@@ -3606,7 +3620,7 @@ export default function AdaptiveTestingDetail({
         <DialogTitle>Evaluate</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Run the metric configured in adaptive testing settings against each
+            Run the metric configured in explorer settings against each
             test&apos;s stored input and output, and persist the evaluation
             results in test metadata.
           </Typography>
@@ -3697,10 +3711,11 @@ export default function AdaptiveTestingDetail({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Adaptive testing settings</DialogTitle>
+        <DialogTitle>Explorer settings</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select the endpoint and metric used by adaptive testing actions.
+            Select the endpoint and metric used for explorer generation and
+            evaluation.
           </Typography>
           {settingsReEvaluateWarning && (
             <Alert severity="warning" sx={{ mb: 2 }}>

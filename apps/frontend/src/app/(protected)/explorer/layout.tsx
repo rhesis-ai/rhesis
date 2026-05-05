@@ -1,10 +1,10 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Adaptive Testing - Details',
+  title: 'Test explorer',
 };
 
-export default function AdaptiveTestingDetailLayout({
+export default function AdaptiveTestingLayout({
   children,
 }: {
   children: React.ReactNode;
