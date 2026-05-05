@@ -86,9 +86,7 @@ export default function ImportExplorerTestSetDialog({
         }
 
         const response = await testSetsClient.getTestSets(queryParams);
-        const filtered = response.data.filter(
-          ts => !isExplorerTestSet(ts)
-        );
+        const filtered = response.data.filter(ts => !isExplorerTestSet(ts));
         setTestSets(filtered);
       } catch (_error) {
         notifications.show('Failed to load test sets', {
