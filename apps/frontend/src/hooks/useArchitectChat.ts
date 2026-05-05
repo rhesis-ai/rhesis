@@ -64,7 +64,6 @@ export interface StreamingState {
   }>;
 }
 
-
 interface UseArchitectChatOptions {
   sessionId: string | null;
   /** Seed the conversation with this user message immediately on mount. */
@@ -292,8 +291,7 @@ export function useArchitectChat(
         // already-created bubble, and leave an empty isStreaming=true ghost.
         const prevWaitingId = waitingMessageIdRef.current;
         const isFirstResumedThinking =
-          !!prevWaitingId &&
-          streamingMessageIdRef.current === prevWaitingId;
+          !!prevWaitingId && streamingMessageIdRef.current === prevWaitingId;
         if (isFirstResumedThinking) {
           setStreamingState(initialStreamingState);
           // Mark the waiting bubble as committed. taskCompleted is stamped

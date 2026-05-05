@@ -1150,7 +1150,9 @@ describe('useArchitectChat', () => {
       expect(result.current.streamingState.isThinking).toBe(true);
 
       // Old waiting bubble is committed.
-      const waitingBubble = result.current.messages.find(m => m.id === waitingId);
+      const waitingBubble = result.current.messages.find(
+        m => m.id === waitingId
+      );
       expect(waitingBubble?.isStreaming).toBe(false);
 
       // A new streaming bubble exists for the resumed turn.

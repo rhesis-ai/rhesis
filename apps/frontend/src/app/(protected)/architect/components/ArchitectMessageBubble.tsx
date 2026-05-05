@@ -57,7 +57,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-
 export default function ArchitectMessageBubble({
   message,
   userName,
@@ -75,8 +74,7 @@ export default function ArchitectMessageBubble({
   // Suppress the footer "Working…" when the ToolCallList already has an
   // active row — the inline spinner in that row covers liveness, and the
   // two indicators would otherwise animate simultaneously.
-  const hasActiveProgress =
-    (streamingState?.activeTools?.length ?? 0) > 0;
+  const hasActiveProgress = (streamingState?.activeTools?.length ?? 0) > 0;
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();

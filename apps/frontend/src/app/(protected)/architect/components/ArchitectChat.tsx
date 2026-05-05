@@ -425,9 +425,7 @@ export default function ArchitectChat({
               // rest of the session — the user can scroll back and still
               // see which step actually finished.
               const showTaskComplete =
-                !showWaitingSpinner &&
-                !showActions &&
-                !!message.taskCompleted;
+                !showWaitingSpinner && !showActions && !!message.taskCompleted;
 
               return (
                 <ArchitectMessageBubble

@@ -300,10 +300,7 @@ describe('ArchitectMessageBubble', () => {
   describe('waiting / done indicators', () => {
     it('shows the "Working…" spinner while a long task is running', () => {
       render(
-        <ArchitectMessageBubble
-          message={createMessage()}
-          showWaitingSpinner
-        />
+        <ArchitectMessageBubble message={createMessage()} showWaitingSpinner />
       );
 
       expect(screen.getByText('Working…')).toBeInTheDocument();
@@ -312,10 +309,7 @@ describe('ArchitectMessageBubble', () => {
 
     it('shows the "Done." indicator when the long task has completed', () => {
       render(
-        <ArchitectMessageBubble
-          message={createMessage()}
-          showTaskComplete
-        />
+        <ArchitectMessageBubble message={createMessage()} showTaskComplete />
       );
 
       expect(screen.getByText('Done.')).toBeInTheDocument();
@@ -358,9 +352,20 @@ describe('ArchitectMessageBubble', () => {
           streamingState={{
             isThinking: false,
             currentIteration: 1,
-            activeTools: [{ tool: 't1', description: 'Running domain probing', startedAt: 1 }],
+            activeTools: [
+              {
+                tool: 't1',
+                description: 'Running domain probing',
+                startedAt: 1,
+              },
+            ],
             completedTools: [
-              { tool: 't1', description: 'Starting exploration', success: true, startedAt: 0 },
+              {
+                tool: 't1',
+                description: 'Starting exploration',
+                success: true,
+                startedAt: 0,
+              },
             ],
           }}
           showWaitingSpinner
@@ -380,7 +385,13 @@ describe('ArchitectMessageBubble', () => {
           streamingState={{
             isThinking: false,
             currentIteration: 1,
-            activeTools: [{ tool: 't1', description: 'Turn 1: probing endpoint', startedAt: 1 }],
+            activeTools: [
+              {
+                tool: 't1',
+                description: 'Turn 1: probing endpoint',
+                startedAt: 1,
+              },
+            ],
             completedTools: [],
           }}
           showWaitingSpinner
@@ -422,7 +433,13 @@ describe('ArchitectMessageBubble', () => {
             currentIteration: 1,
             activeTools: [],
             completedTools: [
-              { tool: 't1', description: 'Exploration completed', success: true, durationMs: 2000, startedAt: 0 },
+              {
+                tool: 't1',
+                description: 'Exploration completed',
+                success: true,
+                durationMs: 2000,
+                startedAt: 0,
+              },
             ],
           }}
           showWaitingSpinner
