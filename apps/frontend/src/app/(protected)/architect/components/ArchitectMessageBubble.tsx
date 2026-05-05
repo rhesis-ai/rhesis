@@ -19,6 +19,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import ThinkingDots from './ThinkingDots';
 import ToolCallList from './ToolCallList';
+import TaskProgressList from './TaskProgressList';
 import Chip from '@mui/material/Chip';
 import { ArchitectChatMessage, StreamingState } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
@@ -30,7 +31,22 @@ interface ArchitectMessageBubbleProps {
   userName?: string;
   userPicture?: string;
   showActions?: boolean;
+  /**
+   * Show the footer "Working…" spinner while the agent is awaiting a
+   * background task. Suppressed automatically when the task's progress
+   * trail already has an active entry (the inline trail spinner takes
+   * over so the two indicators never animate simultaneously). Reappears
+   * briefly once the trail's last entry turns terminal but the agent
+   * hasn't yet resumed.
+   */
   showWaitingSpinner?: boolean;
+  /**
+   * Render a persistent "Done." indicator in the spinner slot — set on
+   * the bubble whose long-running task has completed. Stays on for the
+   * rest of the session so the user can scroll back and still see which
+   * step actually finished. Mutually exclusive with `showWaitingSpinner`.
+   */
+  showTaskComplete?: boolean;
   streamingState?: StreamingState;
   onAccept?: () => void;
   onReject?: () => void;
@@ -48,12 +64,24 @@ export default function ArchitectMessageBubble({
   userPicture,
   showActions,
   showWaitingSpinner,
+  showTaskComplete,
   streamingState,
   onAccept,
   onReject,
 }: ArchitectMessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
+
+  // True while the last progress entry in the trail is still running.
+  // When set, the inline spinner in <TaskProgressList> already signals
+  // the task's liveness, so the footer "Working…" would just duplicate it.
+  const lastProgress =
+    message.taskProgress && message.taskProgress.length > 0
+      ? message.taskProgress[message.taskProgress.length - 1]
+      : undefined;
+  const hasActiveProgress =
+    !!lastProgress &&
+    (lastProgress.status === 'started' || lastProgress.status === 'progress');
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -157,6 +185,14 @@ export default function ArchitectMessageBubble({
         {/* Message content */}
         <MarkdownContent content={message.content} variant="body2" />
 
+        {/* Live progress trail for awaited background tasks */}
+        {message.taskProgress && message.taskProgress.length > 0 && (
+          <TaskProgressList
+            entries={message.taskProgress}
+            isAwaiting={!!showWaitingSpinner}
+          />
+        )}
+
         {/* File attachment chips (user messages) */}
         {isUser && message.files && message.files.length > 0 && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
@@ -201,7 +237,7 @@ export default function ArchitectMessageBubble({
             >
               {formatTime(message.timestamp)}
             </Typography>
-            {showWaitingSpinner && (
+            {showWaitingSpinner && !hasActiveProgress && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <CircularProgress
                   size={10}
@@ -211,6 +247,22 @@ export default function ArchitectMessageBubble({
                 />
                 <Typography variant="caption" sx={{ opacity: 0.5 }}>
                   Working…
+                </Typography>
+              </Box>
+            )}
+            {!showWaitingSpinner && showTaskComplete && (
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                aria-live="polite"
+              >
+                <CheckCircleOutlineIcon
+                  sx={{ fontSize: 12, color: 'success.main', opacity: 0.8 }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'success.main', opacity: 0.8 }}
+                >
+                  Done.
                 </Typography>
               </Box>
             )}

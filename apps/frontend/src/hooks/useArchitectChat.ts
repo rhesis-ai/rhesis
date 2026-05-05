@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWebSocket } from './useWebSocket';
+import { isPlanComplete } from '@/utils/architect/plan';
 import {
   EventType,
   WebSocketMessage,
@@ -11,6 +12,7 @@ import {
   ArchitectErrorPayload,
   ArchitectTextChunkPayload,
   ArchitectStreamEndPayload,
+  ArchitectTaskProgressPayload,
 } from '@/utils/websocket';
 
 export interface ArchitectChatMessage {
@@ -21,6 +23,20 @@ export interface ArchitectChatMessage {
   isError?: boolean;
   needsConfirmation?: boolean;
   isStreaming?: boolean;
+  /**
+   * Set to true on the bubble that owned a long-running "Working…"
+   * spinner once that task completes. Persistent — once flipped on,
+   * stays on for the rest of the session, so the user can scroll
+   * back and still see which step actually finished.
+   */
+  taskCompleted?: boolean;
+  /**
+   * Per-step progress trail emitted by the worker running the awaited
+   * task (e.g. exploration). Each entry corresponds to one
+   * `architect.task_progress` event. Persistent so the user can scroll
+   * back and see what the worker did during the long task.
+   */
+  taskProgress?: TaskProgressEntry[];
   files?: Array<{
     filename: string;
     content_type: string;
@@ -55,6 +71,22 @@ export interface StreamingState {
   }>;
 }
 
+/**
+ * One progress entry from a worker-side task the architect is awaiting.
+ * Mirrors the `ARCHITECT_TASK_PROGRESS` payload (see types.ts), with
+ * camelCase field names for frontend ergonomics.
+ */
+export interface TaskProgressEntry {
+  taskId: string;
+  status: 'started' | 'progress' | 'completed' | 'failed';
+  label: string;
+  step?: number;
+  total?: number;
+  durationMs?: number;
+  /** Wall-clock time the entry was received (for UI sorting/display). */
+  receivedAt: number;
+}
+
 interface UseArchitectChatOptions {
   sessionId: string | null;
   /** Seed the conversation with this user message immediately on mount. */
@@ -79,6 +111,13 @@ interface UseArchitectChatResult {
   streamingState: StreamingState;
   currentMode: string;
   currentPlan: string | null;
+  /**
+   * The plan that should currently be visible in the UI. Equal to
+   * ``currentPlan`` except when the user has dismissed a completed plan
+   * by sending another message — in which case it is ``null`` until
+   * the plan content changes again.
+   */
+  visiblePlan: string | null;
   isAwaitingTask: boolean;
   autoApproveAll: boolean;
   setAutoApproveAll: React.Dispatch<React.SetStateAction<boolean>>;
@@ -102,6 +141,24 @@ const initialStreamingState: StreamingState = {
   completedTools: [],
 };
 
+/**
+ * Internal pseudo-tools the agent uses for its own bookkeeping (state
+ * persistence, control flow). Surfacing them in the chat tool list is
+ * misleading:
+ *
+ * - `save_plan`: synchronous Pydantic validation — the LLM frequently
+ *   fails on the first attempt and self-corrects; showing "Save Plan ❌
+ *   → Save Plan ✓" implies a real failure when it's just internal retry.
+ * - `await_task`: returns "Turn paused…" — not a user-facing action; it
+ *   would render as a completed tool in `ToolCallList` after every
+ *   background-task wait.
+ *
+ * Drop these events at the boundary so neither the active nor the
+ * completed list ever sees them. Add new internal tools here as the
+ * agent grows.
+ */
+const HIDDEN_TOOL_NAMES = new Set<string>(['save_plan', 'await_task']);
+
 export function useArchitectChat(
   options: UseArchitectChatOptions
 ): UseArchitectChatResult {
@@ -116,6 +173,22 @@ export function useArchitectChat(
   );
   const [currentMode, setCurrentMode] = useState('discovery');
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  // Snapshot of a *complete* plan that the user has dismissed by
+  // continuing the conversation. While ``currentPlan === dismissedPlan``,
+  // the "Plan Complete" badge stays hidden — re-emitting the same plan
+  // markdown on every subsequent ARCHITECT_RESPONSE shouldn't make it
+  // pop back. Cleared the moment the plan content changes (new items
+  // added, items unchecked, etc.) so a freshly-completed plan does
+  // surface again.
+  const [dismissedPlan, setDismissedPlan] = useState<string | null>(null);
+
+  // When a new plan arrives, clear the dismissal only if the content
+  // has actually changed — same markdown means the agent is re-echoing
+  // an already-dismissed plan, which should stay hidden.
+  const reconcileDismissedPlan = useCallback((newPlan: string) => {
+    setDismissedPlan(prev => (prev !== null && prev !== newPlan ? null : prev));
+  }, []);
+
   const [isAwaitingTask, setIsAwaitingTask] = useState(false);
   const [autoApproveAll, setAutoApproveAll] = useState(false);
 
@@ -124,6 +197,14 @@ export function useArchitectChat(
 
   const pendingCorrelationRef = useRef<string | null>(null);
   const streamingMessageIdRef = useRef<string | null>(null);
+  // Holds the id of the assistant bubble that owns the current "Working…"
+  // spinner. Captured the moment isAwaitingTask flips true and read again
+  // when it flips false so we know which bubble should be marked as
+  // taskCompleted. The bubble that was waiting is no longer the "last
+  // assistant message" by then (a new streaming bubble has replaced it),
+  // so we have to remember it explicitly.
+  const waitingMessageIdRef = useRef<string | null>(null);
+  const prevAwaitingRef = useRef(false);
   const autoApproveRef = useRef(autoApproveAll);
   autoApproveRef.current = autoApproveAll;
 
@@ -146,11 +227,36 @@ export function useArchitectChat(
     setStreamingState(initialStreamingState);
     setCurrentMode('discovery');
     setCurrentPlan(null);
+    setDismissedPlan(null);
     setIsAwaitingTask(false);
     streamingMessageIdRef.current = null;
     pendingCorrelationRef.current = null;
+    waitingMessageIdRef.current = null;
+    prevAwaitingRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // Permanently mark the bubble whose task just completed with
+  // taskCompleted: true. Triggered on the falling edge of isAwaitingTask
+  // using the message id captured when the spinner was first shown. The
+  // marker stays on the message for the rest of the session so the user
+  // can scroll back and still see which step actually finished.
+  useEffect(() => {
+    if (isAwaitingTask) {
+      prevAwaitingRef.current = true;
+      return;
+    }
+    if (!prevAwaitingRef.current) {
+      return;
+    }
+    prevAwaitingRef.current = false;
+    const id = waitingMessageIdRef.current;
+    if (!id) return;
+    waitingMessageIdRef.current = null;
+    setMessages(prev =>
+      prev.map(m => (m.id === id ? { ...m, taskCompleted: true } : m))
+    );
+  }, [isAwaitingTask]);
 
   // Subscribe to architect channel when session changes
   useEffect(() => {
@@ -249,10 +355,18 @@ export function useArchitectChat(
         pendingCorrelationRef.current = null;
 
         if (payload.mode) setCurrentMode(payload.mode);
-        if (payload.plan) setCurrentPlan(payload.plan);
+        if (payload.plan) {
+          setCurrentPlan(payload.plan);
+          reconcileDismissedPlan(payload.plan);
+        }
+        const streamId = streamingMessageIdRef.current;
+        if (payload.awaiting_task && streamId) {
+          // Remember which bubble owns the spinner so we can flash
+          // "Done." on it once the long task finishes.
+          waitingMessageIdRef.current = streamId;
+        }
         setIsAwaitingTask(payload.awaiting_task ?? false);
 
-        const streamId = streamingMessageIdRef.current;
         if (streamId) {
           // Finalize the streaming message. If no text chunks arrived
           // (e.g. agent completed without streaming), backfill content
@@ -290,6 +404,7 @@ export function useArchitectChat(
       subscribe(EventType.ARCHITECT_TOOL_START, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectToolPayload;
         if (!payload?.tool) return;
+        if (HIDDEN_TOOL_NAMES.has(payload.tool)) return;
         setStreamingState(prev => ({
           ...prev,
           activeTools: [
@@ -310,6 +425,7 @@ export function useArchitectChat(
       subscribe(EventType.ARCHITECT_TOOL_END, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectToolPayload;
         if (!payload?.tool) return;
+        if (HIDDEN_TOOL_NAMES.has(payload.tool)) return;
         setStreamingState(prev => {
           const activeTool = prev.activeTools.find(
             t => t.tool === payload.tool
@@ -341,7 +457,10 @@ export function useArchitectChat(
     unsubs.push(
       subscribe(EventType.ARCHITECT_PLAN_UPDATE, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectPlanUpdatePayload;
-        if (payload?.plan) setCurrentPlan(payload.plan);
+        if (payload?.plan) {
+          setCurrentPlan(payload.plan);
+          reconcileDismissedPlan(payload.plan);
+        }
       })
     );
 
@@ -349,6 +468,42 @@ export function useArchitectChat(
       subscribe(EventType.ARCHITECT_MODE_CHANGE, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectModeChangePayload;
         if (payload?.new_mode) setCurrentMode(payload.new_mode);
+      })
+    );
+
+    unsubs.push(
+      subscribe(EventType.ARCHITECT_TASK_PROGRESS, (msg: WebSocketMessage) => {
+        const payload = msg.payload as unknown as ArchitectTaskProgressPayload;
+        if (payload?.session_id && payload.session_id !== sessionId) return;
+        if (!payload?.task_id || !payload?.label) return;
+
+        // The bubble whose long-running task is producing this progress
+        // event was captured into waitingMessageIdRef when the agent
+        // entered awaiting_task=true. Append to that bubble; if the
+        // ref is empty (e.g. event arrives before RESPONSE flips the
+        // flag), drop the event rather than guess at the wrong bubble.
+        const targetId = waitingMessageIdRef.current;
+        if (!targetId) return;
+
+        const entry: TaskProgressEntry = {
+          taskId: payload.task_id,
+          status: payload.status,
+          label: payload.label,
+          step: payload.step,
+          total: payload.total,
+          durationMs: payload.duration_ms,
+          receivedAt: Date.now(),
+        };
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === targetId
+              ? {
+                  ...m,
+                  taskProgress: [...(m.taskProgress ?? []), entry],
+                }
+              : m
+          )
+        );
       })
     );
 
@@ -389,8 +544,17 @@ export function useArchitectChat(
 
       setError(null);
       setIsAwaitingTask(false);
+      waitingMessageIdRef.current = null;
+      prevAwaitingRef.current = false;
 
       if (currentPlanRef.current) {
+        // Once the plan is fully checked off, sending another message
+        // means the user has acknowledged completion — remember the
+        // dismissed plan so the badge doesn't pop back when the next
+        // ARCHITECT_RESPONSE re-emits the same markdown.
+        if (isPlanComplete(currentPlanRef.current)) {
+          setDismissedPlan(currentPlanRef.current);
+        }
         setCurrentPlan(null);
       }
 
@@ -443,6 +607,11 @@ export function useArchitectChat(
     [sessionId, isConnected, isLoading, send]
   );
 
+  const visiblePlan = useMemo(
+    () => (currentPlan && currentPlan === dismissedPlan ? null : currentPlan),
+    [currentPlan, dismissedPlan]
+  );
+
   return {
     messages,
     isLoading,
@@ -451,6 +620,7 @@ export function useArchitectChat(
     streamingState,
     currentMode,
     currentPlan,
+    visiblePlan,
     isAwaitingTask,
     autoApproveAll,
     setAutoApproveAll,

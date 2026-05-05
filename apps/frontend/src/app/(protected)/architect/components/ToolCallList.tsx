@@ -115,7 +115,7 @@ export default function ToolCallList({
     tool: StreamingState['completedTools'][number]
   ) => (
     <Collapse
-      key={`done-${tool.startedAt}`}
+      key={`done-${tool.tool}-${tool.startedAt}`}
       in
       timeout={ENTER_DURATION_MS}
       appear

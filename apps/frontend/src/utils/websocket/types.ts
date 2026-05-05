@@ -47,6 +47,12 @@ export enum EventType {
   ARCHITECT_STREAM_START = 'architect.stream_start',
   ARCHITECT_TEXT_CHUNK = 'architect.text_chunk',
   ARCHITECT_STREAM_END = 'architect.stream_end',
+  // Live progress emitted by background workers (e.g. exploration) for
+  // tasks the architect is awaiting. Carries a session_id, task_id, a
+  // short label, and a status. The frontend attaches each event to the
+  // awaiting bubble so the user sees per-step progress instead of a
+  // bare "Working…".
+  ARCHITECT_TASK_PROGRESS = 'architect.task_progress',
 }
 
 /**
@@ -132,6 +138,29 @@ export interface ArchitectTextChunkPayload {
 export interface ArchitectStreamEndPayload {
   content: string;
   error?: string | null;
+}
+
+/**
+ * Architect task-progress payload (received from server).
+ *
+ * Emitted by background workers as they make progress on a task the
+ * architect is currently awaiting. The frontend attaches each event
+ * to the awaiting message bubble so the user sees what's happening.
+ */
+export interface ArchitectTaskProgressPayload {
+  session_id: string;
+  /** Celery task id of the awaited task. */
+  task_id: string;
+  /** "started" | "progress" | "completed" | "failed" */
+  status: 'started' | 'progress' | 'completed' | 'failed';
+  /** Short human-readable label, e.g. "Running domain probing strategy". */
+  label: string;
+  /** Current step number (1-based), if applicable. */
+  step?: number;
+  /** Total number of steps, if known. */
+  total?: number;
+  /** Optional milliseconds the step took (only set on completion). */
+  duration_ms?: number;
 }
 
 /**
