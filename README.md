@@ -254,14 +254,14 @@ Choose any provider for the LLMs that drive test synthesis and LLM-as-Judge eval
 <a id="integration-layer-tracing"></a>
 ### Tracing your application
 
-Your application emits spans through the Rhesis SDK; spans are batched and shipped to Rhesis over **OTLP/HTTP**, OpenTelemetry's standard wire format. The integration mechanism depends on the framework — auto-instrumented frameworks need no code changes, while others use the `@observe.llm` decorator to mark the boundaries you want traced.
+Your application emits spans through the Rhesis SDK; spans are batched and sent to Rhesis over HTTP using OpenTelemetry span conventions. The integration mechanism depends on the framework — auto-instrumented frameworks need no code changes, while others use the `@observe.llm` decorator to mark the boundaries you want traced.
 
 | Integration | Languages | Mechanism | Description |
 |-------------|-----------|-----------|-------------|
 | **Rhesis SDK** | Python, JS/TS | Decorators | Native SDK with `@observe.llm` and convenience variants (`@observe.tool`, `@observe.retrieval`, `@observe.embedding`, …). Wrap any function you want traced. |
 | **LangChain** | Python | ✅ Automatic | Add the Rhesis callback handler once and every chain step, tool call, and LLM call is traced automatically — no per-function decorators required. |
 | **LangGraph** | Python | ✅ Automatic | Built-in integration for LangGraph agent workflows with full observability — every node transition, tool invocation, and graph step is captured automatically. |
-| **OpenTelemetry / OpenInference** | Python | ✅ Automatic via OTel | Any framework with an OpenInference instrumentor (LlamaIndex, CrewAI, OpenAI Agents SDK, Google ADK, Pydantic AI, DSPy, Haystack, Semantic Kernel) exports to Rhesis through standard OTel. Configure `OTEL_EXPORTER_OTLP_ENDPOINT` to `<rhesis-base-url>/telemetry/traces` (OTLP/HTTP). |
+| **OpenTelemetry / OpenInference** | Python | ✅ Automatic via OTel | Any framework with an OpenInference instrumentor (LlamaIndex, CrewAI, OpenAI Agents SDK, Google ADK, Pydantic AI, DSPy, Haystack, Semantic Kernel) exports to Rhesis through the SDK's OTel-based exporter. See [Tracing setup docs](https://docs.rhesis.ai/tracing) for exact endpoint and header configuration. |
 | **AutoGen, OpenAI Agents SDK, LlamaIndex, CrewAI, and others** | Python | Decorators | Wrap the functions, tools, or agents you want to trace with `@observe.llm`. Without decorators, only top-level inputs and outputs are captured. |
 
 <a id="integration-layer-test-execution"></a>
