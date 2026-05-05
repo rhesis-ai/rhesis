@@ -878,7 +878,7 @@ describe('useArchitectChat', () => {
     /**
      * Helper: run the agent through `awaiting_task=true` so that
      * waitingMessageIdRef points at a real bubble. Returns the id of
-     * that bubble (the target for any task-progress events).
+     * that bubble.
      */
     const arriveAtAwaitingState = (
       result: ReturnType<typeof renderHook>['result']
@@ -910,12 +910,15 @@ describe('useArchitectChat', () => {
       return streaming.id;
     };
 
-    it('appends progress events to the awaiting bubble in order', () => {
+    it('routes progress events into streamingState as tool rows (started → active, progress → active, completed → completed)', () => {
+      // Progress events are fed into streamingState so they render as
+      // tool-call rows in the same bubble — not into message.taskProgress.
       const { result } = renderHook(() =>
         useArchitectChat({ sessionId: 'sess-1' })
       );
-      const targetId = arriveAtAwaitingState(result);
+      arriveAtAwaitingState(result);
 
+      // First event: started → goes into activeTools
       act(() => {
         subscriptionHandlers[EventType.ARCHITECT_TASK_PROGRESS]({
           type: EventType.ARCHITECT_TASK_PROGRESS,
@@ -927,6 +930,14 @@ describe('useArchitectChat', () => {
           },
         });
       });
+      expect(result.current.streamingState.activeTools).toHaveLength(1);
+      expect(result.current.streamingState.activeTools[0].description).toBe(
+        'Starting exploration (domain_probing)'
+      );
+      expect(result.current.streamingState.completedTools).toHaveLength(0);
+
+      // Second event: progress — previous active entry promoted to completed,
+      // new one becomes active.
       act(() => {
         subscriptionHandlers[EventType.ARCHITECT_TASK_PROGRESS]({
           type: EventType.ARCHITECT_TASK_PROGRESS,
@@ -938,24 +949,21 @@ describe('useArchitectChat', () => {
           },
         });
       });
-
-      const bubble = result.current.messages.find(m => m.id === targetId);
-      expect(bubble?.taskProgress).toHaveLength(2);
-      expect(bubble?.taskProgress?.[0].label).toBe(
-        'Starting exploration (domain_probing)'
-      );
-      expect(bubble?.taskProgress?.[0].status).toBe('started');
-      expect(bubble?.taskProgress?.[1].label).toBe(
+      expect(result.current.streamingState.activeTools).toHaveLength(1);
+      expect(result.current.streamingState.activeTools[0].description).toBe(
         'Running domain probing strategy'
       );
-      expect(bubble?.taskProgress?.[1].status).toBe('progress');
+      expect(result.current.streamingState.completedTools).toHaveLength(1);
+      expect(result.current.streamingState.completedTools[0].description).toBe(
+        'Starting exploration (domain_probing)'
+      );
     });
 
-    it('preserves optional payload fields (step / total / duration)', () => {
+    it('encodes step and step/total suffixes into description', () => {
       const { result } = renderHook(() =>
         useArchitectChat({ sessionId: 'sess-1' })
       );
-      const targetId = arriveAtAwaitingState(result);
+      arriveAtAwaitingState(result);
 
       act(() => {
         subscriptionHandlers[EventType.ARCHITECT_TASK_PROGRESS]({
@@ -972,20 +980,45 @@ describe('useArchitectChat', () => {
         });
       });
 
-      const entry = result.current.messages.find(m => m.id === targetId)
-        ?.taskProgress?.[0];
-      expect(entry?.step).toBe(3);
-      expect(entry?.total).toBe(5);
-      expect(entry?.durationMs).toBe(1234);
-      expect(entry?.taskId).toBe('task-1');
-      expect(typeof entry?.receivedAt).toBe('number');
+      const active = result.current.streamingState.activeTools[0];
+      expect(active.description).toBe('Penelope turn (3/5)');
+    });
+
+    it('terminal event lands in completedTools with durationMs', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+      arriveAtAwaitingState(result);
+
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_TASK_PROGRESS]({
+          type: EventType.ARCHITECT_TASK_PROGRESS,
+          payload: {
+            session_id: 'sess-1',
+            task_id: 'task-1',
+            status: 'completed',
+            label: 'Exploration completed',
+            duration_ms: 4321,
+          },
+        });
+      });
+
+      expect(result.current.streamingState.activeTools).toHaveLength(0);
+      expect(result.current.streamingState.completedTools).toHaveLength(1);
+      expect(result.current.streamingState.completedTools[0].description).toBe(
+        'Exploration completed'
+      );
+      expect(result.current.streamingState.completedTools[0].durationMs).toBe(
+        4321
+      );
+      expect(result.current.streamingState.completedTools[0].success).toBe(
+        true
+      );
     });
 
     it('drops events that arrive before any bubble is awaiting', () => {
       // Without a preceding awaiting_task=true RESPONSE, the hook
-      // doesn't know which bubble owns the spinner. Rather than guess,
-      // it drops the event so we never attribute progress to the
-      // wrong message.
+      // doesn't know which bubble owns the progress. Drop the event.
       const { result } = renderHook(() =>
         useArchitectChat({ sessionId: 'sess-1' })
       );
@@ -1002,16 +1035,15 @@ describe('useArchitectChat', () => {
         });
       });
 
-      expect(
-        result.current.messages.every(m => !m.taskProgress?.length)
-      ).toBe(true);
+      expect(result.current.streamingState.activeTools).toHaveLength(0);
+      expect(result.current.streamingState.completedTools).toHaveLength(0);
     });
 
     it('ignores events targeting a different session', () => {
       const { result } = renderHook(() =>
         useArchitectChat({ sessionId: 'sess-1' })
       );
-      const targetId = arriveAtAwaitingState(result);
+      arriveAtAwaitingState(result);
 
       act(() => {
         subscriptionHandlers[EventType.ARCHITECT_TASK_PROGRESS]({
@@ -1025,15 +1057,15 @@ describe('useArchitectChat', () => {
         });
       });
 
-      const bubble = result.current.messages.find(m => m.id === targetId);
-      expect(bubble?.taskProgress).toBeUndefined();
+      expect(result.current.streamingState.activeTools).toHaveLength(0);
+      expect(result.current.streamingState.completedTools).toHaveLength(0);
     });
 
     it('ignores malformed events (missing task_id or label)', () => {
       const { result } = renderHook(() =>
         useArchitectChat({ sessionId: 'sess-1' })
       );
-      const targetId = arriveAtAwaitingState(result);
+      arriveAtAwaitingState(result);
 
       act(() => {
         subscriptionHandlers[EventType.ARCHITECT_TASK_PROGRESS]({
@@ -1058,19 +1090,23 @@ describe('useArchitectChat', () => {
         });
       });
 
-      const bubble = result.current.messages.find(m => m.id === targetId);
-      expect(bubble?.taskProgress).toBeUndefined();
+      expect(result.current.streamingState.activeTools).toHaveLength(0);
+      expect(result.current.streamingState.completedTools).toHaveLength(0);
     });
 
-    it('keeps the progress trail on the bubble after the task finishes', () => {
-      // After awaiting_task flips back to false, the trail must
-      // remain on the bubble — the user should still be able to
-      // scroll back and see what happened during the long task.
+    it('resumed THINKING closes waiting bubble and opens a fresh streaming bubble', () => {
+      // Once the background task finishes and the agent resumes,
+      // ARCHITECT_THINKING must:
+      //   1. Reset streamingState (clear progress rows)
+      //   2. Mark the old waiting bubble as committed (isStreaming=false)
+      //   3. Create a NEW streaming bubble so the "Thinking…" indicator
+      //      appears immediately while the agent processes the result.
       const { result } = renderHook(() =>
         useArchitectChat({ sessionId: 'sess-1' })
       );
-      const targetId = arriveAtAwaitingState(result);
+      const waitingId = arriveAtAwaitingState(result);
 
+      // Accumulate a progress row.
       act(() => {
         subscriptionHandlers[EventType.ARCHITECT_TASK_PROGRESS]({
           type: EventType.ARCHITECT_TASK_PROGRESS,
@@ -1078,33 +1114,35 @@ describe('useArchitectChat', () => {
             session_id: 'sess-1',
             task_id: 'task-1',
             status: 'completed',
-            label: 'Exploration completed (domain_probing)',
-            duration_ms: 4321,
+            label: 'Exploration done',
+            duration_ms: 5000,
           },
         });
       });
+      expect(result.current.streamingState.completedTools).toHaveLength(1);
 
-      // Worker resumes the agent — awaiting flips off.
+      // Resumed THINKING → old bubble closed out, new bubble created.
       act(() => {
         subscriptionHandlers[EventType.ARCHITECT_THINKING]({
           type: EventType.ARCHITECT_THINKING,
           payload: { status: 'thinking', iteration: 2 },
         });
       });
-      act(() => {
-        subscriptionHandlers[EventType.ARCHITECT_RESPONSE]({
-          type: EventType.ARCHITECT_RESPONSE,
-          payload: {
-            session_id: 'sess-1',
-            content: 'Here is the summary…',
-            awaiting_task: false,
-          },
-        });
-      });
 
-      const bubble = result.current.messages.find(m => m.id === targetId);
-      expect(bubble?.taskProgress).toHaveLength(1);
-      expect(bubble?.taskProgress?.[0].status).toBe('completed');
+      // streamingState is fresh (progress rows gone, isThinking set).
+      expect(result.current.streamingState.completedTools).toHaveLength(0);
+      expect(result.current.streamingState.activeTools).toHaveLength(0);
+      expect(result.current.streamingState.isThinking).toBe(true);
+
+      // Old waiting bubble is committed.
+      const waitingBubble = result.current.messages.find(m => m.id === waitingId);
+      expect(waitingBubble?.isStreaming).toBe(false);
+
+      // A new streaming bubble exists for the resumed turn.
+      const newBubble = result.current.messages.find(
+        m => m.isStreaming && m.id !== waitingId
+      );
+      expect(newBubble).toBeDefined();
     });
   });
 

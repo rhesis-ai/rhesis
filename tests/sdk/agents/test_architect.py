@@ -2653,3 +2653,276 @@ class TestArchitectPlanProgress:
         prompt = agent._build_prompt("hi", self._tools_list())
         assert "generate_test_set" in prompt
         assert "create_test_set_bulk" in prompt
+
+
+@pytest.mark.unit
+class TestArchitectSavePlanReconciliation:
+    """save_plan reconciles plan completion against session evidence.
+
+    Real conversations frequently end up with the LLM creating
+    behaviors, metrics and behavior-metric links *before* it ever
+    calls ``save_plan`` (for example, after exploration, when the
+    user keeps refining the plan as it's being built). When the plan
+    finally arrives, every ``completed`` defaults to False — which
+    causes ``_check_execution_order`` to block ``generate_test_set``
+    even though every prerequisite is already on the platform.
+
+    These tests pin the recovery path: ``_execute_save_plan`` consults
+    the agent's session evidence (``_id_to_name`` for created
+    behaviors/metrics, ``_linked_pairs`` for completed mappings) and
+    flips the matching plan items to ``completed=True`` automatically.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    @staticmethod
+    def _plan_payload():
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MappingSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+
+        return ArchitectPlan(
+            behaviors=[
+                BehaviorSpec(name="Provides Accurate Health Info", description="d"),
+            ],
+            test_sets=[TestSetSpec(name="Health Tests", description="d")],
+            metrics=[
+                MetricSpec(name="Health Information Accuracy", description="d"),
+            ],
+            behavior_metric_mappings=[
+                MappingSpec(
+                    behavior="Provides Accurate Health Info",
+                    metrics=["Health Information Accuracy"],
+                ),
+            ],
+        ).model_dump()
+
+    @staticmethod
+    def _save_call(payload):
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        return ToolCall(tool_name="save_plan", arguments=json.dumps(payload))
+
+    @staticmethod
+    def _link_call(behavior_id, metric_id):
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        return ToolCall(
+            tool_name="add_behavior_to_metric",
+            arguments=json.dumps(
+                {"behavior_id": behavior_id, "metric_id": metric_id}
+            ),
+        )
+
+    @pytest.mark.asyncio
+    async def test_entities_created_before_plan_are_marked_completed(
+        self, mock_model
+    ):
+        """Reproduces the failing session in the worker logs:
+        create_behavior + create_metric run while ``self._plan is None``,
+        then save_plan arrives. Without reconciliation, every plan item
+        comes back ``completed=False`` and generate_test_set is rejected
+        forever."""
+        agent = _make_agent(mock_model)
+
+        agent._id_to_name = {
+            "b-health": "Provides Accurate Health Info",
+            "m-health": "Health Information Accuracy",
+        }
+
+        result = await agent._execute_save_plan(self._save_call(self._plan_payload()))
+        assert result.success is True
+
+        plan = agent._plan
+        assert plan is not None
+        assert plan.behaviors[0].completed is True
+        assert plan.metrics[0].completed is True
+
+    @pytest.mark.asyncio
+    async def test_links_made_before_plan_complete_their_mappings_on_save(
+        self, mock_model
+    ):
+        """``add_behavior_to_metric`` succeeded before save_plan, so
+        ``_linked_pairs`` carries the (behavior, metric) pair across
+        the plan-save boundary. After save, the matching MappingSpec
+        must be marked completed and ``linked_metrics`` populated."""
+        agent = _make_agent(mock_model)
+
+        agent._id_to_name = {
+            "b-health": "Provides Accurate Health Info",
+            "m-health": "Health Information Accuracy",
+        }
+        agent._record_link_if_mapping(
+            self._link_call("b-health", "m-health")
+        )
+        assert agent._linked_pairs == {
+            ("provides accurate health info", "health information accuracy")
+        }
+
+        result = await agent._execute_save_plan(self._save_call(self._plan_payload()))
+        assert result.success is True
+
+        mapping = agent._plan.behavior_metric_mappings[0]
+        assert mapping.completed is True
+        assert mapping.linked_metrics == ["Health Information Accuracy"]
+
+    @pytest.mark.asyncio
+    async def test_existing_id_alone_is_enough_to_mark_completed(self, mock_model):
+        """Reused entities have ``existing_id`` set; that is sufficient
+        evidence that the entity is on the platform, regardless of
+        ``reuse_status``."""
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+
+        agent = _make_agent(mock_model)
+
+        plan_payload = ArchitectPlan(
+            behaviors=[
+                BehaviorSpec(
+                    name="Existing Behavior",
+                    description="d",
+                    reuse_status="new",  # deliberately not "reuse"
+                    existing_id="b-existing",
+                ),
+            ],
+            test_sets=[TestSetSpec(name="T", description="d")],
+            metrics=[
+                MetricSpec(
+                    name="Existing Metric",
+                    description="d",
+                    reuse_status="new",
+                    existing_id="m-existing",
+                ),
+            ],
+        ).model_dump()
+
+        result = await agent._execute_save_plan(self._save_call(plan_payload))
+        assert result.success is True
+        assert agent._plan.behaviors[0].completed is True
+        assert agent._plan.metrics[0].completed is True
+
+    @pytest.mark.asyncio
+    async def test_reconcile_does_not_complete_unmatched_items(self, mock_model):
+        """Items whose names don't appear anywhere in session evidence
+        must stay ``completed=False`` so the execution-order guard can
+        still catch genuine gaps."""
+        agent = _make_agent(mock_model)
+
+        # Only one of the two planned entities was actually created.
+        agent._id_to_name = {"b-health": "Provides Accurate Health Info"}
+
+        result = await agent._execute_save_plan(self._save_call(self._plan_payload()))
+        assert result.success is True
+
+        plan = agent._plan
+        assert plan.behaviors[0].completed is True
+        assert plan.metrics[0].completed is False
+        assert plan.behavior_metric_mappings[0].completed is False
+        assert plan.behavior_metric_mappings[0].linked_metrics == []
+
+    @pytest.mark.asyncio
+    async def test_partial_link_keeps_multi_metric_mapping_pending(self, mock_model):
+        """A mapping with two planned metrics where only one has been
+        linked must report exactly that single link and remain
+        ``completed=False`` until the second link arrives."""
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MappingSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+
+        agent = _make_agent(mock_model)
+
+        agent._id_to_name = {
+            "b-core": "Core",
+            "m-pricing": "Pricing Accuracy",
+            "m-hallucination": "Hallucination Detection",
+        }
+        # Only one of the two required metrics has been linked so far.
+        agent._record_link_if_mapping(self._link_call("b-core", "m-pricing"))
+
+        plan_payload = ArchitectPlan(
+            behaviors=[BehaviorSpec(name="Core", description="d")],
+            test_sets=[TestSetSpec(name="T", description="d")],
+            metrics=[
+                MetricSpec(name="Pricing Accuracy", description="d"),
+                MetricSpec(name="Hallucination Detection", description="d"),
+            ],
+            behavior_metric_mappings=[
+                MappingSpec(
+                    behavior="Core",
+                    metrics=["Pricing Accuracy", "Hallucination Detection"],
+                ),
+            ],
+        ).model_dump()
+
+        result = await agent._execute_save_plan(self._save_call(plan_payload))
+        assert result.success is True
+
+        mapping = agent._plan.behavior_metric_mappings[0]
+        assert mapping.linked_metrics == ["Pricing Accuracy"]
+        assert mapping.completed is False
+
+    @pytest.mark.asyncio
+    async def test_llm_supplied_completed_flags_are_ignored(self, mock_model):
+        """The LLM cannot fast-track or sandbag plan progress by writing
+        ``completed`` itself — those values are stripped before validation
+        and the runtime fills them from session evidence alone."""
+        agent = _make_agent(mock_model)
+
+        # No session evidence at all — every item must come back False
+        # even though the LLM tried to set completed=True.
+        bad_payload = self._plan_payload()
+        bad_payload["behaviors"][0]["completed"] = True
+        bad_payload["metrics"][0]["completed"] = True
+        bad_payload["behavior_metric_mappings"][0]["completed"] = True
+        bad_payload["behavior_metric_mappings"][0]["linked_metrics"] = [
+            "Health Information Accuracy"
+        ]
+
+        result = await agent._execute_save_plan(self._save_call(bad_payload))
+        assert result.success is True
+
+        plan = agent._plan
+        assert plan.behaviors[0].completed is False
+        assert plan.metrics[0].completed is False
+        assert plan.behavior_metric_mappings[0].completed is False
+        assert plan.behavior_metric_mappings[0].linked_metrics == []
+
+    def test_record_link_ignores_unrelated_tool_calls(self, mock_model):
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        agent._id_to_name = {"b-x": "B", "m-x": "M"}
+
+        agent._record_link_if_mapping(
+            ToolCall(
+                tool_name="create_behavior",
+                arguments=json.dumps({"behavior_id": "b-x", "metric_id": "m-x"}),
+            )
+        )
+        assert agent._linked_pairs == set()
+
+    def test_record_link_skips_when_ids_not_resolved(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._id_to_name = {}  # neither id known yet
+        agent._record_link_if_mapping(self._link_call("b-x", "m-x"))
+        assert agent._linked_pairs == set()
+
+    def test_linked_pairs_cleared_on_reset(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._linked_pairs.add(("b", "m"))
+        agent.reset()
+        assert agent._linked_pairs == set()

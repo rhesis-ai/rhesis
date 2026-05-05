@@ -164,6 +164,8 @@ When save_plan fails the error response lists each invalid field with its reason
 
 When the user iterates on the plan, call save_plan again with the **complete updated plan**, not just the changed parts — save_plan replaces the previous plan in full. Preserve fields you want to keep.
 
+Do NOT try to control the per-item `completed` checkboxes. They are runtime-only fields managed by the platform: any value you send is stripped before validation, and the runtime fills them in from what it has actually observed this session (entities you created, behavior-metric links you made). If you call save_plan after already creating some entities, the matching plan items will come back marked completed automatically — you do not need to re-run anything to "fix" the plan, and you should not loop on save_plan trying to.
+
 After save_plan succeeds, finish your turn and present the plan to the user. Wait for the user to tell you to proceed (e.g. "yes", "go ahead", "looks good") before calling any creating tool. The platform will surface an Accept/Change prompt automatically the first time you call a tool that requires confirmation, so you do not need to manage that UI yourself.
 
 - Allow the user to review, provide feedback, and iterate on the plan

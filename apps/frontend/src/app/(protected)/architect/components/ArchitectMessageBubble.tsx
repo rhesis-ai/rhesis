@@ -19,7 +19,6 @@ import EditIcon from '@mui/icons-material/Edit';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import ThinkingDots from './ThinkingDots';
 import ToolCallList from './ToolCallList';
-import TaskProgressList from './TaskProgressList';
 import Chip from '@mui/material/Chip';
 import { ArchitectChatMessage, StreamingState } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
@@ -58,6 +57,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+
 export default function ArchitectMessageBubble({
   message,
   userName,
@@ -72,16 +72,11 @@ export default function ArchitectMessageBubble({
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
 
-  // True while the last progress entry in the trail is still running.
-  // When set, the inline spinner in <TaskProgressList> already signals
-  // the task's liveness, so the footer "Working…" would just duplicate it.
-  const lastProgress =
-    message.taskProgress && message.taskProgress.length > 0
-      ? message.taskProgress[message.taskProgress.length - 1]
-      : undefined;
+  // Suppress the footer "Working…" when the ToolCallList already has an
+  // active row — the inline spinner in that row covers liveness, and the
+  // two indicators would otherwise animate simultaneously.
   const hasActiveProgress =
-    !!lastProgress &&
-    (lastProgress.status === 'started' || lastProgress.status === 'progress');
+    (streamingState?.activeTools?.length ?? 0) > 0;
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -184,19 +179,6 @@ export default function ArchitectMessageBubble({
 
         {/* Message content */}
         <MarkdownContent content={message.content} variant="body2" />
-
-        {/* Live progress trail for awaited background tasks. Hidden once
-            the task has completed — at that point the bubble's "Done."
-            footer is the only signal that needs to remain. The per-turn
-            entries are operational detail that's noisy in scroll-back. */}
-        {message.taskProgress &&
-          message.taskProgress.length > 0 &&
-          !message.taskCompleted && (
-            <TaskProgressList
-              entries={message.taskProgress}
-              isAwaiting={!!showWaitingSpinner}
-            />
-          )}
 
         {/* File attachment chips (user messages) */}
         {isUser && message.files && message.files.length > 0 && (

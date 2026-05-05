@@ -289,6 +289,32 @@ export function useArchitectChat(
     unsubs.push(
       subscribe(EventType.ARCHITECT_THINKING, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectThinkingPayload;
+
+        // If we were awaiting a background task, the waiting bubble's
+        // streamingState has been kept alive (with tool rows + progress).
+        // Close it out now: reset the shared streamingState so the new
+        // streaming bubble starts fresh, mark the waiting message as no
+        // longer streaming, and clear the ref so ensureStreamingMessage()
+        // below creates a fresh bubble for this new turn.
+        const prevWaitingId = waitingMessageIdRef.current;
+        if (prevWaitingId) {
+          setStreamingState(initialStreamingState);
+          // Close out the waiting bubble: mark it committed, strip the
+          // streaming flag, and stamp taskCompleted so "Done." appears
+          // immediately. We clear the ref here (before setIsAwaitingTask),
+          // so we apply taskCompleted directly rather than relying on the
+          // isAwaitingTask falling-edge useEffect which checks the ref.
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === prevWaitingId
+                ? { ...m, isStreaming: false, taskCompleted: true }
+                : m
+            )
+          );
+          streamingMessageIdRef.current = null;
+          waitingMessageIdRef.current = null;
+        }
+
         ensureStreamingMessage();
         setIsAwaitingTask(false);
         setStreamingState(prev => ({
@@ -350,7 +376,6 @@ export function useArchitectChat(
         if (payload?.session_id !== sessionId) return;
 
         setIsLoading(false);
-        setStreamingState(initialStreamingState);
         setError(null);
         pendingCorrelationRef.current = null;
 
@@ -361,16 +386,13 @@ export function useArchitectChat(
         }
         const streamId = streamingMessageIdRef.current;
         if (payload.awaiting_task && streamId) {
-          // Remember which bubble owns the spinner so we can flash
-          // "Done." on it once the long task finishes.
+          // Remember which bubble owns the progress trail so that
+          // ARCHITECT_THINKING can close it out when the task resumes.
           waitingMessageIdRef.current = streamId;
         }
         setIsAwaitingTask(payload.awaiting_task ?? false);
 
         if (streamId) {
-          // Finalize the streaming message. If no text chunks arrived
-          // (e.g. agent completed without streaming), backfill content
-          // from the response payload so the message isn't empty.
           setMessages(prev =>
             prev.map(m => {
               if (m.id !== streamId) return m;
@@ -380,12 +402,24 @@ export function useArchitectChat(
               return {
                 ...m,
                 content,
-                isStreaming: false,
+                // When awaiting a background task, keep isStreaming=true so
+                // ArchitectChat continues passing streamingState to this bubble —
+                // task-progress events will append rows to it just like tool calls.
+                // The ARCHITECT_THINKING handler resets isStreaming when the
+                // resumed turn begins.
+                isStreaming: payload.awaiting_task ? true : false,
                 needsConfirmation: payload.needs_confirmation ?? false,
               };
             })
           );
-          streamingMessageIdRef.current = null;
+          if (!payload.awaiting_task) {
+            // Normal response: clear the streaming message ref and reset state.
+            streamingMessageIdRef.current = null;
+            setStreamingState(initialStreamingState);
+          }
+          // When awaiting_task=true we deliberately keep streamingMessageIdRef
+          // pointing at the waiting bubble so ARCHITECT_THINKING knows to close
+          // it when the task completes.
         } else {
           // Fallback: no streaming message exists (backward compatibility)
           const assistantMessage: ArchitectChatMessage = {
@@ -396,6 +430,9 @@ export function useArchitectChat(
             needsConfirmation: payload.needs_confirmation ?? false,
           };
           setMessages(prev => [...prev, assistantMessage]);
+          if (!payload.awaiting_task) {
+            setStreamingState(initialStreamingState);
+          }
         }
       })
     );
@@ -477,33 +514,64 @@ export function useArchitectChat(
         if (payload?.session_id && payload.session_id !== sessionId) return;
         if (!payload?.task_id || !payload?.label) return;
 
-        // The bubble whose long-running task is producing this progress
-        // event was captured into waitingMessageIdRef when the agent
-        // entered awaiting_task=true. Append to that bubble; if the
-        // ref is empty (e.g. event arrives before RESPONSE flips the
-        // flag), drop the event rather than guess at the wrong bubble.
-        const targetId = waitingMessageIdRef.current;
-        if (!targetId) return;
+        // The waiting bubble's streamingState is kept alive by the
+        // ARCHITECT_RESPONSE handler (awaiting_task=true). Route progress
+        // entries directly into streamingState so they render as tool-call
+        // rows inside that same bubble — identical visual to regular tool
+        // calls. If the guard ref is unset (event arrived before RESPONSE),
+        // drop the event rather than guess at the wrong bubble.
+        if (!waitingMessageIdRef.current) return;
 
-        const entry: TaskProgressEntry = {
-          taskId: payload.task_id,
-          status: payload.status,
-          label: payload.label,
-          step: payload.step,
-          total: payload.total,
-          durationMs: payload.duration_ms,
-          receivedAt: Date.now(),
-        };
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === targetId
-              ? {
-                  ...m,
-                  taskProgress: [...(m.taskProgress ?? []), entry],
-                }
-              : m
-          )
-        );
+        const description =
+          payload.step !== undefined && payload.total !== undefined
+            ? `${payload.label} (${payload.step}/${payload.total})`
+            : payload.step !== undefined
+              ? `${payload.label} (${payload.step})`
+              : payload.label;
+
+        const isLive =
+          payload.status === 'started' || payload.status === 'progress';
+
+        setStreamingState(prev => {
+          // Promote any previous active entry for this task to completed —
+          // only one entry per task can be active at a time.
+          const promoted: StreamingState['completedTools'] = prev.activeTools
+            .filter(t => t.tool === payload.task_id)
+            .map(t => ({
+              tool: t.tool,
+              description: t.description,
+              success: true,
+              startedAt: t.startedAt,
+            }));
+          const stillActive = prev.activeTools.filter(
+            t => t.tool !== payload.task_id
+          );
+
+          const newEntry: StreamingState['completedTools'][number] = {
+            tool: payload.task_id,
+            description,
+            success: payload.status !== 'failed',
+            durationMs: payload.duration_ms,
+            startedAt: Date.now(),
+          };
+
+          return {
+            ...prev,
+            activeTools: isLive
+              ? [
+                  ...stillActive,
+                  {
+                    tool: payload.task_id,
+                    description,
+                    startedAt: Date.now(),
+                  },
+                ]
+              : stillActive,
+            completedTools: isLive
+              ? [...prev.completedTools, ...promoted]
+              : [...prev.completedTools, ...promoted, newEntry],
+          };
+        });
       })
     );
 

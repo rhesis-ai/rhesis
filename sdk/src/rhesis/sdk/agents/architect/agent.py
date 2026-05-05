@@ -169,6 +169,13 @@ class ArchitectAgent(BaseAgent):
         # UUID → entity name for resolving IDs in mapping tools
         self._id_to_name: Dict[str, str] = {}
 
+        # Successful (behavior_name_lower, metric_name_lower) links observed
+        # in this session via ``add_behavior_to_metric``. Tracked outside
+        # ``self._plan`` so links made BEFORE ``save_plan`` is called are
+        # not lost — ``_execute_save_plan`` consults this set to seed
+        # ``MappingSpec.completed`` and ``MappingSpec.linked_metrics``.
+        self._linked_pairs: Set[Tuple[str, str]] = set()
+
         # Async task waiting: when the agent calls await_task,
         # the turn ends and the backend monitors the task.
         self._pending_tasks: List[Dict[str, str]] = []
@@ -342,6 +349,7 @@ class ArchitectAgent(BaseAgent):
         self._attachments = None
         self._discovery_state = _default_discovery_state()
         self._id_to_name.clear()
+        self._linked_pairs.clear()
         self._pending_tasks.clear()
         self._awaiting_task = False
         self._await_message = ""
@@ -670,9 +678,26 @@ class ArchitectAgent(BaseAgent):
         result = await super().execute_tool(tool_call)
         if result.success:
             self._collect_id_names(result)
+            self._record_link_if_mapping(tool_call)
             if self._plan:
                 await self._track_plan_progress(tool_call, result)
         return result
+
+    def _record_link_if_mapping(self, tool_call: ToolCall) -> None:
+        """Capture (behavior, metric) pairs from successful ``add_behavior_to_metric`` calls.
+
+        Recorded outside ``self._plan`` so links made BEFORE ``save_plan``
+        is ever called still seed ``MappingSpec.completed`` when the plan
+        is later saved (see ``_reconcile_plan_with_session_evidence``).
+        """
+        if tool_call.tool_name != "add_behavior_to_metric":
+            return
+        behavior_id = tool_call.arguments.get("behavior_id", "")
+        metric_id = tool_call.arguments.get("metric_id", "")
+        bname = self._id_to_name.get(behavior_id, "").lower()
+        mname = self._id_to_name.get(metric_id, "").lower()
+        if bname and mname:
+            self._linked_pairs.add((bname, mname))
 
     # ── plan management ──────────────────────────────────────────
 
@@ -687,16 +712,18 @@ class ArchitectAgent(BaseAgent):
         except Exception as e:
             return self._save_plan_unexpected_failure(tool_call, e)
 
+        # Seed _id_to_name from any (reuse) IDs the LLM included; these
+        # would otherwise only become known when the LLM later calls a
+        # list_* tool.
         for b in plan.behaviors:
-            if b.reuse_status == "reuse":
-                b.completed = True
             if b.existing_id and b.name:
                 self._id_to_name[str(b.existing_id)] = b.name
         for m in plan.metrics:
-            if m.reuse_status == "reuse":
-                m.completed = True
             if m.existing_id and m.name:
                 self._id_to_name[str(m.existing_id)] = m.name
+
+        self._reconcile_plan_with_session_evidence(plan)
+
         await self.set_mode_async(AgentMode.PLANNING)
         await self.set_plan_async(plan)
         logger.info(
@@ -716,6 +743,53 @@ class ArchitectAgent(BaseAgent):
                 f"{len(plan.metrics)} metrics"
             ),
         )
+
+    def _reconcile_plan_with_session_evidence(self, plan: ArchitectPlan) -> None:
+        """Mark plan items completed based on what we've actually observed this session.
+
+        ``save_plan`` is regularly called *after* the LLM has already
+        created behaviors, metrics, and behavior-metric links — for
+        example, when the user iterates on the plan during execution
+        ("also add a metric for X"). In that ordering, the entities
+        exist on the platform but the LLM-supplied plan defaults every
+        ``completed`` to False, which makes ``_check_execution_order``
+        block ``generate_test_set`` indefinitely.
+
+        We use the agent's own session evidence to recover:
+
+        - ``self._id_to_name`` is updated by ``_collect_id_names`` after
+          every successful ``create_*`` and ``list_*``, so its values
+          are the canonical platform names of entities the agent has
+          touched this session. Any plan item whose name appears here
+          is genuinely on the platform.
+        - ``self._linked_pairs`` records every successful
+          ``add_behavior_to_metric`` regardless of plan state.
+
+        For behaviors and metrics, ``existing_id`` set OR ``reuse_status
+        == "reuse"`` OR a name match against ``_id_to_name`` triggers
+        completion. For mappings, completion requires every planned
+        metric to be in ``_linked_pairs`` for that behavior.
+        """
+        created_names = {v.lower() for v in self._id_to_name.values() if v}
+
+        def _completed_via_evidence(name: str, existing_id: Optional[str]) -> bool:
+            if existing_id:
+                return True
+            return bool(name) and name.lower() in created_names
+
+        for b in plan.behaviors:
+            if b.reuse_status == "reuse" or _completed_via_evidence(b.name, b.existing_id):
+                b.completed = True
+        for m in plan.metrics:
+            if m.reuse_status == "reuse" or _completed_via_evidence(m.name, m.existing_id):
+                m.completed = True
+
+        for mp in plan.behavior_metric_mappings:
+            bkey = mp.behavior.lower()
+            linked = [m for m in mp.metrics if (bkey, m.lower()) in self._linked_pairs]
+            mp.linked_metrics = linked
+            if mp.metrics and len(linked) == len(mp.metrics):
+                mp.completed = True
 
     def _save_plan_failure(
         self, tool_call: ToolCall, error: Exception, *, error_text: str

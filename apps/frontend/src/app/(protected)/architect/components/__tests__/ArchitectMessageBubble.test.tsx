@@ -346,25 +346,23 @@ describe('ArchitectMessageBubble', () => {
   });
 
   describe('task progress trail', () => {
-    it('renders the progress trail when message.taskProgress is non-empty', () => {
+    // Task-progress events are now routed into streamingState by the hook
+    // and rendered through the same ToolCallList used for regular tool calls.
+    // The bubble receives them via the streamingState prop (same as any
+    // active assistant turn), so these tests verify that pathway.
+
+    it('renders progress rows passed via streamingState while bubble is streaming', () => {
       render(
         <ArchitectMessageBubble
-          message={createMessage({
-            taskProgress: [
-              {
-                taskId: 't1',
-                status: 'started',
-                label: 'Starting exploration',
-                receivedAt: 1,
-              },
-              {
-                taskId: 't1',
-                status: 'progress',
-                label: 'Running domain probing',
-                receivedAt: 2,
-              },
+          message={createMessage({ isStreaming: true })}
+          streamingState={{
+            isThinking: false,
+            currentIteration: 1,
+            activeTools: [{ tool: 't1', description: 'Running domain probing', startedAt: 1 }],
+            completedTools: [
+              { tool: 't1', description: 'Starting exploration', success: true, startedAt: 0 },
             ],
-          })}
+          }}
           showWaitingSpinner
         />
       );
@@ -373,116 +371,38 @@ describe('ArchitectMessageBubble', () => {
       expect(screen.getByText('Running domain probing')).toBeInTheDocument();
     });
 
-    it('does not render the trail when taskProgress is empty', () => {
-      const { container } = render(
-        <ArchitectMessageBubble
-          message={createMessage({ taskProgress: [] })}
-        />
-      );
-
-      expect(
-        container.querySelector('[aria-label="Task progress"]')
-      ).toBeNull();
-    });
-
-    it('keeps the trail visible after the worker emits a "completed" event but the bubble has not yet been marked taskCompleted', () => {
-      // The worker can emit a final progress event before the agent
-      // resumes; in that brief window the trail still belongs to a
-      // bubble whose ``taskCompleted`` flag is still false. The trail
-      // must keep rendering until the bubble itself flips state.
+    it('hides the footer "Working…" while streamingState has an active tool row', () => {
+      // The inline spinner in the active ToolCallList row already signals
+      // liveness — the footer spinner must not duplicate it.
       render(
         <ArchitectMessageBubble
-          message={createMessage({
-            taskProgress: [
-              {
-                taskId: 't1',
-                status: 'completed',
-                label: 'Exploration completed',
-                durationMs: 1500,
-                receivedAt: 1,
-              },
-            ],
-          })}
-          showWaitingSpinner={false}
-        />
-      );
-
-      expect(screen.getByText('Exploration completed')).toBeInTheDocument();
-      expect(screen.getByText('1.5s')).toBeInTheDocument();
-    });
-
-    it('hides the entire trail once the bubble is marked taskCompleted', () => {
-      // Once the awaited task is permanently done, the per-turn
-      // breakdown is operational noise — the bubble's "Done." footer
-      // is the only signal that needs to remain. The user should be
-      // able to scroll back without seeing every intermediate turn.
-      const { container } = render(
-        <ArchitectMessageBubble
-          message={createMessage({
-            taskCompleted: true,
-            taskProgress: [
-              {
-                taskId: 't1',
-                status: 'progress',
-                label: 'Turn 1: probing endpoint',
-                receivedAt: 1,
-              },
-              {
-                taskId: 't1',
-                status: 'completed',
-                label: 'Exploration completed',
-                durationMs: 2500,
-                receivedAt: 2,
-              },
-            ],
-          })}
-          showWaitingSpinner={false}
-          showTaskComplete
-        />
-      );
-
-      // The trail container itself should no longer be rendered.
-      expect(
-        container.querySelector('[aria-label="Task progress"]')
-      ).toBeNull();
-      expect(screen.queryByText('Turn 1: probing endpoint')).toBeNull();
-      expect(screen.queryByText('Exploration completed')).toBeNull();
-
-      // The "Done." footer takes over.
-      expect(screen.getByText('Done.')).toBeInTheDocument();
-    });
-
-    it('hides the footer "Working…" while the trail has an active entry', () => {
-      // While the inline trail spinner is already signalling liveness,
-      // the footer "Working…" must not also spin — two simultaneous
-      // animated indicators are confusing.
-      render(
-        <ArchitectMessageBubble
-          message={createMessage({
-            taskProgress: [
-              {
-                taskId: 't1',
-                status: 'progress',
-                label: 'Turn 1: probing endpoint',
-                receivedAt: 1,
-              },
-            ],
-          })}
+          message={createMessage({ isStreaming: true })}
+          streamingState={{
+            isThinking: false,
+            currentIteration: 1,
+            activeTools: [{ tool: 't1', description: 'Turn 1: probing endpoint', startedAt: 1 }],
+            completedTools: [],
+          }}
           showWaitingSpinner
         />
       );
 
       expect(screen.queryByText('Working…')).toBeNull();
-      // The trail entry itself is still rendered.
       expect(screen.getByText('Turn 1: probing endpoint')).toBeInTheDocument();
     });
 
-    it('shows the footer "Working…" when waiting but no trail events have arrived yet', () => {
-      // Before the first ARCHITECT_TASK_PROGRESS event the progress
-      // trail is empty; only the footer should animate.
+    it('shows the footer "Working…" when no progress has arrived yet (empty streamingState)', () => {
+      // Before the first task-progress event the streamingState trail is
+      // empty; only the footer spinner should animate.
       render(
         <ArchitectMessageBubble
-          message={createMessage({ taskProgress: [] })}
+          message={createMessage({ isStreaming: true })}
+          streamingState={{
+            isThinking: false,
+            currentIteration: 1,
+            activeTools: [],
+            completedTools: [],
+          }}
           showWaitingSpinner
         />
       );
@@ -490,28 +410,40 @@ describe('ArchitectMessageBubble', () => {
       expect(screen.getByText('Working…')).toBeInTheDocument();
     });
 
-    it('shows the footer "Working…" when waiting and the last trail entry is terminal', () => {
-      // Between the "completed" progress event and the agent's next
-      // response there is a brief window where the trail is static
-      // but we're still awaiting. The footer should fill that gap.
+    it('shows the footer "Working…" when all trail entries are terminal (gap before agent resumes)', () => {
+      // Between the final "completed" progress event and the agent's
+      // THINKING / resumed turn, the streamingState still exists but
+      // activeTools is empty. The footer fills that brief gap.
       render(
         <ArchitectMessageBubble
-          message={createMessage({
-            taskProgress: [
-              {
-                taskId: 't1',
-                status: 'completed',
-                label: 'Exploration completed',
-                durationMs: 2000,
-                receivedAt: 1,
-              },
+          message={createMessage({ isStreaming: true })}
+          streamingState={{
+            isThinking: false,
+            currentIteration: 1,
+            activeTools: [],
+            completedTools: [
+              { tool: 't1', description: 'Exploration completed', success: true, durationMs: 2000, startedAt: 0 },
             ],
-          })}
+          }}
           showWaitingSpinner
         />
       );
 
       expect(screen.getByText('Working…')).toBeInTheDocument();
+    });
+
+    it('shows "Done." and no trail rows once bubble is marked taskCompleted', () => {
+      // After the task ends the bubble gets taskCompleted=true and
+      // streamingState is cleared (undefined), so no rows are rendered.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({ taskCompleted: true })}
+          showWaitingSpinner={false}
+          showTaskComplete
+        />
+      );
+
+      expect(screen.getByText('Done.')).toBeInTheDocument();
     });
   });
 
