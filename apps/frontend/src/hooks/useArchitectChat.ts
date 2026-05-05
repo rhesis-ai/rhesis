@@ -615,14 +615,12 @@ export function useArchitectChat(
       waitingMessageIdRef.current = null;
       prevAwaitingRef.current = false;
 
-      if (currentPlanRef.current) {
+      if (currentPlanRef.current && isPlanComplete(currentPlanRef.current)) {
         // Once the plan is fully checked off, sending another message
         // means the user has acknowledged completion — remember the
         // dismissed plan so the badge doesn't pop back when the next
         // ARCHITECT_RESPONSE re-emits the same markdown.
-        if (isPlanComplete(currentPlanRef.current)) {
-          setDismissedPlan(currentPlanRef.current);
-        }
+        setDismissedPlan(currentPlanRef.current);
         setCurrentPlan(null);
       }
 
