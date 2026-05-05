@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.utils.crud_utils import get_item
+from rhesis.sdk.models.factory import EmbeddingModelConfig, get_embedding_model
 
 logger = logging.getLogger(__name__)
 
@@ -46,32 +47,17 @@ class EmbeddingGenerator:
 
     def _generate_embedding_vector(
         self,
-        searchable_text: str,
-        provider: str,
-        model_name: str,
-        api_key: str,
-        dimension: int,
+        sdk_config: EmbeddingModelConfig,
+        searchable_text: str
     ) -> List[float]:
         """Generate embedding for a searchable text."""
-        from rhesis.sdk.models.factory import EmbeddingModelConfig, get_embedding_model
 
-        config = EmbeddingModelConfig(
-            provider=provider,
-            model_name=model_name,
-            api_key=api_key,
-            dimensions=dimension,
-        )
-        try:
-            embedder = get_embedding_model(config=config)
-        except ValueError as e:
-            raise ValueError(f"Failed to create embedder: {e}")
+        embedder = get_embedding_model(config=sdk_config)
 
         try:
-            embedding = embedder.generate(searchable_text)
+            return embedder.generate(searchable_text)
         except Exception as e:
             raise ValueError(f"Failed to generate embedding: {e}")
-
-        return embedding
 
     def generate(
         self,
@@ -112,18 +98,19 @@ class EmbeddingGenerator:
         if not model:
             raise ValueError(f"Model not found: {model_id}")
 
-        # Extract model details
-        provider = model.provider_type.type_value if model.provider_type else None
-        model_name = model.model_name
-        dimension = model.dimension
-
-        # Create configuration for this embedding
+        # Create configuration for this embedding. Stored in the db, and used for deduplication
         config = {
-            "provider": provider,
-            "model_name": model_name,
-            "dimension": dimension,
+            "provider": model.provider_type.type_value if model.provider_type else None,
+            "model_name": model.model_name,
+            "dimension": model.dimension,
             "model_id": model_id,
         }
+
+        # SDK config: same fields plus api_key for authentication
+        sdk_config = EmbeddingModelConfig(
+            **config,
+            api_key=model.key,
+        )
 
         # Compute hashes for deduplication
         config_hash = self._compute_hash(config)
@@ -168,7 +155,8 @@ class EmbeddingGenerator:
 
         # Generate the embedding vector
         embedding_vector = self._generate_embedding_vector(
-            searchable_text, provider, model_name, model.key, dimension
+            sdk_config=sdk_config,
+            searchable_text=searchable_text,
         )
 
         # Mark old embeddings as stale (different text/config)
@@ -228,7 +216,8 @@ class EmbeddingGenerator:
             raise
 
         logger.info(
-            f"Successfully generated embedding for {entity_type}:{entity_id}, dimension={dimension}"
+            f"Successfully generated embedding for "
+            f"{entity_type}:{entity_id}, dimension={sdk_config.dimensions}"
         )
 
         return {"status": "success", "embedding_id": str(new_embedding.id)}
