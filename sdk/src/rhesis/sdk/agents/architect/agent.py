@@ -51,9 +51,7 @@ def _strip_llm_internal_fields(args: Any) -> Any:
     """
     if isinstance(args, dict):
         return {
-            k: _strip_llm_internal_fields(v)
-            for k, v in args.items()
-            if k not in _INTERNAL_FIELDS
+            k: _strip_llm_internal_fields(v) for k, v in args.items() if k not in _INTERNAL_FIELDS
         }
     if isinstance(args, list):
         return [_strip_llm_internal_fields(item) for item in args]
@@ -736,9 +734,7 @@ class ArchitectAgent(BaseAgent):
     async def _execute_save_plan(self, tool_call: ToolCall) -> ToolResult:
         """Parse LLM-provided plan data and store it."""
         try:
-            plan = ArchitectPlan.model_validate(
-                _strip_llm_internal_fields(tool_call.arguments)
-            )
+            plan = ArchitectPlan.model_validate(_strip_llm_internal_fields(tool_call.arguments))
         except ValidationError as e:
             return self._save_plan_validation_failure(tool_call, e)
         except Exception as e:
@@ -832,14 +828,10 @@ class ArchitectAgent(BaseAgent):
         # Build a lookup from behavior/metric name to their existing_id so we
         # can check the raw ID-pair fallback for reused entities.
         behavior_name_to_id = {
-            b.name.lower(): str(b.existing_id)
-            for b in plan.behaviors
-            if b.existing_id
+            b.name.lower(): str(b.existing_id) for b in plan.behaviors if b.existing_id
         }
         metric_name_to_id = {
-            m.name.lower(): str(m.existing_id)
-            for m in plan.metrics
-            if m.existing_id
+            m.name.lower(): str(m.existing_id) for m in plan.metrics if m.existing_id
         }
 
         def _metric_linked(bkey: str, mname: str) -> bool:
@@ -903,9 +895,7 @@ class ArchitectAgent(BaseAgent):
         )
         return self._save_plan_failure(tool_call, error, error_text=error_text)
 
-    def _save_plan_unexpected_failure(
-        self, tool_call: ToolCall, error: Exception
-    ) -> ToolResult:
+    def _save_plan_unexpected_failure(self, tool_call: ToolCall, error: Exception) -> ToolResult:
         """Fallback diagnostic for non-ValidationError failures during save_plan."""
         return self._save_plan_failure(
             tool_call,
@@ -1319,8 +1309,7 @@ class ArchitectAgent(BaseAgent):
         gate = (
             "test-set generation: ready"
             if prereqs_complete
-            else "test-set generation: blocked until behaviors, metrics, "
-            "and mappings reach N/N"
+            else "test-set generation: blocked until behaviors, metrics, and mappings reach N/N"
         )
 
         return "Plan progress: " + ", ".join(parts) + ". " + gate + "."
