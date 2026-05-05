@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.utils.crud_utils import get_item
-from rhesis.sdk.models.factory import EmbeddingModelConfig, get_embedding_model
+from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +44,6 @@ class EmbeddingGenerator:
             data_str = data
 
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
-
-    def _generate_embedding_vector(
-        self,
-        sdk_config: EmbeddingModelConfig,
-        searchable_text: str
-    ) -> List[float]:
-        """Generate embedding for a searchable text."""
-
-        embedder = get_embedding_model(config=sdk_config)
-
-        try:
-            return embedder.generate(searchable_text)
-        except Exception as e:
-            raise ValueError(f"Failed to generate embedding: {e}")
 
     def generate(
         self,
@@ -94,7 +80,7 @@ class EmbeddingGenerator:
             searchable_text = entity.to_searchable_text()
 
         # Fetch model to get all configuration
-        model = crud.get_model(self.db, model_id, organization_id, user_id)
+        model = get_user_embedding_model(self.db, user_id)
         if not model:
             raise ValueError(f"Model not found: {model_id}")
 
@@ -105,12 +91,6 @@ class EmbeddingGenerator:
             "dimension": model.dimension,
             "model_id": model_id,
         }
-
-        # SDK config: same fields plus api_key for authentication
-        sdk_config = EmbeddingModelConfig(
-            **config,
-            api_key=model.key,
-        )
 
         # Compute hashes for deduplication
         config_hash = self._compute_hash(config)
@@ -154,10 +134,10 @@ class EmbeddingGenerator:
             return {"status": "success", "embedding_id": str(existing_embedding.id)}
 
         # Generate the embedding vector
-        embedding_vector = self._generate_embedding_vector(
-            sdk_config=sdk_config,
-            searchable_text=searchable_text,
-        )
+        try:
+            embedding_vector = model.generate(searchable_text)
+        except Exception as e:
+            raise ValueError(f"Failed to generate embedding: {e}")
 
         # Mark old embeddings as stale (different text/config)
         stale_count = crud.mark_embeddings_stale(
@@ -217,7 +197,7 @@ class EmbeddingGenerator:
 
         logger.info(
             f"Successfully generated embedding for "
-            f"{entity_type}:{entity_id}, dimension={sdk_config.dimensions}"
+            f"{entity_type}:{entity_id}, dimension={model.dimensions}"
         )
 
         return {"status": "success", "embedding_id": str(new_embedding.id)}
