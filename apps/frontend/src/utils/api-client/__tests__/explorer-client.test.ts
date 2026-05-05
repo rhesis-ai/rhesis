@@ -1,0 +1,309 @@
+import { ExplorerClient } from '../explorer-client';
+
+const BASE_URL = 'http://127.0.0.1:8080/api/v1';
+const TEST_SET_ID = 'ts-001';
+
+function makeFetch(body: unknown, status = 200) {
+  return Promise.resolve({
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
+    headers: {
+      get: () => null,
+      entries: () => [],
+    },
+    json: () => Promise.resolve(body),
+    text: () => Promise.resolve(JSON.stringify(body)),
+  } as unknown as Response);
+}
+
+describe('ExplorerClient', () => {
+  let client: ExplorerClient;
+  let fetchMock: jest.Mock;
+
+  beforeEach(() => {
+    client = new ExplorerClient('test-token');
+    fetchMock = jest.fn();
+    global.fetch = fetchMock;
+  });
+
+  afterEach(() => jest.restoreAllMocks());
+
+  // -------------------------------------------------------------------------
+  // Test Set Operations
+  // -------------------------------------------------------------------------
+
+  it('lists explorer test sets', async () => {
+    fetchMock.mockResolvedValue(makeFetch([{ id: 'at1' }]));
+
+    await client.getExplorerTestSets();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`${BASE_URL}/explorer`),
+      expect.any(Object)
+    );
+  });
+
+  it('creates an explorer test set with POST', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: 'new-at', name: 'My Set' }));
+
+    await client.createExplorerTestSet('My Set', 'Optional desc');
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/explorer');
+    expect(opts.method).toBe('POST');
+    const body = JSON.parse(opts.body);
+    expect(body.name).toBe('My Set');
+    expect(body.description).toBe('Optional desc');
+  });
+
+  it('uses null description when omitted in createExplorerTestSet', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: 'at2' }));
+
+    await client.createExplorerTestSet('Set Without Desc');
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.description).toBeNull();
+  });
+
+  it('deletes an explorer test set with DELETE', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: 'at-del', name: 'Gone' }));
+
+    await client.deleteExplorerTestSet('at-del');
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/explorer/at-del');
+    expect(opts.method).toBe('DELETE');
+  });
+
+  it('imports from a source test set with POST /import/{id}', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        test_set: { id: 'new-adaptive', name: 'Source (Adaptive)' },
+        imported: 3,
+        skipped: 1,
+        skipped_test_ids: ['skip-1'],
+      })
+    );
+
+    const result = await client.importExplorerTestSetFromSource('source-ts-1');
+
+    expect(result.imported).toBe(3);
+    expect(result.skipped).toBe(1);
+    expect(result.test_set.id).toBe('new-adaptive');
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/explorer/import/source-ts-1');
+    expect(opts.method).toBe('POST');
+  });
+
+  it('exports to a regular test set with POST /export/{id}', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        test_set: { id: 'new-regular', name: 'Adaptive (Exported)' },
+        exported: 2,
+        skipped: 2,
+        skipped_test_ids: ['m1', 'm2'],
+      })
+    );
+
+    const result =
+      await client.exportRegularTestSetFromExplorer('explorer-ts-1');
+
+    expect(result.exported).toBe(2);
+    expect(result.skipped).toBe(2);
+    expect(result.test_set.id).toBe('new-regular');
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/explorer/export/explorer-ts-1');
+    expect(opts.method).toBe('POST');
+  });
+
+  it('fetches explorer settings for a test set', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({ default_endpoint: null, metrics: [] })
+    );
+
+    await client.getExplorerSettings(TEST_SET_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/settings`),
+      expect.objectContaining({ cache: 'no-store' })
+    );
+  });
+
+  it('updates explorer settings for a test set', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({
+        default_endpoint: { id: 'ep1', name: 'Endpoint 1' },
+        metrics: [{ id: 'm1', name: 'metric1' }],
+      })
+    );
+
+    await client.updateExplorerSettings(TEST_SET_ID, {
+      default_endpoint_id: 'ep1',
+      metric_ids: ['m1'],
+    });
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain(`/explorer/${TEST_SET_ID}/settings`);
+    expect(opts.method).toBe('PUT');
+    const body = JSON.parse(opts.body);
+    expect(body.default_endpoint_id).toBe('ep1');
+    expect(body.metric_ids).toEqual(['m1']);
+  });
+
+  // -------------------------------------------------------------------------
+  // Tree
+  // -------------------------------------------------------------------------
+
+  it('fetches the full tree for a test set', async () => {
+    fetchMock.mockResolvedValue(makeFetch([{ id: 'node1', type: 'topic' }]));
+
+    await client.getTree(TEST_SET_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/tree`),
+      expect.any(Object)
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Topic Operations
+  // -------------------------------------------------------------------------
+
+  it('fetches topics for a test set', async () => {
+    fetchMock.mockResolvedValue(makeFetch([{ path: 'Safety' }]));
+
+    await client.getTopics(TEST_SET_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/topics`),
+      expect.any(Object)
+    );
+  });
+
+  it('includes parent query param when provided', async () => {
+    fetchMock.mockResolvedValue(makeFetch([]));
+
+    await client.getTopics(TEST_SET_ID, 'Safety');
+
+    const calledUrl = fetchMock.mock.calls[0][0] as string;
+    expect(calledUrl).toContain('parent=Safety');
+  });
+
+  it('creates a topic with POST', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ path: 'Safety' }));
+    const topic = { name: 'Safety', description: 'Safety tests' };
+
+    await client.createTopic(TEST_SET_ID, topic as never);
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain(`/explorer/${TEST_SET_ID}/topics`);
+    expect(opts.method).toBe('POST');
+  });
+
+  it('updates a topic with PUT', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ path: 'Safety2' }));
+
+    await client.updateTopic(TEST_SET_ID, 'Safety', {
+      new_name: 'Safety2',
+    } as never);
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain(`/explorer/${TEST_SET_ID}/topics/Safety`);
+    expect(opts.method).toBe('PUT');
+  });
+
+  it('deletes a topic with DELETE', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ deleted: true }));
+
+    await client.deleteTopic(TEST_SET_ID, 'Safety');
+
+    const [, opts] = fetchMock.mock.calls[0];
+    expect(opts.method).toBe('DELETE');
+  });
+
+  // -------------------------------------------------------------------------
+  // Test Node Operations
+  // -------------------------------------------------------------------------
+
+  it('fetches tests for a test set', async () => {
+    fetchMock.mockResolvedValue(makeFetch([{ id: 'tn1' }]));
+
+    await client.getTests(TEST_SET_ID);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/tests`),
+      expect.any(Object)
+    );
+  });
+
+  it('includes topic filter in getTests URL', async () => {
+    fetchMock.mockResolvedValue(makeFetch([]));
+
+    await client.getTests(TEST_SET_ID, 'Safety');
+
+    const calledUrl = fetchMock.mock.calls[0][0] as string;
+    expect(calledUrl).toContain('topic=Safety');
+  });
+
+  it('fetches a single test node by id', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: 'tn1' }));
+
+    await client.getTest(TEST_SET_ID, 'tn1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`/explorer/${TEST_SET_ID}/tests/tn1`),
+      expect.any(Object)
+    );
+  });
+
+  it('creates a test node with POST', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: 'new-tn' }));
+
+    await client.createTest(TEST_SET_ID, { prompt: 'Hello' } as never);
+
+    const [, opts] = fetchMock.mock.calls[0];
+    expect(opts.method).toBe('POST');
+  });
+
+  it('updates a test node with PUT', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ id: 'tn1' }));
+
+    await client.updateTest(TEST_SET_ID, 'tn1', { prompt: 'Updated' } as never);
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('/tests/tn1');
+    expect(opts.method).toBe('PUT');
+  });
+
+  it('deletes a test node with DELETE', async () => {
+    fetchMock.mockResolvedValue(makeFetch({ deleted: true }));
+
+    await client.deleteTest(TEST_SET_ID, 'tn1');
+
+    const [, opts] = fetchMock.mock.calls[0];
+    expect(opts.method).toBe('DELETE');
+  });
+
+  // -------------------------------------------------------------------------
+  // generateOutputs
+  // -------------------------------------------------------------------------
+
+  it('sends a POST to /generate_outputs with the request body', async () => {
+    fetchMock.mockResolvedValue(
+      makeFetch({ job_id: 'job-1', status: 'queued' })
+    );
+
+    await client.generateOutputs(TEST_SET_ID, {
+      endpoint_id: 'ep1',
+      test_ids: ['tn1', 'tn2'],
+    });
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain(`/explorer/${TEST_SET_ID}/generate_outputs`);
+    expect(opts.method).toBe('POST');
+    const body = JSON.parse(opts.body);
+    expect(body.endpoint_id).toBe('ep1');
+    expect(body.test_ids).toEqual(['tn1', 'tn2']);
+  });
+});

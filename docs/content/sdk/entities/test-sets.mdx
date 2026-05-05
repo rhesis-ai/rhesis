@@ -142,12 +142,12 @@ print(f"Execution started: {result}")`}
 For the full execution API — including re-scoring, last run inspection, and test set metric
 management — see [Test Execution](/sdk/execution).
 
-### Adaptive TestTree node metadata (v0.6.12+)
+### Explorer / TestTree node metadata (v0.6.12+)
 
-If you use adaptive testing with the SDK `TestTree` APIs, each `TestTreeNode` can carry
+If you use the SDK `TestTree` APIs (module `rhesis.sdk.adaptive_testing`) against Explorer sessions, each `TestTreeNode` can carry
 evaluation metadata in addition to `label` and `model_score`.
 
-This is useful when you want to inspect per-metric outcomes programmatically after adaptive
+This is useful when you want to inspect per-metric outcomes programmatically after Explorer
 evaluation runs.
 
 | Field | Type | Description |
