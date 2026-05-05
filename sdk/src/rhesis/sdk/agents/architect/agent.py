@@ -144,17 +144,25 @@ class ArchitectAgent(BaseAgent):
         #    tool calls if the LLM ignores the prompt. It is a
         #    safety net, not a replacement for prompt-based control.
         #
-        # _confirming_tools: specific tools that were blocked and
-        #   presented for confirmation. Only these are unlocked
-        #   when the user replies.
+        # _confirming_tools: long-lived approval scope — the tools
+        #   that have been (or are being) presented for confirmation.
+        #   Survives across turns; cleared only by reset()/guard_state.
         # _creation_approved: True for the turn immediately after
         #   a confirmation prompt, False otherwise.
         # _mutating_tools: lazily built from tool metadata on first
         #   call to get_available_tools().
+        # _blocked_this_turn: per-turn transient flag — set to True
+        #   inside _handle_tool_calls when an actual block happens,
+        #   reset to False at the start of every turn. This — not
+        #   _confirming_tools — is what drives the response-level
+        #   needs_confirmation flag, because Accept/Change is only
+        #   meaningful when this turn's LLM step tried to call a
+        #   confirmable tool that we just intercepted.
         self._creation_approved: bool = False
         self._confirming_tools: FrozenSet[str] = frozenset()
         self._mutating_tools: Optional[FrozenSet[str]] = None
         self._auto_approve_all: bool = False
+        self._blocked_this_turn: bool = False
 
         self._discovery_state: Dict[str, Any] = _default_discovery_state()
 
@@ -205,6 +213,12 @@ class ArchitectAgent(BaseAgent):
             self._awaiting_task = False
             self._await_message = ""
             self._pending_tasks.clear()
+            # ``_blocked_this_turn`` is the transient signal that drives
+            # the response-level needs_confirmation flag. Reset it on
+            # every fresh turn so a previous turn's block can never
+            # leak into a later finish (e.g. an auto-resumed
+            # [TASK_COMPLETED] summary).
+            self._blocked_this_turn = False
             self._conversation_history.append({"role": Role.USER, "content": message})
 
             # If the previous turn asked for confirmation, unlock
@@ -322,6 +336,7 @@ class ArchitectAgent(BaseAgent):
         self._mode = AgentMode.DISCOVERY
         self._creation_approved = False
         self._confirming_tools = frozenset()
+        self._blocked_this_turn = False
         self._mutating_tools = None
         self._auto_approve_all = False
         self._attachments = None
@@ -435,6 +450,12 @@ class ArchitectAgent(BaseAgent):
                 "[Architect] Blocked tools pending confirmation: %s",
                 blocked_names,
             )
+
+            # Mark the per-turn signal that drives the UI's
+            # Accept/Change confirmation prompt. ``_confirming_tools``
+            # below is a long-lived approval scope, but this flag is
+            # specifically "this turn just blocked something".
+            self._blocked_this_turn = True
 
             # Unlock ALL mutating tools so the full plan can
             # execute without re-blocking on subsequent types.
@@ -1205,18 +1226,17 @@ class ArchitectAgent(BaseAgent):
         logger.info("[Architect] Streaming final response")
         # Derive confirmation from runtime state — never from
         # ``action.needs_confirmation``. The Accept/Change UI is only
-        # meaningful when an actual mutating tool call is queued and
-        # waiting for the user's approval. That signal lives in
-        # ``self._confirming_tools``, populated by ``_handle_tool_calls``
-        # whenever the LLM tries to call a tool flagged with
-        # ``requires_confirmation: true`` in ``mcp_tools.yaml``. Trusting
-        # the LLM's self-reported flag led to spurious "accept/change"
-        # prompts on open-ended questions like "Quick or Comprehensive
-        # exploration?", which expect a typed reply, not a click.
-        pending_confirmable_action = (
-            bool(self._confirming_tools) and not self._creation_approved
-        )
-        confirmation = pending_confirmable_action and not self._auto_approve_all
+        # meaningful when **this turn** intercepted a confirmable tool
+        # call. That signal is ``self._blocked_this_turn``, set inside
+        # ``_handle_tool_calls`` whenever the LLM tries to call a tool
+        # flagged ``requires_confirmation: true`` in ``mcp_tools.yaml``
+        # without prior approval. We deliberately do NOT key off
+        # ``_confirming_tools``: that set persists across turns as a
+        # long-lived approval scope, so reading it here would surface
+        # spurious Accept/Change prompts on later turns (for example,
+        # the auto-resumed [TASK_COMPLETED] summary that follows an
+        # already-approved exploration).
+        confirmation = self._blocked_this_turn and not self._auto_approve_all
         self._needs_confirmation = confirmation
 
         seed = action.final_answer or ""

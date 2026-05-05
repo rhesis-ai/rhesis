@@ -760,6 +760,57 @@ class TestArchitectWriteGuard:
         assert agent._confirming_tools == frozenset()
 
     @pytest.mark.asyncio
+    async def test_finish_after_approved_tool_does_not_re_surface_confirmation(
+        self, mock_model
+    ):
+        """Auto-resumed summaries must not inherit a stale confirmation flag.
+
+        Reproduces the bug where the Accept/Change UI re-appeared on
+        the post-exploration summary turn even though no tool had
+        been blocked in that turn. The flow is:
+
+          Turn 1: LLM tries explore_endpoint -> blocked
+                  -> _confirming_tools populated, _needs_confirmation=True
+          Turn 2: user approves, tool runs, await_task pauses turn
+                  -> _creation_approved reset to False at end of turn
+                  -> _confirming_tools STILL populated (long-lived scope)
+          Turn 3: auto-resumed [TASK_COMPLETED] -> LLM finishes with
+                  a plain summary, no tool call.
+
+        On Turn 3 the runtime must report _needs_confirmation=False.
+        Driving this off ``_confirming_tools`` (the previous
+        implementation) wrongly returned True because that set
+        survives across turns. The correct signal is the per-turn
+        ``_blocked_this_turn`` flag.
+        """
+        agent = _make_agent(mock_model)
+        # Simulate the residual state left behind by an earlier
+        # approved confirmation roundtrip: scope still set, no
+        # active block this turn, no fresh approval.
+        agent._mutating_tools = frozenset({"explore_endpoint", "create_metric"})
+        agent._confirming_tools = frozenset({"explore_endpoint", "create_metric"})
+        agent._creation_approved = False
+        assert agent._blocked_this_turn is False
+
+        async def fake_stream(**kw):
+            yield "Here's what I learned about your endpoint."
+
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "Summarising the exploration findings.",
+                "action": "finish",
+                "tool_calls": [],
+                "final_answer": "Here's what I learned about your endpoint.",
+            }
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+
+        await agent.chat_async("[TASK_COMPLETED] explore_endpoint")
+
+        assert agent._needs_confirmation is False
+        assert agent._blocked_this_turn is False
+
+    @pytest.mark.asyncio
     async def test_blocked_tool_sets_needs_confirmation_without_llm_flag(
         self, mock_model
     ):
