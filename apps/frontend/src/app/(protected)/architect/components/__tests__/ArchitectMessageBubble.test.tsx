@@ -297,6 +297,179 @@ describe('ArchitectMessageBubble', () => {
     });
   });
 
+  describe('waiting / done indicators', () => {
+    it('shows the "Working…" spinner while a long task is running', () => {
+      render(
+        <ArchitectMessageBubble
+          message={createMessage()}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.getByText('Working…')).toBeInTheDocument();
+      expect(screen.queryByText('Done.')).not.toBeInTheDocument();
+    });
+
+    it('shows the "Done." indicator when the long task has completed', () => {
+      render(
+        <ArchitectMessageBubble
+          message={createMessage()}
+          showTaskComplete
+        />
+      );
+
+      expect(screen.getByText('Done.')).toBeInTheDocument();
+      expect(screen.getByTestId('CheckCircleOutlineIcon')).toBeInTheDocument();
+      expect(screen.queryByText('Working…')).not.toBeInTheDocument();
+    });
+
+    it('prefers "Working…" over "Done." if both are accidentally true', () => {
+      // The hook should never set both at once, but the bubble should
+      // still degrade gracefully in case it does.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage()}
+          showWaitingSpinner
+          showTaskComplete
+        />
+      );
+
+      expect(screen.getByText('Working…')).toBeInTheDocument();
+      expect(screen.queryByText('Done.')).not.toBeInTheDocument();
+    });
+
+    it('shows neither indicator when both flags are off', () => {
+      render(<ArchitectMessageBubble message={createMessage()} />);
+      expect(screen.queryByText('Working…')).not.toBeInTheDocument();
+      expect(screen.queryByText('Done.')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('task progress trail', () => {
+    it('renders the progress trail when message.taskProgress is non-empty', () => {
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({
+            taskProgress: [
+              {
+                taskId: 't1',
+                status: 'started',
+                label: 'Starting exploration',
+                receivedAt: 1,
+              },
+              {
+                taskId: 't1',
+                status: 'progress',
+                label: 'Running domain probing',
+                receivedAt: 2,
+              },
+            ],
+          })}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.getByText('Starting exploration')).toBeInTheDocument();
+      expect(screen.getByText('Running domain probing')).toBeInTheDocument();
+    });
+
+    it('does not render the trail when taskProgress is empty', () => {
+      const { container } = render(
+        <ArchitectMessageBubble
+          message={createMessage({ taskProgress: [] })}
+        />
+      );
+
+      expect(
+        container.querySelector('[aria-label="Task progress"]')
+      ).toBeNull();
+    });
+
+    it('keeps the trail visible after the awaited task finishes', () => {
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({
+            taskProgress: [
+              {
+                taskId: 't1',
+                status: 'completed',
+                label: 'Exploration completed',
+                durationMs: 1500,
+                receivedAt: 1,
+              },
+            ],
+          })}
+          showWaitingSpinner={false}
+        />
+      );
+
+      expect(screen.getByText('Exploration completed')).toBeInTheDocument();
+      expect(screen.getByText('1.5s')).toBeInTheDocument();
+    });
+
+    it('hides the footer "Working…" while the trail has an active entry', () => {
+      // While the inline trail spinner is already signalling liveness,
+      // the footer "Working…" must not also spin — two simultaneous
+      // animated indicators are confusing.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({
+            taskProgress: [
+              {
+                taskId: 't1',
+                status: 'progress',
+                label: 'Turn 1: probing endpoint',
+                receivedAt: 1,
+              },
+            ],
+          })}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.queryByText('Working…')).toBeNull();
+      // The trail entry itself is still rendered.
+      expect(screen.getByText('Turn 1: probing endpoint')).toBeInTheDocument();
+    });
+
+    it('shows the footer "Working…" when waiting but no trail events have arrived yet', () => {
+      // Before the first ARCHITECT_TASK_PROGRESS event the progress
+      // trail is empty; only the footer should animate.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({ taskProgress: [] })}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.getByText('Working…')).toBeInTheDocument();
+    });
+
+    it('shows the footer "Working…" when waiting and the last trail entry is terminal', () => {
+      // Between the "completed" progress event and the agent's next
+      // response there is a brief window where the trail is static
+      // but we're still awaiting. The footer should fill that gap.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({
+            taskProgress: [
+              {
+                taskId: 't1',
+                status: 'completed',
+                label: 'Exploration completed',
+                durationMs: 2000,
+                receivedAt: 1,
+              },
+            ],
+          })}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.getByText('Working…')).toBeInTheDocument();
+    });
+  });
+
   describe('copy functionality', () => {
     it('copies message content to clipboard', async () => {
       const writeText = jest.fn().mockResolvedValue(undefined);

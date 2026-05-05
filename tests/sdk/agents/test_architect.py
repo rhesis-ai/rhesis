@@ -723,6 +723,82 @@ class TestArchitectWriteGuard:
 
         assert agent._creation_approved is False
 
+    @pytest.mark.asyncio
+    async def test_llm_self_reported_needs_confirmation_is_ignored(self, mock_model):
+        """LLM-set needs_confirmation=True must NOT trigger Accept/Change UI.
+
+        ``needs_confirmation`` on the response is computed from runtime
+        state (specifically ``_confirming_tools``, populated when a tool
+        flagged ``requires_confirmation: true`` in mcp_tools.yaml is
+        called). A finish action that the LLM emits with
+        ``needs_confirmation=True`` but no actual blocked tool — for
+        example after asking "Quick or Comprehensive exploration?" —
+        must resolve to False, otherwise the UI surfaces misleading
+        Accept/Change buttons on open-ended questions.
+        """
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"create_metric"})
+        assert agent._confirming_tools == frozenset()
+
+        async def fake_stream(**kw):
+            yield "Quick or comprehensive?"
+
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "Asking the user how thorough to be.",
+                "action": "finish",
+                "tool_calls": [],
+                "final_answer": "Would you prefer Quick or Comprehensive?",
+                "needs_confirmation": True,
+            }
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+
+        await agent.chat_async("design a test suite")
+
+        assert agent._needs_confirmation is False
+        assert agent._confirming_tools == frozenset()
+
+    @pytest.mark.asyncio
+    async def test_blocked_tool_sets_needs_confirmation_without_llm_flag(
+        self, mock_model
+    ):
+        """Runtime derivation works even when the LLM omits the flag.
+
+        When the LLM tries to call a mutating tool, ``_handle_tool_calls``
+        populates ``_confirming_tools`` and constructs a finish action
+        WITHOUT setting ``needs_confirmation``. The downstream
+        ``_handle_finish_action`` must still resolve to True based on
+        ``_confirming_tools`` alone.
+        """
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric"})
+
+        async def fake_stream(**kw):
+            yield "Here's the metric I plan to create"
+
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "Creating metric",
+                "action": "call_tool",
+                "tool_calls": [
+                    {
+                        "tool_name": "create_metric",
+                        "arguments": json.dumps({"name": "test"}),
+                    }
+                ],
+                "final_answer": "Here's the metric I plan to create",
+                "needs_confirmation": False,
+            }
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+
+        await agent.chat_async("create a metric")
+
+        assert agent._needs_confirmation is True
+        assert agent._confirming_tools == frozenset({"create_metric"})
+
 
 # ── auto-approve and guard_state tests ────────────────────────────
 
@@ -1627,6 +1703,29 @@ class TestArchitectIdNameCollection:
         agent._collect_id_names(result)
         assert agent._id_to_name["uuid-3"] == "Relevance"
 
+    def test_collects_from_mcp_results_envelope(self, mock_model):
+        """MCP server wraps paginated list responses in {results, _pagination}.
+
+        Without this support the architect drops every ID returned by
+        list_behaviors / list_metrics, breaking add_behavior_to_metric
+        progress tracking downstream.
+        """
+        agent = _make_agent(mock_model)
+        result = ToolResult(
+            tool_name="list_behaviors",
+            success=True,
+            content=json.dumps({
+                "results": [
+                    {"id": "uuid-1", "name": "Safety"},
+                    {"id": "uuid-2", "name": "Accuracy"},
+                ],
+                "_pagination": {"returned": 2, "has_more": False},
+            }),
+        )
+        agent._collect_id_names(result)
+        assert agent._id_to_name["uuid-1"] == "Safety"
+        assert agent._id_to_name["uuid-2"] == "Accuracy"
+
     def test_skips_failed_results(self, mock_model):
         agent = _make_agent(mock_model)
         result = ToolResult(
@@ -1652,3 +1751,790 @@ class TestArchitectIdNameCollection:
         agent._id_to_name["uuid-1"] = "test"
         agent.reset()
         assert len(agent._id_to_name) == 0
+
+
+# ── Compact list rendering for history ───────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectCompactListRendering:
+    """The iteration prompt truncates each tool result at a fixed char
+    budget. A raw 20-item list_metrics JSON easily exceeds that budget,
+    silently hiding items from the LLM and making it think entities
+    don't exist. The compact renderer must render every item on the
+    page in much less space, preserving id, name, short description,
+    and pagination state.
+    """
+
+    @staticmethod
+    def _metric(idx: int, *, desc_chars: int = 80) -> dict:
+        return {
+            "id": f"00000000-0000-0000-0000-{idx:012d}",
+            "name": f"Metric {idx}",
+            "description": "x" * desc_chars,
+            "score_type": "binary",
+            "metric_scope": "endpoint",
+        }
+
+    def test_returns_none_for_non_list_payload(self):
+        """Single-object responses fall back to plain truncation."""
+        out = ArchitectAgent._compact_list_result_for_history(
+            json.dumps({"id": "u-1", "name": "Solo"})
+        )
+        assert out is None
+
+    def test_returns_none_for_invalid_json(self):
+        out = ArchitectAgent._compact_list_result_for_history("not json")
+        assert out is None
+
+    def test_returns_none_for_empty_string(self):
+        out = ArchitectAgent._compact_list_result_for_history("")
+        assert out is None
+
+    def test_renders_bare_list(self):
+        items = [
+            {"id": "u-1", "name": "Alpha", "description": "first"},
+            {"id": "u-2", "name": "Beta", "description": "second"},
+        ]
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(items))
+        assert out is not None
+        assert "Alpha" in out and "u-1" in out
+        assert "Beta" in out and "u-2" in out
+        assert "List response: 2 item(s)" in out
+
+    def test_renders_odata_value_envelope(self):
+        payload = {"value": [{"id": "u-1", "name": "Legacy"}]}
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(payload))
+        assert out is not None
+        assert "Legacy" in out and "u-1" in out
+
+    def test_full_page_of_metrics_keeps_every_name_and_shrinks_payload(self):
+        """A 20-item paginated list_metrics with 200-char descriptions
+        easily exceeds the iteration prompt's per-result budget when
+        serialized as JSON. The compact renderer must (a) keep every
+        name visible to the LLM and (b) shrink the payload meaningfully
+        compared to raw JSON.
+        """
+        items = [self._metric(i, desc_chars=200) for i in range(20)]
+        payload = {
+            "results": items,
+            "_pagination": {"returned": 20, "has_more": False},
+        }
+        raw = json.dumps(payload)
+        out = ArchitectAgent._compact_list_result_for_history(raw)
+        assert out is not None
+
+        for i in range(20):
+            assert f"Metric {i}" in out, f"Metric {i} missing from compact output"
+        # Naive 4000-char truncation of the raw JSON would hide items;
+        # the compact form must be substantially smaller than the raw.
+        assert len(raw) > 5000
+        assert len(out) < len(raw) * 0.6, (
+            f"compact output ({len(out)} chars) should be much smaller "
+            f"than raw JSON ({len(raw)} chars)"
+        )
+
+    def test_paginated_envelope_includes_has_more_hint(self):
+        items = [self._metric(i, desc_chars=20) for i in range(20)]
+        payload = {
+            "results": items,
+            "_pagination": {
+                "returned": 20,
+                "has_more": True,
+                "next_skip": 20,
+                "hint": "use $filter or skip=20",
+            },
+        }
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(payload))
+        assert out is not None
+        assert "has_more" not in out  # we don't dump raw key names
+        assert "more pages available" in out
+        assert "next_skip=20" in out
+        assert "$filter" in out
+        for i in range(20):
+            assert f"Metric {i}" in out
+
+    def test_paginated_envelope_no_more_pages(self):
+        payload = {
+            "results": [self._metric(0, desc_chars=10)],
+            "_pagination": {"returned": 1, "has_more": False},
+        }
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(payload))
+        assert out is not None
+        assert "no more pages" in out
+        assert "next_skip" not in out
+
+    def test_long_descriptions_are_truncated_per_item(self):
+        items = [self._metric(0, desc_chars=500)]
+        out = ArchitectAgent._compact_list_result_for_history(
+            json.dumps(items), desc_chars=100
+        )
+        assert out is not None
+        assert "Metric 0" in out
+        assert "x" * 500 not in out
+        assert "…" in out
+
+    def test_extras_rendered_for_known_keys(self):
+        items = [
+            {
+                "id": "u-1",
+                "name": "Quality",
+                "description": "d",
+                "score_type": "numeric",
+                "metric_scope": "endpoint",
+            }
+        ]
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(items))
+        assert out is not None
+        assert "score_type=numeric" in out
+        assert "metric_scope=endpoint" in out
+
+    def test_caps_displayed_items_when_page_huge(self):
+        items = [
+            {"id": f"u-{i}", "name": f"Item {i}", "description": "d"}
+            for i in range(80)
+        ]
+        out = ArchitectAgent._compact_list_result_for_history(
+            json.dumps(items), max_items=10
+        )
+        assert out is not None
+        assert "Item 0" in out
+        assert "Item 9" in out
+        assert "Item 10" not in out
+        assert "70 more item(s) on this page" in out
+
+    def test_non_dict_items_fall_back(self):
+        """Lists of primitives (e.g. tag strings) shouldn't be rendered
+        as entity lists — let the caller fall back to plain truncation.
+        """
+        out = ArchitectAgent._compact_list_result_for_history(
+            json.dumps(["a", "b", "c"])
+        )
+        assert out is None
+
+    def test_format_history_uses_compact_renderer_for_lists(self):
+        """End-to-end: feeding a 20-item paginated list_metrics result
+        into _execution_history must surface every metric name in
+        _format_history(), not silently truncate after the first few.
+        This is the regression that made the architect think metrics
+        didn't exist on the platform.
+        """
+        agent = _make_agent(_mock_model())
+        items = [
+            {
+                "id": f"00000000-0000-0000-0000-{i:012d}",
+                "name": f"Metric {i}",
+                "description": "y" * 200,
+                "score_type": "binary",
+                "metric_scope": "endpoint",
+            }
+            for i in range(20)
+        ]
+        payload = json.dumps(
+            {
+                "results": items,
+                "_pagination": {"returned": 20, "has_more": True, "next_skip": 20},
+            }
+        )
+        agent._execution_history.append(
+            ExecutionStep(
+                iteration=1,
+                reasoning="discover existing metrics",
+                action="call_tool",
+                tool_calls=[],
+                tool_results=[
+                    ToolResult(
+                        tool_name="list_metrics",
+                        success=True,
+                        content=payload,
+                    )
+                ],
+            )
+        )
+
+        formatted = agent._format_history()
+        for i in range(20):
+            assert f"Metric {i}" in formatted, (
+                f"Metric {i} missing from _format_history output — the "
+                f"compact renderer is not being applied"
+            )
+        assert "more pages available" in formatted
+
+    def test_format_history_falls_back_for_non_list_results(self):
+        """Single-object tool results must not be munged — pass-through
+        with the existing truncation behaviour.
+        """
+        agent = _make_agent(_mock_model())
+        agent._execution_history.append(
+            ExecutionStep(
+                iteration=1,
+                reasoning="get a single metric",
+                action="call_tool",
+                tool_calls=[],
+                tool_results=[
+                    ToolResult(
+                        tool_name="get_metric",
+                        success=True,
+                        content=json.dumps(
+                            {"id": "u-1", "name": "Solo", "description": "single item"}
+                        ),
+                    )
+                ],
+            )
+        )
+        formatted = agent._format_history()
+        assert "Solo" in formatted
+        assert "List response" not in formatted
+
+
+# ── Mapping completion tests ─────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectMappingMatch:
+    """Behavior-metric mapping progress tracking via _match_mapping.
+
+    The matcher must require BOTH a behavior name match AND a metric
+    that is in that mapping's planned metrics list. Mappings with
+    multiple planned metrics must accumulate links across calls and
+    only flip to completed once every planned metric is linked.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    @staticmethod
+    def _travel_plan():
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MappingSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+
+        return ArchitectPlan(
+            behaviors=[
+                BehaviorSpec(name="Core Travel Assistance", description="d"),
+                BehaviorSpec(name="Pricing Information & Disclaimers", description="d"),
+                BehaviorSpec(name="Refuses Non-Travel Queries", description="d"),
+            ],
+            test_sets=[TestSetSpec(name="Tests", description="d")],
+            metrics=[
+                MetricSpec(name="Pricing Information Accuracy", description="d"),
+                MetricSpec(name="Travel Hallucination Detection", description="d"),
+                MetricSpec(name="Domain Adherence", description="d"),
+            ],
+            behavior_metric_mappings=[
+                MappingSpec(
+                    behavior="Core Travel Assistance",
+                    metrics=[
+                        "Pricing Information Accuracy",
+                        "Travel Hallucination Detection",
+                    ],
+                ),
+                MappingSpec(
+                    behavior="Pricing Information & Disclaimers",
+                    metrics=[
+                        "Pricing Information Accuracy",
+                        "Travel Hallucination Detection",
+                    ],
+                ),
+                MappingSpec(
+                    behavior="Refuses Non-Travel Queries",
+                    metrics=["Domain Adherence"],
+                ),
+            ],
+        )
+
+    @staticmethod
+    def _link_call(behavior_id: str, metric_id: str):
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        return ToolCall(
+            tool_name="add_behavior_to_metric",
+            arguments=json.dumps(
+                {"behavior_id": behavior_id, "metric_id": metric_id}
+            ),
+        )
+
+    def test_single_metric_mapping_completes_on_first_link(self, mock_model):
+        agent = _make_agent(mock_model)
+        plan = self._travel_plan()
+        agent._plan = plan
+        agent._id_to_name = {
+            "b-refuses": "Refuses Non-Travel Queries",
+            "m-domain": "Domain Adherence",
+        }
+
+        updated = agent._match_mapping(
+            plan,
+            self._link_call("b-refuses", "m-domain"),
+            agent._id_to_name,
+        )
+
+        refuses = next(
+            m for m in plan.behavior_metric_mappings
+            if m.behavior == "Refuses Non-Travel Queries"
+        )
+        assert updated is True
+        assert refuses.completed is True
+        assert refuses.linked_metrics == ["Domain Adherence"]
+
+    def test_multi_metric_mapping_requires_all_links_before_completion(self, mock_model):
+        agent = _make_agent(mock_model)
+        plan = self._travel_plan()
+        agent._plan = plan
+        agent._id_to_name = {
+            "b-core": "Core Travel Assistance",
+            "m-pricing": "Pricing Information Accuracy",
+            "m-hallucination": "Travel Hallucination Detection",
+        }
+
+        agent._match_mapping(
+            plan,
+            self._link_call("b-core", "m-pricing"),
+            agent._id_to_name,
+        )
+
+        core = next(
+            m for m in plan.behavior_metric_mappings
+            if m.behavior == "Core Travel Assistance"
+        )
+        assert core.completed is False
+        assert core.linked_metrics == ["Pricing Information Accuracy"]
+
+        agent._match_mapping(
+            plan,
+            self._link_call("b-core", "m-hallucination"),
+            agent._id_to_name,
+        )
+
+        assert core.completed is True
+        assert set(core.linked_metrics) == {
+            "Pricing Information Accuracy",
+            "Travel Hallucination Detection",
+        }
+
+    def test_overlapping_metrics_do_not_cross_contaminate_mappings(self, mock_model):
+        """Linking metric M to behavior A must not mark a different mapping
+        (B → M) as completed, even though M appears in both mappings."""
+        agent = _make_agent(mock_model)
+        plan = self._travel_plan()
+        agent._plan = plan
+        agent._id_to_name = {
+            "b-core": "Core Travel Assistance",
+            "b-pricing": "Pricing Information & Disclaimers",
+            "m-pricing": "Pricing Information Accuracy",
+            "m-hallucination": "Travel Hallucination Detection",
+        }
+
+        # Fully link Core Travel Assistance.
+        agent._match_mapping(
+            plan,
+            self._link_call("b-core", "m-pricing"),
+            agent._id_to_name,
+        )
+        agent._match_mapping(
+            plan,
+            self._link_call("b-core", "m-hallucination"),
+            agent._id_to_name,
+        )
+
+        core = next(
+            m for m in plan.behavior_metric_mappings
+            if m.behavior == "Core Travel Assistance"
+        )
+        pricing = next(
+            m for m in plan.behavior_metric_mappings
+            if m.behavior == "Pricing Information & Disclaimers"
+        )
+        assert core.completed is True
+        # Critical assertion: Pricing's mapping must remain pending — the
+        # OR-based matcher would have flipped it via the shared metric.
+        assert pricing.completed is False
+        assert pricing.linked_metrics == []
+
+    def test_no_match_when_metric_not_in_mapping(self, mock_model):
+        agent = _make_agent(mock_model)
+        plan = self._travel_plan()
+        agent._plan = plan
+        agent._id_to_name = {
+            "b-refuses": "Refuses Non-Travel Queries",
+            "m-pricing": "Pricing Information Accuracy",
+        }
+
+        updated = agent._match_mapping(
+            plan,
+            self._link_call("b-refuses", "m-pricing"),
+            agent._id_to_name,
+        )
+
+        refuses = next(
+            m for m in plan.behavior_metric_mappings
+            if m.behavior == "Refuses Non-Travel Queries"
+        )
+        assert updated is False
+        assert refuses.completed is False
+        assert refuses.linked_metrics == []
+
+    def test_no_match_when_ids_not_in_id_to_name(self, mock_model):
+        agent = _make_agent(mock_model)
+        plan = self._travel_plan()
+        agent._plan = plan
+        agent._id_to_name = {}  # neither id resolved
+
+        updated = agent._match_mapping(
+            plan,
+            self._link_call("b-core", "m-pricing"),
+            agent._id_to_name,
+        )
+
+        assert updated is False
+        for mapping in plan.behavior_metric_mappings:
+            assert mapping.completed is False
+            assert mapping.linked_metrics == []
+
+    @pytest.mark.asyncio
+    async def test_save_plan_validation_failure_has_actionable_error(
+        self, mock_model, caplog
+    ):
+        """save_plan should reject malformed args, log the offending input,
+        and return a structured field-level error for the LLM to act on."""
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+
+        # Plan missing required top-level keys and with a bad enum value.
+        bad_args = {
+            "behaviors": [
+                {"name": "Safety", "reuse_status": "Reuse"},  # wrong literal case
+            ],
+            # test_sets and metrics intentionally omitted.
+        }
+        tc = ToolCall(
+            tool_name="save_plan",
+            arguments=json.dumps(bad_args),
+        )
+
+        with caplog.at_level("WARNING"):
+            result = await agent._execute_save_plan(tc)
+
+        assert result.success is False
+        assert "Plan validation failed" in result.error
+        # Field-level pinpointing: at least one of the problems should be
+        # named in the error message.
+        assert (
+            "test_sets" in result.error
+            or "metrics" in result.error
+            or "reuse_status" in result.error
+        )
+        # The agent's plan must remain unchanged (None here) when validation
+        # failed — no partial mutation.
+        assert agent._plan is None
+        # The log must carry the offending args for diagnosability.
+        joined_log = " | ".join(r.getMessage() for r in caplog.records)
+        assert "save_plan failed" in joined_log
+        assert "args:" in joined_log
+
+    @pytest.mark.asyncio
+    async def test_save_plan_seeds_id_to_name_from_existing_ids(self, mock_model):
+        """When the LLM saves a plan with existing_id for reused entities,
+        those (id, name) pairs must be available for _match_mapping even
+        if the agent never re-calls list_behaviors / list_metrics."""
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MappingSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+        plan_payload = ArchitectPlan(
+            behaviors=[
+                BehaviorSpec(
+                    name="Refuses Non-Travel Queries",
+                    description="d",
+                    reuse_status="reuse",
+                    existing_id="b-refuses",
+                ),
+            ],
+            test_sets=[TestSetSpec(name="Tests", description="d")],
+            metrics=[
+                MetricSpec(
+                    name="Domain Adherence",
+                    description="d",
+                    reuse_status="reuse",
+                    existing_id="m-domain",
+                ),
+            ],
+            behavior_metric_mappings=[
+                MappingSpec(
+                    behavior="Refuses Non-Travel Queries",
+                    metrics=["Domain Adherence"],
+                ),
+            ],
+        ).model_dump()
+
+        save = ToolCall(
+            tool_name="save_plan",
+            arguments=json.dumps(plan_payload),
+        )
+        result = await agent._execute_save_plan(save)
+        assert result.success is True
+
+        assert agent._id_to_name["b-refuses"] == "Refuses Non-Travel Queries"
+        assert agent._id_to_name["m-domain"] == "Domain Adherence"
+
+        # Now exercise add_behavior_to_metric without ever calling list_*.
+        agent._match_mapping(
+            agent._plan,
+            self._link_call("b-refuses", "m-domain"),
+            agent._id_to_name,
+        )
+        refuses = agent._plan.behavior_metric_mappings[0]
+        assert refuses.completed is True
+        assert refuses.linked_metrics == ["Domain Adherence"]
+
+    def test_idempotent_repeated_link_call(self, mock_model):
+        agent = _make_agent(mock_model)
+        plan = self._travel_plan()
+        agent._plan = plan
+        agent._id_to_name = {
+            "b-refuses": "Refuses Non-Travel Queries",
+            "m-domain": "Domain Adherence",
+        }
+
+        # First call links and completes the single-metric mapping.
+        first = agent._match_mapping(
+            plan,
+            self._link_call("b-refuses", "m-domain"),
+            agent._id_to_name,
+        )
+        # Second call is a no-op (no state change).
+        second = agent._match_mapping(
+            plan,
+            self._link_call("b-refuses", "m-domain"),
+            agent._id_to_name,
+        )
+
+        refuses = next(
+            m for m in plan.behavior_metric_mappings
+            if m.behavior == "Refuses Non-Travel Queries"
+        )
+        assert first is True
+        assert second is False
+        assert refuses.completed is True
+        assert refuses.linked_metrics == ["Domain Adherence"]
+
+
+@pytest.mark.unit
+class TestArchitectIdCollectionUngated:
+    """_collect_id_names runs on every successful tool call, not only
+    once a plan is saved. Otherwise IDs gathered during the planning
+    phase (list_behaviors, list_metrics) are dropped."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    @pytest.mark.asyncio
+    async def test_ids_collected_before_plan_saved(self, mock_model, monkeypatch):
+        from rhesis.sdk.agents.base import BaseAgent
+        from rhesis.sdk.agents.schemas import ToolCall, ToolResult
+
+        agent = _make_agent(mock_model)
+        assert agent._plan is None  # planning phase
+
+        async def _fake_execute(self, tc):
+            return ToolResult(
+                tool_name=tc.tool_name,
+                success=True,
+                content=json.dumps({
+                    "results": [
+                        {"id": "uuid-1", "name": "Safety"},
+                        {"id": "uuid-2", "name": "Accuracy"},
+                    ],
+                    "_pagination": {"returned": 2, "has_more": False},
+                }),
+            )
+
+        monkeypatch.setattr(BaseAgent, "execute_tool", _fake_execute)
+
+        await agent.execute_tool(
+            ToolCall(tool_name="list_behaviors", arguments=json.dumps({}))
+        )
+
+        assert agent._id_to_name["uuid-1"] == "Safety"
+        assert agent._id_to_name["uuid-2"] == "Accuracy"
+
+
+# ── Plan progress rendering ──────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectPlanProgress:
+    """The iteration prompt must surface plan-completion progress as a
+    short, machine-readable line so the LLM can reason about ordering
+    on its own — specifically, that ``generate_test_set`` and
+    ``create_test_set_bulk`` are blocked until every behavior, metric,
+    and behavior→metric mapping is marked completed.
+
+    The runtime constraint in ``_check_execution_order`` is the
+    authoritative gate; the prompt text is what makes that gate
+    visible to the LLM (rather than hiding tools, which is opaque).
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        return _mock_model()
+
+    @staticmethod
+    def _tools_list() -> list:
+        return [
+            {"name": "create_behavior", "description": "Create behavior"},
+            {"name": "create_metric", "description": "Create metric"},
+            {"name": "add_behavior_to_metric", "description": "Link"},
+            {"name": "generate_test_set", "description": "Generate test set"},
+            {"name": "create_test_set_bulk", "description": "Bulk import"},
+            {"name": "list_metrics", "description": "Discover metrics"},
+        ]
+
+    @staticmethod
+    def _ready_plan():
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MappingSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+
+        return ArchitectPlan(
+            behaviors=[BehaviorSpec(name="Safety", description="d", completed=True)],
+            metrics=[MetricSpec(name="Quality", description="d", completed=True)],
+            test_sets=[TestSetSpec(name="Smoke", description="d", num_tests=5)],
+            behavior_metric_mappings=[
+                MappingSpec(
+                    behavior="Safety",
+                    metrics=["Quality"],
+                    linked_metrics=["Quality"],
+                    completed=True,
+                )
+            ],
+        )
+
+    @staticmethod
+    def _pending_mapping_plan():
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MappingSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+
+        return ArchitectPlan(
+            behaviors=[BehaviorSpec(name="Safety", description="d", completed=True)],
+            metrics=[MetricSpec(name="Quality", description="d", completed=True)],
+            test_sets=[TestSetSpec(name="Smoke", description="d", num_tests=5)],
+            behavior_metric_mappings=[
+                MappingSpec(
+                    behavior="Safety",
+                    metrics=["Quality"],
+                    linked_metrics=[],
+                    completed=False,
+                )
+            ],
+        )
+
+    @staticmethod
+    def _pending_metric_plan():
+        from rhesis.sdk.agents.architect.plan import (
+            ArchitectPlan,
+            BehaviorSpec,
+            MetricSpec,
+            TestSetSpec,
+        )
+
+        return ArchitectPlan(
+            behaviors=[
+                BehaviorSpec(name="Safety", description="d", completed=True),
+                BehaviorSpec(name="Accuracy", description="d", completed=True),
+            ],
+            metrics=[MetricSpec(name="Quality", description="d", completed=False)],
+            test_sets=[TestSetSpec(name="Smoke", description="d", num_tests=5)],
+        )
+
+    def test_progress_string_is_empty_without_plan(self, mock_model):
+        agent = _make_agent(mock_model)
+        assert agent._format_plan_progress() == ""
+
+    def test_progress_string_lists_each_category_with_ratios(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._plan = self._pending_metric_plan()
+
+        progress = agent._format_plan_progress()
+        assert "behaviors 2/2" in progress
+        assert "metrics 0/1" in progress
+        assert "mappings 0/0" in progress
+        assert "test_sets 0/1" in progress
+
+    def test_progress_string_marks_test_set_generation_blocked_while_pending(
+        self, mock_model
+    ):
+        agent = _make_agent(mock_model)
+        agent._plan = self._pending_mapping_plan()
+
+        progress = agent._format_plan_progress()
+        assert "test-set generation: blocked" in progress
+        assert "N/N" in progress
+
+    def test_progress_string_marks_test_set_generation_ready_when_done(
+        self, mock_model
+    ):
+        agent = _make_agent(mock_model)
+        agent._plan = self._ready_plan()
+
+        progress = agent._format_plan_progress()
+        assert "test-set generation: ready" in progress
+        assert "blocked" not in progress
+
+    def test_build_prompt_includes_progress_line_when_plan_present(self, mock_model):
+        """End-to-end: the iteration prompt the LLM sees must contain
+        the progress line so the LLM can reason about ordering. Match
+        the literal substring — drift here is the regression we care
+        about.
+        """
+        agent = _make_agent(mock_model)
+        agent._plan = self._pending_mapping_plan()
+
+        prompt = agent._build_prompt("hi", self._tools_list())
+        assert "Plan progress:" in prompt
+        assert "test-set generation: blocked" in prompt
+
+    def test_build_prompt_omits_progress_line_without_plan(self, mock_model):
+        """No plan → no progress line. We don't want to inject empty
+        boilerplate into prompts for ad-hoc, pre-plan turns.
+        """
+        agent = _make_agent(mock_model)
+        prompt = agent._build_prompt("hi", self._tools_list())
+        assert "Plan progress:" not in prompt
+
+    def test_test_set_tools_remain_visible_in_prompt_regardless_of_plan_state(
+        self, mock_model
+    ):
+        """We deliberately do NOT hide tools from the LLM. The
+        principled mechanism is: prompt advertises preconditions,
+        runtime constraint enforces them. This test guards against
+        re-introducing silent tool filtering.
+        """
+        agent = _make_agent(mock_model)
+        agent._plan = self._pending_mapping_plan()
+
+        prompt = agent._build_prompt("hi", self._tools_list())
+        assert "generate_test_set" in prompt
+        assert "create_test_set_bulk" in prompt
