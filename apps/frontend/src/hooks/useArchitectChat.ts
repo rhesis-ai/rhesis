@@ -163,7 +163,13 @@ export function useArchitectChat(
   options: UseArchitectChatOptions
 ): UseArchitectChatResult {
   const { sessionId, initialUserMessage } = options;
-  const { isConnected, send, subscribe, subscribeToChannel } = useWebSocket();
+  const {
+    isConnected,
+    send,
+    subscribe,
+    subscribeToChannel,
+    unsubscribeFromChannel,
+  } = useWebSocket();
 
   const [messages, setMessages] = useState<ArchitectChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -258,13 +264,19 @@ export function useArchitectChat(
     );
   }, [isAwaitingTask]);
 
-  // Subscribe to architect channel when session changes
+  // Subscribe to architect channel when session changes. The cleanup
+  // unsubscribes from the previous channel so the server stops forwarding
+  // events for the old session — without this, streaming output from the
+  // previous session bleeds into the newly opened tab.
   useEffect(() => {
     if (!sessionId || !isConnected) return;
 
     const channel = `architect:${sessionId}`;
     subscribeToChannel(channel);
-  }, [sessionId, isConnected, subscribeToChannel]);
+    return () => {
+      unsubscribeFromChannel(channel);
+    };
+  }, [sessionId, isConnected, subscribeToChannel, unsubscribeFromChannel]);
 
   // Subscribe to all architect event types
   useEffect(() => {
@@ -289,6 +301,7 @@ export function useArchitectChat(
     unsubs.push(
       subscribe(EventType.ARCHITECT_THINKING, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectThinkingPayload;
+        if (payload?.session_id && payload.session_id !== sessionId) return;
 
         // If we were awaiting a background task, the waiting bubble's
         // streamingState has been kept alive (with tool rows + progress).
@@ -326,7 +339,13 @@ export function useArchitectChat(
     );
 
     unsubs.push(
-      subscribe(EventType.ARCHITECT_STREAM_START, (_msg: WebSocketMessage) => {
+      subscribe(EventType.ARCHITECT_STREAM_START, (msg: WebSocketMessage) => {
+        // Defensive session_id guard: the payload type doesn't currently
+        // declare session_id, but if the backend includes it (or starts to),
+        // this prevents bleed during the brief unsubscribe race window.
+        const sid = (msg.payload as { session_id?: string } | undefined)
+          ?.session_id;
+        if (sid && sid !== sessionId) return;
         // Message already created by THINKING; just ensure it exists
         ensureStreamingMessage();
       })

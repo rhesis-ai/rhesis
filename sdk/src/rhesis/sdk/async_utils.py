@@ -1,7 +1,7 @@
 """Async utilities for bridging sync and async code.
 
 Provides run_sync() for executing async coroutines from synchronous contexts,
-with automatic detection of running event loops (Jupyter, FastAPI, etc.).
+using a persistent background thread/loop to avoid event loop lifecycle issues.
 """
 
 import asyncio
@@ -54,10 +54,11 @@ def close_background_loop():
 def run_sync(coro):
     """Run an async coroutine from synchronous code.
 
-    Auto-detects the calling context:
-    - No running loop (plain script): uses asyncio.run() directly
-    - Running loop (Jupyter, FastAPI): dispatches to a background thread
-      via run_coroutine_threadsafe to avoid nested loop errors
+    Always dispatches to a persistent background thread via
+    run_coroutine_threadsafe, regardless of whether a loop is already running.
+    This avoids nested loop errors in Jupyter/FastAPI and prevents
+    RuntimeError('Event loop is closed') from fire-and-forget cleanup tasks
+    (e.g. litellm's AsyncHTTPHandler) that outlive asyncio.run().
 
     Args:
         coro: An awaitable coroutine to execute.
@@ -65,9 +66,5 @@ def run_sync(coro):
     Returns:
         The result of the coroutine.
     """
-    try:
-        asyncio.get_running_loop()
-        future = asyncio.run_coroutine_threadsafe(coro, _get_background_loop())
-        return future.result()
-    except RuntimeError:
-        return asyncio.run(coro)
+    future = asyncio.run_coroutine_threadsafe(coro, _get_background_loop())
+    return future.result()

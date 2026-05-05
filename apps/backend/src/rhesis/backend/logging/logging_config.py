@@ -221,7 +221,7 @@ def set_logger():
     console_handler.setFormatter(RedactingFormatter(_create_formatter(color=True)))
     root_logger.addHandler(console_handler)
 
-    if ENVIRONMENT != "production":
+    if ENVIRONMENT in ("local", "development"):
         from datetime import datetime
         from pathlib import Path
 

@@ -498,7 +498,7 @@ def update_test_set_attributes(
         # Test set may have been soft-deleted; nothing to update.
         return
 
-    # Adaptive testing test sets manage their own attributes; skip regeneration.
+    # Explorer test sets manage their own attributes; skip regeneration.
     existing_attrs = test_set.attributes or {}
     existing_behaviors = existing_attrs.get("metadata", {}).get("behaviors", [])
     if "Adaptive Testing" in existing_behaviors:

@@ -534,10 +534,10 @@ class TestTestSetGeneration:
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestGetTestSetsExcludesAdaptive:
-    """crud.get_test_sets must omit adaptive-testing sets (general test set list API)."""
+class TestGetTestSetsExcludesExplorer:
+    """crud.get_test_sets must omit explorer sets (general test set list API)."""
 
-    def test_get_test_sets_excludes_adaptive_metadata_behavior(
+    def test_get_test_sets_excludes_explorer_metadata_behavior(
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
         regular = models.TestSet(
@@ -547,14 +547,14 @@ class TestGetTestSetsExcludesAdaptive:
             visibility="organization",
             attributes={"metadata": {"behaviors": ["Safety"]}},
         )
-        adaptive = models.TestSet(
-            name="Adaptive set for list filter",
+        explorer = models.TestSet(
+            name="Explorer set for list filter",
             organization_id=test_org_id,
             user_id=authenticated_user_id,
             visibility="organization",
             attributes={"metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]}},
         )
-        test_db.add_all([regular, adaptive])
+        test_db.add_all([regular, explorer])
         test_db.commit()
 
         results = crud.get_test_sets(
@@ -565,4 +565,4 @@ class TestGetTestSetsExcludesAdaptive:
         )
         ids = {ts.id for ts in results}
         assert regular.id in ids
-        assert adaptive.id not in ids
+        assert explorer.id not in ids
