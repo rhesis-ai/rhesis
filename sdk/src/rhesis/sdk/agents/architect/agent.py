@@ -619,6 +619,11 @@ class ArchitectAgent(BaseAgent):
 
         Behaviors, metrics, and mappings must all be completed
         before generating test sets.
+
+        Reconciles the plan against live session evidence immediately before
+        checking so that entities created or linked since the last save_plan
+        call are reflected — avoiding false blocks when the agent skips an
+        intermediate save_plan.
         """
         plan = self._plan
         if not plan:
@@ -629,6 +634,10 @@ class ArchitectAgent(BaseAgent):
             "create_test_set_bulk",
         ):
             return None
+
+        # Refresh completion flags from session evidence so the guard
+        # never fires on work the agent has already done this session.
+        self._reconcile_plan_with_session_evidence(plan)
 
         pending: List[str] = []
         for b in plan.behaviors:

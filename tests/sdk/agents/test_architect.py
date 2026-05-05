@@ -2926,3 +2926,30 @@ class TestArchitectSavePlanReconciliation:
         agent._linked_pairs.add(("b", "m"))
         agent.reset()
         assert agent._linked_pairs == set()
+
+    @pytest.mark.asyncio
+    async def test_execution_order_reconciles_before_checking(self, mock_model):
+        """generate_test_set is allowed when all links exist in _linked_pairs,
+        even if save_plan was not called again after the links were made."""
+        from rhesis.sdk.agents.schemas import ToolCall
+
+        agent = _make_agent(mock_model)
+
+        # Build a plan with one behavior, one metric, one mapping — all
+        # marked incomplete (as the LLM would supply them).
+        payload = self._plan_payload()
+        await agent._execute_save_plan(self._save_call(payload))
+        assert agent._plan is not None
+
+        # Manually mark all behaviours and metrics as having been created,
+        # and record the behavior→metric link — without calling save_plan.
+        agent._id_to_name["b-id"] = "Provides Accurate Health Info"
+        agent._id_to_name["m-id"] = "Health Information Accuracy"
+        agent._linked_pairs.add(("provides accurate health info", "health information accuracy"))
+
+        tc = ToolCall(tool_name="generate_test_set", arguments=json.dumps({}))
+        result = agent._check_execution_order(tc)
+
+        # The guard must pass (return None) because the session evidence
+        # proves everything is done.
+        assert result is None
