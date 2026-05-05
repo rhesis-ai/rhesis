@@ -261,7 +261,7 @@ Your application emits spans through the Rhesis SDK; spans are batched and shipp
 | **Rhesis SDK** | Python, JS/TS | Decorators | Native SDK with `@observe.llm` and convenience variants (`@observe.tool`, `@observe.retrieval`, `@observe.embedding`, …). Wrap any function you want traced. |
 | **LangChain** | Python | ✅ Automatic | Add the Rhesis callback handler once and every chain step, tool call, and LLM call is traced automatically — no per-function decorators required. |
 | **LangGraph** | Python | ✅ Automatic | Built-in integration for LangGraph agent workflows with full observability — every node transition, tool invocation, and graph step is captured automatically. |
-| **OpenTelemetry / OpenInference** | Python | ✅ Automatic via OTel | Any framework with an OpenInference instrumentor (LlamaIndex, CrewAI, OpenAI Agents SDK, Google ADK, Pydantic AI, DSPy, Haystack, Semantic Kernel) exports straight to Rhesis through standard OTel. |
+| **OpenTelemetry / OpenInference** | Python | ✅ Automatic via OTel | Any framework with an OpenInference instrumentor (LlamaIndex, CrewAI, OpenAI Agents SDK, Google ADK, Pydantic AI, DSPy, Haystack, Semantic Kernel) exports to Rhesis through standard OTel. Configure `OTEL_EXPORTER_OTLP_ENDPOINT` to `<rhesis-base-url>/telemetry/traces` (OTLP/HTTP). |
 | **AutoGen, OpenAI Agents SDK, LlamaIndex, CrewAI, and others** | Python | Decorators | Wrap the functions, tools, or agents you want to trace with `@observe.llm`. Without decorators, only top-level inputs and outputs are captured. |
 
 <a id="integration-layer-test-execution"></a>
@@ -269,7 +269,7 @@ Your application emits spans through the Rhesis SDK; spans are batched and shipp
 
 For Rhesis to run test cases against your application, it needs a way to call your code from outside your environment. The Rhesis SDK provides a **persistent outbound WebSocket connection** — your application opens it at startup and Rhesis can then invoke registered entry points whenever a test run fires. The connection is outbound from your app, so it works through firewalls and from local laptops without exposing a public URL.
 
-You register an entry point with the `@endpoint` decorator (see [SDK: Code-first testing](#sdk-code-first-testing)). When a test run starts, Rhesis sends each test case's input down the WebSocket; your application runs the function locally and sends the output back up the same connection. The same call path serves single-turn test cases and multi-turn conversations driven by **Penelope**.
+You register an entry point with the `@endpoint` decorator (see [SDK: Code-first testing](#sdk-code-first-testing)). When a test run starts, Rhesis sends each test case's input down the WebSocket; your application runs the function locally and sends the output back up the same connection. The same call path serves single-turn test cases and multi-turn conversations driven by **Penelope** (our multi-turn conversation runner).
 
 Both channels run from the same SDK in the same process: spans flow up the HTTP/OTLP channel; test commands flow down the WebSocket. Production traffic and test traffic produce traces in the same format, so the same evaluation metrics grade both.
 
