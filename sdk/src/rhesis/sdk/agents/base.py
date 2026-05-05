@@ -46,6 +46,29 @@ _SERVER_MANAGED_FIELDS: frozenset[str] = frozenset(
 )
 
 
+# ── error messages ─────────────────────────────────────────────────
+
+
+_MODEL_CAPABILITY_HINT = (
+    "The selected generation model could not produce a valid response. "
+    "This usually means the model isn't capable of following the "
+    "structured-output schema reliably. Try a more capable model "
+    "(e.g. switch your generation model in workspace settings) and "
+    "send the message again."
+)
+
+
+def _model_capability_message(provider_detail: Optional[str] = None) -> str:
+    """Build a user-facing message for LLM structured-output failures."""
+    if provider_detail:
+        # Avoid leaking the generic provider fallback string back to the
+        # user; it adds no information beyond the hint above.
+        generic = "an error occurred while processing the request"
+        if provider_detail.strip().lower().rstrip(".") != generic:
+            return f"{_MODEL_CAPABILITY_HINT} (model error: {provider_detail})"
+    return _MODEL_CAPABILITY_HINT
+
+
 # ── MCP content extraction ─────────────────────────────────────────
 
 
@@ -644,6 +667,31 @@ class BaseAgent:
                 system_prompt=self.system_prompt,
                 schema=AgentAction,
             )
+
+            # Providers signal failure (HTTP error, no JSON in output, etc.)
+            # by returning ``{"error": "..."}`` instead of an ``AgentAction``
+            # payload. Most often this means the configured generation
+            # model can't reliably produce structured output. Surface a
+            # message that points the user at their model settings rather
+            # than letting it trip the AgentAction validator.
+            if (
+                isinstance(response, dict)
+                and "error" in response
+                and "reasoning" not in response
+                and "action" not in response
+            ):
+                provider_msg = str(response.get("error") or "LLM request failed")
+                logger.error(
+                    "[Agent] LLM provider returned error: %s",
+                    provider_msg,
+                )
+                await _emit(
+                    self._event_handlers,
+                    "on_error",
+                    error=RuntimeError(_model_capability_message(provider_msg)),
+                )
+                return None
+
             if isinstance(response, dict):
                 action = AgentAction(**response)
             else:
@@ -655,9 +703,25 @@ class BaseAgent:
             )
             await _emit(self._event_handlers, "on_llm_end", action=action)
             return action
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
+            # These arise when the LLM produces malformed or non-schema-
+            # compliant JSON (e.g. AgentAction(**response) fails because a
+            # required field is missing or has the wrong type). That is a
+            # model capability issue, so surface the friendly hint.
             logger.error(
                 f"[Agent] Failed to parse LLM response: {e}",
+                exc_info=True,
+            )
+            friendly = RuntimeError(_model_capability_message())
+            await _emit(self._event_handlers, "on_error", error=friendly)
+            return None
+        except Exception as e:
+            # Network errors, rate limits, timeouts, etc. — pass through
+            # the real exception so the user gets an actionable message
+            # rather than a misleading "model isn't capable" hint.
+            logger.error(
+                "[Agent] Unexpected error during LLM request: %s",
+                e,
                 exc_info=True,
             )
             await _emit(self._event_handlers, "on_error", error=e)
