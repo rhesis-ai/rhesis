@@ -303,21 +303,26 @@ export function useArchitectChat(
         const payload = msg.payload as unknown as ArchitectThinkingPayload;
         if (payload?.session_id && payload.session_id !== sessionId) return;
 
-        // If we were awaiting a background task, the waiting bubble's
-        // streamingState has been kept alive (with tool rows + progress).
-        // Close it out now: reset the shared streamingState so the new
-        // streaming bubble starts fresh, mark the waiting message as no
-        // longer streaming, and clear the ref so ensureStreamingMessage()
-        // below creates a fresh bubble for this new turn.
+        // If we were awaiting a background task, close out the waiting
+        // bubble on the *first* THINKING of the resumed turn only.
+        //
+        // While awaiting, streamingMessageIdRef === waitingMessageIdRef
+        // (the same bubble owns both). The moment we create a new bubble
+        // they diverge. Use that equality as the "first resumed THINKING"
+        // signal so that subsequent THINKINGs (higher iterations of the
+        // same resumed turn) don't re-enter this path, orphan the
+        // already-created bubble, and leave an empty isStreaming=true ghost.
         const prevWaitingId = waitingMessageIdRef.current;
-        if (prevWaitingId) {
+        const isFirstResumedThinking =
+          !!prevWaitingId &&
+          streamingMessageIdRef.current === prevWaitingId;
+        if (isFirstResumedThinking) {
           setStreamingState(initialStreamingState);
-          // Close out the waiting bubble: mark it committed and strip the
-          // streaming flag. taskCompleted is stamped here as an early signal,
-          // and also by the isAwaitingTask falling-edge useEffect (which owns
-          // the waitingMessageIdRef cleanup and is the canonical mechanism).
-          // We deliberately do NOT clear waitingMessageIdRef here so the
-          // useEffect can still find it when isAwaitingTask falls to false.
+          // Mark the waiting bubble as committed. taskCompleted is stamped
+          // here as an early signal; the isAwaitingTask falling-edge
+          // useEffect is the canonical mechanism and owns the ref cleanup —
+          // deliberately NOT clearing waitingMessageIdRef here so the
+          // effect can still fire.
           setMessages(prev =>
             prev.map(m =>
               m.id === prevWaitingId
