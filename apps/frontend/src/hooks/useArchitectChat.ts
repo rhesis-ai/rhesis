@@ -299,11 +299,12 @@ export function useArchitectChat(
         const prevWaitingId = waitingMessageIdRef.current;
         if (prevWaitingId) {
           setStreamingState(initialStreamingState);
-          // Close out the waiting bubble: mark it committed, strip the
-          // streaming flag, and stamp taskCompleted so "Done." appears
-          // immediately. We clear the ref here (before setIsAwaitingTask),
-          // so we apply taskCompleted directly rather than relying on the
-          // isAwaitingTask falling-edge useEffect which checks the ref.
+          // Close out the waiting bubble: mark it committed and strip the
+          // streaming flag. taskCompleted is stamped here as an early signal,
+          // and also by the isAwaitingTask falling-edge useEffect (which owns
+          // the waitingMessageIdRef cleanup and is the canonical mechanism).
+          // We deliberately do NOT clear waitingMessageIdRef here so the
+          // useEffect can still find it when isAwaitingTask falls to false.
           setMessages(prev =>
             prev.map(m =>
               m.id === prevWaitingId
@@ -312,7 +313,6 @@ export function useArchitectChat(
             )
           );
           streamingMessageIdRef.current = null;
-          waitingMessageIdRef.current = null;
         }
 
         ensureStreamingMessage();

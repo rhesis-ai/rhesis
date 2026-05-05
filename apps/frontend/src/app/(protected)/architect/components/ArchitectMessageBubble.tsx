@@ -162,7 +162,7 @@ export default function ArchitectMessageBubble({
               >
                 <ThinkingDots size={5} color="text.secondary" />
                 <Typography variant="body2" color="text.secondary">
-                  Thinking
+                  {showWaitingSpinner ? 'Executing' : 'Thinking'}
                   {streamingState.currentIteration
                     ? ` (step ${streamingState.currentIteration})`
                     : ''}
