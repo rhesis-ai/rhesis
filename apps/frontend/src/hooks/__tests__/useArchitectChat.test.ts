@@ -6,6 +6,7 @@ import { EventType } from '@/utils/websocket';
 const mockSend = jest.fn();
 const mockSubscribe = jest.fn();
 const mockSubscribeToChannel = jest.fn();
+const mockUnsubscribeFromChannel = jest.fn();
 const mockUseWebSocket = jest.fn();
 
 jest.mock('../useWebSocket', () => ({
@@ -31,6 +32,7 @@ describe('useArchitectChat', () => {
       send: mockSend,
       subscribe: mockSubscribe,
       subscribeToChannel: mockSubscribeToChannel,
+      unsubscribeFromChannel: mockUnsubscribeFromChannel,
     });
   });
 
@@ -53,6 +55,7 @@ describe('useArchitectChat', () => {
       send: mockSend,
       subscribe: mockSubscribe,
       subscribeToChannel: mockSubscribeToChannel,
+      unsubscribeFromChannel: mockUnsubscribeFromChannel,
     });
 
     const { result } = renderHook(() =>
@@ -68,6 +71,16 @@ describe('useArchitectChat', () => {
     expect(mockSubscribeToChannel).toHaveBeenCalledWith('architect:sess-1');
   });
 
+  it('unsubscribes from architect channel on unmount', () => {
+    const { unmount } = renderHook(() =>
+      useArchitectChat({ sessionId: 'sess-1' })
+    );
+
+    unmount();
+
+    expect(mockUnsubscribeFromChannel).toHaveBeenCalledWith('architect:sess-1');
+  });
+
   it('does not subscribe to channel when sessionId is null', () => {
     renderHook(() => useArchitectChat({ sessionId: null }));
 
@@ -80,6 +93,7 @@ describe('useArchitectChat', () => {
       send: mockSend,
       subscribe: mockSubscribe,
       subscribeToChannel: mockSubscribeToChannel,
+      unsubscribeFromChannel: mockUnsubscribeFromChannel,
     });
 
     renderHook(() => useArchitectChat({ sessionId: 'sess-1' }));
@@ -173,6 +187,7 @@ describe('useArchitectChat', () => {
       send: mockSend,
       subscribe: mockSubscribe,
       subscribeToChannel: mockSubscribeToChannel,
+      unsubscribeFromChannel: mockUnsubscribeFromChannel,
     });
 
     const { result } = renderHook(() =>
