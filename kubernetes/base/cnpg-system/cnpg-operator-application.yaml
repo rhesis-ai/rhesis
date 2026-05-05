@@ -4,7 +4,8 @@ metadata:
   name: cnpg-operator
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    # Must run after kube-prometheus-stack (wave 0) so the PodMonitor CRD exists
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: cnpg-system
   source:

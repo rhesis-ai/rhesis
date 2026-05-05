@@ -115,8 +115,22 @@ resource "null_resource" "argocd_wait" {
   }
 
   provisioner "local-exec" {
+    # Wait for BOTH argocd-server (UI/API) AND argocd-application-controller
+    # (the sync engine). The controller runs as a StatefulSet and is the component
+    # responsible for automated sync. Applying the root Application before it is
+    # ready causes the first automated sync to miss or enter a backoff queue,
+    # requiring a manual force-sync to recover.
     command     = <<-EOT
+      echo "Waiting for argocd-server..."
       kubectl wait --for=condition=available deployment/argocd-server \
+        -n argocd --timeout=300s
+
+      echo "Waiting for argocd-application-controller..."
+      kubectl rollout status statefulset/argocd-application-controller \
+        -n argocd --timeout=300s
+
+      echo "Waiting for argocd-repo-server..."
+      kubectl wait --for=condition=available deployment/argocd-repo-server \
         -n argocd --timeout=300s
     EOT
     environment = local.kubeconfig_env
@@ -137,8 +151,49 @@ resource "null_resource" "argocd_root_app" {
   }
 }
 
-resource "null_resource" "cleanup_kubeconfig" {
+resource "null_resource" "argocd_initial_sync" {
   depends_on = [null_resource.argocd_root_app]
+
+  triggers = {
+    cluster_name   = var.cluster_name
+    base_yaml_hash = sha256(file("${var.repo_root}/kubernetes/clusters/${var.environment}/base.yaml"))
+  }
+
+  provisioner "local-exec" {
+    # Trigger an immediate hard refresh so the root Application syncs right away
+    # rather than waiting for the first polling interval (default: 3 minutes) or
+    # backing off after a cold-start reconciliation failure.
+    command     = <<-EOT
+      APP_NAME="${var.environment}-base"
+      echo "Triggering initial sync for $APP_NAME..."
+
+      kubectl annotate application "$APP_NAME" -n argocd \
+        argocd.argoproj.io/refresh=hard \
+        --overwrite
+
+      # Wait up to 10 minutes for the root app to reach Synced status.
+      # Child Application CRs are created by this sync; they then self-manage.
+      for i in $(seq 1 60); do
+        STATUS=$(kubectl get application "$APP_NAME" -n argocd \
+          -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+        echo "  [$i/60] sync status: $STATUS"
+        if [ "$STATUS" = "Synced" ]; then
+          echo "$APP_NAME is Synced."
+          exit 0
+        fi
+        sleep 10
+      done
+
+      echo "WARNING: $APP_NAME did not reach Synced within 10 minutes."
+      echo "Child applications will continue syncing independently via automated policy."
+      exit 0
+    EOT
+    environment = local.kubeconfig_env
+  }
+}
+
+resource "null_resource" "cleanup_kubeconfig" {
+  depends_on = [null_resource.argocd_initial_sync]
 
   triggers = {
     cluster_name = var.cluster_name
