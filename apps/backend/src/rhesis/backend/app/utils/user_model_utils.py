@@ -19,6 +19,7 @@ from rhesis.backend.app.constants import (
     DEFAULT_GENERATION_MODEL,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import get_model
 
@@ -467,30 +468,34 @@ def _fetch_and_configure_model(
         # Provide specific error messages based on the type of configuration issue
         if "api_key" in error_msg_lower or "not set" in error_msg_lower:
             logger.error(f"[LLM_UTILS] User model API key not configured: {error_msg}")
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"Your configured model '{model.name}' ({provider}/{model_name}) requires "
                 f"an API key that is missing or invalid. "
-                f"Please update your API key in the Models settings."
+                f"Please update your API key in the Models settings.",
+                original_error=e,
             )
         elif "provider" in error_msg_lower or "not supported" in error_msg_lower:
             logger.error(f"[LLM_UTILS] Invalid provider for user model: {error_msg}")
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"Your configured model '{model.name}' uses an unsupported provider ({provider}). "
-                f"Please select a different model in the Models settings."
+                f"Please select a different model in the Models settings.",
+                original_error=e,
             )
         elif "model" in error_msg_lower and (
             "not found" in error_msg_lower or "invalid" in error_msg_lower
         ):
             logger.error(f"[LLM_UTILS] Invalid model name for user model: {error_msg}")
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"Your configured model '{model.name}' has an invalid model name ({model_name}). "
-                f"Please select a valid model in the Models settings."
+                f"Please select a valid model in the Models settings.",
+                original_error=e,
             )
         else:
             # Generic configuration error
             logger.error(f"[LLM_UTILS] Failed to configure user model: {error_msg}")
-            raise ValueError(
-                f"Failed to initialize your configured model '{model.name}': {error_msg}"
+            raise ModelConfigurationError(
+                f"Failed to initialize your configured model '{model.name}': {error_msg}",
+                original_error=e,
             )
 
 
@@ -606,22 +611,25 @@ def _fetch_and_configure_embedder(
         # Provide specific error messages based on the type of configuration issue
         if "api_key" in error_msg_lower or "not set" in error_msg_lower:
             logger.error(f"[LLM_UTILS] Embedder API key not configured: {error_msg}")
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"Your configured embedding model '{model.name}' ({provider}/{model_name}) "
                 f"requires an API key that is missing or invalid. "
-                f"Please update your API key in the Models settings."
+                f"Please update your API key in the Models settings.",
+                original_error=e,
             )
         elif "provider" in error_msg_lower or "not supported" in error_msg_lower:
             logger.error(f"[LLM_UTILS] Invalid provider for embedder: {error_msg}")
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"Your configured embedding model '{model.name}' uses an unsupported "
-                f"provider ({provider}). Please select a different model in the Models settings."
+                f"provider ({provider}). Please select a different model in the Models settings.",
+                original_error=e,
             )
         else:
             logger.error(f"[LLM_UTILS] Failed to configure embedder: {error_msg}")
-            raise ValueError(
+            raise ModelConfigurationError(
                 f"Failed to configure your embedding model '{model.name}': {error_msg}. "
-                f"Please check your model configuration in the Models settings."
+                f"Please check your model configuration in the Models settings.",
+                original_error=e,
             )
 
 
