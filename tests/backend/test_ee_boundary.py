@@ -1,16 +1,27 @@
 """EE boundary guard.
 
 Asserts that no module under ``apps/backend/src/rhesis/backend/`` (the MIT
-core) imports, at module level, anything from ``rhesis.backend.ee``.
+core) imports, at module level, anything from ``rhesis.backend.ee``. The
+only permitted coupling is the ``try/except ImportError`` inside
+``ee_bootstrap.py``. A second test verifies that the EE import in
+``ee_bootstrap.py`` is in fact wrapped in a try block — so a future
+edit cannot quietly remove the guard.
 
-The only permitted coupling is the ``try/except ImportError`` inside
-``ee_bootstrap.py``. If this test fails on a commit that doesn't touch
-``ee_bootstrap.py``, a core module has gained a hard dependency on EE code
-and the "delete ee/ → pure MIT build" guarantee is broken.
+Why a static AST check?
+----------------------
+A runtime import test would need a working app environment. The boundary
+is structural, not behavioural, so source analysis is faster and cheaper:
+the test runs in milliseconds and needs only Python plus pytest.
 
-This test is fast and runs without a running database because it works purely
-on source text. It is intentionally run in the Community CI job
-(``backend-test-community``) where the ``ee`` extra is NOT installed.
+Limits
+------
+The check catches **module-level** imports only. A function-body import
+(``from rhesis.backend.ee import x`` inside a function) would not be
+flagged. That pattern would still violate the architectural rule, but
+it is also a code smell on its own; CODEOWNERS review on ``apps/backend/``
+is the secondary line of defence. Catching dynamic imports
+(``importlib.import_module``, ``__import__``) is intentionally out of
+scope — the goal is a fast guard against the common mistake.
 """
 
 from __future__ import annotations
@@ -27,21 +38,29 @@ ALLOWED_FILE = CORE_SRC / "app" / "ee_bootstrap.py"
 EE_MARKER = "rhesis.backend.ee"
 
 
-def _top_level_imports(path: Path) -> list[str]:
-    """Return all names imported at module level in *path*."""
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-    except SyntaxError:
-        return []
-
-    names: list[str] = []
+def _imported_modules(tree: ast.AST) -> list[tuple[int, str]]:
+    """Return ``(lineno, module_name)`` for every Import / ImportFrom in *tree*."""
+    out: list[tuple[int, str]] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            names.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                names.append(node.module)
-    return names
+            for alias in node.names:
+                out.append((node.lineno, alias.name))
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            out.append((node.lineno, node.module))
+    return out
+
+
+def _try_block_line_ranges(tree: ast.AST) -> list[tuple[int, int]]:
+    """Return ``(start_lineno, end_lineno)`` for every ast.Try in *tree*."""
+    ranges: list[tuple[int, int]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Try):
+            end = max(
+                (getattr(n, "end_lineno", node.lineno) for n in ast.walk(node)),
+                default=node.lineno,
+            )
+            ranges.append((node.lineno, end))
+    return ranges
 
 
 def test_core_does_not_import_ee() -> None:
@@ -52,70 +71,38 @@ def test_core_does_not_import_ee() -> None:
         if py_file.resolve() == ALLOWED_FILE.resolve():
             continue
 
-        for name in _top_level_imports(py_file):
-            if name.startswith(EE_MARKER) or name == EE_MARKER:
+        try:
+            tree = ast.parse(py_file.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+
+        for _, name in _imported_modules(tree):
+            if name == EE_MARKER or name.startswith(f"{EE_MARKER}."):
                 rel = py_file.relative_to(CORE_SRC.parents[3])
                 violations.append(f"{rel}: imports '{name}'")
 
     assert not violations, (
         "Core modules must not import from rhesis.backend.ee.\n"
-        "Move EE-only code to ee/backend/ or use ee_bootstrap.py.\n\n"
-        + "\n".join(violations)
+        "Move EE-only code to ee/backend/ or use ee_bootstrap.py.\n\n" + "\n".join(violations)
     )
 
 
 def test_ee_bootstrap_is_try_except_only() -> None:
-    """ee_bootstrap.py must only reference EE via a try/except ImportError block.
+    """ee_bootstrap.py may only reference EE inside a try/except block.
 
-    This ensures the import is guarded and won't hard-fail in Community mode
-    where the ``ee`` extra is not installed.
+    The hard requirement is that ``rhesis.backend.ee`` imports do not
+    crash Community-mode startup when the package is missing. Wrapping
+    them in ``try/except ImportError`` is what makes the no-op behaviour
+    possible.
     """
-    source = ALLOWED_FILE.read_text(encoding="utf-8")
-    tree = ast.parse(source)
+    tree = ast.parse(ALLOWED_FILE.read_text(encoding="utf-8"))
+    try_ranges = _try_block_line_ranges(tree)
 
-    bare_ee_imports: list[str] = []
-
-    for node in ast.walk(tree):
-        # We're looking for ImportFrom/Import nodes that reference EE
-        # but are NOT inside a Try node.
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            mod = ""
-            if isinstance(node, ast.ImportFrom) and node.module:
-                mod = node.module
-            elif isinstance(node, ast.Import):
-                mod = ",".join(a.name for a in node.names)
-
-            if mod.startswith(EE_MARKER):
-                # Check if this node sits inside a Try block by looking at
-                # the source line and whether it's inside a try/except.
-                # Simple heuristic: walk Try nodes and collect their lineno ranges.
-                bare_ee_imports.append(mod)
-
-    # Verify all EE imports are inside try blocks.
-    try_ranges: list[tuple[int, int]] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Try):
-            end = max(
-                (getattr(n, "end_lineno", node.lineno) for n in ast.walk(node)),
-                default=node.lineno,
-            )
-            try_ranges.append((node.lineno, end))
-
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.Import, ast.ImportFrom)):
+    for lineno, name in _imported_modules(tree):
+        if name != EE_MARKER and not name.startswith(f"{EE_MARKER}."):
             continue
-        mod = ""
-        if isinstance(node, ast.ImportFrom) and node.module:
-            mod = node.module
-        elif isinstance(node, ast.Import):
-            mod = ",".join(a.name for a in node.names)
-
-        if not mod.startswith(EE_MARKER):
-            continue
-
-        lineno = node.lineno
         inside_try = any(start <= lineno <= end for start, end in try_ranges)
         assert inside_try, (
-            f"ee_bootstrap.py line {lineno}: '{mod}' is imported outside a "
+            f"ee_bootstrap.py line {lineno}: '{name}' is imported outside a "
             "try/except block. Wrap it so Community mode doesn't hard-fail."
         )

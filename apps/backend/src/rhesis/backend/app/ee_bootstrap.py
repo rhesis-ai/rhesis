@@ -11,8 +11,8 @@ Call site
 ``bootstrap_ee(app)`` is called once from ``main.py``, after the license
 provider has been installed and all core routers have been mounted.
 
-Dependency rule (enforced by ``backend-test-community`` CI job)
----------------------------------------------------------------
+Dependency rule (enforced by ``community-boundary`` CI job)
+-----------------------------------------------------------
 This file may import from ``rhesis.backend.ee`` **only inside the
 try/except block** shown below. No other file in ``apps/backend/src/``
 may import from ``rhesis.backend.ee.*``.
@@ -40,8 +40,8 @@ def bootstrap_ee(app: "FastAPI") -> None:
     try:
         from rhesis.backend.ee import bootstrap  # type: ignore[import-untyped]
     except ImportError:
-        logger.debug("EE package not installed — running in Community mode")
+        logger.debug("EE package not installed - running in Community mode")
         return
 
-    logger.info("EE package found — bootstrapping enterprise features")
+    logger.info("EE package found - bootstrapping enterprise features")
     bootstrap(app)

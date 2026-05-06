@@ -10,10 +10,10 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-
 # ---------------------------------------------------------------------------
 # _get_org_or_404
 # ---------------------------------------------------------------------------
+
 
 def _make_org(org_id=None, slug=None, sso_config=None):
     return SimpleNamespace(
@@ -37,9 +37,9 @@ class _FakeQuery:
 
 
 class TestGetOrgOr404:
-
     def _import_func(self):
         from rhesis.backend.ee.sso.router import _get_org_or_404
+
         return _get_org_or_404
 
     def test_uuid_lookup(self):
@@ -101,98 +101,67 @@ class TestGetOrgOr404:
 
 # ---------------------------------------------------------------------------
 # /auth/providers with org param - slug vs UUID resolution
+#
+# routers/auth.py reads organization.sso_config directly as a dict (so core
+# never imports from rhesis.backend.ee). These tests verify the slug-vs-id
+# choice in the resulting login_url is driven by org.slug.
 # ---------------------------------------------------------------------------
+
 
 class TestAuthProvidersOrgParam:
     """Test the org resolution logic inside get_providers."""
 
-    @patch("rhesis.backend.app.routers.sso.check_sso_available", return_value=True)
-    @patch("rhesis.backend.app.routers.sso._get_sso_config")
-    def test_providers_with_uuid(self, mock_get_config, mock_check):
-        """When org is a UUID, the provider list includes SSO with login_url."""
-        from rhesis.backend.ee.sso.schemas import SSOConfig
-        from pydantic import SecretStr
-
+    @patch("rhesis.backend.app.auth.feature_gates.check_sso_available", return_value=True)
+    def test_providers_with_uuid(self, _mock_check):
+        """When org is a UUID and has a slug, login_url uses the slug."""
         org_id = uuid4()
-        org = _make_org(org_id=org_id, slug="acme-corp", sso_config={})
-        config = SSOConfig(
-            issuer_url="https://idp.example.com",
-            client_id="test",
-            client_secret=SecretStr("secret"),
-            enabled=True,
-        )
-        mock_get_config.return_value = config
+        org = _make_org(org_id=org_id, slug="acme-corp", sso_config={"enabled": True})
 
         db = MagicMock()
         db.query.return_value = _FakeQuery(org)
 
-        from rhesis.backend.app.routers.auth import get_providers
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(
-            get_providers(org=str(org_id), db=db)
-        )
-
-        sso_providers = [p for p in result.providers if p.name == "sso"]
-        assert len(sso_providers) == 1
-        assert sso_providers[0].login_url == f"/auth/sso/acme-corp"
-
-    @patch("rhesis.backend.app.routers.sso.check_sso_available", return_value=True)
-    @patch("rhesis.backend.app.routers.sso._get_sso_config")
-    def test_providers_with_slug(self, mock_get_config, mock_check):
-        """When org is a slug string, it still resolves correctly."""
-        from rhesis.backend.ee.sso.schemas import SSOConfig
-        from pydantic import SecretStr
-
-        org = _make_org(slug="acme-corp", sso_config={})
-        config = SSOConfig(
-            issuer_url="https://idp.example.com",
-            client_id="test",
-            client_secret=SecretStr("secret"),
-            enabled=True,
-        )
-        mock_get_config.return_value = config
-
-        db = MagicMock()
-        db.query.return_value = _FakeQuery(org)
-
         from rhesis.backend.app.routers.auth import get_providers
-        import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(
-            get_providers(org="acme-corp", db=db)
-        )
+        result = asyncio.get_event_loop().run_until_complete(get_providers(org=str(org_id), db=db))
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 1
         assert sso_providers[0].login_url == "/auth/sso/acme-corp"
 
-    @patch("rhesis.backend.app.routers.sso.check_sso_available", return_value=True)
-    @patch("rhesis.backend.app.routers.sso._get_sso_config")
-    def test_providers_login_url_falls_back_to_id(self, mock_get_config, mock_check):
-        """When org has no slug, login_url uses the org UUID."""
-        from rhesis.backend.ee.sso.schemas import SSOConfig
-        from pydantic import SecretStr
-
-        org_id = uuid4()
-        org = _make_org(org_id=org_id, slug=None, sso_config={})
-        config = SSOConfig(
-            issuer_url="https://idp.example.com",
-            client_id="test",
-            client_secret=SecretStr("secret"),
-            enabled=True,
-        )
-        mock_get_config.return_value = config
+    @patch("rhesis.backend.app.auth.feature_gates.check_sso_available", return_value=True)
+    def test_providers_with_slug(self, _mock_check):
+        """When org is a slug string, it still resolves correctly."""
+        org = _make_org(slug="acme-corp", sso_config={"enabled": True})
 
         db = MagicMock()
         db.query.return_value = _FakeQuery(org)
 
-        from rhesis.backend.app.routers.auth import get_providers
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(
-            get_providers(org=str(org_id), db=db)
-        )
+        from rhesis.backend.app.routers.auth import get_providers
+
+        result = asyncio.get_event_loop().run_until_complete(get_providers(org="acme-corp", db=db))
+
+        sso_providers = [p for p in result.providers if p.name == "sso"]
+        assert len(sso_providers) == 1
+        assert sso_providers[0].login_url == "/auth/sso/acme-corp"
+
+    @patch("rhesis.backend.app.auth.feature_gates.check_sso_available", return_value=True)
+    def test_providers_login_url_falls_back_to_id(self, _mock_check):
+        """When org has no slug, login_url uses the org UUID."""
+        org_id = uuid4()
+        org = _make_org(org_id=org_id, slug=None, sso_config={"enabled": True})
+
+        db = MagicMock()
+        db.query.return_value = _FakeQuery(org)
+
+        import asyncio
+
+        from rhesis.backend.app.routers.auth import get_providers
+
+        result = asyncio.get_event_loop().run_until_complete(get_providers(org=str(org_id), db=db))
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 1
@@ -202,12 +171,11 @@ class TestAuthProvidersOrgParam:
         """When no org param, SSO should never appear."""
         db = MagicMock()
 
-        from rhesis.backend.app.routers.auth import get_providers
         import asyncio
 
-        result = asyncio.get_event_loop().run_until_complete(
-            get_providers(org=None, db=db)
-        )
+        from rhesis.backend.app.routers.auth import get_providers
+
+        result = asyncio.get_event_loop().run_until_complete(get_providers(org=None, db=db))
 
         sso_providers = [p for p in result.providers if p.name == "sso"]
         assert len(sso_providers) == 0

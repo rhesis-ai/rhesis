@@ -21,22 +21,14 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, SecretStr
 from sqlalchemy.orm import Session
 
-from rhesis.backend.ee.sso.oidc import (
-    OIDCProvider,
-    verify_signed_state,
-)
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
-from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
-from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError, is_dev_environment
-from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.ee.sso.schemas import SSOConfig
 from rhesis.backend.app.utils.encryption import (
     sso_decrypt,
     sso_encrypt,
@@ -48,6 +40,14 @@ from rhesis.backend.app.utils.rate_limit import (
     SSO_TEST_CONNECTION_RATE_LIMIT,
     limiter,
 )
+from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
+from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError, is_dev_environment
+from rhesis.backend.ee.sso.oidc import (
+    OIDCProvider,
+    verify_signed_state,
+)
+from rhesis.backend.ee.sso.schemas import SSOConfig
+from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 
 logger = logging.getLogger(__name__)
 
@@ -62,13 +62,19 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 def check_sso_available(organization: Optional[Organization] = None) -> bool:
-    """Return ``True`` iff SSO is available (for ``organization`` if given).
+    """Return ``True`` iff SSO can be served at all.
 
-    Thin wrapper around :meth:`FeatureRegistry.is_available`. Kept at
-    this import path for backward compatibility with existing callers;
-    licensing, runtime preconditions, and future per-org entitlements
-    all flow through the registry now.
+    With ``organization`` set, this is the full per-tenant check
+    (registered + licensed + runtime ready). Without it, only the
+    runtime/registration half is checked — which is what the OIDC
+    callback needs as an early bailout *before* the signed state has
+    been validated and the org resolved. The license decision is then
+    made downstream once the org is in hand (typically by reading the
+    SSO config from the DB; full per-tenant gating arrives with the
+    JWT license provider).
     """
+    if organization is None:
+        return FeatureRegistry.is_registered(FeatureName.SSO)
     return FeatureRegistry.is_available(FeatureName.SSO, organization)
 
 
@@ -78,13 +84,9 @@ def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:
         return None
     try:
         config_data = dict(organization.sso_config)
-        if "client_secret" in config_data and isinstance(
-            config_data["client_secret"], str
-        ):
+        if "client_secret" in config_data and isinstance(config_data["client_secret"], str):
             try:
-                config_data["client_secret"] = sso_decrypt(
-                    config_data["client_secret"]
-                )
+                config_data["client_secret"] = sso_decrypt(config_data["client_secret"])
             except Exception:
                 if is_dev_environment():
                     logger.warning(
@@ -117,17 +119,9 @@ def _get_org_or_404(db: Session, org_identifier: str) -> Organization:
     org = None
     try:
         _UUID(org_identifier)
-        org = (
-            db.query(Organization)
-            .filter(Organization.id == org_identifier)
-            .first()
-        )
+        org = db.query(Organization).filter(Organization.id == org_identifier).first()
     except ValueError:
-        org = (
-            db.query(Organization)
-            .filter(Organization.slug == org_identifier.lower())
-            .first()
-        )
+        org = db.query(Organization).filter(Organization.slug == org_identifier.lower()).first()
 
     if not org:
         raise HTTPException(
@@ -221,9 +215,7 @@ async def sso_callback(
     # Cross-check org_id from state against session (defense in depth)
     session_org_id = request.session.get("sso_org_id", "")
     if session_org_id and session_org_id != org_id:
-        logger.warning(
-            "SSO org_id mismatch: state=%s session=%s", org_id, session_org_id
-        )
+        logger.warning("SSO org_id mismatch: state=%s session=%s", org_id, session_org_id)
         return RedirectResponse(url=error_redirect, status_code=302)
 
     if not check_sso_available():
@@ -362,8 +354,7 @@ async def sso_login(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=(
-                "Could not reach the SSO provider. "
-                "Please verify the issuer URL and try again."
+                "Could not reach the SSO provider. Please verify the issuer URL and try again."
             ),
         )
 
@@ -408,9 +399,7 @@ async def _require_org_admin(request: Request, org_id: str):
 
     credentials = await bearer_scheme(request)
     secret_key = get_secret_key()
-    user = await get_authenticated_user_with_context(
-        request, credentials, secret_key
-    )
+    user = await get_authenticated_user_with_context(request, credentials, secret_key)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -438,7 +427,8 @@ async def get_sso_config(
     db: Session = Depends(get_db_session),
 ):
     """Get SSO configuration for an organization (client_secret masked)."""
-    user = await _require_org_admin(request, org_id)
+    # Authorization side-effect; the returned user isn't used in the response body.
+    await _require_org_admin(request, org_id)
 
     if not check_sso_available():
         raise HTTPException(
@@ -479,12 +469,7 @@ async def update_sso_config(
         )
 
     # SELECT FOR UPDATE to prevent concurrent writes
-    org = (
-        db.query(Organization)
-        .filter(Organization.id == org_id)
-        .with_for_update()
-        .first()
-    )
+    org = db.query(Organization).filter(Organization.id == org_id).with_for_update().first()
     if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -503,8 +488,7 @@ async def update_sso_config(
             if not existing_config:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Existing SSO config is corrupted; "
-                    "please provide client_secret again",
+                    detail="Existing SSO config is corrupted; please provide client_secret again",
                 )
             plaintext_secret = existing_config.get_secret_value()
         else:
@@ -577,11 +561,7 @@ async def update_sso_config(
         event,
         org_id,
         actor_id=str(user.id),
-        details={
-            "fields_changed": [
-                k for k in config_dict if k != "client_secret"
-            ]
-        },
+        details={"fields_changed": [k for k in config_dict if k != "client_secret"]},
     )
 
     result = validated.masked_dict()
@@ -629,7 +609,8 @@ async def test_sso_connection(
     db: Session = Depends(get_db_session),
 ):
     """Test OIDC discovery for an org's SSO configuration."""
-    user = await _require_org_admin(request, org_id)
+    # Authorization side-effect; the returned user isn't used in the response body.
+    await _require_org_admin(request, org_id)
 
     if not check_sso_available():
         return SSOTestResponse(success=False, message="SSO is not available")
@@ -677,9 +658,7 @@ async def test_sso_connection(
             message="Connection blocked by security policy",
         )
     except Exception as e:
-        logger.error(
-            "SSO test failed for org %s: %s", org_id, type(e).__name__
-        )
+        logger.error("SSO test failed for org %s: %s", org_id, type(e).__name__)
         return SSOTestResponse(
             success=False,
             message="Connection failed",

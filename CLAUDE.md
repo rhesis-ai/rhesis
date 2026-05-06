@@ -344,13 +344,21 @@ scattered across routers or components.
 - `apps/frontend/src/utils/api-client/features-client.ts` -- typed
   client for `GET /features`.
 
-### Adding a new gated feature
+### Adding a new EE feature
 
-1. Add a member to `FeatureName` (backend enum).
-2. Register the feature in `features_bootstrap.register_core_features`
-   with an optional `runtime_check` and the `min_plan` the future
-   license provider should enforce.
-3. Guard server-side code via `FeatureRegistry.is_available(...)` or
-   the `require_feature` / `has_feature` dependencies.
-4. Mirror the name in `apps/frontend/src/constants/features.ts` and
-   wrap the UI in `<FeatureGate feature={FeatureName.X}>`.
+Community features are never registered. The `FeatureRegistry` is for EE
+features only; if a capability ships in `apps/backend/` under MIT, it is
+unconditionally available and needs no gating.
+
+1. Add a member to `FeatureName` in
+   `apps/backend/src/rhesis/backend/app/features/__init__.py`.
+2. Implement the feature under `ee/backend/src/rhesis/backend/ee/<feature>/`.
+3. Register it in `ee/backend/src/rhesis/backend/ee/__init__.py:bootstrap()`
+   by calling `FeatureRegistry.register(Feature(...))` with an optional
+   `runtime_check`, then `app.include_router(...)` for any new endpoints.
+4. Gate routes with `Depends(require_feature(FeatureName.X))`. Use
+   `FeatureRegistry.is_available(name, org)` for org-aware checks elsewhere
+   and `FeatureRegistry.is_registered(name)` for early-bailout checks
+   before an org has been resolved (e.g. inside an OIDC callback).
+5. Mirror the name in `apps/frontend/src/constants/features.ts` and wrap
+   the UI in `<FeatureGate feature={FeatureName.X}>`.

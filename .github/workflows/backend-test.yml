@@ -66,6 +66,9 @@ jobs:
 
   # Verifies that the MIT-only build stays clean: no core module may import
   # from rhesis.backend.ee except via the guarded try/except in ee_bootstrap.py.
+  # The check is pure source-text AST analysis, so it needs only pytest -- no
+  # backend deps, no Postgres, no Redis. Running this as a tiny separate job
+  # keeps it fast and visibly distinct from the full test matrix.
   community-boundary:
     name: Community boundary (no EE imports in core)
     runs-on: ubuntu-latest
@@ -77,17 +80,13 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10.17'
+          python-version: '3.12'
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
-
-      - name: Install core (no ee extra)
-        run: uv sync --dev --extra all --extra cpu
-        working-directory: apps/backend
+      - name: Install pytest
+        run: pip install pytest
 
       - name: Assert no EE imports leak into core
-        run: |
-          uv run pytest ../../tests/backend/test_ee_boundary.py -v \
-            --no-header -p no:cacheprovider
-        working-directory: apps/backend
+        # --noconftest skips tests/backend/conftest.py (which pulls SQLAlchemy
+        # and the full fixture stack); the boundary test is pure source-text
+        # AST analysis and needs nothing beyond the standard library + pytest.
+        run: pytest tests/backend/test_ee_boundary.py --noconftest -v --no-header -p no:cacheprovider

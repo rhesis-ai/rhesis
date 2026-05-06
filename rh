@@ -724,9 +724,11 @@ start_backend() {
     }
 
     check_uv
-    # Match apps/backend/Dockerfile build-backend: full optional deps + CPU PyTorch index
-    echo -e "${BLUE}Installing backend packages (uv sync --extra all --extra cpu)...${NC}"
-    uv sync --extra all --extra cpu || {
+    # Match apps/backend/Dockerfile build-backend: full optional deps + CPU
+    # PyTorch index + EE. The EE code ships in deployed images by default
+    # (license-based runtime gating), so dev parity means installing it here.
+    echo -e "${BLUE}Installing backend packages (uv sync --extra all --extra cpu --extra ee)...${NC}"
+    uv sync --extra all --extra cpu --extra ee || {
         echo -e "${RED}❌ Error: uv sync failed${NC}"
         exit 1
     }
@@ -888,8 +890,8 @@ start_worker() {
 
     check_uv
     # Same venv as ./rh dev backend and apps/backend/Dockerfile build-backend
-    echo -e "${BLUE}Syncing backend venv (uv sync --extra all --extra cpu)...${NC}"
-    uv sync --extra all --extra cpu || {
+    echo -e "${BLUE}Syncing backend venv (uv sync --extra all --extra cpu --extra ee)...${NC}"
+    uv sync --extra all --extra cpu --extra ee || {
         echo -e "${RED}❌ Error: uv sync failed${NC}"
         exit 1
     }

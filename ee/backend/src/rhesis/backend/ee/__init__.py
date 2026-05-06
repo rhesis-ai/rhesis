@@ -18,36 +18,40 @@ Dependency rule
 EE code may freely import from ``rhesis.backend.*`` (core). Core code
 must NEVER import from ``rhesis.backend.ee.*`` directly. The only
 core-side coupling is the ``try/except ImportError`` in
-``ee_bootstrap.py``. Violating this rule breaks the "delete ee/ → pure
-MIT build" guarantee and is caught by the ``backend-test-community`` CI
-job.
+``ee_bootstrap.py``. Violating this rule breaks the "delete ee/ to get
+a pure MIT build" guarantee and is caught by the ``community-boundary``
+CI job.
 """
 
 from __future__ import annotations
 
 import logging
 from importlib.metadata import PackageNotFoundError, version
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
 
 try:
     __version__ = version("rhesis-backend-ee")
 except PackageNotFoundError:
-    __version__ = "0.7.0"  # fallback when package is not installed (editable dev mode)
+    # Reachable only in unusual dev configurations where the package metadata
+    # is missing. Better to surface "unknown" than silently lie about a stale
+    # hard-coded version that drifts from pyproject.toml.
+    __version__ = "0+unknown"
 
 
-def bootstrap(app) -> None:  # noqa: ANN001
+def bootstrap(app: "FastAPI") -> None:
     """Register EE features and routers with the FastAPI *app*.
 
     Called once at application startup by
     :func:`rhesis.backend.app.ee_bootstrap.bootstrap_ee`. Registers each
     EE feature with :class:`~rhesis.backend.app.features.FeatureRegistry`
-    and mounts its router onto *app*.
-
-    Import order matters: the license provider must already be installed
-    (via ``install_license_provider()``) before this function runs so
-    that ``FeatureRegistry.is_available`` reflects the correct entitlements
-    from the very first request.
+    and mounts its router onto *app* using the same authenticated route
+    class as core routers, so the path-based public/token route lists
+    apply uniformly.
     """
     from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
     from rhesis.backend.ee.sso.router import router as sso_router
@@ -61,5 +65,11 @@ def bootstrap(app) -> None:  # noqa: ANN001
             description="Per-organization OIDC-based SSO.",
         )
     )
+
+    # EE routers must use the same authenticated route class as core routers
+    # so the public/token route lists apply uniformly. Without this, the SSO
+    # admin endpoints would silently fall back to vanilla APIRoute and any
+    # future EE route relying on path-based auth would break.
+    sso_router.route_class = app.router.route_class
     app.include_router(sso_router)
-    logger.info("EE bootstrap complete — registered features: [sso]")
+    logger.info("EE bootstrap complete - registered features: [sso]")

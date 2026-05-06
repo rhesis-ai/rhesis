@@ -36,9 +36,14 @@ ENV PATH="/root/.cargo/bin:$PATH"
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
+# EE source. Deployed images always carry the EE code; runtime activation is
+# decided by the license provider + RHESIS_LICENSE env var, mirroring the
+# QUICK_START pattern (always-on code, env-flipped behavior). The migrate
+# lane below intentionally skips this to keep the migration image lean.
+COPY ee/backend /app/ee/backend/
 
 # =============================================================================
-# build-core: core-only venv (migrations / slim jobs) — no rhesis-sdk / torch
+# build-core: core-only venv (migrations / slim jobs) — no rhesis-sdk / torch / ee
 # =============================================================================
 FROM base-build AS build-core
 
@@ -82,7 +87,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,target=/root/.cargo/registry \
-    uv sync --extra all --extra cpu
+    uv sync --extra all --extra cpu --extra ee
 
 RUN uv pip uninstall torch
 
@@ -118,6 +123,10 @@ COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/apps/backend/src 
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
+# EE editable install resolves via a .pth file pointing at /app/ee/backend/src,
+# so the source tree must exist in the runtime image too. License-based gating
+# decides at runtime which features the bootstrap actually mounts.
+COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/ee/backend /app/ee/backend
 COPY --from=build-backend --chown=rhesis-user:rhesis-user /app/apps/backend/pyproject.toml pyproject.toml
 
 RUN find /app -name ".env" -type f -delete

@@ -57,7 +57,7 @@ def has_feature(name: FeatureNameLike):
 
 
 def check_sso_available(org: Organization) -> bool:
-    """Return ``True`` iff SSO is available for ``org``.
+    """Return ``True`` iff SSO is fully available for ``org``.
 
     Thin wrapper around :meth:`FeatureRegistry.is_available` for code
     paths that already have an :class:`Organization` in hand and do not

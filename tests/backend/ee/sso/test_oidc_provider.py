@@ -3,34 +3,27 @@
 All HTTP calls are mocked -- these are pure unit tests.
 """
 
-import hashlib
 import json
 import time
-from base64 import urlsafe_b64encode
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import jwt as pyjwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
 from pydantic import SecretStr
 
 from rhesis.backend.app.auth.constants import AuthProviderType
-from rhesis.backend.app.auth.providers.oidc import (
-    METADATA_TTL,
-    OIDCProvider,
+from rhesis.backend.ee.sso.oidc import (
     _JWKS_CACHE,
     _OIDC_METADATA_CACHE,
-    create_signed_state,
-    verify_signed_state,
+    OIDCProvider,
 )
-from rhesis.backend.app.schemas.sso_config import SSOConfig
-
+from rhesis.backend.ee.sso.schemas import SSOConfig
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _sso_config(**overrides):
     defaults = dict(
@@ -102,8 +95,8 @@ def clear_caches():
 # OIDCProvider.get_authorization_url
 # ---------------------------------------------------------------------------
 
-class TestGetAuthorizationUrl:
 
+class TestGetAuthorizationUrl:
     @pytest.mark.asyncio
     async def test_builds_authorization_url_with_pkce(self):
         config = _sso_config()
@@ -148,8 +141,8 @@ class TestGetAuthorizationUrl:
 # OIDCProvider.authenticate (token exchange + ID token validation)
 # ---------------------------------------------------------------------------
 
-class TestAuthenticate:
 
+class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_successful_authentication(self):
         private_key = _generate_rsa_keypair()
@@ -158,18 +151,21 @@ class TestAuthenticate:
         provider = OIDCProvider(config)
 
         now = int(time.time())
-        id_token = _make_id_token(private_key, {
-            "sub": "user-123",
-            "email": "alice@example.com",
-            "name": "Alice Smith",
-            "given_name": "Alice",
-            "family_name": "Smith",
-            "iss": config.issuer_url,
-            "aud": config.client_id,
-            "exp": now + 300,
-            "iat": now,
-            "nonce": "test-nonce",
-        })
+        id_token = _make_id_token(
+            private_key,
+            {
+                "sub": "user-123",
+                "email": "alice@example.com",
+                "name": "Alice Smith",
+                "given_name": "Alice",
+                "family_name": "Smith",
+                "iss": config.issuer_url,
+                "aud": config.client_id,
+                "exp": now + 300,
+                "iat": now,
+                "nonce": "test-nonce",
+            },
+        )
 
         metadata = _metadata()
 
@@ -190,6 +186,7 @@ class TestAuthenticate:
 
         http = MagicMock()
         call_count = 0
+
         async def mock_get(url, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -236,15 +233,18 @@ class TestAuthenticate:
         provider = OIDCProvider(config)
 
         now = int(time.time())
-        id_token = _make_id_token(private_key, {
-            "sub": "user-123",
-            "email": "alice@example.com",
-            "iss": config.issuer_url,
-            "aud": config.client_id,
-            "exp": now + 300,
-            "iat": now,
-            "nonce": "wrong-nonce",
-        })
+        id_token = _make_id_token(
+            private_key,
+            {
+                "sub": "user-123",
+                "email": "alice@example.com",
+                "iss": config.issuer_url,
+                "aud": config.client_id,
+                "exp": now + 300,
+                "iat": now,
+                "nonce": "wrong-nonce",
+            },
+        )
 
         metadata = _metadata()
 
@@ -261,6 +261,7 @@ class TestAuthenticate:
         jwks_resp.json.return_value = jwks
 
         http = MagicMock()
+
         async def mock_get(url, **kwargs):
             if "openid-configuration" in url:
                 return discovery_resp
@@ -288,14 +289,17 @@ class TestAuthenticate:
         provider = OIDCProvider(config)
 
         now = int(time.time())
-        id_token = _make_id_token(private_key, {
-            "sub": "user-456",
-            "iss": config.issuer_url,
-            "aud": config.client_id,
-            "exp": now + 300,
-            "iat": now,
-            "nonce": "nonce",
-        })
+        id_token = _make_id_token(
+            private_key,
+            {
+                "sub": "user-456",
+                "iss": config.issuer_url,
+                "aud": config.client_id,
+                "exp": now + 300,
+                "iat": now,
+                "nonce": "nonce",
+            },
+        )
 
         metadata = _metadata()
 
@@ -319,6 +323,7 @@ class TestAuthenticate:
         userinfo_resp.json.return_value = {"email": "bob@example.com"}
 
         http = MagicMock()
+
         async def mock_get(url, **kwargs):
             if "openid-configuration" in url:
                 return discovery_resp
@@ -347,8 +352,8 @@ class TestAuthenticate:
 # OIDCProvider properties
 # ---------------------------------------------------------------------------
 
-class TestOIDCProviderProperties:
 
+class TestOIDCProviderProperties:
     def test_name(self):
         provider = OIDCProvider(_sso_config())
         assert provider.name == "oidc"
@@ -374,8 +379,8 @@ class TestOIDCProviderProperties:
 # Metadata caching
 # ---------------------------------------------------------------------------
 
-class TestMetadataCaching:
 
+class TestMetadataCaching:
     @pytest.mark.asyncio
     async def test_metadata_cached_between_calls(self):
         config = _sso_config()
@@ -387,6 +392,7 @@ class TestMetadataCaching:
         resp.json.return_value = metadata
 
         call_count = 0
+
         async def counting_get(url, **kwargs):
             nonlocal call_count
             call_count += 1

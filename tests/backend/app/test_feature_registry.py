@@ -18,11 +18,12 @@ def clean_registry():
     """Reset the registry before and after each test for isolation."""
     FeatureRegistry.reset()
     yield
-    FeatureRegistry.reset()  # leave clean — EE features register via ee.bootstrap, not here
+    # Leave clean - EE features register via ee.bootstrap, not here.
+    FeatureRegistry.reset()
 
 
 class _DenyingProvider:
-    def allows_feature(self, feature, org):  # noqa: D401 - stub
+    def allows_feature(self, feature, org):
         return False
 
     def info(self):
@@ -30,48 +31,31 @@ class _DenyingProvider:
 
 
 class _AllowingProvider:
-    def allows_feature(self, feature, org):  # noqa: D401 - stub
+    def allows_feature(self, feature, org):
         return True
 
     def info(self):
         return {"edition": "enterprise", "licensed": True}
 
 
-class TestFeatureRegistry:
-    def test_is_available_returns_false_for_unknown_feature(self, clean_registry):
-        assert FeatureRegistry.is_available("nonsense", org=None) is False
+class TestIsRegistered:
+    """The cheap check: in the registry + runtime check passes. No license."""
 
-    def test_is_available_returns_false_for_unregistered_enum_member(self, clean_registry):
-        assert FeatureRegistry.is_available(FeatureName.SSO, org=None) is False
+    def test_unknown_feature_is_not_registered(self, clean_registry):
+        assert FeatureRegistry.is_registered("nonsense") is False
 
-    def test_is_available_returns_true_when_registered_and_allowed(self, clean_registry):
-        FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
-        )
-        assert FeatureRegistry.is_available(FeatureName.SSO, org=None) is True
+    def test_unregistered_known_enum_returns_false(self, clean_registry):
+        assert FeatureRegistry.is_registered(FeatureName.SSO) is False
 
-    def test_is_available_accepts_raw_string_equivalent(self, clean_registry):
-        FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
-        )
-        assert FeatureRegistry.is_available("sso", org=None) is True
+    def test_registered_feature_returns_true(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        assert FeatureRegistry.is_registered(FeatureName.SSO) is True
 
-    def test_is_available_honours_license_provider_denial(self, clean_registry):
-        FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
-        )
-        org = object()  # sentinel; DefaultLicenseProvider ignores it
-        FeatureRegistry.set_license_provider(_DenyingProvider())
-        assert FeatureRegistry.is_available(FeatureName.SSO, org=org) is False
+    def test_accepts_raw_string_equivalent(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        assert FeatureRegistry.is_registered("sso") is True
 
-    def test_license_check_skipped_when_org_is_none(self, clean_registry):
-        FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
-        )
-        FeatureRegistry.set_license_provider(_DenyingProvider())
-        assert FeatureRegistry.is_available(FeatureName.SSO, org=None) is True
-
-    def test_is_available_honours_runtime_check_failure(self, clean_registry):
+    def test_runtime_check_failure_makes_unavailable(self, clean_registry):
         FeatureRegistry.register(
             Feature(
                 name=FeatureName.SSO,
@@ -79,12 +63,54 @@ class TestFeatureRegistry:
                 runtime_check=lambda: False,
             )
         )
-        assert FeatureRegistry.is_available(FeatureName.SSO, org=None) is False
+        assert FeatureRegistry.is_registered(FeatureName.SSO) is False
 
-    def test_set_license_provider_swap_changes_behaviour(self, clean_registry):
+    def test_does_not_consult_license_provider(self, clean_registry):
+        """is_registered ignores the license provider entirely.
+
+        That is the whole point: this is the early-bailout API used in
+        OIDC callbacks before an org has been resolved.
+        """
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        FeatureRegistry.set_license_provider(_DenyingProvider())
+        assert FeatureRegistry.is_registered(FeatureName.SSO) is True
+
+
+class TestIsAvailable:
+    """The full check: registered + licensed for org + runtime check."""
+
+    def test_unknown_feature_returns_false(self, clean_registry):
+        assert FeatureRegistry.is_available("nonsense", org=object()) is False
+
+    def test_unregistered_known_enum_returns_false(self, clean_registry):
+        assert FeatureRegistry.is_available(FeatureName.SSO, org=object()) is False
+
+    def test_registered_and_default_provider_returns_true(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        # DefaultLicenseProvider allows everything; org is just a sentinel here.
+        assert FeatureRegistry.is_available(FeatureName.SSO, org=object()) is True
+
+    def test_accepts_raw_string_equivalent(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        assert FeatureRegistry.is_available("sso", org=object()) is True
+
+    def test_denying_license_provider_blocks(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        FeatureRegistry.set_license_provider(_DenyingProvider())
+        assert FeatureRegistry.is_available(FeatureName.SSO, org=object()) is False
+
+    def test_runtime_check_failure_blocks(self, clean_registry):
         FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
+            Feature(
+                name=FeatureName.SSO,
+                display_name="SSO",
+                runtime_check=lambda: False,
+            )
         )
+        assert FeatureRegistry.is_available(FeatureName.SSO, org=object()) is False
+
+    def test_provider_swap_changes_behaviour(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
         org = object()
 
         FeatureRegistry.set_license_provider(_DenyingProvider())
@@ -93,14 +119,14 @@ class TestFeatureRegistry:
         FeatureRegistry.set_license_provider(_AllowingProvider())
         assert FeatureRegistry.is_available(FeatureName.SSO, org=org) is True
 
-    def test_enabled_features_filters_by_is_available(self, clean_registry):
-        FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
-        )
-        enabled = FeatureRegistry.enabled_features(org=None)
+
+class TestEnabledFeatures:
+    def test_lists_only_available_features(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
+        enabled = FeatureRegistry.enabled_features(org=object())
         assert [f.name for f in enabled] == [FeatureName.SSO]
 
-    def test_enabled_features_empty_when_runtime_check_fails(self, clean_registry):
+    def test_excludes_features_with_failing_runtime_check(self, clean_registry):
         FeatureRegistry.register(
             Feature(
                 name=FeatureName.SSO,
@@ -108,24 +134,17 @@ class TestFeatureRegistry:
                 runtime_check=lambda: False,
             )
         )
-        assert FeatureRegistry.enabled_features(org=None) == []
+        assert FeatureRegistry.enabled_features(org=object()) == []
 
-    def test_reset_clears_registry_and_provider(self, clean_registry):
-        FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
-        )
+
+class TestReset:
+    def test_clears_registry_and_provider(self, clean_registry):
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
         FeatureRegistry.set_license_provider(_DenyingProvider())
         FeatureRegistry.reset()
 
-        assert FeatureRegistry.is_available(FeatureName.SSO, org=None) is False
-        assert FeatureRegistry.license_info() == {"edition": "community", "licensed": False}
-
-    def test_license_info_reflects_current_provider(self, clean_registry):
-        FeatureRegistry.set_license_provider(_AllowingProvider())
-        assert FeatureRegistry.license_info() == {
-            "edition": "enterprise",
-            "licensed": True,
-        }
+        assert FeatureRegistry.is_registered(FeatureName.SSO) is False
+        assert FeatureRegistry.license_info() == {"edition": "dev", "licensed": False}
 
 
 class TestDefaultLicenseProvider:
@@ -134,19 +153,28 @@ class TestDefaultLicenseProvider:
         feature = Feature(name=FeatureName.SSO, display_name="SSO")
         assert provider.allows_feature(feature, org=object()) is True
 
-    def test_info_marks_community_edition(self):
+    def test_info_marks_dev_edition(self):
+        """Edition is 'dev' rather than 'community' when EE pkg is loaded but unlicensed."""
         provider = DefaultLicenseProvider()
-        assert provider.info() == {"edition": "community", "licensed": False}
+        assert provider.info() == {"edition": "dev", "licensed": False}
+
+
+class TestFeatureDataclass:
+    def test_equality_is_by_name_only(self):
+        """Display label and description must not influence equality.
+
+        Two Feature instances with the same name but different metadata
+        should compare equal so idempotent re-registration is well-defined.
+        """
+        a = Feature(name=FeatureName.SSO, display_name="A")
+        b = Feature(name=FeatureName.SSO, display_name="B", description="different")
+        assert a == b
 
 
 class TestFeatureNameEnum:
     def test_str_equivalence(self):
         assert FeatureName.SSO == "sso"
         assert FeatureName.SSO.value == "sso"
-
-    def test_serialisable_as_string(self):
-        # str-Enum members act as strings for JSON-compatible contexts.
-        assert str(FeatureName.SSO.value) == "sso"
 
 
 class TestLicenseProviderProtocol:
@@ -156,17 +184,20 @@ class TestLicenseProviderProtocol:
         assert hasattr(provider, "info")
 
 
+ee_pkg = pytest.importorskip(
+    "rhesis.backend.ee",
+    reason="EE package not installed (community build); skipping EE bootstrap tests.",
+)
+
+
 class TestEEBootstrap:
     """SSO feature registration via the EE bootstrap."""
 
     def test_registers_sso(self, clean_registry):
-        """ee.bootstrap registers SSO with correct metadata."""
         from unittest.mock import MagicMock
 
         mock_app = MagicMock()
-        from rhesis.backend.ee import bootstrap
-
-        bootstrap(mock_app)
+        ee_pkg.bootstrap(mock_app)
         feature = FeatureRegistry._features.get(FeatureName.SSO)
         assert feature is not None
         assert feature.display_name == "Single Sign-On"
@@ -177,8 +208,23 @@ class TestEEBootstrap:
         from unittest.mock import MagicMock
 
         mock_app = MagicMock()
-        from rhesis.backend.ee import bootstrap
-
-        bootstrap(mock_app)
-        bootstrap(mock_app)
+        ee_pkg.bootstrap(mock_app)
+        ee_pkg.bootstrap(mock_app)
         assert len(FeatureRegistry._features) == 1
+
+    def test_route_class_inherits_from_app(self, clean_registry):
+        """The EE router must adopt the app's authenticated route class.
+
+        Without this, EE routes silently bypass the path-based public/token
+        auth scheme used by core routers.
+        """
+        from unittest.mock import MagicMock
+
+        sentinel_route_class = object()
+        mock_app = MagicMock()
+        mock_app.router.route_class = sentinel_route_class
+
+        ee_pkg.bootstrap(mock_app)
+
+        included = mock_app.include_router.call_args.args[0]
+        assert included.route_class is sentinel_route_class
