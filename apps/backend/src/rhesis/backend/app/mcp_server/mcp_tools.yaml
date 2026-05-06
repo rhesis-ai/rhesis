@@ -41,6 +41,11 @@ tools:
       must be used verbatim. The "tests" array is REQUIRED and must
       contain at least one test object. Do NOT send server-managed
       fields (id, user_id, organization_id, created_at, updated_at).
+      PRECONDITION: when a saved plan is in effect, every behavior,
+      metric, and behavior→metric mapping in the plan must be marked
+      completed before this tool can run. Calling it earlier is
+      rejected with "Cannot generate test sets yet…" — finish the
+      prerequisite steps (behaviors, metrics, mapping links) first.
     parameters:
       name:
         description: "Test set name (required, string)"
@@ -77,6 +82,13 @@ tools:
       then extract test_set_id from the result.
       Supports both single-turn and multi-turn test generation via the
       test_type parameter.
+      PRECONDITION: when a saved plan is in effect, every behavior,
+      metric, and behavior→metric mapping in the plan must be marked
+      completed before this tool can run (see "Plan progress" in the
+      iteration prompt — all categories must read N/N). Calling it
+      earlier is rejected with "Cannot generate test sets yet…" —
+      finish the prerequisite steps (behaviors, metrics, mapping
+      links) first.
     parameters:
       config:
         description: >

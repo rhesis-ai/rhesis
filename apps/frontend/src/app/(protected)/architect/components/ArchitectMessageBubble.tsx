@@ -30,7 +30,22 @@ interface ArchitectMessageBubbleProps {
   userName?: string;
   userPicture?: string;
   showActions?: boolean;
+  /**
+   * Show the footer "Working…" spinner while the agent is awaiting a
+   * background task. Suppressed automatically when the task's progress
+   * trail already has an active entry (the inline trail spinner takes
+   * over so the two indicators never animate simultaneously). Reappears
+   * briefly once the trail's last entry turns terminal but the agent
+   * hasn't yet resumed.
+   */
   showWaitingSpinner?: boolean;
+  /**
+   * Render a persistent "Done." indicator in the spinner slot — set on
+   * the bubble whose long-running task has completed. Stays on for the
+   * rest of the session so the user can scroll back and still see which
+   * step actually finished. Mutually exclusive with `showWaitingSpinner`.
+   */
+  showTaskComplete?: boolean;
   streamingState?: StreamingState;
   onAccept?: () => void;
   onReject?: () => void;
@@ -48,12 +63,18 @@ export default function ArchitectMessageBubble({
   userPicture,
   showActions,
   showWaitingSpinner,
+  showTaskComplete,
   streamingState,
   onAccept,
   onReject,
 }: ArchitectMessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
+
+  // Suppress the footer "Working…" when the ToolCallList already has an
+  // active row — the inline spinner in that row covers liveness, and the
+  // two indicators would otherwise animate simultaneously.
+  const hasActiveProgress = (streamingState?.activeTools?.length ?? 0) > 0;
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -139,7 +160,7 @@ export default function ArchitectMessageBubble({
               >
                 <ThinkingDots size={5} color="text.secondary" />
                 <Typography variant="body2" color="text.secondary">
-                  Thinking
+                  {showWaitingSpinner ? 'Executing' : 'Thinking'}
                   {streamingState.currentIteration
                     ? ` (step ${streamingState.currentIteration})`
                     : ''}
@@ -201,7 +222,7 @@ export default function ArchitectMessageBubble({
             >
               {formatTime(message.timestamp)}
             </Typography>
-            {showWaitingSpinner && (
+            {showWaitingSpinner && !hasActiveProgress && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <CircularProgress
                   size={10}
@@ -211,6 +232,22 @@ export default function ArchitectMessageBubble({
                 />
                 <Typography variant="caption" sx={{ opacity: 0.5 }}>
                   Working…
+                </Typography>
+              </Box>
+            )}
+            {!showWaitingSpinner && showTaskComplete && (
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                aria-live="polite"
+              >
+                <CheckCircleOutlineIcon
+                  sx={{ fontSize: 12, color: 'success.main', opacity: 0.8 }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'success.main', opacity: 0.8 }}
+                >
+                  Done.
                 </Typography>
               </Box>
             )}

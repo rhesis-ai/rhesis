@@ -30,4 +30,5 @@ export {
   type ArchitectStreamStartPayload,
   type ArchitectTextChunkPayload,
   type ArchitectStreamEndPayload,
+  type ArchitectTaskProgressPayload,
 } from './types';

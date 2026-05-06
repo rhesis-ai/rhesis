@@ -137,7 +137,7 @@ export default function ArchitectChat({
     isConnected,
     streamingState,
     currentMode,
-    currentPlan,
+    visiblePlan,
     isAwaitingTask,
     autoApproveAll,
     setAutoApproveAll,
@@ -420,6 +420,13 @@ export default function ArchitectChat({
               const showWaitingSpinner =
                 isLastContentAssistant && !showActions && isAwaitingTask;
 
+              // The "Done." marker is stored on the message itself when
+              // its long-running task completes, so it persists for the
+              // rest of the session — the user can scroll back and still
+              // see which step actually finished.
+              const showTaskComplete =
+                !showWaitingSpinner && !showActions && !!message.taskCompleted;
+
               return (
                 <ArchitectMessageBubble
                   key={message.id}
@@ -428,6 +435,7 @@ export default function ArchitectChat({
                   userPicture={authSession?.user?.picture || undefined}
                   showActions={showActions}
                   showWaitingSpinner={showWaitingSpinner}
+                  showTaskComplete={showTaskComplete}
                   streamingState={
                     message.isStreaming ? streamingState : undefined
                   }
@@ -443,8 +451,10 @@ export default function ArchitectChat({
         )}
       </Box>
 
-      {/* Plan display */}
-      {currentPlan && <PlanDisplay plan={currentPlan} />}
+      {/* Plan display — uses visiblePlan so a fully-completed plan
+          stays hidden once the user has dismissed it by sending a
+          new message, until the plan content actually changes. */}
+      {visiblePlan && <PlanDisplay plan={visiblePlan} />}
 
       {/* Error alert */}
       {error && !isLoading && (

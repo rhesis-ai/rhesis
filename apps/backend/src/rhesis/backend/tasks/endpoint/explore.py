@@ -12,12 +12,13 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.celery.core import app
+from rhesis.backend.tasks.architect_progress import publish_task_progress
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.endpoint.target import make_target_factory
 
@@ -76,11 +77,56 @@ def run_exploration_task(
     """
     org_id, user_id = self.get_tenant_context()
 
+    task_id = self.request.id or ""
+
+    def _emit(
+        status: str,
+        label: str,
+        *,
+        step: Optional[int] = None,
+        total: Optional[int] = None,
+        duration_ms: Optional[int] = None,
+    ) -> None:
+        """Publish a progress event when the task is awaited by an architect.
+
+        Resolves the architect session lazily on every call. The
+        ``arch:task:<id>`` Redis key is set by ``register_awaiting_tasks``
+        which runs near the END of the architect's turn — after the
+        agent has dispatched this task. By the time we reach this call
+        site (even ``"started"`` typically lands a beat later), the key
+        is usually present. ``publish_task_progress`` silently no-ops
+        when the key isn't (yet) there, so a missed start is harmless.
+        """
+        if not task_id:
+            return
+        publish_task_progress(
+            task_id=task_id,
+            status=status,
+            label=label,
+            step=step,
+            total=total,
+            duration_ms=duration_ms,
+        )
+
+    def _step(
+        status: str,
+        kind: str = "progress",
+        *,
+        duration_ms: Optional[int] = None,
+    ) -> None:
+        """Update Celery task state and emit an architect progress event.
+
+        Keeps the Celery ``meta`` status in sync with the WebSocket label
+        so both the job-status API and the live chat bubble stay consistent.
+        """
+        self.update_state(
+            state="PROGRESS",
+            meta={"status": status, "endpoint_id": endpoint_id},
+        )
+        _emit(kind, status, duration_ms=duration_ms)
+
     label = strategy or "custom goal"
-    self.update_state(
-        state="PROGRESS",
-        meta={"status": f"Starting exploration ({label})", "endpoint_id": endpoint_id},
-    )
+    _step(f"Starting exploration ({label})", "started")
     logger.info(
         "run_exploration_task started",
         extra={"endpoint_id": endpoint_id, "strategy": strategy, "org_id": org_id},
@@ -95,10 +141,7 @@ def run_exploration_task(
     # Exploration: open a *separate* DB session that stays alive for the
     # entire multi-turn conversation, then create BackendEndpointTarget
     # instances from it via make_target_factory.
-    self.update_state(
-        state="PROGRESS",
-        meta={"status": "Connecting to endpoint", "endpoint_id": endpoint_id},
-    )
+    _step("Connecting to endpoint")
 
     from rhesis.sdk.agents.tools import ExploreEndpointTool
 
@@ -113,30 +156,21 @@ def run_exploration_task(
         )
 
         if strategy == "comprehensive":
-            self.update_state(
-                state="PROGRESS",
-                meta={
-                    "status": "Running comprehensive exploration (domain probing + "
-                    "capability mapping + boundary discovery)",
-                    "endpoint_id": endpoint_id,
-                },
+            _step(
+                "Running comprehensive exploration "
+                "(domain probing + capability mapping + boundary discovery)"
             )
         elif strategy:
-            self.update_state(
-                state="PROGRESS",
-                meta={
-                    "status": f"Running {strategy.replace('_', ' ')} strategy",
-                    "endpoint_id": endpoint_id,
-                },
-            )
+            _step(f"Running {strategy.replace('_', ' ')} strategy")
         else:
-            self.update_state(
-                state="PROGRESS",
-                meta={
-                    "status": "Exploring endpoint with custom goal",
-                    "endpoint_id": endpoint_id,
-                },
-            )
+            _step("Exploring endpoint with custom goal")
+
+        # Always attach the per-turn handler. It funnels through ``_emit``,
+        # which itself no-ops when no architect session is awaiting this
+        # task — so the handler is a cheap pass-through for non-architect
+        # callers and avoids the start-of-task race that would otherwise
+        # silently drop the entire progress trail.
+        event_handlers: List[Any] = [_PenelopeProgressHandler(_emit)]
 
         result = asyncio.run(
             tool.execute(
@@ -147,6 +181,7 @@ def run_exploration_task(
                 scenario=scenario,
                 restrictions=restrictions,
                 previous_findings=previous_findings,
+                _event_handlers=event_handlers,
             )
         )
 
@@ -159,6 +194,7 @@ def run_exploration_task(
             error_msg,
             extra={"endpoint_id": endpoint_id, "strategy": strategy},
         )
+        _step(f"Exploration failed: {error_msg}", "failed", duration_ms=duration_ms)
         raise RuntimeError(error_msg)
 
     # Parse the content JSON returned by ExploreEndpointTool.
@@ -184,4 +220,66 @@ def run_exploration_task(
             "org_id": org_id,
         },
     )
+    _step(f"Exploration completed ({label})", "completed", duration_ms=duration_ms)
     return output
+
+
+class _PenelopeProgressHandler:
+    """Forward Penelope per-turn tool events as architect progress events.
+
+    Penelope calls ``on_tool_start`` / ``on_tool_end`` for each probe
+    sent to the target during exploration.  We surface those as
+    user-friendly progress events on the architect session so the
+    "Working…" spinner is accompanied by what the worker is actually
+    doing right now (e.g. "Asking endpoint: 'What can you do?'").
+
+    Only the user-facing send/receive turns are surfaced; analysis and
+    bookkeeping tools are skipped to keep the trail readable.
+    """
+
+    # Penelope tool names worth surfacing to the user.  Other tools
+    # (reasoning, scoring, internal bookkeeping) are intentionally
+    # skipped — they'd add noise without telling the user anything
+    # they care about.
+    _USER_FACING_TOOLS = {"send_message_to_target"}
+
+    def __init__(self, emit: Any) -> None:
+        self._emit = emit
+        self._turn = 0
+
+    async def on_tool_start(
+        self,
+        *,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        reasoning: Optional[str] = None,
+        **_: Any,
+    ) -> None:
+        if tool_name not in self._USER_FACING_TOOLS:
+            return
+        self._turn += 1
+        message = arguments.get("message") if isinstance(arguments, dict) else None
+        snippet = _truncate(str(message)) if message else ""
+        label = f"Turn {self._turn}: probing endpoint"
+        if snippet:
+            label = f"Turn {self._turn}: {snippet}"
+        self._emit("progress", label, step=self._turn)
+
+    async def on_tool_end(
+        self,
+        *,
+        tool_name: str,
+        result: Any,
+        **_: Any,
+    ) -> None:
+        # Penelope's send_message_to_target completes for every turn —
+        # we already announced the start, no need to re-emit on end.
+        return
+
+
+def _truncate(text: str, limit: int = 80) -> str:
+    """Trim ``text`` to ``limit`` chars, appending an ellipsis if cut."""
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"

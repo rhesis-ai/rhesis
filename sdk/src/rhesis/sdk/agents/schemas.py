@@ -67,10 +67,13 @@ class AgentAction(BaseModel):
     needs_confirmation: bool = Field(
         default=False,
         description=(
-            "Set to true when your final_answer presents a plan or proposal "
-            "that requires the user's approval before you execute it. "
-            "For example, when you describe a metric, test set, or project "
-            "you intend to create and ask the user to confirm."
+            "Reserved. The agent runtime computes confirmation status "
+            "from tool metadata (specifically ``requires_confirmation`` "
+            "in ``mcp_tools.yaml``). You do not need to set this field "
+            "and any value you supply will be ignored — leave it as the "
+            "default False. The Accept/Change confirmation UI is shown "
+            "automatically when, and only when, you call a tool whose "
+            "metadata declares it requires confirmation."
         ),
     )
 
