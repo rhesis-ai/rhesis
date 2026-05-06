@@ -1,0 +1,50 @@
+# Test Explorer
+
+Test Explorer is an interactive workspace for building a test set. Draft or import tests, invoke your endpoint, and see responses and metric scores in the same place — so you can iterate until you find the gaps you care about.
+
+<div style={{ display: "flex", justifyContent: "center", margin: "24px 0" }}>
+  <img
+    src="/screenshots/rhesis-test-explorer.png"
+    alt="Test Explorer"
+    className="screenshot"
+  />
+</div>
+
+## Two benefits of Test Explorer
+
+Test Explorer surfaces two complementary capabilities:
+
+### 1. Interactive endpoint play
+
+Write a test, invoke the endpoint, see metric scores — all in the same view. No test run setup and no waiting for a batch job. The loop is fast enough to tweak a single prompt and confirm the fix in seconds.
+
+### 2. Exploration via suggestions
+
+Given the tests you already have, Test Explorer samples up to **10** of them as examples and asks an LLM for **20** new inputs. Each suggestion is embedded; the batch is **re-ranked by diversity** so the prompts that differ most from the *other suggestions in the same run* appear first. The endpoint and your metrics run in parallel as results stream in. You read the ranked table, then **accept** only the rows that add real coverage or expose real failures.
+
+For the full pipeline (topic-scoped runs, generation guide, progress bar, accept flows), see [Building and Evaluating — Suggestions](/docs/explorer/building-and-evaluating#suggestions-explore-the-space-automatically) and [Workflow](/docs/explorer/workflow).
+
+## What you can do
+
+- **Metrics at a glance** — each test and topic shows pass/fail and per-metric scores
+- **Organize by topic** — group findings (for example off-topic or competitor cases) for export and regression runs
+
+## Prerequisites
+
+- At least one [endpoint configured](/docs/endpoints) in your organization
+- At least one metric available under [Metrics](/docs/metrics)
+
+## Get started
+
+Open **Testing → Test Explorer** in the sidebar.
+
+- Click **New session** to start from scratch
+- Click **Load Test Set** to seed an explorer session from an existing test set
+
+## Pages in this section
+
+| Page | What it covers |
+| --- | --- |
+| [Workflow](/docs/explorer/workflow) | Setup, build, suggestions pipeline, review, export — with a workflow diagram |
+| [Building and Evaluating](/docs/explorer/building-and-evaluating) | Sessions, settings, topic tree, suggestions in depth, scoring, export |
+| [Scenarios](/docs/explorer/scenarios) | Cookbook workflows |
