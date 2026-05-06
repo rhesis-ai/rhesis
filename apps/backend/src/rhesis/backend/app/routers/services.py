@@ -193,7 +193,11 @@ async def create_chat_completion_endpoint(request: dict):
 
 
 @router.post("/generate/content")
-async def generate_content_endpoint(request: GenerateContentRequest):
+async def generate_content_endpoint(
+    request: GenerateContentRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Generate text using LLM with optional OpenAI-wrapped JSON schema for structured output.
 
@@ -235,18 +239,10 @@ async def generate_content_endpoint(request: GenerateContentRequest):
     "type": "json_schema" wrapper with name, schema, and strict fields.
     """
     try:
-        from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
 
-        prompt = request.prompt
-        schema = request.schema_
-
-        # Use the default generation model from constants
-        # This respects the global configuration (currently vertex_ai/gemini-2.0-flash)
-        model = get_model(DEFAULT_GENERATION_MODEL)
-
-        response = await model.a_generate(prompt, schema=schema)
-
+        model = get_generation_model_with_override(db, current_user)
+        response = await model.a_generate(request.prompt, schema=request.schema_)
         return response
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error"
@@ -255,20 +251,24 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 
 
 @router.post("/generate/embedding")
-async def generate_embedding_endpoint(request: GenerateEmbeddingRequest):
+async def generate_embedding_endpoint(
+    request: GenerateEmbeddingRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
-    Generate an embedding for a given text.
+    Generate an embedding for a given text using the user's configured embedding model.
+
+    Args:
+        request: The request containing the text to embed
+        db: The database session
+        current_user: The current authenticated user
     """
     try:
-        from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
 
-        text = request.text
-
-        # First arg is provider; "provider/model_name" is resolved in the background
-        embedder = get_model(DEFAULT_EMBEDDING_MODEL, model_type="embedding")
-        embedding = embedder.generate(text=text)
-
+        embedder = get_user_embedding_model(db, current_user)
+        embedding = embedder.generate(text=request.text)
         return embedding
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error"

@@ -113,7 +113,7 @@ DEFAULT_EVALUATION_MODEL = os.getenv(
 DEFAULT_EXECUTION_MODEL = os.getenv(
     "DEFAULT_EXECUTION_MODEL", "rhesis/rhesis-default"
 )  # Default model for multi-turn test execution (Penelope)
-DEFAULT_EMBEDDING_MODEL = os.getenv("DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005")
+DEFAULT_EMBEDDING_MODEL = os.getenv("DEFAULT_EMBEDDING_MODEL", "rhesis/rhesis-embedding")
 
 DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(
     os.getenv("DEFAULT_CONVERSATION_DEBOUNCE_SECONDS", "300")

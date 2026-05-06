@@ -3,13 +3,16 @@
 import hashlib
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.enums import EmbeddingStatus
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import get_item
+from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
+from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
 
@@ -44,34 +47,42 @@ class EmbeddingGenerator:
 
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
 
-    def _generate_embedding_vector(
-        self,
-        searchable_text: str,
-        provider: str,
-        model_name: str,
-        api_key: str,
-        dimension: int,
-    ) -> List[float]:
-        """Generate embedding for a searchable text."""
-        from rhesis.sdk.models.factory import EmbeddingModelConfig, get_embedding_model
+    def _resolve_embedder(self, user_id: str, db_model: models.Model, embedder: Any = None) -> Any:
+        """Resolve a runnable embedder instance from user settings when not injected."""
+        if embedder is not None:
+            return embedder
 
-        config = EmbeddingModelConfig(
-            provider=provider,
-            model_name=model_name,
-            api_key=api_key,
-            dimensions=dimension,
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise ValueError(f"User not found: {user_id}")
+
+        resolved = get_user_embedding_model(self.db, user)
+        return (
+            get_model(
+                resolved,
+                model_type="embedding",
+                dimensions=db_model.dimension,
+            )
+            if isinstance(resolved, str)
+            else resolved
         )
-        try:
-            embedder = get_embedding_model(config=config)
-        except ValueError as e:
-            raise ValueError(f"Failed to create embedder: {e}")
 
-        try:
-            embedding = embedder.generate(searchable_text)
-        except Exception as e:
-            raise ValueError(f"Failed to generate embedding: {e}")
+    def _get_status(self, name: EmbeddingStatus, organization_id: str, user_id: str):
+        """Fetch or create embedding status row and fail fast when unavailable."""
+        from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
-        return embedding
+        status = get_or_create_status(
+            self.db,
+            name=name.value,
+            entity_type="Embedding",
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        if not status:
+            raise ValueError(
+                f"Failed to create or retrieve {name.value.title()} status for Embedding."
+            )
+        return status
 
     def generate(
         self,
@@ -82,6 +93,7 @@ class EmbeddingGenerator:
         model_id: str,
         entity: Optional[Any] = None,
         searchable_text: Optional[str] = None,
+        embedder: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """
         Generate embedding for any embeddable entity.
@@ -94,6 +106,7 @@ class EmbeddingGenerator:
             model_id: ID of the embedding model to use
             entity: Optional entity object (used when searchable_text is not provided)
             searchable_text: Precomputed searchable text; when set, entity is not loaded for text
+            embedder: Optional pre-resolved embedder. If missing, it is resolved from user settings.
 
         Returns:
             Dictionary with generation result
@@ -107,21 +120,17 @@ class EmbeddingGenerator:
 
             searchable_text = entity.to_searchable_text()
 
-        # Fetch model to get all configuration
-        model = crud.get_model(self.db, model_id, organization_id, user_id)
-        if not model:
+        # Model row for persistence / hashing (entity-scoped embedding model)
+        db_model = crud.get_model(self.db, model_id=model_id, organization_id=organization_id)
+        if not db_model:
             raise ValueError(f"Model not found: {model_id}")
+        embedder = self._resolve_embedder(user_id=user_id, db_model=db_model, embedder=embedder)
 
-        # Extract model details
-        provider = model.provider_type.type_value if model.provider_type else None
-        model_name = model.model_name
-        dimension = model.dimension
-
-        # Create configuration for this embedding
+        # Create configuration for this embedding. Stored in the db, and used for deduplication
         config = {
-            "provider": provider,
-            "model_name": model_name,
-            "dimension": dimension,
+            "provider": db_model.provider_type.type_value if db_model.provider_type else None,
+            "model_name": db_model.model_name,
+            "dimension": db_model.dimension,
             "model_id": model_id,
         }
 
@@ -129,27 +138,8 @@ class EmbeddingGenerator:
         config_hash = self._compute_hash(config)
         text_hash = self._compute_hash(searchable_text)
 
-        from rhesis.backend.app.utils.crud_utils import get_or_create_status
-
-        active_status = get_or_create_status(
-            self.db,
-            name=EmbeddingStatus.ACTIVE.value,
-            entity_type="Embedding",
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-        if not active_status:
-            raise ValueError("Failed to create or retrieve Active status for Embedding.")
-
-        stale_status = get_or_create_status(
-            self.db,
-            name=EmbeddingStatus.STALE.value,
-            entity_type="Embedding",
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-        if not stale_status:
-            raise ValueError("Failed to create or retrieve Stale status for Embedding.")
+        active_status = self._get_status(EmbeddingStatus.ACTIVE, organization_id, user_id)
+        stale_status = self._get_status(EmbeddingStatus.STALE, organization_id, user_id)
 
         # Check if embedding already exists (same text/config)
         existing_embedding = crud.get_embedding_by_hash(
@@ -167,9 +157,10 @@ class EmbeddingGenerator:
             return {"status": "success", "embedding_id": str(existing_embedding.id)}
 
         # Generate the embedding vector
-        embedding_vector = self._generate_embedding_vector(
-            searchable_text, provider, model_name, model.key, dimension
-        )
+        try:
+            embedding_vector = embedder.generate(searchable_text)
+        except Exception as e:
+            raise ValueError(f"Failed to generate embedding: {e}")
 
         # Mark old embeddings as stale (different text/config)
         stale_count = crud.mark_embeddings_stale(
@@ -228,7 +219,8 @@ class EmbeddingGenerator:
             raise
 
         logger.info(
-            f"Successfully generated embedding for {entity_type}:{entity_id}, dimension={dimension}"
+            f"Successfully generated embedding for "
+            f"{entity_type}:{entity_id}, dimension={db_model.dimension}"
         )
 
         return {"status": "success", "embedding_id": str(new_embedding.id)}
