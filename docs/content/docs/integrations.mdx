@@ -29,7 +29,7 @@ See: [Tracing overview](/docs/tracing) · [Auto-instrumentation](/docs/tracing/a
 
 ## Test execution: the connector
 
-For Rhesis to run test cases against your application, it needs a way to call your code from outside your environment. The Rhesis SDK opens a **persistent outbound WebSocket connection** at startup; Rhesis can then invoke registered entry points whenever a test run fires. The connection is outbound from your app, so it works through firewalls and from local laptops without exposing a public URL.
+For Rhesis to run test cases against your application, it needs a way to call your code from outside your environment. The Rhesis SDK maintains a **persistent outbound WebSocket connection** to Rhesis once the connector is started — typically by calling `client.connect()` in sync scripts, or implicitly when the connector runs inside an existing event loop (for example, a web server or an async app). Rhesis can then invoke registered entry points whenever a test run fires. The connection is outbound from your app, so it works through firewalls and from local laptops without exposing a public URL.
 
 Register an entry point with the `@endpoint` decorator. When a test run starts, Rhesis sends each test case's input down the WebSocket; your application runs the function locally and sends the output back up the same connection. The same call path serves single-turn test cases and multi-turn conversations.
 
