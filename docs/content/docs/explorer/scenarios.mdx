@@ -1,0 +1,69 @@
+# Scenarios
+
+Common ways to use Test Explorer and what to expect from each one.
+
+**In this page:**
+
+- [Probe an endpoint for unwanted behavior](#probe-an-endpoint-for-unwanted-behavior)
+- [Iterate on a single failing prompt](#iterate-on-a-single-failing-prompt)
+- [Seed from an existing test set](#seed-from-an-existing-test-set)
+
+---
+
+## Probe an endpoint for unwanted behavior
+
+The core use-case: you have a domain-specific endpoint (for example, an insurance product chatbot) and you want to find the things it does that it shouldn't — like answering questions about competitors or going off-topic.
+
+1. Open **Testing → Test Explorer → New session** and name it something descriptive (for example: "Insurance chatbot — off-topic probe").
+2. In the settings drawer, set the default endpoint and add a metric that captures the behavior you care about (for example: **Refusal Correctness**).
+3. Create a topic tree that maps the failure modes you expect to find. A starting shape for a chatbot that should stay on-topic:
+   ```
+   Safety/
+     Off-Topic
+     Competitors
+   Policy/
+     Scope Violations
+   ```
+4. Use the **Suggestions** pipeline to generate test prompts for each topic. Select a topic (for example `Safety/Competitors`) so examples are scoped to that branch. For `Competitors`, the LLM will propose prompts like "What do you think of CompetitorCo?" or "How do you compare to Acme Insurance?" After each batch of 20 suggestions is generated, Explorer re-orders them by **diversity within that batch** — the prompts that differ most from the other suggestions in the same run appear first.
+5. Output generation and evaluation run as part of the same pipeline. Rows where the chatbot engages with the off-topic prompt instead of refusing will be flagged by the metric with a fail label and low score.
+6. Accept the rows that represent real failures. They become tests in your tree.
+7. Inspect the per-metric tooltip on failing rows to read the evaluator's reasoning — this gives you the language to describe the failure in a behavior or a bug report.
+8. When you have found enough examples, export the session as a regular test set. That test set can now be run in **Test Runs** or picked up by **Architect** as a basis for a broader test suite.
+
+<Callout type="info">
+  Organizing failures under explicit topics (for example: `Safety/Competitors`) makes it easier to track coverage and spot regressions when you re-run the exported test set later.
+</Callout>
+
+---
+
+## Iterate on a single failing prompt
+
+You have one prompt that is failing and you want to understand exactly why and confirm the fix.
+
+1. Open the session that contains the failing test (or create a new one and add the test manually).
+2. Identify which metric is driving the failure using the per-metric tooltip on the test row.
+3. Edit the prompt to adjust the phrasing or framing.
+4. Re-run generation for that test only (use the run button on the row — you don't need to regenerate the whole session).
+5. Re-run evaluation. The score updates on the row immediately.
+6. Repeat steps 3–5 until the metric passes.
+
+Because test edits and re-runs happen inside the same session, you don't need to set up a new test run each time. The loop is: edit → run → read score.
+
+---
+
+## Seed from an existing test set
+
+You already have a test set and you want to explore around it — find the weak spots, add more targeted tests, then export the refined set.
+
+1. From **Testing → Test Explorer**, click **Load Test Set** and select the existing test set.
+2. Explorer creates a new session with the test set's contents already in the tree.
+3. In the settings drawer, set the default endpoint and metrics (these are not carried over from the source test set automatically).
+4. Run generation and evaluation for all tests to get baseline scores.
+5. Look at the topic score chips: which topics have the lowest scores? Which metric is responsible?
+6. In the weakest topics, select that topic and run **Suggestions**. The LLM samples up to 10 tests under that topic as examples and generates 20 new inputs; the list is then re-sorted by diversity **within the batch** so the most distinct new prompts appear first.
+7. Accept the suggestions that reveal new failures.
+8. When satisfied, export back to a regular test set. The new test set contains both the original tests and the new ones you added.
+
+<Callout type="info">
+  Use this workflow before you hand off a test set to a scheduled test run — it's a quick way to sanity-check coverage and add missing cases before locking in the set.
+</Callout>
