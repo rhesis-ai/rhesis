@@ -60,11 +60,7 @@ class TestConfigGeneratorService:
                 model_id=str(model_id),
                 organization_id=str(self.user.organization_id),
             )
-            if (
-                row
-                and row.provider_type
-                and row.provider_type.type_value == "polyphemus"
-            ):
+            if row and row.provider_type and row.provider_type.type_value == "polyphemus":
                 use_fast_default = True
         if use_fast_default:
             logger.info(
