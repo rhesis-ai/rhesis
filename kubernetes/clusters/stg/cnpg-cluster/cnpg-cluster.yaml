@@ -6,17 +6,10 @@
 #   - <cluster>-app: owner (rhesis-admin) credentials — DBA / migrations
 #   - Declarative roles: rhesis-admin-credentials, rhesis-user-credentials,
 #     rhesis-analytics-user-credentials (passwords from GCP Secret Manager via ESO)
-#   - cloudsql-stg-credentials: password for logical import from Cloud SQL (bootstrap only)
 #
-# Before first apply: set GSM secrets, replace Cloud SQL connection placeholders below,
-# and set bootstrap.initdb.import.databases to the SOURCE database name on Cloud SQL
-# (must match pg_database.datname there). The logical restore TARGET is always
-# bootstrap.initdb.database (rhesis-stg-db here); CNPG can import from a differently
-# named source. BYPASSRLS for rhesis-admin is spec.managed.roles (not GRANT).
-# As DB owner, rhesis-admin already has full privileges on rhesis-stg-db; postImport
-# GRANTs are only for the non-owner app role rhesis-user.
-#
-# Docs: https://cloudnative-pg.github.io/docs/current/database_import/
+# BYPASSRLS for rhesis-admin is set via spec.managed.roles (not GRANT).
+# As DB owner, rhesis-admin already has full privileges on rhesis-stg-db.
+# GRANTs in postInitApplicationSQL are for the non-owner app role rhesis-user only.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -64,46 +57,23 @@ spec:
     initdb:
       database: rhesis-stg-db
       owner: rhesis-admin
-      # Runs as superuser in DB postgres during bootstrap, before logical import.
-      # Stub roles must exist before CREATE DATABASE ... OWNER rhesis-analytics-user;
-      # CNPG reconciles managed.roles passwords after bootstrap.
+      # Runs as superuser in the postgres DB before the application DB exists.
+      # Do not GRANT on rhesis-stg-db here — that DB is created after this phase.
       postInitSQL:
         - CREATE ROLE "rhesis-user" LOGIN;
         - CREATE ROLE "rhesis-analytics-user" LOGIN;
         - CREATE DATABASE "rhesis-analytics-stg-db" OWNER "rhesis-analytics-user";
-        - GRANT CONNECT ON DATABASE "rhesis-stg-db" TO "rhesis-user";
         - GRANT CONNECT ON DATABASE "rhesis-analytics-stg-db" TO "rhesis-admin";
-      import:
-        type: microservice
-        # SOURCE only: Cloud SQL database name that pg_dump reads (one entry).
-        # Must match your Cloud SQL instance; use rhesis-db if that DB was never renamed.
-        databases:
-          - rhesis-stg-db
-        source:
-          externalCluster: cloudsql-stg
-        # Runs as superuser IN the application DB after pg_restore (that DB is rhesis-stg-db).
-        # rhesis-admin is owner — no table/schema GRANTs needed; bypassrls is managed.roles.
-        postImportApplicationSQL:
-          - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-          - CREATE EXTENSION IF NOT EXISTS vector;
-          - GRANT CONNECT ON DATABASE "rhesis-stg-db" TO "rhesis-user";
-          - GRANT USAGE, CREATE ON SCHEMA public TO "rhesis-user";
-          - GRANT SELECT, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
-          - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
-          - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT SELECT, REFERENCES ON TABLES TO "rhesis-user";
-          - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
-  externalClusters:
-    - name: cloudsql-stg
-      connectionParameters:
-        # Replace with Cloud SQL instance IP or hostname (cross-project: allow network path).
-        host: "REPLACE_ME_CLOUDSQL_STG_HOST"
-        port: "5432"
-        user: "REPLACE_ME_CLOUDSQL_STG_USER"
-        dbname: postgres
-        sslmode: require
-      password:
-        name: cloudsql-stg-credentials
-        key: password
+      # Runs as superuser inside rhesis-stg-db after initdb creates it.
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - CREATE EXTENSION IF NOT EXISTS vector;
+        - GRANT CONNECT ON DATABASE "rhesis-stg-db" TO "rhesis-user";
+        - GRANT USAGE, CREATE ON SCHEMA public TO "rhesis-user";
+        - GRANT SELECT, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
+        - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT SELECT, REFERENCES ON TABLES TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
   backup:
     retentionPolicy: 7d
     barmanObjectStore:

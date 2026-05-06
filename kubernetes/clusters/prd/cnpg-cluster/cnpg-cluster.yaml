@@ -55,38 +55,16 @@ spec:
         - CREATE ROLE "rhesis-user" LOGIN;
         - CREATE ROLE "rhesis-analytics-user" LOGIN;
         - CREATE DATABASE "rhesis-analytics-prd-db" OWNER "rhesis-analytics-user";
-        - GRANT CONNECT ON DATABASE "rhesis-prod-db" TO "rhesis-user";
         - GRANT CONNECT ON DATABASE "rhesis-analytics-prd-db" TO "rhesis-admin";
-      import:
-        type: microservice
-        # SOURCE only: Cloud SQL database name for pg_dump (must exist on Cloud SQL).
-        # TARGET database is bootstrap.initdb.database (rhesis-prod-db). Use rhesis-db if
-        # production Cloud SQL still uses that name.
-        databases:
-          - rhesis-prod-db
-        source:
-          externalCluster: cloudsql-prd
-        # Owner rhesis-admin needs no duplicate GRANTs; bypassrls via managed.roles.
-        postImportApplicationSQL:
-          - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-          - CREATE EXTENSION IF NOT EXISTS vector;
-          - GRANT CONNECT ON DATABASE "rhesis-prod-db" TO "rhesis-user";
-          - GRANT USAGE, CREATE ON SCHEMA public TO "rhesis-user";
-          - GRANT SELECT, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
-          - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
-          - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT SELECT, REFERENCES ON TABLES TO "rhesis-user";
-          - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
-  externalClusters:
-    - name: cloudsql-prd
-      connectionParameters:
-        host: "REPLACE_ME_CLOUDSQL_PRD_HOST"
-        port: "5432"
-        user: "REPLACE_ME_CLOUDSQL_PRD_USER"
-        dbname: postgres
-        sslmode: require
-      password:
-        name: cloudsql-prd-credentials
-        key: password
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - CREATE EXTENSION IF NOT EXISTS vector;
+        - GRANT CONNECT ON DATABASE "rhesis-prod-db" TO "rhesis-user";
+        - GRANT USAGE, CREATE ON SCHEMA public TO "rhesis-user";
+        - GRANT SELECT, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
+        - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT SELECT, REFERENCES ON TABLES TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
   backup:
     retentionPolicy: 30d
     barmanObjectStore:
