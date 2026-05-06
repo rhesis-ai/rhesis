@@ -5,6 +5,8 @@ resources:
   - ../../../base/external-secrets
   # Synced by prd-external-secrets Application (same tree as ESO) so CRDs exist before apply.
   - rhesis-app-secrets.yaml
+  - cnpg-gcs-externalsecret.yaml
+  - cnpg-role-credentials.yaml
 
 configMapGenerator:
   - name: eso-config

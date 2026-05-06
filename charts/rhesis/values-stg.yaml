@@ -13,10 +13,10 @@ global:
   imagePullPolicy: Always
   imageTag: "latest"
 
-# DB user/password: CloudNativePG <clustername>-app secret (not rhesis-app-secrets).
-# Cluster manifest: kubernetes/clusters/stg/rhesis/cnpg-cluster.yaml
+# DB user/password: declarative CNPG role secret (not rhesis-app-secrets).
+# Cluster manifest: kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml
 database:
-  existingSecret: "rhesis-stg-app"
+  existingSecret: "rhesis-user-credentials"
   usernameKey: username
   passwordKey: password
 
@@ -27,8 +27,8 @@ config:
   environment: "staging"
   logLevel: "INFO"
 
-  # Must match kubernetes/clusters/stg/rhesis/cnpg-cluster.yaml spec.bootstrap.initdb.{database,owner}
-  dbName: "rhesis-db"
+  # Must match kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database
+  dbName: "rhesis-stg-db"
   dbUser: "rhesis-user"
 
   # Frontend
