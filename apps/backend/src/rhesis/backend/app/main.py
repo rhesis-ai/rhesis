@@ -533,6 +533,11 @@ from rhesis.backend.app.mcp_server import setup_mcp_server
 
 setup_mcp_server(app)
 
+# Bootstrap Enterprise Edition features (no-op when ee extra is not installed)
+from rhesis.backend.app.ee_bootstrap import bootstrap_ee
+
+bootstrap_ee(app)
+
 
 @app.get("/", include_in_schema=True)
 async def root():

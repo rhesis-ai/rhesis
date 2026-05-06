@@ -31,6 +31,9 @@ COMPONENTS = {
     "sdk": ComponentConfig(
         "sdk/pyproject.toml", "pyproject", "sdk/CHANGELOG.md"
     ),
+    "ee-backend": ComponentConfig(
+        "ee/backend/pyproject.toml", "pyproject", "ee/backend/CHANGELOG.md"
+    ),
 }
 
 # Platform-specific files
@@ -45,6 +48,7 @@ COMPONENT_PATHS = {
     "chatbot": "apps/chatbot",
     "polyphemus": "apps/polyphemus",
     "sdk": "sdk",
+    "ee-backend": "ee/backend",
     "platform": "."
 }
 
