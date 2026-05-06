@@ -589,7 +589,9 @@ if ! grep -q "^RHESIS_API_KEY=" .env.docker.local 2>/dev/null; then
     if [ -t 0 ]; then
         read -r -p "$(echo -e ${YELLOW}Enter your RHESIS_API_KEY \(or press Enter to skip\): ${NC})" USER_API_KEY
         echo
-    else
+    fi
+
+    if [ -z "$USER_API_KEY" ]; then
         echo -e "${YELLOW}⚠️  Skipping — test generation will not work without a valid API key${NC}"
         echo -e "${YELLOW}   Add it later: ${WHITE}RHESIS_API_KEY=<your-key>${YELLOW} in .env.docker.local${NC}"
     fi
