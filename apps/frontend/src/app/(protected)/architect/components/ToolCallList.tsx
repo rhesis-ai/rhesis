@@ -45,11 +45,18 @@ function ElapsedTime({ startedAt }: { startedAt: number }) {
 interface ToolCallListProps {
   completedTools: StreamingState['completedTools'];
   activeTools: StreamingState['activeTools'];
+  /**
+   * Customise the collapsed-summary label. Defaults to
+   * `"N completed"`. Pass `` n => `${n} earlier ${n === 1 ? 'turn' : 'turns'}` ``
+   * when the list represents worker task-progress entries.
+   */
+  collapsedLabel?: (count: number) => string;
 }
 
 export default function ToolCallList({
   completedTools,
   activeTools,
+  collapsedLabel = (n: number) => `${n} completed`,
 }: ToolCallListProps) {
   const [expandedCompleted, setExpandedCompleted] = useState(false);
   const [expandedReasoning, setExpandedReasoning] = useState<Set<number>>(
@@ -115,7 +122,7 @@ export default function ToolCallList({
     tool: StreamingState['completedTools'][number]
   ) => (
     <Collapse
-      key={`done-${tool.startedAt}`}
+      key={`done-${tool.tool}-${tool.startedAt}`}
       in
       timeout={ENTER_DURATION_MS}
       appear
@@ -247,7 +254,7 @@ export default function ToolCallList({
         >
           <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
           <Typography variant="caption" color="text.secondary">
-            {collapsedCount} completed
+            {collapsedLabel(collapsedCount)}
           </Typography>
           {expandedCompleted ? (
             <ExpandLessIcon sx={{ fontSize: 14, color: 'text.secondary' }} />

@@ -3,6 +3,7 @@ import type { MetaRecord } from "nextra";
 const meta: MetaRecord = {
   installation: "Installation & Setup",
   client: "Rhesis Client",
+  agents: "Agents",
   entities: "Entities",
   execution: "Test Execution",
   statistics: "Statistics",

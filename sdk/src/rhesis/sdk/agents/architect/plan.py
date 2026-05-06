@@ -8,6 +8,11 @@ from rhesis.sdk.agents.constants import InternalTool, ToolMeta
 
 ReuseStatus = Literal["reuse", "improve", "new"]
 
+# Fields that track execution progress and must never be written by the LLM.
+# Referenced by _strip_internal_fields (JSON schema builder) and
+# MappingSpec._guard_internal_fields (runtime validator).
+_INTERNAL_FIELDS: frozenset = frozenset({"completed", "linked_metrics"})
+
 
 class ProjectSpec(BaseModel):
     """Specification for a Rhesis project."""
@@ -42,9 +47,9 @@ class TestSetSpec(BaseModel):
     description: str = Field(description="Detailed test set description")
     short_description: str = Field(default="", description="Brief one-line summary")
     num_tests: int = Field(default=15, description="Number of tests to generate")
-    test_type: str = Field(
+    test_type: Literal["Single-Turn", "Multi-Turn"] = Field(
         default="Single-Turn",
-        description="Single-Turn or Multi-Turn",
+        description='Must be exactly "Single-Turn" or "Multi-Turn"',
     )
     generation_prompt: str = Field(
         default="",
@@ -110,6 +115,10 @@ class MappingSpec(BaseModel):
     metrics: List[str] = Field(
         default_factory=list,
         description="Metric names that evaluate this behavior",
+    )
+    linked_metrics: List[str] = Field(
+        default_factory=list,
+        description="Metric names already linked to the behavior (internal progress tracker)",
     )
     completed: bool = Field(
         default=False,
@@ -251,8 +260,6 @@ def build_save_plan_tool() -> Dict[str, Any]:
 
 
 # ── schema helpers ────────────────────────────────────────────────
-
-_INTERNAL_FIELDS = {"completed"}
 
 
 def _inline_refs(

@@ -1,0 +1,974 @@
+"""Router for Explorer test-tree HTTP endpoints.
+
+Provides views over test set data as explorer trees:
+- List explorer test sets (metadata includes Adaptive Testing behavior)
+- Full tree (all nodes including topic markers)
+- Tests only (excludes topic markers)
+- Topics only (hierarchical topic structure)
+"""
+
+import logging
+from typing import List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
+
+from rhesis.backend.app import crud, schemas
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+)
+from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.explorer import (
+    CreateExplorerTestBody,
+    EvaluateFailedItem,
+    EvaluateRequest,
+    EvaluateResponse,
+    EvaluateResultItem,
+    EvaluateSuggestionsRequest,
+    ExplorerSettingsResponse,
+    ExplorerSettingsUpdate,
+    ExportExplorerTestSetResponse,
+    GenerateOutputsFailedItem,
+    GenerateOutputsRequest,
+    GenerateOutputsResponse,
+    GenerateOutputsUpdatedItem,
+    GenerateSuggestionOutputsRequest,
+    GenerateSuggestionsRequest,
+    GenerateSuggestionsResponse,
+    ImportExplorerTestSetResponse,
+    SuggestedTest,
+    SuggestionPipelineRequest,
+)
+from rhesis.backend.app.services.explorer import (
+    create_explorer_test_set,
+    create_test_node,
+    create_topic_node,
+    delete_explorer_test_set,
+    delete_test_node,
+    evaluate_suggestions_stream,
+    evaluate_tests_for_explorer_set,
+    export_regular_test_set_from_explorer,
+    generate_outputs_for_tests,
+    generate_suggestions,
+    get_explorer_settings,
+    get_explorer_test_sets,
+    get_tree_nodes,
+    get_tree_tests,
+    get_tree_topics,
+    import_explorer_test_set_from_source,
+    invoke_endpoint_for_suggestions_stream,
+    remove_topic_node,
+    resolve_endpoint_id,
+    resolve_metric_names,
+    suggestion_pipeline_stream,
+    update_explorer_settings,
+    update_test_node,
+    update_topic_node,
+)
+from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(
+    prefix="/explorer",
+    tags=["explorer"],
+    responses={404: {"description": "Not found"}},
+)
+
+
+def _resolve_test_set_or_raise(identifier: str, db: Session, organization_id: str):
+    """Resolve a test set by identifier (UUID, nano_id, or slug)."""
+    db_test_set = crud.resolve_test_set(identifier, db, organization_id)
+    if db_test_set is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Test set not found with provided identifier",
+        )
+    return db_test_set
+
+
+@router.post(
+    "/",
+    response_model=schemas.TestSet,
+    status_code=201,
+)
+def create_explorer_test_set_endpoint(
+    body: schemas.ExplorerTestSetCreate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new test set for Explorer.
+
+    The created test set will appear in the explorer test-set list.
+    """
+    organization_id, user_id = tenant_context
+    return create_explorer_test_set(
+        db=db,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        name=body.name,
+        description=body.description,
+    )
+
+
+@router.post(
+    "/import/{source_test_set_identifier}",
+    response_model=ImportExplorerTestSetResponse,
+    status_code=201,
+)
+def import_explorer_test_set_endpoint(
+    source_test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new explorer test set by importing from an existing test set.
+
+    Copies single-turn tests with prompts into the explorer tree (topics and
+    markers). Skips topic markers and tests without prompt content.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        result = import_explorer_test_set_from_source(
+            db=db,
+            source_test_set_identifier=source_test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return ImportExplorerTestSetResponse(
+        test_set=result["test_set"],
+        imported=result["imported"],
+        skipped=result["skipped"],
+        skipped_test_ids=result["skipped_test_ids"],
+    )
+
+
+@router.post(
+    "/export/{source_test_set_identifier}",
+    response_model=ExportExplorerTestSetResponse,
+    status_code=201,
+)
+def export_regular_test_set_from_explorer_endpoint(
+    source_test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new regular test set by exporting from an explorer test set.
+
+    Copies tests with prompts; skips topic markers and empty prompts. The new
+    set has no Adaptive Testing behavior or adaptive_settings.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        result = export_regular_test_set_from_explorer(
+            db=db,
+            source_test_set_identifier=source_test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return ExportExplorerTestSetResponse(
+        test_set=result["test_set"],
+        exported=result["exported"],
+        skipped=result["skipped"],
+        skipped_test_ids=result["skipped_test_ids"],
+    )
+
+
+@router.get(
+    "/",
+    response_model=List[schemas.TestSet],
+)
+def list_explorer_test_sets(
+    skip: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """List explorer test sets.
+
+    Returns test sets whose behavior includes Adaptive Testing.
+    """
+    organization_id, _user_id = tenant_context
+    return get_explorer_test_sets(
+        db=db,
+        organization_id=str(organization_id),
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+
+@router.delete(
+    "/{test_set_identifier}",
+    response_model=schemas.TestSet,
+)
+def delete_explorer_test_set_endpoint(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete a test set configured for Explorer.
+
+    Only test sets that include the Adaptive Testing behavior can be removed
+    through this endpoint.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        return delete_explorer_test_set(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get(
+    "/{test_set_identifier}/settings",
+    response_model=ExplorerSettingsResponse,
+)
+def get_explorer_settings_endpoint(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get explorer settings for a test set.
+
+    Returns the default endpoint (if configured) and metrics assigned to
+    the test set.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        return get_explorer_settings(
+            db=db,
+            test_set=db_test_set,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put(
+    "/{test_set_identifier}/settings",
+    response_model=ExplorerSettingsResponse,
+)
+def update_explorer_settings_endpoint(
+    test_set_identifier: str,
+    body: ExplorerSettingsUpdate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Update explorer settings for a test set.
+
+    Supports updating the default endpoint and replacing the metric list.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        return update_explorer_settings(
+            db=db,
+            test_set=db_test_set,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            default_endpoint_id=body.default_endpoint_id,
+            metric_ids=list(body.metric_ids) if body.metric_ids is not None else None,
+        )
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get(
+    "/{test_set_identifier}/tree",
+    response_model=List[TestTreeNode],
+)
+def get_explorer_tree(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get the full explorer test tree for a test set.
+
+    Returns all nodes including both test nodes and topic markers.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    return get_tree_nodes(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+    )
+
+
+@router.get(
+    "/{test_set_identifier}/tests",
+    response_model=List[TestTreeNode],
+)
+def get_explorer_tests(
+    test_set_identifier: str,
+    topic: Optional[str] = Query(
+        None,
+        description="Filter tests by topic path (e.g. 'Safety/Violence')",
+    ),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get only test nodes from the explorer test tree.
+
+    Excludes topic marker nodes. Optionally filter by topic path.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    return get_tree_tests(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        topic=topic,
+    )
+
+
+@router.get(
+    "/{test_set_identifier}/topics",
+    response_model=List[TopicNode],
+)
+def get_explorer_topics(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get the topic hierarchy from the explorer test tree.
+
+    Returns TopicNode objects with path, name, parent_path, and depth.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    return get_tree_topics(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+    )
+
+
+@router.post(
+    "/{test_set_identifier}/topics",
+    response_model=TopicNode,
+    status_code=201,
+)
+def create_explorer_topic(
+    test_set_identifier: str,
+    path: str = Body(..., embed=True, description="Topic path to create"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new topic in the explorer test tree.
+
+    Accepts a topic path (e.g. ``"Safety"`` or ``"Safety/Violence"``).
+    Automatically creates any missing ancestor topic markers.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    return create_topic_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        topic=path,
+    )
+
+
+@router.put(
+    "/{test_set_identifier}/topics/{topic_path:path}",
+    response_model=TopicNode,
+)
+def update_explorer_topic(
+    test_set_identifier: str,
+    topic_path: str,
+    new_name: str = Body(
+        ...,
+        embed=True,
+        description="New name for the topic (current level only, no slashes)",
+    ),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Rename a topic in the explorer test tree.
+
+    Only the current level name can be changed. For example, given
+    ``Europe/Germany/Berlin``, renaming ``Germany`` to ``Deutschland``
+    yields ``Europe/Deutschland`` and cascades to all children and
+    tests under the old path.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        result = update_topic_node(
+            db=db,
+            test_set_id=db_test_set.id,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            topic_path=topic_path,
+            new_name=new_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Topic not found in this test set",
+        )
+
+    return result
+
+
+@router.delete(
+    "/{test_set_identifier}/topics/{topic_path:path}",
+)
+def delete_explorer_topic(
+    test_set_identifier: str,
+    topic_path: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Remove a topic from the explorer test tree.
+
+    If the topic has subtopics, they are removed as well. All tests under
+    the topic (and its subtopics) are moved to the parent of the removed topic.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    removed = remove_topic_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        topic_path=topic_path,
+    )
+
+    if not removed:
+        raise HTTPException(
+            status_code=404,
+            detail="Topic not found in this test set",
+        )
+
+    return {"deleted": True, "topic_path": topic_path}
+
+
+@router.post(
+    "/{test_set_identifier}/tests",
+    response_model=TestTreeNode,
+    status_code=201,
+)
+def create_explorer_test(
+    test_set_identifier: str,
+    body: CreateExplorerTestBody,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new test node in the explorer test tree.
+
+    Automatically ensures the topic and all its ancestor topic markers
+    exist before creating the test. Topic is optional; tests without a
+    topic are allowed.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    node = create_test_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        topic=body.topic or "",
+        input=body.input,
+        output=body.output,
+        labeler=body.labeler,
+        label=body.label or "",
+        model_score=body.model_score,
+    )
+
+    if body.generate_embedding:
+        try:
+            from rhesis.backend.app.services.explorer.embeddings import (
+                create_test_embedding,
+                generate_embedding_vector,
+                load_test_for_embedding,
+            )
+
+            db_test = load_test_for_embedding(db, node.id, str(organization_id))
+            if not db_test:
+                logger.warning(
+                    "Explorer test embedding skipped: Test row not found after create "
+                    "(test_id=%s, organization_id=%s)",
+                    node.id,
+                    organization_id,
+                )
+            else:
+                text = db_test.to_searchable_text()
+                vector = generate_embedding_vector(text, db, str(user_id))
+                stored = create_test_embedding(db, db_test, vector, current_user)
+                if stored is None:
+                    logger.warning(
+                        "Explorer test embedding not persisted (test_id=%s); "
+                        "see earlier create_test_embedding logs for the reason",
+                        node.id,
+                    )
+        except Exception as e:
+            logger.warning(
+                "Explorer test embedding skipped after create (test_id=%s): %s",
+                node.id,
+                e,
+                exc_info=True,
+            )
+
+    return node
+
+
+@router.put(
+    "/{test_set_identifier}/tests/{test_id}",
+    response_model=TestTreeNode,
+)
+def update_explorer_test(
+    test_set_identifier: str,
+    test_id: UUID,
+    input: Optional[str] = Body(None, description="New input text"),
+    output: Optional[str] = Body(None, description="New output"),
+    label: Optional[str] = Body(None, description="New label: 'pass', 'fail', or ''"),
+    topic: Optional[str] = Body(None, description="New topic path"),
+    model_score: Optional[float] = Body(None, description="New model score"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Update a test node in the explorer test tree.
+
+    Only provided fields are updated; omitted fields remain unchanged.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    result = update_test_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        test_id=test_id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        input=input,
+        output=output,
+        label=label,
+        topic=topic,
+        model_score=model_score,
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Test not found in this test set",
+        )
+
+    return result
+
+
+@router.delete(
+    "/{test_set_identifier}/tests/{test_id}",
+)
+def delete_explorer_test(
+    test_set_identifier: str,
+    test_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete a test node from the explorer test tree.
+
+    Removes the test-test_set association and soft-deletes
+    the underlying test record.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    deleted = delete_test_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        test_id=test_id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Test not found in this test set",
+        )
+
+    return {"deleted": True, "test_id": str(test_id)}
+
+
+@router.post(
+    "/{test_set_identifier}/generate_outputs",
+    response_model=GenerateOutputsResponse,
+)
+async def generate_outputs(
+    test_set_identifier: str,
+    body: GenerateOutputsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Generate outputs for tests by invoking the given endpoint.
+
+    For each test in the set (with a prompt), invokes the endpoint with the
+    test input and stores the extracted response in the test's metadata
+    (test_metadata.output).
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+    try:
+        endpoint_id = resolve_endpoint_id(
+            test_set=db_test_set,
+            request_endpoint_id=body.endpoint_id,
+        )
+        result = await generate_outputs_for_tests(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            endpoint_id=endpoint_id,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            test_ids=list(body.test_ids) if body.test_ids else None,
+            topic=body.topic,
+            include_subtopics=body.include_subtopics,
+            overwrite=body.overwrite,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "no endpoint specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return GenerateOutputsResponse(
+        generated=result["generated"],
+        skipped=result["skipped"],
+        failed=[
+            GenerateOutputsFailedItem(test_id=f["test_id"], error=f["error"])
+            for f in result["failed"]
+        ],
+        updated=[
+            GenerateOutputsUpdatedItem(test_id=u["test_id"], output=u["output"])
+            for u in result["updated"]
+        ],
+    )
+
+
+@router.post(
+    "/{test_set_identifier}/evaluate",
+    response_model=EvaluateResponse,
+)
+async def evaluate_tests(
+    test_set_identifier: str,
+    body: EvaluateRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Evaluate tests using the specified metrics.
+
+    Runs each requested metric against stored (input, output) pairs
+    and persists the results (label, labeler, model_score) in each
+    test's metadata.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+    try:
+        metric_names = resolve_metric_names(
+            test_set=db_test_set,
+            db=db,
+            organization_id=str(organization_id),
+            request_metric_names=body.metric_names,
+        )
+        result = await evaluate_tests_for_explorer_set(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            metric_names=metric_names,
+            test_ids=list(body.test_ids) if body.test_ids else None,
+            topic=body.topic,
+            include_subtopics=body.include_subtopics,
+            overwrite=body.overwrite,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "no metrics specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        if "metric" in msg and "does not exist" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return EvaluateResponse(
+        evaluated=result["evaluated"],
+        skipped=result["skipped"],
+        results=[
+            EvaluateResultItem(
+                test_id=r["test_id"],
+                label=r["label"],
+                labeler=r["labeler"],
+                model_score=r["model_score"],
+                metrics=r.get("metrics"),
+            )
+            for r in result["results"]
+        ],
+        failed=[
+            EvaluateFailedItem(test_id=f["test_id"], error=f["error"]) for f in result["failed"]
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Suggestions (non-persisted)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{test_set_identifier}/generate_suggestions",
+    response_model=GenerateSuggestionsResponse,
+)
+async def generate_suggestions_endpoint(
+    test_set_identifier: str,
+    body: GenerateSuggestionsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Generate test suggestions using an LLM.
+
+    Randomly samples existing tests as examples, builds a prompt,
+    and asks the LLM to generate new test inputs.
+    Nothing is persisted; the caller decides which to accept.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        result = await generate_suggestions(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            topic=body.topic,
+            num_examples=body.num_examples,
+            num_suggestions=body.num_suggestions,
+            user_feedback=body.user_feedback,
+            generate_embeddings=body.generate_embeddings,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return GenerateSuggestionsResponse(
+        suggestions=[SuggestedTest(**s) for s in result["suggestions"]],
+        num_examples_used=result["num_examples_used"],
+    )
+
+
+@router.post(
+    "/{test_set_identifier}/generate_suggestion_outputs",
+)
+async def generate_suggestion_outputs_endpoint(
+    test_set_identifier: str,
+    body: GenerateSuggestionOutputsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Generate outputs for non-persisted suggestions by invoking an endpoint.
+
+    Invokes the endpoint for each suggestion input and returns
+    the outputs. Nothing is persisted to the database.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        endpoint_id = resolve_endpoint_id(
+            test_set=db_test_set,
+            request_endpoint_id=body.endpoint_id,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "no endpoint specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+    async def _stream():
+        # NDJSON stream: one JSON object per line.
+        async for chunk in invoke_endpoint_for_suggestions_stream(
+            db=db,
+            endpoint_id=str(endpoint_id),
+            suggestions=body.suggestions,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+
+
+# ---------------------------------------------------------------------------
+# Unified suggestion pipeline (single stream)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{test_set_identifier}/suggestion_pipeline",
+)
+async def suggestion_pipeline_endpoint(
+    test_set_identifier: str,
+    body: SuggestionPipelineRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Unified pipeline: generate suggestions, invoke endpoint, evaluate — all in one NDJSON stream.
+
+    Streams events as they complete so the frontend receives outputs
+    immediately and evaluations overlap with remaining output calls.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        endpoint_id = resolve_endpoint_id(
+            test_set=db_test_set,
+            request_endpoint_id=body.endpoint_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    try:
+        metric_names = resolve_metric_names(
+            test_set=db_test_set,
+            db=db,
+            organization_id=str(organization_id),
+            request_metric_names=body.metric_names,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "no metrics specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        if "metric" in msg and "does not exist" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+
+    async def _stream():
+        async for chunk in suggestion_pipeline_stream(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            endpoint_id=str(endpoint_id),
+            metric_names=metric_names,
+            topic=body.topic,
+            num_examples=body.num_examples,
+            num_suggestions=body.num_suggestions,
+            user_feedback=body.user_feedback,
+            generate_embeddings=body.generate_embeddings,
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+
+
+@router.post(
+    "/{test_set_identifier}/evaluate_suggestions",
+)
+async def evaluate_suggestions_endpoint(
+    test_set_identifier: str,
+    body: EvaluateSuggestionsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Evaluate non-persisted suggestions with the specified metrics.
+
+    Runs each metric against the suggestion input/output pairs and
+    returns results. Nothing is persisted to the database.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        metric_names = resolve_metric_names(
+            test_set=db_test_set,
+            db=db,
+            organization_id=str(organization_id),
+            request_metric_names=body.metric_names,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "no metrics specified" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        if "metric" in msg and "does not exist" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+
+    items = [{"input": s.input, "output": s.output} for s in body.suggestions]
+
+    async def _stream():
+        async for chunk in evaluate_suggestions_stream(
+            db=db,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            metric_names=metric_names,
+            suggestions=items,
+        ):
+            yield chunk
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")

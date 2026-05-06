@@ -106,6 +106,8 @@ const meta: MetaRecord = {
     ),
   },
   'test-execution': 'Test Execution',
+  architect: 'Architect',
+  explorer: 'Test Explorer',
   'test-runs': 'Test Runs',
   'conversation-simulation': 'Conversation Simulation',
   'adversarial-testing': 'Adversarial Testing',

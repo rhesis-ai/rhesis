@@ -1,5 +1,5 @@
 # Import existing routers
-from .adaptive_testing import router as adaptive_testing_router
+from .explorer import router as explorer_router
 from .architect import router as architect_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
@@ -88,7 +88,7 @@ __all__ = [
     "features",
     "file",
     "file_import",
-    "adaptive_testing",
+    "explorer",
     "architect",
 ]
 
@@ -138,7 +138,7 @@ routers = sorted(
         file_router,
         file_import_router,
         websocket_router,
-        adaptive_testing_router,
+        explorer_router,
         architect_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",

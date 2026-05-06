@@ -1,0 +1,193 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Architect Agent (SDK)
+
+The `ArchitectAgent` class lives in `sdk/src/rhesis/sdk/agents/architect/`. It drives the conversational test-suite design workflow — managing mode transitions, plan state, tool confirmation, and event emission across conversation turns.
+
+## Module layout
+
+```
+sdk/src/rhesis/sdk/agents/architect/
+├── __init__.py          # Public exports
+├── agent.py             # ArchitectAgent class
+├── config.py            # ArchitectConfig dataclass
+├── plan.py              # ArchitectPlan Pydantic model + spec models
+├── tool_registry.py     # TOOL_REGISTRY mapping tools → modes
+└── prompt_templates/
+    ├── system_prompt.j2        # Core behavior, rules, workflow phases
+    ├── personality.j2          # Tone and persona shaping
+    ├── streaming_response.j2   # Streaming acknowledgment format
+    └── iteration_prompt.j2     # Injected between ReAct loop iterations
+```
+
+## ArchitectAgent class
+
+`ArchitectAgent` extends `BaseAgent` with multi-turn conversation state, plan tracking, mode management, and the two-layer write guard.
+
+**Constructor parameters:**
+
+| Parameter | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `model` | `str \| BaseLLM \| None` | `None` | LLM model identifier or instance |
+| `tools` | `list[BaseTool \| MCPTool] \| None` | `None` | Tool list injected by caller |
+| `config` | `ArchitectConfig \| None` | `None` | Config override (uses defaults if omitted) |
+| `max_iterations` | `int \| None` | `15` | ReAct loop iteration cap |
+| `max_tool_executions` | `int \| None` | `None` | Optional cap on tool calls per turn |
+| `timeout_seconds` | `float \| None` | `None` | Per-turn timeout |
+| `history_window` | `int \| None` | `None` | Conversation history window |
+| `verbose` | `bool` | `False` | Print loop trace to stdout |
+| `event_handlers` | `list[AgentEventHandler] \| None` | `None` | Real-time lifecycle callbacks |
+
+**Internal state:**
+
+| Attribute | Purpose |
+| --- | --- |
+| `_conversation_history` | Full turn history (user + assistant messages) |
+| `_plan` | Current `ArchitectPlan` instance, set when the agent calls `save_plan` |
+| `_mode` | Current `AgentMode` (`DISCOVERY`, `PLANNING`, `CREATING`, `EXECUTING`) |
+| `_creation_approved` | `True` for the turn immediately after confirmation |
+| `_confirming_tools` | Specific mutating tools blocked and awaiting user confirmation |
+| `_mutating_tools` | Lazily built from tool `requires_confirmation` metadata |
+| `_auto_approve_all` | When `True`, bypasses per-turn confirmation for all mutating tools |
+| `_discovery_state` | Tracks endpoint ID, exploration status, observations, open questions |
+| `_id_to_name` | UUID → entity name map used to resolve IDs in mapping tool calls |
+| `_pending_tasks` | Async tasks submitted but not yet resolved (Celery background tasks) |
+
+**Public methods:**
+
+<CodeBlock language="python">
+{`# Synchronous — runs asyncio.run() internally
+response = architect.chat("Test my chatbot", attachments={"files": [...]})
+
+# Async — preferred when running inside an existing event loop
+response = await architect.chat_async("Test my chatbot", attachments={"files": [...]})`}
+</CodeBlock>
+
+## ArchitectConfig
+
+`ArchitectConfig` is a frozen dataclass. Pass a custom instance to the `config` parameter to override any value.
+
+| Field | Default | Purpose |
+| --- | --- | --- |
+| `max_iterations` | `15` | Maximum ReAct loop iterations per turn |
+| `max_payload_bytes` | `100_000` | Total argument payload size limit |
+| `max_string_value_len` | `10_000` | Max length of any single string argument |
+| `max_array_items` | `100` | Max items in any array argument |
+| `max_attachment_chars` | `20_000` | Attachment text truncation limit (chars) |
+| `recent_msg_limit` | `4` | Number of recent messages kept at full length |
+| `recent_msg_max_chars` | `2_000` | Max chars per recent message |
+| `older_msg_max_chars` | `500` | Max chars per older (compressed) message |
+| `tool_result_preview_chars` | `4_000` | Tool result preview length for streaming |
+| `reasoning_preview_chars` | `200` | Reasoning text preview length |
+| `readonly_http_methods` | `{GET, HEAD, OPTIONS}` | Methods treated as non-mutating (no confirmation required) |
+
+<CodeBlock language="python">
+{`from rhesis.sdk.agents.architect import ArchitectAgent, ArchitectConfig
+
+config = ArchitectConfig(max_iterations=25, max_attachment_chars=50_000)
+agent = ArchitectAgent(model="vertex_ai/gemini-2.0-flash", config=config)`}
+</CodeBlock>
+
+## ArchitectPlan model
+
+`ArchitectPlan` (in `plan.py`) is the Pydantic model that holds the agent's structured test suite proposal. The agent populates it by calling the internal `save_plan` tool during the planning phase.
+
+### Spec models
+
+| Model | Key fields |
+| --- | --- |
+| `ProjectSpec` | `name`, `description`, `completed` |
+| `BehaviorSpec` | `name`, `description`, `reuse_status`, `existing_id`, `completed` |
+| `TestSetSpec` | `name`, `description`, `num_tests`, `test_type`, `generation_prompt`, `behaviors`, `categories`, `topics`, `completed` |
+| `MetricSpec` | `name`, `description`, `reuse_status`, `existing_id`, `evaluation_prompt`, `evaluation_steps`, `threshold`, `threshold_operator`, `completed` |
+| `MappingSpec` | `behavior`, `metrics` (list of metric names), `completed` |
+
+`reuse_status` is a `Literal["reuse", "improve", "new"]` on `BehaviorSpec` and `MetricSpec`.
+
+### `save_plan` auto-generation
+
+The `build_save_plan_tool()` function in `plan.py` generates the `save_plan` JSON schema automatically from `ArchitectPlan`'s Pydantic field definitions. Internal fields (`completed`, `existing_id`) are stripped from the tool schema — the LLM never sees them; they are populated by the agent at creation time.
+
+This means the plan schema stays in sync with the Pydantic model automatically. If you add a new field to a spec class, `build_save_plan_tool()` picks it up without any manual schema update — unless the field should be hidden from the LLM, in which case add it to the exclusion list in `build_save_plan_tool()`.
+
+## Tool registry
+
+`TOOL_REGISTRY` in `tool_registry.py` maps tool names to their `AgentMode` and optional `PlanCategory`. The agent uses this to:
+
+1. **Determine mode transitions** — when the agent calls a tool registered under `CREATING`, the mode switches to `AgentMode.CREATING`.
+2. **Track plan progress** — when a creating tool succeeds, its `PlanCategory` is used to tick the corresponding checkbox in the plan.
+
+| Tool | Mode | Plan category |
+| --- | --- | --- |
+| `list_sources` | `DISCOVERY` | — |
+| `create_project` | `CREATING` | `PROJECT` |
+| `create_behavior` | `CREATING` | `BEHAVIOR` |
+| `generate_test_set` | `CREATING` | `TEST_SET` |
+| `create_test_set_bulk` | `CREATING` | `TEST_SET` |
+| `create_metric` | `CREATING` | `METRIC` |
+| `generate_metric` | `CREATING` | `METRIC` |
+| `improve_metric` | `CREATING` | `METRIC` |
+| `add_behavior_to_metric` | `CREATING` | `MAPPING` |
+| `execute_test_set` | `EXECUTING` | — |
+| `get_test_result_stats` | `EXECUTING` | — |
+| `get_test_run_stats` | `EXECUTING` | — |
+
+Tools not in the registry (read-only platform tools, explore tool) do not trigger mode changes.
+
+## Prompt templates
+
+Templates are Jinja2 files in `prompt_templates/`. They are rendered at the start of each turn.
+
+| Template | What it controls |
+| --- | --- |
+| `system_prompt.j2` | Core agent persona, workflow phases, tool usage rules, write guard instructions, security boundaries, and off-topic refusal rules. This is the primary source of truth for agent behavior. |
+| `personality.j2` | Tone shaping — how Architect presents itself (direct, structured, no filler). Injected alongside the system prompt. |
+| `streaming_response.j2` | Format for streaming acknowledgments shown to the user while tools execute. |
+| `iteration_prompt.j2` | Injected between ReAct iterations to keep the agent on track and prevent loops. |
+
+When modifying behavior, change `system_prompt.j2` first. The other templates are secondary.
+
+## Write guard (two-layer safety)
+
+The write guard prevents the agent from creating or modifying platform entities without user approval.
+
+**Layer 1 — prompt:** `system_prompt.j2` instructs the LLM to always present a plan and ask for confirmation before calling any mutating tool.
+
+**Layer 2 — structural:** `agent.py` intercepts tool calls at execution time. If a mutating tool is called before `_creation_approved` is `True`, the agent blocks it, records the tool name in `_confirming_tools`, and presents a confirmation prompt to the user. On the next turn, if the user confirms, only the specific blocked tools are unlocked.
+
+`_auto_approve_all = True` bypasses layer 2 for the session (set when the UI auto-approve toggle is on). Layer 1 (prompt) is always active.
+
+A tool is considered mutating if its HTTP method is **not** in `ArchitectConfig.readonly_http_methods` (`GET`, `HEAD`, `OPTIONS`).
+
+## How to add a new MCP tool
+
+1. **Define the tool in `mcp_tools.yaml`** (backend):
+
+<CodeBlock language="yaml">
+{`- name: my_new_tool
+  description: "What this tool does."
+  method: POST
+  path: /my-resource/
+  requires_confirmation: true   # set true for mutating tools`}
+</CodeBlock>
+
+2. **Register the tool in `TOOL_REGISTRY`** if it should trigger a mode change or track plan progress:
+
+<CodeBlock language="python">
+{`# tool_registry.py
+TOOL_REGISTRY["my_new_tool"] = ToolEntry(
+    mode=AgentMode.CREATING,
+    plan_category=PlanCategory.BEHAVIOR,  # or None
+)`}
+</CodeBlock>
+
+3. **Update the system prompt** (`system_prompt.j2`) if the tool requires specific usage guidance — when to call it, what arguments to pass, and how to interpret results.
+
+4. **Test with the playground scripts** in `playground/telemachus/` — `architect_e2e.py` and `tool_call_chain.py` are good starting points for exercising new tool integrations.
+
+## Related pages
+
+- [Backend — session API, WebSocket, MCP](/contribute/backend/architect-chat-system)
+- [Frontend — chat UI, hook, streaming](/contribute/frontend/architect-chat-ui)
+- [Worker — Celery task, async resume](/contribute/worker/architect-background-tasks)
+- [User guide — Architect overview](/docs/architect)

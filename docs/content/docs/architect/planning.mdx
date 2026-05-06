@@ -1,0 +1,73 @@
+# Planning Test Suites
+
+After exploration, Architect proposes a structured plan. You review it, ask for changes, and approve before anything is created.
+
+## Plan structure
+
+A plan has five sections:
+
+| Section | Required | What it contains |
+| --- | --- | --- |
+| **Project** | No | A name and description to group the test suite. Omit for ad-hoc tests against an existing endpoint. |
+| **Behaviors** | Yes | What the endpoint should (or shouldn't) do. Each test is tagged with a behavior. |
+| **Test sets** | Yes | Named collections of tests, each targeting specific behaviors, categories, and topics. |
+| **Metrics** | Yes | How each test is evaluated — the evaluation criteria and pass/fail threshold. |
+| **Behavior-metric mappings** | Yes | Which metric evaluates which behavior. Every behavior needs at least one. |
+
+## Reuse status
+
+Architect checks what already exists on your platform before proposing new entities. Each behavior and metric in the plan is labelled:
+
+| Label | Meaning |
+| --- | --- |
+| **(reuse)** | Already exists — Architect uses it as-is |
+| **(improve)** | Exists but needs adjustment — Architect refines it in place |
+| **(new)** | Doesn't exist — Architect creates it |
+
+This prevents duplicate behaviors and metrics from accumulating across sessions.
+
+## Naming conventions
+
+Architect uses **Title Case** for behavior and metric names — two to five words describing what is being measured or expected.
+
+| Good | Avoid |
+| --- | --- |
+| `Refuses Harmful Requests` | `refuses_harmful_requests` |
+| `Provides Accurate Information` | `accuracy` |
+| `Handles Ambiguous Queries` | `isHandlingAmbiguous` |
+
+## Test generation vs. verbatim import
+
+By default, Architect generates test content using the Rhesis synthesizer. You supply the goal ("what should the test probe for?") and Architect writes the actual prompts. This gives varied, realistic test cases without you having to author each one.
+
+If you have specific prompts that must appear verbatim — for example, prompts from a security audit or a bug report — tell Architect explicitly: "Use these exact prompts." It will import them without modification.
+
+## Knowledge sources
+
+If your endpoint's correct behavior depends on internal documentation — a product FAQ, an API spec, a policy document — you can ground the test generation in that content.
+
+Just reference the document by name in your message:
+
+```text
+"Use our product FAQ as the basis for the test prompts."
+```
+
+Architect looks up the matching source in your platform knowledge library, passes its ID to the synthesizer, and the generated tests are grounded in that content automatically.
+
+<Callout type="warning">
+  Knowledge source grounding only applies to **single-turn** test sets. Multi-turn test generation does not consume sources.
+</Callout>
+
+## Iterating on the plan
+
+The plan is a conversation. After Architect presents it, you can:
+
+- Ask for more or fewer test sets
+- Swap a metric for an existing one
+- Add specific behaviors Architect didn't include
+- Remove entities you don't need
+
+Architect updates the plan and presents it again before creating anything. There is no limit to how many rounds of revision you can make.
+
+→ Once you approve, see [Running and Analyzing](/docs/architect/execution-and-analysis) for what happens next.
+→ For confirmation controls, see [Chat Features](/docs/architect/chat-features#confirmations).

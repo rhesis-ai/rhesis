@@ -207,6 +207,12 @@ RUN apt-get update && \
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh ./migrate.sh
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh ./start.sh
 
+# Pre-create the logs directory so rhesis-user can write to it at runtime.
+# logging_config.py creates logs/ relative to the working directory for
+# local/development environments; without this the mkdir call fails with
+# PermissionError because the working directory is owned by root.
+RUN mkdir -p logs && chown rhesis-user:rhesis-user logs
+
 USER rhesis-user
 
 ENV PYTHONPATH=/app/apps/backend/src \

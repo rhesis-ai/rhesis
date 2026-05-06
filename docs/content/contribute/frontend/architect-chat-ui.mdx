@@ -1,0 +1,146 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Architect Chat UI
+
+This page documents the frontend architecture for the Architect chat experience in `apps/frontend/src/app/(protected)/architect/`.
+
+The implementation pairs:
+
+- REST session management (`ArchitectClient`)
+- WebSocket event streaming (`useArchitectChat`)
+- chat UI components (`ArchitectChat`, `ArchitectMessageBubble`, `StreamingIndicator`)
+
+## Entry points
+
+| Layer | File | Responsibility |
+|---|---|---|
+| Route | `app/(protected)/architect/page.tsx` | Mounts the Architect client page |
+| API client | `utils/api-client/architect-client.ts` | CRUD for architect sessions and messages |
+| Hook | `hooks/useArchitectChat.ts` | WebSocket subscriptions, message state, streaming state |
+| Main UI | `components/ArchitectChat.tsx` | Layout, action buttons, loading flow, plan panel |
+| Input | `components/ArchitectChatInput.tsx` | text input, file attachments, send behavior |
+
+## Session and message flow
+
+The UI uses `ArchitectClient` REST calls for durable session state:
+
+- `GET /architect/sessions`
+- `POST /architect/sessions`
+- `GET /architect/sessions/\{id\}`
+- `GET /architect/sessions/\{id\}/messages`
+
+`useArchitectChat` then subscribes to `architect:\{session_id\}` over WebSocket and merges streamed updates into local state.
+
+## WebSocket events consumed by the UI
+
+The frontend event enum in `utils/websocket/types.ts` includes Architect-specific events:
+
+- `architect.message`
+- `architect.response`
+- `architect.thinking`
+- `architect.tool_start`
+- `architect.tool_end`
+- `architect.plan_update`
+- `architect.mode_change`
+- `architect.stream_start`
+- `architect.text_chunk`
+- `architect.stream_end`
+- `architect.error`
+
+### Payloads tracked in UI state
+
+`useArchitectChat` stores:
+
+- chat messages (`ArchitectChatMessage[]`)
+- streaming state (`isThinking`, `activeTools`, `completedTools`)
+- current mode (`discovery`, `planning`, `creating`, `executing`)
+- plan markdown snapshot
+- `isAwaitingTask` flag
+- `autoApproveAll` toggle state
+
+## Confirmation and auto-approve behavior
+
+The backend can return `needs_confirmation` in `architect.response`.
+When true, the UI attaches **Accept** and **Change** actions to the latest assistant message.
+
+- **Accept** sends a confirmation message (`"Yes, go ahead."`)
+- **Change** focuses the input for user edits
+
+The UI also includes an **Auto-approve** switch. When enabled:
+
+- outgoing `architect.message` payloads include `auto_approve: true`
+- confirmation action buttons are suppressed in the frontend as a safety check
+
+<Callout type="info">
+  The frontend checks `autoApproveAll` before rendering confirmation buttons, even if
+  `needs_confirmation` is present in a response payload.
+</Callout>
+
+## Streaming indicators
+
+`StreamingIndicator` and `ToolCallList` present in-flight agent activity:
+
+- thinking dots during `architect.thinking`
+- active tool rows during `architect.tool_start`
+- completed tool rows with success/failure and duration on `architect.tool_end`
+- optional per-tool reasoning sections
+
+`ToolCallList` prioritizes active tools at the top and collapses completed tools when activity is ongoing.
+
+## File attachment handling
+
+`ArchitectChatInput` supports multi-file attachments and sends each file as:
+
+- `filename`
+- `content_type`
+- base64 `data`
+- `size`
+
+Input constraints currently include:
+
+- accepted file extensions configured in `ArchitectChatInput.tsx`
+- per-file size limit of 5 MB in the client
+
+## Minimal event wiring example
+
+<CodeBlock filename="architect-event-subscription.ts" language="typescript">
+{`subscribe(EventType.ARCHITECT_TOOL_START, (msg) => {
+  const payload = msg.payload as ArchitectToolPayload
+  setStreamingState(prev => ({
+    ...prev,
+    activeTools: [
+      ...prev.activeTools,
+      {
+        tool: payload.tool,
+        description: payload.description,
+        reasoning: payload.reasoning,
+        startedAt: Date.now(),
+      },
+    ],
+  }))
+})
+
+subscribe(EventType.ARCHITECT_TOOL_END, (msg) => {
+  const payload = msg.payload as ArchitectToolPayload
+  setStreamingState(prev => ({
+    ...prev,
+    activeTools: prev.activeTools.filter(t => t.tool !== payload.tool),
+    completedTools: [
+      ...prev.completedTools,
+      {
+        tool: payload.tool,
+        success: payload.success ?? true,
+        durationMs: payload.duration_ms,
+        startedAt: Date.now(),
+      },
+    ],
+  }))
+})`}
+</CodeBlock>
+
+## Related pages
+
+- [Frontend Architecture](/contribute/frontend/architecture)
+- [Frontend API Integration](/contribute/frontend/api-integration)
+- [Worker Architect Background Tasks](/contribute/worker/architect-background-tasks)
+- [Development Changelog](/changelog)

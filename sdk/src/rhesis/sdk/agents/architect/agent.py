@@ -10,6 +10,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
+from pydantic import ValidationError
+
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.constants import (
     Action,
@@ -28,10 +30,55 @@ from rhesis.sdk.agents.schemas import (
 from rhesis.sdk.models.base import BaseLLM
 
 from .config import ArchitectConfig, _default_discovery_state
-from .plan import ArchitectPlan, build_save_plan_tool
+from .plan import _INTERNAL_FIELDS, ArchitectPlan, build_save_plan_tool
 from .tool_registry import mode_for, plan_category_for
 
 logger = logging.getLogger(__name__)
+
+
+# ── helpers ──────────────────────────────────────────────────────
+
+
+def _strip_llm_internal_fields(args: Any) -> Any:
+    """Remove internal-only fields from an LLM-provided save_plan payload.
+
+    ``completed`` and ``linked_metrics`` track execution progress managed
+    exclusively by the agent runtime. When the LLM calls ``save_plan``
+    (which replaces the stored plan in full), it must not be able to roll
+    back progress by passing stale or fabricated values for these fields.
+    Strip them recursively from any dict/list structure so the Pydantic
+    defaults always win on a fresh save.
+    """
+    if isinstance(args, dict):
+        return {
+            k: _strip_llm_internal_fields(v) for k, v in args.items() if k not in _INTERNAL_FIELDS
+        }
+    if isinstance(args, list):
+        return [_strip_llm_internal_fields(item) for item in args]
+    return args
+
+
+def _unwrap_list_envelope(data: Any) -> Tuple[Optional[List[Any]], Dict[str, Any]]:
+    """Normalise recognised list-response shapes to (items, pagination).
+
+    Returns:
+        ``(items, pagination)`` when the payload is a known list shape.
+        ``(None, {})`` for a plain object or unknown shape — callers should
+        fall back to treating the whole payload as a single item.
+
+    Recognised shapes:
+      - bare list                     ``[{...}, ...]``
+      - MCP paginated list envelope   ``{"results": [...], "_pagination": {...}}``
+      - legacy OData envelope         ``{"value": [...]}``
+    """
+    if isinstance(data, list):
+        return data, {}
+    if isinstance(data, dict):
+        if isinstance(data.get("results"), list):
+            return data["results"], data.get("_pagination") or {}
+        if isinstance(data.get("value"), list):
+            return data["value"], {}
+    return None, {}
 
 
 class ArchitectAgent(BaseAgent):
@@ -95,22 +142,49 @@ class ArchitectAgent(BaseAgent):
         #    tool calls if the LLM ignores the prompt. It is a
         #    safety net, not a replacement for prompt-based control.
         #
-        # _confirming_tools: specific tools that were blocked and
-        #   presented for confirmation. Only these are unlocked
-        #   when the user replies.
+        # _confirming_tools: long-lived approval scope — the tools
+        #   that have been (or are being) presented for confirmation.
+        #   Survives across turns; cleared only by reset()/guard_state.
         # _creation_approved: True for the turn immediately after
         #   a confirmation prompt, False otherwise.
         # _mutating_tools: lazily built from tool metadata on first
         #   call to get_available_tools().
+        # _blocked_this_turn: per-turn transient flag — set to True
+        #   inside _handle_tool_calls when an actual block happens,
+        #   reset to False at the start of every turn. This — not
+        #   _confirming_tools — is what drives the response-level
+        #   needs_confirmation flag, because Accept/Change is only
+        #   meaningful when this turn's LLM step tried to call a
+        #   confirmable tool that we just intercepted.
         self._creation_approved: bool = False
         self._confirming_tools: FrozenSet[str] = frozenset()
         self._mutating_tools: Optional[FrozenSet[str]] = None
         self._auto_approve_all: bool = False
+        self._blocked_this_turn: bool = False
 
         self._discovery_state: Dict[str, Any] = _default_discovery_state()
 
-        # UUID → entity name for resolving IDs in mapping tools
+        # UUID → entity name for resolving IDs in mapping tools.
+        # Populated from any successful tool result that contains {id, name}.
         self._id_to_name: Dict[str, str] = {}
+
+        # Type-scoped ID→name maps, populated only from behavior / metric
+        # tool results respectively. Used in reconciliation to avoid false
+        # completions caused by name collisions with other entity types
+        # (endpoints, projects, test sets) that share _id_to_name.
+        self._behavior_id_names: Dict[str, str] = {}
+        self._metric_id_names: Dict[str, str] = {}
+
+        # Successful (behavior_name_lower, metric_name_lower) links observed
+        # in this session via ``add_behavior_to_metric``. Tracked outside
+        # ``self._plan`` so links made BEFORE ``save_plan`` is called are
+        # not lost — ``_execute_save_plan`` consults this set to seed
+        # ``MappingSpec.completed`` and ``MappingSpec.linked_metrics``.
+        self._linked_pairs: Set[Tuple[str, str]] = set()
+
+        # Raw (behavior_id, metric_id) pairs from add_behavior_to_metric.
+        # Fallback when the IDs weren't yet resolved to names at link time.
+        self._linked_id_pairs: Set[Tuple[str, str]] = set()
 
         # Async task waiting: when the agent calls await_task,
         # the turn ends and the backend monitors the task.
@@ -156,6 +230,12 @@ class ArchitectAgent(BaseAgent):
             self._awaiting_task = False
             self._await_message = ""
             self._pending_tasks.clear()
+            # ``_blocked_this_turn`` is the transient signal that drives
+            # the response-level needs_confirmation flag. Reset it on
+            # every fresh turn so a previous turn's block can never
+            # leak into a later finish (e.g. an auto-resumed
+            # [TASK_COMPLETED] summary).
+            self._blocked_this_turn = False
             self._conversation_history.append({"role": Role.USER, "content": message})
 
             # If the previous turn asked for confirmation, unlock
@@ -273,11 +353,16 @@ class ArchitectAgent(BaseAgent):
         self._mode = AgentMode.DISCOVERY
         self._creation_approved = False
         self._confirming_tools = frozenset()
+        self._blocked_this_turn = False
         self._mutating_tools = None
         self._auto_approve_all = False
         self._attachments = None
         self._discovery_state = _default_discovery_state()
         self._id_to_name.clear()
+        self._behavior_id_names.clear()
+        self._metric_id_names.clear()
+        self._linked_pairs.clear()
+        self._linked_id_pairs.clear()
         self._pending_tasks.clear()
         self._awaiting_task = False
         self._await_message = ""
@@ -387,6 +472,12 @@ class ArchitectAgent(BaseAgent):
                 blocked_names,
             )
 
+            # Mark the per-turn signal that drives the UI's
+            # Accept/Change confirmation prompt. ``_confirming_tools``
+            # below is a long-lived approval scope, but this flag is
+            # specifically "this turn just blocked something".
+            self._blocked_this_turn = True
+
             # Unlock ALL mutating tools so the full plan can
             # execute without re-blocking on subsequent types.
             self._confirming_tools = self._mutating_tools or frozenset(blocked_names)
@@ -405,6 +496,10 @@ class ArchitectAgent(BaseAgent):
                     )
                 )
 
+            # ``_confirming_tools`` was populated above; the
+            # downstream ``_handle_finish_action`` derives
+            # ``needs_confirmation`` from that runtime state, so
+            # we don't need to set the flag on the action itself.
             finish_action = AgentAction(
                 reasoning=(
                     f"{action.reasoning}\n\n"
@@ -414,7 +509,6 @@ class ArchitectAgent(BaseAgent):
                 ),
                 action=Action.FINISH,
                 final_answer=(action.final_answer or action.reasoning),
-                needs_confirmation=True,
             )
             return await self._handle_finish_action(finish_action, iteration)
 
@@ -538,6 +632,11 @@ class ArchitectAgent(BaseAgent):
 
         Behaviors, metrics, and mappings must all be completed
         before generating test sets.
+
+        Reconciles the plan against live session evidence immediately before
+        checking so that entities created or linked since the last save_plan
+        call are reflected — avoiding false blocks when the agent skips an
+        intermediate save_plan.
         """
         plan = self._plan
         if not plan:
@@ -548,6 +647,10 @@ class ArchitectAgent(BaseAgent):
             "create_test_set_bulk",
         ):
             return None
+
+        # Refresh completion flags from session evidence so the guard
+        # never fires on work the agent has already done this session.
+        self._reconcile_plan_with_session_evidence(plan)
 
         pending: List[str] = []
         for b in plan.behaviors:
@@ -595,48 +698,221 @@ class ArchitectAgent(BaseAgent):
             await self.set_mode_async(target_mode)
 
         result = await super().execute_tool(tool_call)
-        if result.success and self._plan:
-            await self._track_plan_progress(tool_call, result)
+        if result.success:
+            self._collect_id_names(result)
+            self._collect_typed_entity_names(tool_call, result)
+            self._record_link_if_mapping(tool_call)
+            if self._plan:
+                await self._track_plan_progress(tool_call, result)
         return result
+
+    def _record_link_if_mapping(self, tool_call: ToolCall) -> None:
+        """Capture (behavior, metric) pairs from successful ``add_behavior_to_metric`` calls.
+
+        Recorded outside ``self._plan`` so links made BEFORE ``save_plan``
+        is ever called still seed ``MappingSpec.completed`` when the plan
+        is later saved (see ``_reconcile_plan_with_session_evidence``).
+
+        Always stores the raw (behavior_id, metric_id) pair in
+        ``_linked_id_pairs`` as a fallback for cases where the IDs weren't
+        yet in ``_id_to_name`` at the time of the call (e.g. the plan's
+        ``existing_id`` was used without a prior ``list_*`` call).
+        """
+        if tool_call.tool_name != "add_behavior_to_metric":
+            return
+        behavior_id = str(tool_call.arguments.get("behavior_id", ""))
+        metric_id = str(tool_call.arguments.get("metric_id", ""))
+        if behavior_id and metric_id:
+            self._linked_id_pairs.add((behavior_id, metric_id))
+        bname = self._id_to_name.get(behavior_id, "").lower()
+        mname = self._id_to_name.get(metric_id, "").lower()
+        if bname and mname:
+            self._linked_pairs.add((bname, mname))
 
     # ── plan management ──────────────────────────────────────────
 
     async def _execute_save_plan(self, tool_call: ToolCall) -> ToolResult:
         """Parse LLM-provided plan data and store it."""
         try:
-            plan = ArchitectPlan.model_validate(tool_call.arguments)
-            for b in plan.behaviors:
-                if b.reuse_status == "reuse":
-                    b.completed = True
-            for m in plan.metrics:
-                if m.reuse_status == "reuse":
-                    m.completed = True
-            await self.set_mode_async(AgentMode.PLANNING)
-            await self.set_plan_async(plan)
-            logger.info(
-                "[Architect] Plan saved: %d behaviors, %d test sets, %d metrics",
-                len(plan.behaviors),
-                len(plan.test_sets),
-                len(plan.metrics),
-            )
-            project_label = f"{plan.project.name} — " if plan.project else ""
-            return ToolResult(
-                tool_name=InternalTool.SAVE_PLAN,
-                success=True,
-                content=(
-                    f"Plan saved: {project_label}"
-                    f"{len(plan.behaviors)} behaviors, "
-                    f"{len(plan.test_sets)} test sets, "
-                    f"{len(plan.metrics)} metrics"
-                ),
-            )
+            plan = ArchitectPlan.model_validate(_strip_llm_internal_fields(tool_call.arguments))
+        except ValidationError as e:
+            return self._save_plan_validation_failure(tool_call, e)
         except Exception as e:
-            logger.warning("[Architect] Failed to parse plan: %s", e)
-            return ToolResult(
-                tool_name=InternalTool.SAVE_PLAN,
-                success=False,
-                error=f"Invalid plan data: {e}",
-            )
+            return self._save_plan_unexpected_failure(tool_call, e)
+
+        # Seed both the global and type-scoped ID→name maps from any
+        # (reuse) IDs the LLM included in the plan. Without this, reused
+        # entities would only become known when the LLM later calls a
+        # list_* tool — leaving the reconciliation check blind to them.
+        for b in plan.behaviors:
+            if b.existing_id and b.name:
+                self._id_to_name[str(b.existing_id)] = b.name
+                self._behavior_id_names[str(b.existing_id)] = b.name
+        for m in plan.metrics:
+            if m.existing_id and m.name:
+                self._id_to_name[str(m.existing_id)] = m.name
+                self._metric_id_names[str(m.existing_id)] = m.name
+
+        self._reconcile_plan_with_session_evidence(plan)
+
+        await self.set_mode_async(AgentMode.PLANNING)
+        await self.set_plan_async(plan)
+        logger.info(
+            "[Architect] Plan saved: %d behaviors, %d test sets, %d metrics",
+            len(plan.behaviors),
+            len(plan.test_sets),
+            len(plan.metrics),
+        )
+        project_label = f"{plan.project.name} — " if plan.project else ""
+        return ToolResult(
+            tool_name=InternalTool.SAVE_PLAN,
+            success=True,
+            content=(
+                f"Plan saved: {project_label}"
+                f"{len(plan.behaviors)} behaviors, "
+                f"{len(plan.test_sets)} test sets, "
+                f"{len(plan.metrics)} metrics"
+            ),
+        )
+
+    def _reconcile_plan_with_session_evidence(self, plan: ArchitectPlan) -> None:
+        """Mark plan items completed based on what we've actually observed this session.
+
+        ``save_plan`` is regularly called *after* the LLM has already
+        created behaviors, metrics, and behavior-metric links — for
+        example, when the user iterates on the plan during execution
+        ("also add a metric for X"). In that ordering, the entities
+        exist on the platform but the LLM-supplied plan defaults every
+        ``completed`` to False, which makes ``_check_execution_order``
+        block ``generate_test_set`` indefinitely.
+
+        We use the agent's own session evidence to recover:
+
+        - ``self._behavior_id_names`` / ``self._metric_id_names`` are
+          type-scoped maps populated only from behavior / metric tool
+          results. Using these (rather than the global ``_id_to_name``)
+          prevents false completions when an endpoint, project, or test
+          set shares a name with a behavior or metric.
+        - ``self._linked_pairs`` records every successful
+          ``add_behavior_to_metric`` resolved to (behavior_name_lower,
+          metric_name_lower). ``self._linked_id_pairs`` records the same
+          links as raw (behavior_id, metric_id) pairs for cases where the
+          IDs weren't yet in ``_id_to_name`` at link time.
+
+        For behaviors/metrics: ``existing_id`` set OR ``reuse_status ==
+        "reuse"`` OR a name match in the type-scoped map triggers
+        completion. For mappings: all planned metrics must appear in
+        either ``_linked_pairs`` (by name) or ``_linked_id_pairs`` (by
+        ID, using ``existing_id`` from the plan items).
+        """
+        created_behavior_names = {v.lower() for v in self._behavior_id_names.values() if v}
+        created_metric_names = {v.lower() for v in self._metric_id_names.values() if v}
+
+        def _behavior_completed(name: str, existing_id: Optional[str]) -> bool:
+            if existing_id:
+                return True
+            return bool(name) and name.lower() in created_behavior_names
+
+        def _metric_completed(name: str, existing_id: Optional[str]) -> bool:
+            if existing_id:
+                return True
+            return bool(name) and name.lower() in created_metric_names
+
+        for b in plan.behaviors:
+            if b.reuse_status == "reuse" or _behavior_completed(b.name, b.existing_id):
+                b.completed = True
+        for m in plan.metrics:
+            if m.reuse_status == "reuse" or _metric_completed(m.name, m.existing_id):
+                m.completed = True
+
+        # Build a lookup from behavior/metric name to their existing_id so we
+        # can check the raw ID-pair fallback for reused entities.
+        behavior_name_to_id = {
+            b.name.lower(): str(b.existing_id) for b in plan.behaviors if b.existing_id
+        }
+        metric_name_to_id = {
+            m.name.lower(): str(m.existing_id) for m in plan.metrics if m.existing_id
+        }
+
+        def _metric_linked(bkey: str, mname: str) -> bool:
+            if (bkey, mname) in self._linked_pairs:
+                return True
+            bid = behavior_name_to_id.get(bkey)
+            mid = metric_name_to_id.get(mname)
+            if bid and mid and (bid, mid) in self._linked_id_pairs:
+                return True
+            return False
+
+        for mp in plan.behavior_metric_mappings:
+            bkey = mp.behavior.lower()
+            linked = [m for m in mp.metrics if _metric_linked(bkey, m.lower())]
+            mp.linked_metrics = linked
+            if mp.metrics and len(linked) == len(mp.metrics):
+                mp.completed = True
+
+    def _save_plan_failure(
+        self, tool_call: ToolCall, error: Exception, *, error_text: str
+    ) -> ToolResult:
+        """Build a diagnostic ToolResult for any save_plan failure.
+
+        Logs the offending arguments and returns a compact error
+        string the LLM can act on directly.
+        """
+        logger.warning(
+            "[Architect] save_plan failed (%s): %s | args: %s",
+            type(error).__name__,
+            error,
+            self._preview_args(tool_call.arguments),
+        )
+        return ToolResult(
+            tool_name=InternalTool.SAVE_PLAN,
+            success=False,
+            error=error_text,
+        )
+
+    def _save_plan_validation_failure(
+        self, tool_call: ToolCall, error: "ValidationError"
+    ) -> ToolResult:
+        """Build a diagnostic ToolResult for a save_plan Pydantic ValidationError.
+
+        The default ``str(ValidationError)`` is verbose and hard for an
+        LLM to act on. We render a compact ``field: reason`` list so
+        the model can immediately identify and fix the offending fields.
+        """
+        issues: List[str] = []
+        for err in error.errors()[:10]:
+            loc = ".".join(str(p) for p in err.get("loc", ()))
+            msg = err.get("msg", "invalid value")
+            issues.append(f"{loc}: {msg}" if loc else msg)
+        if len(error.errors()) > 10:
+            issues.append(f"... and {len(error.errors()) - 10} more")
+
+        error_text = (
+            "Plan validation failed:\n - "
+            + "\n - ".join(issues)
+            + "\nRe-call save_plan with corrected arguments. "
+            "See save_plan instructions in the system prompt for allowed values."
+        )
+        return self._save_plan_failure(tool_call, error, error_text=error_text)
+
+    def _save_plan_unexpected_failure(self, tool_call: ToolCall, error: Exception) -> ToolResult:
+        """Fallback diagnostic for non-ValidationError failures during save_plan."""
+        return self._save_plan_failure(
+            tool_call,
+            error,
+            error_text=f"Could not save plan ({type(error).__name__}): {error}",
+        )
+
+    @staticmethod
+    def _preview_args(args: Any, limit: int = 1500) -> str:
+        """Render tool arguments as a truncated string for logging."""
+        try:
+            text = json.dumps(args, default=str)
+        except (TypeError, ValueError):
+            text = str(args)
+        if len(text) > limit:
+            return text[:limit] + f"... [{len(text) - limit} more chars]"
+        return text
 
     # ── async task waiting ────────────────────────────────────────
 
@@ -699,8 +975,6 @@ class ArchitectAgent(BaseAgent):
 
     async def _track_plan_progress(self, tool_call: ToolCall, result: ToolResult) -> None:
         """Mark plan items as completed after successful tool calls."""
-        self._collect_id_names(result)
-
         plan = self._plan
         if not plan:
             return
@@ -764,16 +1038,23 @@ class ArchitectAgent(BaseAgent):
         return False
 
     def _collect_id_names(self, result: ToolResult) -> None:
-        """Extract id→name pairs from tool results for later lookup."""
+        """Extract id→name pairs from tool results for later lookup.
+
+        Recognised payload shapes:
+          - single object:                {"id": ..., "name": ...}
+          - bare list:                    [{"id": ..., "name": ...}, ...]
+          - MCP paginated list envelope:  {"results": [...], "_pagination": {...}}
+          - legacy OData envelope:        {"value": [...]}
+        """
         if not result.success or not result.content:
             return
         try:
             data = json.loads(result.content)
         except (json.JSONDecodeError, TypeError):
             return
-        if isinstance(data, dict) and "value" in data:
-            data = data["value"]
-        items = data if isinstance(data, list) else [data]
+        items, _ = _unwrap_list_envelope(data)
+        if items is None:
+            items = [data] if isinstance(data, dict) else []
         for item in items:
             if isinstance(item, dict):
                 eid = item.get("id")
@@ -781,28 +1062,177 @@ class ArchitectAgent(BaseAgent):
                 if eid and ename:
                     self._id_to_name[str(eid)] = ename
 
+    _BEHAVIOR_TOOLS: FrozenSet[str] = frozenset(
+        {"create_behavior", "list_behaviors", "get_behavior"}
+    )
+    _METRIC_TOOLS: FrozenSet[str] = frozenset(
+        {"create_metric", "list_metrics", "get_metric", "improve_metric", "generate_metric"}
+    )
+
+    def _collect_typed_entity_names(self, tool_call: ToolCall, result: ToolResult) -> None:
+        """Populate type-scoped ID→name maps from behavior / metric tool results.
+
+        Unlike the generic ``_collect_id_names``, this method scopes each ID
+        to the entity type implied by the tool, preventing false completions
+        in ``_reconcile_plan_with_session_evidence`` when a different entity
+        type (endpoint, project, test set) happens to share the same name.
+        """
+        if not result.success or not result.content:
+            return
+        target: Optional[Dict[str, str]]
+        if tool_call.tool_name in self._BEHAVIOR_TOOLS:
+            target = self._behavior_id_names
+        elif tool_call.tool_name in self._METRIC_TOOLS:
+            target = self._metric_id_names
+        else:
+            return
+        try:
+            data = json.loads(result.content)
+        except (json.JSONDecodeError, TypeError):
+            return
+        items, _ = _unwrap_list_envelope(data)
+        if items is None:
+            items = [data] if isinstance(data, dict) else []
+        for item in items:
+            if isinstance(item, dict):
+                eid = item.get("id")
+                ename = item.get("name")
+                if eid and ename:
+                    target[str(eid)] = ename
+
+    @staticmethod
+    def _compact_list_result_for_history(
+        content: str,
+        max_items: int = 50,
+        desc_chars: int = 80,
+    ) -> Optional[str]:
+        """Render a list/paginated-list tool result as a compact summary.
+
+        The raw JSON of a 20-item ``list_metrics`` response easily exceeds
+        the iteration-prompt char budget, which silently hides items from
+        the LLM and makes it think entities don't exist. This renderer
+        emits one line per item (id, name, short description, key
+        attributes) so every item in the page is visible to the LLM in a
+        fraction of the bytes.
+
+        Returns ``None`` when ``content`` is not a recognised list shape,
+        so callers can fall back to plain truncation.
+
+        Recognised shapes:
+          - bare list                     ``[{...}, ...]``
+          - MCP paginated list envelope   ``{"results": [...], "_pagination": {...}}``
+          - legacy OData envelope         ``{"value": [...]}``
+        """
+        if not content:
+            return None
+        try:
+            data = json.loads(content)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        items, pagination = _unwrap_list_envelope(data)
+        if items is None:
+            return None
+        if items and not all(isinstance(item, dict) for item in items):
+            return None
+        data = items
+
+        lines: List[str] = []
+        if pagination:
+            returned = pagination.get("returned", len(data))
+            has_more = bool(pagination.get("has_more"))
+            header = f"List response: {returned} item(s) on this page"
+            if has_more:
+                next_skip = pagination.get("next_skip")
+                header += (
+                    f"; more pages available (next_skip={next_skip}). "
+                    "Use $filter (e.g. $filter=tolower(name) eq 'x') to confirm a "
+                    "specific name exists, or call again with the next skip."
+                )
+            else:
+                header += " (no more pages)."
+            lines.append(header)
+        else:
+            lines.append(f"List response: {len(data)} item(s)")
+
+        if not data:
+            return "\n".join(lines)
+
+        shown = data[:max_items]
+        for item in shown:
+            name = item.get("name") or item.get("title") or "?"
+            eid = item.get("id", "")
+            desc = item.get("description") or item.get("summary") or ""
+            if isinstance(desc, str) and len(desc) > desc_chars:
+                desc = desc[:desc_chars].rstrip() + "…"
+            extras: List[str] = []
+            for key in ("score_type", "metric_scope", "behavior_type", "test_type"):
+                val = item.get(key)
+                if val not in (None, ""):
+                    extras.append(f"{key}={val}")
+            line = f"  - {name}"
+            if eid:
+                line += f" (id: {eid})"
+            if extras:
+                line += f" [{', '.join(extras)}]"
+            if desc:
+                line += f" — {desc}"
+            lines.append(line)
+
+        if len(data) > len(shown):
+            lines.append(
+                f"  … and {len(data) - len(shown)} more item(s) on this page (omitted from summary)"
+            )
+
+        return "\n".join(lines)
+
     @staticmethod
     def _match_mapping(
         plan: ArchitectPlan,
         tool_call: ToolCall,
         id_to_name: Dict[str, str],
     ) -> bool:
-        """Mark a mapping as completed when add_behavior_to_metric succeeds."""
+        """Record progress on a mapping after add_behavior_to_metric succeeds.
+
+        Matches the call to a single mapping by BOTH behavior name AND
+        a metric that is in that mapping's planned metrics list. The
+        metric is appended to the mapping's ``linked_metrics`` and the
+        mapping is marked ``completed`` only once every planned metric
+        has been linked. This avoids the cross-mapping cascade that
+        OR-based matching produces when metrics are shared across
+        mappings (e.g. one metric covering several behaviors).
+        """
         behavior_id = tool_call.arguments.get("behavior_id", "")
         metric_id = tool_call.arguments.get("metric_id", "")
         behavior = id_to_name.get(behavior_id, "").lower()
         metric = id_to_name.get(metric_id, "").lower()
-        if not behavior and not metric:
+        if not behavior or not metric:
             return False
+
         for mapping in plan.behavior_metric_mappings:
-            if mapping.completed:
+            if mapping.behavior.lower() != behavior:
                 continue
-            if behavior and mapping.behavior.lower() == behavior:
-                mapping.completed = True
-                return True
-            if metric and any(m.lower() == metric for m in mapping.metrics):
-                mapping.completed = True
-                return True
+            planned = next(
+                (m for m in mapping.metrics if m.lower() == metric),
+                None,
+            )
+            if planned is None:
+                continue
+
+            updated = False
+            already_linked = {m.lower() for m in mapping.linked_metrics}
+            if planned.lower() not in already_linked:
+                mapping.linked_metrics.append(planned)
+                updated = True
+
+            if not mapping.completed:
+                linked_lower = {m.lower() for m in mapping.linked_metrics}
+                required_lower = {m.lower() for m in mapping.metrics}
+                if required_lower and required_lower.issubset(linked_lower):
+                    mapping.completed = True
+                    updated = True
+            return updated
+
         return False
 
     async def _apply_task_completions(self, message: str) -> None:
@@ -840,6 +1270,50 @@ class ArchitectAgent(BaseAgent):
 
     # ── prompt building ──────────────────────────────────────────
 
+    def _format_plan_progress(self) -> str:
+        """Render a one-line summary of plan completion per category.
+
+        Surfaces what's blocking ordering-sensitive tools (most notably
+        ``generate_test_set`` and ``create_test_set_bulk``, which require
+        every behavior, metric, and mapping to be completed). Showing the
+        progress directly in the iteration prompt lets the LLM reason
+        about ordering on its own instead of relying on hidden runtime
+        gating.
+        """
+        plan = self._plan
+        if not plan:
+            return ""
+
+        def _ratio(items: list) -> str:
+            total = len(items)
+            done = sum(1 for it in items if getattr(it, "completed", False))
+            return f"{done}/{total}"
+
+        parts = [
+            f"behaviors {_ratio(plan.behaviors)}",
+            f"metrics {_ratio(plan.metrics)}",
+            f"mappings {_ratio(plan.behavior_metric_mappings)}",
+            f"test_sets {_ratio(plan.test_sets)}",
+        ]
+
+        # "ready" requires all three prerequisite sections to be non-empty
+        # AND fully completed — an empty plan trivially satisfies all([]),
+        # which would misleadingly surface "ready" before anything is planned.
+        prereqs_complete = (
+            bool(plan.behaviors)
+            and bool(plan.metrics)
+            and all(b.completed for b in plan.behaviors)
+            and all(m.completed for m in plan.metrics)
+            and all(mp.completed for mp in plan.behavior_metric_mappings)
+        )
+        gate = (
+            "test-set generation: ready"
+            if prereqs_complete
+            else "test-set generation: blocked until behaviors, metrics, and mappings reach N/N"
+        )
+
+        return "Plan progress: " + ", ".join(parts) + ". " + gate + "."
+
     def _build_prompt(
         self,
         user_query: str,
@@ -848,6 +1322,7 @@ class ArchitectAgent(BaseAgent):
         tools_text = self._format_tools(available_tools)
         history_text = self._format_history()
         plan_text = self._plan.to_markdown() if self._plan else ""
+        plan_progress_text = self._format_plan_progress()
         discovery_text = self._format_discovery_state()
         attachments_text = self._format_attachments()
 
@@ -858,6 +1333,7 @@ class ArchitectAgent(BaseAgent):
             tools_text=tools_text,
             history_text=history_text,
             plan_text=plan_text,
+            plan_progress_text=plan_progress_text,
             discovery_state_text=discovery_text,
             attachments_text=attachments_text,
         )
@@ -916,7 +1392,19 @@ class ArchitectAgent(BaseAgent):
     ) -> Tuple[ExecutionStep, bool]:
         """Stream the final response token-by-token."""
         logger.info("[Architect] Streaming final response")
-        confirmation = action.needs_confirmation and not self._auto_approve_all
+        # Derive confirmation from runtime state — never from
+        # ``action.needs_confirmation``. The Accept/Change UI is only
+        # meaningful when **this turn** intercepted a confirmable tool
+        # call. That signal is ``self._blocked_this_turn``, set inside
+        # ``_handle_tool_calls`` whenever the LLM tries to call a tool
+        # flagged ``requires_confirmation: true`` in ``mcp_tools.yaml``
+        # without prior approval. We deliberately do NOT key off
+        # ``_confirming_tools``: that set persists across turns as a
+        # long-lived approval scope, so reading it here would surface
+        # spurious Accept/Change prompts on later turns (for example,
+        # the auto-resumed [TASK_COMPLETED] summary that follows an
+        # already-approved exploration).
+        confirmation = self._blocked_this_turn and not self._auto_approve_all
         self._needs_confirmation = confirmation
 
         seed = action.final_answer or ""
@@ -972,6 +1460,21 @@ class ArchitectAgent(BaseAgent):
             final_answer=final_answer,
         )
 
+    def _render_tool_result(self, tr: ToolResult, *, prefix: str, preview: int) -> Optional[str]:
+        """Render a single ToolResult as a compact string for history/streaming prompts.
+
+        Returns ``None`` when the result carries nothing worth including
+        (no content and no error).
+        """
+        if tr.success and tr.content:
+            compact = self._compact_list_result_for_history(tr.content)
+            if compact is not None:
+                return f"{prefix}:\n{compact}"
+            return f"{prefix}: {tr.content[:preview]}"
+        if tr.error:
+            return f"{prefix} Error: {tr.error}"
+        return None
+
     def _format_tool_results_for_streaming(self) -> str:
         """Format tool results from the current turn."""
         if not self._execution_history:
@@ -981,11 +1484,13 @@ class ArchitectAgent(BaseAgent):
         for step in self._execution_history:
             if step.tool_results:
                 for tr in step.tool_results:
-                    preview = cfg.tool_result_preview_chars
-                    if tr.success and tr.content:
-                        parts.append(f"[{tr.tool_name}]: {tr.content[:preview]}")
-                    elif tr.error:
-                        parts.append(f"[{tr.tool_name}] Error: {tr.error}")
+                    rendered = self._render_tool_result(
+                        tr,
+                        prefix=f"[{tr.tool_name}]",
+                        preview=cfg.tool_result_preview_chars,
+                    )
+                    if rendered:
+                        parts.append(rendered)
         return "\n\n".join(parts)
 
     # ── history formatting ───────────────────────────────────────
@@ -1020,10 +1525,12 @@ class ArchitectAgent(BaseAgent):
                     parts.append(f"  Called: {tc.tool_name}")
             if step.tool_results:
                 for tr in step.tool_results:
-                    preview = cfg.tool_result_preview_chars
-                    if tr.success:
-                        parts.append(f"  Result ({tr.tool_name}): {tr.content[:preview]}")
-                    else:
-                        parts.append(f"  Error ({tr.tool_name}): {tr.error}")
+                    rendered = self._render_tool_result(
+                        tr,
+                        prefix=f"  Result ({tr.tool_name})",
+                        preview=cfg.tool_result_preview_chars,
+                    )
+                    if rendered:
+                        parts.append(rendered)
 
         return "\n".join(parts) if parts else ""

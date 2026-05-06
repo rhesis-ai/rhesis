@@ -58,6 +58,12 @@ class EventType(str, Enum):
     ARCHITECT_STREAM_START = "architect.stream_start"
     ARCHITECT_TEXT_CHUNK = "architect.text_chunk"
     ARCHITECT_STREAM_END = "architect.stream_end"
+    # Live progress emitted by background workers (e.g. exploration) for
+    # tasks the architect is awaiting. Carries a session_id, task_id, a
+    # short label, and a status of "started" | "progress" | "completed"
+    # | "failed". The frontend attaches each event to the awaiting bubble
+    # so the user sees per-step progress instead of a bare "Working…".
+    ARCHITECT_TASK_PROGRESS = "architect.task_progress"
 
 
 class WebSocketMessage(BaseModel):
