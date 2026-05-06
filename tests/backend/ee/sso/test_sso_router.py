@@ -19,7 +19,7 @@ from pydantic import SecretStr
 class TestValidateReturnTo:
 
     def _validate(self, val):
-        from rhesis.backend.app.routers.sso import _validate_return_to
+        from rhesis.backend.ee.sso.router import _validate_return_to
         return _validate_return_to(val)
 
     def test_none_defaults_to_dashboard(self):
@@ -66,7 +66,7 @@ class TestValidateReturnTo:
 class TestGeneratePkce:
 
     def test_returns_verifier_and_challenge(self):
-        from rhesis.backend.app.routers.sso import _generate_pkce
+        from rhesis.backend.ee.sso.router import _generate_pkce
 
         verifier, challenge = _generate_pkce()
         assert isinstance(verifier, str)
@@ -75,7 +75,7 @@ class TestGeneratePkce:
         assert len(challenge) > 20
 
     def test_each_call_unique(self):
-        from rhesis.backend.app.routers.sso import _generate_pkce
+        from rhesis.backend.ee.sso.router import _generate_pkce
 
         a = _generate_pkce()
         b = _generate_pkce()
@@ -90,7 +90,7 @@ class TestGeneratePkce:
 class TestCheckSSOAvailable:
 
     def test_available_with_encryption_key(self):
-        from rhesis.backend.app.routers.sso import check_sso_available
+        from rhesis.backend.ee.sso.router import check_sso_available
         assert check_sso_available() is True
 
     @patch(
@@ -98,7 +98,7 @@ class TestCheckSSOAvailable:
         return_value=False,
     )
     def test_unavailable_without_encryption(self, _mock):
-        from rhesis.backend.app.routers.sso import check_sso_available
+        from rhesis.backend.ee.sso.router import check_sso_available
         assert check_sso_available() is False
 
 
@@ -109,7 +109,7 @@ class TestCheckSSOAvailable:
 class TestSSOConfigRequestSlug:
 
     def test_slug_included(self):
-        from rhesis.backend.app.routers.sso import SSOConfigRequest
+        from rhesis.backend.ee.sso.router import SSOConfigRequest
 
         req = SSOConfigRequest(
             issuer_url="https://idp.example.com",
@@ -119,7 +119,7 @@ class TestSSOConfigRequestSlug:
         assert req.slug == "acme-corp"
 
     def test_slug_defaults_to_none(self):
-        from rhesis.backend.app.routers.sso import SSOConfigRequest
+        from rhesis.backend.ee.sso.router import SSOConfigRequest
 
         req = SSOConfigRequest(
             issuer_url="https://idp.example.com",
@@ -135,19 +135,19 @@ class TestSSOConfigRequestSlug:
 class TestGetSSOConfig:
 
     def test_no_config_returns_none(self):
-        from rhesis.backend.app.routers.sso import _get_sso_config
+        from rhesis.backend.ee.sso.router import _get_sso_config
 
         org = SimpleNamespace(id=uuid4(), sso_config=None)
         assert _get_sso_config(org) is None
 
     def test_empty_dict_returns_none(self):
-        from rhesis.backend.app.routers.sso import _get_sso_config
+        from rhesis.backend.ee.sso.router import _get_sso_config
 
         org = SimpleNamespace(id=uuid4(), sso_config={})
         assert _get_sso_config(org) is None
 
     def test_valid_config_with_encrypted_secret(self):
-        from rhesis.backend.app.routers.sso import _get_sso_config
+        from rhesis.backend.ee.sso.router import _get_sso_config
         from rhesis.backend.app.utils.encryption import sso_encrypt
 
         encrypted = sso_encrypt("my-secret")
@@ -172,7 +172,7 @@ class TestGetSSOConfig:
 
     @patch.dict(os.environ, {"ENVIRONMENT": "development"})
     def test_plaintext_secret_fallback_in_dev(self):
-        from rhesis.backend.app.routers.sso import _get_sso_config
+        from rhesis.backend.ee.sso.router import _get_sso_config
 
         org = SimpleNamespace(
             id=uuid4(),
@@ -191,7 +191,7 @@ class TestGetSSOConfig:
         assert config.get_secret_value() == "plain-text-secret"
 
     def test_corrupt_config_returns_none(self):
-        from rhesis.backend.app.routers.sso import _get_sso_config
+        from rhesis.backend.ee.sso.router import _get_sso_config
 
         org = SimpleNamespace(
             id=uuid4(),

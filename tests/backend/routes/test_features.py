@@ -14,9 +14,7 @@ from rhesis.backend.app.features import (
     FeatureName,
     FeatureRegistry,
 )
-from rhesis.backend.app.features_bootstrap import register_core_features
 from rhesis.backend.app.main import app
-from rhesis.backend.app.models.subscription import SubscriptionPlan
 
 
 @pytest.fixture
@@ -27,13 +25,11 @@ def registered_sso():
         Feature(
             name=FeatureName.SSO,
             display_name="Single Sign-On",
-            min_plan=SubscriptionPlan.PREMIUM,
             description="Per-organization OIDC-based SSO.",
         )
     )
     yield
     FeatureRegistry.reset()
-    register_core_features()
 
 
 @pytest.fixture
@@ -90,7 +86,6 @@ class TestFeaturesEndpoint:
             assert response.json()["enabled"] == []
         finally:
             FeatureRegistry.reset()
-            register_core_features()
 
     def test_omits_feature_when_license_denies(
         self, client: TestClient, mock_current_user
@@ -113,7 +108,6 @@ class TestFeaturesEndpoint:
             assert response.json()["enabled"] == []
         finally:
             FeatureRegistry.reset()
-            register_core_features()
 
     def test_response_shape_is_stable(
         self, client: TestClient, registered_sso, mock_current_user

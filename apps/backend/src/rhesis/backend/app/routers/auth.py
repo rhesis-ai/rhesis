@@ -291,8 +291,8 @@ async def get_providers(
         try:
             from uuid import UUID as _UUID
 
+            from rhesis.backend.app.auth.feature_gates import check_sso_available
             from rhesis.backend.app.models.organization import Organization
-            from rhesis.backend.app.routers.sso import _get_sso_config, check_sso_available
 
             try:
                 _UUID(org)
@@ -309,8 +309,10 @@ async def get_providers(
                 )
 
             if organization and check_sso_available(organization):
-                sso_config = _get_sso_config(organization)
-                if sso_config and sso_config.enabled:
+                # Read enabled/allowed_auth_methods directly from the JSON column
+                # so core never imports from rhesis.backend.ee.
+                sso_cfg: dict = organization.sso_config or {}
+                if sso_cfg.get("enabled"):
                     login_path = (
                         f"/auth/sso/{organization.slug}"
                         if organization.slug
@@ -324,8 +326,9 @@ async def get_providers(
                         "login_url": login_path,
                     })
 
-                    if sso_config.allowed_auth_methods:
-                        allowed = set(sso_config.allowed_auth_methods)
+                    allowed_methods = sso_cfg.get("allowed_auth_methods")
+                    if allowed_methods:
+                        allowed = set(allowed_methods)
                         providers = [
                             p for p in providers if p["name"] in allowed
                         ]

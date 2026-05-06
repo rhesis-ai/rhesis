@@ -40,11 +40,26 @@ def bootstrap(app) -> None:  # noqa: ANN001
     """Register EE features and routers with the FastAPI *app*.
 
     Called once at application startup by
-    :func:`rhesis.backend.app.ee_bootstrap.bootstrap_ee`. Each EE feature
-    is responsible for calling :meth:`FeatureRegistry.register` and
-    ``app.include_router(...)`` for its own router.
+    :func:`rhesis.backend.app.ee_bootstrap.bootstrap_ee`. Registers each
+    EE feature with :class:`~rhesis.backend.app.features.FeatureRegistry`
+    and mounts its router onto *app*.
 
-    This function is intentionally empty until the first EE feature (SSO)
-    is moved here in the follow-up PR.
+    Import order matters: the license provider must already be installed
+    (via ``install_license_provider()``) before this function runs so
+    that ``FeatureRegistry.is_available`` reflects the correct entitlements
+    from the very first request.
     """
-    logger.debug("EE package loaded — no features registered yet")
+    from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
+    from rhesis.backend.ee.sso.router import router as sso_router
+    from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
+
+    FeatureRegistry.register(
+        Feature(
+            name=FeatureName.SSO,
+            display_name="Single Sign-On",
+            runtime_check=sso_runtime_check,
+            description="Per-organization OIDC-based SSO.",
+        )
+    )
+    app.include_router(sso_router)
+    logger.info("EE bootstrap complete — registered features: [sso]")

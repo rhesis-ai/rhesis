@@ -11,8 +11,8 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.providers.base import AuthUser
-from rhesis.backend.app.auth.sso_audit import SSOAuditEvent, audit_log
-from rhesis.backend.app.schemas.sso_config import SSOConfig
+from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
+from rhesis.backend.ee.sso.schemas import SSOConfig
 from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
 logger = logging.getLogger(__name__)

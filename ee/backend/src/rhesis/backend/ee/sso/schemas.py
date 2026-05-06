@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, SecretStr, field_validator
 
-from rhesis.backend.app.auth.sso_http_client import is_dev_environment
+from rhesis.backend.ee.sso.http_client import is_dev_environment
 
 _BLOCKED_NETWORKS = [
     ipaddress.ip_network("10.0.0.0/8"),

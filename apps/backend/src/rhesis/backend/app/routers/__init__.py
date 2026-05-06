@@ -30,7 +30,7 @@ from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
 from .source import router as source_router
-from .sso import router as sso_router
+# SSO router is now registered by the EE package via ee_bootstrap.bootstrap_ee(app)
 from .status import router as status_router
 from .tag import router as tag_router
 from .task_management import router as task_management_router
@@ -139,7 +139,6 @@ routers = sorted(
         file_import_router,
         websocket_router,
         adaptive_testing_router,
-        sso_router,
         architect_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",

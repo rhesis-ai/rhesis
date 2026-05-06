@@ -10,7 +10,7 @@ class TestSSOConfigValidation:
     """Test issuer_url, provider_type, domain, and auth method validation."""
 
     def test_valid_https_issuer(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         config = SSOConfig(
             issuer_url="https://idp.example.com/realms/test",
@@ -20,7 +20,7 @@ class TestSSOConfigValidation:
         assert config.issuer_url == "https://idp.example.com/realms/test"
 
     def test_http_issuer_rejected_in_production(self, monkeypatch):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         monkeypatch.setenv("ENVIRONMENT", "production")
 
@@ -32,7 +32,7 @@ class TestSSOConfigValidation:
             )
 
     def test_http_localhost_allowed_in_local(self, monkeypatch):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         monkeypatch.setenv("ENVIRONMENT", "local")
 
@@ -44,7 +44,7 @@ class TestSSOConfigValidation:
         assert "localhost" in config.issuer_url
 
     def test_metadata_service_blocked(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         with pytest.raises(ValueError, match="metadata"):
             SSOConfig(
@@ -54,7 +54,7 @@ class TestSSOConfigValidation:
             )
 
     def test_private_ip_blocked(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         with pytest.raises(ValueError, match="private"):
             SSOConfig(
@@ -64,7 +64,7 @@ class TestSSOConfigValidation:
             )
 
     def test_trailing_slash_stripped(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         config = SSOConfig(
             issuer_url="https://idp.example.com/realms/test/",
@@ -74,7 +74,7 @@ class TestSSOConfigValidation:
         assert not config.issuer_url.endswith("/")
 
     def test_invalid_provider_type_rejected(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         with pytest.raises(ValueError, match="Unsupported provider_type"):
             SSOConfig(
@@ -85,7 +85,7 @@ class TestSSOConfigValidation:
             )
 
     def test_empty_allowed_auth_methods_rejected(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         with pytest.raises(ValueError, match="cannot be empty"):
             SSOConfig(
@@ -96,7 +96,7 @@ class TestSSOConfigValidation:
             )
 
     def test_unknown_auth_method_rejected(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         with pytest.raises(ValueError, match="Unknown auth method"):
             SSOConfig(
@@ -107,7 +107,7 @@ class TestSSOConfigValidation:
             )
 
     def test_domains_normalized(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         config = SSOConfig(
             issuer_url="https://idp.example.com",
@@ -118,7 +118,7 @@ class TestSSOConfigValidation:
         assert config.allowed_domains == ["example.com", "test.org"]
 
     def test_masked_dict_hides_secret(self):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         config = SSOConfig(
             issuer_url="https://idp.example.com",
@@ -130,7 +130,7 @@ class TestSSOConfigValidation:
         assert "super-secret-value" not in str(masked)
 
     def test_non_443_port_rejected_in_production(self, monkeypatch):
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
 
         monkeypatch.setenv("ENVIRONMENT", "production")
 

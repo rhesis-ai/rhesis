@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from rhesis.backend.app.auth.sso_http_client import (
+from rhesis.backend.ee.sso.http_client import (
     SSRFError,
     _pin_url_to_ip,
     _resolve_and_validate,

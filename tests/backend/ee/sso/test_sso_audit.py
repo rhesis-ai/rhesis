@@ -2,7 +2,7 @@
 
 import logging
 
-from rhesis.backend.app.auth.sso_audit import SSOAuditEvent, audit_log
+from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
 
 
 class TestSSOAuditLog:

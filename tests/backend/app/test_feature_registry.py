@@ -11,8 +11,6 @@ from rhesis.backend.app.features import (
     FeatureRegistry,
     LicenseProvider,
 )
-from rhesis.backend.app.features_bootstrap import register_core_features
-from rhesis.backend.app.models.subscription import SubscriptionPlan
 
 
 @pytest.fixture
@@ -20,8 +18,7 @@ def clean_registry():
     """Reset the registry before and after each test for isolation."""
     FeatureRegistry.reset()
     yield
-    FeatureRegistry.reset()
-    register_core_features()  # restore session-wide default
+    FeatureRegistry.reset()  # leave clean — EE features register via ee.bootstrap, not here
 
 
 class _DenyingProvider:
@@ -86,7 +83,7 @@ class TestFeatureRegistry:
 
     def test_set_license_provider_swap_changes_behaviour(self, clean_registry):
         FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO", min_plan=SubscriptionPlan.PREMIUM)
+            Feature(name=FeatureName.SSO, display_name="SSO")
         )
         org = object()
 
@@ -159,16 +156,29 @@ class TestLicenseProviderProtocol:
         assert hasattr(provider, "info")
 
 
-class TestRegisterCoreFeatures:
+class TestEEBootstrap:
+    """SSO feature registration via the EE bootstrap."""
+
     def test_registers_sso(self, clean_registry):
-        register_core_features()
+        """ee.bootstrap registers SSO with correct metadata."""
+        from unittest.mock import MagicMock
+
+        mock_app = MagicMock()
+        from rhesis.backend.ee import bootstrap
+
+        bootstrap(mock_app)
         feature = FeatureRegistry._features.get(FeatureName.SSO)
         assert feature is not None
         assert feature.display_name == "Single Sign-On"
-        assert feature.min_plan == SubscriptionPlan.PREMIUM
         assert feature.runtime_check is not None
+        mock_app.include_router.assert_called_once()
 
     def test_registration_is_idempotent(self, clean_registry):
-        register_core_features()
-        register_core_features()
+        from unittest.mock import MagicMock
+
+        mock_app = MagicMock()
+        from rhesis.backend.ee import bootstrap
+
+        bootstrap(mock_app)
+        bootstrap(mock_app)
         assert len(FeatureRegistry._features) == 1

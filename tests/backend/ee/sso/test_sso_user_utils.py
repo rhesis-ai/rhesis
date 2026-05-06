@@ -18,8 +18,8 @@ from pydantic import SecretStr
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthUser
-from rhesis.backend.app.auth.sso_user_utils import SSOLoginError, find_or_create_sso_user
-from rhesis.backend.app.schemas.sso_config import SSOConfig
+from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
+from rhesis.backend.ee.sso.schemas import SSOConfig
 
 
 def _sso_config(**overrides):

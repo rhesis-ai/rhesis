@@ -5,7 +5,7 @@ from base64 import urlsafe_b64decode, urlsafe_b64encode
 
 import pytest
 
-from rhesis.backend.app.auth.providers.oidc import (
+from rhesis.backend.ee.sso.oidc import (
     STATE_MAX_AGE_SECONDS,
     create_signed_state,
     verify_signed_state,

@@ -39,7 +39,7 @@ class _FakeQuery:
 class TestGetOrgOr404:
 
     def _import_func(self):
-        from rhesis.backend.app.routers.sso import _get_org_or_404
+        from rhesis.backend.ee.sso.router import _get_org_or_404
         return _get_org_or_404
 
     def test_uuid_lookup(self):
@@ -110,7 +110,7 @@ class TestAuthProvidersOrgParam:
     @patch("rhesis.backend.app.routers.sso._get_sso_config")
     def test_providers_with_uuid(self, mock_get_config, mock_check):
         """When org is a UUID, the provider list includes SSO with login_url."""
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
         from pydantic import SecretStr
 
         org_id = uuid4()
@@ -141,7 +141,7 @@ class TestAuthProvidersOrgParam:
     @patch("rhesis.backend.app.routers.sso._get_sso_config")
     def test_providers_with_slug(self, mock_get_config, mock_check):
         """When org is a slug string, it still resolves correctly."""
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
         from pydantic import SecretStr
 
         org = _make_org(slug="acme-corp", sso_config={})
@@ -171,7 +171,7 @@ class TestAuthProvidersOrgParam:
     @patch("rhesis.backend.app.routers.sso._get_sso_config")
     def test_providers_login_url_falls_back_to_id(self, mock_get_config, mock_check):
         """When org has no slug, login_url uses the org UUID."""
-        from rhesis.backend.app.schemas.sso_config import SSOConfig
+        from rhesis.backend.ee.sso.schemas import SSOConfig
         from pydantic import SecretStr
 
         org_id = uuid4()

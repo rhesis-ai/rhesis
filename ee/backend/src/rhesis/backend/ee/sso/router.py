@@ -21,22 +21,22 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, SecretStr
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.providers.oidc import (
+from rhesis.backend.ee.sso.oidc import (
     OIDCProvider,
     verify_signed_state,
 )
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
-from rhesis.backend.app.auth.sso_audit import SSOAuditEvent, audit_log
-from rhesis.backend.app.auth.sso_http_client import SSOHttpClient, SSRFError, is_dev_environment
-from rhesis.backend.app.auth.sso_user_utils import SSOLoginError, find_or_create_sso_user
+from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
+from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError, is_dev_environment
+from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.app.schemas.sso_config import SSOConfig
+from rhesis.backend.ee.sso.schemas import SSOConfig
 from rhesis.backend.app.utils.encryption import (
     sso_decrypt,
     sso_encrypt,

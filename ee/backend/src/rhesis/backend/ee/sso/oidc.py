@@ -18,12 +18,12 @@ import jwt as pyjwt
 
 from rhesis.backend.app.auth.constants import ALGORITHM, AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
-from rhesis.backend.app.auth.sso_http_client import (
+from rhesis.backend.ee.sso.http_client import (
     SSOHttpClient,
     SSRFError,
     validate_endpoint_origin,
 )
-from rhesis.backend.app.schemas.sso_config import SSOConfig
+from rhesis.backend.ee.sso.schemas import SSOConfig
 
 logger = logging.getLogger(__name__)
 
