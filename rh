@@ -578,6 +578,34 @@ start_all() {
         fi
     fi
 
+    # Check if RHESIS_API_KEY is missing or still the placeholder
+    CURRENT_API_KEY=$(grep "^RHESIS_API_KEY=" .env.docker.local 2>/dev/null | cut -d'=' -f2-)
+    if [ -z "$CURRENT_API_KEY" ] || [ "$CURRENT_API_KEY" = "your-rhesis-api-key" ]; then
+        echo ""
+        echo -e "${YELLOW}🔑 Rhesis API Key${NC}"
+        echo -e "${WHITE}   Test generation requires a Rhesis API key to call the generation service.${NC}"
+        echo -e "${WHITE}   Get your key at: ${CYAN}https://app.rhesis.ai/tokens${NC}"
+        echo ""
+        read -p "$(echo -e ${YELLOW}Enter your RHESIS_API_KEY \(or press Enter to skip\): ${NC})" -r USER_API_KEY
+        if [ -n "$USER_API_KEY" ]; then
+            if grep -q "^RHESIS_API_KEY=" .env.docker.local 2>/dev/null; then
+                if [[ "$OSTYPE" == "darwin"* ]]; then
+                    sed -i '' "s|^RHESIS_API_KEY=.*|RHESIS_API_KEY=$USER_API_KEY|" .env.docker.local
+                else
+                    sed -i "s|^RHESIS_API_KEY=.*|RHESIS_API_KEY=$USER_API_KEY|" .env.docker.local
+                fi
+            else
+                echo "" >> .env.docker.local
+                echo "# Rhesis API Key (required for test generation)" >> .env.docker.local
+                echo "RHESIS_API_KEY=$USER_API_KEY" >> .env.docker.local
+            fi
+            echo -e "${GREEN}✅ RHESIS_API_KEY saved to .env.docker.local${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Skipping — test generation will not work without a valid API key${NC}"
+            echo -e "${YELLOW}   Add it later: ${WHITE}RHESIS_API_KEY=<your-key>${YELLOW} in .env.docker.local, then ${GREEN}./rh restart${NC}"
+        fi
+    fi
+
     echo ""
     echo -e "${YELLOW}Starting services ...${NC}"
 
