@@ -22,6 +22,7 @@ from pydantic import BaseModel, SecretStr
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
+from rhesis.backend.app.schemas.organization import SLUG_RE as _SLUG_RE
 from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
@@ -274,10 +275,15 @@ async def sso_callback(
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
 
+    # Capture redirect context before session rotation discards it
+    original_frontend = request.session.get("original_frontend", "")
+
     # Regenerate session (prevents session fixation)
     regenerate_session(request, {"user_id": str(user.id)})
     # Restore redirect context for build_redirect_url
     request.session["return_to"] = state_return_to
+    if original_frontend:
+        request.session["original_frontend"] = original_frontend
 
     audit_log(
         SSOAuditEvent.LOGIN_SUCCESS,
@@ -522,14 +528,11 @@ async def update_sso_config(
 
     # Handle slug update
     if body.slug is not None:
-        import re
-
         slug_val = body.slug.strip().lower() if body.slug else None
         if slug_val == "":
             slug_val = None
         if slug_val:
-            slug_re = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$")
-            if not slug_re.match(slug_val) or "--" in slug_val:
+            if not _SLUG_RE.match(slug_val) or "--" in slug_val:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Slug must be 3-50 characters, lowercase "

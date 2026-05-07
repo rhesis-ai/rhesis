@@ -225,10 +225,19 @@ validate_jwks_uri_origin = validate_endpoint_origin
 class SSOHttpClient:
     """SSRF-safe HTTP client for all SSO outbound requests.
 
-    Eliminates TOCTOU / DNS rebinding by resolving the hostname once,
-    validating the resolved IPs, and pinning the validated IP directly
-    into the outbound request URL. The original hostname is sent as the
-    Host header so TLS SNI and virtual hosting still work.
+    SSRF protection strategy differs by scheme:
+
+    * **HTTPS**: Resolve the hostname, validate all resolved IPs against the
+      blocklist, then make the request with the *original* hostname URL.
+      TLS handles SNI and certificate verification correctly because the
+      hostname is preserved.  IP pinning (replacing the URL hostname with a
+      raw IP) is intentionally avoided for HTTPS: httpx sets SNI to the URL
+      host, so connecting to an IP would break TLS certificate verification.
+
+    * **HTTP**: After DNS validation, replace the hostname with the resolved
+      IP and inject a ``Host`` header.  This eliminates TOCTOU/DNS-rebinding
+      risk for plain-text connections where TLS cannot provide a second layer
+      of protection.
 
     Set ``verify_ssl=False`` only for IdPs with self-signed certificates
     (e.g. on-premise Keycloak in dev/staging). TLS is always verified in
@@ -240,10 +249,13 @@ class SSOHttpClient:
         self._verify_ssl = verify_ssl
 
     def _prepare(self, url: str, kwargs: dict) -> Tuple[str, bool]:
-        """Resolve, validate, and pin the URL. Injects the Host header.
+        """Resolve, validate, and conditionally pin the URL.
 
-        Returns (pinned_url, skip_tls). TLS is skipped when the caller
-        passed verify_ssl=False, or when running in dev against localhost.
+        For HTTPS: validates DNS but keeps the hostname URL so TLS SNI and
+        certificate verification work correctly.
+        For HTTP: pins the resolved IP to eliminate TOCTOU DNS rebinding.
+
+        Returns (request_url, skip_tls).
         """
         parsed = urlparse(url)
         hostname = parsed.hostname
@@ -251,33 +263,39 @@ class SSOHttpClient:
             raise SSRFError("URL has no hostname")
 
         addr_infos = _resolve_and_validate(hostname)
-        pinned_url, original_host = _pin_url_to_ip(url, addr_infos)
 
-        headers = dict(kwargs.pop("headers", {}) or {})
-        port = parsed.port
-        if port and port not in (80, 443):
-            headers.setdefault("Host", f"{original_host}:{port}")
+        is_https = parsed.scheme == "https"
+        is_localhost_dev = is_dev_environment() and hostname.lower() in _LOCALHOST_NAMES
+
+        if is_https:
+            # Keep hostname URL intact so httpx presents the correct SNI and
+            # can verify the server certificate against the hostname.
+            request_url = url
         else:
-            headers.setdefault("Host", original_host)
-        kwargs["headers"] = headers
+            # For HTTP, pin to the validated IP to close the TOCTOU window.
+            pinned_url, original_host = _pin_url_to_ip(url, addr_infos)
+            request_url = pinned_url
+            headers = dict(kwargs.pop("headers", {}) or {})
+            port = parsed.port
+            if port and port not in (80, 443):
+                headers.setdefault("Host", f"{original_host}:{port}")
+            else:
+                headers.setdefault("Host", original_host)
+            kwargs["headers"] = headers
 
-        is_localhost_dev = (
-            is_dev_environment()
-            and hostname.lower() in _LOCALHOST_NAMES
-        )
         skip_tls = is_localhost_dev or (not self._verify_ssl)
-        return pinned_url, skip_tls
+        return request_url, skip_tls
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
-        pinned_url, skip_tls = self._prepare(url, kwargs)
+        request_url, skip_tls = self._prepare(url, kwargs)
         async with httpx.AsyncClient(
             timeout=self._timeout, verify=not skip_tls
         ) as client:
-            return await client.get(pinned_url, **kwargs)
+            return await client.get(request_url, **kwargs)
 
     async def post(self, url: str, **kwargs) -> httpx.Response:
-        pinned_url, skip_tls = self._prepare(url, kwargs)
+        request_url, skip_tls = self._prepare(url, kwargs)
         async with httpx.AsyncClient(
             timeout=self._timeout, verify=not skip_tls
         ) as client:
-            return await client.post(pinned_url, **kwargs)
+            return await client.post(request_url, **kwargs)

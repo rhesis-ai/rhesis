@@ -7,6 +7,8 @@ from pydantic import UUID4, field_validator
 from rhesis.backend.app.schemas import Base
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$")
+# Public alias used by the SSO router and other modules that need the same pattern.
+SLUG_RE = _SLUG_RE
 
 
 class OrganizationBase(Base):
