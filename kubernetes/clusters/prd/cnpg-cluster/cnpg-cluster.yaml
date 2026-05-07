@@ -14,7 +14,7 @@ metadata:
 spec:
   description: "Rhesis production PostgreSQL (CloudNativePG)"
   instances: 2
-  imageName: ghcr.io/cloudnative-pg/postgresql:16.4-1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.4-1
   storage:
     size: 100Gi
   resources:
