@@ -22,7 +22,7 @@ spec:
           - name: EXTERNAL_DNS_RFC2136_PORT
             value: "53"
           - name: EXTERNAL_DNS_RFC2136_ZONE
-            value: rhesis.internal
+            value: rhesis.ai
           - name: EXTERNAL_DNS_RFC2136_TSIG_KEYNAME
             value: PLACEHOLDER
           - name: EXTERNAL_DNS_RFC2136_TSIG_SECRET_ALG

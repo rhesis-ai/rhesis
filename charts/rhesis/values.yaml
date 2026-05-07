@@ -1,0 +1,396 @@
+# Default values for the Rhesis Helm chart.
+# Override per environment in values-dev.yaml / values-stg.yaml / values-prd.yaml.
+
+# ---------------------------------------------------------------------------
+# Global
+# ---------------------------------------------------------------------------
+global:
+  # Full GCP Artifact Registry prefix, e.g.:
+  #   europe-west4-docker.pkg.dev/<project-id>/rhesis
+  registry: ""
+  imagePullPolicy: IfNotPresent
+  imageTag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ---------------------------------------------------------------------------
+# Secret reference
+# No secret values are stored here — ever.
+# The Kubernetes Secret named below is expected to be synced by ESO before
+# the chart is deployed.
+# ---------------------------------------------------------------------------
+existingSecret: "rhesis-app-secrets"
+
+# ---------------------------------------------------------------------------
+# Database credentials (stg / prd with CloudNativePG)
+# When database.existingSecret is set:
+#   - SQLALCHEMY_APP_DB_USER / SQLALCHEMY_APP_DB_PASS come from this secret and
+#     are used to build SQLALCHEMY_DATABASE_URL (app runtime, e.g. rhesis-user).
+#   - SQLALCHEMY_DB_USER / SQLALCHEMY_DB_PASS come from database.migrationSecret
+#     when non-empty (Alembic / migrate.sh, e.g. rhesis-admin); otherwise the same
+#     secret is used for both pairs (single-role setups).
+# Keys match CNPG declarative role secrets: username, password.
+# ---------------------------------------------------------------------------
+database:
+  existingSecret: ""
+  migrationSecret: ""
+  usernameKey: username
+  passwordKey: password
+
+# ---------------------------------------------------------------------------
+# Non-sensitive application configuration (safe to store in Git).
+# These are rendered into a ConfigMap by templates/configmap.yaml.
+# ---------------------------------------------------------------------------
+config:
+  environment: "production"
+  logLevel: "INFO"
+
+  # Database (host/port/name/user are computed from subchart or externalDatabase)
+  dbPort: "5432"
+  # Per-env overrides: values-dev.yaml ties Bitnami auth + POSTGRES_DB to this name; stg/prd must
+  # keep the same strings as kubernetes/clusters/*/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database.
+  dbName: "rhesis-db"
+  dbUser: "rhesis-user"
+  dbDriver: "postgresql"
+
+  # Redis/Valkey (host is computed from subchart or externalValkey)
+  redisPort: "6379"
+
+  # Frontend
+  nextPublicApiBaseUrl: ""
+  nextPublicAppUrl: ""
+  nextauthUrl: ""
+  nextTelemetryDisabled: "1"
+  nextPublicAuth0ClientId: ""
+  nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
+  nextPublicQuickStart: "false"
+
+  # Backend
+  rhesisBaseUrl: ""
+  frontendUrl: ""
+  backendUrl: ""
+  quickStart: "false"
+
+  # AI model configuration
+  azureOpenAiDeploymentName: "gpt-4o"
+  azureOpenAiApiVersion: ""
+  openAiModelName: "gpt-4o"
+  geminiModelName: "gemini-2.0-flash-001"
+  # Default LLM providers (format: provider/model). See apps/backend/.../constants.py
+  defaultGenerationModel: "rhesis/rhesis-default"
+  defaultEvaluationModel: "rhesis/rhesis-default"
+  defaultExecutionModel: "rhesis/rhesis-default"
+  defaultEmbeddingModel: "vertex_ai/text-embedding-005"
+
+  # SMTP
+  smtpPort: "465"
+
+  # Celery
+  celeryWorkerConcurrency: "8"
+  celeryWorkerPrefetchMultiplier: "4"
+  celeryWorkerMaxTasksPerChild: "1000"
+  celeryWorkerLogLevel: "INFO"
+
+  # GCP / Vertex AI
+  vertexAiLocation: "europe-west4"
+  vertexAiProject: ""
+
+  # Chatbot
+  chatbotRateLimit: "1000"
+  rhesisConnectorDisabled: "true"
+  rhesisProjectId: ""
+
+# ---------------------------------------------------------------------------
+# Backend
+# ---------------------------------------------------------------------------
+backend:
+  enabled: true
+  image:
+    repository: rhesis-backend
+    tag: ""
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  # Backend may run heavy startup (e.g. probe caches). Worst-case time before
+  # liveness restart ≈ initialDelaySeconds + (failureThreshold - 1) * periodSeconds.
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 420
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 25
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 240
+    periodSeconds: 15
+    timeoutSeconds: 15
+    failureThreshold: 60
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  ingress:
+    enabled: false
+    className: "internal"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: ""
+    tlsSecretName: "rhesis-backend-tls"
+  env: []
+  # disableSecurityContext: false
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+frontend:
+  enabled: true
+  image:
+    repository: rhesis-frontend
+    tag: "stg-latest"
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+  ingress:
+    enabled: false
+    className: "internal"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: ""
+    tlsSecretName: "rhesis-frontend-tls"
+  env: []
+  # disableSecurityContext: false
+
+# ---------------------------------------------------------------------------
+# Workers (iterable — one Deployment per list entry, no Service/Ingress)
+# ---------------------------------------------------------------------------
+workers:
+  - name: default
+    enabled: true
+    image:
+      repository: rhesis-worker
+      tag: ""
+    replicas: 1
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "100m"
+      limits:
+        memory: "2Gi"
+        cpu: "500m"
+    env: []
+
+# ---------------------------------------------------------------------------
+# Chatbot
+# ---------------------------------------------------------------------------
+chatbot:
+  enabled: true
+  image:
+    repository: rhesis-chatbot
+    tag: ""
+  replicas: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  service:
+    type: ClusterIP
+    port: 8083
+    targetPort: 8080
+  ingress:
+    enabled: false
+    className: "internal"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: ""
+    tlsSecretName: "rhesis-chatbot-tls"
+  env: []
+  # disableSecurityContext: false
+
+# ---------------------------------------------------------------------------
+# Polyphemus
+# ---------------------------------------------------------------------------
+polyphemus:
+  enabled: true
+  image:
+    repository: rhesis-polyphemus
+    tag: ""
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 420
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 25
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 240
+    periodSeconds: 15
+    timeoutSeconds: 15
+    failureThreshold: 60
+  service:
+    type: ClusterIP
+    port: 8081
+    targetPort: 8080
+  ingress:
+    enabled: false
+    className: "internal"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: ""
+    tlsSecretName: "rhesis-polyphemus-tls"
+  env: []
+  # disableSecurityContext: false
+
+# ---------------------------------------------------------------------------
+# Docs
+# ---------------------------------------------------------------------------
+docs:
+  enabled: true
+  image:
+    repository: rhesis-docs
+    tag: ""
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  service:
+    type: ClusterIP
+    port: 3001
+    targetPort: 3001
+  ingress:
+    enabled: false
+    className: "internal"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: ""
+    tlsSecretName: "rhesis-docs-tls"
+  env: []
+  disableSecurityContext: true   # docs image may need root for Next.js build artifacts
+
+# ---------------------------------------------------------------------------
+# Subcharts
+# ---------------------------------------------------------------------------
+
+# Valkey (Redis-compatible) — required in-cluster key-value store
+valkey:
+  enabled: true
+  architecture: standalone
+  image:
+    tag: latest
+  auth:
+    enabled: true
+    existingSecret: "rhesis-app-secrets"
+    existingSecretPasswordKey: "REDIS_PASSWORD"
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+# PostgreSQL — optional (Bitnami chart); set enabled=true for dev/standalone
+# For production use CNPG Cluster resource in the GitOps directory instead.
+postgresql:
+  enabled: false
+  auth:
+    database: "rhesis-db"
+    username: "rhesis-user"
+    existingSecret: "rhesis-app-secrets"
+    secretKeys:
+      adminPasswordKey: "SQLALCHEMY_DB_PASS"
+      userPasswordKey: "SQLALCHEMY_DB_PASS"
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    initdb:
+      scripts:
+        init-extensions.sql: |
+          CREATE EXTENSION IF NOT EXISTS vector;
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+# OpenTelemetry Collector — optional
+opentelemetry-collector:
+  enabled: false
+
+# ---------------------------------------------------------------------------
+# External services (used when subcharts are disabled)
+# ---------------------------------------------------------------------------
+externalDatabase:
+  host: ""
+  port: "5432"
+
+externalValkey:
+  host: ""
+  port: "6379"
+
+# ---------------------------------------------------------------------------
+# Pod & container security contexts
+# ---------------------------------------------------------------------------
+podSecurityContext:
+  enabled: true
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroupChangePolicy: "OnRootMismatch"
+
+containerSecurityContext:
+  enabled: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL

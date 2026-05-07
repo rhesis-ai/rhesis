@@ -1,5 +1,16 @@
 # Example Terraform variables configuration
 # Copy this file to terraform.tfvars and customize the values
+#
+# Single root stack (this directory): `project_id` is ONE GCP project used for WireGuard and
+# every enabled environment (dev/stg/prd VPCs, GKE, ESO, buckets, etc.).
+#
+# Per-environment GCP projects — target naming: rhesis-dev, rhesis-stg, rhesis-prd — apply the
+# standalone stacks under terraform/infrastructure/envs/{dev,stg,prd}/ and set `project_id`
+# in each env's tfvars to that environment's project.
+#
+# Running dev/stg/prd in three separate GCP projects from THIS root module would require
+# multiple Google provider aliases and refactors (including cross-project VPC peering). Use the
+# standalone env stacks instead until such a refactor exists.
 
 project_id = "example-project-id"
 region     = "gcp-region"
@@ -18,6 +29,25 @@ gke_deletion_protection = {
   stg = false
   prd = true
 }
+
+# GCS: file storage for all envs; CNPG backup buckets for stg/prd only (defaults in variables.tf).
+# When stg/prd are enabled and cnpg_backup_bucket_name is non-empty, modules
+# cnpg_barman_stg / cnpg_barman_prd create a Barman GSA, bucket IAM (objectUser +
+# bucketViewer for storage.buckets.get),
+# and GSM secrets stg-rhesis-cnpg-gcs-sa-key / prd-rhesis-cnpg-gcs-sa-key (see
+# kubernetes/clusters/<env>/rhesis/cnpg-gcs-externalsecret.yaml).
+# Override so bucket names match STORAGE_SERVICE_URI and CNPG backup.
+# gcs = {
+#   dev = { file_storage_bucket_name = "sources-file-storage-example" }
+#   stg = {
+#     file_storage_bucket_name  = "sources-file-storage-example"
+#     cnpg_backup_bucket_name  = "cnpg-backup-storage-example"
+#   }
+#   prd = {
+#     file_storage_bucket_name  = "sources-file-storage-example"
+#     cnpg_backup_bucket_name  = "cnpg-backup-storage-example"
+#   }
+# }
 
 # WireGuard VPN peers configuration
 # Each peer gets a unique IP within the WireGuard network (10.0.0.0/24)

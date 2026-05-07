@@ -1,0 +1,72 @@
+{{- if .Values.polyphemus.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: polyphemus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: polyphemus
+    tier: polyphemus
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.polyphemus.replicas }}
+  selector:
+    matchLabels:
+      app: polyphemus
+      tier: polyphemus
+  template:
+    metadata:
+      labels:
+        app: polyphemus
+        tier: polyphemus
+    spec:
+      {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.polyphemus) | nindent 6 }}
+      containers:
+        - name: polyphemus
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.polyphemus "global" .Values.global) | quote }}
+          imagePullPolicy: {{ .Values.polyphemus.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.polyphemus) | nindent 10 }}
+          ports:
+            - containerPort: {{ .Values.polyphemus.service.targetPort }}
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ include "rhesis.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          env:
+{{- include "rhesis.database.cnpgUserPassEnv" . | nindent 12 }}
+            - name: SQLALCHEMY_DATABASE_URL
+              {{- if .Values.database.existingSecret }}
+              value: "postgresql://$(SQLALCHEMY_APP_DB_USER):$(SQLALCHEMY_APP_DB_PASS)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
+              {{- else }}
+              value: "postgresql://$(SQLALCHEMY_DB_USER):$(SQLALCHEMY_DB_PASS)@$(SQLALCHEMY_DB_HOST):$(SQLALCHEMY_DB_PORT)/$(SQLALCHEMY_DB_NAME)"
+              {{- end }}
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            {{- with .Values.polyphemus.env }}
+            {{- range . }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.polyphemus.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.polyphemus.livenessProbe.httpGet.path | quote }}
+              port: {{ .Values.polyphemus.service.targetPort }}
+            initialDelaySeconds: {{ .Values.polyphemus.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.polyphemus.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.polyphemus.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.polyphemus.livenessProbe.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.polyphemus.readinessProbe.httpGet.path | quote }}
+              port: {{ .Values.polyphemus.service.targetPort }}
+            initialDelaySeconds: {{ .Values.polyphemus.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.polyphemus.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.polyphemus.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.polyphemus.readinessProbe.failureThreshold }}
+{{- end }}

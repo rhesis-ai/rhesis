@@ -3,13 +3,18 @@ kind: Kustomization
 
 resources:
   - ../../../base/external-secrets
+  # Both ExternalSecret resources below are synced by stg-external-secrets (same tree as the
+  # ESO Helm chart) so the ExternalSecret CRD is guaranteed to exist before apply.
+  - rhesis-app-secrets.yaml
+  - cnpg-gcs-externalsecret.yaml
+  - cnpg-role-credentials.yaml
 
 configMapGenerator:
   - name: eso-config
     literals:
-    # need to change to the actual project id and service account email for stg
-      - gcp-project-id=rhesis-dev-sandbox
-      - eso-service-account-email=eso-stg@rhesis-dev-sandbox.iam.gserviceaccount.com
+    # GCP project rhesis-stg; ESO uses dedicated GSA eso-stg in this project.
+      - gcp-project-id=rhesis-stg
+      - eso-service-account-email=eso-stg@rhesis-stg.iam.gserviceaccount.com
     options:
       annotations:
         config.kubernetes.io/local-config: "true"

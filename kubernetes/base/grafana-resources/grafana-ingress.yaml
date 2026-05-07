@@ -5,7 +5,7 @@ metadata:
   namespace: monitoring
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
     # Populates grafana-tls with a short-lived cert immediately so the Secret exists
     # while Let's Encrypt HTTP-01 completes; avoids Argo Ingress staying Degraded.
     cert-manager.io/issue-temporary-certificate: "true"

@@ -7,8 +7,9 @@ resources:
 configMapGenerator:
   - name: cert-manager-config
     literals:
-      - acme-email=admin@rhesis.ai # need to change to the actual email
+      - acme-email=asad.miah@rhesis.ai # need to change to the actual email
       - ingress-class=external
+      - cloudflare-gcp-secret=cloudflare-api-token-prd
     options:
       annotations:
         config.kubernetes.io/local-config: "true"
@@ -30,6 +31,11 @@ replacements:
           name: letsencrypt-prod
         fieldPaths:
           - spec.acme.email
+      - select:
+          kind: ClusterIssuer
+          name: letsencrypt-prod-dns01
+        fieldPaths:
+          - spec.acme.email
   - source:
       kind: ConfigMap
       name: cert-manager-config
@@ -45,3 +51,13 @@ replacements:
           name: letsencrypt-prod
         fieldPaths:
           - spec.acme.solvers.0.http01.ingress.class
+  - source:
+      kind: ConfigMap
+      name: cert-manager-config
+      fieldPath: data.cloudflare-gcp-secret
+    targets:
+      - select:
+          kind: ExternalSecret
+          name: cloudflare-cert-api-token
+        fieldPaths:
+          - spec.data.0.remoteRef.key
