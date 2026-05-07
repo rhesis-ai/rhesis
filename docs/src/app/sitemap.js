@@ -45,7 +45,6 @@ export default async function sitemap() {
 
   if (!contentDir) {
     // Minimal fallback when content dir is unavailable (e.g. partial build)
-    console.warn('[sitemap] Content directory not found; using minimal sitemap')
     addEntry('')
   } else {
     for (const filePath of getMdxFiles(contentDir)) {
