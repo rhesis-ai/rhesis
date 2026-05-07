@@ -14,8 +14,10 @@ TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
 def get_real_ip(request: Request) -> str:
     """Extract the real client IP, respecting trusted proxy depth.
 
-    If TRUSTED_PROXY_COUNT=1 (default, single load balancer), use the
-    last entry in X-Forwarded-For. If 0, use the socket address directly.
+    X-Forwarded-For format: client, proxy1, proxy2 (leftmost = original client).
+    With TRUSTED_PROXY_COUNT=1 (single load balancer) we strip the rightmost
+    entry (added by our proxy) and return the entry just before it.
+    If TRUSTED_PROXY_COUNT=0, use the socket address directly.
     """
     if TRUSTED_PROXY_COUNT == 0:
         return request.client.host if request.client else "unknown"
@@ -23,7 +25,8 @@ def get_real_ip(request: Request) -> str:
     xff = request.headers.get("X-Forwarded-For", "")
     if xff:
         ips = [ip.strip() for ip in xff.split(",")]
-        idx = max(0, len(ips) - TRUSTED_PROXY_COUNT)
+        # Subtract proxies + 1 so we land on the last untrusted entry.
+        idx = max(0, len(ips) - TRUSTED_PROXY_COUNT - 1)
         return ips[idx]
 
     return request.client.host if request.client else "unknown"
