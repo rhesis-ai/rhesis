@@ -16,7 +16,7 @@ import asyncio
 import logging
 from typing import Any
 
-from agent_framework import Agent, Message, Workflow
+from agent_framework import Agent, Content, Message, Workflow
 from agent_framework_orchestrations import HandoffBuilder, HandoffSentEvent
 
 from polymath.agents import create_coordinator, create_info_specialist, create_math_specialist
@@ -217,7 +217,14 @@ async def invoke_polymath_async(
     if conversation_history:
         # HandoffAgentExecutor (subclass of AgentExecutor) accepts
         # ``list[str | Message]`` as input -- see ``from_messages`` handler.
-        workflow_input: Any = [*conversation_history, Message("user", [user_message])]
+        # We build the new turn as an explicit ``Message`` with a
+        # ``list[Content]`` (matching the canonical shape used by MAF's own
+        # tests) instead of relying on ``contents=list[str]`` coercion, which
+        # is undocumented and varies across MAF releases.
+        workflow_input: Any = [
+            *conversation_history,
+            Message(role="user", contents=[Content.from_text(text=user_message)]),
+        ]
     else:
         workflow_input = user_message
 
