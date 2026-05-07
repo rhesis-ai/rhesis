@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-30T16:30:31.532747Z"
+exclude-newer = "2026-04-30T22:24:29.456923Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -5684,8 +5684,8 @@ requires-dist = [
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "transformers", marker = "extra == 'all'", specifier = ">=5.0.0rc3" },
-    { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=5.0.0rc3" },
+    { name = "transformers", marker = "extra == 'all'", specifier = ">=5.0.0" },
+    { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=5.0.0" },
     { name = "websockets", specifier = ">=12.0" },
 ]
 provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "all-integrations", "all"]
