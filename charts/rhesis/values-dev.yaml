@@ -3,10 +3,10 @@
 
 # ---------------------------------------------------------------------------
 # Global — GCP Artifact Registry for dev
-# Replace <project-id> with the actual GCP project ID (e.g. rhesis-dev-sandbox)
+# GCP project: rhesis-dev (Artifact Registry host below).
 # ---------------------------------------------------------------------------
 global:
-  registry: "europe-west4-docker.pkg.dev/rhesis-dev-sandbox/rhesis"
+  registry: "europe-west4-docker.pkg.dev/rhesis-dev/rhesis"
   imagePullPolicy: Always
   imageTag: "latest"
 
@@ -35,7 +35,7 @@ config:
   backendUrl: "http://backend:8080"
 
   # GCP
-  vertexAiProject: "rhesis-dev-sandbox"
+  vertexAiProject: "playground-437609"
 
   # AI model — Vertex defaults in dev (GEMINI_API_KEY + GOOGLE_APPLICATION_CREDENTIALS in ESO);
   # avoids requiring RHESIS_API_KEY for rhesis/rhesis-default

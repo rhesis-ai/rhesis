@@ -12,9 +12,9 @@ resources:
 configMapGenerator:
   - name: eso-config
     literals:
-    # Staging and dev share the same GCP project; ESO uses a dedicated stg GSA in this project
-      - gcp-project-id=rhesis-dev-sandbox
-      - eso-service-account-email=eso-stg@rhesis-dev-sandbox.iam.gserviceaccount.com
+    # GCP project rhesis-stg; ESO uses dedicated GSA eso-stg in this project.
+      - gcp-project-id=rhesis-stg
+      - eso-service-account-email=eso-stg@rhesis-stg.iam.gserviceaccount.com
     options:
       annotations:
         config.kubernetes.io/local-config: "true"

@@ -9,8 +9,8 @@ resources:
 configMapGenerator:
   - name: eso-config
     literals:
-      - gcp-project-id=rhesis-dev-sandbox
-      - eso-service-account-email=eso-dev@rhesis-dev-sandbox.iam.gserviceaccount.com
+      - gcp-project-id=rhesis-dev
+      - eso-service-account-email=eso-dev@rhesis-dev.iam.gserviceaccount.com
     options:
       annotations:
         config.kubernetes.io/local-config: "true"

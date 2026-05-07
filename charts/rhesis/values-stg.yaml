@@ -1,5 +1,5 @@
 # Staging environment overrides — merged on top of values.yaml by ArgoCD.
-# All envs use GCP project rhesis-dev-sandbox.
+# GCP project: rhesis-stg (Artifact Registry and Vertex AI below).
 #
 # Staging Auth0: create a dedicated application in the Auth0 tenant and set
 # nextPublicAuth0ClientId (and nextPublicAuth0Domain if using a custom domain)
@@ -9,7 +9,7 @@
 # Global — Artifact Registry
 # ---------------------------------------------------------------------------
 global:
-  registry: "europe-west4-docker.pkg.dev/rhesis-dev-sandbox/rhesis"
+  registry: "europe-west4-docker.pkg.dev/rhesis-stg/rhesis"
   imagePullPolicy: Always
   imageTag: "latest"
 
@@ -46,7 +46,7 @@ config:
   backendUrl: "http://backend:8080"
 
   # GCP
-  vertexAiProject: "rhesis-dev-sandbox"
+  vertexAiProject: "rhesis-stg"
 
   # AI / Vertex (same model stack as dev; override per staging policy if needed)
   geminiModelName: "gemini-2.5-flash-001"
