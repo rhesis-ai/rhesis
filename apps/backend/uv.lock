@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-04-20T11:50:58.936063Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6659,6 +6659,15 @@ dependencies = [
 requires-dist = [
     { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.2.0" },
+    { name = "agent-framework-core", marker = "extra == 'agent-framework'", specifier = ">=1.1.0" },
+    { name = "agent-framework-core", marker = "extra == 'all'", specifier = ">=1.1.0" },
+    { name = "agent-framework-core", marker = "extra == 'all-integrations'", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", marker = "extra == 'agent-framework'", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", marker = "extra == 'all'", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", marker = "extra == 'all-integrations'", specifier = ">=1.1.0" },
+    { name = "agent-framework-orchestrations", marker = "extra == 'agent-framework'", specifier = ">=1.0.0b260421" },
+    { name = "agent-framework-orchestrations", marker = "extra == 'all'", specifier = ">=1.0.0b260421" },
+    { name = "agent-framework-orchestrations", marker = "extra == 'all-integrations'", specifier = ">=1.0.0b260421" },
     { name = "aiohttp" },
     { name = "aiohttp-security" },
     { name = "aiohttp-session" },
@@ -6719,10 +6728,13 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'huggingface'", specifier = "==4.57.1" },
     { name = "websockets", specifier = ">=12.0" },
 ]
-provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "all-integrations", "all"]
+provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "agent-framework", "all-integrations", "all"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "agent-framework-core", specifier = ">=1.1.0" },
+    { name = "agent-framework-openai", specifier = ">=1.1.0" },
+    { name = "agent-framework-orchestrations", specifier = ">=1.0.0b260421" },
     { name = "garak", specifier = ">=0.14.0" },
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "mypy", specifier = "==1.15.0" },
