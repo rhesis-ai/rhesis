@@ -43,7 +43,7 @@ from agent_framework.observability import (  # noqa: E402
 )
 from opentelemetry import trace as otel_trace  # noqa: E402
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider  # noqa: E402
-from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: E402
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor  # noqa: E402
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E402
     InMemorySpanExporter,
 )
@@ -766,6 +766,45 @@ def test_integration_returns_false_when_provider_is_not_rhesis(
     integ = MAFIntegration()
     assert integ.enable() is False
     assert integ.enabled is False
+
+
+def test_integration_wraps_simple_span_processor_and_reverts_on_disable(
+    monkeypatch, reset_observability_settings
+):
+    """SimpleSpanProcessor exporters must also be wrapped + reverted.
+
+    Local/dev setups commonly attach a ``SimpleSpanProcessor`` (sync export,
+    easier to debug). Without coverage here, MAF's raw GenAI span names like
+    ``chat gpt-4`` would pass through untranslated and fail backend span-name
+    validation. This test uses a fresh isolated ``TracerProvider`` (not the
+    session one, which already has a BatchSpanProcessor attached) so we can
+    assert exactly one wrap and a clean revert.
+    """
+    captured = InMemorySpanExporter()
+    isolated_provider = TracerProvider()
+    ssp = SimpleSpanProcessor(captured)
+    isolated_provider.add_span_processor(ssp)
+
+    monkeypatch.setattr(otel_trace, "get_tracer_provider", lambda: isolated_provider)
+
+    original_exporter = ssp.span_exporter
+    assert original_exporter is captured
+
+    integ = MAFIntegration()
+    try:
+        assert integ.enable() is True
+        # The SimpleSpanProcessor's exporter is now the translating wrapper.
+        assert isinstance(ssp.span_exporter, MAFTranslatingExporter)
+        # The wrapper still delegates to the original in-memory exporter.
+        assert ssp.span_exporter.wrapped is captured
+        # The integration tracked the patch so disable() can revert it.
+        assert any(p is ssp for p, _ in integ._patched_processors)
+    finally:
+        integ.disable()
+
+    # After disable() the original exporter is restored.
+    assert ssp.span_exporter is original_exporter
+    assert not integ._patched_processors
 
 
 # ---------------------------------------------------------------------------

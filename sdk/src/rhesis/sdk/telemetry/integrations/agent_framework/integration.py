@@ -32,8 +32,12 @@ import logging
 from typing import Optional
 
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    SpanExporter,
+)
 
 from rhesis.sdk.telemetry.integrations.agent_framework.translator import (
     MAFLLMDedupSpanProcessor,
@@ -42,6 +46,17 @@ from rhesis.sdk.telemetry.integrations.agent_framework.translator import (
 from rhesis.sdk.telemetry.integrations.base import BaseIntegration
 
 logger = logging.getLogger(__name__)
+
+# Span-processor types whose underlying exporter we know how to swap out for
+# MAF translation. ``BatchSpanProcessor`` is what Rhesis installs by default;
+# ``SimpleSpanProcessor`` is common in local/dev setups (sync export, easier
+# debugging). Both expose their exporter via either ``span_exporter`` or the
+# private ``_batch_processor._exporter`` slot, both of which are handled by
+# :func:`_set_processor_exporter`.
+_WRAPPABLE_PROCESSORS: tuple[type[SpanProcessor], ...] = (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+)
 
 
 class MAFIntegration(BaseIntegration):
@@ -59,7 +74,7 @@ class MAFIntegration(BaseIntegration):
         super().__init__()
         self._dedup_processor: Optional[MAFLLMDedupSpanProcessor] = None
         # Original (processor, exporter) pairs we patched, so disable() can revert.
-        self._patched_processors: list[tuple[BatchSpanProcessor, SpanExporter]] = []
+        self._patched_processors: list[tuple[SpanProcessor, SpanExporter]] = []
         # Track whether the dedup processor has already been registered on the
         # TracerProvider. OTEL's TracerProvider exposes no removal API, so we
         # only ever ``add_span_processor`` once and rely on ``activate()`` /
@@ -187,7 +202,7 @@ class MAFIntegration(BaseIntegration):
 
         for processor, original_exporter in self._patched_processors:
             try:
-                _set_batch_processor_exporter(processor, original_exporter)
+                _set_processor_exporter(processor, original_exporter)
             except Exception:  # noqa: BLE001
                 logger.debug("Failed to revert exporter on processor %r", processor, exc_info=True)
         self._patched_processors.clear()
@@ -199,17 +214,19 @@ class MAFIntegration(BaseIntegration):
         logger.info("✗ Stopped observing agent_framework")
 
     def _wrap_existing_exporters(self, provider: TracerProvider) -> None:
-        """Find every BatchSpanProcessor on the provider and wrap its exporter.
+        """Find every wrappable span processor on the provider and wrap its exporter.
 
         Walks the provider's ``_active_span_processor`` (a multi-processor
-        composite) and replaces each batch processor's underlying exporter
-        with a :class:`MAFTranslatingExporter`. Already-translating exporters
-        are skipped so :meth:`enable` is idempotent.
+        composite) and replaces each :class:`BatchSpanProcessor` /
+        :class:`SimpleSpanProcessor` underlying exporter with a
+        :class:`MAFTranslatingExporter`. Already-translating exporters are
+        skipped so :meth:`enable` is idempotent.
 
-        OTEL Python's ``BatchSpanProcessor`` evolved: in older releases the
-        exporter was a settable attribute (``span_exporter``); in newer ones
-        it's a read-only property forwarding to ``_batch_processor._exporter``.
-        :func:`_set_batch_processor_exporter` handles both layouts.
+        Both ``BatchSpanProcessor`` and ``SimpleSpanProcessor`` expose their
+        exporter via ``span_exporter`` (older Batch / Simple) or via
+        ``_batch_processor._exporter`` (newer Batch). :func:`_set_processor_exporter`
+        handles both layouts. Other processor types (custom, multi-processor
+        composites, etc.) are left untouched.
         """
         try:
             multi = getattr(provider, "_active_span_processor", None)
@@ -221,7 +238,7 @@ class MAFIntegration(BaseIntegration):
         wrapped_count = 0
         already_wrapped_count = 0
         for child in children:
-            if not isinstance(child, BatchSpanProcessor):
+            if not isinstance(child, _WRAPPABLE_PROCESSORS):
                 continue
             current = getattr(child, "span_exporter", None)
             if current is None:
@@ -230,7 +247,7 @@ class MAFIntegration(BaseIntegration):
                 already_wrapped_count += 1
                 continue
             try:
-                _set_batch_processor_exporter(child, MAFTranslatingExporter(current))
+                _set_processor_exporter(child, MAFTranslatingExporter(current))
                 self._patched_processors.append((child, current))
                 wrapped_count += 1
                 logger.debug(
@@ -242,30 +259,40 @@ class MAFIntegration(BaseIntegration):
                 logger.warning("Failed to wrap exporter on processor %r", child, exc_info=True)
 
         if wrapped_count == 0 and already_wrapped_count == 0:
-            # No BatchSpanProcessor present (e.g. user has only a SimpleSpanProcessor
-            # for debugging, or no processors at all). MAF spans will pass through
-            # untranslated. Log loudly so the surprise is debuggable.
+            # No batch / simple span processor with a wrappable exporter
+            # (e.g. only a custom processor, or no processors at all). MAF
+            # spans will pass through untranslated and raw GenAI span names
+            # like ``chat gpt-4`` will fail backend span-name validation.
+            # Log loudly so the surprise is debuggable.
             logger.warning(
-                "agent_framework: no BatchSpanProcessor found on the active "
-                "TracerProvider; MAF spans will be emitted but not translated "
-                "into the Rhesis ai.* schema. Ensure RhesisClient is created "
-                "before auto_instrument()."
+                "agent_framework: no batch/simple span processor with a "
+                "wrappable exporter found on the active TracerProvider; "
+                "MAF spans will be emitted but not translated into the "
+                "Rhesis ai.* schema. Ensure RhesisClient is created before "
+                "auto_instrument()."
             )
 
 
-def _set_batch_processor_exporter(processor: BatchSpanProcessor, exporter: SpanExporter) -> None:
-    """Set the underlying exporter on a ``BatchSpanProcessor`` across SDK versions.
+def _set_processor_exporter(processor: SpanProcessor, exporter: SpanExporter) -> None:
+    """Set the underlying exporter on a span processor across OTEL SDK versions.
 
-    OTEL Python's BatchSpanProcessor used to expose ``span_exporter`` as a
-    settable attribute; newer versions wrap it in a read-only property that
-    delegates to ``self._batch_processor._exporter``. We try the inner
-    attribute first (newer layout), then fall back to direct assignment.
+    Works for both :class:`BatchSpanProcessor` and :class:`SimpleSpanProcessor`:
+
+    - Newer ``BatchSpanProcessor`` exposes the exporter as a read-only property
+      that delegates to ``self._batch_processor._exporter``; we set the inner
+      slot directly.
+    - Older ``BatchSpanProcessor`` and ``SimpleSpanProcessor`` keep
+      ``span_exporter`` as a plain settable attribute.
+
+    We try the inner attribute first (newer Batch layout), then fall back to
+    direct assignment (Simple / older Batch).
     """
     inner = getattr(processor, "_batch_processor", None)
     if inner is not None and hasattr(inner, "_exporter"):
         inner._exporter = exporter  # noqa: SLF001
         return
-    # Older OTEL SDK: span_exporter is a plain attribute we can set directly.
+    # Older OTEL Batch SDK or SimpleSpanProcessor: span_exporter is a plain
+    # attribute we can set directly.
     setattr(processor, "span_exporter", exporter)
 
 
