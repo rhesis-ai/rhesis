@@ -1,14 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dev-cnpg-operator
+  name: stg-cnpg-cluster
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
 spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
-    path: kubernetes/clusters/dev/cnpg-system
+    targetRevision: release/vX.X.X
+    path: kubernetes/clusters/stg/cnpg-cluster
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

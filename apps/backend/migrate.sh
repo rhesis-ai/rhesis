@@ -80,7 +80,7 @@ main() {
     log "${BLUE}🔄 Starting database migration process...${NC}"
     
     # Get database configuration from environment variables
-    DB_USER=${SQLALCHEMY_DB_USER:-rhesis-user}
+    DB_USER=${SQLALCHEMY_DB_USER:-rhesis-admin}
     DB_PASS=${SQLALCHEMY_DB_PASS:-your-secured-password}
     DB_HOST=${SQLALCHEMY_DB_HOST:-postgres}
     DB_NAME=${SQLALCHEMY_DB_NAME:-rhesis-db}

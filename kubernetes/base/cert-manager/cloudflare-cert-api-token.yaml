@@ -1,0 +1,19 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: cloudflare-cert-api-token
+  namespace: cert-manager
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: gcp-secret-manager
+    kind: ClusterSecretStore
+  target:
+    name: cloudflare-cert-api-token
+    creationPolicy: Owner
+  data:
+    - secretKey: api-token
+      remoteRef:
+        key: PLACEHOLDER

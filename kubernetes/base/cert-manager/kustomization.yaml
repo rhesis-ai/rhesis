@@ -6,3 +6,5 @@ resources:
   - cert-manager-application.yaml
   - cluster-issuer-staging.yaml
   - cluster-issuer-prod.yaml
+  - cluster-issuer-dns01.yaml
+  - cloudflare-cert-api-token.yaml

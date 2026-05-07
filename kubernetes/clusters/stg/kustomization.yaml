@@ -18,3 +18,8 @@ resources:
   - loki.yaml
   - alloy.yaml
   - grafana-resources.yaml
+  - rhesis/namespace.yaml
+  # The DB cluster is deployed via its own Application so it waits for the operator's CRDs
+  - cnpg-cluster-application.yaml
+  # rhesis-app-secrets: see clusters/stg/external-secrets/rhesis-app-secrets.yaml
+  - rhesis/rhesis-application.yaml

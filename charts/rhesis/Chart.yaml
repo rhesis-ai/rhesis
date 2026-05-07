@@ -1,0 +1,24 @@
+apiVersion: v2
+name: rhesis
+description: Rhesis AI Platform — Frontend, Backend, Workers, Chatbot, Polyphemus, Docs
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Rhesis Team
+
+dependencies:
+  - name: valkey
+    version: "~2.x"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
+    condition: valkey.enabled
+
+  - name: postgresql
+    version: "~15.x"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
+    condition: postgresql.enabled
+
+  - name: opentelemetry-collector
+    version: "~0.x"
+    repository: "https://open-telemetry.github.io/opentelemetry-helm-charts"
+    condition: opentelemetry-collector.enabled

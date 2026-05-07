@@ -1,0 +1,76 @@
+# CloudNativePG: HA PostgreSQL for production.
+# Operator Application: kubernetes/clusters/prd/cnpg-operator.yaml
+# Argo CD Application: kubernetes/clusters/prd/cnpg-cluster-application.yaml (sync-wave 5)
+#
+# Secrets and bootstrap notes: see kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: rhesis-prd
+  namespace: rhesis
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  description: "Rhesis production PostgreSQL (CloudNativePG)"
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.4-1
+  storage:
+    size: 100Gi
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 4Gi
+  postgresql:
+    parameters:
+      max_connections: "300"
+  primaryUpdateStrategy: unsupervised
+  managed:
+    roles:
+      - name: rhesis-admin
+        ensure: present
+        login: true
+        bypassrls: true
+        passwordSecret:
+          name: rhesis-admin-credentials
+      - name: rhesis-user
+        ensure: present
+        login: true
+        bypassrls: false
+        passwordSecret:
+          name: rhesis-user-credentials
+      - name: rhesis-analytics-user
+        ensure: present
+        login: true
+        bypassrls: false
+        passwordSecret:
+          name: rhesis-analytics-user-credentials
+  bootstrap:
+    initdb:
+      database: rhesis-prod-db
+      owner: rhesis-admin
+      postInitSQL:
+        - CREATE ROLE "rhesis-user" LOGIN;
+        - CREATE ROLE "rhesis-analytics-user" LOGIN;
+        - CREATE DATABASE "rhesis-analytics-prd-db" OWNER "rhesis-analytics-user";
+        - GRANT CONNECT ON DATABASE "rhesis-analytics-prd-db" TO "rhesis-admin";
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - CREATE EXTENSION IF NOT EXISTS vector;
+        - GRANT CONNECT ON DATABASE "rhesis-prod-db" TO "rhesis-user";
+        - GRANT USAGE ON SCHEMA public TO "rhesis-user";
+        - GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
+        - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON TABLES TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
+  backup:
+    retentionPolicy: 30d
+    barmanObjectStore:
+      destinationPath: gs://cnpg-backup-rhesis-prd
+      serverName: rhesis-prd
+      googleCredentials:
+        applicationCredentials:
+          name: rhesis-prd-cnpg-gcs
+          key: key.json
