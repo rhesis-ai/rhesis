@@ -154,14 +154,17 @@ class FeatureRegistry:
         return True
 
     @classmethod
-    def is_available(cls, name: FeatureNameLike, org: Organization) -> bool:
+    def is_available(cls, name: FeatureNameLike, org: Optional[Organization]) -> bool:
         """Return ``True`` iff *name* is registered, licensed for *org*, and
         passes its runtime check.
 
         Organization is required: feature gating without org context cannot
         consult the license provider, which is precisely what
-        :meth:`is_registered` exists for.
+        :meth:`is_registered` exists for. Passing ``None`` fails closed —
+        a user with no associated organization is never granted EE features.
         """
+        if org is None:
+            return False
         key = cls._coerce(name)
         if key is None:
             return False
@@ -175,7 +178,7 @@ class FeatureRegistry:
         return True
 
     @classmethod
-    def enabled_features(cls, org: Organization) -> list[Feature]:
+    def enabled_features(cls, org: Optional[Organization]) -> list[Feature]:
         """Return all EE features currently available for *org*."""
         return [f for f in cls._features.values() if cls.is_available(f.name, org)]
 

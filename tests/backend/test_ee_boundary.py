@@ -15,13 +15,11 @@ the test runs in milliseconds and needs only Python plus pytest.
 
 Limits
 ------
-The check catches **module-level** imports only. A function-body import
-(``from rhesis.backend.ee import x`` inside a function) would not be
-flagged. That pattern would still violate the architectural rule, but
-it is also a code smell on its own; CODEOWNERS review on ``apps/backend/``
-is the secondary line of defence. Catching dynamic imports
-(``importlib.import_module``, ``__import__``) is intentionally out of
-scope — the goal is a fast guard against the common mistake.
+The check flags **all static imports** in a file — including those inside
+function or method bodies — because ``ast.walk`` traverses the entire AST.
+Dynamic imports (``importlib.import_module``, ``__import__``) are
+intentionally out of scope; the goal is a fast guard against the common
+mistake, not an exhaustive import tracker.
 """
 
 from __future__ import annotations

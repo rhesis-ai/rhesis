@@ -316,8 +316,8 @@ async def get_providers(
         # organization=None and produce a base provider list.
         try:
             organization = _resolve_org_by_id_or_slug(db, org)
-        except Exception:
-            organization = None
+        except Exception as exc:
+            logger.warning("Unexpected error resolving org %r for /auth/providers: %s", org, exc)
 
     providers = apply_enrichers(providers, organization)
 

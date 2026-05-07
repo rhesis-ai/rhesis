@@ -41,20 +41,6 @@ logs/
 *.tmp
 *.temp
 
-# Directories not needed for the frontend Docker build.
-# Keeps the build context lean when running:
-#   docker build -f apps/frontend/Dockerfile .
-sdk/
-docs/
-apps/backend/
-apps/worker/
-apps/chatbot/
-ee/backend/
-infrastructure/
-tests/
-.git/
-.github/
-.cursor/
 node_modules/
 **/node_modules/
 **/.next/
