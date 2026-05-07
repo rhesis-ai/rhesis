@@ -10,15 +10,25 @@
  *   → responds   text/markdown with clean markdown of that page
  */
 
-import { notFound } from 'next/navigation'
 import { findContentDir, urlToFilePath } from '../../../../lib/content-index.js'
 import { cleanMdxToMarkdown } from '../../../../lib/mdx-to-markdown.js'
 import { siteConfig } from '../../../../lib/site-config.js'
 import fs from 'fs'
 
-export const dynamic = 'force-dynamic'
+// ISR: per-page markdown is build-time content; revalidate hourly.
+export const revalidate = 3600
+
+/** 404 with text/markdown body so clients that asked for .md get markdown back. */
+function notFoundResponse() {
+  return new Response('# 404\n\nPage not found.\n', {
+    status: 404,
+    headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+  })
+}
 
 export async function GET(_request, { params }) {
+  // In Next.js 15, `params` is a Promise in route handlers (async request
+  // APIs). Awaiting is required.
   const { slug } = await params
 
   // Reconstruct the URL path from the slug array
@@ -26,19 +36,20 @@ export async function GET(_request, { params }) {
 
   const contentDir = findContentDir()
   if (!contentDir) {
-    return new Response('Documentation not available', { status: 503 })
+    return new Response('# 503\n\nDocumentation not available.\n', {
+      status: 503,
+      headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+    })
   }
 
   const filePath = urlToFilePath(urlPath, contentDir)
-  if (!filePath) {
-    notFound()
-  }
+  if (!filePath) return notFoundResponse()
 
   let rawSource
   try {
     rawSource = fs.readFileSync(filePath, 'utf8')
   } catch {
-    notFound()
+    return notFoundResponse()
   }
 
   const canonicalUrl = urlPath ? `${siteConfig.siteUrl}/${urlPath}` : siteConfig.siteUrl

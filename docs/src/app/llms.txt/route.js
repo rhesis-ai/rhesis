@@ -21,14 +21,16 @@
  */
 
 import {
-  getAllPages,
+  getAllPagesCached,
   SECTION_ORDER,
   SECTION_LABELS,
   OPTIONAL_SECTIONS,
 } from '../../lib/content-index.js'
 import { siteConfig } from '../../lib/site-config.js'
 
-export const dynamic = 'force-dynamic'
+// ISR: regenerate at most once an hour. Origin still benefits from the
+// in-memory page cache in content-index.js between revalidations.
+export const revalidate = 3600
 
 /** Builds a canonical URL for a given URL path. */
 function pageUrl(urlPath) {
@@ -43,7 +45,7 @@ function mdUrl(urlPath) {
 }
 
 export async function GET() {
-  const { bySection } = getAllPages()
+  const { bySection } = getAllPagesCached()
 
   const lines = []
 

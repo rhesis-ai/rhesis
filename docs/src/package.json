@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "scripts": {
     "generate-glossary": "node ../scripts/generate-glossary-pages.js",
     "prebuild": "npm run generate-glossary",
@@ -11,7 +12,8 @@
     "lint:errors": "eslint . --ext .js,.jsx,.ts,.tsx --max-warnings 0",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test": "node --test --test-reporter=spec lib/__tests__"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

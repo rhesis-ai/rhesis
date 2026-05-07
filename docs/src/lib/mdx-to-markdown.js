@@ -225,9 +225,19 @@ export function cleanMdxToMarkdown(source, meta = {}) {
 
   // -------------------------------------------------------------------------
   // Step 6: Drop remaining JSX expressions {expr}.
-  //   Use a conservative pattern to avoid disrupting markdown.
+  //   Only strip braces whose contents look like a real JS expression
+  //   (contain JS-specific syntax). Plain identifier-only braces such as
+  //   `{id}` or path placeholders like `/test_results/{id}` are PRESERVED so
+  //   that prose using brace notation survives intact.
   // -------------------------------------------------------------------------
-  result = result.replace(/\{[^}\n]{0,200}\}/g, '')
+  // Characters that are strong indicators of a JS expression (operators,
+  // calls, member access, spread, string/template literals, comparisons).
+  // Plain identifiers/words/digits/hyphens won't match.
+  const JSX_EXPR_SIGNALS = /[(){}[\]=,?:&|<>+*/`'"]|\.{2,}/
+  result = result.replace(/\{([^}\n]{0,200})\}/g, (match, inner) => {
+    if (JSX_EXPR_SIGNALS.test(inner)) return ''
+    return match
+  })
 
   // -------------------------------------------------------------------------
   // Step 7: Restore protected code blocks.

@@ -93,7 +93,28 @@ export function filePathToUrl(filePath) {
 }
 
 /**
- * Resolves a URL path back to an absolute .mdx file path, or null if not found.
+ * Returns the resolved absolute path if it lives inside `baseDir`, otherwise null.
+ * This is the defensive check that prevents `..`-style path traversal in
+ * urlToFilePath and any other consumer that turns user-controlled input into a
+ * filesystem path.
+ *
+ * @param {string} candidate - Path that may include traversal segments
+ * @param {string} baseDir - Directory the result must be contained in
+ * @returns {string|null}
+ */
+function resolveWithinBase(candidate, baseDir) {
+  const resolvedBase = path.resolve(baseDir)
+  const resolved = path.resolve(candidate)
+  if (resolved !== resolvedBase && !resolved.startsWith(resolvedBase + path.sep)) {
+    return null
+  }
+  return resolved
+}
+
+/**
+ * Resolves a URL path back to an absolute .mdx file path, or null if not found
+ * or if the resolved path escapes `contentDir` (path traversal).
+ *
  * Tries "<urlPath>.mdx" first, then "<urlPath>/index.mdx".
  *
  * @param {string} urlPath - e.g. "docs/getting-started"
@@ -101,14 +122,25 @@ export function filePathToUrl(filePath) {
  * @returns {string|null}
  */
 export function urlToFilePath(urlPath, contentDir) {
+  // Reject anything that isn't a plain forward-slash URL path. This catches
+  // ".." segments, backslashes, NUL bytes, and absolute paths before we ever
+  // touch the filesystem.
+  if (typeof urlPath !== 'string') return null
+  if (urlPath.includes('\0') || urlPath.includes('\\')) return null
+  if (urlPath.startsWith('/')) return null
+  if (urlPath.split('/').some(seg => seg === '..' || seg === '.')) return null
+
   if (!urlPath) {
-    const p = path.join(contentDir, 'index.mdx')
-    return fs.existsSync(p) ? p : null
+    const p = resolveWithinBase(path.join(contentDir, 'index.mdx'), contentDir)
+    return p && fs.existsSync(p) ? p : null
   }
-  const direct = path.join(contentDir, `${urlPath}.mdx`)
-  if (fs.existsSync(direct)) return direct
-  const index = path.join(contentDir, urlPath, 'index.mdx')
-  if (fs.existsSync(index)) return index
+
+  const direct = resolveWithinBase(path.join(contentDir, `${urlPath}.mdx`), contentDir)
+  if (direct && fs.existsSync(direct)) return direct
+
+  const index = resolveWithinBase(path.join(contentDir, urlPath, 'index.mdx'), contentDir)
+  if (index && fs.existsSync(index)) return index
+
   return null
 }
 
@@ -130,6 +162,19 @@ function getSection(urlPath) {
   if (!urlPath) return 'docs'
   const first = urlPath.split('/')[0]
   return SECTION_ORDER.includes(first) ? first : 'docs'
+}
+
+/**
+ * Truncates a description to ~160 chars at a word boundary, matching the
+ * shape produced by extractDescription so that synthesized entries (e.g.
+ * glossary terms loaded from JSONL) read consistently with real pages.
+ */
+function truncateDescription(text, max = 160) {
+  if (!text) return null
+  const normalized = String(text).replace(/\s+/g, ' ').trim()
+  if (!normalized) return null
+  if (normalized.length <= max) return normalized
+  return `${normalized.substring(0, max)}...`
 }
 
 /**
@@ -183,18 +228,23 @@ export function getGlossaryTerms(contentDir) {
   try {
     if (!fs.existsSync(jsonlPath)) return []
     const raw = fs.readFileSync(jsonlPath, 'utf8')
-    return raw
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map(line => {
-        try {
-          return JSON.parse(line)
-        } catch {
-          return null
-        }
-      })
-      .filter(Boolean)
+    return (
+      raw
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map(line => {
+          try {
+            return JSON.parse(line)
+          } catch {
+            return null
+          }
+        })
+        // Drop rows that don't have a usable `id`. Without this guard, malformed
+        // entries would produce `glossary/undefined` URLs in the sitemap and
+        // llms.txt — and 404s when followed.
+        .filter(row => row && typeof row.id === 'string' && row.id.trim().length > 0)
+    )
   } catch {
     return []
   }
@@ -246,7 +296,7 @@ export function getAllPages() {
       const synth = {
         urlPath,
         title: term.term || humanizeSlug(term.id),
-        description: term.definition || null,
+        description: truncateDescription(term.definition),
         section: 'glossary',
         rawSource: null,
       }
@@ -266,4 +316,31 @@ export function getAllPages() {
   }
 
   return { bySection, all, contentDir }
+}
+
+// ---------------------------------------------------------------------------
+// Memoized accessor
+// ---------------------------------------------------------------------------
+
+let _cachedPages = null
+
+/**
+ * Same as getAllPages() but cached for the lifetime of the Node process.
+ *
+ * The content tree is a build-time constant in production (Next ISR rebuilds
+ * the whole bundle on deploy), so a process-level cache is safe and avoids
+ * re-reading 200+ MDX files on every request to /llms.txt, /llms-full.txt, or
+ * /<page>.md. Routes layer their own ISR (`revalidate`) on top of this.
+ *
+ * Use clearPagesCache() to reset (test only).
+ */
+export function getAllPagesCached() {
+  if (_cachedPages) return _cachedPages
+  _cachedPages = getAllPages()
+  return _cachedPages
+}
+
+/** Clears the in-memory page cache. Intended for tests. */
+export function clearPagesCache() {
+  _cachedPages = null
 }

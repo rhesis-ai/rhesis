@@ -6,12 +6,11 @@ export function middleware(request) {
   // Rewrite /<page>.md requests to the internal markdown API route.
   // This powers the "any page as raw markdown" feature: append .md to any
   // docs URL to get clean markdown suitable for LLM ingestion.
-  if (
-    pathname.endsWith('.md') &&
-    pathname.length > 3 &&
-    !pathname.startsWith('/api/') &&
-    !pathname.startsWith('/_next/')
-  ) {
+  //
+  // The matcher below already excludes /api/* and parts of /_next/*, but
+  // /_next/data and similar can still reach this middleware, so keep a
+  // narrow guard for that one prefix.
+  if (pathname.endsWith('.md') && pathname.length > 3 && !pathname.startsWith('/_next/')) {
     const slug = pathname.slice(1, -3) // strip leading "/" and trailing ".md"
     const url = request.nextUrl.clone()
     url.pathname = `/api/md/${slug}`

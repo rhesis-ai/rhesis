@@ -1,4 +1,4 @@
-import { siteConfig } from './site-config'
+import { siteConfig } from './site-config.js'
 
 /**
  * Generates canonical URL for a given path
@@ -101,12 +101,19 @@ export function generatePageMetadata(
     creator: config.author.name,
     publisher: config.organization.name,
 
-    // Canonical URL + raw markdown alternate (for LLM ingestion)
+    // Canonical URL + raw markdown alternate (for LLM ingestion).
+    // Skip the root page: appending ".md" to the bare site URL produces
+    // "https://docs.rhesis.ai.md" which is not a valid URL and not a route
+    // we serve. Site-wide /llms.txt and /llms-full.txt cover the root.
     alternates: {
       canonical: canonicalUrl,
-      types: {
-        'text/markdown': `${canonicalUrl}.md`,
-      },
+      ...(urlPath
+        ? {
+            types: {
+              'text/markdown': `${canonicalUrl}.md`,
+            },
+          }
+        : {}),
     },
 
     // OpenGraph

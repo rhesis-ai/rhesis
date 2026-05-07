@@ -1,8 +1,10 @@
 /**
  * /llms-full.txt — full documentation corpus for LLM ingestion.
  *
- * Concatenates every page's cleaned markdown, separated by comment delimiters
- * that make it easy for an LLM to identify page boundaries:
+ * Concatenates every page's cleaned markdown. Each page's per-page YAML
+ * frontmatter (emitted by cleanMdxToMarkdown) doubles as the page boundary —
+ * an extra "---" separator between pages would produce ambiguous double
+ * fences and confuse parsers, so we rely solely on the frontmatter blocks:
  *
  *   # Rhesis Documentation (full)
  *
@@ -15,6 +17,8 @@
  *
  *   ---
  *   url: https://docs.rhesis.ai/docs/concepts
+ *   title: Concepts
+ *   ---
  *   ...
  *
  * Page order:  docs → guides → sdk → contribute → glossary → changelog
@@ -22,14 +26,16 @@
  * MDX rawSource) are skipped — their content is in the primary glossary index.
  */
 
-import { getAllPages, SECTION_ORDER } from '../../lib/content-index.js'
+import { getAllPagesCached, SECTION_ORDER } from '../../lib/content-index.js'
 import { cleanMdxToMarkdown } from '../../lib/mdx-to-markdown.js'
 import { siteConfig } from '../../lib/site-config.js'
 
-export const dynamic = 'force-dynamic'
+// ISR: regenerate at most once an hour. Origin still benefits from the
+// in-memory page cache in content-index.js between revalidations.
+export const revalidate = 3600
 
 export async function GET() {
-  const { bySection } = getAllPages()
+  const { bySection } = getAllPagesCached()
 
   const chunks = []
 
@@ -61,8 +67,6 @@ export async function GET() {
 
       chunks.push(cleaned)
       chunks.push('')
-      chunks.push('---')
-      chunks.push('')
     }
   }
 
@@ -71,7 +75,7 @@ export async function GET() {
   return new Response(content, {
     status: 200,
     headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Type': 'text/markdown; charset=utf-8',
       'Cache-Control': 'public, max-age=3600, s-maxage=3600',
     },
   })
