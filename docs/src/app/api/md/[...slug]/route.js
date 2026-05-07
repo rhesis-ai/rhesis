@@ -41,9 +41,7 @@ export async function GET(_request, { params }) {
     notFound()
   }
 
-  const canonicalUrl = urlPath
-    ? `${siteConfig.siteUrl}/${urlPath}`
-    : siteConfig.siteUrl
+  const canonicalUrl = urlPath ? `${siteConfig.siteUrl}/${urlPath}` : siteConfig.siteUrl
 
   // Extract title from source for the frontmatter block
   const h1Match = rawSource.match(/^#\s+(.+)$/m)

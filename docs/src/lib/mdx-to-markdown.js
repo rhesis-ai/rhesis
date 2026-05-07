@@ -63,19 +63,16 @@ export function cleanMdxToMarkdown(source, meta = {}) {
   //   <CodeBlock language="bash">{`content`}</CodeBlock>
   //   <CodeBlock filename="file.py" language="python">{`content`}</CodeBlock>
   // -------------------------------------------------------------------------
-  result = result.replace(
-    /<CodeBlock\s([^>]*?)>([\s\S]*?)<\/CodeBlock>/gs,
-    (_, attrStr, inner) => {
-      const lang = attr(attrStr, 'language') || ''
-      // Extract content from template literal expression {`...`}
-      const tmplMatch = inner.match(/\{`([\s\S]*?)`\}/)
-      const code = tmplMatch ? tmplMatch[1].trim() : inner.trim()
-      if (!code) return ''
-      const block = `\`\`\`${lang}\n${code}\n\`\`\``
-      codeBlocks.push(block)
-      return `\x00CB${codeBlocks.length - 1}\x00`
-    }
-  )
+  result = result.replace(/<CodeBlock\s([^>]*?)>([\s\S]*?)<\/CodeBlock>/gs, (_, attrStr, inner) => {
+    const lang = attr(attrStr, 'language') || ''
+    // Extract content from template literal expression {`...`}
+    const tmplMatch = inner.match(/\{`([\s\S]*?)`\}/)
+    const code = tmplMatch ? tmplMatch[1].trim() : inner.trim()
+    if (!code) return ''
+    const block = `\`\`\`${lang}\n${code}\n\`\`\``
+    codeBlocks.push(block)
+    return `\x00CB${codeBlocks.length - 1}\x00`
+  })
 
   // -------------------------------------------------------------------------
   // Step 3: Remove import / export statements (at line start).
@@ -164,7 +161,7 @@ export function cleanMdxToMarkdown(source, meta = {}) {
     // Block form with children
     result = result.replace(new RegExp(`<${comp}[\\s\\S]*?<\\/${comp}>`, 'gs'), '')
     // Self-closing (may span multiple lines due to props)
-    result = result.replace(new RegExp(`<${comp}(\\s[^>]*)?\\/>`,'gs'), '')
+    result = result.replace(new RegExp(`<${comp}(\\s[^>]*)?\\/>`, 'gs'), '')
   }
 
   // -------------------------------------------------------------------------
@@ -204,7 +201,23 @@ export function cleanMdxToMarkdown(source, meta = {}) {
   result = result.replace(/<[A-Z][A-Za-z0-9.]*(?:\s[^>]*)?>/gs, '')
 
   // Block-level HTML elements to strip (keep inline like strong/em/code)
-  const BLOCK_HTML = ['div', 'section', 'article', 'aside', 'header', 'footer', 'nav', 'main', 'span', 'figure', 'figcaption', 'details', 'summary', 'br', 'hr']
+  const BLOCK_HTML = [
+    'div',
+    'section',
+    'article',
+    'aside',
+    'header',
+    'footer',
+    'nav',
+    'main',
+    'span',
+    'figure',
+    'figcaption',
+    'details',
+    'summary',
+    'br',
+    'hr',
+  ]
   for (const tag of BLOCK_HTML) {
     result = result.replace(new RegExp(`<${tag}(?:\\s[^>]*)?\\/?>`, 'gi'), '')
     result = result.replace(new RegExp(`<\\/${tag}>`, 'gi'), '')

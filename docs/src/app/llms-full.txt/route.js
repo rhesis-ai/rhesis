@@ -37,12 +37,8 @@ export async function GET() {
   chunks.push('')
   chunks.push(`> ${siteConfig.siteDescription}`)
   chunks.push('')
-  chunks.push(
-    `> This file contains the complete documentation corpus for LLM ingestion.`
-  )
-  chunks.push(
-    `> For a curated index with links, see ${siteConfig.siteUrl}/llms.txt`
-  )
+  chunks.push(`> This file contains the complete documentation corpus for LLM ingestion.`)
+  chunks.push(`> For a curated index with links, see ${siteConfig.siteUrl}/llms.txt`)
   chunks.push('')
 
   for (const sec of SECTION_ORDER) {
