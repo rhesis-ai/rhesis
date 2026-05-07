@@ -167,9 +167,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     const returnTo = searchParams.get('return_to') || '/dashboard';
 
     if (provider.login_url) {
-      const loginUrl = new URL(
-        `${getClientApiBaseUrl()}${provider.login_url}`
-      );
+      const loginUrl = new URL(`${getClientApiBaseUrl()}${provider.login_url}`);
       loginUrl.searchParams.set('return_to', returnTo);
       window.location.href = loginUrl.toString();
       return;

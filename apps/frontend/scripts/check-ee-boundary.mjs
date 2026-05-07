@@ -56,7 +56,14 @@ const PATTERNS = [
 ];
 
 const FILE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
-const SKIP_DIRS = new Set(['node_modules', '.next', 'dist', 'build', 'coverage', 'out']);
+const SKIP_DIRS = new Set([
+  'node_modules',
+  '.next',
+  'dist',
+  'build',
+  'coverage',
+  'out',
+]);
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -95,7 +102,9 @@ function findViolations() {
 
 const violations = findViolations();
 if (violations.length > 0) {
-  console.error('EE boundary violation: core may not import from @rhesis/ee-frontend.\n');
+  console.error(
+    'EE boundary violation: core may not import from @rhesis/ee-frontend.\n'
+  );
   console.error('Move the EE-specific code into ee/frontend/, or plug into');
   console.error('a registry in apps/frontend/src/lib/extension-registries/');
   console.error('and register it from ee/frontend/src/bootstrap.ts.\n');
@@ -106,4 +115,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('OK: no @rhesis/ee-frontend imports found in core (apps/frontend/src/).');
+console.log(
+  'OK: no @rhesis/ee-frontend imports found in core (apps/frontend/src/).'
+);

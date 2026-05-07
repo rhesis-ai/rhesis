@@ -64,7 +64,9 @@ export function FeaturesProvider({ children }: { children: ReactNode }) {
     setState(DEFAULT_STATE);
 
     let cancelled = false;
-    const client = new ApiClientFactory(session.session_token).getFeaturesClient();
+    const client = new ApiClientFactory(
+      session.session_token
+    ).getFeaturesClient();
 
     client
       .getFeatures()
