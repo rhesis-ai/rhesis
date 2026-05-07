@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 
 from dotenv import load_dotenv
 
@@ -35,14 +36,12 @@ QUERY = (
 async def main() -> None:
     load_dotenv()
 
-    client = RhesisClient.from_environment()
-    if client and not getattr(client, "project_id", None):
-        logger.warning(
-            "No RHESIS_PROJECT_ID found; falling back to DisabledClient. "
-            "Traces will NOT be shipped to the backend."
-        )
-        client = DisabledClient()
-    else:
+    # Gate construction on the credentials themselves: ``RhesisClient.__init__``
+    # eagerly installs OTEL providers + the Rhesis OTLP exporter, so building
+    # one without an API key / project id would attempt outbound exports
+    # against ``project_id="unknown"`` with ``Authorization: Bearer None``.
+    if os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"):
+        client = RhesisClient.from_environment()
         logger.info(
             "RhesisClient initialised: project=%s base_url=%s",
             getattr(client, "project_id", None),

@@ -32,12 +32,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 
 from dotenv import load_dotenv
 
 from polymath.workflow import build_workflow, invoke_polymath_async
 from rhesis.sdk import RhesisClient
+from rhesis.sdk.clients import DisabledClient
 from rhesis.sdk.telemetry import auto_instrument
 
 logging.basicConfig(
@@ -85,15 +87,21 @@ async def _run_one(workflow, label: str, query: str) -> None:
 async def main() -> None:
     load_dotenv()
 
-    # Initialise Rhesis client and turn on the MAF integration. If
-    # RHESIS_API_KEY / RHESIS_PROJECT_ID are not set the client falls back to
-    # the disabled client and traces stay local; the workflow still runs.
-    client = RhesisClient.from_environment()
-    if client and not getattr(client, "project_id", None):
-        from rhesis.sdk.clients import DisabledClient
-
-        logger.info("No RHESIS_PROJECT_ID set; using DisabledClient (no remote traces).")
-        client = DisabledClient()
+    # Initialise Rhesis client and turn on the MAF integration. We gate
+    # construction on the credentials themselves: ``RhesisClient.__init__``
+    # eagerly installs OTEL providers + the Rhesis OTLP exporter, so building
+    # one without an API key / project id would attempt outbound exports
+    # against ``project_id="unknown"`` with ``Authorization: Bearer None``.
+    # The constructor side-effect (registering as the default client for
+    # ``@endpoint`` / ``@observe``) is all we need here, so we discard the
+    # returned instance.
+    if os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"):
+        RhesisClient.from_environment()
+    else:
+        logger.info(
+            "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient (no remote traces)."
+        )
+        DisabledClient()
 
     enabled = auto_instrument("agent_framework")
     logger.info("auto_instrument('agent_framework') -> %s", enabled)

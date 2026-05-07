@@ -9,6 +9,7 @@ both demo agents look familiar.
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from contextlib import asynccontextmanager
 
@@ -19,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from polymath.workflow import build_workflow, invoke_polymath
 from rhesis.sdk import RhesisClient, endpoint
+from rhesis.sdk.clients import DisabledClient
 from rhesis.sdk.telemetry import auto_instrument
 
 logging.basicConfig(
@@ -30,14 +32,19 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Initialise the Rhesis client so ``@endpoint`` and ``auto_instrument`` have a
-# tracer provider to attach to. If no project_id is configured we fall back to
-# the disabled client (mirrors the research-assistant behaviour).
-rhesis_client = RhesisClient.from_environment()
-
-if rhesis_client and not getattr(rhesis_client, "project_id", None):
-    logger.info("No project_id found, defaulting to DisabledClient")
-    from rhesis.sdk.clients import DisabledClient
-
+# tracer provider to attach to. We gate construction on the credentials
+# themselves: ``RhesisClient.__init__`` eagerly installs OTEL providers and
+# tries to ship spans, so instantiating it without an API key / project id
+# would attempt outbound exports against ``project_id="unknown"`` with
+# ``Authorization: Bearer None``. Falling back to ``DisabledClient`` *before*
+# construction is the only way to actually keep telemetry off.
+if os.getenv("RHESIS_API_KEY") and os.getenv("RHESIS_PROJECT_ID"):
+    rhesis_client = RhesisClient.from_environment()
+else:
+    logger.info(
+        "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
+        "Traces will NOT be shipped to the backend."
+    )
     rhesis_client = DisabledClient()
 
 # THE line under test: turn on the SDK's MAF integration.
