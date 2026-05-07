@@ -4,6 +4,13 @@ import { Box, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import { BetaBadge } from '../components/common/BetaBadge';
 import '../styles/fonts.css';
+// Side-effect import: registers EE features into core's extension
+// registries at module load. The actual @rhesis/ee-frontend import is
+// contained in ee_bootstrap.ts (the only file allowed to do so). This
+// pulls EE registrations into the server bundle; the same module is also
+// pulled into the client bundle via consumers like the organization
+// settings page, so registry state is populated wherever it is read.
+import '../ee_bootstrap';
 import {
   DashboardIcon,
   ScienceIcon,

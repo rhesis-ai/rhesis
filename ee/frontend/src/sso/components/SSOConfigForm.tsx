@@ -26,17 +26,13 @@ import {
   Add as AddIcon,
   ContentCopy as CopyIcon,
 } from '@mui/icons-material';
-import { Organization, SSOConfig, SSOTestResult } from '@/utils/api-client/interfaces/organization';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { useOrgSettings } from '@/contexts/OrgSettingsContext';
+import { SSOClient } from '../api/sso-client';
+import type { SSOConfig, SSOTestResult } from '../types';
+
 const SSO_DISPLAY_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
-
-interface SSOConfigFormProps {
-  organization: Organization;
-  sessionToken: string;
-  onUpdate: () => void;
-}
 
 const DEFAULT_SSO_CONFIG: SSOConfig = {
   enabled: false,
@@ -52,11 +48,8 @@ const DEFAULT_SSO_CONFIG: SSOConfig = {
   slug: '',
 };
 
-export default function SSOConfigForm({
-  organization,
-  sessionToken,
-  onUpdate,
-}: SSOConfigFormProps) {
+export default function SSOConfigForm() {
+  const { organization, sessionToken, onUpdate } = useOrgSettings();
   const notifications = useNotifications();
   const [formData, setFormData] = useState<SSOConfig>(DEFAULT_SSO_CONFIG);
   const [initialData, setInitialData] = useState<string>('');
@@ -75,8 +68,7 @@ export default function SSOConfigForm({
 
   const loadSSOConfig = useCallback(async () => {
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const client = apiFactory.getOrganizationsClient();
+      const client = new SSOClient(sessionToken);
       const config = await client.getSSOConfig(organization.id);
       if (config) {
         const loaded: SSOConfig = {
@@ -150,8 +142,7 @@ export default function SSOConfigForm({
     setError(null);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const client = apiFactory.getOrganizationsClient();
+      const client = new SSOClient(sessionToken);
 
       const configToSave: Partial<SSOConfig> = {
         ...formData,
@@ -189,8 +180,7 @@ export default function SSOConfigForm({
     setTestResult(null);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const client = apiFactory.getOrganizationsClient();
+      const client = new SSOClient(sessionToken);
       const result = await client.testSSOConnection(organization.id);
       setTestResult(result);
     } catch {
@@ -205,8 +195,7 @@ export default function SSOConfigForm({
     setError(null);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const client = apiFactory.getOrganizationsClient();
+      const client = new SSOClient(sessionToken);
       await client.deleteSSOConfig(organization.id);
       notifications.show('SSO configuration removed', { severity: 'success', autoHideDuration: 3000 });
       setFormData(DEFAULT_SSO_CONFIG);
@@ -432,7 +421,6 @@ export default function SSOConfigForm({
               </Box>
             </Grid>
 
-            {/* Test Connection */}
             {hasExistingConfig && (
               <Grid size={12}>
                 <Divider sx={{ my: 1 }} />
@@ -468,7 +456,6 @@ export default function SSOConfigForm({
           </Grid>
         </Collapse>
 
-        {/* Actions */}
         <Grid size={12}>
           <Divider sx={{ my: 2 }} />
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'space-between' }}>

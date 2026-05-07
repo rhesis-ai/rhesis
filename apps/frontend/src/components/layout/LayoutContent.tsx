@@ -10,6 +10,11 @@ import { NotificationProvider } from '../common/NotificationContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import OnboardingChecklist from '../onboarding/OnboardingChecklist';
 import { type NavigationItem, type LayoutProps } from '../../types/navigation';
+// Side-effect import: pulls ee_bootstrap into the *client* bundle so
+// EE feature registrations land in the client-side registry as well as
+// the server-side one. Layout.tsx imports the same module for the
+// server bundle. Both imports are idempotent.
+import '@/ee_bootstrap';
 
 function getAllSegments(items: NavigationItem[]): string[] {
   return items.reduce<string[]>((acc, item) => {

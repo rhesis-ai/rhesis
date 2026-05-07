@@ -1,0 +1,54 @@
+/**
+ * SSO feature registration.
+ *
+ * Plugs the SSO settings section into core's organization-settings
+ * registry. Each EE feature has a sibling `register.ts(x)` so
+ * `bootstrap.ts` stays a one-line list of feature registrations and
+ * adding the next feature is a self-contained edit.
+ *
+ * Why lazy?
+ * ---------
+ * The SSO form is ~500 lines and pulls in MUI icons. Lazy-loading
+ * keeps it out of the main client chunk for orgs without SSO licensed
+ * (or that simply never visit the settings page), trading a tiny
+ * loading state for measurable bundle savings.
+ *
+ * Why is `<FeatureGate>` here and not in the page?
+ * ------------------------------------------------
+ * The registry contract is about identity (id, title, component); EE
+ * owns its own gating end-to-end so core's settings page does not need
+ * a `feature` field in the section type.
+ */
+
+import * as React from 'react';
+import { Box, CircularProgress } from '@mui/material';
+import { FeatureName } from '@/constants/features';
+import { FeatureGate } from '@/contexts/FeaturesContext';
+import { registerOrgSettingsSection } from '@/lib/extension-registries';
+
+const SSOConfigForm = React.lazy(() => import('./components/SSOConfigForm'));
+
+function SSOSection() {
+  return (
+    <FeatureGate feature={FeatureName.SSO}>
+      <React.Suspense
+        fallback={
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+            <CircularProgress size={24} />
+          </Box>
+        }
+      >
+        <SSOConfigForm />
+      </React.Suspense>
+    </FeatureGate>
+  );
+}
+
+export function registerSSO(): void {
+  registerOrgSettingsSection({
+    id: 'sso',
+    title: 'Single Sign-On (SSO)',
+    order: 100,
+    component: SSOSection,
+  });
+}

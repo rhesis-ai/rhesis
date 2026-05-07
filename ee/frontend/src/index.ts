@@ -1,0 +1,1 @@
+export { bootstrapEE } from './bootstrap';
