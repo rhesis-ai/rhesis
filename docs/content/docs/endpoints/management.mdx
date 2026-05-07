@@ -1,3 +1,4 @@
+import { CodeBlock } from "@/components/CodeBlock";
 
 # Managing Endpoints
 
@@ -24,6 +25,45 @@ Easy functionality to copy the configurations of an existing to a new one.
 To create a copy of an existing endpoint, open the endpoint details page and click **Duplicate**. Rhesis creates a new endpoint with the same configuration and appends "(Copy)" to the name. You can also select multiple endpoints from the grid and duplicate them in bulk.
 
 From the endpoint details page, you can also navigate to the **Playground** to interact freely with the endpoint.
+
+## Exploring an Endpoint Programmatically
+
+External agents and API clients can launch an async Penelope exploration with `POST /endpoints/{endpoint_id}/explore`. Use this when you want endpoint capability discovery outside the web Architect chat, for example from an MCP client or automation script.
+
+The route validates that the endpoint belongs to the current tenant, starts a Celery task, and returns a `task_id`. Poll `GET /jobs/{task_id}` until the job reaches `SUCCESS`; the job result contains the exploration findings, conversation summary, strategy, duration, and endpoint ID.
+
+<CodeBlock filename="explore-endpoint.sh" language="bash">
+{`curl -X POST "https://api.rhesis.ai/api/v1/endpoints/00000000-0000-0000-0000-000000000000/explore" \
+  -H "Authorization: Bearer $RHESIS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy": "domain_probing"
+  }'`}
+</CodeBlock>
+
+Then poll the returned job:
+
+<CodeBlock filename="poll-exploration.sh" language="bash">
+{`curl -H "Authorization: Bearer $RHESIS_API_KEY" \
+  "https://api.rhesis.ai/api/v1/jobs/<task_id>"`}
+</CodeBlock>
+
+### Exploration request fields
+
+Provide either `strategy` or a non-empty `goal`.
+
+| Field | Required | Description |
+| --- | --- | --- |
+| `strategy` | No | One of `domain_probing`, `capability_mapping`, `boundary_discovery`, or `comprehensive`. When present, Penelope generates the goal and instructions for that strategy. |
+| `goal` | Conditional | What to learn about the endpoint. Required when `strategy` is omitted. |
+| `instructions` | No | Step-by-step probing guidance for Penelope. |
+| `scenario` | No | Persona or situational context to use while probing. |
+| `restrictions` | No | Constraints or forbidden behaviors to verify during exploration. |
+| `previous_findings` | No | Structured findings from a prior run, used to continue or deepen exploration. |
+
+<Callout type="info">
+  The same exploration strategies are available through the SDK `ExploreEndpointTool`; see [SDK Agents](/sdk/agents#explore-endpoints-with-penelope).
+</Callout>
 
 ### Deleting Endpoints
 

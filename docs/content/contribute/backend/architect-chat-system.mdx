@@ -53,6 +53,7 @@ Server event types used by Architect include:
 - `architect.stream_start`
 - `architect.text_chunk`
 - `architect.stream_end`
+- `architect.task_progress`
 - `architect.response`
 - `architect.error`
 
@@ -61,6 +62,22 @@ Source:
 - `apps/backend/src/rhesis/backend/app/routers/websocket.py`
 - `apps/backend/src/rhesis/backend/app/schemas/websocket.py`
 - `apps/backend/src/rhesis/backend/app/services/websocket/handlers/architect.py`
+
+### Background task progress events
+
+`architect.task_progress` is emitted by background workers for tasks that an Architect session is awaiting. The payload is intentionally small so it can be rendered as a live progress row in the existing streaming bubble:
+
+| Field | Type | Description |
+|---|---|---|
+| `session_id` | string | Architect session receiving the update. |
+| `task_id` | string | Celery task ID for the awaited background task. |
+| `status` | string | One of `started`, `progress`, `completed`, or `failed`. |
+| `label` | string | Human-readable step label. |
+| `step` | number \| undefined | Optional 1-based step number. |
+| `total` | number \| undefined | Optional total step count. |
+| `duration_ms` | number \| undefined | Optional task or step duration. |
+
+Endpoint exploration publishes this event from `run_exploration_task` through `publish_task_progress`. The frontend attaches each update to the message bubble that returned `awaiting_task: true`.
 
 ## Celery task lifecycle
 
