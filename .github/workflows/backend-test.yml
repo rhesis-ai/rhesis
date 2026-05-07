@@ -52,7 +52,11 @@ jobs:
             ${{ runner.os }}-uv-backend-
 
       - name: Install dependencies
-        run: uv sync --dev --extra all --extra cpu
+        # --extra ee installs the EE package so EE tests under
+        # tests/backend/ee/ can import rhesis.backend.ee.*. The
+        # community-boundary job below runs without the EE extra to
+        # verify the MIT-only build stays clean.
+        run: uv sync --dev --extra all --extra cpu --extra ee
         working-directory: apps/backend
 
       - name: Run tests
