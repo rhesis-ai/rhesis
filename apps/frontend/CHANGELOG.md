@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-05-07
+
+### Added
+
+- Added live task progress updates to the Architect chat session, displayed inline within the message bubble.
+- Added a typo-tolerant entity resolution ladder to the Architect agent, improving its ability to understand misspelled entity names.
+- Added Explorer feature for managing and interacting with test sets.
+- Added adaptive testing tree endpoints and schemas.
+
+### Changed
+
+- Unified the exploration progress trail into the streaming bubble, removing the separate task progress bubble.
+- Improved Architect agent UX with exploration progress trail and other enhancements.
+- Collapsed and hid the Architect task progress trail after completion, displaying a "Done." marker.
+- Enhanced glossary definitions and examples for Trace, Connector, and Playground terms.
+- Renamed adaptive testing to explorer and updated related endpoints.
+
+### Fixed
+
+- Fixed streaming output bleed across Architect sessions.
+- Fixed an issue where the Accept/Change confirmation UI was incorrectly displayed.
+- Fixed an issue where the plan widget would jump inconsistently during execution.
+- Fixed an issue where ghost empty bubbles would appear after multi-iteration resumed turns.
+- Fixed a validation error in E2E tests related to EndpointEnvironment.
+- Fixed an issue where whitespace-only token names could be submitted.
+- Only dismiss plan widget when plan is complete.
+- Restore Done. marker and show Executing label during task.
+- Prevent submission of whitespace-only token names.
+
+### Removed
+
+- Removed the TaskProgressList component and related types, as task progress is now integrated into the streaming bubble.
+- Removed Next public Auth0 and app URL env configuration.
+
 ## [0.7.0] - 2026-04-23
 
 ### Changed

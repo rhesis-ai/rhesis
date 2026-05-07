@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-05-07
+
+### Added
+- Added `ARCHITECT_TASK_PROGRESS` WebSocket event type for live updates from background workers to the architect chat session, enhancing the Architect agent UX.
+- Added a new POST `/endpoints/{endpoint_id}/explore` route backed by a Celery task (`run_exploration_task`) to trigger Penelope exploration via BackendEndpointTarget, enabling external MCP clients to initiate explorations.
+- Added Rhesis Agent Skill, allowing external AI interfaces like Claude Code and Cursor to drive the Rhesis platform through the `/mcp` endpoint.
+- Added support for `npx skills add rhesis-ai/rhesis` for universal agent installation.
+- Added adaptive testing tree endpoints and schemas, providing functionalities to create, import, export, list, and delete adaptive test sets.
+
+### Changed
+- **Architect Agent UX:** Implemented significant UX improvements for the Architect agent, including plan progress tracking, enhanced history rendering, and typo-tolerant entity resolution.
+- **Explorer:** Renamed adaptive testing to explorer and updated related endpoints, schemas, services, and UI components.
+- **Frontend:** Unified exploration progress trail into the streaming bubble, collapsing and hiding the trail after task completion.
+- **SDK:** Taught the Architect agent a typo-tolerant entity resolution ladder for improved user experience.
+- **MCP Tools:** Updated MCP tool definitions in `mcp_tools.yaml` with new tools (`list_sources`, `explore_endpoint`) and updated descriptions for existing tools (`get_test_result`, `get_test_result_stats`, `generate_test_set`).
+- **Embedding Model:** Set `rhesis/rhesis-embedding` as the default embedding model across the codebase.
+- **Dependencies:** Split backend dependencies into core and `[all]` extras to slim down the migrate image and decouple Polyphemus from the heavy ML stack.
+- **Docker:** Unified backend and worker Dockerfile stages for improved efficiency.
+
+### Fixed
+- **Explorer:** Fixed the `delete_explorer_test_set` function to return the response payload, preventing response serialization issues.
+- **Architect Agent:** Prevented streaming output bleed across Architect sessions by unsubscribing from the previous session's channel and guarding `ARCHITECT_THINKING` with the session ID.
+- **Architect Agent:** Restored the "Done." marker and showed the "Executing" label during task execution in the frontend.
+- **Architect Agent:** Fixed the issue where the Accept/Change confirmation UI was leaking onto turns where no tool had actually been blocked.
+- **Embeddings:** Fixed empty `searchable_text` during embedding creation by deferring text generation to post-commit.
+- **Embeddings:** Skipped embedding queue if the text was unchanged on update.
+- **Docker:** Aligned the Docker layout with monorepo uv paths.
+- **Garak:** Added index-based corrective backfill for encoding probe notes to address `DecodeMatch` failures.
+- **Plan Widget:** Fixed the issue where the plan widget was not being dismissed correctly.
+- **Empty Bubbles:** Prevented ghost empty bubbles after multi-iteration resumed turns in the frontend.
+- **Save Plan:** Required mappings in the plan and prohibited `save_plan` during the Creating Phase.
+- **Embedding Jobs:** Fixed the issue where embedding jobs were not being skipped when the embeddable had no `user_id`.
+- **Tests:** Aligned test compose with backend container paths.
+- **PermissionError:** Resolved `PermissionError` on logs dir during e2e startup by pre-creating and chowning the `logs/` directory in the backend Dockerfile.
+
+
 ## [0.7.0] - 2026-04-23
 
 ### Changed

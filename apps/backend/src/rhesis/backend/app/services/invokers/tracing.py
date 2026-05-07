@@ -228,7 +228,7 @@ async def create_invocation_trace(
         if result and hasattr(result, "model_dump"):
             result = result.model_dump(exclude_none=True)
 
-        if result:
+        if result and isinstance(result, dict):
             attributes[EndpointAttributes.RESPONSE_STATUS] = result.get("status", "unknown")
             attributes[EndpointAttributes.RESPONSE_HAS_OUTPUT] = result.get("output") is not None
 
