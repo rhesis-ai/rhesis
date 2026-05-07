@@ -29,22 +29,19 @@ from rhesis.backend.app.auth.url_utils import build_redirect_url
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.app.utils.encryption import (
-    sso_decrypt,
-    sso_encrypt,
-)
-from rhesis.backend.app.utils.rate_limit import (
-    SSO_ADMIN_RATE_LIMIT,
-    SSO_CALLBACK_RATE_LIMIT,
-    SSO_LOGIN_RATE_LIMIT,
-    SSO_TEST_CONNECTION_RATE_LIMIT,
-    limiter,
-)
+from rhesis.backend.app.utils.rate_limit import limiter
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
+from rhesis.backend.ee.sso.encryption import sso_decrypt, sso_encrypt
 from rhesis.backend.ee.sso.http_client import SSOHttpClient, SSRFError, is_dev_environment
 from rhesis.backend.ee.sso.oidc import (
     OIDCProvider,
     verify_signed_state,
+)
+from rhesis.backend.ee.sso.rate_limits import (
+    SSO_ADMIN_RATE_LIMIT,
+    SSO_CALLBACK_RATE_LIMIT,
+    SSO_LOGIN_RATE_LIMIT,
+    SSO_TEST_CONNECTION_RATE_LIMIT,
 )
 from rhesis.backend.ee.sso.schemas import SSOConfig
 from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user

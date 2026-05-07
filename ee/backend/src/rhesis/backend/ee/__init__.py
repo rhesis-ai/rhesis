@@ -47,13 +47,20 @@ def bootstrap(app: "FastAPI") -> None:
     """Register EE features and routers with the FastAPI *app*.
 
     Called once at application startup by
-    :func:`rhesis.backend.app.ee_bootstrap.bootstrap_ee`. Registers each
-    EE feature with :class:`~rhesis.backend.app.features.FeatureRegistry`
-    and mounts its router onto *app* using the same authenticated route
-    class as core routers, so the path-based public/token route lists
-    apply uniformly.
+    :func:`rhesis.backend.app.ee_bootstrap.bootstrap_ee`. Steps:
+
+    1. Register each EE feature with
+       :class:`~rhesis.backend.app.features.FeatureRegistry`.
+    2. Hook into core extension points (provider enrichers, public route
+       list) *before* including any EE routers, so the auth class sees
+       the extended public route list at route-registration time.
+    3. Include EE routers, inheriting the core ``route_class`` so
+       path-based authentication applies uniformly.
     """
+    from rhesis.backend.app.auth.provider_hooks import register_provider_enricher
+    from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES
     from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
+    from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
     from rhesis.backend.ee.sso.router import router as sso_router
     from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
 
@@ -65,6 +72,18 @@ def bootstrap(app: "FastAPI") -> None:
             description="Per-organization OIDC-based SSO.",
         )
     )
+
+    # Plug into core's provider discovery so SSO appears in the
+    # /auth/providers response without core knowing how SSO works.
+    register_provider_enricher(sso_provider_enricher)
+
+    # Public SSO endpoints must be listed before include_router runs;
+    # AuthenticatedAPIRoute resolves dependencies at registration time.
+    # Extending the existing list (rather than rebinding) is what lets
+    # the running auth class see the new entries.
+    for path in ("/auth/sso/{org_id}", "/auth/sso/callback"):
+        if path not in PUBLIC_ROUTES:
+            PUBLIC_ROUTES.append(path)
 
     # EE routers must use the same authenticated route class as core routers
     # so the public/token route lists apply uniformly. Without this, the SSO

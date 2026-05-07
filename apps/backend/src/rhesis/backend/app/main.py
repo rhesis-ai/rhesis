@@ -27,6 +27,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
+from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES, TOKEN_ENABLED_ROUTES
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
@@ -44,63 +45,10 @@ logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
-# Public routes don't need any authentication
-public_routes = [
-    "/",
-    "/auth/login",
-    "/auth/login/{provider}",
-    "/auth/login/email",
-    "/auth/callback",
-    "/auth/logout",
-    "/auth/providers",
-    "/auth/register",
-    "/auth/verify-email",
-    "/auth/resend-verification",
-    "/auth/forgot-password",
-    "/auth/reset-password",
-    "/auth/magic-link",
-    "/auth/magic-link/verify",
-    "/auth/exchange-code",
-    "/auth/refresh",
-    "/auth/verify",
-    "/auth/demo",
-    "/auth/local-login",
-    "/auth/sso/{org_id}",
-    "/auth/sso/callback",
-    "/home",
-    "/docs",
-    "/redoc",
-    "/openapi.json",
-]
-
-# Routes that accept both session and token auth
-token_enabled_routes = [
-    "/api/",
-    "/tokens/",
-    "/tasks/",
-    "/test_sets/",
-    "/topics/",
-    "/prompts/",
-    "/test_configurations/",
-    "/test_results/",
-    "/test_runs/",
-    "/services/",
-    "/organizations/",
-    "/demographics/",
-    "/dimensions/",
-    "/tags/",
-    "/users/",
-    "/statuses/",
-    "/risks/",
-    "/projects/",
-    "/tests/",
-    "/test-contexts/",
-    "/comments/",
-    "/sources/",
-    "/models/",
-    "/connector/",
-    "/explorer/",
-]
+# PUBLIC_ROUTES and TOKEN_ENABLED_ROUTES live in
+# rhesis.backend.app.auth.public_routes so EE can extend them from its
+# bootstrap (e.g. to register its own public callback paths) before
+# `app.include_router` runs for the EE routers.
 
 
 def is_websocket_route(route: APIRoute) -> bool:
@@ -141,10 +89,10 @@ class AuthenticatedAPIRoute(APIRoute):
         if is_websocket_route(self):
             return []
 
-        if self.path in public_routes:
+        if self.path in PUBLIC_ROUTES:
             # No auth required
             return []
-        elif any(self.path.startswith(route) for route in token_enabled_routes):
+        elif any(self.path.startswith(route) for route in TOKEN_ENABLED_ROUTES):
             # Both session and token auth accepted
             return [Depends(require_current_user_or_token)]
         # Default to session-only auth

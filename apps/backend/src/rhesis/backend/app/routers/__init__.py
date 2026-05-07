@@ -30,7 +30,9 @@ from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
 from .source import router as source_router
-# SSO router is now registered by the EE package via ee_bootstrap.bootstrap_ee(app)
+# EE-feature routers are not imported here; they are registered by
+# ``rhesis.backend.app.ee_bootstrap.bootstrap_ee`` from the optional
+# ``rhesis-backend-ee`` package.
 from .status import router as status_router
 from .tag import router as tag_router
 from .task_management import router as task_management_router

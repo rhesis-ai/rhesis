@@ -12,10 +12,10 @@ from __future__ import annotations
 def sso_runtime_check() -> bool:
     """Return ``True`` iff the SSO encryption key is configured.
 
-    Re-imports :func:`~rhesis.backend.app.utils.encryption.is_sso_encryption_available`
+    Re-imports :func:`~rhesis.backend.ee.sso.encryption.is_sso_encryption_available`
     on each invocation so that monkeypatching in tests works without
     needing to reach into registry internals.
     """
-    from rhesis.backend.app.utils.encryption import is_sso_encryption_available
+    from rhesis.backend.ee.sso.encryption import is_sso_encryption_available
 
     return is_sso_encryption_available()

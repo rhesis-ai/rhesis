@@ -64,8 +64,6 @@ AUTH_MAGIC_LINK_LIMIT = "5/hour"
 AUTH_LOGIN_EMAIL_LIMIT = "20/hour"
 AUTH_REGISTER_LIMIT = "10/hour"
 
-# SSO endpoint rate limits (per IP, pre-auth)
-SSO_LOGIN_RATE_LIMIT = "10/minute"
-SSO_CALLBACK_RATE_LIMIT = "10/minute"
-SSO_TEST_CONNECTION_RATE_LIMIT = "5/minute"
-SSO_ADMIN_RATE_LIMIT = "20/minute"
+# EE features that need their own rate-limit constants define them
+# alongside their routers and decorate handlers with the shared
+# ``limiter`` instance defined above. Core has no per-feature constants.

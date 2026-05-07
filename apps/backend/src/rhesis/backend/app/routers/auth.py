@@ -13,6 +13,7 @@ from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
+from rhesis.backend.app.auth.provider_hooks import apply_enrichers
 from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.refresh_token_utils import (
     create_refresh_token,
@@ -268,6 +269,25 @@ def _get_email_service():
 # =============================================================================
 
 
+def _resolve_org_by_id_or_slug(db: Session, org: str):
+    """Resolve an organization by UUID or slug, returning ``None`` if not found.
+
+    Both lookup keys live on core-managed columns of the
+    :class:`~rhesis.backend.app.models.organization.Organization` model,
+    so this helper has no EE-specific concerns. Slug comparison is
+    case-insensitive to match the way SSO admins typically configure URLs.
+    """
+    from uuid import UUID as _UUID
+
+    from rhesis.backend.app.models.organization import Organization
+
+    try:
+        _UUID(org)
+        return db.query(Organization).filter(Organization.id == org).first()
+    except ValueError:
+        return db.query(Organization).filter(Organization.slug == org.lower()).first()
+
+
 @router.get("/providers", response_model=ProvidersResponse)
 async def get_providers(
     org: Optional[str] = None,
@@ -280,60 +300,26 @@ async def get_providers(
     providers. The frontend uses this to dynamically render login options.
     Includes password policy (min/max length) for client-side validation.
 
-    When ``org`` query param is provided, filters providers based on the
-    org's allowed_auth_methods and includes SSO if configured.
+    When ``org`` is provided, the organisation is resolved by UUID or
+    slug and passed to any provider enrichers registered via
+    :func:`~rhesis.backend.app.auth.provider_hooks.register_provider_enricher`.
+    EE features (SSO, etc.) plug in at this point — core has no
+    feature-specific knowledge here.
     """
     ProviderRegistry.initialize()
     providers = ProviderRegistry.get_provider_info()
     policy = get_password_policy()
 
+    organization = None
     if org:
+        # Failures in org lookup are non-fatal: enrichers run with
+        # organization=None and produce a base provider list.
         try:
-            from uuid import UUID as _UUID
-
-            from rhesis.backend.app.auth.feature_gates import check_sso_available
-            from rhesis.backend.app.models.organization import Organization
-
-            try:
-                _UUID(org)
-                organization = (
-                    db.query(Organization)
-                    .filter(Organization.id == org)
-                    .first()
-                )
-            except ValueError:
-                organization = (
-                    db.query(Organization)
-                    .filter(Organization.slug == org.lower())
-                    .first()
-                )
-
-            if organization and check_sso_available(organization):
-                # Read enabled/allowed_auth_methods directly from the JSON column
-                # so core never imports from rhesis.backend.ee.
-                sso_cfg: dict = organization.sso_config or {}
-                if sso_cfg.get("enabled"):
-                    login_path = (
-                        f"/auth/sso/{organization.slug}"
-                        if organization.slug
-                        else f"/auth/sso/{organization.id}"
-                    )
-                    providers.append({
-                        "name": "sso",
-                        "display_name": "SSO",
-                        "type": "oauth",
-                        "enabled": True,
-                        "login_url": login_path,
-                    })
-
-                    allowed_methods = sso_cfg.get("allowed_auth_methods")
-                    if allowed_methods:
-                        allowed = set(allowed_methods)
-                        providers = [
-                            p for p in providers if p["name"] in allowed
-                        ]
+            organization = _resolve_org_by_id_or_slug(db, org)
         except Exception:
-            pass
+            organization = None
+
+    providers = apply_enrichers(providers, organization)
 
     return ProvidersResponse(
         providers=[ProviderInfo(**p) for p in providers],
