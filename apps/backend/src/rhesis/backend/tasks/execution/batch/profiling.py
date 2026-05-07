@@ -25,31 +25,38 @@ logger = logging.getLogger(__name__)
 
 _RSS_DIVISOR = 1024 * 1024 if sys.platform == "darwin" else 1024
 
-_PROFILING_LOG = os.environ.get("RHESIS_PROFILING_LOG", "profiling.log")
+_PROFILING_LOG = os.environ.get("RHESIS_PROFILING_LOG", "/tmp/profiling.log")
 
 _file_logger: logging.Logger | None = None
 _file_logger_lock = threading.Lock()
 
 
-def _get_file_logger() -> logging.Logger:
+def _get_file_logger() -> logging.Logger | None:
     """Lazily create a logger that appends to the dedicated profiling file.
 
     Thread-safe: double-checked locking prevents multiple handlers being added
     when concurrent Celery worker threads initialise the logger simultaneously.
+
+    Returns None if the log file cannot be opened (e.g. permission denied in
+    a read-only container filesystem) so callers can fall back gracefully
+    without crashing the task.
     """
     global _file_logger
     if _file_logger is None:
         with _file_logger_lock:
             if _file_logger is None:
-                logger_ = logging.getLogger("rhesis.profiling")
-                logger_.setLevel(logging.INFO)
-                logger_.propagate = False
-                handler = logging.FileHandler(_PROFILING_LOG, mode="a")
-                handler.setFormatter(
-                    logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-                )
-                logger_.addHandler(handler)
-                _file_logger = logger_
+                try:
+                    logger_ = logging.getLogger("rhesis.profiling")
+                    logger_.setLevel(logging.INFO)
+                    logger_.propagate = False
+                    handler = logging.FileHandler(_PROFILING_LOG, mode="a")
+                    handler.setFormatter(
+                        logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+                    )
+                    logger_.addHandler(handler)
+                    _file_logger = logger_
+                except OSError as exc:
+                    logger.warning("Profiling file logger unavailable (%s): %s", _PROFILING_LOG, exc)
     return _file_logger
 
 
@@ -112,4 +119,6 @@ def log_batch_report(
     )
 
     logger.info(line)
-    _get_file_logger().info(line)
+    file_logger = _get_file_logger()
+    if file_logger is not None:
+        file_logger.info(line)
