@@ -71,7 +71,15 @@ def auto_instrument(*frameworks: str) -> List[str]:
     for integration in to_instrument:
         if integration.enable():  # type: ignore[attr-defined]
             instrumented.append(integration.framework_name)  # type: ignore[attr-defined]
-            _instrumented_frameworks.append(integration)
+            # Guard the bookkeeping list against repeated ``auto_instrument``
+            # calls (app reload, hot-reload, second call from a notebook).
+            # Each integration is a singleton, so identity-aware membership
+            # (``in``) is sufficient. Without this guard a single integration
+            # could appear N times after N calls and ``disable_auto_instrument``
+            # would invoke ``disable()`` on it N times (today a no-op thanks
+            # to the ``not self._enabled`` early return, but bookkeeping debt).
+            if integration not in _instrumented_frameworks:
+                _instrumented_frameworks.append(integration)
 
     if instrumented:
         logger.info(f"Instrumented: {', '.join(instrumented)}")
