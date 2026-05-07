@@ -1,3 +1,5 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
 # Building and Evaluating
 
 This page covers the core Test Explorer workflow: create a session, choose the endpoint and metrics, build a topic tree, generate outputs, evaluate, and export.
@@ -8,6 +10,32 @@ From **Testing → Test Explorer**, you can start in two ways:
 
 - **New session** — create an empty explorer session and build the tree from scratch
 - **Load Test Set** — import an existing test set into an explorer session so you can explore around it and refine it
+
+### API-backed session operations
+
+Explorer sessions are stored as test sets with Explorer metadata. The public API uses `/explorer` routes for the top-level session operations:
+
+| Operation | Method and path | Notes |
+| --- | --- | --- |
+| List Explorer sessions | `GET /explorer/` | Supports `skip`, `limit`, `sort_by`, and `sort_order`. |
+| Create an Explorer session | `POST /explorer/` | Body contains `name` and optional `description`. |
+| Import a regular test set | `POST /explorer/import/{source_test_set_identifier}` | Creates a new Explorer session and copies prompt-backed tests into the tree. |
+| Export to a regular test set | `POST /explorer/export/{source_test_set_identifier}` | Copies prompt-backed Explorer tests into a new regular test set. |
+| Delete an Explorer session | `DELETE /explorer/{test_set_identifier}` | Only deletes test sets configured for Explorer. |
+
+<CodeBlock filename="create-explorer-session.sh" language="bash">
+{`curl -X POST "https://api.rhesis.ai/api/v1/explorer/" \
+  -H "Authorization: Bearer $RHESIS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Support Bot Safety Explorer",
+    "description": "Topic tree for support chatbot safety coverage"
+  }'`}
+</CodeBlock>
+
+<Callout type="info">
+  Explorer replaces the older "adaptive testing" naming in the product UI and API clients. Existing Explorer test sets are still identified internally by the `Adaptive Testing` behavior marker.
+</Callout>
 
 ## Endpoint and metric settings
 
