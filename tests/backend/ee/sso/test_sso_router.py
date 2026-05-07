@@ -94,7 +94,7 @@ class TestCheckSSOAvailable:
         assert check_sso_available() is True
 
     @patch(
-        "rhesis.backend.app.utils.encryption.is_sso_encryption_available",
+        "rhesis.backend.ee.sso.encryption.is_sso_encryption_available",
         return_value=False,
     )
     def test_unavailable_without_encryption(self, _mock):
@@ -147,8 +147,8 @@ class TestGetSSOConfig:
         assert _get_sso_config(org) is None
 
     def test_valid_config_with_encrypted_secret(self):
+        from rhesis.backend.ee.sso.encryption import sso_encrypt
         from rhesis.backend.ee.sso.router import _get_sso_config
-        from rhesis.backend.app.utils.encryption import sso_encrypt
 
         encrypted = sso_encrypt("my-secret")
         org = SimpleNamespace(

@@ -4,7 +4,7 @@ These tests mock the database layer so they run without Postgres.
 """
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -102,17 +102,17 @@ class TestGetOrgOr404:
 # ---------------------------------------------------------------------------
 # /auth/providers with org param - slug vs UUID resolution
 #
-# routers/auth.py reads organization.sso_config directly as a dict (so core
-# never imports from rhesis.backend.ee). These tests verify the slug-vs-id
-# choice in the resulting login_url is driven by org.slug.
+# Core's get_providers delegates SSO decoration to the EE provider
+# enricher registered by ee.bootstrap; the SSO entry's login_url is
+# therefore driven by org.slug from inside EE without core importing
+# from rhesis.backend.ee.
 # ---------------------------------------------------------------------------
 
 
 class TestAuthProvidersOrgParam:
-    """Test the org resolution logic inside get_providers."""
+    """End-to-end test of the org resolution + enricher pipeline."""
 
-    @patch("rhesis.backend.app.auth.feature_gates.check_sso_available", return_value=True)
-    def test_providers_with_uuid(self, _mock_check):
+    def test_providers_with_uuid(self):
         """When org is a UUID and has a slug, login_url uses the slug."""
         org_id = uuid4()
         org = _make_org(org_id=org_id, slug="acme-corp", sso_config={"enabled": True})
@@ -130,8 +130,7 @@ class TestAuthProvidersOrgParam:
         assert len(sso_providers) == 1
         assert sso_providers[0].login_url == "/auth/sso/acme-corp"
 
-    @patch("rhesis.backend.app.auth.feature_gates.check_sso_available", return_value=True)
-    def test_providers_with_slug(self, _mock_check):
+    def test_providers_with_slug(self):
         """When org is a slug string, it still resolves correctly."""
         org = _make_org(slug="acme-corp", sso_config={"enabled": True})
 
@@ -148,8 +147,7 @@ class TestAuthProvidersOrgParam:
         assert len(sso_providers) == 1
         assert sso_providers[0].login_url == "/auth/sso/acme-corp"
 
-    @patch("rhesis.backend.app.auth.feature_gates.check_sso_available", return_value=True)
-    def test_providers_login_url_falls_back_to_id(self, _mock_check):
+    def test_providers_login_url_falls_back_to_id(self):
         """When org has no slug, login_url uses the org UUID."""
         org_id = uuid4()
         org = _make_org(org_id=org_id, slug=None, sso_config={"enabled": True})
