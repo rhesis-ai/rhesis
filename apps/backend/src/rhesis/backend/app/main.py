@@ -421,9 +421,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "0"
 
         if request.scope.get("scheme") == "https":
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains"
-            )
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
         return response
 

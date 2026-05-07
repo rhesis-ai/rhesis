@@ -267,7 +267,7 @@ export default function SSOConfigForm() {
                     gap: 1,
                     p: 1.5,
                     bgcolor: 'action.hover',
-                    borderRadius: 1,
+                    borderRadius: theme => `${theme.shape.borderRadius}px`,
                   }}
                 >
                   <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>

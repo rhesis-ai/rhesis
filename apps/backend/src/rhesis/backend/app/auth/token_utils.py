@@ -315,9 +315,7 @@ async def verify_auth_code(code: str) -> Dict[str, str]:
         try:
             from rhesis.backend.app.auth.used_token_store import claim_token_jti
 
-            was_first_use = await claim_token_jti(
-                jti, ttl_seconds=AUTH_CODE_EXPIRE_MINUTES * 60
-            )
+            was_first_use = await claim_token_jti(jti, ttl_seconds=AUTH_CODE_EXPIRE_MINUTES * 60)
             if not was_first_use:
                 logger.warning("Auth code replay attempt: jti=%s", jti)
                 raise HTTPException(

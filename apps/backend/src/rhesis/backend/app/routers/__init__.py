@@ -30,6 +30,7 @@ from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
 from .source import router as source_router
+
 # EE-feature routers are not imported here; they are registered by
 # ``rhesis.backend.app.ee_bootstrap.bootstrap_ee`` from the optional
 # ``rhesis-backend-ee`` package.
