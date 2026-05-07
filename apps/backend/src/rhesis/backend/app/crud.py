@@ -938,14 +938,15 @@ def get_embeddings(
     )
 
 
-def get_embeddings_for_entities(
+def get_active_embeddings_for_entities(
     db: Session,
     entity_ids: List[UUID],
     entity_type: str,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Embedding]:
-    from rhesis.backend.app.models.status import Status
+    from rhesis.backend.app.models.status import EmbeddingStatus, Status
+
     return (
         QueryBuilder(db, models.Embedding)
         .with_organization_filter(organization_id)
@@ -953,10 +954,11 @@ def get_embeddings_for_entities(
             lambda q: q.filter(
                 models.Embedding.entity_id.in_(entity_ids),
                 models.Embedding.entity_type == entity_type,
+                models.Embedding.status.has(Status.name == EmbeddingStatus.ACTIVE.value),
             )
         )
         .all()
-    ) # TODO: you might want to add a status filter here
+    )
 
 
 def create_embedding(
