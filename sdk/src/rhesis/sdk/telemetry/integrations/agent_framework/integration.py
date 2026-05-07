@@ -240,7 +240,7 @@ class MAFIntegration(BaseIntegration):
         for child in children:
             if not isinstance(child, _WRAPPABLE_PROCESSORS):
                 continue
-            current = getattr(child, "span_exporter", None)
+            current = _get_processor_exporter(child)
             if current is None:
                 continue
             if isinstance(current, MAFTranslatingExporter):
@@ -271,6 +271,25 @@ class MAFIntegration(BaseIntegration):
                 "Rhesis ai.* schema. Ensure RhesisClient is created before "
                 "auto_instrument()."
             )
+
+
+def _get_processor_exporter(processor: SpanProcessor) -> Optional[SpanExporter]:
+    """Read the underlying exporter on a span processor across OTEL SDK versions.
+
+    Mirrors :func:`_set_processor_exporter` so the read and write paths use the
+    same detection. Today both layouts resolve via the public ``span_exporter``
+    attribute (newer ``BatchSpanProcessor`` exposes it as a property that
+    delegates to ``self._batch_processor._exporter``), but probing the inner
+    slot first is defense-in-depth: if a future OTEL release drops the
+    convenience property, the reader still finds the exporter the same way the
+    writer would set it.
+    """
+    inner = getattr(processor, "_batch_processor", None)
+    if inner is not None:
+        exp = getattr(inner, "_exporter", None)
+        if exp is not None:
+            return exp
+    return getattr(processor, "span_exporter", None)
 
 
 def _set_processor_exporter(processor: SpanProcessor, exporter: SpanExporter) -> None:
