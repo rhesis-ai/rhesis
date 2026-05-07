@@ -477,7 +477,18 @@ from rhesis.backend.app.mcp_server import setup_mcp_server
 
 setup_mcp_server(app)
 
-# Bootstrap Enterprise Edition features (no-op when ee extra is not installed)
+# Bootstrap Enterprise Edition features (no-op when ee extra is not installed).
+#
+# This intentionally runs at module load time rather than inside the lifespan
+# handler because `bootstrap_ee` calls `app.include_router(...)`. FastAPI
+# generates the OpenAPI schema lazily on first request; registering routes
+# inside lifespan (after schema generation could have already been triggered)
+# produces subtle schema-caching issues in some environments. Keeping it here
+# guarantees routes and their docs are visible from the very first request.
+#
+# The call is safe at import time because `ee_bootstrap.bootstrap_ee` wraps
+# the EE import in `try/except ImportError`, so it is a no-op in Community
+# mode or in any test environment where the `ee` extra is not installed.
 from rhesis.backend.app.ee_bootstrap import bootstrap_ee
 
 bootstrap_ee(app)

@@ -317,7 +317,9 @@ async def get_providers(
         try:
             organization = _resolve_org_by_id_or_slug(db, org)
         except Exception as exc:
-            logger.warning("Unexpected error resolving org %r for /auth/providers: %s", org, exc)
+            logger.warning(
+                "Unexpected error resolving org %r for /auth/providers: %s", org, exc, exc_info=True
+            )
 
     providers = apply_enrichers(providers, organization)
 
