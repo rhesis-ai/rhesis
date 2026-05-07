@@ -18,7 +18,7 @@ keywords = [
 dependencies = [
     "rhesis-sdk",
     "langgraph>=0.2.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.2.28",
     "langchain-google-genai>=2.0.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
@@ -55,6 +55,8 @@ constraint-dependencies = [
     "tornado>=6.5.5",
     "aiohttp>=3.13.5",
     "langchain-openai>=1.1.14",
+    "gitpython>=3.1.49",
+    "python-multipart>=0.0.27",
 ]
 override-dependencies = [
     "python-dotenv>=1.2.2",
