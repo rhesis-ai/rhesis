@@ -15,6 +15,7 @@ That makes them trivial to unit test.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Mapping
 
 from rhesis.sdk.telemetry.attributes import AIAttributes
@@ -283,6 +284,30 @@ def translate_event_attributes(event_name: str, attributes: Mapping[str, Any]) -
     return translated
 
 
+def _to_json_text(value: Any) -> str:
+    """Render a tool I/O payload as JSON-friendly text.
+
+    MAF stores ``gen_ai.tool.call.{arguments,result}`` as one of:
+
+    - a JSON-encoded string (the OpenAI-compat path serialises tool arguments
+      this way before handing them to the model),
+    - a primitive (``str`` / ``int`` / ``float`` / ``bool`` / ``None``),
+    - or an already-decoded ``dict`` / ``list``.
+
+    For strings we pass through verbatim so we don't double-encode existing
+    JSON. For everything else we ``json.dumps`` with ``default=str`` as a
+    safety net for non-serialisable objects (datetimes, Pydantic models, ...).
+    If ``dumps`` itself raises (e.g. circular references) we fall back to the
+    Python ``str()`` repr so we never drop the event entirely.
+    """
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value, default=str, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def synthesize_tool_io_events(
     attributes: Mapping[str, Any],
 ) -> list[tuple[str, dict[str, Any]]]:
@@ -296,8 +321,8 @@ def synthesize_tool_io_events(
     events: list[tuple[str, dict[str, Any]]] = []
     args = attributes.get(GEN_AI_TOOL_CALL_ARGS)
     if args is not None:
-        events.append(("ai.tool.input", {AIAttributes.TOOL_INPUT_CONTENT: str(args)}))
+        events.append(("ai.tool.input", {AIAttributes.TOOL_INPUT_CONTENT: _to_json_text(args)}))
     result = attributes.get(GEN_AI_TOOL_CALL_RESULT)
     if result is not None:
-        events.append(("ai.tool.output", {AIAttributes.TOOL_OUTPUT_CONTENT: str(result)}))
+        events.append(("ai.tool.output", {AIAttributes.TOOL_OUTPUT_CONTENT: _to_json_text(result)}))
     return events

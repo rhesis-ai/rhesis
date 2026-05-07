@@ -375,6 +375,69 @@ def test_translate_span_response_model_wins_when_request_missing():
 
 
 # ---------------------------------------------------------------------------
+# synthesize_tool_io_events: JSON encoding of tool I/O payloads
+# ---------------------------------------------------------------------------
+
+
+def test_synthesize_tool_io_events_dict_args_emits_valid_json():
+    """``dict`` args must be JSON-encoded, not str()'d (which yields repr)."""
+    import json as _json
+
+    events = mapping.synthesize_tool_io_events(
+        {
+            mapping.GEN_AI_TOOL_CALL_ARGS: {"a": 1, "b": "two"},
+            mapping.GEN_AI_TOOL_CALL_RESULT: [1, 2, 3],
+        }
+    )
+    by_name = dict(events)
+    in_payload = by_name["ai.tool.input"][AIAttributes.TOOL_INPUT_CONTENT]
+    out_payload = by_name["ai.tool.output"][AIAttributes.TOOL_OUTPUT_CONTENT]
+
+    # Must be parseable JSON (str(dict) would produce single-quoted repr that
+    # json.loads would reject).
+    assert _json.loads(in_payload) == {"a": 1, "b": "two"}
+    assert _json.loads(out_payload) == [1, 2, 3]
+
+
+def test_synthesize_tool_io_events_string_args_pass_through_verbatim():
+    """JSON-string args (the OpenAI-compat path) must NOT be double-encoded."""
+    pre_encoded = '{"a": 1, "b": "two"}'
+    events = mapping.synthesize_tool_io_events(
+        {
+            mapping.GEN_AI_TOOL_CALL_ARGS: pre_encoded,
+            mapping.GEN_AI_TOOL_CALL_RESULT: "plain text result",
+        }
+    )
+    by_name = dict(events)
+    assert by_name["ai.tool.input"][AIAttributes.TOOL_INPUT_CONTENT] == pre_encoded
+    assert by_name["ai.tool.output"][AIAttributes.TOOL_OUTPUT_CONTENT] == "plain text result"
+
+
+def test_synthesize_tool_io_events_non_serialisable_falls_back_to_str():
+    """``default=str`` must keep us safe for objects ``json.dumps`` rejects.
+
+    A datetime is the canonical example of a value that ``json.dumps`` refuses
+    to encode without ``default=``. The event must still be emitted with a
+    deterministic string payload so we never drop a trace.
+    """
+    import datetime as _dt
+
+    when = _dt.datetime(2024, 1, 2, 3, 4, 5)
+    events = mapping.synthesize_tool_io_events({mapping.GEN_AI_TOOL_CALL_ARGS: {"when": when}})
+    payload = dict(events)["ai.tool.input"][AIAttributes.TOOL_INPUT_CONTENT]
+    # ``json.dumps(..., default=str)`` calls ``str()`` on the datetime, which
+    # yields the ISO-ish "2024-01-02 03:04:05" form.
+    assert "2024-01-02 03:04:05" in payload
+
+
+def test_synthesize_tool_io_events_skips_missing_attributes():
+    """Absent args/result must not produce empty events."""
+    assert mapping.synthesize_tool_io_events({}) == []
+    only_args = mapping.synthesize_tool_io_events({mapping.GEN_AI_TOOL_CALL_ARGS: {"x": 1}})
+    assert [name for name, _ in only_args] == ["ai.tool.input"]
+
+
+# ---------------------------------------------------------------------------
 # Agent.run() emits translated agent + LLM spans
 # ---------------------------------------------------------------------------
 
