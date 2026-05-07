@@ -103,8 +103,8 @@ async def main() -> None:
         )
         DisabledClient()
 
-    enabled = auto_instrument("agent_framework")
-    logger.info("auto_instrument('agent_framework') -> %s", enabled)
+    instrumented = auto_instrument("agent_framework")
+    logger.info("auto_instrument: %s", instrumented)
 
     workflow = build_workflow()
 

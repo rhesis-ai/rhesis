@@ -47,9 +47,15 @@ async def main() -> None:
             getattr(client, "project_id", None),
             getattr(client, "_base_url", None),
         )
+    else:
+        logger.warning(
+            "RHESIS_API_KEY/RHESIS_PROJECT_ID not set; using DisabledClient. "
+            "Traces will NOT be shipped to the backend."
+        )
+        client = DisabledClient()
 
-    enabled = auto_instrument("agent_framework")
-    logger.info("auto_instrument('agent_framework') -> %s", enabled)
+    instrumented = auto_instrument("agent_framework")
+    logger.info("auto_instrument: %s", instrumented)
 
     workflow = build_workflow()
 
