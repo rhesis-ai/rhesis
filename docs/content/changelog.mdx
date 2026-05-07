@@ -8,6 +8,66 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.7.1] - 2026-05-07
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.7.1**
+- **Frontend 0.7.1**
+- **SDK 0.7.1**
+
+### Summary
+
+This release refines **Rhesis Architect** and **Test Explorer** workflows with live task progress, typo-tolerant entity resolution, an async endpoint exploration API, broader Agent Skill installation support, and safer plan execution behavior.
+
+### Featured Capabilities
+
+**Architect UX and Plan Reliability**
+
+Architect now keeps long-running background progress inside the active streaming bubble:
+
+- **Task progress events**: `architect.task_progress` carries awaited-task updates from workers to the chat UI
+- **Unified progress trail**: background task rows render alongside regular tool activity and collapse after completion with a `Done.` marker
+- **Plan progress guidance**: the agent tracks ready and blocked prerequisites before test-set generation
+- **Scoped confirmation UI**: **Accept** and **Change** actions appear only when a tool was blocked in the current turn
+
+**Endpoint Exploration and Agent Skill**
+
+Endpoint discovery is easier to run from external agents and automations:
+
+- **Async exploration API**: `POST /endpoints/{endpoint_id}/explore` launches Penelope exploration and returns a `task_id` for `GET /jobs/{task_id}`
+- **Exploration strategies**: supports `domain_probing`, `capability_mapping`, `boundary_discovery`, `comprehensive`, or a custom goal
+- **Agent Skill installer**: `npx skills add rhesis-ai/rhesis` installs the Rhesis skill across compatible AI interfaces
+
+**Explorer and Embeddings**
+
+Test Explorer naming and APIs are now the primary surface for adaptive test-tree workflows:
+
+- **Explorer routes and clients**: create, import, export, list, and delete Explorer sessions through `/explorer` APIs
+- **Default embedding model**: `rhesis/rhesis-embedding` is the default embedding model across the platform
+- **Embedding job safety**: embedding creation defers text generation until post-commit and skips unchanged or userless records
+
+### Backend Highlights
+- Added `ARCHITECT_TASK_PROGRESS` WebSocket event type and worker publication path
+- Added async endpoint exploration route backed by `run_exploration_task`
+- Added Rhesis Agent Skill support and updated MCP tools including `list_sources` and `explore_endpoint`
+- Renamed adaptive testing surfaces to Explorer and added tree operation endpoints
+- Split backend dependencies and unified backend/worker Dockerfile stages
+
+### Frontend Highlights
+- Integrated Architect task progress into the streaming bubble
+- Collapsed completed progress trails and restored the `Done.` marker
+- Prevented streaming output bleed across Architect sessions
+- Added Explorer UI/API client updates for the renamed workflow
+- Removed unused public Auth0 and app URL environment configuration
+
+### SDK Highlights
+- Added typo-tolerant Architect entity resolution using exact, contains, token, and suggestion fallback tiers
+- Strengthened `save_plan` validation and prohibited mid-creation plan rewrites
+- Improved plan progress tracking and behavior-metric mapping reconciliation
+- Added dependency constraints for `aiohttp` and `langchain-openai`
+
 ## [0.7.0] - 2026-04-23
 
 ### Platform Release
