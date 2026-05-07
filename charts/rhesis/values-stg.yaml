@@ -13,10 +13,11 @@ global:
   imagePullPolicy: Always
   imageTag: "latest"
 
-# DB user/password: declarative CNPG role secret (not rhesis-app-secrets).
+# DB: app URL uses rhesis-user; migrate.sh / Alembic use rhesis-admin.
 # Cluster manifest: kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml
 database:
   existingSecret: "rhesis-user-credentials"
+  migrationSecret: "rhesis-admin-credentials"
   usernameKey: username
   passwordKey: password
 
@@ -29,7 +30,7 @@ config:
 
   # Must match kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database
   dbName: "rhesis-stg-db"
-  dbUser: "rhesis-user"
+  dbUser: "rhesis-admin"
 
   # Frontend
   nextPublicApiBaseUrl: "https://stg-api.rhesis.ai"

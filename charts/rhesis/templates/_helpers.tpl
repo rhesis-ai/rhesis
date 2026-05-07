@@ -66,22 +66,66 @@ Otherwise fall back to externalValkey.host.
 {{- end }}
 
 {{/*
-When database.existingSecret is set, inject env vars for DB user and password
-from the CNPG application secret. Explicit env overrides envFrom and ConfigMap
-for the same key names. Must appear before SQLALCHEMY_DATABASE_URL in env lists.
+When database.existingSecret is set, inject DB credentials.
+
+- SQLALCHEMY_DB_USER / SQLALCHEMY_DB_PASS: Alembic / migrate.sh (DB owner when
+  database.migrationSecret is set, e.g. rhesis-admin).
+- SQLALCHEMY_APP_DB_USER / SQLALCHEMY_APP_DB_PASS: SQLALCHEMY_DATABASE_URL
+  (app runtime, e.g. rhesis-user).
+
+When database.migrationSecret is empty, both pairs come from existingSecret
+(backward compatible with single-role setups).
+
+Explicit env overrides envFrom and ConfigMap for the same key names. Must
+appear before SQLALCHEMY_DATABASE_URL in env lists.
 */}}
 {{- define "rhesis.database.cnpgUserPassEnv" -}}
 {{- if .Values.database.existingSecret }}
+{{- $userKey := .Values.database.usernameKey | default "username" | quote }}
+{{- $passKey := .Values.database.passwordKey | default "password" | quote }}
+{{- if .Values.database.migrationSecret }}
+- name: SQLALCHEMY_DB_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.migrationSecret | quote }}
+      key: {{ $userKey }}
+- name: SQLALCHEMY_DB_PASS
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.migrationSecret | quote }}
+      key: {{ $passKey }}
+- name: SQLALCHEMY_APP_DB_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.existingSecret | quote }}
+      key: {{ $userKey }}
+- name: SQLALCHEMY_APP_DB_PASS
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.existingSecret | quote }}
+      key: {{ $passKey }}
+{{- else }}
 - name: SQLALCHEMY_DB_USER
   valueFrom:
     secretKeyRef:
       name: {{ .Values.database.existingSecret | quote }}
-      key: {{ .Values.database.usernameKey | default "username" | quote }}
+      key: {{ $userKey }}
 - name: SQLALCHEMY_DB_PASS
   valueFrom:
     secretKeyRef:
       name: {{ .Values.database.existingSecret | quote }}
-      key: {{ .Values.database.passwordKey | default "password" | quote }}
+      key: {{ $passKey }}
+- name: SQLALCHEMY_APP_DB_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.existingSecret | quote }}
+      key: {{ $userKey }}
+- name: SQLALCHEMY_APP_DB_PASS
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Values.database.existingSecret | quote }}
+      key: {{ $passKey }}
+{{- end }}
 {{- end }}
 {{- end }}
 

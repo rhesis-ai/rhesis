@@ -60,10 +60,10 @@ spec:
         - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         - CREATE EXTENSION IF NOT EXISTS vector;
         - GRANT CONNECT ON DATABASE "rhesis-prod-db" TO "rhesis-user";
-        - GRANT USAGE, CREATE ON SCHEMA public TO "rhesis-user";
-        - GRANT SELECT, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
+        - GRANT USAGE ON SCHEMA public TO "rhesis-user";
+        - GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
         - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
-        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT SELECT, REFERENCES ON TABLES TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON TABLES TO "rhesis-user";
         - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
   backup:
     retentionPolicy: 30d

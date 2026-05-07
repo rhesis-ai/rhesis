@@ -19,8 +19,8 @@ config:
 
   # Single source of truth for app DB name (ConfigMap SQLALCHEMY_DB_NAME) and Bitnami PostgreSQL.
   # Anchors reused under postgresql.auth / extraEnvVars below.
-  dbName: &rhesis_db_name "rhesis-db"
-  dbUser: &rhesis_db_user "rhesis-user"
+  dbName: &rhesis_db_name "rhesis-dev-db"
+  dbUser: &rhesis_db_user "rhesis-admin"
 
   # Frontend
   nextPublicApiBaseUrl: "https://dev-api.rhesis.ai"
