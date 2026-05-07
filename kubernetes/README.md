@@ -114,9 +114,9 @@ Ensure `kubectl` is pointed at the dev cluster (`kubectl config current-context`
 kubectl kustomize kubernetes/clusters/dev/external-secrets/
 ```
 
-For staging or production, run `kubectl kustomize` against `kubernetes/clusters/stg/external-secrets/` or `kubernetes/clusters/prd/external-secrets/` instead; each overlay sets the GCP project ID and ESO service account for that environment.
+Need to change: need to change the dev, stg, prd project_id and service_account based on the environment.
 
-This should output the Namespace, ClusterSecretStore, Application, and a local ConfigMap — all with the correct `rhesis-dev` project ID for this example.
+This should output the Namespace, ClusterSecretStore, Application, and a local ConfigMap — all with the correct `rhesis-dev-sandbox` project ID.
 
 **Step 2b — Apply Namespace and ESO Application first:**
 
@@ -184,7 +184,7 @@ kubectl -n external-secrets get sa external-secrets -o yaml | grep gcp-service-a
 Create a secret in GCP Secret Manager (if you don’t have one):
 
 ```bash
-echo -n "my-secret-value" | gcloud secrets create test-secret --data-file=- --project=rhesis-dev
+echo -n "my-secret-value" | gcloud secrets create test-secret --data-file=- --project=rhesis-dev-sandbox
 ```
 
 Create a test ExternalSecret (replace the `remoteRef.key` if you use another secret name):
@@ -232,5 +232,5 @@ If you created a test ExternalSecret and GCP secret, delete them as needed:
 ```bash
 kubectl delete externalsecret test-secret -n default
 kubectl delete secret test-secret -n default
-gcloud secrets delete test-secret --project=rhesis-dev --quiet
+gcloud secrets delete test-secret --project=rhesis-dev-sandbox --quiet
 ```

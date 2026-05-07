@@ -1,16 +1,5 @@
 # Example Terraform variables configuration
 # Copy this file to terraform.tfvars and customize the values
-#
-# Single root stack (this directory): `project_id` is ONE GCP project used for WireGuard and
-# every enabled environment (dev/stg/prd VPCs, GKE, ESO, buckets, etc.).
-#
-# Per-environment GCP projects — target naming: rhesis-dev, rhesis-stg, rhesis-prd — apply the
-# standalone stacks under terraform/infrastructure/envs/{dev,stg,prd}/ and set `project_id`
-# in each env's tfvars to that environment's project.
-#
-# Running dev/stg/prd in three separate GCP projects from THIS root module would require
-# multiple Google provider aliases and refactors (including cross-project VPC peering). Use the
-# standalone env stacks instead until such a refactor exists.
 
 project_id = "example-project-id"
 region     = "gcp-region"

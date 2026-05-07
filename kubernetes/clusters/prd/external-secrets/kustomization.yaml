@@ -11,9 +11,9 @@ resources:
 configMapGenerator:
   - name: eso-config
     literals:
-    # GCP project rhesis-prd; ESO uses dedicated GSA eso-prd in this project.
-      - gcp-project-id=rhesis-prd
-      - eso-service-account-email=eso-prd@rhesis-prd.iam.gserviceaccount.com
+    # Prd and dev share the same GCP project; ESO uses a dedicated prd GSA in this project
+      - gcp-project-id=rhesis-dev-sandbox
+      - eso-service-account-email=eso-prd@rhesis-dev-sandbox.iam.gserviceaccount.com
     options:
       annotations:
         config.kubernetes.io/local-config: "true"

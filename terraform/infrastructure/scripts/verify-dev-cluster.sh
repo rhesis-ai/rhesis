@@ -14,7 +14,7 @@ set -euo pipefail
 
 # ── Configuration ────────────────────────────────────────────────────
 
-PROJECT_ID="${PROJECT_ID:-rhesis-dev}"
+PROJECT_ID="${PROJECT_ID:-rhesis-dev-sandbox}"
 REGION="${REGION:-europe-west4}"
 CLUSTER_NAME="${CLUSTER_NAME:-gke-dev}"
 ARGOCD_HOST="${ARGOCD_HOST:-dev-argocd.rhesis.ai}"
