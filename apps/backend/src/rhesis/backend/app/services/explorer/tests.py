@@ -215,6 +215,11 @@ def delete_explorer_test_set(
         raise ValueError("Test set not found with provided identifier")
     if not _is_explorer_test_set(db_test_set):
         raise ValueError("Test set is not configured for Explorer (Adaptive Testing behavior)")
+
+    # Build the response payload before deleting to avoid response serialization
+    # touching an expired/deleted SQLAlchemy instance after commit.
+    payload = schemas.TestSet.model_validate(db_test_set)
+
     deleted = crud.delete_test_set(
         db,
         test_set_id=db_test_set.id,
@@ -223,7 +228,7 @@ def delete_explorer_test_set(
     )
     if deleted is None:
         raise ValueError("Test set not found with provided identifier")
-    return deleted
+    return payload
 
 
 def _unique_explorer_import_name(db: Session, organization_id: str, base_name: str) -> str:
