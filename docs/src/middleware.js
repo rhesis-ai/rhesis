@@ -3,6 +3,21 @@ import { NextResponse } from 'next/server'
 export function middleware(request) {
   const { pathname } = request.nextUrl
 
+  // Rewrite /<page>.md requests to the internal markdown API route.
+  // This powers the "any page as raw markdown" feature: append .md to any
+  // docs URL to get clean markdown suitable for LLM ingestion.
+  if (
+    pathname.endsWith('.md') &&
+    pathname.length > 3 &&
+    !pathname.startsWith('/api/') &&
+    !pathname.startsWith('/_next/')
+  ) {
+    const slug = pathname.slice(1, -3) // strip leading "/" and trailing ".md"
+    const url = request.nextUrl.clone()
+    url.pathname = `/api/md/${slug}`
+    return NextResponse.rewrite(url)
+  }
+
   // List of paths that should NOT be handled by the MDX catch-all route
   const staticPaths = [
     '/_next',
@@ -11,6 +26,7 @@ export function middleware(request) {
     '/robots.txt',
     '/sitemap.xml',
     '/llms.txt',
+    '/llms-full.txt',
     '/manifest.json',
     '/_vercel',
     '/public',

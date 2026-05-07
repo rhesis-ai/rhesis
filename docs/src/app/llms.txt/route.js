@@ -1,85 +1,120 @@
 /**
- * llms.txt route handler
- * Provides a machine-readable file for LLMs to understand the site structure
- * See: https://llmstxt.org/
+ * /llms.txt — machine-readable site index for LLMs.
+ *
+ * Format follows https://llmstxt.org/:
+ *   # Site Name
+ *   > One-line description
+ *
+ *   ## Section
+ *   - [Page Title](url.md): Short description.
+ *
+ *   ## Optional
+ *   - [Page Title](url.md)
+ *
+ * Links point to the .md variant of each page so that an LLM following
+ * a link receives clean markdown rather than rendered HTML.
+ *
+ * Sections are ordered to match the sidebar (_meta.tsx order):
+ *   Primary  → docs, guides, sdk, contribute
+ *   Optional → individual glossary terms, changelog entries
+ *   (The glossary index page itself is in the primary "Glossary" block.)
  */
 
+import {
+  getAllPages,
+  SECTION_ORDER,
+  SECTION_LABELS,
+  OPTIONAL_SECTIONS,
+} from '../../lib/content-index.js'
+import { siteConfig } from '../../lib/site-config.js'
+
+export const dynamic = 'force-dynamic'
+
+/** Builds a canonical URL for a given URL path. */
+function pageUrl(urlPath) {
+  if (!urlPath) return siteConfig.siteUrl
+  return `${siteConfig.siteUrl}/${urlPath}`
+}
+
+/** Builds the .md URL for a given URL path. */
+function mdUrl(urlPath) {
+  if (!urlPath) return `${siteConfig.siteUrl}.md`
+  return `${siteConfig.siteUrl}/${urlPath}.md`
+}
+
 export async function GET() {
-  const content = `# Rhesis Documentation
+  const { bySection } = getAllPages()
 
-> AI-powered testing and evaluation platform for Gen AI applications
+  const lines = []
 
-## Overview
+  // -------------------------------------------------------------------------
+  // Header
+  // -------------------------------------------------------------------------
+  lines.push(`# ${siteConfig.siteName}`)
+  lines.push('')
+  lines.push(`> ${siteConfig.siteDescription}`)
+  lines.push('')
 
-Rhesis is a collaborative testing platform that brings together developers, domain experts, and stakeholders to create comprehensive testing for Gen AI applications.
+  // -------------------------------------------------------------------------
+  // Primary sections — shown as named H2 blocks
+  // -------------------------------------------------------------------------
+  const primarySections = SECTION_ORDER.filter(sec => !OPTIONAL_SECTIONS.has(sec))
 
-## Main Sections
+  for (const sec of primarySections) {
+    const pages = bySection[sec] || []
+    if (pages.length === 0) continue
 
-### Getting Started
-- Installation and setup: https://docs.rhesis.ai/docs/getting-started
-- Core concepts: https://docs.rhesis.ai/docs/concepts
-- Running locally: https://docs.rhesis.ai/docs/deployment/running-locally
-- Self-hosting: https://docs.rhesis.ai/docs/deployment/self-hosting
+    lines.push(`## ${SECTION_LABELS[sec]}`)
+    lines.push('')
 
-### Platform
-- Projects: https://docs.rhesis.ai/docs/projects
-- Endpoints: https://docs.rhesis.ai/docs/endpoints
-- Models: https://docs.rhesis.ai/docs/models
-- Knowledge: https://docs.rhesis.ai/docs/knowledge
-- Behaviors: https://docs.rhesis.ai/docs/behaviors
-- Metrics: https://docs.rhesis.ai/docs/metrics
-- Test Generation: https://docs.rhesis.ai/docs/tests-generation
-- Tests: https://docs.rhesis.ai/docs/tests
-- Test Sets: https://docs.rhesis.ai/docs/test-sets
-- Test Runs: https://docs.rhesis.ai/docs/test-runs
-- Tasks: https://docs.rhesis.ai/docs/tasks
-- API Tokens: https://docs.rhesis.ai/docs/api-tokens
-- MCP: https://docs.rhesis.ai/docs/mcp
+    for (const page of pages) {
+      const url = mdUrl(page.urlPath)
+      const desc = page.description ? `: ${page.description}` : ''
+      lines.push(`- [${page.title}](${url})${desc}`)
+    }
 
-### SDK
-- Installation: https://docs.rhesis.ai/sdk/installation
-- Entities: https://docs.rhesis.ai/sdk/entities
-- Models: https://docs.rhesis.ai/sdk/models
-- Synthesizers: https://docs.rhesis.ai/sdk/synthesizers
-- Metrics: https://docs.rhesis.ai/sdk/metrics
-- Connector: https://docs.rhesis.ai/sdk/connector
+    lines.push('')
+  }
 
-### Contribute
-- Overview: https://docs.rhesis.ai/contribute
-- Backend: https://docs.rhesis.ai/contribute/backend
-- Frontend: https://docs.rhesis.ai/contribute/frontend
-- Worker: https://docs.rhesis.ai/contribute/worker
-- Connector: https://docs.rhesis.ai/contribute/connector
-- Environment Variables: https://docs.rhesis.ai/contribute/environment-variables
-- Development Setup: https://docs.rhesis.ai/contribute/development-setup
+  // -------------------------------------------------------------------------
+  // Optional section — glossary index + individual terms + changelog
+  // -------------------------------------------------------------------------
+  const optionalLines = []
 
-### Conversation Simulation
-- Overview: https://docs.rhesis.ai/docs/conversation-simulation
-- Getting Started: https://docs.rhesis.ai/docs/conversation-simulation/getting-started
-- Examples: https://docs.rhesis.ai/docs/conversation-simulation/examples
-- Configuration: https://docs.rhesis.ai/docs/conversation-simulation/configuration
+  for (const sec of SECTION_ORDER.filter(sec => OPTIONAL_SECTIONS.has(sec))) {
+    const pages = bySection[sec] || []
+    if (pages.length === 0) continue
 
-## Key Features
+    optionalLines.push(`### ${SECTION_LABELS[sec]}`)
+    optionalLines.push('')
 
-- **Collaborative Testing**: Bring together technical and non-technical stakeholders
-- **Test Generation**: Automatically generate test cases using AI
-- **LLM as Judge**: Evaluate responses using metrics powered by LLMs
-- **SDK Integration**: Python SDK for programmatic access
-- **Multi-turn Testing**: Support for conversational AI testing
-- **Custom Metrics**: Define custom evaluation criteria
-- **Knowledge Management**: Organize domain knowledge for test generation
+    for (const page of pages) {
+      const url = mdUrl(page.urlPath)
+      const desc = page.description ? `: ${page.description}` : ''
+      optionalLines.push(`- [${page.title}](${url})${desc}`)
+    }
 
-## API Reference
+    optionalLines.push('')
+  }
 
-Full SDK reference: https://rhesis-sdk.readthedocs.io/en/latest/
+  if (optionalLines.length > 0) {
+    lines.push('## Optional')
+    lines.push('')
+    lines.push(...optionalLines)
+  }
 
-## Support
+  // -------------------------------------------------------------------------
+  // Footer links
+  // -------------------------------------------------------------------------
+  lines.push('## Resources')
+  lines.push('')
+  lines.push(`- Full content (all pages concatenated): ${pageUrl('llms-full.txt')}`)
+  lines.push(`- SDK API reference: https://rhesis-sdk.readthedocs.io/en/latest/`)
+  lines.push(`- GitHub: https://github.com/rhesis-ai/rhesis`)
+  lines.push(`- Discord: https://discord.rhesis.ai`)
+  lines.push(`- Website: https://www.rhesis.ai`)
 
-- GitHub: https://github.com/rhesis-ai/rhesis
-- Discord: https://discord.rhesis.ai
-- Website: https://www.rhesis.ai
-- Contact: https://www.rhesis.ai/talk-to-us
-`
+  const content = lines.join('\n')
 
   return new Response(content, {
     status: 200,

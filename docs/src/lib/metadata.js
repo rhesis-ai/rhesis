@@ -31,8 +31,11 @@ export function getOpenGraphImage(path, defaultImage = siteConfig.defaultImage) 
 export function extractDescription(content) {
   if (!content) return null
 
+  // Remove YAML frontmatter block (--- ... ---)
+  let cleanContent = content.replace(/^---\n[\s\S]*?\n---\n?/, '')
+
   // Remove MDX imports, exports, code blocks, inline code, and MDX components
-  let cleanContent = content
+  cleanContent = cleanContent
     .replace(/^import\s+.*$/gm, '')
     .replace(/^export\s+.*$/gm, '')
     .replace(/```[\s\S]*?```/g, '')
@@ -98,9 +101,12 @@ export function generatePageMetadata(
     creator: config.author.name,
     publisher: config.organization.name,
 
-    // Canonical URL
+    // Canonical URL + raw markdown alternate (for LLM ingestion)
     alternates: {
       canonical: canonicalUrl,
+      types: {
+        'text/markdown': `${canonicalUrl}.md`,
+      },
     },
 
     // OpenGraph
