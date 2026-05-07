@@ -94,17 +94,22 @@ def upgrade() -> None:
     session = Session(bind=bind)
 
     try:
-        # Get all organizations (including those that haven't completed onboarding)
-        organizations = session.query(models.Organization).all()
+        # Use raw SQL to avoid ORM model column set changing across migrations
+        from sqlalchemy import text
 
-        print(f"\n📦 Creating default Rhesis model for {len(organizations)} organization(s)...")
+        org_rows = op.get_bind().execute(
+            text("SELECT id, owner_id, user_id FROM organization")
+        ).fetchall()
+
+        print(f"\n📦 Creating default Rhesis model for {len(org_rows)} organization(s)...")
         created_count = 0
         skipped_count = 0
 
-        for org in organizations:
-            organization_id = str(org.id)
+        for org_row in org_rows:
+            org_id, org_owner_id, org_user_id = org_row[0], org_row[1], org_row[2]
+            organization_id = str(org_id)
             # Use owner_id or fall back to user_id
-            user_id = str(org.owner_id or org.user_id)
+            user_id = str(org_owner_id or org_user_id)
 
             if not user_id:
                 print(f"  ⚠ Skipping org {organization_id}: No owner or user")
@@ -116,7 +121,7 @@ def upgrade() -> None:
                 session.query(models.Model)
                 .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
                 .filter(
-                    models.Model.organization_id == org.id,
+                    models.Model.organization_id == org_id,
                     models.TypeLookup.type_value == "rhesis",
                     models.Model.is_protected,
                 )
@@ -178,7 +183,7 @@ def upgrade() -> None:
                 # who don't have defaults set
                 users_updated = _update_user_model_settings(
                     session=session,
-                    organization_id=org.id,
+                    organization_id=org_id,
                     model_type="both",  # Check both generation and evaluation
                     condition_fn=lambda model_id: model_id is None,  # Update if not set
                     new_model_id=str(default_model.id),
