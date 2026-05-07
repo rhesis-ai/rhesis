@@ -4,11 +4,14 @@ from fastapi import Request
 
 
 def regenerate_session(request: Request, new_data: dict) -> None:
-    """Atomically clear and repopulate the session after authentication.
+    """Clear pre-authentication session data and populate with new auth state.
 
-    Prevents session fixation by ensuring the pre-authentication session ID
-    is discarded. Starlette's SessionMiddleware issues a new cookie when
-    the session dict changes.
+    Starlette's SessionMiddleware uses a signed client-side cookie — there is
+    no server-side session ID to rotate.  Clearing the cookie payload and
+    rewriting it with freshly-authenticated data achieves the practical goal:
+    any state accumulated before authentication (e.g. a partially-filled form
+    or a CSRF nonce) is dropped and cannot be re-used by the authenticated
+    session.
 
     Args:
         request: The current FastAPI/Starlette request.

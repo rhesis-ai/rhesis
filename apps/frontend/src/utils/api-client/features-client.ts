@@ -8,7 +8,8 @@ export interface LicenseInfo {
 
 export interface FeaturesResponse {
   license: LicenseInfo;
-  enabled: FeatureName[];
+  /** Wire type is string[] to tolerate unknown feature names from newer backends. */
+  enabled: string[];
 }
 
 /**

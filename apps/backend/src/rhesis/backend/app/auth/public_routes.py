@@ -85,6 +85,7 @@ TOKEN_ENABLED_ROUTES: list[str] = [
     "/models/",
     "/connector/",
     "/explorer/",
+    "/features/",
 ]
 
 __all__ = ["PUBLIC_ROUTES", "TOKEN_ENABLED_ROUTES"]

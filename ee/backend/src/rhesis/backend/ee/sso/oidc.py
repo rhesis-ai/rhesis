@@ -40,8 +40,19 @@ STATE_MAX_AGE_SECONDS = 300  # 5 minutes
 
 
 def _get_state_signing_key() -> bytes:
-    """Derive a signing key for SSO state parameters from SESSION_SECRET_KEY."""
+    """Derive a signing key for SSO state parameters from SESSION_SECRET_KEY.
+
+    Raises ``RuntimeError`` when ``SESSION_SECRET_KEY`` is not set so that
+    misconfigured deployments fail loudly rather than silently falling back to
+    a constant (all-zero) derived key that an attacker could trivially forge.
+    """
     session_key = os.getenv("SESSION_SECRET_KEY", "")
+    if not session_key:
+        raise RuntimeError(
+            "SESSION_SECRET_KEY must be set before SSO state signing can be used. "
+            "Set the environment variable to a cryptographically-random string of at "
+            "least 32 characters."
+        )
     return hashlib.sha256(f"sso-state-{session_key}".encode()).digest()
 
 
