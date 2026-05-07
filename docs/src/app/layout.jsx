@@ -19,6 +19,15 @@ export async function generateMetadata() {
       template: '%s – Rhesis',
       default: siteConfig.siteName,
     },
+    // LLM-consumable corpus files (llmstxt.org)
+    alternates: {
+      types: {
+        'text/plain': [
+          { url: '/llms.txt', title: 'LLM index (llms.txt)' },
+          { url: '/llms-full.txt', title: 'Full documentation corpus (llms-full.txt)' },
+        ],
+      },
+    },
     description: siteConfig.siteDescription,
     keywords: siteConfig.keywords,
     authors: [{ name: siteConfig.author.name, url: siteConfig.author.url }],

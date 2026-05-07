@@ -20,5 +20,7 @@ export default function robots() {
       disallow: [],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
+    // LLM-consumable files (llmstxt.org)
+    // llmsTxt: `${baseUrl}/llms.txt`,  (not a standard robots.txt directive yet)
   }
 }
