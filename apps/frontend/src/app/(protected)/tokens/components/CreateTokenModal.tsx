@@ -52,6 +52,9 @@ export default function CreateTokenModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
     try {
       let expiresInDays: number | null = null;
 
@@ -62,7 +65,7 @@ export default function CreateTokenModal({
         expiresInDays = parseInt(expiryOption);
       }
 
-      await onCreateToken(name, expiresInDays);
+      await onCreateToken(trimmedName, expiresInDays);
       handleClose();
     } catch (_error) {}
   };
@@ -124,7 +127,7 @@ export default function CreateTokenModal({
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button type="submit" variant="contained">
+          <Button type="submit" variant="contained" disabled={!name.trim()}>
             Create
           </Button>
         </DialogActions>

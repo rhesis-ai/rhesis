@@ -115,7 +115,7 @@ Track LLM calls, latency, token usage, and link traces to test results for debug
 
 ### Bring your own model
 
-Use any LLM provider for test generation and evaluation:
+Use any LLM provider for test generation and evaluation. Provider routing is powered by [LiteLLM](https://github.com/BerriAI/litellm) under the hood, giving you a single interface to 100+ models:
 
 **Cloud:** OpenAI, Anthropic, Google Gemini, Mistral, Cohere, Groq, Together AI
 
@@ -226,23 +226,57 @@ pip install rhesis-sdk
 
 ## Integrations
 
-Connect Rhesis to your LLM stack:
+Rhesis integrates with your LLM stack across four layers, each addressing a different concern:
+
+| Layer | What it covers |
+|---|---|
+| **[LLM providers](#integration-layer-llm-providers)** | The model that runs your test generation and LLM-as-Judge evaluation |
+| **[Tracing](#integration-layer-tracing)** | Streaming spans from your application to Rhesis over OpenTelemetry |
+| **[Test execution](#integration-layer-test-execution)** | Letting Rhesis invoke entry points in your application remotely to run test cases |
+| **[REST API](#integration-layer-rest-api)** | Programmatic access to test sets, runs, and platform resources |
+
+<a id="integration-layer-llm-providers"></a>
+### LLM providers (test generation & judges)
+
+Choose any provider for the LLMs that drive test synthesis and LLM-as-Judge evaluation. Provider routing is powered by [LiteLLM](https://github.com/BerriAI/litellm), giving you a single interface to 100+ models.
 
 | Integration | Languages | Description |
 |-------------|-----------|-------------|
-| **Rhesis SDK** | Python, JS/TS | Native SDK with decorators for endpoints and observability. Full control over test execution and tracing. |
-| **OpenAI** | Python | Drop-in replacement for OpenAI SDK. Automatic instrumentation with zero code changes. |
-| **Anthropic** | Python | Native support for Claude models with automatic tracing. |
-| **LangChain** | Python | Add Rhesis callback handler to your LangChain app for automatic tracing and test execution. |
-| **LangGraph** | Python | Built-in integration for LangGraph agent workflows with full observability. |
-| **AutoGen** | Python | Automatic instrumentation for Microsoft AutoGen multi-agent conversations. |
-| **LiteLLM** | Python | Unified interface for 100+ LLMs (OpenAI, Azure, Anthropic, Cohere, Ollama, vLLM, HuggingFace, Replicate). |
+| **OpenAI** | Python | OpenAI supported models and embeddings. |
+| **Anthropic** | Python | Native support for Claude models. |
 | **Google Gemini** | Python | Native integration for Google's Gemini models. |
+| **Vertex AI** | Python | Google Cloud Vertex AI model support. |
 | **Ollama** | Python | Local LLM deployment with Ollama integration. |
 | **OpenRouter** | Python | Access to multiple LLM providers through OpenRouter. |
-| **Vertex AI** | Python | Google Cloud Vertex AI model support. |
 | **HuggingFace** | Python | Direct integration with HuggingFace models. |
-| **REST API** | Any | Direct API access for custom integrations. [OpenAPI spec available](https://api.rhesis.ai/docs). |
+| **LiteLLM** | Python | Unified interface for 100+ LLMs (OpenAI, Azure, Anthropic, Cohere, Ollama, vLLM, HuggingFace, Replicate). |
+
+<a id="integration-layer-tracing"></a>
+### Tracing your application
+
+Your application emits spans through the Rhesis SDK; spans are batched and sent to Rhesis over HTTP using OpenTelemetry span conventions. The integration mechanism depends on the framework — auto-instrumented frameworks need no code changes, while others use the `@observe.llm` decorator to mark the boundaries you want traced.
+
+| Integration | Languages | Mechanism | Description |
+|-------------|-----------|-----------|-------------|
+| **Rhesis SDK** | Python, JS/TS | Decorators | Native SDK with `@observe.llm` and convenience variants (`@observe.tool`, `@observe.retrieval`, `@observe.embedding`, …). Wrap any function you want traced. |
+| **LangChain** | Python | ✅ Automatic | Add the Rhesis callback handler once and every chain step, tool call, and LLM call is traced automatically — no per-function decorators required. |
+| **LangGraph** | Python | ✅ Automatic | Built-in integration for LangGraph agent workflows with full observability — every node transition, tool invocation, and graph step is captured automatically. |
+| **OpenTelemetry / OpenInference** | Python | ✅ Automatic via OTel | Any framework with an OpenInference instrumentor (LlamaIndex, CrewAI, OpenAI Agents SDK, Google ADK, Pydantic AI, DSPy, Haystack, Semantic Kernel) exports to Rhesis through the SDK's OTel-based exporter. See [Tracing setup docs](https://docs.rhesis.ai/tracing) for exact endpoint and header configuration. |
+| **AutoGen, OpenAI Agents SDK, LlamaIndex, CrewAI, and others** | Python | Decorators | Wrap the functions, tools, or agents you want to trace with `@observe.llm`. Without decorators, only top-level inputs and outputs are captured. |
+
+<a id="integration-layer-test-execution"></a>
+### Test execution: the connector
+
+For Rhesis to run test cases against your application, it needs a way to call your code from outside your environment. The Rhesis SDK provides a **persistent outbound WebSocket connection** — your application opens it at startup and Rhesis can then invoke registered entry points whenever a test run fires. The connection is outbound from your app, so it works through firewalls and from local laptops without exposing a public URL.
+
+You register an entry point with the `@endpoint` decorator (see [SDK: Code-first testing](#sdk-code-first-testing)). When a test run starts, Rhesis sends each test case's input down the WebSocket; your application runs the function locally and sends the output back up the same connection. The same call path serves single-turn test cases and multi-turn conversations driven by **Penelope** (our multi-turn conversation runner).
+
+Both channels run from the same SDK in the same process: spans flow up the HTTP/OTLP channel; test commands flow down the WebSocket. Production traffic and test traffic produce traces in the same format, so the same evaluation metrics grade both.
+
+<a id="integration-layer-rest-api"></a>
+### REST API
+
+Direct API access for custom integrations and CI/CD pipelines: manage test sets, trigger test runs, fetch results, and inspect traces programmatically. Language-agnostic — call from Python, TypeScript, Go, shell scripts, or anywhere else. [OpenAPI spec available](https://api.rhesis.ai/docs).
 
 See [Integration Docs](https://docs.rhesis.ai/development) for setup instructions.
 

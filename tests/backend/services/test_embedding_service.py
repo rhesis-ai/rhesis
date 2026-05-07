@@ -498,7 +498,7 @@ class TestEmbeddingServiceWorkerDetection:
 class TestEmbeddingServiceIntegration:
     """Integration tests for EmbeddingService with real generator."""
 
-    @patch("rhesis.sdk.models.factory.get_embedding_model")
+    @patch("rhesis.backend.app.utils.user_model_utils.get_model")
     @patch.object(EmbeddingService, "_check_workers_available")
     def test_full_sync_flow(
         self,

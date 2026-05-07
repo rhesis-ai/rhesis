@@ -43,23 +43,27 @@ ENV UV_LINK_MODE=copy \
 COPY sdk/uv.lock sdk/pyproject.toml /app/sdk/
 COPY penelope/uv.lock penelope/pyproject.toml /app/penelope/
 COPY packages/rhesis/pyproject.toml packages/rhesis/README.md /app/packages/rhesis/
+# EE manifest only at this layer so dependency resolution for --extra ee
+# succeeds without invalidating the cache on every EE source change.
+COPY ee/backend/pyproject.toml ee/backend/README.md /app/ee/backend/
 
 WORKDIR /app/apps/backend
 COPY apps/backend/uv.lock apps/backend/pyproject.toml apps/backend/README.md ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-install-project --no-install-local --extra all --extra cpu
+    uv sync --no-install-project --no-install-local --extra all --extra cpu --extra ee
 
 # Layer 2: full sources, then install local packages
 WORKDIR /app
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
 COPY packages/rhesis /app/packages/rhesis/
+COPY ee/backend /app/ee/backend/
 COPY apps/backend/src /app/apps/backend/src/
 
 WORKDIR /app/apps/backend
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --extra all --extra cpu
+    uv sync --extra all --extra cpu --extra ee
 
 
 # ============================================================================
@@ -101,6 +105,8 @@ COPY --from=builder --chown=rhesis-user:rhesis-user /app/apps/backend/src src
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/sdk /app/sdk
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/penelope /app/penelope
 COPY --from=builder --chown=rhesis-user:rhesis-user /app/packages/rhesis /app/packages/rhesis
+# EE editable install needs the source tree at /app/ee/backend/src in runtime.
+COPY --from=builder --chown=rhesis-user:rhesis-user /app/ee/backend /app/ee/backend
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/migrate.sh ./migrate.sh
 COPY --chown=rhesis-user:rhesis-user --chmod=755 apps/backend/start.sh ./start.sh
 

@@ -166,10 +166,10 @@ The application uses a custom route class to enforce authentication requirements
 <CodeBlock filename="auth-middleware.py" language="python">
 {`class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
-        if self.path in public_routes:
+        if self.path in PUBLIC_ROUTES:
             # No auth required
             return []
-        elif any(self.path.startswith(route) for route in token_enabled_routes):
+        elif any(self.path.startswith(route) for route in TOKEN_ENABLED_ROUTES):
             # Both session and token auth accepted
             return [Depends(require_current_user_or_token)]
         # Default to session-only auth

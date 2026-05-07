@@ -1,0 +1,22 @@
+{
+  "extends": "../../apps/frontend/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../apps/frontend/src/*"],
+      "react": ["../../apps/frontend/node_modules/@types/react"],
+      "react/*": ["../../apps/frontend/node_modules/@types/react/*"],
+      "@mui/material": ["../../apps/frontend/node_modules/@mui/material"],
+      "@mui/material/*": ["../../apps/frontend/node_modules/@mui/material/*"],
+      "@mui/icons-material": ["../../apps/frontend/node_modules/@mui/icons-material"],
+      "@mui/icons-material/*": ["../../apps/frontend/node_modules/@mui/icons-material/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "../../apps/frontend/next-env.d.ts",
+    "../../apps/frontend/src/types/*.d.ts",
+    "../../apps/frontend/types/*.d.ts"
+  ]
+}

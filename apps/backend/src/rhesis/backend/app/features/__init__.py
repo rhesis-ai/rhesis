@@ -1,79 +1,81 @@
-"""Central feature registry and license gate.
+"""EE feature registry and license gate.
 
-Every "is feature X available for this organization?" question in the
-codebase should flow through :meth:`FeatureRegistry.is_available`. This
-is the single extension point where real license validation will slot
-in later (by swapping :class:`DefaultLicenseProvider` for a real
-implementation via :meth:`FeatureRegistry.set_license_provider`).
+Every "is EE feature X available for this organization?" question flows
+through :meth:`FeatureRegistry.is_available`. This is the single extension
+point where license validation plugs in (by swapping
+:class:`DefaultLicenseProvider` for :class:`JwtLicenseProvider` via
+:meth:`FeatureRegistry.set_license_provider`).
 
-Today the default provider allows every registered feature. A feature
-is still gated by:
+Two query methods, both fail-closed:
 
-- Registration: callers asking for an unknown name receive ``False``.
-- Runtime preconditions: an optional ``runtime_check`` callable on the
-  feature (for SSO, this is :func:`is_sso_encryption_available`).
+- :meth:`is_registered` — registered + runtime check passes. Does NOT consult
+  the license provider. Use this for early-bailout checks before an
+  organization has been resolved (e.g. inside an OIDC callback before
+  validating the signed state).
+- :meth:`is_available` — registered + license provider allows it for the
+  given organization + runtime check passes. The organization argument is
+  required; this is the call you want for any per-tenant gating.
 
-The enum :class:`FeatureName` is the canonical source of truth for
-feature identifiers. Add new members here before registering or
-gating against them. Because ``FeatureName`` inherits from ``str``,
-members serialize transparently to JSON and compare equal to their
-raw string values (``FeatureName.SSO == "sso"``).
+:class:`FeatureName` is the canonical source of truth for EE feature
+identifiers. Add new members here when adding a new EE feature, then register
+the corresponding :class:`Feature` in ``ee/__init__.py:bootstrap()``.
+Because ``FeatureName`` inherits from ``str``, members serialize transparently
+to JSON and compare equal to their raw string values (``FeatureName.SSO == "sso"``).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Optional, Protocol, Union
 
 from rhesis.backend.app.models.organization import Organization
-from rhesis.backend.app.models.subscription import SubscriptionPlan
 
 
 class FeatureName(str, Enum):
-    """Canonical names of gated features.
+    """Canonical identifiers for EE features.
 
     Inheriting from ``str`` means members compare equal to their value
     (``FeatureName.SSO == "sso"``) and FastAPI serializes them to their
-    raw string over the wire. Add new members here before registering
-    the corresponding :class:`Feature` in ``features_bootstrap``.
+    raw string over the wire.
     """
 
     SSO = "sso"
 
 
-# Accept either the enum or its raw string value. Dynamic call sites
-# (wire deserialization, tests, orgless legacy callers) remain ergonomic,
-# but unknown strings safely fail closed in :meth:`FeatureRegistry.is_available`.
+# Accept either the enum or its raw string value so dynamic call sites
+# (wire deserialization, tests, orgless callers) remain ergonomic.
+# Unknown strings fail closed in :meth:`FeatureRegistry.is_available`.
 FeatureNameLike = Union[FeatureName, str]
 
 
 @dataclass(frozen=True)
 class Feature:
-    """Declarative metadata for a gated capability.
+    """Declarative metadata for an EE feature.
 
-    :param name: canonical :class:`FeatureName` identifier
-    :param display_name: human-readable label for UI
-    :param min_plan: minimum subscription plan the license must allow
-        (consulted by real :class:`LicenseProvider` implementations;
-        ignored by :class:`DefaultLicenseProvider`)
-    :param runtime_check: optional system-level precondition (e.g. an
-        encryption key being configured); invoked on every
-        availability check
-    :param description: free-form description
+    Equality is by ``name`` only; the registry guarantees one entry per name,
+    so display labels and descriptions are mutable presentation details that
+    must not influence identity. Without this, two ``Feature`` instances
+    differing only in ``description`` would compare unequal, breaking
+    idempotent re-registration.
+
+    :param name: canonical :class:`FeatureName` identifier.
+    :param display_name: human-readable label for the UI.
+    :param runtime_check: optional system-level precondition (e.g. a required
+        env var); invoked on every availability check.
+    :param description: free-form description shown in the features endpoint.
     """
 
     name: FeatureName
-    display_name: str
-    min_plan: SubscriptionPlan = SubscriptionPlan.FREE
-    runtime_check: Optional[Callable[[], bool]] = None
-    description: str = ""
+    display_name: str = field(default="", compare=False)
+    runtime_check: Optional[Callable[[], bool]] = field(default=None, compare=False)
+    description: str = field(default="", compare=False)
 
 
 class LicenseProvider(Protocol):
     """Pluggable license validator.
 
-    Implementations decide whether a specific feature is licensed for a
+    Implementations decide whether a specific EE feature is licensed for a
     given organization. Only one implementation is active per process,
     installed via :meth:`FeatureRegistry.set_license_provider`.
     """
@@ -83,32 +85,29 @@ class LicenseProvider(Protocol):
 
 
 class DefaultLicenseProvider:
-    """Stub provider. Allows every registered feature for every org.
+    """Permissive provider — allows every registered EE feature for every org.
 
-    Replace when real license validation lands:
-
-    - validate a signed JWT from ``RHESIS_LICENSE_KEY``
-    - compare ``org.subscription.plan`` to ``feature.min_plan``
-    - check per-feature entitlements embedded in the license
-
-    Only this class needs to change; all call sites flow through
-    :meth:`FeatureRegistry.is_available`.
+    Active when ``RHESIS_LICENSE`` is not set. Intended for local development
+    with the ``ee`` package installed but no license key configured. In
+    production, :class:`JwtLicenseProvider` replaces this and restricts
+    access to features listed in the signed JWT.
     """
 
     def allows_feature(self, feature: Feature, org: Organization) -> bool:
         return True
 
     def info(self) -> dict:
-        return {"edition": "community", "licensed": False}
+        # ``edition: dev`` (rather than ``community``) communicates that the EE
+        # package is loaded but unlicensed, which matters for diagnostic UI.
+        return {"edition": "dev", "licensed": False}
 
 
 class FeatureRegistry:
-    """Singleton registry of gated features.
+    """Singleton registry of EE features.
 
-    Holds the installed :class:`LicenseProvider` and the map of
-    registered :class:`Feature` instances. All queries resolve through
-    :meth:`is_available`, which combines registration, license
-    validation, and runtime checks in fail-closed order.
+    Holds the installed :class:`LicenseProvider` and the map of registered
+    :class:`Feature` instances. Two queries: :meth:`is_registered` (no
+    license check) and :meth:`is_available` (full check, requires org).
     """
 
     _features: dict[FeatureName, Feature] = {}
@@ -116,7 +115,7 @@ class FeatureRegistry:
 
     @classmethod
     def register(cls, feature: Feature) -> None:
-        """Register a feature. Idempotent (later registrations override)."""
+        """Register an EE feature. Idempotent — later registrations override."""
         cls._features[feature.name] = feature
 
     @classmethod
@@ -126,11 +125,7 @@ class FeatureRegistry:
 
     @staticmethod
     def _coerce(name: FeatureNameLike) -> Optional[FeatureName]:
-        """Best-effort coerce ``name`` to a ``FeatureName``.
-
-        Unknown strings return ``None``, which flows into a ``False``
-        availability result upstream (fail-closed).
-        """
+        """Coerce *name* to a :class:`FeatureName`, returning ``None`` on failure."""
         if isinstance(name, FeatureName):
             return name
         try:
@@ -139,18 +134,14 @@ class FeatureRegistry:
             return None
 
     @classmethod
-    def is_available(
-        cls,
-        name: FeatureNameLike,
-        org: Optional[Organization] = None,
-    ) -> bool:
-        """Return ``True`` iff the feature is registered, licensed for
-        ``org`` (if provided), and passes its runtime check.
+    def is_registered(cls, name: FeatureNameLike) -> bool:
+        """Return ``True`` iff the feature is registered and its runtime check passes.
 
-        When ``org`` is ``None`` the license check is skipped. This
-        preserves backward compatibility with legacy callers that had
-        no organization handle; real license providers should enforce
-        org presence via their own policy if needed.
+        Does NOT consult the license provider. Use as an early bailout when
+        an organization has not yet been resolved — for example inside an
+        OIDC callback before the signed state has been validated. License
+        enforcement happens via :meth:`is_available` (or the
+        ``require_feature`` route dependency) once the org is in hand.
         """
         key = cls._coerce(name)
         if key is None:
@@ -158,20 +149,42 @@ class FeatureRegistry:
         feature = cls._features.get(key)
         if feature is None:
             return False
-        if org is not None and not cls._license.allows_feature(feature, org):
+        if feature.runtime_check is not None and not feature.runtime_check():
+            return False
+        return True
+
+    @classmethod
+    def is_available(cls, name: FeatureNameLike, org: Optional[Organization]) -> bool:
+        """Return ``True`` iff *name* is registered, licensed for *org*, and
+        passes its runtime check.
+
+        Organization is required: feature gating without org context cannot
+        consult the license provider, which is precisely what
+        :meth:`is_registered` exists for. Passing ``None`` fails closed —
+        a user with no associated organization is never granted EE features.
+        """
+        if org is None:
+            return False
+        key = cls._coerce(name)
+        if key is None:
+            return False
+        feature = cls._features.get(key)
+        if feature is None:
+            return False
+        if not cls._license.allows_feature(feature, org):
             return False
         if feature.runtime_check is not None and not feature.runtime_check():
             return False
         return True
 
     @classmethod
-    def enabled_features(cls, org: Optional[Organization] = None) -> list[Feature]:
-        """Return all features currently available for ``org``."""
+    def enabled_features(cls, org: Optional[Organization]) -> list[Feature]:
+        """Return all EE features currently available for *org*."""
         return [f for f in cls._features.values() if cls.is_available(f.name, org)]
 
     @classmethod
     def license_info(cls) -> dict:
-        """Opaque license metadata for diagnostics / UI badges."""
+        """Opaque license metadata for diagnostics and UI badges."""
         return cls._license.info()
 
     @classmethod

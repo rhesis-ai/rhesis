@@ -297,6 +297,173 @@ describe('ArchitectMessageBubble', () => {
     });
   });
 
+  describe('waiting / done indicators', () => {
+    it('shows the "Working…" spinner while a long task is running', () => {
+      render(
+        <ArchitectMessageBubble message={createMessage()} showWaitingSpinner />
+      );
+
+      expect(screen.getByText('Working…')).toBeInTheDocument();
+      expect(screen.queryByText('Done.')).not.toBeInTheDocument();
+    });
+
+    it('shows the "Done." indicator when the long task has completed', () => {
+      render(
+        <ArchitectMessageBubble message={createMessage()} showTaskComplete />
+      );
+
+      expect(screen.getByText('Done.')).toBeInTheDocument();
+      expect(screen.getByTestId('CheckCircleOutlineIcon')).toBeInTheDocument();
+      expect(screen.queryByText('Working…')).not.toBeInTheDocument();
+    });
+
+    it('prefers "Working…" over "Done." if both are accidentally true', () => {
+      // The hook should never set both at once, but the bubble should
+      // still degrade gracefully in case it does.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage()}
+          showWaitingSpinner
+          showTaskComplete
+        />
+      );
+
+      expect(screen.getByText('Working…')).toBeInTheDocument();
+      expect(screen.queryByText('Done.')).not.toBeInTheDocument();
+    });
+
+    it('shows neither indicator when both flags are off', () => {
+      render(<ArchitectMessageBubble message={createMessage()} />);
+      expect(screen.queryByText('Working…')).not.toBeInTheDocument();
+      expect(screen.queryByText('Done.')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('task progress trail', () => {
+    // Task-progress events are now routed into streamingState by the hook
+    // and rendered through the same ToolCallList used for regular tool calls.
+    // The bubble receives them via the streamingState prop (same as any
+    // active assistant turn), so these tests verify that pathway.
+
+    it('renders progress rows passed via streamingState while bubble is streaming', () => {
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({ isStreaming: true })}
+          streamingState={{
+            isThinking: false,
+            currentIteration: 1,
+            activeTools: [
+              {
+                tool: 't1',
+                description: 'Running domain probing',
+                startedAt: 1,
+              },
+            ],
+            completedTools: [
+              {
+                tool: 't1',
+                description: 'Starting exploration',
+                success: true,
+                startedAt: 0,
+              },
+            ],
+          }}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.getByText('Starting exploration')).toBeInTheDocument();
+      expect(screen.getByText('Running domain probing')).toBeInTheDocument();
+    });
+
+    it('hides the footer "Working…" while streamingState has an active tool row', () => {
+      // The inline spinner in the active ToolCallList row already signals
+      // liveness — the footer spinner must not duplicate it.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({ isStreaming: true })}
+          streamingState={{
+            isThinking: false,
+            currentIteration: 1,
+            activeTools: [
+              {
+                tool: 't1',
+                description: 'Turn 1: probing endpoint',
+                startedAt: 1,
+              },
+            ],
+            completedTools: [],
+          }}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.queryByText('Working…')).toBeNull();
+      expect(screen.getByText('Turn 1: probing endpoint')).toBeInTheDocument();
+    });
+
+    it('shows the footer "Working…" when no progress has arrived yet (empty streamingState)', () => {
+      // Before the first task-progress event the streamingState trail is
+      // empty; only the footer spinner should animate.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({ isStreaming: true })}
+          streamingState={{
+            isThinking: false,
+            currentIteration: 1,
+            activeTools: [],
+            completedTools: [],
+          }}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.getByText('Working…')).toBeInTheDocument();
+    });
+
+    it('shows the footer "Working…" when all trail entries are terminal (gap before agent resumes)', () => {
+      // Between the final "completed" progress event and the agent's
+      // THINKING / resumed turn, the streamingState still exists but
+      // activeTools is empty. The footer fills that brief gap.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({ isStreaming: true })}
+          streamingState={{
+            isThinking: false,
+            currentIteration: 1,
+            activeTools: [],
+            completedTools: [
+              {
+                tool: 't1',
+                description: 'Exploration completed',
+                success: true,
+                durationMs: 2000,
+                startedAt: 0,
+              },
+            ],
+          }}
+          showWaitingSpinner
+        />
+      );
+
+      expect(screen.getByText('Working…')).toBeInTheDocument();
+    });
+
+    it('shows "Done." and no trail rows once bubble is marked taskCompleted', () => {
+      // After the task ends the bubble gets taskCompleted=true and
+      // streamingState is cleared (undefined), so no rows are rendered.
+      render(
+        <ArchitectMessageBubble
+          message={createMessage({ taskCompleted: true })}
+          showWaitingSpinner={false}
+          showTaskComplete
+        />
+      );
+
+      expect(screen.getByText('Done.')).toBeInTheDocument();
+    });
+  });
+
   describe('copy functionality', () => {
     it('copies message content to clipboard', async () => {
       const writeText = jest.fn().mockResolvedValue(undefined);

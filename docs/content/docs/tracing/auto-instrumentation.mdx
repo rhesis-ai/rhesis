@@ -15,6 +15,32 @@ Auto-instrumentation automatically traces all LLM calls, tool invocations, and c
     LC --> T["Automatic Traces"]
     LG --> T`} />
 
+## API at a glance
+
+The full auto-instrumentation surface lives in `rhesis.sdk.telemetry`:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry import auto_instrument, disable_auto_instrument
+
+auto_instrument()                              # auto-detect installed frameworks
+auto_instrument("langchain")                   # explicit single framework
+auto_instrument("langchain", "langgraph")      # explicit multiple frameworks
+disable_auto_instrument()                      # turn everything off`}
+</CodeBlock>
+
+| Call | Behavior |
+|---|---|
+| `auto_instrument()` | Tries every supported framework and enables the ones whose package is importable. |
+| `auto_instrument("langchain", ...)` | Enables only the named frameworks. Unknown names are logged as warnings but do not raise. |
+| `disable_auto_instrument()` | Disables every framework that was previously enabled in this process. |
+
+The function returns the list of frameworks it actually instrumented, so you can log it in your bootstrap:
+
+<CodeBlock filename="bootstrap.py" language="python">
+{`enabled = auto_instrument()
+print(f"Tracing enabled for: {enabled}")  # e.g. ['langchain', 'langgraph']`}
+</CodeBlock>
+
 ## LangChain
 
 ### Installation
@@ -82,6 +108,8 @@ def calculator(expression: str) -> str:
 result = calculator.invoke({"expression": "2 + 2 * 3"})`}
 </CodeBlock>
 
+Under the hood the integration registers a callback handler globally and patches `BaseTool.invoke` / `BaseTool.ainvoke`, so tool spans fire even when the framework's normal callback plumbing is bypassed by user code.
+
 ## LangGraph
 
 ### Installation
@@ -132,6 +160,14 @@ app = workflow.compile()
 result = app.invoke({"messages": ["What are the benefits of LangGraph?"]})`}
 </CodeBlock>
 
+### How LangChain and LangGraph share a callback
+
+LangGraph runs on top of LangChain's callback system. To avoid emitting duplicate spans when both are present, the LangGraph integration **reuses the singleton LangChain callback** instead of creating its own. That means:
+
+- `auto_instrument("langgraph")` already covers LangChain chains, LCEL pipelines, tools, and LLM calls invoked from inside graph nodes — you do not need to add `"langchain"` explicitly.
+- Calling `auto_instrument("langchain", "langgraph")` is safe and idempotent: the second integration finds the callback already registered and only adds the graph-method patches on top.
+- The integration also patches `CompiledStateGraph.invoke` / `ainvoke` / `stream` / `astream`, so every graph entry point injects the callback automatically — no need to thread it through `config={"callbacks": [...]}` yourself.
+
 ## Trace Output
 
 Each node in the graph produces spans following [semantic conventions](/tracing/semantic-conventions). In this example, `researcher` and `analyst` are not named with agent keywords, so their LLM calls are traced as `ai.llm.invoke` spans directly.
@@ -167,17 +203,52 @@ def chat_handler(input: str) -> dict:
     return {"output": chain.invoke({"message": input})}`}
 </CodeBlock>
 
+## Manual callback injection (advanced)
+
+In nearly all cases, `auto_instrument()` is enough — the SDK patches the framework entry points and traces fire transparently. For the rare situation where you build a custom wrapper around `CompiledStateGraph` that bypasses the patched methods, you can fetch the active callback and pass it through yourself:
+
+<CodeBlock filename="custom_runner.py" language="python">
+{`from rhesis.sdk.telemetry import auto_instrument
+from rhesis.sdk.telemetry.integrations.langchain import get_callback
+
+auto_instrument("langgraph")
+
+callback = get_callback()
+config = {"callbacks": [callback]} if callback else {}
+result = my_custom_invoke(graph, state, config=config)`}
+</CodeBlock>
+
+`get_callback()` returns `None` if LangChain instrumentation has not been enabled in this process.
+
+## Disabling
+
+To turn off every previously-enabled framework — for example before reconfiguring tracing in a test fixture — call `disable_auto_instrument()`:
+
+<CodeBlock filename="teardown.py" language="python">
+{`from rhesis.sdk.telemetry import disable_auto_instrument
+
+disable_auto_instrument()`}
+</CodeBlock>
+
 ## Supported Frameworks
 
-| Framework | Extra | Status |
-|-----------|-------|--------|
-| LangChain | `langchain` | Supported |
-| LangGraph | `langgraph` | Supported |
+| Framework | Mechanism | Extra | Status |
+|---|---|---|---|
+| LangChain | Auto-instrument (callback + tool patch) | `langchain` | Supported |
+| LangGraph | Auto-instrument (callback + graph patch) | `langgraph` | Supported |
+| Other Python frameworks (CrewAI, OpenAI Agents SDK, LlamaIndex, AutoGen, …) | `@observe.*` decorators | n/a | Use [Decorators](/tracing/decorators) |
+
+For frameworks not in the auto-instrument list, wrap the functions, tools, or agents you want to trace with `@observe.llm`, `@observe.tool`, `@observe.retrieval`, etc. Without decorators only top-level inputs and outputs are captured.
+
+To add a new framework to the auto-instrument list, see [Contributing: SDK Integrations](/contribute/sdk/integrations).
 
 ---
 
 <Callout type="info">
   **Related:**
   - [Setup](/tracing/setup) - Initial configuration
+  - [Decorators](/tracing/decorators) - `@observe` and `@endpoint`
+  - [Multi-Agent Tracing](/tracing/multi-agent) - Agent and handoff spans
+  - [Integrations](/docs/integrations) - The four integration layers at a glance
   - [Connector](/sdk/connector) - Register functions as endpoints
 </Callout>

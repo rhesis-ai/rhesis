@@ -1,5 +1,5 @@
 # Import existing routers
-from .adaptive_testing import router as adaptive_testing_router
+from .explorer import router as explorer_router
 from .architect import router as architect_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
@@ -30,7 +30,9 @@ from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
 from .source import router as source_router
-from .sso import router as sso_router
+# EE-feature routers are not imported here; they are registered by
+# ``rhesis.backend.app.ee_bootstrap.bootstrap_ee`` from the optional
+# ``rhesis-backend-ee`` package.
 from .status import router as status_router
 from .tag import router as tag_router
 from .task_management import router as task_management_router
@@ -88,7 +90,7 @@ __all__ = [
     "features",
     "file",
     "file_import",
-    "adaptive_testing",
+    "explorer",
     "architect",
 ]
 
@@ -138,8 +140,7 @@ routers = sorted(
         file_router,
         file_import_router,
         websocket_router,
-        adaptive_testing_router,
-        sso_router,
+        explorer_router,
         architect_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",

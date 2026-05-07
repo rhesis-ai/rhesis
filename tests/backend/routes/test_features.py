@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 from unittest.mock import Mock
+from uuid import UUID
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from rhesis.backend.app.auth.user_utils import require_current_user
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+)
 from rhesis.backend.app.features import (
     Feature,
     FeatureName,
     FeatureRegistry,
 )
-from rhesis.backend.app.features_bootstrap import register_core_features
 from rhesis.backend.app.main import app
-from rhesis.backend.app.models.subscription import SubscriptionPlan
+from rhesis.backend.app.models.organization import Organization
+
+_TEST_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
 
 
 @pytest.fixture
@@ -27,27 +32,39 @@ def registered_sso():
         Feature(
             name=FeatureName.SSO,
             display_name="Single Sign-On",
-            min_plan=SubscriptionPlan.PREMIUM,
             description="Per-organization OIDC-based SSO.",
         )
     )
     yield
     FeatureRegistry.reset()
-    register_core_features()
 
 
 @pytest.fixture
 def mock_current_user():
-    """Override ``require_current_user`` with a mock user bound to an org."""
-    mock_user = Mock()
-    mock_user.organization = Mock()
-    mock_user.organization.id = "00000000-0000-0000-0000-000000000000"
+    """Stub the auth/tenant chain.
 
-    def _override():
-        return mock_user
+    The ``/features`` endpoint depends on ``get_tenant_context`` and
+    ``get_tenant_db_session`` (which transitively depend on
+    ``require_current_user_or_token``). Overriding those two deps directly
+    bypasses the entire auth/session machinery without needing a real DB.
+    """
+    org_stub = Mock(spec=Organization)
+    org_stub.id = _TEST_ORG_ID
 
-    app.dependency_overrides[require_current_user] = _override
-    yield mock_user
+    db_stub = Mock()
+    db_stub.get.return_value = org_stub
+
+    user_id = UUID("11111111-1111-1111-1111-111111111111")
+
+    def _override_tenant_context():
+        return (_TEST_ORG_ID, user_id)
+
+    def _override_tenant_db_session():
+        yield db_stub
+
+    app.dependency_overrides[get_tenant_context] = _override_tenant_context
+    app.dependency_overrides[get_tenant_db_session] = _override_tenant_db_session
+    yield Mock(organization=org_stub)
     app.dependency_overrides.clear()
 
 
@@ -56,26 +73,20 @@ class TestFeaturesEndpoint:
         response = client.get("/features")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_returns_license_info(
-        self, client: TestClient, registered_sso, mock_current_user
-    ):
+    def test_returns_license_info(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
         assert "license" in body
-        assert body["license"] == {"edition": "community", "licensed": False}
+        assert body["license"] == {"edition": "dev", "licensed": False}
 
-    def test_returns_enabled_list(
-        self, client: TestClient, registered_sso, mock_current_user
-    ):
+    def test_returns_enabled_list(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
         assert body["enabled"] == ["sso"]
 
-    def test_omits_feature_when_runtime_check_fails(
-        self, client: TestClient, mock_current_user
-    ):
+    def test_omits_feature_when_runtime_check_fails(self, client: TestClient, mock_current_user):
         FeatureRegistry.reset()
         FeatureRegistry.register(
             Feature(
@@ -90,11 +101,8 @@ class TestFeaturesEndpoint:
             assert response.json()["enabled"] == []
         finally:
             FeatureRegistry.reset()
-            register_core_features()
 
-    def test_omits_feature_when_license_denies(
-        self, client: TestClient, mock_current_user
-    ):
+    def test_omits_feature_when_license_denies(self, client: TestClient, mock_current_user):
         class _Deny:
             def allows_feature(self, feature, org):
                 return False
@@ -103,9 +111,7 @@ class TestFeaturesEndpoint:
                 return {"edition": "community", "licensed": False}
 
         FeatureRegistry.reset()
-        FeatureRegistry.register(
-            Feature(name=FeatureName.SSO, display_name="SSO")
-        )
+        FeatureRegistry.register(Feature(name=FeatureName.SSO, display_name="SSO"))
         FeatureRegistry.set_license_provider(_Deny())
         try:
             response = client.get("/features")
@@ -113,11 +119,8 @@ class TestFeaturesEndpoint:
             assert response.json()["enabled"] == []
         finally:
             FeatureRegistry.reset()
-            register_core_features()
 
-    def test_response_shape_is_stable(
-        self, client: TestClient, registered_sso, mock_current_user
-    ):
+    def test_response_shape_is_stable(self, client: TestClient, registered_sso, mock_current_user):
         response = client.get("/features")
         body = response.json()
         assert set(body.keys()) == {"license", "enabled"}

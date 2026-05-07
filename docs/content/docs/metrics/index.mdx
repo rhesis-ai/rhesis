@@ -66,7 +66,7 @@ Note: The evaluation model can also be overridden per-run via the Model Settings
 
 Write clear instructions specifying what to evaluate and the criteria to use.
 
-```
+```text
 Example: "Evaluate whether the response is accurate, complete, and relevant.
 Use the following criteria: accuracy of facts, coverage of required points,
 clarity of explanation."
@@ -78,7 +78,7 @@ clarity of explanation."
 
 Break down the evaluation into clear steps. These guide the LLM when producing a score and reasoning.
 
-```
+```text
 Example:
 1. Check Accuracy: Identify any factual errors or unsupported statements
 2. Check Coverage: Determine if all required elements are addressed
@@ -91,7 +91,7 @@ Example:
 
 Explain how to reason about the evaluation and weight different aspects.
 
-```
+```text
 Example: "Extract key claims, assess completeness and correctness,
 weigh issues by importance, then determine the final score."
 ```
@@ -120,7 +120,7 @@ Metrics can also take into account `context`, `metadata`, and `tool_calls`. Thes
 **Example 1: Evaluating Context Groundedness**
 
 Evaluation Prompt:
-```
+```text
 Evaluate whether the response is fully grounded in the provided context.
 Check the `context` array. Any claim in the output that is not supported
 by the `context` should result in a lower score.
@@ -137,7 +137,7 @@ Endpoint response mapping:
 ```
 
 Evaluation Prompt:
-```
+```text
 Evaluate whether the response is efficient in token usage.
 Check the `metadata` for token counts. A response that uses more than
 500 tokens for a simple factual question should score lower.
@@ -198,9 +198,38 @@ You can find more information about test types in the [Tests Section](/docs/test
 
 Provide instructions for how the LLM should explain its scoring rationale.
 
-```
+```text
 Example: "Explain which specific parts were accurate or inaccurate, citing evidence from the provided context."
 ```
+
+## Improve Metrics with Natural-Language Instructions
+
+You can refine an existing metric without rewriting every field manually. The improve endpoint reads
+the current metric definition, applies your natural-language edit instructions with the platform
+generation model, and updates the metric in place.
+
+Use this workflow when a metric is close to what you need but the threshold, prompt, scoring
+criteria, or scope needs to change.
+
+<CodeBlock filename="improve-metric.sh" language="bash">
+{`curl -X POST "$RHESIS_BASE_URL/metrics/$METRIC_ID/improve" \\
+  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "prompt": "Make this metric stricter about hallucinated facts and require citations from the provided context."
+  }'`}
+</CodeBlock>
+
+The request body has one field:
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `prompt` | `string` | Yes | Natural-language instructions for how to change the existing metric. |
+
+<Callout type="info">
+  The improved metric replaces the existing metric definition. Review the updated evaluation prompt,
+  score type, threshold, categories, and metric scope before using it in a critical test run.
+</Callout>
 
 ## See Also
 -  Learn how to use metrics programmatically in the [SDK Metrics Documentation](/sdk/metrics)

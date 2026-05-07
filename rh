@@ -578,6 +578,33 @@ start_all() {
         fi
     fi
 
+# Check if RHESIS_API_KEY is set in .env.docker.local
+if ! grep -q "^RHESIS_API_KEY=" .env.docker.local 2>/dev/null; then
+    echo ""
+    echo -e "${YELLOW}🔑 Rhesis API Key${NC}"
+    echo -e "${WHITE}   Test generation requires a Rhesis API key to call the generation service.${NC}"
+    echo -e "${WHITE}   Get your key at: ${CYAN}https://app.rhesis.ai/tokens${NC}"
+    echo ""
+
+    if [ -t 0 ]; then
+        read -r -p "$(echo -e ${YELLOW}Enter your RHESIS_API_KEY \(or press Enter to skip\): ${NC})" USER_API_KEY
+        echo
+    fi
+
+    if [ -z "$USER_API_KEY" ]; then
+        echo -e "${YELLOW}⚠️  Skipping — test generation will not work without a valid API key${NC}"
+        echo -e "${YELLOW}   Add it later: ${WHITE}RHESIS_API_KEY=<your-key>${YELLOW} in .env.docker.local${NC}"
+    fi
+
+    if [ -n "$USER_API_KEY" ]; then
+        echo "" >> .env.docker.local
+        echo "# Rhesis API Key (required for test generation)" >> .env.docker.local
+        echo "RHESIS_API_KEY=$USER_API_KEY" >> .env.docker.local
+        chmod 600 .env.docker.local
+        echo -e "${GREEN}✅ RHESIS_API_KEY saved to .env.docker.local${NC}"
+    fi
+fi
+
     echo ""
     echo -e "${YELLOW}Starting services ...${NC}"
 
@@ -724,9 +751,11 @@ start_backend() {
     }
 
     check_uv
-    # Match apps/backend/Dockerfile build-backend: full optional deps + CPU PyTorch index
-    echo -e "${BLUE}Installing backend packages (uv sync --extra all --extra cpu)...${NC}"
-    uv sync --extra all --extra cpu || {
+    # Match apps/backend/Dockerfile build-backend: full optional deps + CPU
+    # PyTorch index + EE. The EE code ships in deployed images by default
+    # (license-based runtime gating), so dev parity means installing it here.
+    echo -e "${BLUE}Installing backend packages (uv sync --extra all --extra cpu --extra ee)...${NC}"
+    uv sync --extra all --extra cpu --extra ee || {
         echo -e "${RED}❌ Error: uv sync failed${NC}"
         exit 1
     }
@@ -888,8 +917,8 @@ start_worker() {
 
     check_uv
     # Same venv as ./rh dev backend and apps/backend/Dockerfile build-backend
-    echo -e "${BLUE}Syncing backend venv (uv sync --extra all --extra cpu)...${NC}"
-    uv sync --extra all --extra cpu || {
+    echo -e "${BLUE}Syncing backend venv (uv sync --extra all --extra cpu --extra ee)...${NC}"
+    uv sync --extra all --extra cpu --extra ee || {
         echo -e "${RED}❌ Error: uv sync failed${NC}"
         exit 1
     }

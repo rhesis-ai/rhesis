@@ -1,0 +1,55 @@
+# Rhesis Architect
+
+Architect (also known as Telemachus) is a conversational agent that designs, builds, and runs test suites for your AI endpoints. Describe what you want to test — it explores your endpoint, proposes a plan, waits for your approval, then creates everything on the platform.
+
+![Rhesis AI Architect chat](/screenshots/rhesis-ai-architect-chat.png)
+
+## What you can do
+
+- **Explore** an endpoint to understand its domain, capabilities, and refusal behavior
+- **Design** a complete test suite with behaviors, metrics, and test sets — reusing what already exists on the platform
+- **Generate** AI-written tests or import your own verbatim
+- **Ground tests in your docs** by telling Architect to use a specific knowledge source
+- **Execute** tests against any endpoint and get a structured pass/fail summary
+- **Compare** two test runs to spot regressions and improvements
+- **Analyze** any existing test run with behavior and metric breakdowns
+- **Do direct operations** — update a metric, link a behavior, list test sets — without going through the full planning flow
+
+<Callout type="info">
+  Architect refers to all entities by name. You never need to supply an ID.
+</Callout>
+
+## Prerequisites
+
+- At least one [endpoint configured](/docs/endpoints) in your organization
+- An active Rhesis account with organization access
+
+## Get started
+
+Open **Testing → Architect** in the sidebar. Type what you want to test, or pick one of the suggested prompts on the welcome screen.
+
+```text
+"Test my travel chatbot — focus on safety and accuracy."
+```
+
+Architect responds in real time. You'll see the current phase, streaming tool activity, and a plan panel that tracks progress as work happens.
+
+## Pages in this section
+
+| Page | What it covers |
+| --- | --- |
+| [Workflow](/docs/architect/workflow) | The five phases and what you see in each one |
+| [Endpoint Exploration](/docs/architect/exploration) | Quick vs Comprehensive modes and what each reveals |
+| [Planning Test Suites](/docs/architect/planning) | Plan structure, reuse logic, knowledge sources |
+| [Running and Analyzing](/docs/architect/execution-and-analysis) | Test execution, result analysis, run comparison |
+| [Chat Features](/docs/architect/chat-features) | File attachments, auto-approve, plan panel, mode chip |
+| [Scenarios](/docs/architect/scenarios) | Request cookbook for common workflows |
+
+## For developers
+
+The Architect system spans four layers, each documented in the contributing section:
+
+- [Backend — session API, WebSocket, MCP](/contribute/backend/architect-chat-system)
+- [Frontend — chat UI, hook, streaming indicators](/contribute/frontend/architect-chat-ui)
+- [Worker — Celery task, async resume](/contribute/worker/architect-background-tasks)
+- [SDK — ArchitectAgent class, plan model, prompt templates](/contribute/sdk/architect-agent)

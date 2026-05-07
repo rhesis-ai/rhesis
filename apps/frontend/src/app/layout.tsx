@@ -4,6 +4,13 @@ import { Box, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import { BetaBadge } from '../components/common/BetaBadge';
 import '../styles/fonts.css';
+// Side-effect import: registers EE features into core's extension
+// registries at module load. The actual @rhesis/ee-frontend import is
+// contained in ee_bootstrap.ts (the only file allowed to do so). This
+// pulls EE registrations into the server bundle; the same module is also
+// pulled into the client bundle via consumers like the organization
+// settings page, so registry state is populated wherever it is read.
+import '../ee_bootstrap';
 import {
   DashboardIcon,
   ScienceIcon,
@@ -159,6 +166,13 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
+      segment: 'explorer',
+      title: 'Explorer',
+      icon: <AccountTreeIcon key="explorer-icon" />,
+      action: <BetaBadge />,
+    },
+    {
+      kind: 'page',
       segment: 'generation',
       title: 'Generation',
       icon: <BoltIcon key="generation-icon" />,
@@ -180,17 +194,6 @@ async function getNavigationItems(
       segment: 'test-sets',
       title: 'Test Sets',
       icon: <CategoryIcon key="test-sets-icon" />,
-    },
-    {
-      kind: 'page' as const,
-      segment: 'adaptive-testing',
-      title: (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box component="span">Adaptive Testing</Box>
-          <BetaBadge />
-        </Box>
-      ),
-      icon: <AccountTreeIcon key="adaptive-testing-icon" />,
     },
     // Results Section
     {

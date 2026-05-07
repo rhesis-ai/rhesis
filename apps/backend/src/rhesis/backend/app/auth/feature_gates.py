@@ -5,10 +5,6 @@ central :class:`~rhesis.backend.app.features.FeatureRegistry`. Use
 :func:`require_feature` on routes that should 404 when a feature is
 unavailable (preventing enumeration) and :func:`has_feature` on routes
 that need to branch on availability rather than reject.
-
-The convenience :func:`check_sso_available` wrapper is kept for
-existing call sites that already have an ``Organization`` handle and
-do not go through a route dependency.
 """
 
 from __future__ import annotations
@@ -17,7 +13,6 @@ from fastapi import Depends, HTTPException, status
 
 from rhesis.backend.app.auth.user_utils import require_current_user
 from rhesis.backend.app.features import (
-    FeatureName,
     FeatureNameLike,
     FeatureRegistry,
 )
@@ -56,15 +51,4 @@ def has_feature(name: FeatureNameLike):
     return _dep
 
 
-def check_sso_available(org: Organization) -> bool:
-    """Return ``True`` iff SSO is available for ``org``.
-
-    Thin wrapper around :meth:`FeatureRegistry.is_available` for code
-    paths that already have an :class:`Organization` in hand and do not
-    go through a route dependency (e.g. the ``/auth/providers`` branch
-    that conditionally appends an SSO entry).
-    """
-    return FeatureRegistry.is_available(FeatureName.SSO, org)
-
-
-__all__ = ["check_sso_available", "has_feature", "require_feature"]
+__all__ = ["has_feature", "require_feature"]

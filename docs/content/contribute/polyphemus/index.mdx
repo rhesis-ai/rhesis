@@ -10,6 +10,8 @@ It proxies generation requests to Vertex AI and exposes authenticated REST endpo
 - Runtime baseline: Python `>=3.12`
 - Router module: `apps/polyphemus/src/rhesis/polyphemus/routers/services.py`
 - Request schemas: `apps/polyphemus/src/rhesis/polyphemus/schemas/schemas.py`
+- Docker image: API-only service image. PyTorch is not bundled in the Polyphemus
+  container; model weights and serving runtime live behind Vertex AI.
 
 ## API endpoints
 
@@ -60,6 +62,12 @@ python apps/polyphemus/model_deployment/deploy.py --skip-existing`}
 </CodeBlock>
 
 If set, deployment injects `VLLM_LOGGING_LEVEL` into the serving container environment.
+
+<Callout type="info">
+  Polyphemus deployment separates the lightweight API container from the Vertex AI serving
+  container. Configure vLLM logging on the Vertex deployment, not by installing PyTorch or model
+  runtime dependencies into the Polyphemus API image.
+</Callout>
 
 ## Batch request and response format
 

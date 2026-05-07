@@ -45,13 +45,28 @@ graph.invoke(state, config={"metadata": {"agent_name": "researcher"}})
 graph.invoke(state, config={"metadata": {"is_agent": True}})`}
 </CodeBlock>
 
+### Agent name resolution
+
+The agent name on each `ai.agent.invoke` span is resolved with this priority order. The first source that produces a value wins:
+
+1. `metadata.agent_name` — explicit override passed in the invocation config.
+2. `metadata.langgraph_node` — set automatically by LangGraph for each node.
+3. `serialized.name` — provided by the framework when available.
+4. Last segment of `serialized.id` — falls back to the class path (for example `ChatGoogleGenerativeAI`).
+5. `"unknown"` — when none of the above is set.
+
+### Handoff detection
+
 Handoffs are detected automatically in two ways:
-- **`transfer_to_*` tools** — any tool named `transfer_to_<agent>` creates an `ai.agent.handoff` span
-- **Sequential transitions** — when one agent ends and another starts, a handoff span is created between them
+
+- **`transfer_to_*` tools** — any tool whose name starts with `transfer_to_` creates an `ai.agent.handoff` span. Detection runs in the LangChain callback's tool path, so it works for any LangChain-based system (including LangGraph and the LangGraph prebuilt agents that emit these tools), not just LangGraph specifically.
+- **Sequential transitions** — when one agent ends and a different agent starts, a handoff span is created between them.
 
 ### More Frameworks
 
-LangGraph is the first framework with native `ai.agent.invoke` and `ai.agent.handoff` span support. LangChain is also supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection currently requires LangGraph node naming conventions. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
+LangGraph is currently the only framework with native `ai.agent.invoke` and `ai.agent.handoff` span support out of the box (it benefits from the agent-name keywords, `langgraph_node` metadata, and `transfer_to_*` tool detection described above). LangChain itself is auto-instrumented for general tracing — LLM calls, tools, chains — but agent and handoff spans only appear when one of the agent signals above is present.
+
+For every other framework (CrewAI, OpenAI Agents SDK, LlamaIndex, AutoGen, …), use [manual decoration](#manual-decoration) below: wrap the agent functions with `@observe(span_name=AIOperationType.AGENT_INVOKE, ...)` and they will produce the same span shape.
 
 ## Manual Decoration
 

@@ -27,6 +27,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
+from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES, TOKEN_ENABLED_ROUTES
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
@@ -44,63 +45,10 @@ logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
-# Public routes don't need any authentication
-public_routes = [
-    "/",
-    "/auth/login",
-    "/auth/login/{provider}",
-    "/auth/login/email",
-    "/auth/callback",
-    "/auth/logout",
-    "/auth/providers",
-    "/auth/register",
-    "/auth/verify-email",
-    "/auth/resend-verification",
-    "/auth/forgot-password",
-    "/auth/reset-password",
-    "/auth/magic-link",
-    "/auth/magic-link/verify",
-    "/auth/exchange-code",
-    "/auth/refresh",
-    "/auth/verify",
-    "/auth/demo",
-    "/auth/local-login",
-    "/auth/sso/{org_id}",
-    "/auth/sso/callback",
-    "/home",
-    "/docs",
-    "/redoc",
-    "/openapi.json",
-]
-
-# Routes that accept both session and token auth
-token_enabled_routes = [
-    "/api/",
-    "/tokens/",
-    "/tasks/",
-    "/test_sets/",
-    "/topics/",
-    "/prompts/",
-    "/test_configurations/",
-    "/test_results/",
-    "/test_runs/",
-    "/services/",
-    "/organizations/",
-    "/demographics/",
-    "/dimensions/",
-    "/tags/",
-    "/users/",
-    "/statuses/",
-    "/risks/",
-    "/projects/",
-    "/tests/",
-    "/test-contexts/",
-    "/comments/",
-    "/sources/",
-    "/models/",
-    "/connector/",
-    "/adaptive_testing/",
-]
+# PUBLIC_ROUTES and TOKEN_ENABLED_ROUTES live in
+# rhesis.backend.app.auth.public_routes so EE can extend them from its
+# bootstrap (e.g. to register its own public callback paths) before
+# `app.include_router` runs for the EE routers.
 
 
 def is_websocket_route(route: APIRoute) -> bool:
@@ -141,10 +89,10 @@ class AuthenticatedAPIRoute(APIRoute):
         if is_websocket_route(self):
             return []
 
-        if self.path in public_routes:
+        if self.path in PUBLIC_ROUTES:
             # No auth required
             return []
-        elif any(self.path.startswith(route) for route in token_enabled_routes):
+        elif any(self.path.startswith(route) for route in TOKEN_ENABLED_ROUTES):
             # Both session and token auth accepted
             return [Depends(require_current_user_or_token)]
         # Default to session-only auth
@@ -186,10 +134,6 @@ async def lifespan(app: FastAPI):
     Replaces the deprecated @app.on_event("startup") and @app.on_event("shutdown").
     """
     set_logger()
-
-    from rhesis.backend.app.features_bootstrap import register_core_features
-
-    register_core_features()
 
     # Startup: Initialize local environment if enabled
     with get_db() as db:
@@ -532,6 +476,22 @@ for router in routers:
 from rhesis.backend.app.mcp_server import setup_mcp_server
 
 setup_mcp_server(app)
+
+# Bootstrap Enterprise Edition features (no-op when ee extra is not installed).
+#
+# This intentionally runs at module load time rather than inside the lifespan
+# handler because `bootstrap_ee` calls `app.include_router(...)`. FastAPI
+# generates the OpenAPI schema lazily on first request; registering routes
+# inside lifespan (after schema generation could have already been triggered)
+# produces subtle schema-caching issues in some environments. Keeping it here
+# guarantees routes and their docs are visible from the very first request.
+#
+# The call is safe at import time because `ee_bootstrap.bootstrap_ee` wraps
+# the EE import in `try/except ImportError`, so it is a no-op in Community
+# mode or in any test environment where the `ee` extra is not installed.
+from rhesis.backend.app.ee_bootstrap import bootstrap_ee
+
+bootstrap_ee(app)
 
 
 @app.get("/", include_in_schema=True)

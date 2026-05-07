@@ -31,7 +31,9 @@ class Organization(Base, TagsMixin):
     is_domain_verified = Column(Boolean, default=False)
     is_onboarding_complete = Column(Boolean, default=False)
 
-    # SSO configuration (validated via Pydantic, excluded from general API responses)
+    # Per-organization JSON configuration parsed by EE-aware consumers
+    # (e.g. SSO). The schema is owned by the consumer; core stores it
+    # as opaque JSON and never inspects its keys.
     sso_config = Column(JSON, nullable=True)
     slug = Column(String(50), unique=True, index=True, nullable=True)
 
