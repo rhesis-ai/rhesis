@@ -4,14 +4,6 @@ Test Explorer is an interactive workspace for building a test set. Draft or impo
 
 <YouTubeEmbed videoId="4E1vD7UiHqU" />
 
-<div style={{ display: "flex", justifyContent: "center", margin: "24px 0" }}>
-  <img
-    src="/screenshots/rhesis-test-explorer.png"
-    alt="Test Explorer"
-    className="screenshot"
-  />
-</div>
-
 ## Two benefits of Test Explorer
 
 Test Explorer surfaces two complementary capabilities:
@@ -25,6 +17,14 @@ Write a test, invoke the endpoint, see metric scores — all in the same view. N
 Given the tests you already have, Test Explorer samples up to **10** of them as examples and asks an LLM for **20** new inputs. Each suggestion is embedded; the batch is **re-ranked by diversity** so the prompts that differ most from the *other suggestions in the same run* appear first. The endpoint and your metrics run in parallel as results stream in. You read the ranked table, then **accept** only the rows that add real coverage or expose real failures.
 
 For the full pipeline (topic-scoped runs, generation guide, progress bar, accept flows), see [Building and Evaluating — Suggestions](/docs/explorer/building-and-evaluating#suggestions-explore-the-space-automatically) and [Workflow](/docs/explorer/workflow).
+
+<div style={{ display: "flex", justifyContent: "center", margin: "24px 0" }}>
+  <img
+    src="/screenshots/rhesis-test-explorer.png"
+    alt="Test Explorer"
+    className="screenshot"
+  />
+</div>
 
 ## What you can do
 
