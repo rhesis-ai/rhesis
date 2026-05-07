@@ -1,5 +1,4 @@
 {
-  "type": "module",
   "scripts": {
     "generate-glossary": "node ../scripts/generate-glossary-pages.js",
     "prebuild": "npm run generate-glossary",
