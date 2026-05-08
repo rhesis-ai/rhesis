@@ -33,6 +33,73 @@ from . import sdk_sync
 logger = logging.getLogger(__name__)
 
 
+def _enrich_files_with_extraction(
+    files: list,
+    db,
+    user_id: Optional[str],
+) -> list:
+    """Add extracted_text to file entries that don't already have it.
+
+    Files from the test execution path already carry extracted_text (set by
+    _load_input_files).  Files from the playground or direct-invoke paths
+    arrive as raw base64 dicts and are enriched here so every invocation
+    path gets the same text extraction behaviour.
+
+    Resolves the user's evaluation model when db and user_id are available;
+    falls back to the system default string model (which ImageExtractor will
+    resolve via get_language_model) when they are not.
+    """
+    import base64
+
+    from rhesis.backend.tasks.execution.executors.output_providers import (
+        _resolve_model_for_extraction,
+        _select_extractor,
+    )
+
+    model = None
+    if db and user_id:
+        try:
+            from rhesis.backend.tasks.execution.test import get_evaluation_model
+
+            model = get_evaluation_model(db, user_id)
+        except Exception as exc:
+            logger.warning("Could not resolve evaluation model for file extraction: %s", exc)
+
+    resolved_model = _resolve_model_for_extraction(model)
+
+    enriched = []
+    for f in files:
+        if not isinstance(f, dict):
+            enriched.append(f)
+            continue
+
+        if "extracted_text" in f:
+            enriched.append(f)
+            continue
+
+        raw_data = f.get("data")
+        filename = f.get("filename", "")
+        content_type = f.get("content_type", "")
+
+        if raw_data and filename:
+            extractor = _select_extractor(content_type, filename, model=resolved_model)
+            if extractor:
+                try:
+                    file_bytes = base64.b64decode(raw_data)
+                    entry = dict(f)
+                    entry["extracted_text"] = extractor.extract_from_bytes(file_bytes, filename)
+                    enriched.append(entry)
+                    continue
+                except Exception as exc:
+                    logger.warning(
+                        "Extraction failed for playground file %s: %s", filename, exc
+                    )
+
+        enriched.append(f)
+
+    return enriched
+
+
 class EndpointService:
     """Service for managing and invoking endpoints."""
 
@@ -163,6 +230,17 @@ class EndpointService:
                     "Stateless conversation %s: %d message(s)",
                     stateless_conversation_id,
                     len(messages),
+                )
+
+            # Enrich any files that don't yet have extracted_text.
+            # Files from the test execution path already have extracted_text set by
+            # _load_input_files; files from the playground/WebSocket/direct-invoke paths
+            # arrive as raw base64 and need extraction here.
+            if enriched_input_data.get("files"):
+                enriched_input_data["files"] = _enrich_files_with_extraction(
+                    enriched_input_data["files"],
+                    db=db,
+                    user_id=user_id,
                 )
 
             # Preprocess prompt placeholders (e.g., Garak's {TARGET_MODEL})

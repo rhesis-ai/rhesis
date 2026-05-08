@@ -16,8 +16,11 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from rhesis.sdk.models.base import BaseLLM
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
@@ -55,12 +58,57 @@ class OutputProvider(ABC):
         ...
 
 
+def _resolve_model_for_extraction(model) -> Optional["BaseLLM"]:
+    """Resolve an evaluation model to a BaseLLM instance for use in ImageExtractor.
+
+    Accepts either a BaseLLM instance (user-configured) or a plain string
+    like "openai/gpt-4o" (system default). Returns None on failure so callers
+    can fall back to EXIF-only extraction without crashing.
+    """
+    from rhesis.sdk.models.base import BaseLLM
+
+    if isinstance(model, BaseLLM):
+        return model
+    if isinstance(model, str):
+        try:
+            from rhesis.sdk.models.factory import get_language_model
+
+            return get_language_model(model)
+        except Exception as exc:
+            logger.warning("Could not resolve model for image extraction: %s", exc)
+    return None
+
+
+def _select_extractor(content_type: str, filename: str, model: Optional["BaseLLM"] = None):
+    """Return the appropriate extractor for a file, or None to pass through as raw base64.
+
+    Images use ImageExtractor with an optional vision model for description.
+    Documents use DocumentExtractor for text extraction.
+    Unknown types return None and are forwarded as-is.
+    """
+    from pathlib import Path
+
+    from rhesis.sdk.services.extractor import DocumentExtractor, ImageExtractor
+
+    if content_type.startswith("image/"):
+        return ImageExtractor(model=model)
+
+    ext = Path(filename).suffix.lower()
+    if ext in DocumentExtractor.supported_extensions:
+        return DocumentExtractor()
+
+    return None
+
+
 class SingleTurnOutput(OutputProvider):
     """Live output for single-turn tests -- invokes the endpoint.
 
     Uses EndpointService.invoke_endpoint() (from app.dependencies)
     and process_endpoint_result() (from executors.results).
     """
+
+    def __init__(self, model=None):
+        self.model = model
 
     async def get_output(
         self,
@@ -80,7 +128,7 @@ class SingleTurnOutput(OutputProvider):
 
         # Inject file data if the test has attached files
         if test_id:
-            input_files = self._load_input_files(db, test_id, organization_id)
+            input_files = self._load_input_files(db, test_id, organization_id, model=self.model)
             if input_files:
                 input_data["files"] = input_files
 
@@ -101,8 +149,14 @@ class SingleTurnOutput(OutputProvider):
         return TestOutput(response=processed, execution_time=execution_time)
 
     @staticmethod
-    def _load_input_files(db, test_id, organization_id) -> List[Dict[str, str]]:
-        """Load files attached to a test and encode as base64."""
+    def _load_input_files(db, test_id, organization_id, model=None) -> List[Dict[str, Any]]:
+        """Load files attached to a test, encode as base64, and add extracted_text where possible.
+
+        For images and documents the appropriate SDK extractor is selected automatically.
+        If extraction fails the file is still included with its raw base64 data.
+        The optional model (BaseLLM instance or provider string) is used by ImageExtractor
+        for vision-based description; without it images fall back to EXIF-only extraction.
+        """
         from sqlalchemy.orm import undefer
 
         from rhesis.backend.app.models.file import File
@@ -123,15 +177,32 @@ class SingleTurnOutput(OutputProvider):
             if not files:
                 return []
 
-            return [
-                {
+            resolved_model = _resolve_model_for_extraction(model)
+
+            result = []
+            for f in files:
+                if not f.content:
+                    continue
+                entry: Dict[str, Any] = {
                     "filename": f.filename,
                     "content_type": f.content_type,
                     "data": base64.b64encode(f.content).decode("ascii"),
                 }
-                for f in files
-                if f.content
-            ]
+                extractor = _select_extractor(f.content_type, f.filename, model=resolved_model)
+                if extractor:
+                    try:
+                        entry["extracted_text"] = extractor.extract_from_bytes(
+                            f.content, f.filename
+                        )
+                    except Exception as exc:
+                        logger.warning(
+                            "Extraction failed for file %s (test %s): %s",
+                            f.filename,
+                            test_id,
+                            exc,
+                        )
+                result.append(entry)
+            return result
         except Exception as e:
             logger.warning(f"Failed to load input files for test {test_id}: {e}")
             return []
@@ -171,7 +242,9 @@ class MultiTurnOutput(OutputProvider):
         min_turns = test_config.get("min_turns")
 
         # Load files attached to the test (reuse SingleTurnOutput's static method)
-        input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
+        input_files = SingleTurnOutput._load_input_files(
+            db, test.id, organization_id, model=self.model
+        )
 
         from rhesis.backend.tasks.execution.penelope_target import (
             BackendEndpointTarget,
