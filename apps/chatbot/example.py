@@ -42,7 +42,7 @@ def get_llm_model():
 class ResponseGenerator:
     """Class to generate responses using SDK model providers."""
 
-    def __init__(self, use_case: str = "insurance"):
+    def __init__(self, use_case: str = "travel"):
         """Initialize with SDK model and use case."""
         self.model = get_llm_model()
         self.use_case = use_case
@@ -235,14 +235,14 @@ class ResponseGenerator:
         ]
 
 
-def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
+def get_response_generator(use_case: str = "travel") -> ResponseGenerator:
     """Get a ResponseGenerator instance for the specified use case."""
     return ResponseGenerator(use_case)
 
 
 # Public API functions that maintain backward compatibility
 def get_assistant_response(
-    prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
+    prompt: str, use_case: str = "travel", conversation_history: List[dict] = None
 ) -> str:
     """Get a complete response from the assistant with optional conversation history."""
     response_generator = get_response_generator(use_case)
@@ -622,7 +622,7 @@ def multiply_numbers(a: int, b: int, c: int) -> dict:
     name="stream_assistant_response", description="Stream assistant responses for insurance queries"
 )
 def stream_assistant_response(
-    prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
+    prompt: str, use_case: str = "travel", conversation_history: List[dict] = None
 ) -> Generator[str, None, None]:
     """Stream the assistant's response with optional conversation history.
 
@@ -676,7 +676,7 @@ def stream_assistant_response(
         raise
 
 
-def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
+def generate_context(prompt: str, use_case: str = "travel") -> List[str]:
     """Generate context fragments for a prompt."""
     response_generator = get_response_generator(use_case)
     return response_generator.generate_context(prompt)

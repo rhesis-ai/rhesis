@@ -20,6 +20,7 @@ from slowapi.util import get_remote_address
 
 from rhesis.sdk import endpoint
 from rhesis.sdk.services import DocumentExtractor
+from rhesis.sdk.services.extractor import ImageExtractor
 
 # Configure logging
 logging.basicConfig(
@@ -334,12 +335,13 @@ class FileInput(BaseModel):
     filename: str
     content_type: Optional[str] = None
     data: str  # base64-encoded file content
+    extracted_text: Optional[str] = None  # pre-extracted text from Rhesis backend
 
 
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
-    use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
+    use_case: Optional[str] = "travel"  # Default to travel for backward compatibility
     mode: Optional[str] = "text"  # Output mode: "text" or "json"
     files: Optional[List[FileInput]] = None
     rhesis: Optional[dict] = None
@@ -362,13 +364,26 @@ class ChatResponse(BaseModel):
 
 
 def extract_file_content(file_input: FileInput) -> dict:
-    """Extract text content from a base64-encoded file using the SDK's DocumentExtractor.
+    """Extract text content from a file for injection into the prompt.
+
+    Uses pre-extracted text from the Rhesis backend when available (preferred),
+    otherwise falls back to local extraction using the appropriate extractor:
+    ImageExtractor for image/* content types, DocumentExtractor for everything else.
 
     Returns:
         Dict with 'filename' and 'content' keys.
     """
+    if file_input.extracted_text:
+        return {"filename": file_input.filename, "content": file_input.extracted_text}
+
     file_bytes = base64.b64decode(file_input.data)
-    extractor = DocumentExtractor()
+    content_type = file_input.content_type or ""
+
+    if content_type.startswith("image/"):
+        extractor = ImageExtractor()
+    else:
+        extractor = DocumentExtractor()
+
     content = extractor.extract_from_bytes(file_bytes, file_input.filename)
     return {"filename": file_input.filename, "content": content}
 
@@ -379,7 +394,7 @@ def extract_file_content(file_input: FileInput) -> dict:
     request_mapping={
         "message": "{{ input }}",
         "session_id": "{{ session_id | default(none) }}",
-        "use_case": "{{ use_case | default('insurance') }}",
+        "use_case": "{{ use_case | default('travel') }}",
         "mode": "{{ mode | default('text') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
         "file_contents": "{{ file_contents | default(none) }}",
@@ -400,7 +415,7 @@ def extract_file_content(file_input: FileInput) -> dict:
 async def chat(
     message: str,
     session_id: Optional[str] = None,
-    use_case: str = "insurance",
+    use_case: str = "travel",
     mode: str = "text",
     conversation_history: Optional[List[dict]] = None,
     file_contents: Optional[List[dict]] = None,
@@ -585,12 +600,12 @@ async def chat_endpoint(
             f"Message: {chat_request.message[:50]}..."
         )
 
-        # Validate use case exists, default to insurance if not
+        # Validate use case exists, default to travel if not
         # "echo" is a built-in use case that does not require a prompt file
-        use_case = chat_request.use_case or "insurance"
+        use_case = chat_request.use_case or "travel"
         available_use_cases = get_available_use_cases() + ["echo"]
         if use_case not in available_use_cases:
-            use_case = "insurance"
+            use_case = "travel"
 
         # Extract file contents if provided
         file_contents = None
