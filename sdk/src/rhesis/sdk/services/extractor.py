@@ -5,15 +5,20 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import requests
 from markitdown import MarkItDown
 from pydantic import BaseModel
 
+if TYPE_CHECKING:
+    from rhesis.sdk.models.base import BaseLLM
+    from rhesis.sdk.models.factory import LanguageModelConfig
+
 
 class SourceType(Enum):
     DOCUMENT = "document"
+    IMAGE = "image"
     WEBSITE = "website"
     NOTION = "notion"
     TEXT = "text"
@@ -40,13 +45,36 @@ class ExtractionService:
     """Service for extracting text from sources."""
 
     @staticmethod
-    def extract(sources: list[SourceSpecification]) -> list[ExtractedSource]:
+    def extract(
+        sources: list[SourceSpecification],
+        model: Optional[Union["BaseLLM", "LanguageModelConfig"]] = None,
+    ) -> list[ExtractedSource]:
+        """Extract content from a list of sources.
+
+        Args:
+            sources: Sources to process.
+            model: Optional SDK language model (``BaseLLM`` instance or
+                ``LanguageModelConfig``) used for vision-based image description.
+                When omitted, image sources fall back to EXIF-only extraction.
+        """
+        from rhesis.sdk.models.base import BaseLLM
+        from rhesis.sdk.models.factory import LanguageModelConfig, get_language_model
+
+        resolved_model: Optional[BaseLLM] = None
+        if model is not None:
+            if isinstance(model, LanguageModelConfig):
+                resolved_model = get_language_model(config=model)
+            else:
+                resolved_model = model
+
         extracted_sources = []
         for source in sources:
             if source.type == SourceType.TEXT:
                 extracted_sources.append(IdentityExtractor().extract(source))
             elif source.type == SourceType.DOCUMENT:
                 extracted_sources.append(DocumentExtractor().extract(source))
+            elif source.type == SourceType.IMAGE:
+                extracted_sources.append(ImageExtractor(model=resolved_model).extract(source))
             elif source.type == SourceType.WEBSITE:
                 extracted_sources.append(WebsiteExtractor().extract(source))
             elif source.type == SourceType.NOTION:
@@ -169,6 +197,209 @@ class WebsiteExtractor(Extractor):
             extracted_text = str(result)
 
         return extracted_text.strip() if extracted_text else ""
+
+
+class _MarkItDownModelAdapter:
+    """Adapts an SDK ``BaseLLM`` to the OpenAI ``chat.completions`` interface
+    expected by MarkItDown for vision-based image description.
+
+    MarkItDown calls::
+
+        llm_client.chat.completions.create(model=..., messages=[...])
+
+    where ``messages`` contain base64-encoded image payloads.  Because all SDK
+    language model providers are LiteLLM-backed, this adapter routes those calls
+    directly through ``litellm.completion`` using the model's own credentials,
+    so *any* registered provider (OpenAI, Gemini, Anthropic, Vertex AI, …) works
+    transparently.
+    """
+
+    def __init__(self, llm: "BaseLLM") -> None:
+        self._llm = llm
+        self.chat = _MarkItDownModelAdapter._Chat(llm)
+
+    class _Chat:
+        def __init__(self, llm: "BaseLLM") -> None:
+            self.completions = _MarkItDownModelAdapter._Completions(llm)
+
+    class _Completions:
+        def __init__(self, llm: "BaseLLM") -> None:
+            self._llm = llm
+
+        def create(self, model: str, messages: list, **kwargs):
+            import litellm
+
+            return litellm.completion(
+                model=self._llm.model_name,
+                messages=messages,
+                api_key=getattr(self._llm, "api_key", None),
+                api_base=getattr(self._llm, "api_base", None),
+                api_version=getattr(self._llm, "api_version", None),
+                **kwargs,
+            )
+
+
+class ImageExtractor(Extractor):
+    """Extract text/description from image files using Markitdown.
+
+    Pass a ``model`` (any SDK ``BaseLLM`` instance or ``LanguageModelConfig``)
+    to enable vision-based description via the model's provider.  Without one,
+    only EXIF metadata is extracted.
+
+    Supported ``SourceSpecification.metadata`` keys:
+        - ``path`` (str): local file path to an image.
+        - ``url``  (str): HTTP(S) URL of an image to download and process.
+
+    At least one of ``path`` or ``url`` must be present.
+
+    Example::
+
+        # EXIF-only (no model)
+        extractor = ImageExtractor()
+
+        # Vision description via any SDK provider
+        from rhesis.sdk.models.factory import get_language_model
+        llm = get_language_model("openai/gpt-4o")
+        extractor = ImageExtractor(model=llm)
+    """
+
+    supported_extensions: set[str] = {
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".tiff",
+        ".tif",
+    }
+
+    _CONTENT_TYPE_MAP: dict[str, str] = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/gif": ".gif",
+        "image/webp": ".webp",
+        "image/bmp": ".bmp",
+        "image/tiff": ".tiff",
+    }
+
+    def __init__(
+        self,
+        model: Optional[Union["BaseLLM", "LanguageModelConfig"]] = None,
+    ) -> None:
+        from rhesis.sdk.models.base import BaseLLM
+        from rhesis.sdk.models.factory import LanguageModelConfig, get_language_model
+
+        resolved: Optional[BaseLLM] = None
+        if model is not None:
+            if isinstance(model, LanguageModelConfig):
+                resolved = get_language_model(config=model)
+            else:
+                resolved = model
+
+        if resolved is not None:
+            adapter = _MarkItDownModelAdapter(resolved)
+            self.converter = MarkItDown(
+                llm_client=adapter,
+                llm_model=resolved.model_name,
+            )
+        else:
+            self.converter = MarkItDown()
+
+    def extract(self, source: SourceSpecification) -> ExtractedSource:
+        if source.type != SourceType.IMAGE:
+            raise ValueError(f"Unsupported source type: {source.type}")
+
+        metadata = source.metadata or {}
+
+        if "path" in metadata:
+            content = self._extract_from_file(metadata["path"])
+        elif "url" in metadata:
+            content = self._extract_from_url(metadata["url"])
+        else:
+            raise ValueError("Image source metadata must contain 'path' or 'url'")
+
+        return ExtractedSource(**source.model_dump(), content=content)
+
+    def extract_from_bytes(self, file_content: bytes, filename: str) -> str:
+        """Extract content from raw image bytes.
+
+        Args:
+            file_content: Binary content of the image.
+            filename: Original filename used to infer the image format.
+
+        Returns:
+            Extracted text / description.
+        """
+        file_extension = Path(filename).suffix.lower()
+        self._validate_extension(file_extension)
+
+        from markitdown._stream_info import StreamInfo
+
+        stream_info = StreamInfo(filename=filename, extension=file_extension)
+        try:
+            result = self.converter.convert(BytesIO(file_content), stream_info=stream_info)
+            return self._text_from_result(result)
+        except Exception as e:
+            raise ValueError(f"Failed to extract content from image bytes: {str(e)}")
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _extract_from_file(self, file_path: str) -> str:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Image file not found: {file_path}")
+
+        file_extension = Path(file_path).suffix.lower()
+        self._validate_extension(file_extension)
+
+        try:
+            result = self.converter.convert(file_path)
+            return self._text_from_result(result)
+        except Exception as e:
+            raise ValueError(f"Failed to extract content from image {file_path}: {str(e)}")
+
+    def _extract_from_url(self, url: str) -> str:
+        try:
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise ValueError(f"Failed to fetch image from {url}: {str(e)}")
+
+        content_type = response.headers.get("content-type", "")
+        ext = self._ext_from_content_type(content_type) or Path(url.split("?")[0]).suffix.lower()
+        if ext not in self.supported_extensions:
+            ext = ".jpg"
+
+        from markitdown._stream_info import StreamInfo
+
+        stream_info = StreamInfo(filename=f"image{ext}", extension=ext)
+        try:
+            result = self.converter.convert(BytesIO(response.content), stream_info=stream_info)
+            return self._text_from_result(result)
+        except Exception as e:
+            raise ValueError(f"Failed to extract content from image URL {url}: {str(e)}")
+
+    def _validate_extension(self, file_extension: str) -> None:
+        if file_extension not in self.supported_extensions:
+            raise ValueError(
+                f"Unsupported image type: {file_extension}. "
+                f"Supported types: {', '.join(sorted(self.supported_extensions))}"
+            )
+
+    def _ext_from_content_type(self, content_type: str) -> Optional[str]:
+        for mime, ext in self._CONTENT_TYPE_MAP.items():
+            if mime in content_type:
+                return ext
+        return None
+
+    def _text_from_result(self, result) -> str:
+        if hasattr(result, "text_content") and result.text_content:
+            return result.text_content.strip()
+        if hasattr(result, "markdown") and result.markdown:
+            return result.markdown.strip()
+        return str(result).strip()
 
 
 class DocumentExtractor(Extractor):
