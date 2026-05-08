@@ -86,3 +86,18 @@ data:
   CHATBOT_RATE_LIMIT: {{ .Values.config.chatbotRateLimit | quote }}
   RHESIS_CONNECTOR_DISABLED: {{ .Values.config.rhesisConnectorDisabled | quote }}
   RHESIS_PROJECT_ID: {{ .Values.config.rhesisProjectId | quote }}
+
+  # -------------------------------------------------------------------------
+  # Analytics DB — telemetry-processor (non-sensitive parts)
+  # Password / full URL come from rhesis-app-secrets (ANALYTICS_DB_PASS / ANALYTICS_DATABASE_URL).
+  # -------------------------------------------------------------------------
+  ANALYTICS_DB_HOST: {{ include "rhesis.analyticsDatabase.host" . | quote }}
+  ANALYTICS_DB_PORT: {{ include "rhesis.analyticsDatabase.port" . | quote }}
+  ANALYTICS_DB_NAME: {{ include "rhesis.analyticsDatabase.name" . | quote }}
+
+  # -------------------------------------------------------------------------
+  # OTel Collector / Telemetry Processor
+  # -------------------------------------------------------------------------
+  OTEL_PROCESSOR_ENDPOINT: {{ .Values.config.otelProcessorEndpoint | quote }}
+  OTEL_INSECURE: {{ .Values.config.otelInsecure | quote }}
+  OTEL_DEPLOYMENT_TYPE: {{ .Values.config.otelDeploymentType | quote }}

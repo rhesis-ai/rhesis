@@ -102,6 +102,11 @@ config:
   rhesisConnectorDisabled: "true"
   rhesisProjectId: ""
 
+  # OTel Collector → Telemetry Processor (in-cluster gRPC)
+  otelProcessorEndpoint: "telemetry-processor:4317"
+  otelInsecure: "true"
+  otelDeploymentType: "kubernetes"
+
 # ---------------------------------------------------------------------------
 # Backend
 # ---------------------------------------------------------------------------
@@ -306,6 +311,64 @@ polyphemus:
   # disableSecurityContext: false
 
 # ---------------------------------------------------------------------------
+# OTel Collector (custom image apps/otel-collector — OTLP in, export to processor)
+# ---------------------------------------------------------------------------
+otelCollector:
+  enabled: true
+  image:
+    repository: rhesis-otel-collector
+    tag: ""
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  service:
+    type: ClusterIP
+    port: 4318
+    targetPort: 4318
+    grpcPort: 4317
+    grpcTargetPort: 4317
+    healthPort: 13133
+    prometheusPort: 8889
+  ingress:
+    enabled: false
+    className: "internal"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    host: ""
+    tlsSecretName: "rhesis-otel-collector-tls"
+  env: []
+  disableSecurityContext: true
+
+# ---------------------------------------------------------------------------
+# Telemetry Processor (gRPC ingest → analytics DB)
+# ---------------------------------------------------------------------------
+telemetryProcessor:
+  enabled: true
+  image:
+    repository: rhesis-telemetry-processor
+    tag: ""
+  replicas: 1
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  service:
+    type: ClusterIP
+    port: 4317
+    targetPort: 4317
+  env: []
+  disableSecurityContext: true
+
+# ---------------------------------------------------------------------------
 # Docs
 # ---------------------------------------------------------------------------
 docs:
@@ -406,6 +469,15 @@ opentelemetry-collector:
 externalDatabase:
   host: ""
   port: "5432"
+
+# Analytics database — used by telemetry-processor.
+# For dev: points at the same Bitnami PostgreSQL subchart (rhesis-analytics-db database).
+# For stg/prd: points at a separate CNPG cluster read-write service.
+# The password / full URL come from the rhesis-app-secrets ESO secret (ANALYTICS_DB_*).
+externalAnalyticsDatabase:
+  host: ""
+  port: "5432"
+  name: "rhesis-analytics-db"
 
 externalValkey:
   host: ""

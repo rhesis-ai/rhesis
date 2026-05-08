@@ -1,0 +1,22 @@
+{{- if .Values.telemetryProcessor.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: telemetry-processor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: telemetry-processor
+    tier: telemetry-processor
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.telemetryProcessor.service.type }}
+  ports:
+    - port: {{ .Values.telemetryProcessor.service.port }}
+      targetPort: {{ .Values.telemetryProcessor.service.targetPort }}
+      protocol: TCP
+      name: grpc
+  selector:
+    app: telemetry-processor
+    tier: telemetry-processor
+{{- end }}
