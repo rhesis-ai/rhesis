@@ -53,6 +53,33 @@ Otherwise fall back to externalDatabase.host.
 {{- end }}
 
 {{/*
+Resolve the analytics PostgreSQL hostname.
+For dev the subchart runs the analytics database in the same Postgres instance.
+For stg/prd a separate CNPG cluster is used; externalAnalyticsDatabase.host must be set.
+*/}}
+{{- define "rhesis.analyticsDatabase.host" -}}
+{{- if .Values.postgresql.enabled -}}
+{{- printf "%s-postgresql" .Release.Name -}}
+{{- else -}}
+{{- required "externalAnalyticsDatabase.host is required when postgresql.enabled=false" .Values.externalAnalyticsDatabase.host -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Resolve the analytics PostgreSQL database name.
+*/}}
+{{- define "rhesis.analyticsDatabase.name" -}}
+{{- .Values.externalAnalyticsDatabase.name | default "rhesis-analytics-db" -}}
+{{- end }}
+
+{{/*
+Resolve the analytics PostgreSQL port.
+*/}}
+{{- define "rhesis.analyticsDatabase.port" -}}
+{{- .Values.externalAnalyticsDatabase.port | default "5432" -}}
+{{- end }}
+
+{{/*
 Resolve the Valkey (Redis-compatible) hostname.
 When valkey subchart is enabled, use its master service name.
 Otherwise fall back to externalValkey.host.
