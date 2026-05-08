@@ -158,6 +158,17 @@ chatbot:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
+otelCollector:
+  ingress:
+    enabled: true
+    host: "stg-telemetry.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+telemetryProcessor:
+  enabled: true
+
 polyphemus:
   resources:
     requests:
@@ -195,6 +206,14 @@ externalDatabase:
   # Must match the CNPG read-write Service for your Cluster (metadata.name = rhesis-stg)
   host: "rhesis-stg-rw.rhesis.svc.cluster.local"
   port: "5432"
+
+# Analytics DB — lives in the same CNPG cluster as the main DB (rhesis-stg).
+# Created by postInitSQL in kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml.
+# Owner: rhesis-analytics-user (password from rhesis-analytics-user-credentials via ESO).
+externalAnalyticsDatabase:
+  host: "rhesis-stg-rw.rhesis.svc.cluster.local"
+  port: "5432"
+  name: "rhesis-analytics-stg-db"
 
 valkey:
   enabled: true

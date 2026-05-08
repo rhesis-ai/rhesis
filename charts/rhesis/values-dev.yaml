@@ -98,6 +98,26 @@ chatbot:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
+# Analytics DB — same Bitnami PostgreSQL subchart, different database name.
+# Mirrors the stg/prd CNPG pattern: database owned by rhesis-analytics-user.
+# ANALYTICS_DB_HOST/PORT rendered by ConfigMap helper (same subchart service).
+# ANALYTICS_DB_USER / ANALYTICS_DB_PASS come from rhesis-app-secrets (ESO):
+#   dev-rhesis-analytics-db-user → rhesis-analytics-user
+#   dev-rhesis-analytics-db-pass → <password>
+externalAnalyticsDatabase:
+  name: "rhesis-analytics-dev-db"
+
+otelCollector:
+  ingress:
+    enabled: true
+    host: "dev-telemetry.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+telemetryProcessor:
+  enabled: true
+
 polyphemus:
   ingress:
     enabled: true
@@ -158,6 +178,12 @@ postgresql:
         init-extensions.sql: |
           CREATE EXTENSION IF NOT EXISTS vector;
           CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        init-analytics-db.sql: |
+          -- Mirrors the stg/prd CNPG postInitSQL pattern.
+          -- Runs as superuser (postgres) during first-time PVC init only.
+          CREATE ROLE "rhesis-analytics-user" LOGIN;
+          CREATE DATABASE "rhesis-analytics-dev-db" OWNER "rhesis-analytics-user";
+          GRANT CONNECT ON DATABASE "rhesis-analytics-dev-db" TO "rhesis-admin";
     podSecurityContext:
       enabled: true
       fsGroup: 999

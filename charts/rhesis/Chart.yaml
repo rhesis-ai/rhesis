@@ -1,6 +1,6 @@
 apiVersion: v2
 name: rhesis
-description: Rhesis AI Platform — Frontend, Backend, Workers, Chatbot, Polyphemus, Docs
+description: Rhesis AI Platform — Frontend, Backend, Workers, Chatbot, Polyphemus, Docs, OTel Collector, Telemetry Processor
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
