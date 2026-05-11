@@ -240,8 +240,11 @@ async def generate_content_endpoint(
     """
     try:
         from rhesis.backend.app.utils.user_model_utils import get_generation_model_with_override
+        from rhesis.sdk.models.factory import get_model
 
         model = get_generation_model_with_override(db, current_user)
+        if isinstance(model, str):
+            model = get_model(model, model_type="language")
         response = await model.a_generate(request.prompt, schema=request.schema_)
         return response
     except Exception as e:
@@ -266,8 +269,11 @@ async def generate_embedding_endpoint(
     """
     try:
         from rhesis.backend.app.utils.user_model_utils import get_user_embedding_model
+        from rhesis.sdk.models.factory import get_model
 
         embedder = get_user_embedding_model(db, current_user)
+        if isinstance(embedder, str):
+            embedder = get_model(embedder, model_type="embedding")
         embedding = embedder.generate(text=request.text)
         return embedding
     except Exception as e:

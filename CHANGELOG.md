@@ -13,6 +13,45 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-05-07
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.7.1**
+- **Frontend 0.7.1**
+- **SDK 0.7.1**
+
+### Summary of Changes
+
+**Backend v0.7.1:**
+- Fix(explorer): Return response payload after deleting test set to prevent serialization issues.
+- Feat: Architect agent UX improvements with exploration progress trail, typo-tolerant entity resolution, collapsed task progress, and unified streaming bubble.
+- Fix: Prevent streaming output bleed across Architect sessions and address code review improvements.
+- Feat: Explorer copy and sidebar placement, adaptive testing tree endpoints, auto-generate embeddings on entity create/update, and add Rhesis Agent Skill with explore_endpoint via MCP.
+
+
+**Frontend v0.7.1:**
+- Fix: Architect agent UX improvements and exploration progress trail, including collapsing the progress trail and integrating it into the streaming bubble.
+- Feat: Implemented typo-tolerant entity resolution for Architect agent.
+- Feat: Renamed Adaptive Testing to Explorer and updated related endpoints and UI components.
+- Fix: Prevented streaming output bleed across Architect sessions.
+
+
+**SDK v0.7.1:**
+- Fix: Improved Architect agent UX with exploration progress trail integrated into the chat and a "Done." marker upon task completion.
+- Feat: Enhanced Architect agent's entity resolution with typo tolerance and improved plan tracking.
+- Fix: Addressed issues with plan validation, task progress display, and potential ghost bubbles in multi-iteration scenarios.
+- Chore: Updated dependencies, including `cryptography`, `pillow`, `aiohttp`, and `langchain-openai`.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.7.0] - 2026-04-23
 
 ### Platform Release

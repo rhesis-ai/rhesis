@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-04-30T21:30:42.299372Z"
+exclude-newer = "2026-05-04T16:10:25.959438Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6407,7 +6407,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6642,7 +6642,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
@@ -6745,8 +6745,8 @@ requires-dist = [
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "transformers", marker = "extra == 'all'", specifier = ">=5.0.0rc3" },
-    { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=5.0.0rc3" },
+    { name = "transformers", marker = "extra == 'all'", specifier = ">=5.0.0" },
+    { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=5.0.0" },
     { name = "websockets", specifier = ">=12.0" },
 ]
 provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "all-integrations", "all"]

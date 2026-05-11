@@ -13,6 +13,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-05-07
+
+### Added
+- Architect agent now provides enhanced plan tracking in the UI, including a per-category completion summary and "ready/blocked" status for test set generation.
+- Architect task progress is now displayed in the UI with a live progress trail, showing step-by-step updates from background workers.
+- Implemented a typo-tolerant entity resolution ladder for the architect agent, improving the agent's ability to resolve misspelled or partial entity names.
+- Added `aiohttp` and `langchain-openai` as constraint dependencies.
+
+### Changed
+- Exploration progress trail in the architect agent is now collapsed and hidden after the task is completed, improving UI clarity.
+- Unified exploration progress trail into the streaming bubble, displaying task progress rows alongside regular tool calls.
+- Updated system prompt for the architect agent to include plan-progress guidance, validation pitfalls, pagination guidance, and tightened `save_plan` argument rules.
+- The Accept/Change confirmation UI for the architect agent is now triggered only when a tool is blocked in the current turn.
+- Narrowed base exception handler to provide model capability hints only for specific error types.
+
+### Fixed
+- Restored "Done." marker and show "Executing" label during architect task execution.
+- Fixed issue where the plan widget would jump inconsistently due to mid-execution `save_plan` calls. `save_plan` is now prohibited during the Creating Phase.
+- Fixed ghost empty bubbles appearing after multi-iteration resumed turns in the architect agent.
+- Fixed an OR-cascade bug in `_match_mapping` that incorrectly marked multiple behaviors complete when a metric was shared across them.
+- Fixed OData filter hint to use `tolower(name) eq 'x'` for consistency.
+- Fixed issue where IDs were not captured when no plan existed yet.
+- Fixed issue where plan widget was dismissed when plan was not complete.
+- Fixed issue where reconciliation was not performed before execution-order guard in `generate_test_set`.
+- Fixed issue where event loop errors were occurring due to fire-and-forget cleanup tasks.
+- Fixed potential false plan completions caused by name collisions with other entity types.
+
+### Style
+- Applied ruff formatting to `agent.py`.
+- Applied prettier formatting to architect components.
+
+
 ## [0.7.0] - 2026-04-23
 
 ### Changed

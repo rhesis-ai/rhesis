@@ -28,6 +28,8 @@ By default, Architect asks for confirmation before each action that modifies the
 
 Use auto-approve when you trust the plan and want to move quickly. Architect still reports each step as it happens — you just don't need to confirm them individually.
 
+The **Accept** and **Change** buttons appear only when Architect actually tried to call a confirmable tool in the current turn and the backend blocked it for your approval. They do not appear on informational replies or auto-resumed task summaries.
+
 <Callout type="warning">
   Auto-approve applies to the current session only. It resets when you start a new conversation.
 </Callout>
@@ -36,9 +38,15 @@ Use auto-approve when you trust the plan and want to move quickly. Architect sti
 
 The plan panel opens on the right side of the chat when Architect enters the planning phase. It shows the proposed test suite as a checklist.
 
-As Architect creates each entity, the corresponding checkbox is ticked. The panel gives a live view of creation progress without scrolling through tool activity in the chat.
+As Architect creates each entity, the corresponding checkbox is ticked. The panel gives a live view of creation progress without scrolling through tool activity in the chat. Architect also tracks whether prerequisites are ready or blocked before it generates test sets, so the checklist reflects behaviors, metrics, and behavior-metric mappings before generation starts.
 
 The panel collapses automatically after execution completes and the results summary is shown.
+
+## Live task progress
+
+Long-running background work, such as endpoint exploration, appears inside the same assistant message bubble as regular streaming tool activity. While a task is running, Architect shows progress rows such as the strategy being run or each probing turn. When the background task finishes, the progress trail collapses and a `Done.` marker remains.
+
+This keeps the chat anchored to the message that started the task instead of creating a separate progress bubble.
 
 ## Mode chip
 

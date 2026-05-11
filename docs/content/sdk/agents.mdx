@@ -130,6 +130,19 @@ Tool execution includes wall-clock timing in `ToolResult.duration_ms`, which is 
 - async task waiting state (`await_task`)
 - event hooks for streaming UIs
 
+### Name resolution and plan progress
+
+Architect resolves entity names through tools instead of asking users for IDs. The current prompt uses a typo-tolerant lookup ladder:
+
+1. exact case-insensitive match, such as `$filter=tolower(name) eq 'travel rosalind'`
+2. whole-string contains match, such as `$filter=contains(tolower(name), 'travel rosalind')`
+3. token-based contains match, for example `travel rosalinf` becomes a filter that can still match on the clean `travel` token
+4. candidate suggestions from an unfiltered page when filtered searches return no results
+
+Pre-resolved `@` mentions in `attachments["mentions"]` bypass this lookup; Architect uses the supplied type, ID, and display name directly.
+
+Plan progress is runtime-managed. `save_plan` defines the intended project, behaviors, test sets, metrics, and behavior-metric mappings, but fields such as `completed` and `linked_metrics` are stripped from LLM-provided payloads and filled by the agent as tools succeed. During the Creating phase, Architect does not call `save_plan` again unless the user explicitly asks to change the plan.
+
 ### Constructor parameters
 
 | Parameter | Required | Description |

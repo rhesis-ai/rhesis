@@ -1,5 +1,4 @@
 # Import existing routers
-from .explorer import router as explorer_router
 from .architect import router as architect_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
@@ -9,6 +8,7 @@ from .connector import router as connector_router
 from .demographic import router as demographic_router
 from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
+from .explorer import router as explorer_router
 from .feedback import router as feedback_router
 from .file import router as file_router
 from .file_import import router as file_import_router

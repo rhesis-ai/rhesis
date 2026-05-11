@@ -8,6 +8,8 @@ The implementation lives in:
 
 - `apps/backend/src/rhesis/backend/tasks/architect.py`
 - `apps/backend/src/rhesis/backend/tasks/architect_monitor.py`
+- `apps/backend/src/rhesis/backend/tasks/endpoint/explore.py`
+- `apps/backend/src/rhesis/backend/tasks/architect_progress.py`
 
 ## Overview
 
@@ -82,9 +84,23 @@ After `chat_async()` returns, the task writes:
 - `architect.stream_start`
 - `architect.text_chunk`
 - `architect.stream_end`
+- `architect.task_progress`
 - `architect.error`
 
 This is how the frontend receives near real-time progress while the agent is running in Celery.
+
+### Live progress from awaited tasks
+
+Some tasks continue after the Architect turn has returned an `awaiting_task` response. For endpoint exploration, `run_exploration_task` publishes `architect.task_progress` events while Penelope connects to the endpoint, runs the selected strategy, and probes individual turns.
+
+Progress publication uses Redis task-session lookup keys set by `register_awaiting_tasks`. If a task is not currently awaited by an Architect session, progress publication is a no-op, so the same Celery task can serve external API callers that poll `GET /jobs/{task_id}`.
+
+| Progress status | Meaning |
+|---|---|
+| `started` | The awaited task has begun. |
+| `progress` | A task step or probing turn is in flight. |
+| `completed` | The task finished and included any final duration. |
+| `failed` | The task failed and the label contains a user-facing summary. |
 
 ## Async waiting and auto-resume
 
