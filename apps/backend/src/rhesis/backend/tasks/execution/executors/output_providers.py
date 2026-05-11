@@ -20,10 +20,13 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from rhesis.sdk.models.base import BaseLLM
+    pass
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
+from rhesis.backend.app.services.model_resolution import (
+    resolve_model_for_extraction as _resolve_model_for_extraction,
+)
 from rhesis.backend.tasks.execution.executors.results import (
     process_endpoint_result,
 )
@@ -56,48 +59,6 @@ class OutputProvider(ABC):
             TestOutput containing the response and metadata.
         """
         ...
-
-
-def _resolve_model_for_extraction(model) -> Optional["BaseLLM"]:
-    """Resolve an evaluation model to a BaseLLM instance for use in ImageExtractor.
-
-    Accepts either a BaseLLM instance (user-configured) or a plain string
-    like "openai/gpt-4o" (system default). Returns None on failure so callers
-    can fall back to EXIF-only extraction without crashing.
-    """
-    from rhesis.sdk.models.base import BaseLLM
-
-    if isinstance(model, BaseLLM):
-        return model
-    if isinstance(model, str):
-        try:
-            from rhesis.sdk.models.factory import get_language_model
-
-            return get_language_model(model)
-        except Exception as exc:
-            logger.warning("Could not resolve model for image extraction: %s", exc)
-    return None
-
-
-def _select_extractor(content_type: str, filename: str, model: Optional["BaseLLM"] = None):
-    """Return the appropriate extractor for a file, or None to pass through as raw base64.
-
-    Images use ImageExtractor with an optional vision model for description.
-    Documents use DocumentExtractor for text extraction.
-    Unknown types return None and are forwarded as-is.
-    """
-    from pathlib import Path
-
-    from rhesis.sdk.services.extractor import DocumentExtractor, ImageExtractor
-
-    if content_type.startswith("image/"):
-        return ImageExtractor(model=model)
-
-    ext = Path(filename).suffix.lower()
-    if ext in DocumentExtractor.supported_extensions:
-        return DocumentExtractor()
-
-    return None
 
 
 class SingleTurnOutput(OutputProvider):
@@ -179,6 +140,8 @@ class SingleTurnOutput(OutputProvider):
 
             resolved_model = _resolve_model_for_extraction(model)
 
+            from rhesis.sdk.services.extractor import extract_with_vision_fallback
+
             result = []
             for f in files:
                 if not f.content:
@@ -187,20 +150,10 @@ class SingleTurnOutput(OutputProvider):
                     "filename": f.filename,
                     "content_type": f.content_type,
                     "data": base64.b64encode(f.content).decode("ascii"),
+                    "extracted_text": extract_with_vision_fallback(
+                        f.content, f.filename, f.content_type, model=resolved_model
+                    ),
                 }
-                extractor = _select_extractor(f.content_type, f.filename, model=resolved_model)
-                if extractor:
-                    try:
-                        entry["extracted_text"] = extractor.extract_from_bytes(
-                            f.content, f.filename
-                        )
-                    except Exception as exc:
-                        logger.warning(
-                            "Extraction failed for file %s (test %s): %s",
-                            f.filename,
-                            test_id,
-                            exc,
-                        )
                 result.append(entry)
             return result
         except Exception as e:
