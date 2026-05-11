@@ -418,7 +418,6 @@ app.add_middleware(
         "https://dev-api.rhesis.ai",
         "https://stg-app.rhesis.ai",
         "https://stg-api.rhesis.ai",
-        "https://app.kwasigroch.pl",
     ],
     allow_credentials=True,
     allow_methods=["*"],
