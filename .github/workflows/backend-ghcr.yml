@@ -1,4 +1,4 @@
-name: "[Build] Backend GHCR"
+name: "[Build] Docker GitHub Container Registry"
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
   packages: write
 
 jobs:
-  docker:
+  backend:
     runs-on: ubuntu-latest
 
     steps:
