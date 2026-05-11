@@ -34,7 +34,7 @@ dependencies = [
     "jinja2>=3.1.0",
     "python-dotenv>=1.0.0",
     "jupyter>=1.0.0",
-    "notebook>=6.0.0",
+    "notebook>=7.5.6",
     "ipykernel>=6.0.0",
 ]
 
@@ -50,17 +50,17 @@ Documentation = "https://docs.rhesis.ai"
 [project.optional-dependencies]
 langchain = [
     "langchain>=1.0.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.2.28",
     "langchain-google-genai>=2.0.0",
 ]
 langgraph = [
     "langgraph>=0.2.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.2.28",
     "langchain-google-genai>=2.0.0",
 ]
 all = [
     "langchain>=1.0.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.2.28",
     "langchain-google-genai>=2.0.0",
     "langgraph>=0.2.0",
 ]
@@ -92,11 +92,19 @@ allow-direct-references = true
 
 [tool.uv]
 exclude-newer = "1 week"
+# Allow newer versions for packages with recent security patches (CVEs).
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "pyasn1>=0.6.3",
     "orjson>=3.11.7",
     "tornado>=6.5.5",
+    "gitpython>=3.1.49",
+    "mistune>=3.2.1",
+    "jupyterlab>=4.5.7",
+    "jupyter-server>=2.18.0",
+    "notebook>=7.5.6",
+    "python-multipart>=0.0.27",
 ]
 # Match sdk: litellm>=1.83.7 metadata vs deepeval/python-dotenv and pydantic pins.
 override-dependencies = [

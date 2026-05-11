@@ -21,6 +21,8 @@ constraint-dependencies = [
     "pyasn1>=0.6.3",
     "orjson>=3.11.7",
     "tornado>=6.5.5",
+    "gitpython>=3.1.49",
+    "python-multipart>=0.0.27",
 ]
 # Match sdk lock resolution: litellm>=1.83.7 vs deepeval/python-dotenv.
 override-dependencies = [
