@@ -128,6 +128,7 @@ class SDKRpcClient:
             "inputs": inputs,
         }
         dispatch_context = f"({function_name})"
+        logger.debug(f"Sending RPC request to {request}")
         return await self._send_and_await(
             routing_key=routing_key,
             request=request,
@@ -162,6 +163,8 @@ class SDKRpcClient:
             "metric_name": metric_name,
             "inputs": inputs,
         }
+
+        logger.debug(f"Sending RPC request to {request}")
         return await self._send_and_await(
             routing_key=routing_key,
             request=request,
@@ -202,6 +205,57 @@ class SDKRpcClient:
             timeout=timeout,
             disconnected_details=f"No worker for connection {connection_id}",
             dispatch_log_context=dispatch_context,
+        )
+
+    async def send_and_await_metric_by_org(
+        self,
+        organization_id: str,
+        metric_run_id: str,
+        metric_name: str,
+        inputs: Dict[str, Any],
+        timeout: float = 30.0,
+    ) -> Dict[str, Any]:
+        """Org-scoped metric dispatch.
+
+        Resolves ``ws:metric:{organization_id}:{metric_name}`` -> ``connection_id``
+        in Redis, then forwards through :meth:`send_and_await_metric_by_connection`
+        which handles the worker lookup and direct dispatch.
+
+        Used when the SDK is connected without a ``project_id``
+        (metrics-only registration). The Redis key is written by the
+        backend at registration time and refreshed by the connection's
+        heartbeat loop.
+
+        Returns:
+            Result dictionary or error dict.
+        """
+        if not self._redis:
+            logger.error("Redis not initialized for RPC call")
+            return {"error": "send_failed", "details": "Redis not initialized"}
+
+        metric_key = f"ws:metric:{organization_id}:{metric_name}"
+        try:
+            connection_id = await self._redis.get(metric_key)
+        except Exception as e:
+            logger.error(f"Failed to check routing for {metric_key}: {e}")
+            return {"error": "send_failed", "details": f"Failed to check routing: {e}"}
+
+        if not connection_id:
+            logger.error(f"SDK connection unavailable for {metric_key}")
+            return {
+                "error": "sdk_disconnected",
+                "details": (
+                    f"No SDK registered metric '{metric_name}' "
+                    f"for organization {organization_id}"
+                ),
+            }
+
+        return await self.send_and_await_metric_by_connection(
+            connection_id=connection_id,
+            metric_run_id=metric_run_id,
+            metric_name=metric_name,
+            inputs=inputs,
+            timeout=timeout,
         )
 
     async def _send_and_await(
