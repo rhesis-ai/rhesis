@@ -180,23 +180,16 @@ class WebsiteExtractor(Extractor):
             raise ValueError(f"Failed to extract text from {url}: {str(e)}")
 
     def _extract_text_from_result(self, result) -> str:
-        """
-        Extract text content from MarkItDown result object.
+        return _text_from_markitdown_result(result)
 
-        Args:
-            result: MarkItDown conversion result
 
-        Returns:
-            str: Extracted text content
-        """
-        if hasattr(result, "text_content") and result.text_content:
-            extracted_text = result.text_content
-        elif hasattr(result, "markdown") and result.markdown:
-            extracted_text = result.markdown
-        else:
-            extracted_text = str(result)
-
-        return extracted_text.strip() if extracted_text else ""
+def _text_from_markitdown_result(result) -> str:
+    """Extract plain text from any MarkItDown conversion result object."""
+    if hasattr(result, "text_content") and result.text_content:
+        return result.text_content.strip()
+    if hasattr(result, "markdown") and result.markdown:
+        return result.markdown.strip()
+    return str(result).strip()
 
 
 class _MarkItDownModelAdapter:
@@ -297,6 +290,9 @@ class ImageExtractor(Extractor):
             else:
                 resolved = model
 
+        self._has_model = resolved is not None
+        self._llm = resolved  # kept for direct litellm calls on non-image files
+
         if resolved is not None:
             adapter = _MarkItDownModelAdapter(resolved)
             self.converter = MarkItDown(
@@ -321,18 +317,52 @@ class ImageExtractor(Extractor):
 
         return ExtractedSource(**source.model_dump(), content=content)
 
+    # MIME types for file types the vision LLM can process natively.
+    # Gemini and GPT-4V accept PDFs and common Office formats as inline data.
+    _VISION_MIME_TYPES: dict[str, str] = {
+        ".pdf": "application/pdf",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        # Images that may arrive via this path
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+    }
+
     def extract_from_bytes(self, file_content: bytes, filename: str) -> str:
-        """Extract content from raw image bytes.
+        """Extract content from file bytes using the configured vision model.
+
+        For native image formats (jpg, png, …) MarkItDown is used as usual.
+
+        For documents whose text layer may be empty (PDFs, presentations) the
+        vision LLM is called *directly* via ``litellm.completion`` so that the
+        model can process the raw bytes natively — Gemini and GPT-4V both
+        accept PDFs as inline data.  This bypasses markitdown because
+        markitdown only uses the LLM for images *embedded within* a document,
+        not for passing the whole document to the model.
+
+        When no model is configured only native image formats are accepted.
 
         Args:
-            file_content: Binary content of the image.
-            filename: Original filename used to infer the image format.
+            file_content: Binary content of the file.
+            filename: Original filename used to infer the format.
 
         Returns:
             Extracted text / description.
         """
         file_extension = Path(filename).suffix.lower()
-        self._validate_extension(file_extension)
+
+        if self._has_model and file_extension not in self.supported_extensions:
+            # Non-image file with a vision model — send directly to the LLM.
+            mime_type = self._VISION_MIME_TYPES.get(file_extension, "application/octet-stream")
+            return self._describe_with_llm(file_content, mime_type, filename)
+
+        # Standard image path through MarkItDown.
+        if not self._has_model:
+            self._validate_extension(file_extension)
 
         from markitdown._stream_info import StreamInfo
 
@@ -341,7 +371,45 @@ class ImageExtractor(Extractor):
             result = self.converter.convert(BytesIO(file_content), stream_info=stream_info)
             return self._text_from_result(result)
         except Exception as e:
-            raise ValueError(f"Failed to extract content from image bytes: {str(e)}")
+            raise ValueError(f"Failed to extract content from file bytes: {str(e)}")
+
+    def _describe_with_llm(self, file_content: bytes, mime_type: str, filename: str) -> str:
+        """Send file bytes directly to the vision LLM.
+
+        Routes through ``_MarkItDownModelAdapter`` so every registered provider
+        (OpenAI, Gemini, Vertex AI, Anthropic, …) works without provider-specific
+        code here.
+        """
+        import base64
+
+        b64 = base64.b64encode(file_content).decode("ascii")
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{b64}"},
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            "Please extract and describe all the content in this file. "
+                            "Include all visible text, labels, headings, diagrams, "
+                            "and any other relevant information. Be thorough and accurate."
+                        ),
+                    },
+                ],
+            }
+        ]
+        completions = _MarkItDownModelAdapter._Completions(self._llm)
+        try:
+            response = completions.create(model=self._llm.model_name, messages=messages)
+            return (response.choices[0].message.content or "").strip()
+        except Exception as exc:
+            raise ValueError(
+                f"Vision LLM failed to describe '{filename}': {exc}"
+            ) from exc
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -395,11 +463,7 @@ class ImageExtractor(Extractor):
         return None
 
     def _text_from_result(self, result) -> str:
-        if hasattr(result, "text_content") and result.text_content:
-            return result.text_content.strip()
-        if hasattr(result, "markdown") and result.markdown:
-            return result.markdown.strip()
-        return str(result).strip()
+        return _text_from_markitdown_result(result)
 
 
 class DocumentExtractor(Extractor):
@@ -487,23 +551,7 @@ class DocumentExtractor(Extractor):
         return self._extract_text_from_result(result)
 
     def _extract_text_from_result(self, result) -> str:
-        """
-        Extract text content from MarkItDown result object.
-
-        Args:
-            result: MarkItDown conversion result
-
-        Returns:
-            str: Extracted text content
-        """
-        if hasattr(result, "text_content") and result.text_content:
-            extracted_text = result.text_content
-        elif hasattr(result, "markdown") and result.markdown:
-            extracted_text = result.markdown
-        else:
-            extracted_text = str(result)
-
-        return extracted_text.strip() if extracted_text else ""
+        return _text_from_markitdown_result(result)
 
     def _validate_file_extension(self, file_extension: str) -> None:
         """
@@ -567,3 +615,90 @@ class DocumentExtractor(Extractor):
             set[str]: Set of supported file extensions (including the dot)
         """
         return self.supported_extensions.copy()
+
+
+def extract_with_vision_fallback(
+    file_bytes: bytes,
+    filename: str,
+    content_type: str = "",
+    model: Optional["BaseLLM"] = None,
+) -> str:
+    """Extract text from file bytes using the best available strategy.
+
+    This is the single authoritative extraction path shared by the test
+    execution pipeline, the playground service layer, and the chatbot.
+    Having one place to change means fixes and improvements propagate
+    everywhere automatically.
+
+    Selection order:
+
+    1. **Images** (``content_type`` starts with ``image/`` or a recognised
+       image extension) — sent to ``ImageExtractor``.  When *model* is
+       provided the vision LLM describes the image; otherwise EXIF metadata
+       is extracted.
+
+    2. **Documents** (extension in ``DocumentExtractor.supported_extensions``)
+       — ``DocumentExtractor`` extracts the text layer first.  If the result
+       is empty *and* a model is available the raw bytes are passed to
+       ``ImageExtractor`` so that image-heavy PDFs / presentation exports are
+       still described by the LLM.
+
+    3. **Unknown types** — direct vision-LLM call when a model is available;
+       empty string otherwise.
+
+    All extractor exceptions are suppressed so callers receive a best-effort
+    result rather than a hard failure.  The caller is responsible for
+    substituting a placeholder when an empty string is unacceptable.
+
+    Args:
+        file_bytes: Raw binary content of the file.
+        filename: Original filename (used to infer the format via extension).
+        content_type: MIME type, e.g. ``"image/png"`` or ``"application/pdf"``.
+        model: Optional ``BaseLLM`` instance for vision-based description.
+
+    Returns:
+        Extracted text, or an empty string when extraction is not possible.
+    """
+    import logging as _logging
+
+    _log = _logging.getLogger(__name__)
+    ext = Path(filename).suffix.lower()
+
+    # 1. Image types — ImageExtractor handles vision internally.
+    if content_type.startswith("image/") or ext in ImageExtractor.supported_extensions:
+        try:
+            return ImageExtractor(model=model).extract_from_bytes(file_bytes, filename)
+        except Exception as exc:
+            _log.debug("ImageExtractor failed for %s: %s", filename, exc)
+            return ""
+
+    # 2. Known document types — text layer first, vision fallback if empty.
+    if ext in DocumentExtractor.supported_extensions:
+        extracted = ""
+        try:
+            extracted = DocumentExtractor().extract_from_bytes(file_bytes, filename)
+        except Exception as exc:
+            _log.debug("DocumentExtractor failed for %s: %s", filename, exc)
+
+        if (extracted or "").strip():
+            return extracted
+
+        if model is not None:
+            try:
+                vision = ImageExtractor(model=model).extract_from_bytes(file_bytes, filename)
+                if (vision or "").strip():
+                    _log.info("Vision fallback extracted %d chars from %s", len(vision), filename)
+                    return vision
+            except Exception as exc:
+                _log.debug("Vision fallback failed for %s: %s", filename, exc)
+
+        return extracted  # "" — caller decides whether to use a placeholder
+
+    # 3. Unknown type — try vision if a model is available.
+    if model is not None:
+        try:
+            return ImageExtractor(model=model).extract_from_bytes(file_bytes, filename)
+        except Exception as exc:
+            _log.debug("Vision call failed for unknown-type %s: %s", filename, exc)
+
+    return ""

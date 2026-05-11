@@ -127,14 +127,6 @@ class ResponseGenerator:
         """Build the full prompt with file contents and conversation history."""
         full_prompt = self.use_case_system_prompt + "\n\n"
 
-        # Inject file contents between system prompt and conversation
-        if file_contents:
-            full_prompt += "The user has provided the following files:\n\n"
-            for fc in file_contents:
-                filename = fc.get("filename", "unknown")
-                content = fc.get("content", "")
-                full_prompt += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
-
         # Add conversation history if provided
         if conversation_history:
             for msg in conversation_history:
@@ -143,11 +135,24 @@ class ResponseGenerator:
                     content = msg.get("content", "")
                     full_prompt += f"{role}: {content}\n\n"
                 elif isinstance(msg, str):
-                    # If it's a string, treat it as user message
                     full_prompt += f"User: {msg}\n\n"
 
-        # Add current prompt
-        full_prompt += f"User: {prompt}\n\nAssistant:"
+        # Attach file contents to the current user message so the LLM clearly
+        # associates them with this specific turn (not previous turns).
+        current_user_content = prompt
+        if file_contents:
+            file_block = ""
+            for fc in file_contents:
+                filename = fc.get("filename", "unknown")
+                content = fc.get("content", "")
+                file_block += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
+            current_user_content = (
+                f"[The user has attached the following file(s) with this message:]\n\n"
+                f"{file_block}"
+                f"[User message:] {prompt}"
+            )
+
+        full_prompt += f"User: {current_user_content}\n\nAssistant:"
         return full_prompt
 
     @observe.llm(

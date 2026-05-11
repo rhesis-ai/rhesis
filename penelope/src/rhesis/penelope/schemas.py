@@ -120,11 +120,12 @@ class SendMessageParams(BaseModel):
     interaction_id: Optional[str] = Field(
         default=None, description="Optional interaction ID for multi-turn conversations"
     )
-    include_files: bool = Field(
-        default=False,
+    include_files: Optional[bool] = Field(
+        default=None,
         description=(
             "Set to true to include attached files with this message. "
-            "Files are available when the test has file attachments."
+            "Omit or set to null to use the default behaviour (auto-include on the first turn). "
+            "Set to false to explicitly suppress file injection on any turn."
         ),
     )
 

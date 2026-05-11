@@ -571,14 +571,23 @@ class PenelopeAgent:
         if files:
             file_descriptions = []
             for f in files:
-                file_descriptions.append(
-                    f"- {f.get('filename', 'unknown')} ({f.get('content_type', 'unknown')})"
-                )
+                filename = f.get("filename", "unknown")
+                content_type = f.get("content_type", "unknown")
+                extracted = f.get("extracted_text", "")
+                entry = f"- {filename} ({content_type})"
+                if extracted:
+                    entry += f"\n  Extracted content:\n  {extracted}"
+                file_descriptions.append(entry)
             files_info = (
                 "\n\nAttached files available for this test:\n"
                 + "\n".join(file_descriptions)
-                + "\n\nTo include these files with a message to the target, "
-                "set include_files=true in send_message_to_target parameters."
+                + "\n\nTo send a file to the target, set include_files=true in the "
+                "send_message_to_target parameters. Decide when to include the file based "
+                "on the test goal and instructions — for example, include it on the first "
+                "message if the test requires the target to process the file immediately, "
+                "or withhold it if the test checks whether the target proactively asks for "
+                "the file. Use the extracted content above to verify that the target "
+                "correctly reads and references the file."
             )
             context_str = (context_str + files_info) if context_str else files_info
 
@@ -752,14 +761,23 @@ class PenelopeAgent:
         if files:
             file_descriptions = []
             for f in files:
-                file_descriptions.append(
-                    f"- {f.get('filename', 'unknown')} ({f.get('content_type', 'unknown')})"
-                )
+                filename = f.get("filename", "unknown")
+                content_type = f.get("content_type", "unknown")
+                extracted = f.get("extracted_text", "")
+                entry = f"- {filename} ({content_type})"
+                if extracted:
+                    entry += f"\n  Extracted content:\n  {extracted}"
+                file_descriptions.append(entry)
             files_info = (
                 "\n\nAttached files available for this test:\n"
                 + "\n".join(file_descriptions)
-                + "\n\nTo include these files with a message to the target, "
-                "set include_files=true in send_message_to_target parameters."
+                + "\n\nTo send a file to the target, set include_files=true in the "
+                "send_message_to_target parameters. Decide when to include the file based "
+                "on the test goal and instructions — for example, include it on the first "
+                "message if the test requires the target to process the file immediately, "
+                "or withhold it if the test checks whether the target proactively asks for "
+                "the file. Use the extracted content above to verify that the target "
+                "correctly reads and references the file."
             )
             context_str = (context_str + files_info) if context_str else files_info
 
