@@ -311,22 +311,41 @@ async def create_invocation_trace(
 def _store_trace_files(
     db: Session,
     trace_id: UUID,
-    files: List[Dict[str, Any]],
+    files,
     organization_id: str,
 ) -> None:
-    """Store input files as File records linked to a Trace.
+    """Link or create File records for input files attached to a Trace.
 
-    Each item in files should have:
-    - data: base64-encoded file content
-    - filename: original filename
-    - content_type: MIME type
+    For FileReference entries (test-execution path): the File row already exists
+    — only entity_id/entity_type are updated to point at the Trace.  No bytes,
+    no storage writes.
+
+    For legacy inline-base64 dicts (playground path): uploads to storage and
+    creates the File row (backward compat).
     """
-    from rhesis.backend.app import crud, schemas
+    from rhesis.backend.app import crud as _crud, schemas
 
     for idx, file_data in enumerate(files):
         if not isinstance(file_data, dict):
             continue
 
+        # FileReference path: link existing row to this Trace
+        file_id = file_data.get("id")
+        if file_id:
+            try:
+                import uuid as _uuid
+
+                _crud.link_file_to_entity(
+                    db,
+                    file_id=_uuid.UUID(file_id),
+                    entity_id=trace_id,
+                    entity_type="Trace",
+                )
+            except Exception as exc:
+                logger.warning(f"Failed to link file_id={file_id} to trace {trace_id}: {exc}")
+            continue
+
+        # Legacy inline-base64 dict
         content_b64 = file_data.get("data")
         if not content_b64:
             continue
@@ -341,11 +360,10 @@ def _store_trace_files(
             filename=file_data.get("filename", f"file_{idx}"),
             content_type=file_data.get("content_type", "application/octet-stream"),
             size_bytes=len(content),
-            content=content,
             entity_id=trace_id,
             entity_type="Trace",
             position=idx,
         )
-        crud.create_file(db, file_create, organization_id=organization_id)
+        _crud.create_file(db, file_create, organization_id=organization_id)
 
-    logger.debug(f"Stored {len(files)} input file(s) for trace_id={trace_id}")
+    logger.debug(f"Processed {len(files)} input file(s) for trace_id={trace_id}")

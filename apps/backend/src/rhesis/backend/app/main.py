@@ -185,6 +185,19 @@ async def lifespan(app: FastAPI):
     """
     set_logger()
 
+    # Set anyio threadpool size for async-to-thread offloading.
+    # Default is 40; 100 is a reasonable production value for 2 vCPU + concurrency 80.
+    try:
+        from anyio import to_thread
+
+        await to_thread.run_sync(lambda: None)  # warm the thread limiter
+        from anyio.lowlevel import checkpoint
+
+        limiter = to_thread.current_default_thread_limiter()
+        limiter.total_tokens = int(os.getenv("ANYIO_THREADPOOL_SIZE", "100"))
+    except Exception as _tp_err:
+        logger.warning(f"Could not configure anyio thread limiter: {_tp_err}")
+
     # Startup: Initialize local environment if enabled
     with get_db() as db:
         initialize_local_environment(db)

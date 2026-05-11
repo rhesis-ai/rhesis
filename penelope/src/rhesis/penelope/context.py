@@ -425,7 +425,7 @@ class TestContext:
     min_turns: Optional[int] = None
     max_tool_executions: Optional[int] = None
     timeout_seconds: Optional[float] = None
-    files: List[Dict[str, str]] = field(default_factory=list)
+    files: List = field(default_factory=list)
 
 
 @dataclass
@@ -1082,14 +1082,21 @@ class TestState:
             except (json.JSONDecodeError, KeyError, AttributeError):
                 target_response = "Unable to parse response"
 
-            # Extract lightweight file metadata (filename + content_type, no base64)
-            # so the UI can show which files were attached to this turn.
+            # Extract lightweight file metadata (filename + content_type, no base64 / bytes)
+            # Handles both FileReference objects and legacy {filename, content_type, ...} dicts.
             raw_files = target_interaction.get_tool_call_arguments().get("files") or []
-            sent_files: Optional[List[Dict[str, str]]] = [
-                {k: v for k, v in f.items() if k in ("filename", "content_type")}
-                for f in raw_files
-                if isinstance(f, dict)
-            ] or None
+            sent_files = []
+            for f in raw_files:
+                if hasattr(f, "filename"):
+                    # FileReference
+                    sent_files.append(
+                        {"filename": f.filename, "content_type": f.content_type}
+                    )
+                elif isinstance(f, dict):
+                    sent_files.append(
+                        {k: v for k, v in f.items() if k in ("filename", "content_type")}
+                    )
+            sent_files = sent_files or None
 
             # Create conversation turn (use turn number for display consistency)
             conversation_turn = ConversationTurn(

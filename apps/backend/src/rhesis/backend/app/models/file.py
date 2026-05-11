@@ -9,8 +9,9 @@ from .mixins import OrganizationAndUserMixin
 class File(Base, OrganizationAndUserMixin):
     __tablename__ = "file"
 
-    # File content (deferred - never loaded on queries unless explicitly requested)
-    content = deferred(Column(LargeBinary))
+    # Legacy bytea column — kept nullable until backfill is verified and
+    # the drop-content-column Alembic revision is applied (Phase 8 runbook).
+    content = deferred(Column(LargeBinary, nullable=True))
 
     # File metadata
     filename = Column(String(255), nullable=False)
@@ -24,3 +25,16 @@ class File(Base, OrganizationAndUserMixin):
 
     # Ordering for multiple files on same entity
     position = Column(Integer, nullable=False, default=0)
+
+    # Object-storage path (relative to the active backend root).
+    # Populated at upload time; required by production code after backfill.
+    storage_path = Column(String(512), nullable=True)
+
+    # SHA-256 hex digest of the original file bytes.
+    content_hash = Column(String(64), nullable=True)
+
+    # Text extracted from the file at upload time (OCR / text-layer).
+    extracted_text = Column(Text, nullable=True)
+
+    # Extraction lifecycle: pending | done | failed | not_applicable
+    extraction_status = Column(String(16), nullable=False, server_default="pending")

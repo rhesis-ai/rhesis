@@ -426,7 +426,7 @@ class PenelopeAgent:
         context: Optional[Dict[str, Any]] = None,
         max_turns: Optional[int] = None,
         min_turns: Optional[int] = None,
-        files: Optional[List[Dict[str, str]]] = None,
+        files: Optional[List] = None,
         on_tool_start: Optional[Any] = None,
         on_tool_end: Optional[Any] = None,
     ) -> TestResult:

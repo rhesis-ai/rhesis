@@ -4203,14 +4203,25 @@ def get_file(
     return get_item(db, models.File, file_id, organization_id, user_id)
 
 
-def get_file_with_content(
+def link_file_to_entity(
     db: Session,
     file_id: uuid.UUID,
-    organization_id: str = None,
-    user_id: str = None,
+    entity_id: uuid.UUID,
+    entity_type: str,
 ) -> Optional[models.File]:
-    """Get file with content loaded (uses undefer for BYTEA column)."""
-    return get_item_with_deferred(db, models.File, file_id, ["content"], organization_id, user_id)
+    """Update a File row to link it to a new entity (e.g. a Trace after span storage).
+
+    Pure metadata update — no bytes, no storage writes.
+    Returns the updated File, or None if not found.
+    """
+    db_file = db.query(models.File).filter(models.File.id == file_id).first()
+    if not db_file:
+        return None
+    db_file.entity_id = entity_id
+    db_file.entity_type = entity_type
+    db.commit()
+    db.refresh(db_file)
+    return db_file
 
 
 def get_files_for_entity(

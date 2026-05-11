@@ -110,39 +110,53 @@ class EndpointService:
             # injection into ``input`` is picked up when the messages list is
             # assembled below.
             #
-            # A) Endpoint supports {{ files }}: enrich each file with
-            #    extracted_text and forward the full dict to the endpoint.
-            # B) Endpoint has no {{ files }}: extract text and inject it into
-            #    the {{ input }} message so plain-text endpoints (including
-            #    stateless {{ messages }} endpoints) still receive file content.
+            # A) Endpoint supports {{ files }}:
+            #    - FileReference list (test-execution path): materialise bytes
+            #      from StorageService only when the endpoint contract needs them
+            #      (i.e. {{ files }} in request_mapping with a 'data' field).
+            #      extracted_text is already on the row — enrich is skipped.
+            #    - Inline base64 dicts (playground path): enrich with extraction
+            #      as before.
+            # B) Endpoint has no {{ files }}: inject extracted_text into input.
             if enriched_input_data.get("files"):
                 supports_files = endpoint_supports_files(endpoint)
+                files = enriched_input_data.get("files", [])
+                is_file_reference_list = _is_file_reference_list(files)
+
                 if supports_files:
-                    enriched_input_data["files"] = enrich_files_with_extraction(
-                        enriched_input_data["files"],
-                        db=db,
-                        user_id=user_id,
-                    )
+                    if is_file_reference_list:
+                        # Materialise bytes from storage on-demand for this invocation
+                        enriched_input_data["files"] = await _materialise_file_references(
+                            files, db=db, user_id=user_id
+                        )
+                    else:
+                        enriched_input_data["files"] = enrich_files_with_extraction(
+                            files, db=db, user_id=user_id
+                        )
                     logger.debug(
-                        "Endpoint '%s' supports files — forwarding %d enriched file(s)",
+                        "Endpoint '%s' supports files — forwarding %d file(s)",
                         endpoint.name,
                         len(enriched_input_data["files"]),
                     )
                 else:
-                    enriched_files = enrich_files_with_extraction(
-                        enriched_input_data.pop("files"),
-                        db=db,
-                        user_id=user_id,
-                    )
-                    # Preserve lightweight metadata for tracing (filename +
-                    # content_type only — no base64 payload).
+                    if is_file_reference_list:
+                        # Build enriched dicts from FileReference metadata (no storage fetch)
+                        enriched_files = _refs_to_enriched_dicts(files)
+                    else:
+                        enriched_files = enrich_files_with_extraction(
+                            enriched_input_data.pop("files"),
+                            db=db,
+                            user_id=user_id,
+                        )
+                    enriched_input_data.pop("files", None)
                     enriched_input_data["files_metadata"] = [
                         {
-                            "filename": f.get("filename", ""),
-                            "content_type": f.get("content_type", ""),
+                            "filename": f.get("filename", "") if isinstance(f, dict) else "",
+                            "content_type": (
+                                f.get("content_type", "") if isinstance(f, dict) else ""
+                            ),
                         }
                         for f in enriched_files
-                        if isinstance(f, dict)
                     ]
                     if "input" in enriched_input_data and isinstance(
                         enriched_input_data["input"], str
@@ -420,3 +434,91 @@ class EndpointService:
             organization_id=organization_id,
             user_id=user_id,
         )
+
+
+# ---------------------------------------------------------------------------
+# File-handling helpers
+# ---------------------------------------------------------------------------
+
+
+def _is_file_reference_list(files) -> bool:
+    """Return True when every entry in ``files`` is a FileReference instance."""
+    if not files:
+        return False
+    try:
+        from rhesis.sdk.connector.types import FileReference
+
+        return all(isinstance(f, FileReference) for f in files)
+    except ImportError:
+        return False
+
+
+def _refs_to_enriched_dicts(file_refs) -> list:
+    """Convert List[FileReference] to the legacy enriched-dict shape (no bytes)."""
+    result = []
+    for ref in file_refs:
+        result.append(
+            {
+                "filename": ref.filename,
+                "content_type": ref.content_type,
+                "extracted_text": ref.extracted_text or "",
+            }
+        )
+    return result
+
+
+async def _materialise_file_references(file_refs, db=None, user_id=None) -> list:
+    """Fetch bytes from storage for each FileReference and return enriched dicts.
+
+    This is the on-demand materialisation path: bytes are fetched only when the
+    endpoint contract requires them (``{{ files }}`` in request_mapping with data).
+    The dicts are not retained past the current invocation.
+    """
+    import asyncio
+    import base64
+
+    from rhesis.backend.app.services.storage_service import StorageService
+
+    storage = StorageService()
+    result = []
+    for ref in file_refs:
+        if not ref.storage_path:
+            # No storage path — include metadata only
+            result.append(
+                {
+                    "filename": ref.filename,
+                    "content_type": ref.content_type,
+                    "extracted_text": ref.extracted_text or "",
+                }
+            )
+            continue
+
+        try:
+            chunks = []
+            stream = await storage.get_object_stream(ref.storage_path)
+            async for chunk in stream:
+                chunks.append(chunk)
+            raw = b"".join(chunks)
+            result.append(
+                {
+                    "filename": ref.filename,
+                    "content_type": ref.content_type,
+                    "data": base64.b64encode(raw).decode("ascii"),
+                    "extracted_text": ref.extracted_text or "",
+                }
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to materialise FileReference %s from storage: %s",
+                ref.id,
+                exc,
+            )
+            result.append(
+                {
+                    "filename": ref.filename,
+                    "content_type": ref.content_type,
+                    "extracted_text": ref.extracted_text or "",
+                }
+            )
+    return result
+

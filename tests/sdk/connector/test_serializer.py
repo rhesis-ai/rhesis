@@ -528,3 +528,52 @@ class TestEdgeCases:
         data = {"key": None, "list": [None, PydanticModel(name="a", value=1), None]}
         result = s.dump(data)
         assert result == {"key": None, "list": [None, {"name": "a", "value": 1}, None]}
+
+
+class TestFileReferenceSerialization:
+    """Verify FileReference round-trips through the TypeSerializer."""
+
+    def test_file_reference_dump_produces_dict(self):
+        """FileReference.model_dump() is called automatically via the BaseModel strategy."""
+        from rhesis.sdk.connector.types import FileReference
+
+        ref = FileReference(
+            id="abc-123",
+            filename="photo.png",
+            content_type="image/png",
+            size_bytes=1024,
+            content_hash="deadbeef" * 8,
+            storage_path="attachments/org/Test/eid/fid/original.png",
+            extracted_text="A cat",
+        )
+        dumped = TypeSerializer.dump(ref)
+        assert isinstance(dumped, dict)
+        assert dumped["id"] == "abc-123"
+        assert dumped["filename"] == "photo.png"
+        # No 'data' key — no bytes in the serialised form
+        assert "data" not in dumped
+
+    def test_file_reference_load_from_dict(self):
+        """TypeSerializer.load reconstructs FileReference via model_validate."""
+        from rhesis.sdk.connector.types import FileReference
+
+        data = {
+            "id": "abc-123",
+            "filename": "photo.png",
+            "content_type": "image/png",
+            "size_bytes": 1024,
+            "content_hash": "deadbeef" * 8,
+        }
+        loaded = TypeSerializer.load(data, FileReference)
+        assert isinstance(loaded, FileReference)
+        assert loaded.id == "abc-123"
+        assert loaded.storage_path is None
+
+    def test_bytes_strategy_still_works(self):
+        """Existing bytes → base64 strategy is unaffected by FileReference addition."""
+        import base64
+
+        raw = b"some binary data"
+        dumped = TypeSerializer.dump(raw)
+        assert isinstance(dumped, str)
+        assert base64.b64decode(dumped) == raw

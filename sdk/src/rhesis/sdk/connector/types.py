@@ -2,6 +2,44 @@
 
 import os
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel
+
+
+class FileReference(BaseModel):
+    """A reference to a file stored in object storage.
+
+    Passed through the execution pipeline instead of raw bytes so that
+    the full file content never resides in Python memory except at the
+    moment an endpoint actually needs it (on-demand materialisation).
+    """
+
+    id: str
+    filename: str
+    content_type: str
+    size_bytes: int
+    content_hash: str
+    storage_path: Optional[str] = None
+    signed_url: Optional[str] = None
+    extracted_text: Optional[str] = None
+
+    def read_bytes(self) -> bytes:
+        """Fetch the file bytes via the signed URL (lazy — network call).
+
+        Raises ``RuntimeError`` when no signed_url is available.
+        """
+        if not self.signed_url:
+            raise RuntimeError(
+                f"No signed_url available for FileReference id={self.id}. "
+                "The backend must populate signed_url before passing FileReferences "
+                "to SDK user functions that need raw bytes."
+            )
+        import urllib.request
+
+        with urllib.request.urlopen(self.signed_url) as resp:
+            return resp.read()
+
 
 
 class ConnectionState(Enum):

@@ -8,7 +8,31 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
-## [0.7.1] - 2026-05-07
+## [0.8.0] - Unreleased
+
+### Storage migration: file bytes move out of Postgres
+
+This release migrates all file content from Postgres `bytea` columns to object storage (GCS/S3/local-FS via `STORAGE_SERVICE_URI`). The change eliminates Cloud Run memory crashes caused by multi-MB file buffers and brings consistent streaming upload/download semantics across all execution paths.
+
+**Breaking changes:**
+
+- `GET /files/{id}/content` now returns HTTP 302 to a presigned URL instead of streaming bytes directly. HTTP clients that follow redirects (including the SDK and all browsers) are unaffected.
+- `FileCreate` schema no longer accepts a `content` field. Upload bytes are streamed to object storage; only metadata is stored in Postgres.
+- `File.extracted_text` is now pre-computed at upload time rather than per-invocation. A brief soak window applies while the Celery extraction queue drains after deployment.
+
+**New features:**
+
+- `GET /files/{id}/thumbnail?size=N` — server-side WebP thumbnail (sizes: 72, 144, 288 px).
+- `STORAGE_SERVICE_URI=file:///path` — first-class local-FS mode for dev/CI (previously only `gs://` was supported).
+- `FileReference` type in the SDK connector for passing file metadata through the execution pipeline without embedding bytes.
+- `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`).
+- ETag / If-None-Match support on `/content` and `/thumbnail` for browser-level caching.
+
+**Operator runbook:** See `apps/backend/scripts/migrate_files_to_storage.py` and the Phase 8b deployment runbook in `playground/async-migration/ASYNC_MIGRATION_PLAN.md`. The deprecated `content` column is retained until runbook step 7 (after soak verification).
+
+**IAM prerequisite:** The backend Cloud Run service account needs `roles/storage.objectAdmin` on the storage bucket (previously `roles/storage.objectViewer` was sufficient).
+
+
 
 ### Platform Release
 

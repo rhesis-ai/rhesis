@@ -284,23 +284,53 @@ def _store_output_files(
     organization_id: Optional[str],
     user_id: Optional[str],
 ) -> None:
-    """Store output files from endpoint response as File records.
+    """Upload output files to object storage and create File metadata rows.
 
     Each item in output_files_data should have:
-    - data: base64-encoded file content
+    - data: base64-encoded file content (or signed_url for pre-uploaded files)
     - filename: original filename
     - content_type: MIME type (optional, defaults to application/octet-stream)
+
+    Bytes are streamed to storage via StorageService.put_object_streaming so no
+    full buffer accumulates in Python.
     """
+    import asyncio
+    import uuid as _uuid
+
+    from rhesis.backend.app.services.storage_service import StorageService
+
     if not isinstance(output_files_data, list):
         logger.warning(
             f"[TEST_RESULT] output_files is not a list, skipping: {type(output_files_data)}"
         )
         return
 
+    storage = StorageService()
+
     for idx, file_data in enumerate(output_files_data):
         if not isinstance(file_data, dict):
             continue
 
+        filename = file_data.get("filename", f"output_{idx}")
+        content_type = file_data.get("content_type", "application/octet-stream")
+
+        # Path A: pre-uploaded file with a signed_url — just create the metadata row
+        if file_data.get("signed_url") and not file_data.get("data"):
+            file_create = schemas.FileCreate(
+                filename=filename,
+                content_type=content_type,
+                size_bytes=file_data.get("size_bytes", 0),
+                entity_id=test_result_id,
+                entity_type="TestResult",
+                position=idx,
+                storage_path=file_data.get("storage_path"),
+                content_hash=file_data.get("content_hash"),
+                extraction_status="pending",
+            )
+            crud.create_file(db, file_create, organization_id=organization_id, user_id=user_id)
+            continue
+
+        # Path B: base64-encoded bytes — decode and stream to storage
         content_b64 = file_data.get("data")
         if not content_b64:
             continue
@@ -311,17 +341,41 @@ def _store_output_files(
             logger.warning(f"[TEST_RESULT] Failed to decode base64 for output file {idx}")
             continue
 
-        filename = file_data.get("filename", f"output_{idx}")
-        content_type = file_data.get("content_type", "application/octet-stream")
+        file_id = _uuid.uuid4()
+        dest_path = storage.get_attachment_original_path(
+            organization_id=organization_id or "",
+            entity_type="TestResult",
+            entity_id=str(test_result_id),
+            file_id=str(file_id),
+            filename=filename,
+        )
+
+        async def _upload(raw: bytes, path: str, ct: str):
+            async def _source():
+                yield raw
+
+            return await storage.put_object_streaming(_source(), path, ct)
+
+        try:
+            loop = asyncio.new_event_loop()
+            storage_path, content_hash = loop.run_until_complete(
+                _upload(content, dest_path, content_type)
+            )
+            loop.close()
+        except Exception as exc:
+            logger.error(f"[TEST_RESULT] Failed to upload output file {idx}: {exc}")
+            continue
 
         file_create = schemas.FileCreate(
             filename=filename,
             content_type=content_type,
             size_bytes=len(content),
-            content=content,
             entity_id=test_result_id,
             entity_type="TestResult",
             position=idx,
+            storage_path=storage_path,
+            content_hash=content_hash,
+            extraction_status="pending",
         )
         crud.create_file(db, file_create, organization_id=organization_id, user_id=user_id)
 
