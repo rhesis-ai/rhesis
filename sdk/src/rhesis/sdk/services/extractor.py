@@ -407,9 +407,7 @@ class ImageExtractor(Extractor):
             response = completions.create(model=self._llm.model_name, messages=messages)
             return (response.choices[0].message.content or "").strip()
         except Exception as exc:
-            raise ValueError(
-                f"Vision LLM failed to describe '{filename}': {exc}"
-            ) from exc
+            raise ValueError(f"Vision LLM failed to describe '{filename}': {exc}") from exc
 
     # ------------------------------------------------------------------
     # Internal helpers
