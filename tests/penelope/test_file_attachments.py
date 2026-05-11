@@ -56,10 +56,10 @@ class TestTestContextFiles:
 class TestSendMessageParamsIncludeFiles:
     """Tests for SendMessageParams include_files field."""
 
-    def test_default_include_files_is_false(self):
-        """include_files defaults to False."""
+    def test_default_include_files_is_none(self):
+        """include_files defaults to None (absent = Penelope decides)."""
         params = SendMessageParams(message="hello")
-        assert params.include_files is False
+        assert params.include_files is None
 
     def test_include_files_true(self):
         """include_files can be set to True."""
@@ -78,10 +78,10 @@ class TestSendMessageParamsIncludeFiles:
         dumped = params.model_dump(exclude_none=True)
         assert "include_files" in dumped
 
-    def test_false_excluded_when_exclude_defaults(self):
-        """include_files=False is excluded when exclude_defaults=True."""
+    def test_none_excluded_when_exclude_none(self):
+        """include_files=None is excluded when exclude_none=True (default serialization)."""
         params = SendMessageParams(message="hello")
-        dumped = params.model_dump(exclude_defaults=True)
+        dumped = params.model_dump(exclude_none=True)
         assert "include_files" not in dumped
 
 
@@ -174,8 +174,10 @@ class TestExecutorFileInjection:
         assert "files" not in call_kwargs
         assert "include_files" not in call_kwargs
 
-    def test_no_files_when_omitted(self, mock_model, state_with_files, mock_tool):
-        """Files are NOT injected when include_files is not in params."""
+    def test_no_files_when_include_files_omitted(
+        self, mock_model, state_with_files, mock_tool
+    ):
+        """Files are NOT injected when include_files is absent — Penelope must explicitly request them."""
         mock_model.generate.return_value = {
             "reasoning": "Normal message",
             "tool_calls": [
@@ -193,7 +195,9 @@ class TestExecutorFileInjection:
         )
         assert success is True
         call_kwargs = mock_tool.execute.call_args[1]
+        # No auto-inject: Penelope must explicitly set include_files=True
         assert "files" not in call_kwargs
+        assert "include_files" not in call_kwargs
 
     def test_no_files_when_context_has_no_files(self, mock_model, state_without_files, mock_tool):
         """Files are NOT injected even if include_files=True but context has no files."""
@@ -282,14 +286,23 @@ class TestSystemPromptFileInfo:
         if files:
             file_descriptions = []
             for f in files:
-                file_descriptions.append(
-                    f"- {f.get('filename', 'unknown')} ({f.get('content_type', 'unknown')})"
-                )
+                filename = f.get("filename", "unknown")
+                content_type = f.get("content_type", "unknown")
+                extracted = f.get("extracted_text", "")
+                entry = f"- {filename} ({content_type})"
+                if extracted:
+                    entry += f"\n  Extracted content:\n  {extracted}"
+                file_descriptions.append(entry)
             files_info = (
                 "\n\nAttached files available for this test:\n"
                 + "\n".join(file_descriptions)
-                + "\n\nTo include these files with a message to the target, "
-                "set include_files=true in send_message_to_target parameters."
+                + "\n\nTo send a file to the target, set include_files=true in the "
+                "send_message_to_target parameters. Decide when to include the file based "
+                "on the test goal and instructions — for example, include it on the first "
+                "message if the test requires the target to process the file immediately, "
+                "or withhold it if the test checks whether the target proactively asks for "
+                "the file. Use the extracted content above to verify that the target "
+                "correctly reads and references the file."
             )
             context_str = (context_str + files_info) if context_str else files_info
 
@@ -298,6 +311,7 @@ class TestSystemPromptFileInfo:
         assert "document.pdf" in context_str
         assert "application/pdf" in context_str
         assert "include_files=true" in context_str
+        assert "Decide when to include the file" in context_str
 
     def test_no_file_info_without_files(self):
         """No file info in context when no files."""

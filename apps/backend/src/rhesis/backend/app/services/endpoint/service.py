@@ -1,4 +1,4 @@
-"""Core endpoint service with basic operations."""
+"""Core endpoint service — orchestrates endpoint invocation."""
 
 import json
 import logging
@@ -10,13 +10,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.models.enums import (
-    EndpointAuthType,
-    EndpointConfigSource,
-    EndpointConnectionType,
-    EndpointEnvironment,
-    EndpointResponseFormat,
-)
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
@@ -27,27 +20,32 @@ from rhesis.backend.app.services.invokers.conversation import (
     get_conversation_store,
 )
 
-# Import sdk_sync at module level to avoid circular imports
 from . import sdk_sync
+from .files import (
+    endpoint_supports_files,
+    enrich_files_with_extraction,
+    inject_file_content_into_input,
+)
+from .testing import test_endpoint as _test_endpoint
 
 logger = logging.getLogger(__name__)
 
 
 class EndpointService:
-    """Service for managing and invoking endpoints."""
+    """Orchestrates endpoint invocation across all connection types.
+
+    The service is intentionally thin: it enriches input data, manages
+    stateless conversation history, delegates file handling to ``files.py``,
+    and hands off to the appropriate ``BaseEndpointInvoker`` subclass.
+
+    Endpoint testing (transient configs) is handled by ``testing.py``.
+    SDK endpoint sync is handled by ``sdk_sync.py``.
+    """
 
     def __init__(self, schema_path: str = None):
-        """
-        Initialize the endpoint service.
-
-        Args:
-            schema_path: Optional path to the endpoint schema file. If not provided,
-                       defaults to endpoint_schema.json in the parent services directory.
-        """
         if schema_path:
             self.schema_path = schema_path
         else:
-            # Look for endpoint_schema.json in the parent services directory
             services_dir = os.path.dirname(os.path.dirname(__file__))
             self.schema_path = os.path.join(services_dir, "endpoint_schema.json")
 
@@ -63,35 +61,37 @@ class EndpointService:
         deferred_trace: bool = False,
         trace_id: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Invoke an endpoint with the given input data.
+        """Invoke an endpoint with the given input data.
 
         Args:
             db: Database session (can be None when endpoint is pre-fetched and
-                deferred_trace=True for DB-free batch mode)
-            endpoint_id: ID of the endpoint to invoke
-            input_data: Input data to be mapped to the endpoint's request template
-            organization_id: Organization ID for security filtering (CRITICAL)
-            user_id: User ID for context injection (CRITICAL)
-            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
-            endpoint: Optional pre-fetched Endpoint model (skips DB lookup when provided)
-            deferred_trace: When True, trace data is collected in-memory and returned
-                in the result dict under '_deferred_trace' key
-            trace_id: Optional trace_id to reuse (for in-memory multi-turn tracking)
+                deferred_trace=True for DB-free batch mode).
+            endpoint_id: ID of the endpoint to invoke.
+            input_data: Input data mapped to the endpoint's request template.
+            organization_id: Organization ID for security filtering (CRITICAL).
+            user_id: User ID for context injection (CRITICAL).
+            test_execution_context: Optional dict with test_run_id, test_result_id, test_id.
+            endpoint: Optional pre-fetched Endpoint model (skips DB lookup).
+            deferred_trace: When True, trace data is collected in-memory and
+                returned in the result dict under ``_deferred_trace``.
+            trace_id: Optional trace_id to reuse (for in-memory multi-turn tracking).
 
         Returns:
-            Dict containing the mapped response from the endpoint
+            Dict containing the mapped response from the endpoint.
 
         Raises:
-            HTTPException: If endpoint is not found or invocation fails
+            HTTPException: If endpoint is not found or invocation fails.
         """
         if endpoint is None:
             endpoint = self._get_endpoint(db, endpoint_id, organization_id)
         logger.debug(f"Invoking endpoint {endpoint.name} ({endpoint.connection_type})")
 
         try:
-            # Inject organization_id and user_id into input_data for context
-            # These are injected by the backend, NOT from user input (SECURITY CRITICAL)
+            # ------------------------------------------------------------------
+            # Input enrichment — inject server-side context fields
+            # ------------------------------------------------------------------
+            # organization_id and user_id are injected by the backend, NOT from
+            # user input (SECURITY CRITICAL).
             enriched_input_data = input_data.copy()
             if organization_id:
                 enriched_input_data["organization_id"] = organization_id
@@ -103,20 +103,77 @@ class EndpointService:
                     if value is not None:
                         enriched_input_data[key] = value
 
-            # -------------------------------------------------------
+            # ------------------------------------------------------------------
+            # File handling
+            # ------------------------------------------------------------------
+            # Must run BEFORE stateless message building so that Case B text
+            # injection into ``input`` is picked up when the messages list is
+            # assembled below.
+            #
+            # A) Endpoint supports {{ files }}: enrich each file with
+            #    extracted_text and forward the full dict to the endpoint.
+            # B) Endpoint has no {{ files }}: extract text and inject it into
+            #    the {{ input }} message so plain-text endpoints (including
+            #    stateless {{ messages }} endpoints) still receive file content.
+            if enriched_input_data.get("files"):
+                supports_files = endpoint_supports_files(endpoint)
+                if supports_files:
+                    enriched_input_data["files"] = enrich_files_with_extraction(
+                        enriched_input_data["files"],
+                        db=db,
+                        user_id=user_id,
+                    )
+                    logger.debug(
+                        "Endpoint '%s' supports files — forwarding %d enriched file(s)",
+                        endpoint.name,
+                        len(enriched_input_data["files"]),
+                    )
+                else:
+                    enriched_files = enrich_files_with_extraction(
+                        enriched_input_data.pop("files"),
+                        db=db,
+                        user_id=user_id,
+                    )
+                    # Preserve lightweight metadata for tracing (filename +
+                    # content_type only — no base64 payload).
+                    enriched_input_data["files_metadata"] = [
+                        {
+                            "filename": f.get("filename", ""),
+                            "content_type": f.get("content_type", ""),
+                        }
+                        for f in enriched_files
+                        if isinstance(f, dict)
+                    ]
+                    if "input" in enriched_input_data and isinstance(
+                        enriched_input_data["input"], str
+                    ):
+                        enriched_input_data["input"] = inject_file_content_into_input(
+                            enriched_input_data["input"], enriched_files
+                        )
+                        logger.info(
+                            "Endpoint '%s' has no file support — injected %d file(s) into input",
+                            endpoint.name,
+                            len(enriched_files),
+                        )
+                    else:
+                        logger.warning(
+                            "Endpoint '%s' has no file support and no 'input' field — "
+                            "file content cannot be injected",
+                            endpoint.name,
+                        )
+
+            # ------------------------------------------------------------------
             # Stateless conversation management
-            # -------------------------------------------------------
+            # ------------------------------------------------------------------
             # For stateless endpoints (detected via {{ messages }} in
             # request_mapping) the backend manages conversation history
-            # server-side.  Callers use ``conversation_id`` exactly like
-            # they would for stateful endpoints -- the difference is
-            # transparent.
+            # server-side.  Callers use ``conversation_id`` exactly like they
+            # would for stateful endpoints — the difference is transparent.
             #
-            # Two-phase commit: the user message is appended to a
-            # *temporary* messages list for the request body, but is
-            # only committed to the store after a successful invocation.
-            # This avoids leaving the conversation in an inconsistent
-            # state when the external endpoint returns an error.
+            # Two-phase commit: the user message is appended to a *temporary*
+            # messages list for the request body, but is only committed to the
+            # store after a successful invocation.  This avoids leaving the
+            # conversation in an inconsistent state when the endpoint errors.
             is_stateless = ConversationTracker.detect_stateless_mode(endpoint)
             stateless_conversation_id = None
             stateless_user_input = None
@@ -124,39 +181,28 @@ class EndpointService:
             if is_stateless and "messages" not in enriched_input_data:
                 store = get_conversation_store()
                 incoming_cid = enriched_input_data.get("conversation_id")
+                # Read input *after* any file injection so file content is
+                # included in the user message appended to the messages list.
                 stateless_user_input = enriched_input_data.get("input", "")
 
                 if incoming_cid and store.exists(incoming_cid):
-                    # Continue existing conversation
                     stateless_conversation_id = incoming_cid
                 else:
-                    # New conversation (or expired -- start fresh)
                     system_prompt = ConversationTracker.extract_system_prompt(endpoint)
-                    stateless_conversation_id = store.create(
-                        system_prompt=system_prompt,
-                    )
+                    stateless_conversation_id = store.create(system_prompt=system_prompt)
                     if incoming_cid:
                         logger.warning(
                             f"Conversation {incoming_cid} not found, "
                             f"created new: {stateless_conversation_id}"
                         )
 
-                # Build the messages array WITHOUT committing to the
-                # store yet.  get_messages() returns a deep copy, so
-                # appending to it is safe.
-                messages = store.get_messages(
-                    stateless_conversation_id,
-                )
+                messages = store.get_messages(stateless_conversation_id)
                 if stateless_user_input:
                     messages.append({"role": "user", "content": stateless_user_input})
                 enriched_input_data["messages"] = messages
 
-                # Remove conversation_id from the data that goes to the
-                # template renderer -- it's an internal tracking field,
-                # not a value to render into the external request body.
-                # Without this, the renderer's alias propagation would
-                # fill {{ session_id }} (or similar) in the request
-                # mapping and leak the internal ID to the external API.
+                # Remove conversation_id — it's an internal tracking field and
+                # must not leak into the external request body.
                 enriched_input_data.pop("conversation_id", None)
 
                 logger.debug(
@@ -165,25 +211,22 @@ class EndpointService:
                     len(messages),
                 )
 
-            # Preprocess prompt placeholders (e.g., Garak's {TARGET_MODEL})
-            # This substitutes placeholders with runtime context like project name
+            # ------------------------------------------------------------------
+            # Prompt preprocessing
+            # ------------------------------------------------------------------
             if "input" in enriched_input_data and isinstance(enriched_input_data["input"], str):
-                from rhesis.backend.app.services.prompt_preprocessor import (
-                    prompt_preprocessor,
-                )
+                from rhesis.backend.app.services.prompt_preprocessor import prompt_preprocessor
 
                 enriched_input_data["input"] = prompt_preprocessor.process(
                     enriched_input_data["input"],
                     endpoint=endpoint,
                 )
 
-            # Determine conversation_id for trace linking.
-            # For stateless endpoints it was set above; for stateful
-            # endpoints we scan the input for recognized field names
-            # (session_id, thread_id, etc.).
+            # ------------------------------------------------------------------
+            # Invocation
+            # ------------------------------------------------------------------
             trace_conversation_id = stateless_conversation_id or find_conversation_id(input_data)
 
-            # Create appropriate invoker based on connection_type
             context = InvocationContext(
                 db=db,
                 endpoint=endpoint,
@@ -193,14 +236,11 @@ class EndpointService:
             )
             invoker = create_invoker(context)
 
-            # Check if invoker needs explicit tracing (REST/WebSocket)
             if not invoker.automatic_tracing:
                 if endpoint.disable_tracing:
                     result = await invoker.invoke()
                 else:
-                    from rhesis.backend.app.services.invokers.tracing import (
-                        create_invocation_trace,
-                    )
+                    from rhesis.backend.app.services.invokers.tracing import create_invocation_trace
 
                     async with create_invocation_trace(
                         db,
@@ -220,60 +260,42 @@ class EndpointService:
                         if deferred_data:
                             result["_deferred_trace"] = deferred_data
             else:
-                # SDK invoker - handles tracing internally
                 result = await invoker.invoke()
 
-            # -------------------------------------------------------
-            # Post-invocation: commit messages for stateless on success
-            # -------------------------------------------------------
+            # ------------------------------------------------------------------
+            # Post-invocation: commit stateless conversation on success
+            # ------------------------------------------------------------------
             if is_stateless and stateless_conversation_id and result:
                 result_dict = result if isinstance(result, dict) else None
                 if result_dict is not None:
                     store = get_conversation_store()
-                    # Phase 2: commit the user turn now that we know
-                    # the invocation succeeded.
                     if stateless_user_input:
-                        store.add_user_message(
-                            stateless_conversation_id,
-                            stateless_user_input,
-                        )
-                    # Commit the assistant turn.
+                        store.add_user_message(stateless_conversation_id, stateless_user_input)
                     output = result_dict.get("output", "")
                     if output:
                         output_text = (
                             json.dumps(output) if isinstance(output, (dict, list)) else str(output)
                         )
-                        tool_calls = result_dict.get("tool_calls")
                         store.add_assistant_message(
                             stateless_conversation_id,
                             output_text,
-                            tool_calls=tool_calls,
+                            tool_calls=result_dict.get("tool_calls"),
                         )
-                    # Surface conversation_id so callers can continue
-                    # the conversation -- same field stateful endpoints
-                    # use.
                     result_dict["conversation_id"] = stateless_conversation_id
 
-            # -------------------------------------------------------
+            # ------------------------------------------------------------------
             # Guarantee conversation_id in every dict response
-            # -------------------------------------------------------
-            # For stateful endpoints the invoker may have already
-            # placed a conversation field in the result (extracted
-            # from the external API via response_mapping, or echoed
-            # from the request).  If no recognised field is present,
-            # we echo back the caller's conversation_id so the chain
-            # is never broken.
+            # ------------------------------------------------------------------
             if not is_stateless and isinstance(result, dict) and not find_conversation_id(result):
                 incoming_conversation_id = input_data.get("conversation_id")
                 if incoming_conversation_id:
                     result["conversation_id"] = incoming_conversation_id
 
-            # -------------------------------------------------------
+            # ------------------------------------------------------------------
             # First-turn trace linking
-            # -------------------------------------------------------
+            # ------------------------------------------------------------------
             if not trace_conversation_id and isinstance(result, dict) and result.get("trace_id"):
                 response_conversation_id = find_conversation_id(result)
-
                 if response_conversation_id:
                     if deferred_trace:
                         deferred_data = result.get("_deferred_trace")
@@ -292,6 +314,7 @@ class EndpointService:
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result
+
         except EndpointInvocationError:
             raise
         except ValueError as e:
@@ -320,13 +343,12 @@ class EndpointService:
         """Retroactively set conversation_id on a first-turn trace.
 
         For stateful endpoints the first turn has no conversation_id at
-        invocation time — the endpoint generates it in its response.
-        This stamps the discovered ID onto the already-stored trace
-        spans so future turns can find and reuse the same trace_id.
+        invocation time — the endpoint generates it in its response.  This
+        stamps the discovered ID onto the already-stored trace spans so future
+        turns can find and reuse the same trace_id.
 
-        If the immediate UPDATE matches 0 rows (SDK spans not yet
-        ingested), the mapping is parked for deferred application
-        when the spans arrive at the telemetry ingest endpoint.
+        If the immediate UPDATE matches 0 rows (SDK spans not yet ingested),
+        the mapping is parked for deferred application when spans arrive.
         """
         updated_count = crud.update_conversation_id_for_trace(
             db=db,
@@ -346,40 +368,19 @@ class EndpointService:
             )
 
     def _get_endpoint(self, db: Session, endpoint_id: str, organization_id: str = None) -> Endpoint:
-        """
-        Get an endpoint by ID with organization filtering.
-
-        Args:
-            db: Database session
-            endpoint_id: ID of the endpoint to retrieve
-            organization_id: Organization ID for security filtering (CRITICAL)
-
-        Returns:
-            The endpoint configuration
-
-        Raises:
-            HTTPException: If endpoint is not found or not accessible
-        """
+        """Fetch an endpoint by ID, applying organization-level security filtering."""
         query = db.query(Endpoint).filter(Endpoint.id == endpoint_id)
-
-        # Apply organization filtering if provided (SECURITY CRITICAL)
         if organization_id:
             from uuid import UUID
 
             query = query.filter(Endpoint.organization_id == UUID(organization_id))
-
         endpoint = query.first()
         if not endpoint:
             raise HTTPException(status_code=404, detail="Endpoint not found or not accessible")
         return endpoint
 
     def get_schema(self) -> Dict[str, Any]:
-        """
-        Get the endpoint schema definition.
-
-        Returns:
-            Dict containing the input and output schema definitions
-        """
+        """Return the endpoint schema definition from disk."""
         with open(self.schema_path, "r") as f:
             return json.load(f)
 
@@ -390,116 +391,16 @@ class EndpointService:
         organization_id: str = None,
         user_id: str = None,
     ) -> Dict[str, Any]:
+        """Test a transient endpoint configuration without persisting it.
+
+        Delegates to ``testing.test_endpoint``.
         """
-        Test an endpoint configuration without saving it to the database.
-
-        Args:
-            db: Database session (required for invoker, but no writes occur)
-            test_config: Endpoint test configuration
-            organization_id: Organization ID for context injection (CRITICAL)
-            user_id: User ID for context injection (CRITICAL - injected into
-                headers, not from user input)
-
-        Returns:
-            Dict containing the mapped response from the endpoint
-
-        Raises:
-            HTTPException: If configuration is invalid or invocation fails
-        """
-
-        # Validate connection_type and auth_type (schema validation should catch this,
-        # but double-check for safety)
-        # Helper function to safely get enum value
-        def get_enum_value(enum_or_str, expected_enum_class):
-            """Safely extract value from enum or return string."""
-            if hasattr(enum_or_str, "value"):
-                return enum_or_str.value
-            return str(enum_or_str)
-
-        connection_type_str = get_enum_value(test_config.connection_type, EndpointConnectionType)
-        auth_type_str = get_enum_value(test_config.auth_type, EndpointAuthType)
-        response_format_str = get_enum_value(test_config.response_format, EndpointResponseFormat)
-
-        if connection_type_str != EndpointConnectionType.REST.value:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Only REST endpoints are supported for testing. Got: {connection_type_str}",
-            )
-
-        if auth_type_str != EndpointAuthType.BEARER_TOKEN.value:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Only BEARER_TOKEN authentication is supported for testing. "
-                    f"Got: {auth_type_str}"
-                ),
-            )
-
-        logger.debug(f"Testing endpoint configuration: {test_config.url} ({connection_type_str})")
-
-        try:
-            # Create a temporary Endpoint object (not saved to DB)
-            # Set required fields from test_config and defaults for non-test fields
-            endpoint = Endpoint(
-                name="test",  # Temporary name for testing
-                connection_type=connection_type_str,
-                url=test_config.url,
-                method=test_config.method,
-                endpoint_path=test_config.endpoint_path,
-                request_headers=test_config.request_headers,
-                query_params=test_config.query_params,
-                request_mapping=test_config.request_mapping,
-                response_mapping=test_config.response_mapping,
-                response_format=response_format_str,
-                auth_type=auth_type_str,
-                auth_token=test_config.auth_token,
-                environment=EndpointEnvironment.DEVELOPMENT.value,
-                config_source=EndpointConfigSource.MANUAL.value,
-            )
-
-            # Inject organization_id and user_id into input_data for context
-            # These are injected by the backend, NOT from user input (SECURITY CRITICAL)
-            enriched_input_data = test_config.input_data.copy()
-            if organization_id:
-                enriched_input_data["organization_id"] = organization_id
-            if user_id:
-                enriched_input_data["user_id"] = user_id
-
-            # -------------------------------------------------------
-            # Stateless endpoint handling (one-shot, no session)
-            # -------------------------------------------------------
-            if (
-                ConversationTracker.detect_stateless_mode(endpoint)
-                and "messages" not in enriched_input_data
-            ):
-                messages: list = []
-                system_prompt = ConversationTracker.extract_system_prompt(endpoint)
-                if system_prompt:
-                    messages.append({"role": "system", "content": system_prompt})
-                user_input = enriched_input_data.get("input", "")
-                if user_input:
-                    messages.append({"role": "user", "content": user_input})
-                enriched_input_data["messages"] = messages
-                enriched_input_data.pop("conversation_id", None)
-
-            # Create appropriate invoker based on connection_type
-            context = InvocationContext(
-                db=db,
-                endpoint=endpoint,
-                input_data=enriched_input_data,
-            )
-            invoker = create_invoker(context)
-
-            # Invoke the endpoint
-            result = await invoker.invoke()
-            logger.debug("Endpoint test invocation completed")
-            return result
-        except ValueError as e:
-            logger.error(f"ValueError testing endpoint: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
-        except Exception as e:
-            logger.error(f"Exception testing endpoint: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
+        return await _test_endpoint(
+            db=db,
+            test_config=test_config,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
     async def sync_sdk_endpoints(
         self,
@@ -510,22 +411,7 @@ class EndpointService:
         organization_id: str,
         user_id: str,
     ) -> Dict[str, Any]:
-        """
-        Sync SDK endpoints - create/update/mark inactive as needed.
-
-        This is a convenience method that delegates to the sdk_sync module.
-
-        Args:
-            db: Database session
-            project_id: Project identifier
-            environment: Environment name
-            functions_data: List of function metadata from SDK
-            organization_id: Organization ID
-            user_id: User ID
-
-        Returns:
-            Dict with sync statistics (created, updated, marked_inactive counts)
-        """
+        """Sync SDK endpoints — delegates to ``sdk_sync``."""
         return await sdk_sync.sync_sdk_endpoints(
             db=db,
             project_id=project_id,
