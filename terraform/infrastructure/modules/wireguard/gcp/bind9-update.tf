@@ -101,7 +101,7 @@ resource "terraform_data" "bind9_config_update" {
           mkdir -p /var/lib/bind && \
           chown -R bind:bind /var/lib/bind && \
           if [ ! -f /var/lib/bind/rhesis.ai.zone ]; then \
-            printf \"%s\n\" \"\$ORIGIN rhesis.ai.\" \"\$TTL 300\" \"@   IN  SOA ns.rhesis.ai. admin.rhesis.ai. (\" \"            1\" \"            3600\" \"            900\" \"            604800\" \"            300 )\" \"    IN  NS  ns.rhesis.ai.\" \"ns  IN  A   127.0.0.1\" > /var/lib/bind/rhesis.ai.zone && \
+            printf %s ${base64encode(local.bind9_rhesis_ai_zone_file)} | base64 -d > /var/lib/bind/rhesis.ai.zone && \
             chown bind:bind /var/lib/bind/rhesis.ai.zone; \
           fi && \
           systemctl enable named && \
