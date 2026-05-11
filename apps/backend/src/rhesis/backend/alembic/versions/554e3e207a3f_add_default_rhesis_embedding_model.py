@@ -115,7 +115,7 @@ def upgrade() -> None:
 
             # Check if a protected Rhesis embedding model already exists
             existing_model = (
-                session.query(models.Model)
+                session.query(models.Model.id)  # Only select ID instead of full model
                 .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
                 .filter(
                     models.Model.organization_id == org.id,
