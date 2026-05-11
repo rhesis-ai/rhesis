@@ -104,7 +104,8 @@ config:
   # OTel Collector → Telemetry Processor (in-cluster gRPC)
   otelProcessorEndpoint: "telemetry-processor:4317"
   otelInsecure: "true"
-  otelDeploymentType: "kubernetes"
+  # Matches backend is_telemetry_enabled(): cloud → always on (T&C consent).
+  otelDeploymentType: "cloud"
 
 # ---------------------------------------------------------------------------
 # Backend
