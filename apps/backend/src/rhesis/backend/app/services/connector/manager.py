@@ -347,9 +347,7 @@ class ConnectionManager:
                 f"for connection {connection_id} (org={organization_id})"
             )
         except Exception as e:
-            logger.warning(
-                f"Failed to set ws:metric:* keys for connection {connection_id}: {e}"
-            )
+            logger.warning(f"Failed to set ws:metric:* keys for connection {connection_id}: {e}")
 
     def has_local_route(self, project_id: str, environment: str) -> bool:
         """Check whether this instance has a local route for a project:env."""

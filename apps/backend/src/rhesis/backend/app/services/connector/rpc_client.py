@@ -245,8 +245,7 @@ class SDKRpcClient:
             return {
                 "error": "sdk_disconnected",
                 "details": (
-                    f"No SDK registered metric '{metric_name}' "
-                    f"for organization {organization_id}"
+                    f"No SDK registered metric '{metric_name}' for organization {organization_id}"
                 ),
             }
 
