@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.app.models.embedding import EmbeddingConfig
 from rhesis.backend.app.models.enums import EmbeddingStatus
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import get_item
@@ -84,6 +85,44 @@ class EmbeddingGenerator:
             )
         return status
 
+    @staticmethod
+    def _embedding_config_dict(
+        db_model: models.Model, model_id: str, dimension: int
+    ) -> Dict[str, Any]:
+        """JSON blob stored on Embedding rows and used for config_hash / deduplication."""
+        return {
+            "provider": db_model.provider_type.type_value if db_model.provider_type else None,
+            "model_name": db_model.model_name,
+            "dimension": dimension,
+            "model_id": model_id,
+        }
+
+    def _return_if_embedding_exists(
+        self,
+        *,
+        entity_id: str,
+        entity_type: str,
+        organization_id: str,
+        config_hash: str,
+        text_hash: str,
+        status_id: Any,
+        after_race: bool = False,
+    ) -> Optional[Dict[str, Any]]:
+        existing = crud.get_embedding_by_hash(
+            self.db,
+            entity_id=entity_id,
+            entity_type=entity_type,
+            organization_id=organization_id,
+            config_hash=config_hash,
+            text_hash=text_hash,
+            status_id=status_id,
+        )
+        if existing is None:
+            return None
+        suffix = " (found after race condition)" if after_race else ""
+        logger.info("Embedding already exists for %s:%s%s", entity_type, entity_id, suffix)
+        return {"status": "success", "embedding_id": str(existing.id)}
+
     def generate(
         self,
         entity_id: str,
@@ -126,24 +165,47 @@ class EmbeddingGenerator:
             raise ValueError(f"Model not found: {model_id}")
         embedder = self._resolve_embedder(user_id=user_id, db_model=db_model, embedder=embedder)
 
-        # Create configuration for this embedding. Stored in the db, and used for deduplication
-        config = {
-            "provider": db_model.provider_type.type_value if db_model.provider_type else None,
-            "model_name": db_model.model_name,
-            "dimension": db_model.dimension,
-            "model_id": model_id,
-        }
-
-        # Compute hashes for deduplication
-        config_hash = self._compute_hash(config)
         text_hash = self._compute_hash(searchable_text)
 
         active_status = self._get_status(EmbeddingStatus.ACTIVE, organization_id, user_id)
         stale_status = self._get_status(EmbeddingStatus.STALE, organization_id, user_id)
 
-        # Check if embedding already exists (same text/config)
-        existing_embedding = crud.get_embedding_by_hash(
-            self.db,
+        # When model.dimension is set, cheap dedup before calling the embedder.
+        if db_model.dimension is not None:
+            preview_config = self._embedding_config_dict(
+                db_model, model_id, db_model.dimension
+            )
+            preview_hash = self._compute_hash(preview_config)
+            early = self._return_if_embedding_exists(
+                entity_id=entity_id,
+                entity_type=entity_type,
+                organization_id=organization_id,
+                config_hash=preview_hash,
+                text_hash=text_hash,
+                status_id=active_status.id,
+            )
+            if early is not None:
+                return early
+
+        # Generate the embedding vector
+        try:
+            embedding_vector = embedder.generate(searchable_text)
+        except Exception as e:
+            raise ValueError(f"Failed to generate embedding: {e}")
+
+        vec_dim = len(embedding_vector)
+        if vec_dim not in EmbeddingConfig.SUPPORTED_DIMENSIONS:
+            supported = sorted(EmbeddingConfig.SUPPORTED_DIMENSIONS.keys())
+            raise ValueError(
+                f"Embedding length {vec_dim} is not supported for persistence "
+                f"(supported dimensions: {supported})"
+            )
+
+        # Persisted config uses actual vector length so storage matches embedding_* columns.
+        config = self._embedding_config_dict(db_model, model_id, vec_dim)
+        config_hash = self._compute_hash(config)
+
+        duplicate = self._return_if_embedding_exists(
             entity_id=entity_id,
             entity_type=entity_type,
             organization_id=organization_id,
@@ -151,16 +213,8 @@ class EmbeddingGenerator:
             text_hash=text_hash,
             status_id=active_status.id,
         )
-
-        if existing_embedding:
-            logger.info(f"Embedding already exists for {entity_type}:{entity_id}")
-            return {"status": "success", "embedding_id": str(existing_embedding.id)}
-
-        # Generate the embedding vector
-        try:
-            embedding_vector = embedder.generate(searchable_text)
-        except Exception as e:
-            raise ValueError(f"Failed to generate embedding: {e}")
+        if duplicate is not None:
+            return duplicate
 
         # Mark old embeddings as stale (different text/config)
         stale_count = crud.mark_embeddings_stale(
@@ -200,27 +254,22 @@ class EmbeddingGenerator:
                 )
         except IntegrityError:
             # Race condition: another process might have created it
-            existing_embedding = crud.get_embedding_by_hash(
-                self.db,
+            raced = self._return_if_embedding_exists(
                 entity_id=entity_id,
                 entity_type=entity_type,
                 organization_id=organization_id,
                 config_hash=config_hash,
                 text_hash=text_hash,
                 status_id=active_status.id,
+                after_race=True,
             )
-
-            if existing_embedding:
-                logger.info(
-                    f"Embedding already exists for {entity_type}:{entity_id} "
-                    "(found after race condition)"
-                )
-                return {"status": "success", "embedding_id": str(existing_embedding.id)}
+            if raced is not None:
+                return raced
             raise
 
         logger.info(
             f"Successfully generated embedding for "
-            f"{entity_type}:{entity_id}, dimension={db_model.dimension}"
+            f"{entity_type}:{entity_id}, dimension={vec_dim}"
         )
 
         return {"status": "success", "embedding_id": str(new_embedding.id)}
