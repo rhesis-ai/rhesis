@@ -172,9 +172,7 @@ class EmbeddingGenerator:
 
         # When model.dimension is set, cheap dedup before calling the embedder.
         if db_model.dimension is not None:
-            preview_config = self._embedding_config_dict(
-                db_model, model_id, db_model.dimension
-            )
+            preview_config = self._embedding_config_dict(db_model, model_id, db_model.dimension)
             preview_hash = self._compute_hash(preview_config)
             early = self._return_if_embedding_exists(
                 entity_id=entity_id,
@@ -268,8 +266,7 @@ class EmbeddingGenerator:
             raise
 
         logger.info(
-            f"Successfully generated embedding for "
-            f"{entity_type}:{entity_id}, dimension={vec_dim}"
+            f"Successfully generated embedding for {entity_type}:{entity_id}, dimension={vec_dim}"
         )
 
         return {"status": "success", "embedding_id": str(new_embedding.id)}
