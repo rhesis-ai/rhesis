@@ -1085,18 +1085,11 @@ class TestState:
             # Extract lightweight file metadata (filename + content_type, no base64)
             # so the UI can show which files were attached to this turn.
             raw_files = target_interaction.get_tool_call_arguments().get("files") or []
-            sent_files: Optional[List[Dict[str, str]]] = (
-                [
-                    {
-                        k: v
-                        for k, v in f.items()
-                        if k in ("filename", "content_type")
-                    }
-                    for f in raw_files
-                    if isinstance(f, dict)
-                ]
-                or None
-            )
+            sent_files: Optional[List[Dict[str, str]]] = [
+                {k: v for k, v in f.items() if k in ("filename", "content_type")}
+                for f in raw_files
+                if isinstance(f, dict)
+            ] or None
 
             # Create conversation turn (use turn number for display consistency)
             conversation_turn = ConversationTurn(
