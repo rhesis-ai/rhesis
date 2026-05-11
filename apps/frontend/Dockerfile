@@ -41,13 +41,13 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NEXT_PUBLIC_GIT_BRANCH=${GIT_BRANCH}
 ENV NEXT_PUBLIC_GIT_COMMIT=${GIT_COMMIT}
 
-# Define build arguments only for NEXT_PUBLIC_ variables
-ARG NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
+# NEXT_PUBLIC_API_BASE_URL is a fixed placeholder; replace-runtime-env.sh substitutes
+# the real URL at container start from API_BASE_URL / BACKEND_URL.
 ARG NEXT_PUBLIC_QUICK_START=false
 
 # Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > .env && \
-    echo "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" >> .env && \
+    echo "NEXT_PUBLIC_API_BASE_URL=__NEXT_PUBLIC_API_BASE_URL__" >> .env && \
     echo "BACKEND_URL=${BACKEND_URL}" >> .env && \
     echo "NEXT_PUBLIC_QUICK_START=${NEXT_PUBLIC_QUICK_START}" >> .env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> .env && \
@@ -99,6 +99,8 @@ COPY --from=builder  /app/public ./public
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+RUN chmod +x /app/scripts/replace-runtime-env.sh
 
 # Do NOT copy src, tsconfig.json, eslint.config.mjs or any .env files to production image
 # Install dependencies and handle environment-specific setup
@@ -118,6 +120,8 @@ EXPOSE 3000
 # Add a health check that uses the PORT env var with fallback
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
+
+ENTRYPOINT ["/app/scripts/replace-runtime-env.sh"]
 
 # Start the appropriate server based on FRONTEND_ENV
 CMD ["sh", "-c", "export PORT=${PORT:-3000} && if [ \"$FRONTEND_ENV\" = \"production\" ] || [ \"$FRONTEND_ENV\" = \"staging\" ] || [ \"$FRONTEND_ENV\" = \"development\" ] || [ \"$FRONTEND_ENV\" = \"local\" ]; then node server.js; else npm run dev; fi"]

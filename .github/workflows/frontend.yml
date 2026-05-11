@@ -166,34 +166,21 @@ jobs:
       - name: Build Container
         run: |
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
-            # For preview deployments, tag with commit SHA and override frontend URLs
-            # URL will be fetched from Cloud Run after tagging
+            # For preview deployments, tag with commit SHA; API URL is set at Cloud Run deploy time
             PREVIEW_FRONTEND_URL="PLACEHOLDER_URL"
             echo "Building preview image with frontend URL: $PREVIEW_FRONTEND_URL"
 
-            # Use provided backend URL or default
-            if [ -n "${{ inputs.backend_preview_url_encoded }}" ]; then
-              # Decode the base64 encoded backend URL
-              BACKEND_API_URL=$(echo "${{ inputs.backend_preview_url_encoded }}" | base64 -d)
-              echo "🔗 Using decoded backend URL: $BACKEND_API_URL"
-            else
-              BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
-              echo "🔗 Using default backend URL: $BACKEND_API_URL"
-            fi
-
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
-              --build-arg NEXT_PUBLIC_API_BASE_URL="$BACKEND_API_URL" \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
               -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/frontend/Dockerfile apps/frontend
 
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
-            # For regular deployments, use latest tag and original URLs
+            # For regular deployments, use latest tag; API URL is set at Cloud Run deploy time
             docker build \
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
-              --build-arg NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }} \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
               -t ${{ env.IMAGE_NAME }}:latest -f apps/frontend/Dockerfile apps/frontend
@@ -282,6 +269,14 @@ jobs:
             PREVIEW_FRONTEND_URL="PLACEHOLDER_URL"
             echo "🌐 Preview will be accessible at: $PREVIEW_FRONTEND_URL"
 
+            ENCODED='${{ inputs.backend_preview_url_encoded }}'
+            if [ -z "$ENCODED" ]; then ENCODED='${{ github.event.inputs.backend_preview_url_encoded }}'; fi
+            if [ -n "$ENCODED" ]; then
+              BACKEND_API_URL=$(echo "$ENCODED" | base64 -d)
+            else
+              BACKEND_API_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}"
+            fi
+
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
@@ -300,7 +295,7 @@ jobs:
               --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=$PREVIEW_FRONTEND_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
+          API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_API_URL,
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
@@ -337,7 +332,7 @@ jobs:
               --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }},
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }},
+          API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }},
           BACKEND_URL=${{ secrets.BACKEND_URL }},
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           AUTH_SECRET=${{ secrets.AUTH_SECRET }},
@@ -489,7 +484,7 @@ jobs:
             --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=PLACEHOLDER_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
+          API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_API_URL,
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
@@ -545,7 +540,7 @@ jobs:
             --set-env-vars="$(cat <<EOF
           NEXTAUTH_URL=$PREVIEW_URL,
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }},
-          NEXT_PUBLIC_API_BASE_URL=$BACKEND_API_URL,
+          API_BASE_URL=$BACKEND_API_URL,
           BACKEND_URL=$BACKEND_URL_VAR,
           FRONTEND_ENV=${{ secrets.FRONTEND_ENV }},
           GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }},
