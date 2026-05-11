@@ -65,18 +65,14 @@ async def test_endpoint(
     if connection_type_str != EndpointConnectionType.REST.value:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Only REST endpoints are supported for testing. "
-                f"Got: {connection_type_str}"
-            ),
+            detail=(f"Only REST endpoints are supported for testing. Got: {connection_type_str}"),
         )
 
     if auth_type_str != EndpointAuthType.BEARER_TOKEN.value:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Only BEARER_TOKEN authentication is supported for testing. "
-                f"Got: {auth_type_str}"
+                f"Only BEARER_TOKEN authentication is supported for testing. Got: {auth_type_str}"
             ),
         )
 

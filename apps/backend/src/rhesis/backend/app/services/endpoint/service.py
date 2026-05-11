@@ -264,9 +264,7 @@ class EndpointService:
                     output = result_dict.get("output", "")
                     if output:
                         output_text = (
-                            json.dumps(output)
-                            if isinstance(output, (dict, list))
-                            else str(output)
+                            json.dumps(output) if isinstance(output, (dict, list)) else str(output)
                         )
                         store.add_assistant_message(
                             stateless_conversation_id,

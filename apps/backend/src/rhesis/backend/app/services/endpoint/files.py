@@ -52,11 +52,7 @@ def inject_file_content_into_input(input_text: str, files: list) -> str:
     blocks = []
     for f in files:
         filename = f.get("filename", "file") if isinstance(f, dict) else "file"
-        content = (
-            (f.get("extracted_text") or "").strip()
-            if isinstance(f, dict)
-            else ""
-        )
+        content = (f.get("extracted_text") or "").strip() if isinstance(f, dict) else ""
         if not content:
             content = "[File content could not be extracted]"
         blocks.append(f"--- {filename} ---\n{content}\n--- end of {filename} ---")
@@ -100,9 +96,7 @@ def enrich_files_with_extraction(
 
             user = crud.get_user_by_id(db, user_id)
             if user:
-                resolved_model = resolve_model_for_extraction(
-                    get_user_generation_model(db, user)
-                )
+                resolved_model = resolve_model_for_extraction(get_user_generation_model(db, user))
         except Exception as exc:
             logger.warning("Could not resolve generation model for file extraction: %s", exc)
 
