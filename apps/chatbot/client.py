@@ -327,7 +327,7 @@ def get_available_use_cases() -> List[str]:
                 use_cases.append(use_case_name)
         return sorted(use_cases)
     except Exception:
-        return ["echo", "insurance"]  # Default fallback
+        return ["echo", "travel", "insurance"]  # Default fallback
 
 
 class FileInput(BaseModel):

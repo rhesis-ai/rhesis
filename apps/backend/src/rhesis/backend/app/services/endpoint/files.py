@@ -81,8 +81,8 @@ def enrich_files_with_extraction(
     strategy: text-layer extraction → vision-model fallback for image-heavy
     documents → EXIF-only fallback when no model is configured.
 
-    Resolves the user's evaluation model when db and user_id are available;
-    falls back to ``DEFAULT_GENERATION_MODEL`` when they are not.
+    Resolves the user's generation model when db and user_id are available;
+    runs text-layer extraction only (no vision fallback) when they are not.
     """
     import base64
 

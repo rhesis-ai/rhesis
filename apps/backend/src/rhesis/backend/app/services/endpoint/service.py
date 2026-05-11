@@ -104,60 +104,17 @@ class EndpointService:
                         enriched_input_data[key] = value
 
             # ------------------------------------------------------------------
-            # Stateless conversation management
-            # ------------------------------------------------------------------
-            # For stateless endpoints (detected via {{ messages }} in
-            # request_mapping) the backend manages conversation history
-            # server-side.  Callers use ``conversation_id`` exactly like they
-            # would for stateful endpoints — the difference is transparent.
-            #
-            # Two-phase commit: the user message is appended to a *temporary*
-            # messages list for the request body, but is only committed to the
-            # store after a successful invocation.  This avoids leaving the
-            # conversation in an inconsistent state when the endpoint errors.
-            is_stateless = ConversationTracker.detect_stateless_mode(endpoint)
-            stateless_conversation_id = None
-            stateless_user_input = None
-
-            if is_stateless and "messages" not in enriched_input_data:
-                store = get_conversation_store()
-                incoming_cid = enriched_input_data.get("conversation_id")
-                stateless_user_input = enriched_input_data.get("input", "")
-
-                if incoming_cid and store.exists(incoming_cid):
-                    stateless_conversation_id = incoming_cid
-                else:
-                    system_prompt = ConversationTracker.extract_system_prompt(endpoint)
-                    stateless_conversation_id = store.create(system_prompt=system_prompt)
-                    if incoming_cid:
-                        logger.warning(
-                            f"Conversation {incoming_cid} not found, "
-                            f"created new: {stateless_conversation_id}"
-                        )
-
-                messages = store.get_messages(stateless_conversation_id)
-                if stateless_user_input:
-                    messages.append({"role": "user", "content": stateless_user_input})
-                enriched_input_data["messages"] = messages
-
-                # Remove conversation_id — it's an internal tracking field and
-                # must not leak into the external request body.
-                enriched_input_data.pop("conversation_id", None)
-
-                logger.debug(
-                    "Stateless conversation %s: %d message(s)",
-                    stateless_conversation_id,
-                    len(messages),
-                )
-
-            # ------------------------------------------------------------------
             # File handling
             # ------------------------------------------------------------------
+            # Must run BEFORE stateless message building so that Case B text
+            # injection into ``input`` is picked up when the messages list is
+            # assembled below.
+            #
             # A) Endpoint supports {{ files }}: enrich each file with
             #    extracted_text and forward the full dict to the endpoint.
             # B) Endpoint has no {{ files }}: extract text and inject it into
-            #    the {{ input }} message so plain-text endpoints still receive
-            #    file content without any API changes.
+            #    the {{ input }} message so plain-text endpoints (including
+            #    stateless {{ messages }} endpoints) still receive file content.
             if enriched_input_data.get("files"):
                 supports_files = endpoint_supports_files(endpoint)
                 if supports_files:
@@ -194,6 +151,55 @@ class EndpointService:
                             "file content cannot be injected",
                             endpoint.name,
                         )
+
+            # ------------------------------------------------------------------
+            # Stateless conversation management
+            # ------------------------------------------------------------------
+            # For stateless endpoints (detected via {{ messages }} in
+            # request_mapping) the backend manages conversation history
+            # server-side.  Callers use ``conversation_id`` exactly like they
+            # would for stateful endpoints — the difference is transparent.
+            #
+            # Two-phase commit: the user message is appended to a *temporary*
+            # messages list for the request body, but is only committed to the
+            # store after a successful invocation.  This avoids leaving the
+            # conversation in an inconsistent state when the endpoint errors.
+            is_stateless = ConversationTracker.detect_stateless_mode(endpoint)
+            stateless_conversation_id = None
+            stateless_user_input = None
+
+            if is_stateless and "messages" not in enriched_input_data:
+                store = get_conversation_store()
+                incoming_cid = enriched_input_data.get("conversation_id")
+                # Read input *after* any file injection so file content is
+                # included in the user message appended to the messages list.
+                stateless_user_input = enriched_input_data.get("input", "")
+
+                if incoming_cid and store.exists(incoming_cid):
+                    stateless_conversation_id = incoming_cid
+                else:
+                    system_prompt = ConversationTracker.extract_system_prompt(endpoint)
+                    stateless_conversation_id = store.create(system_prompt=system_prompt)
+                    if incoming_cid:
+                        logger.warning(
+                            f"Conversation {incoming_cid} not found, "
+                            f"created new: {stateless_conversation_id}"
+                        )
+
+                messages = store.get_messages(stateless_conversation_id)
+                if stateless_user_input:
+                    messages.append({"role": "user", "content": stateless_user_input})
+                enriched_input_data["messages"] = messages
+
+                # Remove conversation_id — it's an internal tracking field and
+                # must not leak into the external request body.
+                enriched_input_data.pop("conversation_id", None)
+
+                logger.debug(
+                    "Stateless conversation %s: %d message(s)",
+                    stateless_conversation_id,
+                    len(messages),
+                )
 
             # ------------------------------------------------------------------
             # Prompt preprocessing

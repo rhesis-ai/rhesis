@@ -124,7 +124,7 @@ class SendMessageParams(BaseModel):
         default=None,
         description=(
             "Set to true to include attached files with this message. "
-            "Omit or set to null to use the default behaviour (auto-include on the first turn). "
+            "Omit or set to null to not include files (explicit true is required). "
             "Set to false to explicitly suppress file injection on any turn."
         ),
     )
