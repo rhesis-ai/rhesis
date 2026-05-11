@@ -818,3 +818,120 @@ class TestSDKEndpointSync:
 
         assert "last_registered" in metadata
         assert "created_at" in metadata
+
+
+# ---------------------------------------------------------------------------
+# File routing in invoke_endpoint (Case A / Case B)
+# ---------------------------------------------------------------------------
+from unittest.mock import MagicMock  # noqa: E402  (appended section)
+
+
+class TestInvokeEndpointFileRouting:
+    """Tests that invoke_endpoint routes files correctly based on the endpoint's
+    request_mapping.  Both the extraction and injection steps are mocked so
+    these tests run without any DB or LLM access."""
+
+    def _make_endpoint(self, supports_files: bool):
+        ep = MagicMock(spec=Endpoint)
+        ep.name = "test-ep"
+        ep.connection_type = "sdk"
+        ep.disable_tracing = True
+        ep.request_mapping = (
+            {"message": "{{ input }}", "files": "{{ files }}"}
+            if supports_files
+            else {"message": "{{ input }}"}
+        )
+        return ep
+
+    @pytest.mark.asyncio
+    async def test_case_a_enriched_files_forwarded_when_endpoint_supports_files(self):
+        """Case A: endpoint has {{ files }} → enrich and forward."""
+        service = EndpointService()
+        endpoint = self._make_endpoint(supports_files=True)
+        enriched = [{"filename": "doc.pdf", "data": "x", "extracted_text": "content"}]
+
+        with (
+            patch.object(service, "_get_endpoint", return_value=endpoint),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.endpoint_supports_files",
+                return_value=True,
+            ),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.enrich_files_with_extraction",
+                return_value=enriched,
+            ) as mock_enrich,
+            patch(
+                "rhesis.backend.app.services.endpoint.service.inject_file_content_into_input"
+            ) as mock_inject,
+            patch(
+                "rhesis.backend.app.services.endpoint.service.create_invoker"
+            ) as mock_invoker_factory,
+            patch(
+                "rhesis.backend.app.services.endpoint.service.ConversationTracker"
+                ".detect_stateless_mode",
+                return_value=False,
+            ),
+        ):
+            mock_invoker = AsyncMock()
+            mock_invoker.automatic_tracing = True
+            mock_invoker.invoke.return_value = {"output": "ok"}
+            mock_invoker_factory.return_value = mock_invoker
+
+            result = await service.invoke_endpoint(
+                db=MagicMock(),
+                endpoint_id="ep-1",
+                input_data={"input": "hello", "files": [{"filename": "doc.pdf", "data": "x"}]},
+            )
+
+        mock_enrich.assert_called_once()
+        mock_inject.assert_not_called()
+        invocation_input = mock_invoker_factory.call_args[0][0].input_data
+        assert invocation_input.get("files") == enriched
+
+    @pytest.mark.asyncio
+    async def test_case_b_file_content_injected_into_input_when_endpoint_lacks_files(self):
+        """Case B: endpoint has no {{ files }} → extract and inject into input."""
+        service = EndpointService()
+        endpoint = self._make_endpoint(supports_files=False)
+        enriched = [{"filename": "slide.pdf", "data": "x", "extracted_text": "Slide A, Slide B"}]
+
+        with (
+            patch.object(service, "_get_endpoint", return_value=endpoint),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.endpoint_supports_files",
+                return_value=False,
+            ),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.enrich_files_with_extraction",
+                return_value=enriched,
+            ) as mock_enrich,
+            patch(
+                "rhesis.backend.app.services.endpoint.service.inject_file_content_into_input",
+                return_value="hello\n\n[Attached file(s):]\n\n--- slide.pdf ---\nSlide A, Slide B",
+            ) as mock_inject,
+            patch(
+                "rhesis.backend.app.services.endpoint.service.create_invoker"
+            ) as mock_invoker_factory,
+            patch(
+                "rhesis.backend.app.services.endpoint.service.ConversationTracker"
+                ".detect_stateless_mode",
+                return_value=False,
+            ),
+        ):
+            mock_invoker = AsyncMock()
+            mock_invoker.automatic_tracing = True
+            mock_invoker.invoke.return_value = {"output": "ok"}
+            mock_invoker_factory.return_value = mock_invoker
+
+            await service.invoke_endpoint(
+                db=MagicMock(),
+                endpoint_id="ep-1",
+                input_data={"input": "hello", "files": [{"filename": "slide.pdf", "data": "x"}]},
+            )
+
+        mock_enrich.assert_called_once()
+        mock_inject.assert_called_once()
+        invocation_input = mock_invoker_factory.call_args[0][0].input_data
+        # files key must be removed; content injected into input
+        assert "files" not in invocation_input
+        assert "Slide A, Slide B" in invocation_input["input"]
