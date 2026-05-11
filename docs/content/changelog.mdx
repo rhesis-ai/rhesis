@@ -28,7 +28,7 @@ This release migrates all file content from Postgres `bytea` columns to object s
 - `extraction_status` field on `FileResponse` (`pending | done | failed | not_applicable`).
 - ETag / If-None-Match support on `/content` and `/thumbnail` for browser-level caching.
 
-**Operator runbook:** See `apps/backend/scripts/migrate_files_to_storage.py` and the Phase 8b deployment runbook in `playground/async-migration/ASYNC_MIGRATION_PLAN.md`. The deprecated `content` column is retained until runbook step 7 (after soak verification).
+**Deployment:** Apply Alembic revision `9b25f353e9c8` (adds storage columns), deploy the new code, then apply revision `f1e2d3c4b5a6` to drop the legacy `content` column.
 
 **IAM prerequisite:** The backend Cloud Run service account needs `roles/storage.objectAdmin` on the storage bucket (previously `roles/storage.objectViewer` was sufficient).
 
