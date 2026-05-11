@@ -379,6 +379,13 @@ class ImageExtractor(Extractor):
         Routes through ``_MarkItDownModelAdapter`` so every registered provider
         (OpenAI, Gemini, Vertex AI, Anthropic, …) works without provider-specific
         code here.
+
+        The ``image_url`` content block with a base64 data URI is the standard
+        LiteLLM multimodal format and is accepted by all major vision providers
+        for both images and documents.  Gemini and GPT-4V (and o4) explicitly
+        support ``application/pdf`` and common Office MIME types via this
+        mechanism.  Providers that do not support a given MIME type will raise,
+        which the caller catches and treats as an empty extraction result.
         """
         import base64
 

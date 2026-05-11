@@ -134,6 +134,16 @@ class EndpointService:
                         db=db,
                         user_id=user_id,
                     )
+                    # Preserve lightweight metadata for tracing (filename +
+                    # content_type only — no base64 payload).
+                    enriched_input_data["files_metadata"] = [
+                        {
+                            "filename": f.get("filename", ""),
+                            "content_type": f.get("content_type", ""),
+                        }
+                        for f in enriched_files
+                        if isinstance(f, dict)
+                    ]
                     if "input" in enriched_input_data and isinstance(
                         enriched_input_data["input"], str
                     ):

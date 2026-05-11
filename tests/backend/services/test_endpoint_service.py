@@ -935,3 +935,87 @@ class TestInvokeEndpointFileRouting:
         # files key must be removed; content injected into input
         assert "files" not in invocation_input
         assert "Slide A, Slide B" in invocation_input["input"]
+
+    @pytest.mark.asyncio
+    async def test_case_b_file_text_reaches_messages_for_stateless_endpoint(self):
+        """Regression: stateless ({{ messages }}) + no {{ files }} + files provided.
+
+        File handling must run *before* stateless message building so that the
+        text injected into ``input`` is picked up when the messages list is
+        assembled.  The final messages payload sent to the invoker must contain
+        the injected file text.
+        """
+        service = EndpointService()
+
+        ep = MagicMock(spec=Endpoint)
+        ep.name = "stateless-ep"
+        ep.connection_type = "sdk"
+        ep.disable_tracing = True
+        # Stateless: has {{ messages }}, but no {{ files }}
+        ep.request_mapping = {"messages": "{{ messages }}"}
+
+        extracted_text = "Extracted text from doc"
+        enriched = [{"filename": "doc.pdf", "data": "x", "extracted_text": extracted_text}]
+        injected_input = f"Tell me about this\n\n[Attached file(s):]\n\n--- doc.pdf ---\n{extracted_text}"
+
+        fake_store = MagicMock()
+        fake_store.exists.return_value = False
+        fake_store.create.return_value = "conv-123"
+        fake_store.get_messages.return_value = []
+
+        with (
+            patch.object(service, "_get_endpoint", return_value=ep),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.endpoint_supports_files",
+                return_value=False,
+            ),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.enrich_files_with_extraction",
+                return_value=enriched,
+            ),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.inject_file_content_into_input",
+                return_value=injected_input,
+            ),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.get_conversation_store",
+                return_value=fake_store,
+            ),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.ConversationTracker"
+                ".detect_stateless_mode",
+                return_value=True,
+            ),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.ConversationTracker"
+                ".extract_system_prompt",
+                return_value="system prompt",
+            ),
+            patch(
+                "rhesis.backend.app.services.endpoint.service.create_invoker"
+            ) as mock_invoker_factory,
+        ):
+            mock_invoker = AsyncMock()
+            mock_invoker.automatic_tracing = True
+            mock_invoker.invoke.return_value = {"output": "ok"}
+            mock_invoker_factory.return_value = mock_invoker
+
+            await service.invoke_endpoint(
+                db=MagicMock(),
+                endpoint_id="ep-1",
+                input_data={
+                    "input": "Tell me about this",
+                    "files": [{"filename": "doc.pdf", "data": "x"}],
+                },
+            )
+
+        # create_invoker receives an InvocationRequest; its input_data holds the
+        # messages list assembled *after* file injection ran.
+        invocation_request = mock_invoker_factory.call_args[0][0]
+        messages = invocation_request.input_data.get("messages", [])
+        assert messages, "messages must be populated for stateless endpoints"
+        user_messages = [m for m in messages if m.get("role") == "user"]
+        assert user_messages, "at least one user message expected"
+        assert extracted_text in user_messages[-1]["content"], (
+            "Extracted file text must appear in the user turn sent to the invoker"
+        )
