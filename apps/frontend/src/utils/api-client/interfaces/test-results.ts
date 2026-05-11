@@ -31,6 +31,11 @@ export interface TestMetrics {
 }
 
 // Penelope multi-turn conversation interfaces
+export interface SentFile {
+  filename: string;
+  content_type?: string;
+}
+
 export interface ConversationTurn {
   turn: number;
   timestamp: string;
@@ -44,6 +49,8 @@ export interface ConversationTurn {
   success: boolean;
   override?: OverrideMarker;
   penelope_files?: FileResponse[];
+  /** Files sent to the target in this turn (filename + content_type only, populated by Penelope). */
+  sent_files?: SentFile[] | null;
 }
 
 export interface CriterionEvaluation {

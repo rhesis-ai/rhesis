@@ -19,7 +19,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from rhesis.sdk import endpoint
-from rhesis.sdk.services import DocumentExtractor
+from rhesis.sdk.services.extractor import extract_with_vision_fallback
 
 # Configure logging
 logging.basicConfig(
@@ -327,19 +327,20 @@ def get_available_use_cases() -> List[str]:
                 use_cases.append(use_case_name)
         return sorted(use_cases)
     except Exception:
-        return ["echo", "insurance"]  # Default fallback
+        return ["echo", "travel", "insurance"]  # Default fallback
 
 
 class FileInput(BaseModel):
     filename: str
     content_type: Optional[str] = None
     data: str  # base64-encoded file content
+    extracted_text: Optional[str] = None  # pre-extracted text from Rhesis backend
 
 
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
-    use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
+    use_case: Optional[str] = "travel"  # Default to travel for backward compatibility
     mode: Optional[str] = "text"  # Output mode: "text" or "json"
     files: Optional[List[FileInput]] = None
     rhesis: Optional[dict] = None
@@ -361,15 +362,48 @@ class ChatResponse(BaseModel):
     tool_calls: Optional[List[dict]] = None
 
 
+def _get_vision_model():
+    """Return a BaseLLM instance for vision extraction, or None on failure."""
+    from rhesis.sdk.models.factory import get_language_model
+
+    model_name = os.getenv("DEFAULT_GENERATION_MODEL")
+    if model_name:
+        try:
+            model = get_language_model(model_name)
+            logger.info("Using vision model '%s' for file extraction", model_name)
+            return model
+        except Exception as exc:
+            logger.warning(
+                "Could not initialise vision model '%s' for extraction: %s — falling back",
+                model_name,
+                exc,
+            )
+    return None
+
+
 def extract_file_content(file_input: FileInput) -> dict:
-    """Extract text content from a base64-encoded file using the SDK's DocumentExtractor.
+    """Extract text content from a file for injection into the prompt.
+
+    Uses pre-extracted text from the Rhesis backend when available (preferred),
+    otherwise delegates to ``extract_with_vision_fallback`` which applies the
+    same text-layer → vision-model strategy used everywhere in the platform.
 
     Returns:
         Dict with 'filename' and 'content' keys.
     """
+    if file_input.extracted_text:
+        return {"filename": file_input.filename, "content": file_input.extracted_text}
+
     file_bytes = base64.b64decode(file_input.data)
-    extractor = DocumentExtractor()
-    content = extractor.extract_from_bytes(file_bytes, file_input.filename)
+    content = extract_with_vision_fallback(
+        file_bytes,
+        file_input.filename,
+        file_input.content_type or "",
+        model=_get_vision_model(),
+    )
+
+    if not content or not content.strip():
+        content = "[File content could not be extracted]"
     return {"filename": file_input.filename, "content": content}
 
 
@@ -379,10 +413,10 @@ def extract_file_content(file_input: FileInput) -> dict:
     request_mapping={
         "message": "{{ input }}",
         "session_id": "{{ session_id | default(none) }}",
-        "use_case": "{{ use_case | default('insurance') }}",
+        "use_case": "{{ use_case | default('travel') }}",
         "mode": "{{ mode | default('text') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
-        "file_contents": "{{ file_contents | default(none) }}",
+        "files": "{{ files }}",
         "rhesis": {
             "test_id": "{{ test_id | default(none) }}",
             "test_configuration_id": "{{ test_configuration_id | default(none) }}",
@@ -400,9 +434,10 @@ def extract_file_content(file_input: FileInput) -> dict:
 async def chat(
     message: str,
     session_id: Optional[str] = None,
-    use_case: str = "insurance",
+    use_case: str = "travel",
     mode: str = "text",
     conversation_history: Optional[List[dict]] = None,
+    files: Optional[List[dict]] = None,
     file_contents: Optional[List[dict]] = None,
     rhesis: Optional[dict] = None,
 ) -> ChatResponse:
@@ -419,8 +454,10 @@ async def chat(
         use_case: Use case for system prompt
         conversation_history: Explicit conversation history; when ``None``
             the history is looked up from the in-memory session store.
+        files: Raw file dicts from the backend (each has filename, content_type,
+            data, and extracted_text). Takes precedence over file_contents.
         file_contents: Extracted file contents as list of dicts with
-            'filename' and 'content' keys.
+            'filename' and 'content' keys (legacy / direct HTTP path).
         rhesis: Optional dict with test execution context
             (test_id, test_run_id, test_configuration_id).
 
@@ -441,8 +478,61 @@ async def chat(
     if not isinstance(conversation_history, list):
         conversation_history = sessions[session_id].messages.copy()
 
-    # Same guard: Jinja2 renders ``{{ file_contents | default(none) }}`` as
-    # the string "None" rather than Python None when no files are present.
+    # Derive file_contents from enriched files when present (connector path).
+    # Each file dict from the backend carries an ``extracted_text`` field set
+    # by _enrich_files_with_extraction; use that directly.
+    if isinstance(files, list) and files:
+        logger.info(
+            "Received %d file(s) via connector: %s",
+            len(files),
+            [
+                {"name": f.get("filename"), "has_text": bool(f.get("extracted_text"))}
+                for f in files
+                if isinstance(f, dict)
+            ],
+        )
+        derived = []
+        for f in files:
+            if not isinstance(f, dict):
+                continue
+            filename = f.get("filename", "unknown")
+            extracted = f.get("extracted_text") or ""
+            if extracted.strip():
+                derived.append({"filename": filename, "content": extracted})
+            else:
+                # Extraction produced no text — fall back to local extraction.
+                # If local extraction also yields nothing, use an explicit
+                # placeholder so the LLM knows a file was attached but its
+                # content could not be read (prevents hallucination).
+                fallback_content = None
+                try:
+                    file_input = FileInput(
+                        filename=filename,
+                        content_type=f.get("content_type"),
+                        data=f.get("data", ""),
+                        extracted_text=None,
+                    )
+                    result = extract_file_content(file_input)
+                    if result.get("content", "").strip():
+                        fallback_content = result["content"]
+                        logger.info("Local fallback extraction succeeded for %s", filename)
+                    else:
+                        logger.info(
+                            "Local fallback returned no text for %s; using placeholder",
+                            filename,
+                        )
+                except Exception as exc:
+                    logger.warning(
+                        "Local fallback extraction failed for %s: %s", filename, exc
+                    )
+                derived.append({
+                    "filename": filename,
+                    "content": fallback_content or "[File content could not be extracted]",
+                })
+        file_contents = derived or None
+
+    # Guard: when no files are present the template renders to an empty string;
+    # also handles legacy "None" string from older request mappings.
     if not isinstance(file_contents, list):
         file_contents = None
 
@@ -585,12 +675,12 @@ async def chat_endpoint(
             f"Message: {chat_request.message[:50]}..."
         )
 
-        # Validate use case exists, default to insurance if not
+        # Validate use case exists, default to travel if not
         # "echo" is a built-in use case that does not require a prompt file
-        use_case = chat_request.use_case or "insurance"
+        use_case = chat_request.use_case or "travel"
         available_use_cases = get_available_use_cases() + ["echo"]
         if use_case not in available_use_cases:
-            use_case = "insurance"
+            use_case = "travel"
 
         # Extract file contents if provided
         file_contents = None

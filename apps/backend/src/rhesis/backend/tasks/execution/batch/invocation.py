@@ -36,7 +36,9 @@ async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional
         )
 
         with get_db_with_tenant_variables(ctx.organization_id, ctx.user_id or "") as db:
-            return SingleTurnOutput._load_input_files(db, test_id, ctx.organization_id)
+            return SingleTurnOutput._load_input_files(
+                db, test_id, ctx.organization_id, model=ctx.evaluation_model
+            )
 
     try:
         files = await asyncio.to_thread(_load)

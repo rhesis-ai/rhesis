@@ -301,6 +301,13 @@ class ConversationTurn(BaseModel):
         default=None,
         description="Tool calls made by the target endpoint",
     )
+    sent_files: Optional[List[Dict[str, str]]] = Field(
+        default=None,
+        description=(
+            "Metadata of files sent to the target in this turn "
+            "(filename and content_type only; base64 data is excluded for storage efficiency)."
+        ),
+    )
 
 
 class TestResult(BaseModel):
@@ -1075,6 +1082,15 @@ class TestState:
             except (json.JSONDecodeError, KeyError, AttributeError):
                 target_response = "Unable to parse response"
 
+            # Extract lightweight file metadata (filename + content_type, no base64)
+            # so the UI can show which files were attached to this turn.
+            raw_files = target_interaction.get_tool_call_arguments().get("files") or []
+            sent_files: Optional[List[Dict[str, str]]] = [
+                {k: v for k, v in f.items() if k in ("filename", "content_type")}
+                for f in raw_files
+                if isinstance(f, dict)
+            ] or None
+
             # Create conversation turn (use turn number for display consistency)
             conversation_turn = ConversationTurn(
                 turn=turn.turn_number,  # Actual turn number (target interactions only)
@@ -1087,6 +1103,7 @@ class TestState:
                 context=assistant_context,
                 metadata=assistant_metadata,
                 tool_calls=assistant_tool_calls,
+                sent_files=sent_files,
             )
 
             summary.append(conversation_turn)

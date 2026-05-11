@@ -455,8 +455,9 @@ def _process_attachments(
 
     - ``mentions`` are passed through as-is (already resolved by the frontend).
     - ``files`` have their base64 ``data`` decoded and text extracted via
-      the SDK's ``DocumentExtractor`` (MarkItDown).  The binary ``data``
-      field is replaced with an extracted ``content`` string.
+      ``extract_with_vision_fallback``: text-layer extraction first, then a
+      vision-model fallback for image-heavy documents when a model is available.
+      The binary ``data`` field is replaced with an extracted ``content`` string.
     """
     if not attachments:
         return None
@@ -469,24 +470,24 @@ def _process_attachments(
 
     files = attachments.get("files")
     if files:
-        from rhesis.sdk.services.extractor import DocumentExtractor
+        import base64
 
-        extractor = DocumentExtractor()
+        from rhesis.sdk.services.extractor import extract_with_vision_fallback
+
         processed_files = []
         for f in files:
             filename = f.get("filename", "file")
+            content_type = f.get("content_type", "")
             try:
-                import base64
-
                 raw_bytes = base64.b64decode(f.get("data", ""))
-                content = extractor.extract_from_bytes(raw_bytes, filename)
+                content = extract_with_vision_fallback(raw_bytes, filename, content_type)
             except Exception as exc:
                 logger.warning("Failed to extract text from %s: %s", filename, exc)
                 content = f"[Could not extract text from {filename}: {exc}]"
             processed_files.append(
                 {
                     "filename": filename,
-                    "content_type": f.get("content_type", ""),
+                    "content_type": content_type,
                     "content": content,
                 }
             )

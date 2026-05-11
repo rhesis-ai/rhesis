@@ -209,7 +209,7 @@ class SingleTurnRunner(BaseRunner):
 
         # --- Entity 1: Get output ---
         if output_provider is None:
-            output_provider = SingleTurnOutput()
+            output_provider = SingleTurnOutput(model=model)
 
         output = await output_provider.get_output(
             db=db,

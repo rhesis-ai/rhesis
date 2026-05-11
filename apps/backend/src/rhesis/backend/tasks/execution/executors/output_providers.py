@@ -16,11 +16,17 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from uuid import UUID
+
+if TYPE_CHECKING:
+    pass
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
+from rhesis.backend.app.services.model_resolution import (
+    resolve_model_for_extraction as _resolve_model_for_extraction,
+)
 from rhesis.backend.tasks.execution.executors.results import (
     process_endpoint_result,
 )
@@ -62,6 +68,9 @@ class SingleTurnOutput(OutputProvider):
     and process_endpoint_result() (from executors.results).
     """
 
+    def __init__(self, model=None):
+        self.model = model
+
     async def get_output(
         self,
         *,
@@ -80,7 +89,7 @@ class SingleTurnOutput(OutputProvider):
 
         # Inject file data if the test has attached files
         if test_id:
-            input_files = self._load_input_files(db, test_id, organization_id)
+            input_files = self._load_input_files(db, test_id, organization_id, model=self.model)
             if input_files:
                 input_data["files"] = input_files
 
@@ -101,8 +110,14 @@ class SingleTurnOutput(OutputProvider):
         return TestOutput(response=processed, execution_time=execution_time)
 
     @staticmethod
-    def _load_input_files(db, test_id, organization_id) -> List[Dict[str, str]]:
-        """Load files attached to a test and encode as base64."""
+    def _load_input_files(db, test_id, organization_id, model=None) -> List[Dict[str, Any]]:
+        """Load files attached to a test, encode as base64, and add extracted_text where possible.
+
+        For images and documents the appropriate SDK extractor is selected automatically.
+        If extraction fails the file is still included with its raw base64 data.
+        The optional model (BaseLLM instance or provider string) is used by ImageExtractor
+        for vision-based description; without it images fall back to EXIF-only extraction.
+        """
         from sqlalchemy.orm import undefer
 
         from rhesis.backend.app.models.file import File
@@ -123,15 +138,24 @@ class SingleTurnOutput(OutputProvider):
             if not files:
                 return []
 
-            return [
-                {
+            resolved_model = _resolve_model_for_extraction(model)
+
+            from rhesis.sdk.services.extractor import extract_with_vision_fallback
+
+            result = []
+            for f in files:
+                if not f.content:
+                    continue
+                entry: Dict[str, Any] = {
                     "filename": f.filename,
                     "content_type": f.content_type,
                     "data": base64.b64encode(f.content).decode("ascii"),
+                    "extracted_text": extract_with_vision_fallback(
+                        f.content, f.filename, f.content_type, model=resolved_model
+                    ),
                 }
-                for f in files
-                if f.content
-            ]
+                result.append(entry)
+            return result
         except Exception as e:
             logger.warning(f"Failed to load input files for test {test_id}: {e}")
             return []
@@ -171,7 +195,9 @@ class MultiTurnOutput(OutputProvider):
         min_turns = test_config.get("min_turns")
 
         # Load files attached to the test (reuse SingleTurnOutput's static method)
-        input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
+        input_files = SingleTurnOutput._load_input_files(
+            db, test.id, organization_id, model=self.model
+        )
 
         from rhesis.backend.tasks.execution.penelope_target import (
             BackendEndpointTarget,
