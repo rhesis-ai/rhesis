@@ -220,7 +220,9 @@ def prefetch_execution_context(
 
         project_id = str(endpoint.project_id) if endpoint.project_id else None
         environment = endpoint.environment
-        connector_metric_sender = _build_connector_metric_sender(project_id, environment)
+        connector_metric_sender = _build_connector_metric_sender(
+            project_id, environment, organization_id
+        )
     except Exception as e:
         logger.warning(f"Failed to build connector metric sender: {e}")
 
