@@ -495,7 +495,7 @@ export default function ConversationHistory({
                         mt: 0.5,
                       }}
                     >
-                      {turn.sent_files.map((file) => (
+                      {turn.sent_files.map(file => (
                         <Chip
                           key={`${file.filename}-${file.content_type ?? ''}`}
                           icon={
