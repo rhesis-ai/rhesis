@@ -457,7 +457,15 @@ def _process_attachments(
     - ``files`` have their base64 ``data`` decoded and text extracted via
       ``extract_with_vision_fallback``: text-layer extraction first, then a
       vision-model fallback for image-heavy documents when a model is available.
-      The binary ``data`` field is replaced with an extracted ``content`` string.
+      The binary ``data`` field is replaced with an ``extracted_text`` string.
+
+    The output dict shape (``filename`` / ``content_type`` / ``extracted_text``)
+    matches the shape produced by
+    :func:`rhesis.backend.app.services.endpoint.files.enrich_files_with_extraction`
+    and consumed by
+    :func:`rhesis.backend.app.services.endpoint.files.inject_file_content_into_input`,
+    so file payloads are interchangeable across the architect, playground,
+    and test-execution paths.
     """
     if not attachments:
         return None
@@ -480,15 +488,17 @@ def _process_attachments(
             content_type = f.get("content_type", "")
             try:
                 raw_bytes = base64.b64decode(f.get("data", ""))
-                content = extract_with_vision_fallback(raw_bytes, filename, content_type)
+                extracted_text = extract_with_vision_fallback(
+                    raw_bytes, filename, content_type
+                )
             except Exception as exc:
                 logger.warning("Failed to extract text from %s: %s", filename, exc)
-                content = f"[Could not extract text from {filename}: {exc}]"
+                extracted_text = f"[Could not extract text from {filename}: {exc}]"
             processed_files.append(
                 {
                     "filename": filename,
                     "content_type": content_type,
-                    "content": content,
+                    "extracted_text": extracted_text,
                 }
             )
         result["files"] = processed_files
