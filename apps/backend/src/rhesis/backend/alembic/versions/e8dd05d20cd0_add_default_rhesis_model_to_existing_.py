@@ -97,9 +97,9 @@ def upgrade() -> None:
         # Use raw SQL to avoid ORM model column set changing across migrations
         from sqlalchemy import text
 
-        org_rows = op.get_bind().execute(
-            text("SELECT id, owner_id, user_id FROM organization")
-        ).fetchall()
+        org_rows = (
+            op.get_bind().execute(text("SELECT id, owner_id, user_id FROM organization")).fetchall()
+        )
 
         print(f"\n📦 Creating default Rhesis model for {len(org_rows)} organization(s)...")
         created_count = 0
