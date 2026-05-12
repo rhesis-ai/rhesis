@@ -19,6 +19,7 @@ returning the result.
 """
 
 import asyncio
+import logging
 import uuid
 from typing import Any, Callable, List, Optional, TypeVar
 
@@ -33,6 +34,8 @@ from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.file import FileEntityType
 from rhesis.backend.app.services.storage_service import NotSupportedError, StorageService
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -248,7 +251,17 @@ async def upload_files(
                 organization_id=organization_id,
             )
         except Exception:
-            pass  # Extraction failure must not block upload success
+            # Surface broker / import / serialization failures so we don't
+            # silently disable text extraction. Upload itself still succeeds —
+            # the row, bytes, and metadata are already persisted.
+            logger.exception(
+                "Failed to enqueue extract_file_text for file_id=%s "
+                "organization_id=%s entity_type=%s entity_id=%s",
+                created.id,
+                organization_id,
+                entity_type.value,
+                entity_id,
+            )
 
     return created_files
 

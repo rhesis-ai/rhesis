@@ -141,7 +141,6 @@ async def lifespan(app: FastAPI):
         from anyio import to_thread
 
         await to_thread.run_sync(lambda: None)  # warm the thread limiter
-        from anyio.lowlevel import checkpoint
 
         limiter = to_thread.current_default_thread_limiter()
         limiter.total_tokens = int(os.getenv("ANYIO_THREADPOOL_SIZE", "100"))
