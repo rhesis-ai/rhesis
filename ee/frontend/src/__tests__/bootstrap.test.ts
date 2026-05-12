@@ -45,12 +45,37 @@ describe('ee bootstrap', () => {
     expect(typeof sso?.component).toBe('function');
   });
 
+  it('registers the API Clients section', () => {
+    bootstrapEE();
+    const sections = getOrgSettingsSections();
+    const apiClients = sections.find(s => s.id === 'api-clients');
+    expect(apiClients).toBeDefined();
+    expect(apiClients?.title).toMatch(/api clients/i);
+    expect(typeof apiClients?.component).toBe('function');
+  });
+
+  it('orders API Clients after SSO', () => {
+    // The two sections are conceptually paired (the API Clients
+    // empty state instructs the operator to configure SSO first);
+    // their relative order in the page is part of the contract.
+    bootstrapEE();
+    const sections = getOrgSettingsSections();
+    const ssoIndex = sections.findIndex(s => s.id === 'sso');
+    const apiIndex = sections.findIndex(s => s.id === 'api-clients');
+    expect(ssoIndex).toBeGreaterThanOrEqual(0);
+    expect(apiIndex).toBeGreaterThan(ssoIndex);
+  });
+
   it('is idempotent (can be called multiple times safely)', () => {
     bootstrapEE();
     bootstrapEE();
     bootstrapEE();
     const ssoSections = getOrgSettingsSections().filter(s => s.id === 'sso');
+    const apiSections = getOrgSettingsSections().filter(
+      s => s.id === 'api-clients'
+    );
     expect(ssoSections).toHaveLength(1);
+    expect(apiSections).toHaveLength(1);
   });
 
   it('returns a stable reference across reads (no churn between calls)', () => {

@@ -4,7 +4,7 @@ import os
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 import jwt
 from fastapi import HTTPException, status
@@ -26,6 +26,12 @@ PASSWORD_RESET_EXPIRE_MINUTES = 60  # 1 hour
 MAGIC_LINK_EXPIRE_MINUTES = 15  # 15 minutes
 AUTH_CODE_EXPIRE_MINUTES = 1  # 60 seconds, for OAuth callback redirect
 
+#: Audience claim stamped on token-exchange-issued JWTs and enforced by
+#: :func:`verify_jwt_token` whenever ``azp`` is present. Configurable via
+#: env so a deployment with multiple Rhesis backends behind a router can
+#: distinguish them. UI/SSO tokens omit ``aud`` entirely and skip the check.
+RHESIS_TOKEN_AUDIENCE = os.getenv("RHESIS_TOKEN_AUDIENCE", "rhesis-api")
+
 
 def get_secret_key() -> str:
     """Get JWT secret key from environment"""
@@ -38,8 +44,55 @@ def get_secret_key() -> str:
     return secret_key
 
 
-def create_session_token(user: User) -> str:
-    """Create a new session token for a user"""
+def create_session_token(
+    user: User,
+    *,
+    azp: Optional[str] = None,
+    aud: Optional[str] = None,
+    scope: Optional[str] = None,
+    jti: Optional[str] = None,
+    epoch: Optional[Union[datetime, int]] = None,
+) -> str:
+    """Create a new session token for a user.
+
+    Default behaviour (every existing UI / SSO call site, no extra
+    keyword args) is byte-identical to the pre-extension version: the
+    payload contains ``sub``, ``iat``, ``exp``, ``type``, and ``user``
+    only. The snapshot test in
+    ``tests/backend/auth/test_session_utils.py`` enforces this so a
+    later edit cannot quietly add a default claim and break clients
+    that pin on the payload shape.
+
+    When any of the keyword args is set the token is a
+    **token-exchange-issued** JWT. The token ``type`` stays
+    ``"session"`` so the existing :func:`verify_jwt_token` allowlist
+    still accepts it; the new claims layer on top:
+
+    - ``azp`` -- authorized party, the calling client's identifier
+      (e.g. ``"brain"``). Triggers the audience and epoch checks in
+      :func:`verify_jwt_token`.
+    - ``aud`` -- defaults to :data:`RHESIS_TOKEN_AUDIENCE` when ``azp``
+      is set; ignored otherwise. Setting ``aud`` without ``azp`` is a
+      programmer error and raises immediately so a misconfigured caller
+      cannot mint an unverifiable token.
+    - ``scope`` -- space-separated scope string for forward-compatible
+      per-route enforcement.
+    - ``jti`` -- per-token UUID, logged in the issuance audit event so
+      a leaked token can be correlated to its origin during forensics.
+    - ``epoch`` -- ``AuthClient.token_epoch`` as either a UTC datetime
+      or unix seconds. Stored as integer seconds in the JWT so the
+      ``iat >= epoch`` check at verify time is one int comparison with
+      no DB lookup; that is the entire mechanism behind coarse
+      revocation.
+    """
+    if aud is not None and azp is None:
+        # An ``aud`` without ``azp`` is unverifiable: ``verify_jwt_token``
+        # only enforces ``aud`` when ``azp`` is present, so the audience
+        # claim would be silently ignored. Fail at mint time so the
+        # programmer error surfaces immediately rather than as a token
+        # that "looks bound" but isn't.
+        raise ValueError("aud cannot be set without azp")
+
     expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     now = datetime.now(timezone.utc)
     expire = now + expires_delta
@@ -47,7 +100,7 @@ def create_session_token(user: User) -> str:
     # Convert UUID to string for JSON serialization
     organization_id = str(user.organization_id) if user.organization_id else None
 
-    to_encode = {
+    to_encode: Dict[str, Any] = {
         "sub": str(user.id),
         "iat": now,
         "exp": expire,
@@ -62,6 +115,28 @@ def create_session_token(user: User) -> str:
             "organization_id": organization_id,
         },
     }
+
+    if azp is not None:
+        to_encode["azp"] = azp
+        to_encode["aud"] = aud if aud is not None else RHESIS_TOKEN_AUDIENCE
+        if scope is not None:
+            to_encode["scope"] = scope
+        # ``jti`` falls back to a fresh uuid4 because the audit trail
+        # depends on it being unique per issuance; without that we
+        # cannot trace a leaked token to its source.
+        to_encode["jti"] = jti if jti is not None else str(uuid.uuid4())
+        if epoch is not None:
+            if isinstance(epoch, datetime):
+                if epoch.tzinfo is None:
+                    epoch = epoch.replace(tzinfo=timezone.utc)
+                to_encode["epoch"] = int(epoch.timestamp())
+            else:
+                to_encode["epoch"] = int(epoch)
+    elif scope is not None or jti is not None or epoch is not None:
+        # Same reasoning as the aud-without-azp guard: the new claims
+        # only have meaning in concert with ``azp``. Smuggling them in
+        # alone would produce a token that looks bound but isn't.
+        raise ValueError("scope/jti/epoch require azp to be set")
 
     encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
     return encoded_jwt
@@ -96,11 +171,40 @@ def create_service_delegation_token(
 
 
 def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) -> Dict[str, Any]:
-    """
-    Verify and decode a JWT token with explicit expiration checks.
-    Returns the decoded payload if valid, raises JWTError if not.
+    """Verify and decode a Rhesis-minted JWT.
+
+    Returns the decoded payload on success; raises :class:`JWTError`
+    (or :class:`jwt.ExpiredSignatureError` specifically for expiry) on
+    every failure mode.
+
+    The ``algorithms=[algorithm]`` allowlist is explicit and pinned to
+    :data:`ALGORITHM` (HS256). Letting PyJWT derive the algorithm from
+    the token header would re-introduce the canonical "alg=none" /
+    HS-vs-RS confusion class; the allowlist guarantees we only accept
+    HS256-signed tokens with our own secret. This is regression-tested
+    in ``tests/backend/auth/`` -- do not collapse it back to ``None``.
+
+    Token-exchange-issued JWTs (anything carrying an ``azp`` claim)
+    pick up two additional checks beyond the standard exp/iat:
+
+    - ``aud`` MUST be present and equal to :data:`RHESIS_TOKEN_AUDIENCE`.
+      Without this check, a token issued for some other Rhesis backend
+      (different ``RHESIS_TOKEN_AUDIENCE``) would be accepted here.
+    - ``iat >= epoch`` MUST hold. ``epoch`` is the unix-seconds copy
+      of ``AuthClient.token_epoch`` embedded at mint time; bumping
+      ``token_epoch`` invalidates every previously issued token via
+      this check, with no DB lookup at verify time. That is the
+      entire mechanism behind coarse client-level revocation in v1.
+
+    UI / SSO tokens carry no ``azp`` and skip both checks, which keeps
+    their payload byte-identical to the pre-extension shape.
     """
     try:
+        # PyJWT's built-in ``verify_aud`` requires us to pass the
+        # expected audience; we verify it manually below only when
+        # ``azp`` is present, so we disable PyJWT's own ``aud`` check
+        # for the call. The decode still verifies signature, exp, and
+        # iat, which is the bulk of the protection.
         payload = jwt.decode(
             token,
             secret_key,
@@ -108,6 +212,7 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
             options={
                 "verify_exp": True,
                 "verify_iat": True,
+                "verify_aud": False,
                 "require": ["exp", "iat"],
             },
         )
@@ -117,6 +222,28 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
         if payload.get("type") not in allowed_types:
             logger.warning(f"Invalid token type: {payload.get('type')}")
             raise JWTError("Invalid token type")
+
+        if "azp" in payload:
+            aud = payload.get("aud")
+            if aud != RHESIS_TOKEN_AUDIENCE:
+                # Same JWTError shape as a tampered signature so the
+                # caller has no oracle distinguishing "bad audience"
+                # from "bad signature".
+                logger.warning(
+                    "JWT azp present but aud mismatch (azp=%s)",
+                    payload.get("azp"),
+                )
+                raise JWTError("Invalid audience")
+
+            epoch = payload.get("epoch")
+            iat = payload.get("iat")
+            if epoch is not None and iat is not None and int(iat) < int(epoch):
+                logger.warning(
+                    "JWT iat (%s) < client token_epoch (%s); coarse revocation",
+                    iat,
+                    epoch,
+                )
+                raise JWTError("Token revoked")
 
         if "user" in payload:
             logger.debug(

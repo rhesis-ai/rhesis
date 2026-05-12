@@ -41,6 +41,7 @@ class FeatureName(str, Enum):
     """
 
     SSO = "sso"
+    API_CLIENTS = "api_clients"
 
 
 # Accept either the enum or its raw string value so dynamic call sites

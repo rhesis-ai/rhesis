@@ -1153,14 +1153,36 @@ async def exchange_code(body: ExchangeCodeRequest):
 @router.post("/refresh")
 async def refresh_tokens(
     body: RefreshTokenRequest,
+    request: Request,
     db: Session = Depends(get_db_session),
 ):
     """Exchange a valid refresh token for a new access + refresh token pair.
 
     The old refresh token is revoked (rotation).  If a revoked token
     is presented, the entire token family is revoked (reuse detection).
+
+    Token-exchange refresh tokens (rows with a non-null ``client_id``)
+    are subject to additional checks:
+
+    - HTTP Basic ``Authorization`` is **required** -- the same
+      AuthClient that minted the refresh token must re-authenticate
+      to use it. Without this, a stolen refresh token alone would be
+      sufficient to mint new access tokens.
+    - The Basic credential's client_id must match the refresh token
+      row's ``client_id``. Mismatch is an attempted lateral move.
+    - The minted access token preserves the original
+      ``azp`` / ``aud`` / ``scope`` / ``epoch`` so that scope cannot
+      escalate across rotation and revocation via ``token_epoch``
+      keeps applying to refreshed tokens.
+
+    UI / SSO refresh tokens (``client_id`` IS NULL) keep the legacy
+    behaviour unchanged: no Basic auth required, plain session JWT
+    minted.
     """
     from rhesis.backend.app import crud
+    from rhesis.backend.app.auth.refresh_client_hook import (
+        get_refresh_client_minter,
+    )
 
     old_token, new_raw_refresh = verify_and_rotate_refresh_token(db, body.refresh_token)
 
@@ -1171,7 +1193,30 @@ async def refresh_tokens(
             detail="User not found",
         )
 
-    access_token = create_session_token(user)
+    # Token-exchange-issued tokens carry a client binding that the
+    # refresh request MUST re-prove. The check itself lives in EE
+    # (because AuthClient is an EE concept) and is invoked here via
+    # a hook the EE bootstrap registers. UI / SSO refresh tokens
+    # have NULL client_id and skip the hook entirely.
+    if old_token.client_id is not None:
+        minter = get_refresh_client_minter()
+        if minter is None:
+            # A token-exchange-issued refresh exists in the DB but the
+            # EE module is not loaded -- inconsistent deployment state.
+            # Fail closed with 503; do not silently fall back to the
+            # unbound minter, which would erase the client binding.
+            logger.error(
+                "Refresh token client_id=%s presented but EE refresh hook "
+                "is not registered; rejecting",
+                old_token.client_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Token refresh temporarily unavailable",
+            )
+        access_token = minter(db, request, old_token, user)
+    else:
+        access_token = create_session_token(user)
     db.commit()
 
     return {

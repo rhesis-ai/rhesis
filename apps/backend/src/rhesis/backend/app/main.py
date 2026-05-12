@@ -530,4 +530,36 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    """Liveness + lightweight dependency surfacing.
+
+    The endpoint stays 200 even when a non-fatal dependency is
+    degraded; orchestrators rely on this for liveness, not readiness.
+    Per-dependency status appears in the body so dashboards and
+    on-call can see which subsystem flapped without paging.
+
+    The Redis replay store ("redis_replay_store") is surfaced because
+    a Redis outage degrades:
+
+    - magic link / password reset single-use enforcement (already in
+      core); and
+    - subject-token replay protection in /auth/token-exchange (EE).
+
+    Both fall back to fail-open on outage, so the body field lets
+    operators correlate replay-protection gaps with infra incidents.
+    """
+    try:
+        from rhesis.backend.app.services.connector.redis_client import (
+            redis_manager,
+        )
+
+        redis_status = "ok" if redis_manager.is_available else "degraded"
+    except Exception:
+        # Surfacing the fact that the probe itself failed is more
+        # useful than swallowing the error -- it points at a config
+        # problem (e.g. missing env var) rather than a Redis outage.
+        redis_status = "unknown"
+
+    return {
+        "status": "ok",
+        "redis_replay_store": redis_status,
+    }
