@@ -2,7 +2,10 @@
 
 import base64
 import copy
+import hashlib
+import json
 import logging
+import uuid as _uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -16,6 +19,12 @@ from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
 
 logger = logging.getLogger(__name__)
+
+# Arguments larger than this are extracted out of test_output JSONB and stored
+# as files. Sized to keep typical tool-call payloads inline while preventing
+# multi-MB image attachments from blowing up JSONB rows. A single oversize
+# argument turned an entire test set page into a 4+ minute load.
+_TOOL_CALL_ARGUMENTS_MAX_INLINE_BYTES = 32 * 1024
 
 
 def serialize_for_json(obj: Any) -> Any:
@@ -119,6 +128,122 @@ def process_endpoint_result(result: Any) -> Dict:
     return processed_result
 
 
+def _dedupe_target_interaction(processed_result: Dict) -> int:
+    """Collapse ``target_interaction`` into a marker when it equals
+    ``executions[-1]``.
+
+    Multi-turn test runs emit a history where each turn carries both an
+    ``executions`` list and a ``target_interaction`` object that is, in
+    practice, a deep copy of the final execution. Storing both doubles
+    every turn's payload (~330 KB per turn in chatbot tests with image
+    attachments). Replace the duplicate with a one-key reference so the
+    field is still present but cheap.
+
+    Returns the number of entries that were collapsed.
+    """
+    history = processed_result.get("history") if isinstance(processed_result, dict) else None
+    if not isinstance(history, list):
+        return 0
+
+    collapsed = 0
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        executions = entry.get("executions")
+        target = entry.get("target_interaction")
+        if (
+            isinstance(executions, list)
+            and executions
+            and isinstance(target, dict)
+            and not target.get("__same_as_last_execution__")
+            and executions[-1] == target
+        ):
+            entry["target_interaction"] = {"__same_as_last_execution__": True}
+            collapsed += 1
+    return collapsed
+
+
+def _extract_oversize_tool_call_arguments(
+    processed_result: Dict, file_position_start: int
+) -> int:
+    """Move oversize ``tool_calls[*].function.arguments`` payloads out of the
+    JSONB into ``processed_result['output_files']`` so they get stored via
+    object storage rather than inflating the test_output row.
+
+    The inline ``arguments`` field is replaced with a JSON-envelope string
+    (so callers that treat it as a string keep working). The envelope
+    carries the filename, byte length, sha256, and a short preview.
+
+    Returns the number of payloads extracted.
+    """
+    if not isinstance(processed_result, dict):
+        return 0
+
+    output_files = processed_result.setdefault("output_files", [])
+    if not isinstance(output_files, list):
+        return 0
+
+    extracted = 0
+    next_position = file_position_start
+    # When two tool_call argument blobs hash to the same value within a
+    # single test_result, point both inline markers at the same File row
+    # rather than creating two storage objects for identical content. This
+    # is especially common for multi-turn tests that re-pass the same
+    # attachment on every turn.
+    sha_to_file_id: Dict[str, str] = {}
+
+    def _walk(node: Any) -> None:
+        nonlocal extracted, next_position
+        if isinstance(node, dict):
+            args = node.get("arguments")
+            if isinstance(args, str) and len(args) > _TOOL_CALL_ARGUMENTS_MAX_INLINE_BYTES:
+                # Looks like a tool_call.function payload — extract it.
+                raw = args.encode("utf-8")
+                sha = hashlib.sha256(raw).hexdigest()
+                tool_name = node.get("name") if isinstance(node.get("name"), str) else None
+                base = tool_name.replace("/", "_") if tool_name else "tool_call_arguments"
+                filename = f"{base}_{sha[:12]}.json"
+                if sha in sha_to_file_id:
+                    file_id = sha_to_file_id[sha]
+                else:
+                    file_id = str(_uuid.uuid4())
+                    sha_to_file_id[sha] = file_id
+                    output_files.append(
+                        {
+                            "file_id": file_id,
+                            "data": base64.b64encode(raw).decode("ascii"),
+                            "filename": filename,
+                            "content_type": "application/json",
+                            "position": next_position,
+                        }
+                    )
+                    next_position += 1
+                node["arguments"] = json.dumps(
+                    {
+                        "__file_attached__": True,
+                        "file_id": file_id,
+                        "filename": filename,
+                        "byte_length": len(raw),
+                        "sha256": sha,
+                        "preview": args[:200],
+                    }
+                )
+                extracted += 1
+            for v in node.values():
+                if isinstance(v, (dict, list)):
+                    _walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                if isinstance(v, (dict, list)):
+                    _walk(v)
+
+    _walk(processed_result)
+    if not output_files:
+        # Don't leave an empty key around — let the existing pop() return None.
+        processed_result.pop("output_files", None)
+    return extracted
+
+
 def create_test_result_record(
     db: Session,
     test: Test,
@@ -186,6 +311,24 @@ def create_test_result_record(
     }
     if metadata:
         test_metrics["metadata"] = metadata
+
+    collapsed = _dedupe_target_interaction(processed_result)
+    if collapsed:
+        logger.info(
+            f"[TEST_RESULT] Collapsed {collapsed} duplicate target_interaction "
+            f"entries for test_id={test_id}"
+        )
+
+    existing_output_files = (
+        processed_result.get("output_files") if isinstance(processed_result, dict) else None
+    )
+    start_position = len(existing_output_files) if isinstance(existing_output_files, list) else 0
+    extracted = _extract_oversize_tool_call_arguments(processed_result, start_position)
+    if extracted:
+        logger.info(
+            f"[TEST_RESULT] Extracted {extracted} oversize tool_call arguments "
+            f"to output files for test_id={test_id}"
+        )
 
     # Extract output files before storing in JSONB (avoid base64 blobs in JSONB)
     output_files_data = processed_result.pop("output_files", None)
@@ -295,7 +438,6 @@ def _store_output_files(
     full buffer accumulates in Python.
     """
     import asyncio
-    import uuid as _uuid
 
     from rhesis.backend.app.services.storage_service import StorageService
 
@@ -313,10 +455,14 @@ def _store_output_files(
 
         filename = file_data.get("filename", f"output_{idx}")
         content_type = file_data.get("content_type", "application/octet-stream")
+        # Sanitizer pre-generates a file_id so it can embed it in the inline
+        # marker; honor it here so the marker resolves to a real File row.
+        prebound_file_id = file_data.get("file_id")
 
         # Path A: pre-uploaded file with a signed_url — just create the metadata row
         if file_data.get("signed_url") and not file_data.get("data"):
             file_create = schemas.FileCreate(
+                id=UUID(prebound_file_id) if prebound_file_id else None,
                 filename=filename,
                 content_type=content_type,
                 size_bytes=file_data.get("size_bytes", 0),
@@ -341,7 +487,7 @@ def _store_output_files(
             logger.warning(f"[TEST_RESULT] Failed to decode base64 for output file {idx}")
             continue
 
-        file_id = _uuid.uuid4()
+        file_id = UUID(prebound_file_id) if prebound_file_id else _uuid.uuid4()
         dest_path = storage.get_attachment_original_path(
             organization_id=organization_id or "",
             entity_type="TestResult",
@@ -367,6 +513,7 @@ def _store_output_files(
             continue
 
         file_create = schemas.FileCreate(
+            id=file_id,
             filename=filename,
             content_type=content_type,
             size_bytes=len(content),

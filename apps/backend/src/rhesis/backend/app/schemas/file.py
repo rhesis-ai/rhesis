@@ -37,6 +37,10 @@ class FileResponse(Base):
 class FileCreate(BaseModel):
     """Internal schema for creating file records (metadata only — no bytes)."""
 
+    # Optional pre-generated primary key. Used by writers that need to embed
+    # the file's id elsewhere (e.g. inline markers in test_output JSONB) before
+    # the row is actually created.
+    id: Optional[UUID4] = None
     filename: str
     content_type: str
     size_bytes: int
