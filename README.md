@@ -211,6 +211,8 @@ test_set = synthesizer.generate(num_tests=10)
 git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
 ```
 
+`./rh start` pulls prebuilt images from GHCR. To build images from the repo instead, use `./rh start --build` (and `./rh restart --build` after local Dockerfile changes).
+
 **Access:** Frontend at `localhost:3000`, API at `localhost:8080/docs`
 
 **Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
