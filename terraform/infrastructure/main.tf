@@ -437,10 +437,10 @@ module "cnpg_barman_stg" {
   count  = local.stg_enabled && var.gcs.stg.cnpg_backup_bucket_name != "" ? 1 : 0
   source = "./modules/cnpg-barman-sa-gcp"
 
-  project_id               = var.project_id
-  environment              = "stg"
-  backup_bucket_name       = var.gcs.stg.cnpg_backup_bucket_name
-  secret_manager_secret_id = "stg-rhesis-cnpg-gcs-sa-key"
+  project_id                 = var.project_id
+  environment                = "stg"
+  backup_bucket_name         = var.gcs.stg.cnpg_backup_bucket_name
+  kubernetes_service_account = "rhesis-stg"
 
   depends_on = [module.gcs_stg]
 }
@@ -449,10 +449,10 @@ module "cnpg_barman_prd" {
   count  = local.prd_enabled && var.gcs.prd.cnpg_backup_bucket_name != "" ? 1 : 0
   source = "./modules/cnpg-barman-sa-gcp"
 
-  project_id               = var.project_id
-  environment              = "prd"
-  backup_bucket_name       = var.gcs.prd.cnpg_backup_bucket_name
-  secret_manager_secret_id = "prd-rhesis-cnpg-gcs-sa-key"
+  project_id                 = var.project_id
+  environment                = "prd"
+  backup_bucket_name         = var.gcs.prd.cnpg_backup_bucket_name
+  kubernetes_service_account = "rhesis-prd"
 
   depends_on = [module.gcs_prd]
 }
@@ -501,6 +501,39 @@ module "wireguard_server" {
         keyname = module.internal_dns_prd[0].tsig_keyname
         secret  = module.internal_dns_prd[0].tsig_secret
       }
+    } : {}
+  )
+
+  # Allowed hostnames per env for BIND9 update-policy (subdomain grants).
+  # Each key may update only its listed hostnames and their sub-names (TXT, ACME).
+  # Update this list when adding a new service to a cluster.
+  bind9_allowed_names = merge(
+    local.dev_enabled ? {
+      dev = [
+        "dev-api.rhesis.ai",
+        "dev-app.rhesis.ai",
+        "dev-docs.rhesis.ai",
+        "dev-chatbot.rhesis.ai",
+        "dev-polyphemus.rhesis.ai",
+      ]
+    } : {},
+    local.stg_enabled ? {
+      stg = [
+        "stg-api.rhesis.ai",
+        "stg-app.rhesis.ai",
+        "stg-docs.rhesis.ai",
+        "stg-chatbot.rhesis.ai",
+        "stg-polyphemus.rhesis.ai",
+      ]
+    } : {},
+    local.prd_enabled ? {
+      prd = [
+        "api.rhesis.ai",
+        "app.rhesis.ai",
+        "docs.rhesis.ai",
+        "chatbot.rhesis.ai",
+        "polyphemus.rhesis.ai",
+      ]
     } : {}
   )
 

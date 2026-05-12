@@ -24,7 +24,7 @@ resource "terraform_data" "bind9_config_update" {
     command     = <<-EOT
       set -e
 
-      ZONE="${var.region}-a"
+      ZONE="${google_compute_instance.wireguard.zone}"
       PROJECT="${var.project_id}"
 
       # Write base64 config to a temp file

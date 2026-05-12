@@ -137,6 +137,9 @@ Usage: include "rhesis.image" (dict "imageValues" .Values.backend "global" .Valu
 {{- $registry := .global.registry -}}
 {{- $repository := .imageValues.image.repository -}}
 {{- $tag := coalesce .imageValues.image.tag .global.imageTag "latest" -}}
+{{- if and .global.requirePinnedTag (eq $tag "latest") -}}
+  {{- fail "global.imageTag must be set for production — refusing to deploy with floating latest" -}}
+{{- end -}}
 {{- if $registry -}}
 {{- printf "%s/%s:%s" $registry $repository $tag -}}
 {{- else -}}

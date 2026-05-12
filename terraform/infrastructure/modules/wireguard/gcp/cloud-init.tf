@@ -47,6 +47,7 @@ locals {
     "${path.module}/templates/named.conf.tpl", {
       tsig_keys         = var.bind9_tsig_keys
       allow_query_cidrs = local.bind9_allow_query_cidrs
+      allowed_names     = var.bind9_allowed_names
     }
   ) : ""
 
