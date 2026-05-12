@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, LargeBinary, String, Text
-from sqlalchemy.orm import deferred
+from sqlalchemy import Column, Integer, String, Text
 
 from .base import Base
 from .guid import GUID
@@ -8,10 +7,6 @@ from .mixins import OrganizationAndUserMixin
 
 class File(Base, OrganizationAndUserMixin):
     __tablename__ = "file"
-
-    # Legacy bytea column — kept nullable until backfill is verified and
-    # the drop-content-column Alembic revision is applied (Phase 8 runbook).
-    content = deferred(Column(LargeBinary, nullable=True))
 
     # File metadata
     filename = Column(String(255), nullable=False)
@@ -27,7 +22,6 @@ class File(Base, OrganizationAndUserMixin):
     position = Column(Integer, nullable=False, default=0)
 
     # Object-storage path (relative to the active backend root).
-    # Populated at upload time; required by production code after backfill.
     storage_path = Column(String(512), nullable=True)
 
     # SHA-256 hex digest of the original file bytes.
