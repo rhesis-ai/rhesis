@@ -36,9 +36,13 @@ class StorageService:
         self._protocol, self._bucket_or_root = self._parse_uri(self.storage_uri)
         self._credentials = None  # populated for gcs protocol
 
-        self.use_cloud_storage = self._protocol in ("gcs", "gs", "s3", "s3a")
-
+        # ``_get_file_system`` may downgrade ``_protocol`` to ``"file"`` if the
+        # requested cloud backend can't be initialised (e.g. ``gs://`` with no
+        # service-account key, or boto3 import failure). Compute the public
+        # ``use_cloud_storage`` flag *after* initialisation so it reflects what
+        # the service actually does, not just what was configured.
         self.fs = self._get_file_system()
+        self.use_cloud_storage = self._protocol in ("gcs", "gs", "s3", "s3a")
 
         if self.use_cloud_storage:
             logger.info(
@@ -90,13 +94,21 @@ class StorageService:
     # ------------------------------------------------------------------
 
     def _get_file_system(self):
-        """Instantiate the fsspec filesystem for the active protocol."""
+        """Instantiate the fsspec filesystem for the active protocol.
+
+        Downgrades ``self._protocol`` to ``"file"`` on any cloud-init failure
+        (missing credentials, unimportable client library, etc.) so callers
+        relying on ``use_cloud_storage`` see the *effective* backend, not the
+        configured-but-unusable one.
+        """
         if self._protocol == "gcs":
             if not self.service_account_key:
                 logger.warning(
                     "STORAGE_SERVICE_URI points to GCS but STORAGE_SERVICE_ACCOUNT_KEY is not set."
                     " Falling back to local filesystem."
                 )
+                self._protocol = "file"
+                self._bucket_or_root = self.storage_path
                 return fsspec.filesystem("file")
             try:
                 clean_b64 = (
@@ -156,9 +168,20 @@ class StorageService:
     # ------------------------------------------------------------------
 
     def get_file_path(self, organization_id: str, source_id: str, filename: str) -> str:
-        """Generate file path for multi-tenant source storage (legacy)."""
+        """Generate file path for multi-tenant source storage (legacy).
+
+        For the local filesystem backend the per-org directory is created here
+        so the legacy ``save_file`` API (which uses fsspec's plain ``open``)
+        can write the file directly. Cloud backends create directories
+        implicitly on PUT, so we skip the mkdir there.
+        """
         relative = f"{organization_id}/{source_id}_{filename}"
-        return self._full_path(relative)
+        full_path = self._full_path(relative)
+        if self._protocol == "file":
+            storage_dir = Path(self._bucket_or_root or self.storage_path) / organization_id
+            storage_dir.mkdir(parents=True, exist_ok=True)
+            return str(storage_dir / f"{source_id}_{filename}")
+        return full_path
 
     def _get_local_path(self, file_path: str) -> str:
         """Convert cloud storage path to local storage path (legacy helper)."""

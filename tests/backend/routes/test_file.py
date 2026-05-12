@@ -158,7 +158,12 @@ class TestFileRoutes:
         )
 
     def test_upload_exceeds_per_file_size_limit(self, authenticated_client: TestClient):
-        """File > 10 MB should be rejected with 422."""
+        """File > 10 MB should be rejected with 413 Request Entity Too Large.
+
+        The streaming upload path enforces the per-file limit mid-stream and
+        raises 413 (the HTTP-spec status for oversize payloads) rather than
+        the older 422 (which was emitted by the legacy in-memory validator).
+        """
         entity_id = self._create_test_entity(authenticated_client)
         large_content = b"\x00" * (10 * 1024 * 1024 + 1)  # 10 MB + 1 byte
 
@@ -167,7 +172,7 @@ class TestFileRoutes:
             entity_id,
             content=large_content,
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
 
     def test_upload_disallowed_mime_type(self, authenticated_client: TestClient):
         """Video file should be rejected with 422."""

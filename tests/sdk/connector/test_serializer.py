@@ -546,7 +546,8 @@ class TestFileReferenceSerialization:
             storage_path="attachments/org/Test/eid/fid/original.png",
             extracted_text="A cat",
         )
-        dumped = TypeSerializer.dump(ref)
+        s = TypeSerializer()
+        dumped = s.dump(ref)
         assert isinstance(dumped, dict)
         assert dumped["id"] == "abc-123"
         assert dumped["filename"] == "photo.png"
@@ -564,7 +565,8 @@ class TestFileReferenceSerialization:
             "size_bytes": 1024,
             "content_hash": "deadbeef" * 8,
         }
-        loaded = TypeSerializer.load(data, FileReference)
+        s = TypeSerializer()
+        loaded = s.load(data, FileReference)
         assert isinstance(loaded, FileReference)
         assert loaded.id == "abc-123"
         assert loaded.storage_path is None
@@ -573,7 +575,8 @@ class TestFileReferenceSerialization:
         """Existing bytes → base64 strategy is unaffected by FileReference addition."""
         import base64
 
+        s = TypeSerializer()
         raw = b"some binary data"
-        dumped = TypeSerializer.dump(raw)
+        dumped = s.dump(raw)
         assert isinstance(dumped, str)
         assert base64.b64decode(dumped) == raw

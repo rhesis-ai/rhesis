@@ -77,7 +77,13 @@ class TestFileExecutionIntegration:
         assert output.response["output"] == "response with file processed"
 
     def test_output_files_stored_on_test_result(self):
-        """Output files from endpoint response are stored as File records."""
+        """Output files from endpoint response are stored as File records.
+
+        Post-migration the bytes go to object storage via
+        ``StorageService.put_object_bytes`` and the ``File`` row only carries
+        metadata (``storage_path``/``size_bytes``/``content_hash``) — there's
+        no ``content`` column anymore.
+        """
         db = MagicMock()
         result_id = uuid4()
         org_id = str(uuid4())
@@ -92,8 +98,19 @@ class TestFileExecutionIntegration:
             }
         ]
 
-        with patch("rhesis.backend.tasks.execution.executors.results.crud") as mock_crud:
+        with (
+            patch("rhesis.backend.tasks.execution.executors.results.crud") as mock_crud,
+            patch(
+                "rhesis.backend.app.services.storage_service.StorageService.put_object_bytes",
+                return_value=("attachments/org/TestResult/rid/fid/original.png", "deadbeef"),
+            ) as mock_put,
+        ):
             _store_output_files(db, result_id, output_files, org_id, user_id)
+
+            mock_put.assert_called_once()
+            put_kwargs = mock_put.call_args.kwargs
+            assert put_kwargs["content"] == generated_content
+            assert put_kwargs["content_type"] == "image/png"
 
             mock_crud.create_file.assert_called_once()
             file_create = mock_crud.create_file.call_args[0][1]
@@ -101,7 +118,9 @@ class TestFileExecutionIntegration:
             assert file_create.content_type == "image/png"
             assert file_create.entity_type == "TestResult"
             assert file_create.entity_id == result_id
-            assert file_create.content == generated_content
+            assert file_create.size_bytes == len(generated_content)
+            assert file_create.storage_path == "attachments/org/TestResult/rid/fid/original.png"
+            assert file_create.content_hash == "deadbeef"
 
     def test_output_files_popped_from_processed_result(self):
         """output_files key is removed from processed_result before JSONB storage."""
