@@ -30,7 +30,6 @@ describe('quick_start', () => {
     describe('Environment variable validation', () => {
       it('should return false when NEXT_PUBLIC_QUICK_START is not set', () => {
         delete process.env.NEXT_PUBLIC_QUICK_START;
-        delete process.env.QUICK_START;
 
         const result = isQuickStartEnabled();
 
@@ -61,9 +60,16 @@ describe('quick_start', () => {
         expect(result).toBe(true);
       });
 
-      it('should accept QUICK_START as fallback', () => {
-        delete process.env.NEXT_PUBLIC_QUICK_START;
-        process.env.QUICK_START = 'true';
+      it('should accept value with surrounding whitespace', () => {
+        process.env.NEXT_PUBLIC_QUICK_START = '  true  ';
+
+        const result = isQuickStartEnabled('localhost');
+
+        expect(result).toBe(true);
+      });
+
+      it('should be case-insensitive for the env value', () => {
+        process.env.NEXT_PUBLIC_QUICK_START = 'TRUE';
 
         const result = isQuickStartEnabled('localhost');
 
