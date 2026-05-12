@@ -1,0 +1,264 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Code Metrics
+
+Code Metrics let you write evaluation logic directly in Python — on your own machine or infrastructure — and have the Rhesis backend invoke it automatically during test execution. Instead of relying on an LLM-as-a-judge, you implement the scoring logic yourself: call a local model, apply business rules, query an internal service, or use any library available in your environment.
+
+## When to Use Code Metrics
+
+Code metrics are a good fit when:
+
+- You have deterministic rules or heuristics that don't need an LLM to evaluate (e.g. checking for required keywords, format validation, regex patterns).
+- You want to use a locally hosted model (e.g. a fine-tuned classifier or embedding model) without routing traffic through the Rhesis API.
+- You need to call internal services or databases that are only accessible from your network.
+- You want full control over scoring logic and don't want to rely on prompt engineering for evaluation.
+
+For general-purpose quality evaluation — coherence, relevance, helpfulness — [LLM-based metrics](/sdk/metrics) are often faster to set up. Code metrics complement them for domain-specific or deterministic checks.
+
+## How It Works
+
+Code metrics run inside your process. The Rhesis backend connects to your running script via the connector (`client.connect()`), sends it the test inputs, and collects the scores your function returns. No metric code leaves your machine.
+
+```
+Test Run (Backend)  ──► Connector (your machine)  ──► @metric function
+                    ◄──                            ◄──  { "score": ... }
+```
+
+## Defining a Code Metric
+
+Use the `@metric` decorator from the SDK. The decorator registers the function with the connector so the backend can call it by name.
+
+### Basic Example
+
+<CodeBlock filename="metrics.py" language="python">
+{`from dotenv import load_dotenv
+from rhesis.sdk import RhesisClient, metric
+
+load_dotenv()
+client = RhesisClient.from_environment()
+
+
+@metric(name="citation_check", score_type="binary")
+def citation_check(input: str, output: str) -> dict:
+    """Passes if the response includes at least one citation marker like [1] or (Source:...)."""
+    import re
+    has_citation = bool(re.search(r"\\[\\d+\\]|\\(Source:", output))
+    return {
+        "score": 1.0 if has_citation else 0.0,
+        "details": {"reason": "Response contains a citation." if has_citation else "No citation found."},
+    }
+
+
+if __name__ == "__main__":
+    client.connect()
+`}
+</CodeBlock>
+
+Run the script, and when a test that uses `citation_check` executes, the backend invokes your function and records the result.
+
+```bash
+python metrics.py
+```
+
+### Decorator Parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `name` | `str` | function name | The metric name shown in the platform and used to match the metric to a test set. |
+| `score_type` | `str` | `"numeric"` | Score type: `"numeric"`, `"binary"`, or `"categorical"`. |
+| `description` | `str` | `""` | Human-readable description shown in the platform. |
+
+### Function Signature
+
+Your function must accept `input` and `output` as keyword arguments. Two optional parameters are also available:
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `input` | `str` | Yes | The prompt or user message sent to the LLM. |
+| `output` | `str` | Yes | The LLM response being evaluated. |
+| `expected_output` | `str` | No | The ground truth or reference answer (when provided in the test set). |
+| `context` | `list[str]` | No | Retrieved context documents (for RAG evaluation). |
+
+No other parameter names are accepted — the decorator will raise a `TypeError` if your function signature contains anything else.
+
+### Return Format
+
+Return a `dict` with at least a `"score"` key. An optional `"details"` dict can carry structured metadata that appears in the Rhesis UI alongside the score.
+
+<CodeBlock filename="return_format.py" language="python">
+{`# Minimal — score only
+return {"score": 8.5}
+
+# With details — shown in the platform result drawer
+return {
+    "score": 8.5,
+    "details": {
+        "reason": "Response was accurate and well-structured.",
+        "flagged_phrases": [],
+    },
+}`}
+</CodeBlock>
+
+For `"binary"` metrics, use `1.0` for pass and `0.0` for fail.
+
+## Viewing in the Platform
+
+When your script is running and connected (`client.connect()`), the backend receives the metric registrations over WebSocket and makes them available in the Rhesis UI.
+
+Open **Metrics** in the sidebar. Code metrics registered from the SDK appear in the list marked with an **SDK** button, which distinguishes them from LLM-based metrics configured directly in the platform.
+
+
+You can assign them to [Behaviors](/docs/behaviors) and include them in test sets exactly like any other metric. The only difference is that the metric code runs on your machine — the connector must be active when a test run that uses the metric is executed.
+
+<Callout type="warning">
+  If your script is not running when a test executes, the backend will report a metric error for that run. Keep the script running for the duration of any test execution that references your code metrics.
+</Callout>
+
+## A More Complete Example
+
+The following script defines three metrics that cover different scenarios: a deterministic rule, a check that uses the expected output, and one that evaluates retrieved context.
+
+<CodeBlock filename="my_metrics.py" language="python">
+{`from dotenv import load_dotenv
+from rhesis.sdk import RhesisClient, metric
+
+load_dotenv()
+client = RhesisClient.from_environment()
+
+
+@metric(name="response_length_check", score_type="binary", description="Fails if response is too short.")
+def response_length_check(input: str, output: str) -> dict:
+    min_words = 20
+    word_count = len(output.split())
+    passed = word_count >= min_words
+    return {
+        "score": 1.0 if passed else 0.0,
+        "details": {"word_count": word_count, "min_required": min_words},
+    }
+
+
+@metric(name="answer_match", score_type="numeric", description="Scores how closely the output matches the expected answer.")
+def answer_match(input: str, output: str, expected_output: str) -> dict:
+    # Simple token overlap as a stand-in for a real similarity metric
+    expected_tokens = set(expected_output.lower().split())
+    output_tokens = set(output.lower().split())
+    if not expected_tokens:
+        return {"score": 0.0, "details": {"reason": "No expected output provided."}}
+    overlap = len(expected_tokens & output_tokens) / len(expected_tokens)
+    score = round(overlap * 10, 2)
+    return {
+        "score": score,
+        "details": {"overlap_ratio": overlap, "reason": f"{int(overlap * 100)}% token overlap with expected answer."},
+    }
+
+
+@metric(name="context_coverage", score_type="numeric", description="Checks how much of the context is reflected in the output.")
+def context_coverage(input: str, output: str, context: list[str]) -> dict:
+    if not context:
+        return {"score": 0.0, "details": {"reason": "No context documents provided."}}
+    output_lower = output.lower()
+    covered = sum(1 for doc in context if any(word in output_lower for word in doc.lower().split() if len(word) > 4))
+    ratio = covered / len(context)
+    return {
+        "score": round(ratio * 10, 2),
+        "details": {"covered_docs": covered, "total_docs": len(context)},
+    }
+
+
+if __name__ == "__main__":
+    client.connect()
+`}
+</CodeBlock>
+
+## Using a Local Model
+
+Because code metrics run in your process, you can import any library installed in your environment. Here is an example using a local sentence-transformer model for semantic similarity — no external API call required.
+
+<CodeBlock filename="semantic_similarity_metric.py" language="python">
+{`from dotenv import load_dotenv
+from rhesis.sdk import RhesisClient, metric
+
+load_dotenv()
+client = RhesisClient.from_environment()
+
+# Load once at module level so the model is not re-initialized on every call
+from sentence_transformers import SentenceTransformer, util
+
+_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+@metric(name="semantic_similarity", score_type="numeric", description="Cosine similarity between output and expected answer.")
+def semantic_similarity(input: str, output: str, expected_output: str) -> dict:
+    emb_output = _model.encode(output, convert_to_tensor=True)
+    emb_expected = _model.encode(expected_output, convert_to_tensor=True)
+    similarity = float(util.cos_sim(emb_output, emb_expected))
+    score = round(similarity * 10, 2)
+    return {
+        "score": score,
+        "details": {"cosine_similarity": round(similarity, 4)},
+    }
+
+
+if __name__ == "__main__":
+    client.connect()
+`}
+</CodeBlock>
+
+## Running and Connecting
+
+Start your script before or during a test run. The connector keeps the process alive and waits for the backend to invoke your metrics:
+
+```bash
+python my_metrics.py
+```
+
+The backend discovers your metrics by name. Make sure the metric name you register with `@metric(name=...)` matches the name configured in your test set on the platform.
+
+<Callout type="info">
+  **Environment variables**: The SDK reads `RHESIS_API_KEY` (and optionally `RHESIS_BASE_URL`) from the environment. Use a `.env` file with `python-dotenv` or export the variables in your shell before running.
+</Callout>
+
+## Registering Multiple Metrics in One File
+
+You can define as many `@metric`-decorated functions as you need in a single file. All of them are registered when the module is loaded and become available to the connector in one `client.connect()` call.
+
+<CodeBlock filename="all_metrics.py" language="python">
+{`from dotenv import load_dotenv
+from rhesis.sdk import RhesisClient, metric
+
+load_dotenv()
+client = RhesisClient.from_environment()
+
+
+@metric(name="format_check", score_type="binary")
+def format_check(input: str, output: str) -> dict:
+    is_json = output.strip().startswith("{") and output.strip().endswith("}")
+    return {"score": 1.0 if is_json else 0.0}
+
+
+@metric(name="pii_check", score_type="binary", description="Fails if output contains email addresses or phone numbers.")
+def pii_check(input: str, output: str) -> dict:
+    import re
+    email_pattern = r"[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"
+    phone_pattern = r"\\b\\d{3}[-.\\s]?\\d{3}[-.\\s]?\\d{4}\\b"
+    has_pii = bool(re.search(email_pattern, output) or re.search(phone_pattern, output))
+    return {
+        "score": 0.0 if has_pii else 1.0,
+        "details": {"reason": "PII detected in output." if has_pii else "No PII found."},
+    }
+
+
+if __name__ == "__main__":
+    client.connect()
+`}
+</CodeBlock>
+
+---
+
+<Callout type="info">
+  **Related:**
+  - [SDK Metrics](/sdk/metrics) — LLM-based evaluation metrics (NumericJudge, CategoricalJudge, etc.)
+  - [Trace Metrics](/docs/metrics/trace-metrics) — automatic evaluation on live production traces
+  - [Decorators](/docs/tracing/decorators) — `@observe` and `@endpoint` for tracing
+  - [Connector](/sdk/installation) — how the SDK connector works
+</Callout>
