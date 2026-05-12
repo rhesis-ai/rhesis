@@ -64,6 +64,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Enterprise Edition package. Install with `pip install rhesis-backend[ee]`.
+# Without this extra the application runs in Community mode.
+ee = ["rhesis-backend-ee"]
 # Heavy ML/AI/cloud extras. These are NOT needed for migrations or for the
 # Polyphemus auth/crud import chain, so they stay out of the lightweight
 # `migrate` image and out of Polyphemus.
@@ -160,6 +163,7 @@ torch = [
 rhesis = { path = "../../packages/rhesis" }
 rhesis-sdk = { path = "../../sdk", editable = true }
 rhesis-penelope = { path = "../../penelope", editable = true }
+rhesis-backend-ee = { path = "../../ee/backend", editable = true }
 
 [tool.hatch.build.targets.wheel]
 packages = [

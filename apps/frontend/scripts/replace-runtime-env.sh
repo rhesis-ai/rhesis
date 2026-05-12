@@ -10,21 +10,29 @@
 
 set -eu
 
+# Monorepo Docker images copy Next standalone under /app/apps/frontend/;
+# flat images use /app/.  Detect which layout is present.
+if test -f /app/apps/frontend/server.js; then
+  STANDALONE_ROOT=/app/apps/frontend
+else
+  STANDALONE_ROOT=/app
+fi
+
 replace_placeholder() {
   _placeholder=$1
   _value=$2
   _escaped=$(printf '%s' "$_value" | sed 's/[\\|&]/\\&/g')
 
-  find /app/.next -type f \( -name '*.js' -o -name '*.html' \) 2>/dev/null | while IFS= read -r f; do
+  find "${STANDALONE_ROOT}/.next" -type f \( -name '*.js' -o -name '*.html' \) 2>/dev/null | while IFS= read -r f; do
     if test -f "$f" && grep -q "$_placeholder" "$f" 2>/dev/null; then
       printf '[entrypoint] replacing %s in %s\n' "$_placeholder" "$f"
       sed -i "s|${_placeholder}|${_escaped}|g" "$f"
     fi
   done
 
-  if test -f /app/server.js && grep -q "$_placeholder" /app/server.js 2>/dev/null; then
+  if test -f "${STANDALONE_ROOT}/server.js" && grep -q "$_placeholder" "${STANDALONE_ROOT}/server.js" 2>/dev/null; then
     printf '[entrypoint] replacing %s in server.js\n' "$_placeholder"
-    sed -i "s|${_placeholder}|${_escaped}|g" /app/server.js
+    sed -i "s|${_placeholder}|${_escaped}|g" "${STANDALONE_ROOT}/server.js"
   fi
 }
 

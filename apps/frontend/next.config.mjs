@@ -99,15 +99,31 @@ const nextConfig = {
     },
   }),
 
-  // Turbopack configuration
+  // @rhesis/ee-frontend is a TypeScript package linked via a file: dependency
+  // (symlink in node_modules/@rhesis/ee-frontend → ee/frontend/).
+  // transpilePackages tells Next.js to compile its TypeScript source through
+  // its own pipeline. webpack's resolve.symlinks=false (set below) makes
+  // webpack treat the symlinked package as if its files were physically inside
+  // apps/frontend/node_modules, so MUI/React resolve via normal walk-up —
+  // no aliases needed.
+  transpilePackages: ['@rhesis/ee-frontend'],
+
+  // Turbopack configuration (development only — prod build uses webpack via
+  // the --webpack flag in the build script).
+  // root must be the repo root so Turbopack watches and resolves files inside
+  // ee/frontend/ (which is physically outside apps/frontend/ but linked via
+  // node_modules/@rhesis/ee-frontend). Without it, Turbopack treats
+  // apps/frontend/ as the boundary and cannot process EE source files.
   turbopack: {
-    rules: {
-      '*.svg': {
-        loaders: ['@svgr/webpack'],
-        as: '*.js',
-      },
+    root: path.resolve(__dirname, '../..'),
+    resolveAlias: {
+      '@': path.resolve(__dirname, './src'),
     },
   },
+
+  // Widen the standalone output trace root so Next.js includes ee/frontend/
+  // files (reached through the node_modules symlink) in the standalone build.
+  outputFileTracingRoot: path.resolve(__dirname, '../..'),
 
   // Image optimization settings
   images: {
@@ -123,20 +139,26 @@ const nextConfig = {
     formats: ['image/webp'],
   },
 
-  // Webpack optimizations
+  // Webpack configuration (used by both `next dev --webpack` fallback and
+  // `next build --webpack` for production).
   webpack: (config, { dev, isServer }) => {
-    // Your existing markdown rule
     config.module.rules.push({
       test: /\.md$/,
       type: 'asset/source',
     });
+
+    // Resolve symlinks to their real paths during module resolution.
+    // Setting this to false makes webpack treat a file: symlink
+    // (node_modules/@rhesis/ee-frontend → ee/frontend/) as if it were
+    // physically inside node_modules, so its imports walk up to
+    // apps/frontend/node_modules for MUI/React — no aliases needed.
+    config.resolve.symlinks = false;
 
     // Development-specific optimizations
     if (dev) {
       // Use faster source map option
       config.devtool = 'eval-cheap-module-source-map';
 
-      // MODIFIED: More aggressive file watching for better change detection
       config.watchOptions = {
         poll: 500, // Reduced from 1000 for faster detection
         aggregateTimeout: 200, // Reduced from 300
@@ -152,10 +174,6 @@ const nextConfig = {
         ],
       };
 
-      // Optimize module resolution
-      config.resolve.symlinks = false;
-
-      // MODIFIED: Less aggressive caching for development
       config.cache = {
         type: 'filesystem',
         buildDependencies: {
@@ -199,18 +217,14 @@ const nextConfig = {
       moduleIds: 'deterministic',
     };
 
-    // Resolve optimizations
+    // Resolve the `@/` alias used throughout the app.
+    // `@rhesis/ee-frontend` is a file: dependency and does not need an alias —
+    // it is installed in node_modules and resolved normally.
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': path.resolve(__dirname, './'),
+      '@': path.resolve(__dirname, './src'),
       '~': path.resolve(__dirname, './'),
     };
-
-    config.resolve.modules = [
-      'node_modules',
-      path.resolve(__dirname, 'node_modules'),
-    ];
-    config.resolve.extensions = ['.js', '.jsx', '.ts', '.tsx', '.json'];
 
     return config;
   },
@@ -221,7 +235,6 @@ const nextConfig = {
   // Enable compression only in production
   compress: isProd,
 
-  // MODIFIED: Headers with environment-specific caching
   async headers() {
     const baseHeaders = [
       {

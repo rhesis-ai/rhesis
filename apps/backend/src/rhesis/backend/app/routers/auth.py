@@ -13,6 +13,7 @@ from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
+from rhesis.backend.app.auth.provider_hooks import apply_enrichers
 from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.refresh_token_utils import (
     create_refresh_token,
@@ -24,6 +25,7 @@ from rhesis.backend.app.auth.session_invalidation import (
     invalidate_user_sessions,
     is_session_valid,
 )
+from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import (
     MAGIC_LINK_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
@@ -99,6 +101,7 @@ class ProviderInfo(BaseModel):
     type: str  # 'oauth' or 'credentials'
     enabled: bool
     registration_enabled: Optional[bool] = None
+    login_url: Optional[str] = None
 
 
 class PasswordPolicyResponse(BaseModel):
@@ -266,18 +269,60 @@ def _get_email_service():
 # =============================================================================
 
 
+def _resolve_org_by_id_or_slug(db: Session, org: str):
+    """Resolve an organization by UUID or slug, returning ``None`` if not found.
+
+    Both lookup keys live on core-managed columns of the
+    :class:`~rhesis.backend.app.models.organization.Organization` model,
+    so this helper has no EE-specific concerns. Slug comparison is
+    case-insensitive to match the way SSO admins typically configure URLs.
+    """
+    from uuid import UUID as _UUID
+
+    from rhesis.backend.app.models.organization import Organization
+
+    try:
+        _UUID(org)
+        return db.query(Organization).filter(Organization.id == org).first()
+    except ValueError:
+        return db.query(Organization).filter(Organization.slug == org.lower()).first()
+
+
 @router.get("/providers", response_model=ProvidersResponse)
-async def get_providers():
+async def get_providers(
+    org: Optional[str] = None,
+    db: Session = Depends(get_db_session),
+):
     """
     Get list of enabled authentication providers.
 
     Returns information about all configured and enabled authentication
     providers. The frontend uses this to dynamically render login options.
     Includes password policy (min/max length) for client-side validation.
+
+    When ``org`` is provided, the organisation is resolved by UUID or
+    slug and passed to any provider enrichers registered via
+    :func:`~rhesis.backend.app.auth.provider_hooks.register_provider_enricher`.
+    EE features (SSO, etc.) plug in at this point — core has no
+    feature-specific knowledge here.
     """
     ProviderRegistry.initialize()
     providers = ProviderRegistry.get_provider_info()
     policy = get_password_policy()
+
+    organization = None
+    if org:
+        # Failures in org lookup are non-fatal: enrichers run with
+        # organization=None and produce a base provider list.
+        try:
+            organization = _resolve_org_by_id_or_slug(db, org)
+        except Exception as exc:
+            logger.warning(
+                "Unexpected error resolving org %r for /auth/providers: %s", org, exc, exc_info=True
+            )
+
+    providers = apply_enrichers(providers, organization)
+
     return ProvidersResponse(
         providers=[ProviderInfo(**p) for p in providers],
         password_policy=PasswordPolicyResponse(
@@ -387,15 +432,22 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         # Find or create user
         user = find_or_create_user_from_auth(db, auth_user)
 
+        # Capture values from pre-auth session before regeneration
+        original_frontend = request.session.get("original_frontend")
+        return_to = request.session.get("return_to", "/dashboard")
+
         # Set up session and create tokens
-        request.session["user_id"] = str(user.id)
         clear_user_logout(str(user.id))
         session_token = create_session_token(user)
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
 
-        # Clear provider from session
-        request.session.pop("auth_provider", None)
+        # Regenerate session to prevent session fixation
+        regenerate_session(request, {"user_id": str(user.id)})
+        # Restore redirect context for build_redirect_url
+        if original_frontend:
+            request.session["original_frontend"] = original_frontend
+        request.session["return_to"] = return_to
 
         # Track login activity
         if is_telemetry_enabled():
@@ -1089,7 +1141,7 @@ async def exchange_code(body: ExchangeCodeRequest):
     instead of the long-lived tokens, limiting exposure
     in browser history and server logs.
     """
-    tokens = verify_auth_code(body.code)
+    tokens = await verify_auth_code(body.code)
     return tokens
 
 

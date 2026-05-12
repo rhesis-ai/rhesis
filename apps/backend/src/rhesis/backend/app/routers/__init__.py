@@ -9,6 +9,7 @@ from .demographic import router as demographic_router
 from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
 from .explorer import router as explorer_router
+from .features import router as features_router
 from .feedback import router as feedback_router
 from .file import router as file_router
 from .file_import import router as file_import_router
@@ -29,6 +30,10 @@ from .response_pattern import router as response_pattern_router
 from .risk import router as risk_router
 from .services import router as services_router
 from .source import router as source_router
+
+# EE-feature routers are not imported here; they are registered by
+# ``rhesis.backend.app.ee_bootstrap.bootstrap_ee`` from the optional
+# ``rhesis-backend-ee`` package.
 from .status import router as status_router
 from .tag import router as tag_router
 from .task_management import router as task_management_router
@@ -83,6 +88,7 @@ __all__ = [
     "task",
     "task_management",
     "garak",
+    "features",
     "file",
     "file_import",
     "explorer",
@@ -130,6 +136,7 @@ routers = sorted(
         tools_router,
         recycle_router,
         garak_router,
+        features_router,
         feedback_router,
         file_router,
         file_import_router,

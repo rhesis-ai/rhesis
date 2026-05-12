@@ -15,8 +15,6 @@
 **/mypy_cache/
 **/*.ruff_cache/
 
-
-
 # Virtual environments
 **/.venv
 **/venv
@@ -42,3 +40,8 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+node_modules/
+**/node_modules/
+**/.next/
+**/coverage/

@@ -14,6 +14,7 @@ import { alpha } from '@mui/material/styles';
 import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';
 import VerificationBanner from '@/components/auth/VerificationBanner';
+import { FeaturesProvider } from '@/contexts/FeaturesContext';
 
 // Define extended user interface that includes organization_id
 interface ExtendedUser {
@@ -188,8 +189,10 @@ export default function ProtectedLayout({
 
   return (
     <AuthErrorBoundary>
-      {!isOnboarding && <VerificationBanner />}
-      {content}
+      <FeaturesProvider>
+        {!isOnboarding && <VerificationBanner />}
+        {content}
+      </FeaturesProvider>
     </AuthErrorBoundary>
   );
 }
