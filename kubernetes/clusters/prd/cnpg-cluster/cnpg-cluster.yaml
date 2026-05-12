@@ -49,7 +49,7 @@ spec:
           name: rhesis-analytics-user-credentials
   bootstrap:
     initdb:
-      database: rhesis-prod-db
+      database: rhesis-prd-db
       owner: rhesis-admin
       postInitSQL:
         - CREATE ROLE "rhesis-user" LOGIN;
@@ -59,7 +59,7 @@ spec:
       postInitApplicationSQL:
         - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         - CREATE EXTENSION IF NOT EXISTS vector;
-        - GRANT CONNECT ON DATABASE "rhesis-prod-db" TO "rhesis-user";
+        - GRANT CONNECT ON DATABASE "rhesis-prd-db" TO "rhesis-user";
         - GRANT USAGE ON SCHEMA public TO "rhesis-user";
         - GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
         - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
