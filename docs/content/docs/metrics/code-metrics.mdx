@@ -1,0 +1,126 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Code Metrics
+
+Code Metrics let you write evaluation logic directly in Python — on your own machine or infrastructure — and have the Rhesis backend invoke it automatically during test execution. Instead of relying on an LLM-as-a-judge, you implement the scoring logic yourself: call a local model, apply business rules, query an internal service, or use any library available in your environment.
+
+## When to Use Code Metrics
+
+Code metrics are a good fit when:
+
+- You have deterministic rules or heuristics that don't need an LLM to evaluate (e.g. checking for required keywords, format validation, regex patterns).
+- You want to use a locally hosted model (e.g. a fine-tuned classifier or embedding model) without routing traffic through the Rhesis API.
+- You need to call internal services or databases that are only accessible from your network.
+- You want full control over scoring logic and don't want to rely on prompt engineering for evaluation.
+
+For general-purpose quality evaluation — coherence, relevance, helpfulness — [LLM-based metrics](/sdk/metrics) are often faster to set up. Code metrics complement them for domain-specific or deterministic checks.
+
+## How It Works
+
+Code metrics run inside your process. The Rhesis backend connects to your running script via the connector (`client.connect()`), sends it the test inputs, and collects the scores your function returns. No metric code leaves your machine.
+
+```
+Test Run (Backend)  ──► Connector (your machine)  ──► @metric function
+                    ◄──                            ◄──  { "score": ... }
+```
+
+## Defining a Code Metric
+
+Use the `@metric` decorator from the SDK. The decorator registers the function with the connector so the backend can call it by name.
+
+### Basic Example
+
+<CodeBlock filename="metrics.py" language="python">
+{`from dotenv import load_dotenv
+from rhesis.sdk import RhesisClient, metric
+
+load_dotenv()
+client = RhesisClient.from_environment()
+
+
+@metric(name="citation_check", score_type="binary")
+def citation_check(input: str, output: str) -> dict:
+    """Passes if the response includes at least one citation marker like [1] or (Source:...)."""
+    import re
+    has_citation = bool(re.search(r"\\[\\d+\\]|\\(Source:", output))
+    return {
+        "score": 1.0 if has_citation else 0.0,
+        "details": {"reason": "Response contains a citation." if has_citation else "No citation found."},
+    }
+
+
+if __name__ == "__main__":
+    client.connect()
+`}
+</CodeBlock>
+
+Run the script, and when a test that uses `citation_check` executes, the backend invokes your function and records the result.
+
+```bash
+python metrics.py
+```
+
+### Decorator Parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `name` | `str` | function name | The metric name shown in the platform and used to match the metric to a test set. |
+| `score_type` | `str` | `"numeric"` | Score type: `"numeric"`, `"binary"`, or `"categorical"`. |
+| `description` | `str` | `""` | Human-readable description shown in the platform. |
+
+### Function Signature
+
+Your function must accept `input` and `output` as keyword arguments. Two optional parameters are also available:
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `input` | `str` | Yes | The prompt or user message sent to the LLM. |
+| `output` | `str` | Yes | The LLM response being evaluated. |
+| `expected_output` | `str` | No | The ground truth or reference answer (when provided in the test set). |
+| `context` | `list[str]` | No | Retrieved context documents (for RAG evaluation). |
+
+No other parameter names are accepted — the decorator will raise a `TypeError` if your function signature contains anything else.
+
+### Return Format
+
+Return a `dict` with at least a `"score"` key. An optional `"details"` dict can carry structured metadata that appears in the Rhesis UI alongside the score.
+
+<CodeBlock filename="return_format.py" language="python">
+{`# Minimal — score only
+return {"score": 8.5}
+
+# With details — shown in the platform result drawer
+return {
+    "score": 8.5,
+    "details": {
+        "reason": "Response was accurate and well-structured.",
+        "flagged_phrases": [],
+    },
+}`}
+</CodeBlock>
+
+For `"binary"` metrics, use `1.0` for pass and `0.0` for fail.
+
+## Viewing in the Platform
+
+When your script is running and connected (`client.connect()`), the backend receives the metric registrations over WebSocket and makes them available in the Rhesis UI.
+
+Open **Metrics** in the sidebar. Code metrics registered from the SDK appear in the list marked with an **SDK** button, which distinguishes them from LLM-based metrics configured directly in the platform.
+
+
+You can assign them to [Behaviors](/docs/behaviors) and include them in test sets exactly like any other metric. The only difference is that the metric code runs on your machine — the connector must be active when a test run that uses the metric is executed.
+
+<Callout type="warning">
+  If your script is not running when a test executes, the backend will report a metric error for that run. Keep the script running for the duration of any test execution that references your code metrics.
+</Callout>
+
+
+---
+
+<Callout type="info">
+  **Related:**
+  - [SDK Metrics](/sdk/metrics) — LLM-based evaluation metrics (NumericJudge, CategoricalJudge, etc.)
+  - [Trace Metrics](/docs/metrics/trace-metrics) — automatic evaluation on live production traces
+  - [Decorators](/docs/tracing/decorators) — `@observe` and `@endpoint` for tracing
+  - [Connector](/sdk/installation) — how the SDK connector works
+</Callout>

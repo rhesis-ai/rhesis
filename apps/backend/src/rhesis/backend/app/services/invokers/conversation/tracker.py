@@ -41,8 +41,21 @@ def find_conversation_id(data: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-# Pattern to detect {{ messages }} (with or without spaces) in request_mapping
-_MESSAGES_TEMPLATE_PATTERN = re.compile(r"\{\{\s*messages\s*\}\}")
+def mapping_has_template_variable(endpoint: Endpoint, variable: str) -> bool:
+    """Return True when ``request_mapping`` contains ``{{ <variable> }}``.
+
+    Serialises the mapping to a string (supporting both dict and raw-string
+    forms) and searches for the Jinja2 placeholder with optional whitespace.
+    Used by :meth:`ConversationTracker.detect_stateless_mode` and
+    :func:`~rhesis.backend.app.services.endpoint.files.endpoint_supports_files`
+    so the serialisation logic lives in exactly one place.
+    """
+    mapping = endpoint.request_mapping
+    if not mapping:
+        return False
+    mapping_str = json.dumps(mapping) if isinstance(mapping, dict) else str(mapping)
+    pattern = re.compile(r"\{\{\s*" + re.escape(variable) + r"\s*\}\}")
+    return bool(pattern.search(mapping_str))
 
 
 class ConversationTracker:
@@ -65,17 +78,7 @@ class ConversationTracker:
         Returns:
             True if the endpoint is stateless, False otherwise.
         """
-        request_mapping = endpoint.request_mapping
-        if not request_mapping:
-            return False
-
-        # Serialize to string for pattern matching
-        if isinstance(request_mapping, dict):
-            mapping_str = json.dumps(request_mapping)
-        else:
-            mapping_str = str(request_mapping)
-
-        is_stateless = bool(_MESSAGES_TEMPLATE_PATTERN.search(mapping_str))
+        is_stateless = mapping_has_template_variable(endpoint, "messages")
         if is_stateless:
             logger.debug(
                 "Detected stateless endpoint mode ({{ messages }} found in request_mapping)"

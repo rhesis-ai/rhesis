@@ -49,7 +49,7 @@ dependencies = [
     "aiohttp_security",
     "aiohttp_session",
     "appdirs",
-    "cryptography>=46.0.5",
+    "cryptography>=46.0.7",
     "pillow>=12.1.1",
     "marshmallow>=3.26.2",
     "mammoth>=1.11.0",
@@ -77,7 +77,7 @@ Documentation = "https://rhesis-sdk.readthedocs.io"
 [project.optional-dependencies]
 huggingface = [
     "torch>=2.8.0",
-    "transformers==4.57.1",
+    "transformers>=5.0.0",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
 ]
@@ -90,14 +90,14 @@ garak = [
 # Framework integrations for auto-instrumentation
 langchain = [
     "langchain>=0.1.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.2.28",
 ]
 
 langgraph = [
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "langchain>=0.1.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.2.28",
 ]
 
 autogen = [
@@ -106,7 +106,7 @@ autogen = [
 
 all-integrations = [
     "langchain>=0.1.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.2.28",
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
@@ -114,11 +114,11 @@ all-integrations = [
 
 all = [
     "torch>=2.8.0",
-    "transformers==4.57.1",
+    "transformers>=5.0.0",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
     "langchain>=0.1.0",
-    "langchain-core>=1.2.11",
+    "langchain-core>=1.2.28",
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
@@ -167,11 +167,19 @@ allow-direct-references = true
 
 [tool.uv]
 exclude-newer = "1 week"
+# Allow newer versions for packages with recent security patches (CVEs).
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false }
 constraint-dependencies = [
     "tornado>=6.5.5",
     "pyasn1>=0.6.3",
     "orjson>=3.11.7",
     "langchain-openai>=1.1.14",
+    "gitpython>=3.1.49",
+    "mistune>=3.2.1",
+    "jupyterlab>=4.5.7",
+    "jupyter-server>=2.18.0",
+    "notebook>=7.5.6",
+    "python-multipart>=0.0.27",
 ]
 override-dependencies = [
     "datasets>=4.0.0",

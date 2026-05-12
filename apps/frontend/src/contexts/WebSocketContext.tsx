@@ -46,25 +46,16 @@ interface WebSocketProviderProps {
 }
 
 /**
- * Get the WebSocket URL from environment variables.
+ * Derive WebSocket URL from NEXT_PUBLIC_API_BASE_URL (http(s) → ws(s), path /ws).
  */
 function getWebSocketUrl(): string | null {
-  // Try NEXT_PUBLIC_WS_URL first
-  const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-  if (wsUrl) {
-    return wsUrl;
-  }
-
-  // Derive from API URL if WS URL not set
   const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (apiUrl) {
-    // Replace http(s) with ws(s) and add /ws endpoint
-    const wsProtocol = apiUrl.startsWith('https://') ? 'wss://' : 'ws://';
-    const baseUrl = apiUrl.replace(/^https?:\/\//, '');
-    return `${wsProtocol}${baseUrl}/ws`;
+  if (!apiUrl) {
+    return null;
   }
-
-  return null;
+  const wsProtocol = apiUrl.startsWith('https://') ? 'wss://' : 'ws://';
+  const baseUrl = apiUrl.replace(/^https?:\/\//, '');
+  return `${wsProtocol}${baseUrl}/ws`;
 }
 
 /**
@@ -103,7 +94,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     const wsUrl = getWebSocketUrl();
     if (!wsUrl) {
       console.warn(
-        'WebSocket URL not configured. Set NEXT_PUBLIC_WS_URL or NEXT_PUBLIC_API_BASE_URL.'
+        'WebSocket URL not configured. Set NEXT_PUBLIC_API_BASE_URL.'
       );
       return;
     }

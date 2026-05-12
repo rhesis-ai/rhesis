@@ -63,6 +63,11 @@ class ConnectionManager:
         # Store metric registries: {project_id:environment: [MetricMetadata]}
         self._metric_registries: Dict[str, List[MetricMetadata]] = {}
 
+        # Org-scoped metric routing: connection_id -> set of (org_id, metric_name).
+        # Mirrors what is written under ``ws:metric:{org}:{name}`` in Redis so
+        # the heartbeat loop and disconnect cleanup can keep those keys in sync.
+        self._connection_metric_keys: Dict[str, set] = {}
+
         # --- Result layer ---
         self._test_results: Dict[str, Dict[str, Any]] = {}
         self._metric_results: Dict[str, Dict[str, Any]] = {}
@@ -198,14 +203,20 @@ class ConnectionManager:
     async def _cleanup_redis_for_connection(self, connection_id: str, project_keys: set) -> None:
         """Remove all Redis keys for a disconnected connection.
 
-        Deletes the connection-level key and all project routing keys.
+        Deletes the connection-level key, all project routing keys, and any
+        org-scoped metric routing keys (``ws:metric:{org}:{name}``) that were
+        registered through this connection.
         """
+        metric_keys = self._connection_metric_keys.pop(connection_id, set())
         try:
             await redis_manager.client.delete(f"ws:conn:{connection_id}")
             for pk in project_keys:
                 await redis_manager.client.delete(f"ws:routing:{pk}")
+            for org_id, metric_name in metric_keys:
+                await redis_manager.client.delete(f"ws:metric:{org_id}:{metric_name}")
             logger.debug(
-                f"Cleaned Redis for connection {connection_id} ({len(project_keys)} project key(s))"
+                f"Cleaned Redis for connection {connection_id} "
+                f"({len(project_keys)} project key(s), {len(metric_keys)} metric key(s))"
             )
         except Exception as e:
             logger.warning(f"Failed to clean Redis for {connection_id}: {e}")
@@ -238,6 +249,14 @@ class ConnectionManager:
                             f"ws:routing:{pk}",
                             30,
                             self.worker_id,
+                        )
+                    for org_id, metric_name in self._connection_metric_keys.get(
+                        connection_id, set()
+                    ):
+                        await redis_manager.client.setex(
+                            f"ws:metric:{org_id}:{metric_name}",
+                            30,
+                            connection_id,
                         )
                     logger.debug(f"Heartbeat refreshed for {connection_id}")
                 except Exception as e:
@@ -277,6 +296,58 @@ class ConnectionManager:
         key = self.get_connection_key(project_id, environment)
         self._metric_registries[key] = metrics
         logger.info(f"Registered {len(metrics)} metric(s) for {key}")
+
+    async def _register_metric_routing(
+        self,
+        connection_id: str,
+        organization_id: Optional[str],
+        metrics: List[Any],
+    ) -> None:
+        """Write ``ws:metric:{org}:{name}`` routing keys for a connection.
+
+        Each key maps a (organization, metric_name) pair to the
+        ``connection_id`` that currently hosts the metric. The Celery
+        worker uses this lookup for org-scoped metric dispatch when no
+        ``project_id`` is configured on the SDK side.
+
+        The key value is ``connection_id`` (not ``worker_id``) so the
+        existing connection-scoped RPC path (``ws:conn:{connection_id}``)
+        handles cross-instance routing.
+
+        Args:
+            connection_id: WebSocket connection identifier.
+            organization_id: Organization owning the connection (from the
+                immutable auth context).
+            metrics: List of metric metadata objects (each with a ``name``).
+        """
+        if not metrics or not organization_id:
+            return
+
+        tracked = self._connection_metric_keys.setdefault(connection_id, set())
+        for m in metrics:
+            metric_name = getattr(m, "name", None) or (
+                m.get("name") if isinstance(m, dict) else None
+            )
+            if not metric_name:
+                continue
+            tracked.add((organization_id, metric_name))
+
+        if not redis_manager.is_available:
+            return
+
+        try:
+            for org_id, metric_name in tracked:
+                await redis_manager.client.setex(
+                    f"ws:metric:{org_id}:{metric_name}",
+                    30,
+                    connection_id,
+                )
+            logger.info(
+                f"Registered {len(tracked)} org-scoped metric route(s) "
+                f"for connection {connection_id} (org={organization_id})"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to set ws:metric:* keys for connection {connection_id}: {e}")
 
     def has_local_route(self, project_id: str, environment: str) -> bool:
         """Check whether this instance has a local route for a project:env."""
@@ -761,6 +832,13 @@ class ConnectionManager:
             # their metric handlers on this connection.
             if reg_project_id and reg_environment:
                 await self.handle_registration(reg_project_id, reg_environment, message)
+                await self._register_metric_routing(
+                    connection_id=connection_id,
+                    organization_id=organization_id,
+                    metrics=self._metric_registries.get(
+                        self.get_connection_key(reg_project_id, reg_environment), []
+                    ),
+                )
                 return await message_handler.handle_register_message(
                     project_id=reg_project_id,
                     environment=reg_environment,
@@ -772,6 +850,15 @@ class ConnectionManager:
 
             # Metrics-only registration (no project binding)
             logger.info(f"Metrics-only registration for connection {connection_id}")
+            try:
+                reg_msg = RegisterMessage(**message)
+                await self._register_metric_routing(
+                    connection_id=connection_id,
+                    organization_id=organization_id,
+                    metrics=reg_msg.metrics,
+                )
+            except Exception as e:
+                logger.error(f"Failed to register org-scoped metric routing: {e}")
             response = await message_handler.handle_register_message(
                 project_id="",
                 environment="",

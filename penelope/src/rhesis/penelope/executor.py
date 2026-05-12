@@ -282,11 +282,18 @@ class TurnExecutor:
                 else:
                     logger.debug("Using existing conversation_id from params")
 
-            # Inject files when include_files=True and files are available
+            # Inject files only when Penelope explicitly requests it via
+            # include_files=True.  The decision is left entirely to Penelope
+            # so that the test instructions (e.g. "first ask the chatbot to
+            # request a file before sending it") are respected.
             if action_name == "send_message_to_target":
-                if action_params.pop("include_files", False) and state.context.files:
+                explicit_include = action_params.pop("include_files", None)
+                if explicit_include is True and state.context.files:
                     action_params["files"] = state.context.files
-                    logger.debug("Injected %d file(s) into params", len(state.context.files))
+                    logger.debug(
+                        "Injected %d file(s) into params (explicit=True)",
+                        len(state.context.files),
+                    )
 
             if self.verbose:
                 param_keys = list(action_params.keys()) if action_params else []
@@ -586,9 +593,13 @@ class TurnExecutor:
                     logger.debug("Using existing conversation_id from params")
 
             if action_name == "send_message_to_target":
-                if action_params.pop("include_files", False) and state.context.files:
+                explicit_include = action_params.pop("include_files", None)
+                if explicit_include is True and state.context.files:
                     action_params["files"] = state.context.files
-                    logger.debug("Injected %d file(s) into params", len(state.context.files))
+                    logger.debug(
+                        "Injected %d file(s) into params (explicit=True)",
+                        len(state.context.files),
+                    )
 
             if not action_name:
                 logger.warning("Structured output missing tool_name")

@@ -56,15 +56,14 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NEXT_PUBLIC_GIT_BRANCH=${GIT_BRANCH}
 ENV NEXT_PUBLIC_GIT_COMMIT=${GIT_COMMIT}
 
-# Define build arguments only for NEXT_PUBLIC_ variables
-ARG NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai
-ARG NEXT_PUBLIC_QUICK_START=false
+# NEXT_PUBLIC_API_BASE_URL and NEXT_PUBLIC_QUICK_START are fixed placeholders;
+# replace-runtime-env.sh substitutes the real values at container start.
 
 # Create a temporary .env file using build arguments for NEXT_PUBLIC_ and direct placeholders for the rest
 RUN echo "NEXTAUTH_SECRET=temporary-build-secret-not-for-production" > apps/frontend/.env && \
-    echo "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" >> apps/frontend/.env && \
+    echo "NEXT_PUBLIC_API_BASE_URL=__NEXT_PUBLIC_API_BASE_URL__" >> apps/frontend/.env && \
     echo "BACKEND_URL=${BACKEND_URL}" >> apps/frontend/.env && \
-    echo "NEXT_PUBLIC_QUICK_START=${NEXT_PUBLIC_QUICK_START}" >> apps/frontend/.env && \
+    echo "NEXT_PUBLIC_QUICK_START=__NEXT_PUBLIC_QUICK_START__" >> apps/frontend/.env && \
     echo "GOOGLE_CLIENT_ID=placeholder-client-id" >> apps/frontend/.env && \
     echo "GOOGLE_CLIENT_SECRET=placeholder-client-secret" >> apps/frontend/.env && \
     echo "AUTH_SECRET=placeholder-auth-secret" >> apps/frontend/.env
@@ -121,6 +120,8 @@ COPY --from=builder /app/apps/frontend/.next/standalone ./
 # Static assets and public must sit alongside server.js so Next.js serves them.
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./apps/frontend/.next/static
 COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/scripts/replace-runtime-env.sh ./apps/frontend/scripts/replace-runtime-env.sh
+RUN chmod +x /app/apps/frontend/scripts/replace-runtime-env.sh
 
 # Do NOT copy src, tsconfig.json, eslint.config.mjs or any .env files to production image
 # Install dependencies and handle environment-specific setup
@@ -140,6 +141,8 @@ EXPOSE 3000
 # Add a health check that uses the PORT env var with fallback
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/ || exit 1
+
+ENTRYPOINT ["/app/apps/frontend/scripts/replace-runtime-env.sh"]
 
 # server.js does process.chdir(__dirname) so PORT env var drives the port.
 # Run from /app; server.js is at apps/frontend/server.js inside the standalone output.

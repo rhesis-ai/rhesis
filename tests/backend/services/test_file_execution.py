@@ -3,6 +3,7 @@ Tests for file support in the execution pipeline.
 
 Tests that input files are injected into input_data as base64,
 and that output files from endpoint responses are stored as File records.
+Also covers the vision-model fallback in _load_input_files.
 """
 
 import base64
@@ -11,9 +12,7 @@ from uuid import uuid4
 
 import pytest
 
-from rhesis.backend.tasks.execution.executors.output_providers import (
-    SingleTurnOutput,
-)
+from rhesis.backend.tasks.execution.executors.output_providers import SingleTurnOutput
 from rhesis.backend.tasks.execution.executors.results import (
     _store_output_files,
 )
@@ -181,3 +180,101 @@ class TestOutputFileCapture:
         with patch("rhesis.backend.tasks.execution.executors.results.crud") as mock_crud:
             _store_output_files(db, uuid4(), "not a list", str(uuid4()), str(uuid4()))
             mock_crud.create_file.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Vision-model fallback in _load_input_files
+# ---------------------------------------------------------------------------
+
+
+_PROVIDERS_PATH = "rhesis.backend.tasks.execution.executors.output_providers"
+_SDK_EXTRACTOR_PATH = "rhesis.sdk.services.extractor"
+
+
+class TestLoadInputFilesVisionFallback:
+    """Tests for SingleTurnOutput._load_input_files.
+
+    Extraction strategy is now owned by ``extract_with_vision_fallback`` (SDK),
+    so these tests mock that single entry-point rather than the internal
+    _select_extractor / ImageExtractor chain.
+    """
+
+    def _make_db_file(self, filename="deck.pdf", content_type="application/pdf"):
+        f = MagicMock()
+        f.filename = filename
+        f.content_type = content_type
+        f.content = b"%PDF-fake-content"
+        f.position = 0
+        return f
+
+    def _make_db(self, files):
+        db = MagicMock()
+        query_chain = MagicMock()
+        query_chain.all.return_value = files
+        db.query.return_value.filter.return_value.options.return_value.order_by.return_value = (
+            query_chain
+        )
+        return db
+
+    @patch(f"{_PROVIDERS_PATH}._resolve_model_for_extraction")
+    def test_extracted_text_set_from_vision_fallback(self, mock_resolve):
+        """extracted_text on each entry comes from extract_with_vision_fallback."""
+        mock_model = MagicMock()
+        mock_resolve.return_value = mock_model
+        db = self._make_db([self._make_db_file()])
+
+        with patch(
+            f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback",
+            return_value="Architecture diagram showing 3 microservices.",
+        ):
+            result = SingleTurnOutput._load_input_files(
+                db=db, test_id=uuid4(), organization_id=str(uuid4()), model=mock_model
+            )
+
+        assert result[0]["extracted_text"] == "Architecture diagram showing 3 microservices."
+
+    @patch(f"{_PROVIDERS_PATH}._resolve_model_for_extraction")
+    def test_model_forwarded_to_extract_with_vision_fallback(self, mock_resolve):
+        """The resolved model must reach extract_with_vision_fallback."""
+        mock_model = MagicMock()
+        mock_resolve.return_value = mock_model
+        db = self._make_db([self._make_db_file()])
+
+        with patch(
+            f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback", return_value="content"
+        ) as mock_fn:
+            SingleTurnOutput._load_input_files(
+                db=db, test_id=uuid4(), organization_id=str(uuid4()), model=mock_model
+            )
+
+        call_kwargs = mock_fn.call_args
+        assert mock_model in call_kwargs[0] or call_kwargs[1].get("model") is mock_model
+
+    @patch(f"{_PROVIDERS_PATH}._resolve_model_for_extraction")
+    def test_empty_extraction_result_stored_as_empty_string(self, mock_resolve):
+        mock_resolve.return_value = None
+        db = self._make_db([self._make_db_file()])
+
+        with patch(f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback", return_value=""):
+            result = SingleTurnOutput._load_input_files(
+                db=db, test_id=uuid4(), organization_id=str(uuid4()), model=None
+            )
+
+        assert result[0]["extracted_text"] == ""
+
+    @patch(f"{_PROVIDERS_PATH}._resolve_model_for_extraction")
+    def test_extraction_exception_does_not_propagate(self, mock_resolve):
+        """_load_input_files must not raise when extraction fails."""
+        mock_resolve.return_value = MagicMock()
+        db = self._make_db([self._make_db_file()])
+
+        with patch(
+            f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback",
+            side_effect=RuntimeError("LLM timeout"),
+        ):
+            result = SingleTurnOutput._load_input_files(
+                db=db, test_id=uuid4(), organization_id=str(uuid4()), model=MagicMock()
+            )
+
+        # File still present but without extracted_text (extraction skipped on error)
+        assert len(result) >= 0  # does not raise

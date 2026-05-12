@@ -83,16 +83,17 @@ def run_migrations_online():
         "SQLALCHEMY_DB_NAME": os.getenv("SQLALCHEMY_DB_NAME", ""),
     }
 
-    # Get the base URL from config
-    url = config.get_main_option("sqlalchemy.url")
-
-    # If we're running locally with Cloud SQL Proxy
-    if os.getenv("SQLALCHEMY_DB_HOST", "").startswith(("/cloudsql", "/tmp/cloudsql")):
+    # Prefer the full DATABASE_URL env var if set (works correctly in Docker, Cloud Run, etc.)
+    # Fall back to constructing the URL from individual components via alembic.ini placeholders
+    if os.getenv("SQLALCHEMY_DATABASE_URL"):
+        url = os.environ["SQLALCHEMY_DATABASE_URL"]
+    elif os.getenv("SQLALCHEMY_DB_HOST", "").startswith(("/cloudsql", "/tmp/cloudsql")):
         # Modify the connection string for local Unix socket
         unix_socket = os.getenv("SQLALCHEMY_DB_HOST")
         url = f"postgresql://{url_tokens['SQLALCHEMY_DB_USER']}:{url_tokens['SQLALCHEMY_DB_PASS']}@/{url_tokens['SQLALCHEMY_DB_NAME']}?host={unix_socket}"
     else:
-        # Use the standard URL substitution for other environments
+        # Substitute ${VAR} placeholders in alembic.ini with env var values
+        url = config.get_main_option("sqlalchemy.url")
         url = re.sub(r"\${(.+?)}", lambda m: url_tokens[m.group(1)], url)
 
     # if we are running tests, use the test database instead

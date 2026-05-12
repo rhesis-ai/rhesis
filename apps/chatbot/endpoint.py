@@ -78,7 +78,7 @@ def get_llm_model():
 class ResponseGenerator:
     """Class to generate responses using SDK model providers."""
 
-    def __init__(self, use_case: str = "insurance"):
+    def __init__(self, use_case: str = "travel"):
         """Initialize with SDK model and use case."""
         self.model = get_llm_model()
         self.use_case = use_case
@@ -127,14 +127,6 @@ class ResponseGenerator:
         """Build the full prompt with file contents and conversation history."""
         full_prompt = self.use_case_system_prompt + "\n\n"
 
-        # Inject file contents between system prompt and conversation
-        if file_contents:
-            full_prompt += "The user has provided the following files:\n\n"
-            for fc in file_contents:
-                filename = fc.get("filename", "unknown")
-                content = fc.get("content", "")
-                full_prompt += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
-
         # Add conversation history if provided
         if conversation_history:
             for msg in conversation_history:
@@ -143,11 +135,24 @@ class ResponseGenerator:
                     content = msg.get("content", "")
                     full_prompt += f"{role}: {content}\n\n"
                 elif isinstance(msg, str):
-                    # If it's a string, treat it as user message
                     full_prompt += f"User: {msg}\n\n"
 
-        # Add current prompt
-        full_prompt += f"User: {prompt}\n\nAssistant:"
+        # Attach file contents to the current user message so the LLM clearly
+        # associates them with this specific turn (not previous turns).
+        current_user_content = prompt
+        if file_contents:
+            file_block = ""
+            for fc in file_contents:
+                filename = fc.get("filename", "unknown")
+                content = fc.get("content", "")
+                file_block += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
+            current_user_content = (
+                f"[The user has attached the following file(s) with this message:]\n\n"
+                f"{file_block}"
+                f"[User message:] {prompt}"
+            )
+
+        full_prompt += f"User: {current_user_content}\n\nAssistant:"
         return full_prompt
 
     @observe.llm(
@@ -477,14 +482,14 @@ into one of four categories.
         return {"intent": "informational", "confidence": "low"}
 
 
-def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
+def get_response_generator(use_case: str = "travel") -> ResponseGenerator:
     """Get a ResponseGenerator instance for the specified use case."""
     return ResponseGenerator(use_case)
 
 
 async def get_assistant_response(
     prompt: str,
-    use_case: str = "insurance",
+    use_case: str = "travel",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
@@ -498,7 +503,7 @@ async def get_assistant_response(
 
 async def stream_assistant_response(
     prompt: str,
-    use_case: str = "insurance",
+    use_case: str = "travel",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
@@ -578,7 +583,7 @@ def _collect_stream_chunks(
 
 def stream_assistant_response_sync(
     prompt: str,
-    use_case: str = "insurance",
+    use_case: str = "travel",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
@@ -591,7 +596,7 @@ def stream_assistant_response_sync(
     yield from chunks
 
 
-async def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
+async def generate_context(prompt: str, use_case: str = "travel") -> List[str]:
     """Generate context fragments for a prompt."""
     response_generator = get_response_generator(use_case)
     return await response_generator.generate_context(prompt)
@@ -602,20 +607,20 @@ async def generate_context(prompt: str, use_case: str = "insurance") -> List[str
     description="Classify user intent from a prompt",
     request_mapping={
         "prompt": "{{ input }}",
-        "use_case": "{{ use_case | default('insurance') }}",
+        "use_case": "{{ use_case | default('travel') }}",
     },
     response_mapping={
         "output": "{{ intent }}",
         "metadata": "{{ {'intent': intent, 'confidence': confidence} | tojson }}",
     },
 )
-async def recognize_intent_endpoint(prompt: str, use_case: str = "insurance") -> dict:
+async def recognize_intent_endpoint(prompt: str, use_case: str = "travel") -> dict:
     """
     Standalone SDK endpoint for testing intent recognition.
 
     Args:
         prompt: User's message/prompt to classify
-        use_case: Use case for context (default: "insurance")
+        use_case: Use case for context (default: "travel")
 
     Returns:
         Intent classification result with intent and confidence
