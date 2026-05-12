@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-05-04T21:15:43.086223Z"
+exclude-newer = "2026-05-05T14:53:18.264068Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6420,7 +6420,6 @@ dependencies = [
     { name = "faker" },
     { name = "fastapi" },
     { name = "fastxlsx" },
-    { name = "google-cloud-storage" },
     { name = "gunicorn" },
     { name = "httpx" },
     { name = "itsdangerous" },
@@ -6479,6 +6478,9 @@ cpu = [
     { name = "torch", version = "2.10.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "torch", version = "2.10.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-14-rhesis-backend-cpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
+ee = [
+    { name = "rhesis-backend-ee" },
+]
 gpu = [
     { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "torch", version = "2.10.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
@@ -6515,7 +6517,6 @@ requires-dist = [
     { name = "fastxlsx", specifier = ">=0.2.0" },
     { name = "garak", marker = "extra == 'all'", specifier = ">=0.14.0" },
     { name = "gcsfs", marker = "extra == 'all'", specifier = ">=2025.9.0" },
-    { name = "google-cloud-storage", specifier = ">=3.8.0" },
     { name = "google-genai", marker = "extra == 'all'", specifier = ">=1.13.0" },
     { name = "gunicorn", specifier = ">=21.2.0" },
     { name = "httpx" },
@@ -6552,6 +6553,7 @@ requires-dist = [
     { name = "pyyaml" },
     { name = "redis", specifier = ">=5.0.0,<6.0.0" },
     { name = "rhesis", directory = "../../packages/rhesis" },
+    { name = "rhesis-backend-ee", marker = "extra == 'ee'", editable = "../../ee/backend" },
     { name = "rhesis-penelope", marker = "extra == 'all'", editable = "../../penelope" },
     { name = "rhesis-sdk", marker = "extra == 'all'", editable = "../../sdk" },
     { name = "sendgrid", marker = "extra == 'all'", specifier = ">=6.12.5" },
@@ -6567,7 +6569,7 @@ requires-dist = [
     { name = "yaspin", specifier = "==3.1.0" },
     { name = "zxcvbn", specifier = ">=4.4.24" },
 ]
-provides-extras = ["all", "cpu", "gpu"]
+provides-extras = ["ee", "all", "cpu", "gpu"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -6585,6 +6587,11 @@ dev = [
     { name = "pytest-xdist", specifier = ">=3.6.0" },
     { name = "ruff", specifier = ">=0.11.6" },
 ]
+
+[[package]]
+name = "rhesis-backend-ee"
+version = "0.7.0"
+source = { editable = "../../ee/backend" }
 
 [[package]]
 name = "rhesis-penelope"

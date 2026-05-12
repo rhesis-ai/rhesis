@@ -2,12 +2,38 @@
 Rate limiting utilities for the application.
 """
 
+import os
+
 from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-# Create limiter instance
-limiter = Limiter(key_func=get_remote_address, default_limits=["1000/day", "100/hour"])
+TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
+
+
+def get_real_ip(request: Request) -> str:
+    """Extract the real client IP, respecting trusted proxy depth.
+
+    X-Forwarded-For format: client, proxy1, proxy2 (leftmost = original client).
+    With TRUSTED_PROXY_COUNT=1 (single load balancer) we strip the rightmost
+    entry (added by our proxy) and return the entry just before it.
+    If TRUSTED_PROXY_COUNT=0, use the socket address directly.
+    """
+    if TRUSTED_PROXY_COUNT == 0:
+        return request.client.host if request.client else "unknown"
+
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        ips = [ip.strip() for ip in xff.split(",")]
+        # Subtract proxies + 1 so we land on the last untrusted entry.
+        idx = max(0, len(ips) - TRUSTED_PROXY_COUNT - 1)
+        return ips[idx]
+
+    return request.client.host if request.client else "unknown"
+
+
+# Create limiter instance with trusted-proxy-aware IP extraction
+limiter = Limiter(key_func=get_real_ip, default_limits=["1000/day", "100/hour"])
 
 
 def get_user_identifier(request: Request) -> str:
@@ -40,3 +66,7 @@ AUTH_RESEND_VERIFICATION_LIMIT = "5/hour"
 AUTH_MAGIC_LINK_LIMIT = "5/hour"
 AUTH_LOGIN_EMAIL_LIMIT = "20/hour"
 AUTH_REGISTER_LIMIT = "10/hour"
+
+# EE features that need their own rate-limit constants define them
+# alongside their routers and decorate handlers with the shared
+# ``limiter`` instance defined above. Core has no per-feature constants.

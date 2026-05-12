@@ -25,8 +25,8 @@ Routes are categorized based on authentication requirements:
 
 These routes don't require any authentication:
 
-<CodeBlock filename="public-routes.py" language="python">
-{`public_routes = [
+<CodeBlock filename="public_routes.py" language="python">
+{`PUBLIC_ROUTES = [
     "/",
     "/auth/login",
     "/auth/callback",
@@ -38,12 +38,14 @@ These routes don't require any authentication:
 ]`}
 </CodeBlock>
 
+The full list lives in `apps/backend/src/rhesis/backend/app/auth/public_routes.py` and is mutable so EE features (or other plugins) can extend it from their bootstrap before `app.include_router` runs for their own routers.
+
 ### Token-Enabled Routes
 
 These routes accept both session and token authentication:
 
-<CodeBlock filename="token-enabled-routes.py" language="python">
-{`token_enabled_routes = [
+<CodeBlock filename="public_routes.py" language="python">
+{`TOKEN_ENABLED_ROUTES = [
     "/api/",
     "/tokens/",
     "/test_sets/",
@@ -64,10 +66,10 @@ The application uses a custom `AuthenticatedAPIRoute` class that automatically a
 <CodeBlock filename="authenticated-api-route.py" language="python">
 {`class AuthenticatedAPIRoute(APIRoute):
     def get_dependencies(self):
-        if self.path in public_routes:
+        if self.path in PUBLIC_ROUTES:
             # No auth required
             return []
-        elif any(self.path.startswith(route) for route in token_enabled_routes):
+        elif any(self.path.startswith(route) for route in TOKEN_ENABLED_ROUTES):
             # Both session and token auth accepted
             return [Depends(require_current_user_or_token)]
         # Default to session-only auth

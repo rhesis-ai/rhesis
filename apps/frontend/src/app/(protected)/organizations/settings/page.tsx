@@ -11,6 +11,8 @@ import { Organization } from '@/utils/api-client/interfaces/organization';
 import OrganizationDetailsForm from './components/OrganizationDetailsForm';
 import ContactInformationForm from './components/ContactInformationForm';
 import DangerZone from './components/DangerZone';
+import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
+import { getOrgSettingsSections } from '@/lib/extension-registries';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
@@ -18,7 +20,12 @@ export default function OrganizationSettingsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get organization name for breadcrumbs
+  // Registrations happen at module load via apps/frontend/src/ee_bootstrap.ts,
+  // so by the time this client component renders the list is complete.
+  // The registry returns a stable, frozen reference so this read does
+  // not churn React identity across renders.
+  const extensionSections = getOrgSettingsSections();
+
   const organizationName = organization?.name || 'Organization';
 
   const fetchOrganization = useCallback(
@@ -59,7 +66,6 @@ export default function OrganizationSettingsPage() {
   }, [fetchOrganization]);
 
   const handleUpdate = useCallback(() => {
-    // Silently refresh organization data without showing loading spinner
     fetchOrganization(false);
   }, [fetchOrganization]);
 
@@ -100,7 +106,6 @@ export default function OrganizationSettingsPage() {
 
   return (
     <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
-      {/* Basic Information Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
           Basic Information
@@ -112,7 +117,6 @@ export default function OrganizationSettingsPage() {
         />
       </Paper>
 
-      {/* Contact Information Section */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
           Contact Information
@@ -124,7 +128,30 @@ export default function OrganizationSettingsPage() {
         />
       </Paper>
 
-      {/* Danger Zone Section */}
+      {/* EE-registered sections (e.g. SSO) -- discovered via the
+          extension registry rather than imported by name. Sections
+          read context they need from `useOrgSettings()` and apply
+          their own `<FeatureGate>` wrapping; the page just composes. */}
+      <OrgSettingsProvider
+        value={{
+          organization,
+          sessionToken: session?.session_token || '',
+          onUpdate: handleUpdate,
+        }}
+      >
+        {extensionSections.map(section => {
+          const Section = section.component;
+          return (
+            <Paper key={section.id} sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                {section.title}
+              </Typography>
+              <Section />
+            </Paper>
+          );
+        })}
+      </OrgSettingsProvider>
+
       <Paper sx={{ p: 3 }}>
         <Box
           sx={{

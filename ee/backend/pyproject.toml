@@ -1,0 +1,21 @@
+[project]
+name = "rhesis-backend-ee"
+version = "0.7.0"
+description = "Rhesis enterprise edition backend package"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/rhesis",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[build-system]
+requires = [
+    "hatchling",
+]
+build-backend = "hatchling.build"

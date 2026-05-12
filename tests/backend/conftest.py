@@ -36,6 +36,7 @@ _TEST_ENV_VARS = {
     "JWT_ALGORITHM": "HS256",
     "JWT_ACCESS_TOKEN_EXPIRE_MINUTES": "10080",
     "DB_ENCRYPTION_KEY": "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=",
+    "SSO_ENCRYPTION_KEY": "9KgQ8O8Dx3xfUejfiAwkDgYMqD_2vekaNYw2WvqvJdw=",
     "AUTH0_DOMAIN": "test.auth0.com",
 }
 

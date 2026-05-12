@@ -1,22 +1,53 @@
-NOTE
+START NOTE
+Rhesis is an open-core project. The core of Rhesis is permissively
+licensed (MIT license). Certain parts of the periphery of Rhesis are
+commercially licensed and governed by this Enterprise License.
+For the avoidance of doubt, this license does not apply to the core of
+Rhesis as it is defined in its license in the directory "/LICENSE" (as
+opposed to this file "ee/LICENSE") which can be used and run without
+infringing the below license and its licensed materials.
+END NOTE
 
-Rhesis is developed as an open-core project. The core functionality of Rhesis is available under a permissive open-source license (MIT Expat). Certain surrounding components of the Rhesis platform are licensed under commercial terms and fall under the scope of this Enterprise License.
-To clarify: this Enterprise License does not apply to the Rhesis core as defined under the license located at /LICENSE. That core component may be freely used and executed without triggering the terms below.
+START OF LICENSE
+Rhesis Enterprise License (the "Enterprise License" or "EE License")
 
-Rhesis Enterprise License
-(the “Enterprise License” or "EE License")
+Copyright (c) 2026 Rhesis AI GmbH
 
-Copyright (c) 2025 Rhesis AI GmbH
+With regard to the Rhesis Enterprise Software:
 
-With respect to the Rhesis Enterprise Software:
+This software and associated documentation files (the "Software") may
+only be used in production, if you (and any entity that you represent)
+have agreed to, and are in compliance with, the applicable Rhesis Terms
+of Service, available at https://www.rhesis.ai/terms-conditions (the
+"Enterprise Terms"), or other agreement governing the use of the
+Software, as agreed by you and Rhesis AI GmbH, and otherwise have a
+valid Rhesis Enterprise License.
 
-The use of this software and accompanying documentation (collectively, the "Software") is permitted only if you (or the organization you represent) have accepted and comply with the applicable Rhesis Terms of Service, which can be found at https://www.rhesis.ai/terms-conditions, or a separate agreement executed between you and Rhesis AI GmbH that governs use of the Software.
-Provided that the above condition is met, you are allowed to make modifications to the Software and may share patches. However, Rhesis AI GmbH (and/or its licensors, as applicable) retains all intellectual property rights and ownership of any such modifications and derivatives. Any use, duplication, alteration, display, or distribution of these modifications is permitted only under a valid Rhesis Enterprise License.
+Subject to the foregoing sentence, you are free to modify this Software
+and publish patches to the Software. You agree that Rhesis AI GmbH
+and/or its licensors (as applicable) retain all right, title and
+interest in and to all such modifications and/or patches, and all such
+modifications and/or patches may only be used, copied, modified,
+displayed, distributed, or otherwise exploited with a valid Rhesis
+Enterprise License. Notwithstanding the foregoing, you may copy and
+modify the Software for development and testing purposes, without
+requiring a subscription. You agree that Rhesis AI GmbH and/or its
+licensors (as applicable) retain all right, title and interest in and
+to all such modifications. You are not granted any other rights beyond
+what is expressly stated herein. Subject to the foregoing, it is
+forbidden to copy, merge, publish, distribute, sublicense, and/or sell
+the Software.
 
-For development and testing purposes, you are permitted to copy and adapt the Software without a paid subscription. Nonetheless, ownership of all resulting work remains with Rhesis AI GmbH or its respective licensors. No rights are granted beyond those explicitly mentioned in this license. 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-Except as otherwise stated above, you may not publish, merge, sublicense, distribute, or commercially exploit the Software.
+For all third party components incorporated into the Rhesis Software,
+those components are licensed under the original license provided by
+the owner of the applicable component.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT ANY WARRANTY OF ANY KIND, WHETHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. UNDER NO CIRCUMSTANCES SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE HELD RESPONSIBLE FOR ANY DAMAGES OR LIABILITY, WHETHER IN CONTRACT, TORT, OR OTHERWISE, ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USAGE.
-
-All third-party libraries and tools integrated into the Rhesis Software are governed by the original licenses issued by their respective creators.
+END OF LICENSE

@@ -1,0 +1,55 @@
+# Dockerfile-specific .dockerignore for apps/frontend/Dockerfile.
+#
+# BuildKit uses this file (instead of the root .dockerignore) when the build
+# is run as:
+#   docker build -f apps/frontend/Dockerfile .
+#
+# The frontend build only needs apps/frontend/ and ee/frontend/.
+# Excluding everything else keeps the context sent to the daemon small.
+
+# Environment files
+**/.env
+**/.env.*
+
+# Python artefacts (not needed for frontend)
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/htmlcov/
+**/mypy_cache/
+**/*.ruff_cache/
+**/.venv
+**/venv
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs / temp
+*.log
+logs/
+**/logs/
+*.tmp
+*.temp
+
+# Directories not needed for the frontend build
+sdk/
+docs/
+apps/backend/
+apps/worker/
+apps/chatbot/
+ee/backend/
+infrastructure/
+tests/
+.git/
+.github/
+.cursor/
+node_modules/
+**/node_modules/
+**/.next/
+**/coverage/

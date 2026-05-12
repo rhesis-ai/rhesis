@@ -15,6 +15,7 @@ import { alpha } from '@mui/material/styles';
 import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';
 import VerificationBanner from '@/components/auth/VerificationBanner';
+import { FeaturesProvider } from '@/contexts/FeaturesContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,8 +201,10 @@ export default function ProtectedLayout({
   return (
     <QueryClientProvider client={queryClient}>
       <AuthErrorBoundary>
-        {!isOnboarding && <VerificationBanner />}
-        {content}
+        <FeaturesProvider>
+          {!isOnboarding && <VerificationBanner />}
+          {content}
+        </FeaturesProvider>
       </AuthErrorBoundary>
     </QueryClientProvider>
   );

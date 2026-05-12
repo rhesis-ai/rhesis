@@ -82,6 +82,46 @@ export default [
       'react-hooks/rules-of-hooks': 'error',
       'react/jsx-uses-react': 'off',
       'react/jsx-uses-vars': 'error',
+
+      // Open-core boundary guard.
+      //
+      // Core (apps/frontend/) must never statically import EE code. The
+      // only sanctioned bridge is apps/frontend/src/ee_bootstrap.ts,
+      // which is exempted in the override below. EE code may import
+      // freely from core; the inverse is what we forbid here.
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@rhesis/ee-frontend', '@rhesis/ee-frontend/*'],
+              message:
+                'Core frontend may not import from @rhesis/ee-frontend. Plug into a registry in @/lib/extension-registries instead, and register from ee/frontend/src/bootstrap.ts. The only sanctioned exception is apps/frontend/src/ee_bootstrap.ts.',
+            },
+            {
+              group: [
+                '../../../../../ee/frontend/*',
+                '../../../../ee/frontend/*',
+                '../../../ee/frontend/*',
+                '../../ee/frontend/*',
+                '../ee/frontend/*',
+              ],
+              message:
+                'Use the @rhesis/ee-frontend package rather than relative paths into ee/frontend/. (Note: relative imports of EE from core are forbidden anyway -- see the @rhesis/ee-frontend rule.)',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Sanctioned bridge: only ee_bootstrap.ts may import from @rhesis/ee-frontend.
+    files: ['src/ee_bootstrap.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
 ];
+// Note: EE source lives outside apps/frontend/ so ESLint does not scan it.
+// The boundary guard runs only in the other direction (core → EE), which the
+// no-restricted-imports rule above and check-ee-boundary.mjs enforce.

@@ -20,6 +20,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -112,16 +113,21 @@ def sync_metrics_to_organizations(
         if verbose:
             print(f"   Found {len(all_metrics)} metric definitions")
 
-        # Get all organizations
-        organizations = session.query(models.Organization).all()
+        # List orgs with raw SQL so migrations run before newer Organization columns
+        # (e.g. sso_config, slug) exist do not fail with UndefinedColumn on ORM loads.
+        org_rows = session.execute(
+            text("SELECT id, owner_id, user_id FROM organization WHERE deleted_at IS NULL")
+        ).fetchall()
 
         if verbose:
-            print(f"   Found {len(organizations)} organization(s)\n")
+            print(f"   Found {len(org_rows)} organization(s)\n")
 
-        for org in organizations:
-            organization_id = str(org.id)
+        for org_row in org_rows:
+            org_id = org_row[0]
+            organization_id = str(org_id)
+            owner_id, user_id_raw = org_row[1], org_row[2]
             # Use owner_id or fall back to user_id
-            user_id = org.owner_id or org.user_id
+            user_id = owner_id or user_id_raw
 
             # Skip if no valid user_id
             if not user_id:
@@ -134,7 +140,7 @@ def sync_metrics_to_organizations(
 
             # Get existing metrics for this organization
             existing_metrics = (
-                session.query(models.Metric).filter(models.Metric.organization_id == org.id).all()
+                session.query(models.Metric).filter(models.Metric.organization_id == org_id).all()
             )
             existing_metric_names = {m.name for m in existing_metrics}
 
@@ -226,7 +232,7 @@ def sync_metrics_to_organizations(
                             session.query(models.Behavior)
                             .filter(
                                 models.Behavior.name == behavior_name,
-                                models.Behavior.organization_id == org.id,
+                                models.Behavior.organization_id == org_id,
                             )
                             .first()
                         )

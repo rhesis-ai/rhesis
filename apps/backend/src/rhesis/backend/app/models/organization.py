@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -30,6 +30,12 @@ class Organization(Base, TagsMixin):
     domain = Column(String)  # For automatic user association
     is_domain_verified = Column(Boolean, default=False)
     is_onboarding_complete = Column(Boolean, default=False)
+
+    # Per-organization JSON configuration parsed by EE-aware consumers
+    # (e.g. SSO). The schema is owned by the consumer; core stores it
+    # as opaque JSON and never inspects its keys.
+    sso_config = Column(JSON, nullable=True)
+    slug = Column(String(50), unique=True, index=True, nullable=True)
 
     # Relationships with explicit UUID columns
     owner_id = Column(GUID(), ForeignKey("user.id"))

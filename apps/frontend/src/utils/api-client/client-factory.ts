@@ -29,6 +29,7 @@ import { TelemetryClient } from './telemetry-client';
 import { GarakClient } from './garak-client';
 import { ImportClient } from './import-client';
 import { FilesClient } from './files-client';
+import { FeaturesClient } from './features-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
@@ -45,6 +46,7 @@ export class ApiClientFactory {
   private garakClient: GarakClient | null = null;
   private importClient: ImportClient | null = null;
   private filesClient: FilesClient | null = null;
+  private featuresClient: FeaturesClient | null = null;
   private architectClient: ArchitectClient | null = null;
 
   constructor(sessionToken: string) {
@@ -208,6 +210,13 @@ export class ApiClientFactory {
       this.filesClient = new FilesClient(this.sessionToken);
     }
     return this.filesClient;
+  }
+
+  getFeaturesClient(): FeaturesClient {
+    if (!this.featuresClient) {
+      this.featuresClient = new FeaturesClient(this.sessionToken);
+    }
+    return this.featuresClient;
   }
 
   getArchitectClient(): ArchitectClient {

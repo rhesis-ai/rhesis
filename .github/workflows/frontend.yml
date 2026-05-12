@@ -7,6 +7,7 @@ on:
     branches: [ main ]
     paths:
       - 'apps/frontend/**'
+      - 'ee/frontend/**'
       - '.github/workflows/frontend.yml'
   workflow_dispatch:
     inputs:
@@ -174,7 +175,7 @@ jobs:
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
-              -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/frontend/Dockerfile apps/frontend
+              -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/frontend/Dockerfile .
 
             echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
           else
@@ -183,7 +184,7 @@ jobs:
               --build-arg FRONTEND_ENV=${{ secrets.FRONTEND_ENV }} \
               --build-arg GIT_BRANCH="${{ env.GIT_BRANCH }}" \
               --build-arg GIT_COMMIT="${{ env.COMMIT_SHA }}" \
-              -t ${{ env.IMAGE_NAME }}:latest -f apps/frontend/Dockerfile apps/frontend
+              -t ${{ env.IMAGE_NAME }}:latest -f apps/frontend/Dockerfile .
 
             echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
           fi

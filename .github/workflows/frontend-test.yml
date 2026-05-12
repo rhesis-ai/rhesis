@@ -5,11 +5,13 @@ on:
     branches: [ main ]
     paths:
       - 'apps/frontend/**'
+      - 'ee/frontend/**'
       - '.github/workflows/frontend-test.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'apps/frontend/**'
+      - 'ee/frontend/**'
       - '.github/workflows/frontend-test.yml'
   workflow_dispatch:
   schedule:
@@ -34,6 +36,11 @@ jobs:
           cd apps/frontend
           npm ci --legacy-peer-deps
 
+      - name: Type check (core + EE)
+        run: |
+          cd apps/frontend
+          npm run type-check
+
       - name: Run tests with coverage
         run: |
           cd apps/frontend
@@ -56,3 +63,25 @@ jobs:
             "  >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
+
+  # Verifies that the MIT-only build stays clean: no file under
+  # apps/frontend/src/ may statically import from @ee/* except
+  # apps/frontend/src/ee_bootstrap.ts (the sanctioned bridge). Mirror
+  # of the backend's `community-boundary` job. Pure source-text scan,
+  # so it runs in seconds with only Node -- no npm install, no Jest,
+  # no full frontend dependency tree.
+  community-boundary:
+    name: Community boundary (no EE imports in core)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Assert no EE imports leak into core
+        run: node apps/frontend/scripts/check-ee-boundary.mjs

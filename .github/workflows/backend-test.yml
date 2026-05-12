@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'apps/backend/**'
+      - 'ee/backend/**'
       - 'sdk/**'
       - 'tests/backend/**'
       - '.github/workflows/backend-test.yml'
@@ -12,6 +13,7 @@ on:
     branches: [ main ]
     paths:
       - 'apps/backend/**'
+      - 'ee/backend/**'
       - 'sdk/**'
       - 'tests/backend/**'
       - '.github/workflows/backend-test.yml'
@@ -36,7 +38,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10.17'
+          python-version: '3.12'
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -50,14 +52,51 @@ jobs:
             ${{ runner.os }}-uv-backend-
 
       - name: Install dependencies
-        run: uv sync --dev --extra all --extra cpu
+        # --extra ee installs the EE package so EE tests under
+        # tests/backend/ee/ can import rhesis.backend.ee.*. The
+        # community-boundary job below runs without the EE extra to
+        # verify the MIT-only build stays clean.
+        run: uv sync --dev --extra all --extra cpu --extra ee
         working-directory: apps/backend
 
       - name: Run tests
-        run: make test
+        # Use make docker-up then run pytest directly so we can pass --extra ee
+        # alongside --extra cpu.  `make test` uses `uv run --extra cpu` which
+        # would re-sync the venv *without* the EE extra, dropping rhesis-backend-ee
+        # before the EE tests under tests/backend/ee/ run.
+        run: |
+          make docker-up
+          uv run --extra cpu --extra ee pytest ../../tests/backend --ignore=../../tests/backend/integration
         working-directory: apps/backend
 
       - name: Stop Docker services
         if: always()
         run: make docker-down
         working-directory: apps/backend
+
+  # Verifies that the MIT-only build stays clean: no core module may import
+  # from rhesis.backend.ee except via the guarded try/except in ee_bootstrap.py.
+  # The check is pure source-text AST analysis, so it needs only pytest -- no
+  # backend deps, no Postgres, no Redis. Running this as a tiny separate job
+  # keeps it fast and visibly distinct from the full test matrix.
+  community-boundary:
+    name: Community boundary (no EE imports in core)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Assert no EE imports leak into core
+        # --noconftest skips tests/backend/conftest.py (which pulls SQLAlchemy
+        # and the full fixture stack); the boundary test is pure source-text
+        # AST analysis and needs nothing beyond the standard library + pytest.
+        run: pytest tests/backend/test_ee_boundary.py --noconftest -v --no-header -p no:cacheprovider

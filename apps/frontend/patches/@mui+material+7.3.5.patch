@@ -1,0 +1,31 @@
+diff --git a/node_modules/@mui/material/useMediaQuery/index.js b/node_modules/@mui/material/useMediaQuery/index.js
+index cc5bc47..b4abb9a 100644
+--- a/node_modules/@mui/material/useMediaQuery/index.js
++++ b/node_modules/@mui/material/useMediaQuery/index.js
+@@ -7,7 +7,23 @@ Object.defineProperty(exports, "__esModule", {
+ exports.default = void 0;
+ var _useMediaQuery = require("@mui/system/useMediaQuery");
+ var _identifier = _interopRequireDefault(require("../styles/identifier"));
+-const useMediaQuery = (0, _useMediaQuery.unstable_createUseMediaQuery)({
+-  themeId: _identifier.default
+-});
++
++// Lazily initialise the hook to avoid a circular-dependency crash during SSR
++// bundle evaluation. `unstable_createUseMediaQuery` may be `undefined` at
++// module-evaluation time when webpack's module-initialisation order puts
++// @mui/system/useMediaQuery in a not-yet-resolved circular chain. Deferring
++// to first call guarantees all circular deps are fully resolved by then.
++// See: https://github.com/mui/material-ui/issues/46688
++var _cachedHook = null;
++function useMediaQuery() {
++  if (!_cachedHook) {
++    _cachedHook = (0, _useMediaQuery.unstable_createUseMediaQuery)({
++      themeId: _identifier.default
++    });
++  }
++  for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
++    args[_key] = arguments[_key];
++  }
++  return _cachedHook.apply(this, args);
++}
+ var _default = exports.default = useMediaQuery;
