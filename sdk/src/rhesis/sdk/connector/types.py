@@ -84,7 +84,6 @@ class FileReference(BaseModel):
             return await _fetch(owned_session)
 
 
-
 class ConnectionState(Enum):
     """WebSocket connection states."""
 

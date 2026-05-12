@@ -600,9 +600,7 @@ class PenelopeAgent:
 
         instructions_length = len(instructions) if instructions else 0
         prefix = "async test execution" if async_label else "test execution"
-        logger.info(
-            f"Starting {prefix} (instructions length: {instructions_length} chars)"
-        )
+        logger.info(f"Starting {prefix} (instructions length: {instructions_length} chars)")
 
         return state, tools, system_prompt, conditions, goal_eval_floor, instructions
 

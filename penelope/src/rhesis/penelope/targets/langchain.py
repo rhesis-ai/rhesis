@@ -5,7 +5,7 @@ Simple wrapper for LangChain Runnables (chains, agents, etc.) that makes them
 testable with Penelope's autonomous testing agent.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from rhesis.sdk.targets import Target, TargetResponse
 

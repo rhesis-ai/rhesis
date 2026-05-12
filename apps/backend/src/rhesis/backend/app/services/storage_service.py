@@ -297,10 +297,7 @@ class StorageService:
         from google.cloud import storage as gcs_storage
 
         clean_b64 = (
-            self.service_account_key.strip()
-            .replace("\n", "")
-            .replace("\r", "")
-            .replace(" ", "")
+            self.service_account_key.strip().replace("\n", "").replace("\r", "").replace(" ", "")
         )
         decoded = base64.b64decode(clean_b64).decode("utf-8")
         sa_info = json.loads(decoded)

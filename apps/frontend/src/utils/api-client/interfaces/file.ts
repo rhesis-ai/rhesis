@@ -1,6 +1,10 @@
 import { UUID } from 'crypto';
 
-export type FileEntityType = 'Test' | 'TestResult' | 'Trace' | 'ArchitectSession';
+export type FileEntityType =
+  | 'Test'
+  | 'TestResult'
+  | 'Trace'
+  | 'ArchitectSession';
 
 export interface FileResponse {
   id: UUID;

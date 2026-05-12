@@ -83,9 +83,7 @@ def extract_file_text(
             )
 
     except Exception as exc:
-        logger.error(
-            f"[EXTRACT] Extraction failed for file_id={file_id}: {exc}", exc_info=True
-        )
+        logger.error(f"[EXTRACT] Extraction failed for file_id={file_id}: {exc}", exc_info=True)
         try:
             with get_db_with_tenant_variables(organization_id, "") as db:
                 file_row = db.query(File).filter(File.id == uuid.UUID(file_id)).first()

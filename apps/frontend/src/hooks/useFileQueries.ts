@@ -6,9 +6,13 @@
  */
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+
+// ApiClientFactory is an instance-based factory (no static helpers). We
+// instantiate it per-token so the cached, lazy ``getFilesClient()`` accessor
+// is the one issuing requests.
 
 // ---------------------------------------------------------------------------
 // Query key factory
@@ -18,7 +22,8 @@ export const fileKeys = {
   metadata: (fileId: string) => [...fileKeys.all, 'metadata', fileId] as const,
   thumbnail: (fileId: string, size: number) =>
     [...fileKeys.all, 'thumbnail', fileId, size] as const,
-  contentUrl: (fileId: string) => [...fileKeys.all, 'contentUrl', fileId] as const,
+  contentUrl: (fileId: string) =>
+    [...fileKeys.all, 'contentUrl', fileId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -29,8 +34,8 @@ export function useFileMetadata(fileId: string | null, sessionToken: string) {
     queryKey: fileKeys.metadata(fileId ?? ''),
     enabled: !!fileId && !!sessionToken,
     queryFn: async () => {
-      const client = ApiClientFactory.createFilesClient(sessionToken);
-      return client.getFile(fileId!);
+      const client = new ApiClientFactory(sessionToken).getFilesClient();
+      return client.getFileMetadata(fileId!);
     },
   });
 }
@@ -59,7 +64,8 @@ export function useFileThumbnail(
           redirect: 'follow',
         }
       );
-      if (!response.ok) throw new Error(`Thumbnail fetch failed: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Thumbnail fetch failed: ${response.status}`);
       const blob = await response.blob();
       return URL.createObjectURL(blob);
     },

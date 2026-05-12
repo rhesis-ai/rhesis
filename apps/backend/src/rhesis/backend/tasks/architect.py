@@ -488,9 +488,7 @@ def _process_attachments(
             content_type = f.get("content_type", "")
             try:
                 raw_bytes = base64.b64decode(f.get("data", ""))
-                extracted_text = extract_with_vision_fallback(
-                    raw_bytes, filename, content_type
-                )
+                extracted_text = extract_with_vision_fallback(raw_bytes, filename, content_type)
             except Exception as exc:
                 logger.warning("Failed to extract text from %s: %s", filename, exc)
                 extracted_text = f"[Could not extract text from {filename}: {exc}]"

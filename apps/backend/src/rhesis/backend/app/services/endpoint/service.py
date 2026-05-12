@@ -524,9 +524,7 @@ async def _materialise_file_references(file_refs, db=None, user_id=None) -> list
             async for chunk in stream:
                 chunks.append(chunk)
             raw = b"".join(chunks)
-            result.append(
-                _ref_to_enriched_dict(ref, data=base64.b64encode(raw).decode("ascii"))
-            )
+            result.append(_ref_to_enriched_dict(ref, data=base64.b64encode(raw).decode("ascii")))
         except Exception as exc:
             logger.warning(
                 "Failed to materialise FileReference %s from storage: %s",
@@ -535,4 +533,3 @@ async def _materialise_file_references(file_refs, db=None, user_id=None) -> list
             )
             result.append(_ref_to_enriched_dict(ref))
     return result
-

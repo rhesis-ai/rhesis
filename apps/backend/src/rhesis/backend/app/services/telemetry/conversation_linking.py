@@ -558,9 +558,7 @@ def register_pending_files(
     try:
         from rhesis.sdk.connector.types import FileReference
 
-        serialisable = [
-            f.model_dump() if isinstance(f, FileReference) else f for f in files
-        ]
+        serialisable = [f.model_dump() if isinstance(f, FileReference) else f for f in files]
     except ImportError:
         serialisable = files
 
@@ -635,9 +633,7 @@ def apply_pending_files(
                         f"trace_id={span.trace_id}, span_id={span.id}"
                     )
                 except Exception as exc:
-                    logger.warning(
-                        f"[FILE_LINKING] Failed to link file_id={file_id}: {exc}"
-                    )
+                    logger.warning(f"[FILE_LINKING] Failed to link file_id={file_id}: {exc}")
                 continue
 
             # Legacy inline-base64 dict (playground path): create file row

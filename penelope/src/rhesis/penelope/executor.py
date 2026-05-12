@@ -182,9 +182,7 @@ class TurnExecutor:
             from rhesis.penelope.config import PenelopeConfig
 
             max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
-            context_messages = (
-                conversation_messages[-max_messages:] if max_messages > 0 else []
-            )
+            context_messages = conversation_messages[-max_messages:] if max_messages > 0 else []
             for msg in context_messages:
                 user_prompt += f"\n\n{msg.role}: {msg.content}"
         return user_prompt
@@ -329,9 +327,7 @@ class TurnExecutor:
             )
             if not is_valid:
                 logger.error(f"Workflow validation failed: {validation_reason}")
-                state.add_finding(
-                    f"Workflow validation blocked execution: {validation_reason}"
-                )
+                state.add_finding(f"Workflow validation blocked execution: {validation_reason}")
                 return None, False
             return tool, True
         return None, True
@@ -339,9 +335,7 @@ class TurnExecutor:
     @staticmethod
     def _unknown_tool_result(state: TestState, action_name: str, tools: List[Tool]) -> dict:
         available_tools = [tool.name for tool in tools]
-        error_msg = (
-            f"Unknown tool: {action_name}. Available tools: {', '.join(available_tools)}"
-        )
+        error_msg = f"Unknown tool: {action_name}. Available tools: {', '.join(available_tools)}"
         if action_name == "send_message":
             error_msg += ". Did you mean 'send_message_to_target'?"
         elif action_name == "analyze_response":
@@ -405,8 +399,11 @@ class TurnExecutor:
         elif turn_result is not None:
             self.workflow_manager.record_tool_execution(turn_result.target_interaction)
 
-        if turn_result is not None and tool_result and tool_result.success and hasattr(
-            tool_result, "output"
+        if (
+            turn_result is not None
+            and tool_result
+            and tool_result.success
+            and hasattr(tool_result, "output")
         ):
             from rhesis.penelope.conversation import extract_conversation_id
 

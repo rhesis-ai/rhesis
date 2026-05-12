@@ -84,8 +84,7 @@ class QueryBuilder:
             attrs.append(attr)
         if unknown:
             raise ValueError(
-                f"with_joined: {self.model.__name__} has no relationship(s) "
-                f"named {unknown!r}"
+                f"with_joined: {self.model.__name__} has no relationship(s) named {unknown!r}"
             )
         for attr in attrs:
             self.query = self.query.options(joinedload(attr))
@@ -113,8 +112,7 @@ class QueryBuilder:
             attrs.append(attr)
         if unknown:
             raise ValueError(
-                f"with_selectin: {self.model.__name__} has no relationship(s) "
-                f"named {unknown!r}"
+                f"with_selectin: {self.model.__name__} has no relationship(s) named {unknown!r}"
             )
         for attr in attrs:
             self.query = self.query.options(selectinload(attr))

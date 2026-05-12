@@ -79,8 +79,7 @@ async def _stream_upload_file(
             raise HTTPException(
                 status_code=413,
                 detail=(
-                    f"File '{upload_file.filename}' exceeds the maximum size of "
-                    f"{max_bytes} bytes."
+                    f"File '{upload_file.filename}' exceeds the maximum size of {max_bytes} bytes."
                 ),
             )
         yield chunk

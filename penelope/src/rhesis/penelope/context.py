@@ -1095,9 +1095,7 @@ class TestState:
             for f in raw_files:
                 if hasattr(f, "filename"):
                     # FileReference
-                    sent_files.append(
-                        {"filename": f.filename, "content_type": f.content_type}
-                    )
+                    sent_files.append({"filename": f.filename, "content_type": f.content_type})
                 elif isinstance(f, dict):
                     sent_files.append(
                         {k: v for k, v in f.items() if k in ("filename", "content_type")}

@@ -163,9 +163,7 @@ def _dedupe_target_interaction(processed_result: Dict) -> int:
     return collapsed
 
 
-def _extract_oversize_tool_call_arguments(
-    processed_result: Dict, file_position_start: int
-) -> int:
+def _extract_oversize_tool_call_arguments(processed_result: Dict, file_position_start: int) -> int:
     """Move oversize ``tool_calls[*].function.arguments`` payloads out of the
     JSONB into ``processed_result['output_files']`` so they get stored via
     object storage rather than inflating the test_output row.
