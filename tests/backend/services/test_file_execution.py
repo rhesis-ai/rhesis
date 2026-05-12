@@ -183,27 +183,34 @@ class TestOutputFileCapture:
 
 
 # ---------------------------------------------------------------------------
-# Vision-model fallback in _load_input_files
+# _load_input_files (post storage-migration)
 # ---------------------------------------------------------------------------
 
 
-_PROVIDERS_PATH = "rhesis.backend.tasks.execution.executors.output_providers"
-_SDK_EXTRACTOR_PATH = "rhesis.sdk.services.extractor"
+class TestLoadInputFiles:
+    """Tests for ``SingleTurnOutput._load_input_files``.
 
-
-class TestLoadInputFilesVisionFallback:
-    """Tests for SingleTurnOutput._load_input_files.
-
-    Extraction strategy is now owned by ``extract_with_vision_fallback`` (SDK),
-    so these tests mock that single entry-point rather than the internal
-    _select_extractor / ImageExtractor chain.
+    After the storage migration the function only reads ``File`` rows and
+    returns ``FileReference`` instances — extraction happens at upload
+    time and is read from ``File.extracted_text`` directly.
     """
 
-    def _make_db_file(self, filename="deck.pdf", content_type="application/pdf"):
+    def _make_db_file(
+        self,
+        *,
+        filename="deck.pdf",
+        content_type="application/pdf",
+        storage_path="attachments/abc",
+        extracted_text="hi",
+    ):
         f = MagicMock()
+        f.id = uuid4()
         f.filename = filename
         f.content_type = content_type
-        f.content = b"%PDF-fake-content"
+        f.size_bytes = 1234
+        f.content_hash = "deadbeef" * 8
+        f.storage_path = storage_path
+        f.extracted_text = extracted_text
         f.position = 0
         return f
 
@@ -211,70 +218,44 @@ class TestLoadInputFilesVisionFallback:
         db = MagicMock()
         query_chain = MagicMock()
         query_chain.all.return_value = files
-        db.query.return_value.filter.return_value.options.return_value.order_by.return_value = (
-            query_chain
-        )
+        db.query.return_value.filter.return_value.order_by.return_value = query_chain
         return db
 
-    @patch(f"{_PROVIDERS_PATH}._resolve_model_for_extraction")
-    def test_extracted_text_set_from_vision_fallback(self, mock_resolve):
-        """extracted_text on each entry comes from extract_with_vision_fallback."""
-        mock_model = MagicMock()
-        mock_resolve.return_value = mock_model
-        db = self._make_db([self._make_db_file()])
+    def test_returns_file_references_with_extracted_text(self):
+        db = self._make_db([self._make_db_file(extracted_text="Hello world")])
 
-        with patch(
-            f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback",
-            return_value="Architecture diagram showing 3 microservices.",
-        ):
-            result = SingleTurnOutput._load_input_files(
-                db=db, test_id=uuid4(), organization_id=str(uuid4()), model=mock_model
-            )
+        result = SingleTurnOutput._load_input_files(
+            db=db, test_id=uuid4(), organization_id=str(uuid4())
+        )
 
-        assert result[0]["extracted_text"] == "Architecture diagram showing 3 microservices."
+        assert len(result) == 1
+        # Pydantic model attribute access, not dict
+        assert result[0].extracted_text == "Hello world"
+        assert result[0].filename == "deck.pdf"
+        assert result[0].storage_path == "attachments/abc"
 
-    @patch(f"{_PROVIDERS_PATH}._resolve_model_for_extraction")
-    def test_model_forwarded_to_extract_with_vision_fallback(self, mock_resolve):
-        """The resolved model must reach extract_with_vision_fallback."""
-        mock_model = MagicMock()
-        mock_resolve.return_value = mock_model
-        db = self._make_db([self._make_db_file()])
+    def test_skips_files_without_storage_path(self):
+        """Legacy rows that never made it to object storage are skipped."""
+        db = self._make_db(
+            [
+                self._make_db_file(filename="migrated.pdf"),
+                self._make_db_file(filename="legacy.pdf", storage_path=None),
+            ]
+        )
 
-        with patch(
-            f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback", return_value="content"
-        ) as mock_fn:
-            SingleTurnOutput._load_input_files(
-                db=db, test_id=uuid4(), organization_id=str(uuid4()), model=mock_model
-            )
+        result = SingleTurnOutput._load_input_files(
+            db=db, test_id=uuid4(), organization_id=str(uuid4())
+        )
 
-        call_kwargs = mock_fn.call_args
-        assert mock_model in call_kwargs[0] or call_kwargs[1].get("model") is mock_model
+        assert [r.filename for r in result] == ["migrated.pdf"]
 
-    @patch(f"{_PROVIDERS_PATH}._resolve_model_for_extraction")
-    def test_empty_extraction_result_stored_as_empty_string(self, mock_resolve):
-        mock_resolve.return_value = None
-        db = self._make_db([self._make_db_file()])
+    def test_db_failure_returns_empty_list(self):
+        """A DB error must not propagate — returns empty list."""
+        db = MagicMock()
+        db.query.side_effect = RuntimeError("connection lost")
 
-        with patch(f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback", return_value=""):
-            result = SingleTurnOutput._load_input_files(
-                db=db, test_id=uuid4(), organization_id=str(uuid4()), model=None
-            )
+        result = SingleTurnOutput._load_input_files(
+            db=db, test_id=uuid4(), organization_id=str(uuid4())
+        )
 
-        assert result[0]["extracted_text"] == ""
-
-    @patch(f"{_PROVIDERS_PATH}._resolve_model_for_extraction")
-    def test_extraction_exception_does_not_propagate(self, mock_resolve):
-        """_load_input_files must not raise when extraction fails."""
-        mock_resolve.return_value = MagicMock()
-        db = self._make_db([self._make_db_file()])
-
-        with patch(
-            f"{_SDK_EXTRACTOR_PATH}.extract_with_vision_fallback",
-            side_effect=RuntimeError("LLM timeout"),
-        ):
-            result = SingleTurnOutput._load_input_files(
-                db=db, test_id=uuid4(), organization_id=str(uuid4()), model=MagicMock()
-            )
-
-        # File still present but without extracted_text (extraction skipped on error)
-        assert len(result) >= 0  # does not raise
+        assert result == []

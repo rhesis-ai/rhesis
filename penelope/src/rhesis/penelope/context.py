@@ -8,11 +8,17 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, field_serializer
 
 from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolMessage
+
+# A file attachment can be either a Pydantic FileReference (modern execution
+# pipeline, bytes in object storage) or a plain dict (legacy/playground
+# paths with optional inline base64 ``data``).  Kept as Any to avoid a hard
+# dependency on the SDK type in the dataclass annotation.
+FileAttachment = Union[Any, Dict[str, Any]]
 
 
 def _serialize_dt(dt: Optional[datetime], _info) -> Optional[str]:
@@ -425,7 +431,7 @@ class TestContext:
     min_turns: Optional[int] = None
     max_tool_executions: Optional[int] = None
     timeout_seconds: Optional[float] = None
-    files: List = field(default_factory=list)
+    files: List[FileAttachment] = field(default_factory=list)
 
 
 @dataclass

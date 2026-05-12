@@ -149,12 +149,13 @@ class EndpointService:
                             user_id=user_id,
                         )
                     enriched_input_data.pop("files", None)
+                    # ``enriched_files`` is always a list of dicts at this
+                    # point (both branches above produce dicts), so no
+                    # polymorphic guards are needed here.
                     enriched_input_data["files_metadata"] = [
                         {
-                            "filename": f.get("filename", "") if isinstance(f, dict) else "",
-                            "content_type": (
-                                f.get("content_type", "") if isinstance(f, dict) else ""
-                            ),
+                            "filename": f.get("filename", ""),
+                            "content_type": f.get("content_type", ""),
                         }
                         for f in enriched_files
                     ]
@@ -442,29 +443,57 @@ class EndpointService:
 
 
 def _is_file_reference_list(files) -> bool:
-    """Return True when every entry in ``files`` is a FileReference instance."""
+    """Return True when every entry in ``files`` is a FileReference instance.
+
+    Heterogeneous lists (mix of FileReference and dict) are unsupported and
+    treated as the dict branch with a loud warning so they cannot silently
+    drop the FileReference entries through ``isinstance(f, dict)`` checks
+    in :func:`enrich_files_with_extraction`.
+    """
     if not files:
         return False
     try:
         from rhesis.sdk.connector.types import FileReference
-
-        return all(isinstance(f, FileReference) for f in files)
     except ImportError:
         return False
+
+    ref_count = sum(1 for f in files if isinstance(f, FileReference))
+    if ref_count == 0:
+        return False
+    if ref_count == len(files):
+        return True
+    logger.warning(
+        "Heterogeneous file list received: %d FileReference + %d non-reference "
+        "entries — treating the whole list as legacy dicts. FileReference "
+        "entries that lack inline 'data' may not be delivered. Caller should "
+        "normalise to a single shape upstream.",
+        ref_count,
+        len(files) - ref_count,
+    )
+    return False
+
+
+def _ref_to_enriched_dict(ref, data: Optional[str] = None) -> Dict[str, Any]:
+    """Build the legacy enriched-dict shape from a FileReference.
+
+    The dict shape is the lingua franca for downstream code (text injection,
+    metadata extraction, vision-fallback enrichment).  When ``data`` is
+    provided it is added as base64-encoded bytes; otherwise the dict
+    carries metadata only.
+    """
+    out: Dict[str, Any] = {
+        "filename": ref.filename,
+        "content_type": ref.content_type,
+        "extracted_text": ref.extracted_text or "",
+    }
+    if data is not None:
+        out["data"] = data
+    return out
 
 
 def _refs_to_enriched_dicts(file_refs) -> list:
     """Convert List[FileReference] to the legacy enriched-dict shape (no bytes)."""
-    result = []
-    for ref in file_refs:
-        result.append(
-            {
-                "filename": ref.filename,
-                "content_type": ref.content_type,
-                "extracted_text": ref.extracted_text or "",
-            }
-        )
-    return result
+    return [_ref_to_enriched_dict(ref) for ref in file_refs]
 
 
 async def _materialise_file_references(file_refs, db=None, user_id=None) -> list:
@@ -473,24 +502,20 @@ async def _materialise_file_references(file_refs, db=None, user_id=None) -> list
     This is the on-demand materialisation path: bytes are fetched only when the
     endpoint contract requires them (``{{ files }}`` in request_mapping with data).
     The dicts are not retained past the current invocation.
+
+    Failures (missing ``storage_path`` or transient storage errors) fall
+    back to the metadata-only dict so the request still goes out with
+    file metadata visible to the endpoint.
     """
-    import asyncio
     import base64
 
     from rhesis.backend.app.services.storage_service import StorageService
 
     storage = StorageService()
-    result = []
+    result: list = []
     for ref in file_refs:
         if not ref.storage_path:
-            # No storage path — include metadata only
-            result.append(
-                {
-                    "filename": ref.filename,
-                    "content_type": ref.content_type,
-                    "extracted_text": ref.extracted_text or "",
-                }
-            )
+            result.append(_ref_to_enriched_dict(ref))
             continue
 
         try:
@@ -500,12 +525,7 @@ async def _materialise_file_references(file_refs, db=None, user_id=None) -> list
                 chunks.append(chunk)
             raw = b"".join(chunks)
             result.append(
-                {
-                    "filename": ref.filename,
-                    "content_type": ref.content_type,
-                    "data": base64.b64encode(raw).decode("ascii"),
-                    "extracted_text": ref.extracted_text or "",
-                }
+                _ref_to_enriched_dict(ref, data=base64.b64encode(raw).decode("ascii"))
             )
         except Exception as exc:
             logger.warning(
@@ -513,12 +533,6 @@ async def _materialise_file_references(file_refs, db=None, user_id=None) -> list
                 ref.id,
                 exc,
             )
-            result.append(
-                {
-                    "filename": ref.filename,
-                    "content_type": ref.content_type,
-                    "extracted_text": ref.extracted_text or "",
-                }
-            )
+            result.append(_ref_to_enriched_dict(ref))
     return result
 

@@ -11,7 +11,7 @@ Responsible for three concerns:
 """
 
 import logging
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers.conversation.tracker import (
@@ -36,23 +36,33 @@ def endpoint_supports_files(endpoint: Endpoint) -> bool:
     return mapping_has_template_variable(endpoint, "files")
 
 
-def inject_file_content_into_input(input_text: str, files: list) -> str:
+def inject_file_content_into_input(input_text: str, files: List[Dict[str, Any]]) -> str:
     """Append extracted file content to a plain-text input message.
 
     Called when the target endpoint has no native file support.  Each file's
     extracted text is appended as a clearly delimited block so the model can
     reference it, while the original user message is preserved verbatim.
-
     Files whose content could not be extracted are noted with a placeholder so
     the model knows a file was present but unreadable.
+
+    The contract is **dicts only**.  Callers must normalise upstream
+    (e.g. via :func:`_refs_to_enriched_dicts` or
+    :func:`enrich_files_with_extraction`) before invoking this function;
+    we raise ``TypeError`` on the first non-dict entry so silent
+    misrouting can't hide a bug.
     """
     if not files:
         return input_text
 
     blocks = []
     for f in files:
-        filename = f.get("filename", "file") if isinstance(f, dict) else "file"
-        content = (f.get("extracted_text") or "").strip() if isinstance(f, dict) else ""
+        if not isinstance(f, dict):
+            raise TypeError(
+                "inject_file_content_into_input expects a list of dicts, got "
+                f"{type(f).__name__}. Normalise upstream."
+            )
+        filename = f.get("filename") or "file"
+        content = (f.get("extracted_text") or "").strip()
         if not content:
             content = "[File content could not be extracted]"
         blocks.append(f"--- {filename} ---\n{content}\n--- end of {filename} ---")
@@ -84,9 +94,11 @@ def enrich_files_with_extraction(
 
     from rhesis.sdk.services.extractor import extract_with_vision_fallback
 
-    # Fast path: all files already have extracted text — skip model resolution.
+    # Fast path: all files already have extracted text — skip model
+    # resolution.  Return a shallow copy of the list so callers can't
+    # accidentally mutate our input through the returned reference.
     if files and all(isinstance(f, dict) and "extracted_text" in f for f in files):
-        return files
+        return list(files)
 
     resolved_model = None
     if db and user_id:

@@ -15,7 +15,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -85,7 +85,7 @@ class SingleTurnOutput(OutputProvider):
 
         # Inject file data if the test has attached files
         if test_id:
-            input_files = self._load_input_files(db, test_id, organization_id, model=self.model)
+            input_files = self._load_input_files(db, test_id, organization_id)
             if input_files:
                 input_data["files"] = input_files
 
@@ -106,15 +106,11 @@ class SingleTurnOutput(OutputProvider):
         return TestOutput(response=processed, execution_time=execution_time)
 
     @staticmethod
-    def _load_input_files(db, test_id, organization_id, model=None):
+    def _load_input_files(db, test_id, organization_id):
         """Load files attached to a test and return them as FileReference metadata.
 
         No bytes are loaded, no base64 encoding, no extraction — extraction was
-        performed at upload time and is available on File.extracted_text.
-
-        The ``model`` parameter is kept for backward-compat with MultiTurnOutput
-        and load_input_files_lazy call sites but is now unused (extraction is
-        upstream). It will be removed in a follow-up.
+        performed at upload time and is available on ``File.extracted_text``.
         """
         from rhesis.backend.app.models.file import File
         from rhesis.sdk.connector.types import FileReference
@@ -145,7 +141,17 @@ class SingleTurnOutput(OutputProvider):
                 if f.storage_path  # only include files that have been migrated to storage
             ]
         except Exception as e:
-            logger.warning(f"Failed to load input files for test {test_id}: {e}")
+            # Promote to ERROR with full traceback: silently dropping
+            # attached files causes downstream tests to run without
+            # context the user expected to provide.  Returning [] keeps
+            # the test runnable; the operator must catch this in the logs.
+            logger.error(
+                "Failed to load input files for test %s — test will execute "
+                "WITHOUT its attached file context: %s",
+                test_id,
+                e,
+                exc_info=True,
+            )
             return []
 
 
@@ -183,9 +189,7 @@ class MultiTurnOutput(OutputProvider):
         min_turns = test_config.get("min_turns")
 
         # Load files attached to the test (reuse SingleTurnOutput's static method)
-        input_files = SingleTurnOutput._load_input_files(
-            db, test.id, organization_id, model=self.model
-        )
+        input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
 
         from rhesis.backend.tasks.execution.penelope_target import (
             BackendEndpointTarget,
