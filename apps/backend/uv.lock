@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-05-05T14:53:18.264068Z"
+exclude-newer = "2026-05-05T20:04:52.692132Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6420,6 +6420,7 @@ dependencies = [
     { name = "faker" },
     { name = "fastapi" },
     { name = "fastxlsx" },
+    { name = "google-cloud-storage" },
     { name = "gunicorn" },
     { name = "httpx" },
     { name = "itsdangerous" },
@@ -6517,6 +6518,7 @@ requires-dist = [
     { name = "fastxlsx", specifier = ">=0.2.0" },
     { name = "garak", marker = "extra == 'all'", specifier = ">=0.14.0" },
     { name = "gcsfs", marker = "extra == 'all'", specifier = ">=2025.9.0" },
+    { name = "google-cloud-storage", specifier = ">=3.8.0" },
     { name = "google-genai", marker = "extra == 'all'", specifier = ">=1.13.0" },
     { name = "gunicorn", specifier = ">=21.2.0" },
     { name = "httpx" },
