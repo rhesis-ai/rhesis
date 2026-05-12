@@ -37,8 +37,11 @@ Get Rhesis running in under 5 minutes:
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
-# 2. Start all services with one command
+# 2. Start all services with one command (pulls prebuilt images from GHCR)
 ./rh start
+
+# To build backend, worker, and frontend images locally instead:
+# ./rh start --build
 
 # That's it! The platform will automatically:
 # - Generate database encryption key
@@ -57,12 +60,14 @@ cd rhesis
 # Edit .env.docker.local and update RHESIS_API_KEY=your-actual-key`}
 </CodeBlock>
 
+By default, `./rh start` uses **prebuilt container images** from GitHub Container Registry (GHCR), then starts the stack. Use `./rh start --build` when you need images built from the local Dockerfiles (for example, testing unreleased changes). `./rh restart --build` applies the same idea on restart.
+
 The `./rh start` command automatically:
 - Checks if Docker is running
 - Generates a secure database encryption key
 - Creates `.env.docker.local` with all required configuration
 - Enables local authentication bypass (auto-login)
-- Starts all services
+- Pulls (default) or builds (`--build`) images, then starts all services
 - Creates the database and runs migrations
 - Creates the default admin user (`Local Admin`)
 - Loads example test data
@@ -87,6 +92,11 @@ The zero-configuration setup uses these files:
       description: 'Docker Compose configuration with sensible defaults'
     },
     {
+      name: 'docker-compose.ghcr.yml',
+      type: 'file',
+      description: 'Compose override: GHCR images for ./rh start (default)'
+    },
+    {
       name: 'rh',
       type: 'file',
       description: 'CLI tool for managing services (start, stop, logs, delete)'
@@ -100,9 +110,8 @@ When you run `./rh start`, the `.env.docker.local` file is automatically created
 
 **Auto-Generated Keys:**
 - Database encryption key (using Python cryptography.fernet)
-- Local authentication bypass flags:
-  - `QUICK_START=true` (enables backend auto-login endpoint)
-  - `NEXT_PUBLIC_QUICK_START=true` (enables frontend auto-login detection)
+- Local authentication bypass flag:
+  - `QUICK_START=true` (single source of truth — enables backend auto-login and is propagated to the frontend at container start)
 
 **You can add (optional):**
 - Rhesis API key (for test generation)
@@ -210,7 +219,10 @@ Use the `./rh` CLI for easy service management:
 
 <CodeBlock filename="Terminal" language="bash">
 {`# Restart all services
-./rh restart`}
+./rh restart
+
+# Rebuild from local Dockerfiles and restart (same as ./rh start --build)
+./rh restart --build`}
 </CodeBlock>
 
 **Delete everything (fresh start):**
@@ -285,22 +297,20 @@ pip install cryptography
 ### Auto-login not working
 
 <CodeBlock filename="Terminal" language="bash">
-{`# Check if Quick Start variables are set correctly
+{`# Check if Quick Start is set correctly
 cat .env.docker.local | grep QUICK_START
 
 # Should show:
 # QUICK_START=true
-# NEXT_PUBLIC_QUICK_START=true
 
-# If missing, add them:
+# If missing, add it:
 echo "QUICK_START=true" >> .env.docker.local
-echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
 
 # Then restart:
 ./rh restart`}
 </CodeBlock>
 
-**Note:** The `./rh start` command automatically sets both variables. If you're manually configuring, ensure both `QUICK_START=true` (for backend) and `NEXT_PUBLIC_QUICK_START=true` (for frontend) are set in your `.env.docker.local` file. If you add these variables after the frontend container was already built, you may need to rebuild it: `docker compose --env-file .env.docker.local build frontend && ./rh restart`
+**Note:** The `./rh start` command automatically sets `QUICK_START=true`, which is the single source of truth — the frontend container picks up the same value at startup. If you change this after containers already exist, recreate the frontend with a local image build: `./rh restart --build` (or `./rh start --build` after `./rh delete`).
 
 ## Next Steps
 

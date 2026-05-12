@@ -53,10 +53,11 @@ Run `./rh help` or `./rh dev` for the full command list (`./rh dev worker`, `./r
 ## Path 2: Full stack with Docker
 
 <CodeBlock filename="Terminal" language="bash" isTerminal={true}>
-{`./rh start`}
+{`./rh start              # pull prebuilt images (GHCR), then up
+./rh start --build        # optional: build images from local Dockerfiles`}
 </CodeBlock>
 
-Typical URLs: frontend [http://localhost:3000](http://localhost:3000), API [http://localhost:8080/docs](http://localhost:8080/docs). Use `./rh logs`, `./rh stop`, `./rh restart`, and `./rh delete` to manage the stack.
+Typical URLs: frontend [http://localhost:3000](http://localhost:3000), API [http://localhost:8080/docs](http://localhost:8080/docs). Use `./rh logs`, `./rh stop`, `./rh restart` (add `--build` to rebuild locally), and `./rh delete` to manage the stack.
 
 This mode is aimed at local testing (including convenient sign-in behavior). For production-style deployment, see the deployment documentation on this site.
 

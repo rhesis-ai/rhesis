@@ -62,6 +62,7 @@ x-common-environment: &common-environment
   FRONTEND_ENV: ${FRONTEND_ENV:-local}
   WORKER_ENV: ${WORKER_ENV:-local}
   LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+  QUICK_START: ${QUICK_START:-false}
 
 x-rhesis-config: &rhesis-config
   RHESIS_BASE_URL: ${RHESIS_BASE_URL:-https://api.rhesis.ai}
@@ -83,7 +84,6 @@ x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-your-nextauth-secret-change-in-production}
   NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
   API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
-  NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
   NEXT_TELEMETRY_DISABLED: 1
 
 
@@ -135,7 +135,6 @@ services:
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      QUICK_START: ${QUICK_START:-false}
     volumes:
       - rhesis-storage:/app/storage
     ports:
@@ -200,7 +199,6 @@ services:
       dockerfile: Dockerfile
       args:
         FRONTEND_ENV: ${FRONTEND_ENV:-local}
-        NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
