@@ -1207,11 +1207,15 @@ def rollback_initial_data(db: Session, organization_id: str) -> None:
             if not identifiers:
                 continue
 
-            # Get matching records with eager loading of relationships
+            # Get matching records. We intentionally do NOT eager-load
+            # relationships here: _get_nested_entities() walks every
+            # non-M2M relationship — including one-to-many collections
+            # — and joinedload across many one-to-many relationships
+            # produces cartesian-product result sets. Lazy-loading per
+            # relationship as we recurse is slower but bounded.
             query = (
                 QueryBuilder(db, model)
                 .with_organization_filter(organization_id)
-                .with_joinedloads()
                 .with_custom_filter(lambda q: q.filter(model.organization_id == organization_id))
                 .build()
             )

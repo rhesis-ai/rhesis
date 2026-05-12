@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 # Define a generic type variable
 T = TypeVar("T")
 
+# Warn when a single query eager-loads more relationships than this. The
+# Test/test-set blow-up that necessitated this guard was caused by a 22-join
+# SQL statement; anything close to that warrants a second look.
+_MAX_EAGER_LOADS_WARN = 12
+
 
 class QueryBuilder:
     """
@@ -48,13 +53,87 @@ class QueryBuilder:
         self._sort_order = "asc"
         self._secondary_sort_by = None
         self._secondary_sort_order = "asc"
+        # Track explicit eager-load counts so we can warn callers who request
+        # an unreasonably large number of joins on a single query. Indexes
+        # joined and selectin separately because they have different cost
+        # profiles (joinedload multiplies rows, selectinload issues one extra
+        # SELECT per relationship).
+        self._joined_count = 0
+        self._selectin_count = 0
 
-    def with_joinedloads(
-        self, skip_many_to_many: bool = True, skip_one_to_many: bool = False
-    ) -> "QueryBuilder":
-        """Apply joinedloads for relationships"""
-        self.query = apply_joinedloads(self.query, self.model, skip_many_to_many, skip_one_to_many)
+    def with_joined(self, *relationship_names: str) -> "QueryBuilder":
+        """Eager-load each named relationship with ``joinedload``.
+
+        Use this for many-to-one and one-to-one relationships, where each
+        parent row matches at most one child. Avoid joinedload on
+        relationships whose child rows carry large JSONB payloads — those
+        produce cartesian-product result sets that can be orders of
+        magnitude larger than the logical row count.
+
+        Use ``with_selectin`` for many-to-many or one-to-many.
+        """
+        if not relationship_names:
+            return self
+        unknown: List[str] = []
+        attrs: List[object] = []
+        for name in relationship_names:
+            attr = getattr(self.model, name, None)
+            if attr is None:
+                unknown.append(name)
+                continue
+            attrs.append(attr)
+        if unknown:
+            raise ValueError(
+                f"with_joined: {self.model.__name__} has no relationship(s) "
+                f"named {unknown!r}"
+            )
+        for attr in attrs:
+            self.query = self.query.options(joinedload(attr))
+        self._joined_count += len(attrs)
+        self._maybe_warn_load_count()
         return self
+
+    def with_selectin(self, *relationship_names: str) -> "QueryBuilder":
+        """Eager-load each named relationship with ``selectinload``.
+
+        Use this for many-to-many or one-to-many relationships. ``selectinload``
+        issues a single follow-up ``SELECT ... WHERE parent_id IN (...)``
+        query per relationship, which avoids the cartesian-product blowup
+        that ``joinedload`` produces on collection relationships.
+        """
+        if not relationship_names:
+            return self
+        unknown: List[str] = []
+        attrs: List[object] = []
+        for name in relationship_names:
+            attr = getattr(self.model, name, None)
+            if attr is None:
+                unknown.append(name)
+                continue
+            attrs.append(attr)
+        if unknown:
+            raise ValueError(
+                f"with_selectin: {self.model.__name__} has no relationship(s) "
+                f"named {unknown!r}"
+            )
+        for attr in attrs:
+            self.query = self.query.options(selectinload(attr))
+        self._selectin_count += len(attrs)
+        self._maybe_warn_load_count()
+        return self
+
+    def _maybe_warn_load_count(self) -> None:
+        total = self._joined_count + self._selectin_count
+        if total >= _MAX_EAGER_LOADS_WARN:
+            logger.warning(
+                "QueryBuilder(%s) has accumulated %d eager loads "
+                "(joined=%d, selectin=%d); consider whether the response "
+                "schema actually needs all of these.",
+                self.model.__name__,
+                total,
+                self._joined_count,
+                self._selectin_count,
+            )
 
     def with_optimized_loads(
         self,
@@ -325,32 +404,6 @@ def get_model_relationships(
         relationships[rel.key] = rel
 
     return relationships
-
-
-def apply_joinedloads(
-    query: Query, model: Type, skip_many_to_many: bool = True, skip_one_to_many: bool = True
-) -> Query:
-    """
-    Apply joinedload options to a query based on model relationships.
-
-    Args:
-        query: The SQLAlchemy query to modify
-        model: The SQLAlchemy model class
-        skip_many_to_many: If True, excludes many-to-many relationships
-        skip_one_to_many: If True, excludes one-to-many relationships
-
-    Returns:
-        Modified query with joinedload options applied
-    """
-    relationships = get_model_relationships(
-        model, skip_many_to_many=skip_many_to_many, skip_one_to_many=skip_one_to_many
-    )
-
-    for rel_name, _ in relationships.items():
-        relationship_attr = getattr(model, rel_name)
-        query = query.options(joinedload(relationship_attr))
-
-    return query
 
 
 def _build_nested_load_options(

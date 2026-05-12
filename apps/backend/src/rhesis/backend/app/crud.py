@@ -499,7 +499,19 @@ def get_test_sets(
     """
     query_builder = (
         QueryBuilder(db, models.TestSet)
-        .with_joinedloads()
+        # Eager-load the many-to-one relationships referenced by TestSetDetailSchema.
+        # Excludes collection relationships (prompts, tests, metrics, test_configurations,
+        # comments, tags) because those produce cartesian-product joins or lazy fan-out
+        # and the list endpoint does not serialize them.
+        .with_joined(
+            "status",
+            "license_type",
+            "test_set_type",
+            "user",
+            "owner",
+            "assignee",
+            "organization",
+        )
         .with_organization_filter(organization_id)  # Apply organization filtering
         .with_visibility_filter()  # This already handles public visibility correctly
         .with_odata_filter(filter)
@@ -590,7 +602,17 @@ def get_test_set_by_nano_id_or_slug(
     """
     return (
         QueryBuilder(db, models.TestSet)
-        .with_joinedloads()
+        # See get_test_sets() for rationale: load only the M2O relationships that
+        # TestSetDetailSchema serializes.
+        .with_joined(
+            "status",
+            "license_type",
+            "test_set_type",
+            "user",
+            "owner",
+            "assignee",
+            "organization",
+        )
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_custom_filter(
@@ -655,7 +677,25 @@ def get_test_set_tests(
     """
     query_builder = (
         QueryBuilder(db, models.Test)
-        .with_joinedloads()
+        # Eager-load the many-to-one relationships TestDetailSchema serializes.
+        # Crucially DOES NOT load Test.test_results / Test.test_contexts / Test.trace:
+        # those are one-to-many with very large JSONB payloads and previously
+        # produced a 22-join cartesian product on this endpoint that materialized
+        # multi-GB intermediate result sets.
+        .with_joined(
+            "prompt",
+            "test_type",
+            "user",
+            "assignee",
+            "owner",
+            "parent",
+            "topic",
+            "behavior",
+            "category",
+            "status",
+            "source",
+            "organization",
+        )
         .with_visibility_filter()
         .with_custom_filter(
             lambda q: q.join(models.test.test_test_set_association).filter(
@@ -2444,13 +2484,34 @@ def get_type_lookup_by_name_and_value(
 
 
 # Metric CRUD
+# Many-to-one relationships serialized by MetricDetailSchema. Joined-loading these
+# adds at most one row per metric (1:1 join), so it's cheap.
+_METRIC_M2O_RELATIONSHIPS = (
+    "metric_type",
+    "status",
+    "assignee",
+    "owner",
+    "model",
+    "backend_type",
+    "user",
+    "organization",
+)
+
+# Many-to-many relationships serialized by MetricDetailSchema. These MUST use
+# selectinload — joinedload on M2M produces a cartesian product (one row per
+# (metric, behavior, test_set) tuple), which previously bloated the response by
+# orders of magnitude.
+_METRIC_M2M_RELATIONSHIPS = ("behaviors", "test_sets")
+
+
 def get_metric(
     db: Session, metric_id: uuid.UUID, organization_id: str, user_id: str = None
 ) -> Optional[models.Metric]:
     """Get a specific metric by ID with its related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
+        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_custom_filter(lambda q: q.filter(models.Metric.id == metric_id))
@@ -2471,7 +2532,8 @@ def get_metrics(
     """Get all metrics with their related objects, including many-to-many relationships"""
     return (
         QueryBuilder(db, models.Metric)
-        .with_joinedloads(skip_many_to_many=False)  # Include many-to-many relationships
+        .with_joined(*_METRIC_M2O_RELATIONSHIPS)
+        .with_selectin(*_METRIC_M2M_RELATIONSHIPS)
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_odata_filter(filter)
