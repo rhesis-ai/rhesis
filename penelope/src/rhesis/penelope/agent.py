@@ -11,6 +11,31 @@ import logging
 import math
 from typing import Any, Dict, List, Optional, Union
 
+
+def _file_attr(f: Any, key: str, default: Any = "") -> Any:
+    """Read ``key`` from a file attachment regardless of its concrete shape.
+
+    Penelope is invoked from multiple paths that supply ``files`` in different
+    shapes:
+
+    * **Backend execution pipeline (post file-storage migration):**
+      ``FileReference`` Pydantic models — bytes live in object storage, the
+      model carries metadata (``filename``, ``content_type``,
+      ``extracted_text``, ``storage_path``…).
+    * **Chatbot / architect / legacy tests:** plain dicts with optional
+      ``data`` (base64 bytes).
+
+    We deliberately do NOT coerce ``FileReference`` to dict at the penelope
+    boundary, because the endpoint service downstream uses
+    ``isinstance(f, FileReference)`` to decide whether to materialise bytes
+    from storage on-demand. Collapsing to dict at this layer silently routes
+    the request through the legacy "extract from inline base64" path and
+    breaks file delivery for endpoints that support file attachments.
+    """
+    if isinstance(f, dict):
+        return f.get(key, default)
+    return getattr(f, key, default)
+
 from rhesis.penelope.config import PenelopeConfig
 from rhesis.penelope.context import (
     ExecutionStatus,
@@ -529,6 +554,13 @@ class PenelopeAgent:
             instructions = self._generate_default_instructions(goal)
             logger.info("No instructions provided, using smart default")
 
+        # NOTE: We deliberately keep ``files`` in its original shape
+        # (FileReference, dict, …). The endpoint service downstream relies
+        # on isinstance(f, FileReference) to choose the on-demand
+        # materialisation path vs. the inline-base64 path. Normalising to
+        # dict here silently breaks file delivery. See ``_file_attr``.
+        files = list(files) if files else []
+
         # Create test context
         test_context = TestContext(
             target_id=target.target_id,
@@ -541,7 +573,7 @@ class PenelopeAgent:
             max_turns=max_turns if max_turns is not None else self.max_turns,
             min_turns=min_turns,
             max_tool_executions=self.max_tool_executions,
-            files=files or [],
+            files=files,
         )
 
         # Initialize state
@@ -571,9 +603,9 @@ class PenelopeAgent:
         if files:
             file_descriptions = []
             for f in files:
-                filename = f.get("filename", "unknown")
-                content_type = f.get("content_type", "unknown")
-                extracted = f.get("extracted_text", "")
+                filename = _file_attr(f, "filename", "unknown")
+                content_type = _file_attr(f, "content_type", "unknown")
+                extracted = _file_attr(f, "extracted_text", "")
                 entry = f"- {filename} ({content_type})"
                 if extracted:
                     entry += f"\n  Extracted content:\n  {extracted}"
@@ -728,6 +760,11 @@ class PenelopeAgent:
             instructions = self._generate_default_instructions(goal)
             logger.info("No instructions provided, using smart default")
 
+        # See note in execute_test() — keep files in their original shape so
+        # the endpoint service can recognise FileReference and materialise
+        # bytes from storage on demand.
+        files = list(files) if files else []
+
         test_context = TestContext(
             target_id=target.target_id,
             target_type=target.target_type,
@@ -739,7 +776,7 @@ class PenelopeAgent:
             max_turns=max_turns if max_turns is not None else self.max_turns,
             min_turns=min_turns,
             max_tool_executions=self.max_tool_executions,
-            files=files or [],
+            files=files,
         )
 
         state = TestState(context=test_context)
@@ -761,9 +798,9 @@ class PenelopeAgent:
         if files:
             file_descriptions = []
             for f in files:
-                filename = f.get("filename", "unknown")
-                content_type = f.get("content_type", "unknown")
-                extracted = f.get("extracted_text", "")
+                filename = _file_attr(f, "filename", "unknown")
+                content_type = _file_attr(f, "content_type", "unknown")
+                extracted = _file_attr(f, "extracted_text", "")
                 entry = f"- {filename} ({content_type})"
                 if extracted:
                     entry += f"\n  Extracted content:\n  {extracted}"
