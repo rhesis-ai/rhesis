@@ -500,3 +500,60 @@ class TestStorageServiceStreaming:
         svc = self._local_service(tmp_path)
         with pytest.raises(NotSupportedError):
             await svc.generate_presigned_url("some/path.bin")
+
+
+class TestStorageServicePutObjectBytes:
+    """Tests for the synchronous ``put_object_bytes`` sibling.
+
+    Exists specifically for callers that already hold the bytes and cannot
+    safely run an inner event loop (e.g. ``_store_output_files`` is called
+    from sync code that itself runs inside an async task body).
+    """
+
+    def _local_service(self, tmp_path):
+        import os as _os
+
+        with patch.dict(
+            _os.environ,
+            {"STORAGE_SERVICE_URI": f"file://{tmp_path}", "LOCAL_STORAGE_PATH": str(tmp_path)},
+            clear=True,
+        ):
+            return StorageService()
+
+    def test_writes_bytes_and_returns_path_and_sha(self, tmp_path):
+        import hashlib
+
+        svc = self._local_service(tmp_path)
+        data = b"sync bytes path"
+        dest = "test-org/sync/file.bin"
+
+        storage_path, sha256_hex = svc.put_object_bytes(
+            content=data,
+            dest_path=dest,
+            content_type="application/octet-stream",
+        )
+        assert storage_path == dest
+        assert sha256_hex == hashlib.sha256(data).hexdigest()
+        # Bytes actually landed on disk
+        on_disk = (tmp_path / dest).read_bytes()
+        assert on_disk == data
+
+    def test_does_not_create_event_loop(self, tmp_path):
+        """The regression guard for the original bug: this method must not
+        touch asyncio at all — callers may already be inside a running
+        event loop on this thread."""
+        import asyncio
+
+        async def _outer():
+            svc = self._local_service(tmp_path)
+            # If put_object_bytes ever reintroduces ``loop.run_until_complete``
+            # this call will raise ``RuntimeError: Cannot run the event loop
+            # while another loop is running``.
+            return svc.put_object_bytes(
+                content=b"hi from inside a loop",
+                dest_path="test-org/sync/inner.bin",
+                content_type="text/plain",
+            )
+
+        storage_path, _hash = asyncio.run(_outer())
+        assert storage_path == "test-org/sync/inner.bin"

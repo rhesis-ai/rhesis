@@ -418,6 +418,46 @@ def create_test_result_record(
         raise
 
 
+def _is_safe_attachment_storage_path(
+    storage_path: Optional[str],
+    organization_id: Optional[str],
+    test_result_id: UUID,
+) -> bool:
+    """Return True iff ``storage_path`` is the relative attachments key we'd
+    have produced for this org + test result.
+
+    Rejects anything that could be used by an untrusted endpoint output to
+    point at storage objects outside its own scope:
+
+    - Absent / non-string values.
+    - Absolute paths, scheme-qualified URIs (``file://``, ``gs://``, …),
+      or values with backslashes (Windows-style separators).
+    - Path traversal segments (``..``, ``.``, empty segments).
+    - Anything that doesn't begin with the expected per-entity prefix
+      ``attachments/{organization_id}/TestResult/{test_result_id}/``.
+
+    The prefix is rebuilt from server-trusted ``organization_id`` and
+    ``test_result_id`` and compared verbatim, so callers cannot smuggle in
+    a different org's prefix.
+    """
+    if not storage_path or not isinstance(storage_path, str):
+        return False
+    if not organization_id:
+        # Without a known org we have no prefix to match — refuse Path A.
+        return False
+    if storage_path.startswith("/") or "\\" in storage_path:
+        return False
+    if "://" in storage_path:
+        return False
+    # Reject traversal / empty segments.
+    parts = storage_path.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        return False
+
+    expected_prefix = f"attachments/{organization_id}/TestResult/{test_result_id}/"
+    return storage_path.startswith(expected_prefix)
+
+
 def _store_output_files(
     db: Session,
     test_result_id: UUID,
@@ -425,18 +465,24 @@ def _store_output_files(
     organization_id: Optional[str],
     user_id: Optional[str],
 ) -> None:
-    """Upload output files to object storage and create File metadata rows.
+    """Persist endpoint output files to object storage + File metadata rows.
 
-    Each item in output_files_data should have:
-    - data: base64-encoded file content (or signed_url for pre-uploaded files)
-    - filename: original filename
-    - content_type: MIME type (optional, defaults to application/octet-stream)
+    Each item in ``output_files_data`` is one of:
 
-    Bytes are streamed to storage via StorageService.put_object_streaming so no
-    full buffer accumulates in Python.
+    Path A — pre-uploaded:
+        ``{signed_url, storage_path, filename, content_type, size_bytes,
+        content_hash, file_id?}``.  Only accepted when ``storage_path``
+        passes :func:`_is_safe_attachment_storage_path` (relative key under
+        ``attachments/{org}/TestResult/{test_result_id}/``).  Anything else
+        is dropped with a loud warning — endpoints cannot register
+        arbitrary object keys this way (cross-tenant disclosure guard).
+
+    Path B — inline bytes:
+        ``{data: base64, filename, content_type, file_id?}``.  Bytes are
+        decoded and written through :meth:`StorageService.put_object_bytes`
+        (sync — this function may run inside an async task body, so we
+        cannot open a fresh event loop here).
     """
-    import asyncio
-
     from rhesis.backend.app.services.storage_service import StorageService
 
     if not isinstance(output_files_data, list):
@@ -453,12 +499,30 @@ def _store_output_files(
 
         filename = file_data.get("filename", f"output_{idx}")
         content_type = file_data.get("content_type", "application/octet-stream")
-        # Sanitizer pre-generates a file_id so it can embed it in the inline
-        # marker; honor it here so the marker resolves to a real File row.
+        # Sanitiser pre-generates a file_id so it can embed it in the inline
+        # marker; honour it here so the marker resolves to a real File row.
         prebound_file_id = file_data.get("file_id")
 
-        # Path A: pre-uploaded file with a signed_url — just create the metadata row
+        # Path A: pre-uploaded file with a signed_url.  We MUST validate that
+        # the supplied ``storage_path`` is inside this entity's prefix —
+        # otherwise a malicious endpoint output could register arbitrary
+        # object keys (or absolute paths on file:// backends) and read them
+        # back via ``GET /files/{id}/content``.
         if file_data.get("signed_url") and not file_data.get("data"):
+            candidate_path = file_data.get("storage_path")
+            if not _is_safe_attachment_storage_path(
+                candidate_path, organization_id, test_result_id
+            ):
+                logger.warning(
+                    "[TEST_RESULT] Refusing pre-uploaded output file with "
+                    "unsafe storage_path=%r for test_result_id=%s — endpoint "
+                    "output may only register files under its own attachments "
+                    "prefix.",
+                    candidate_path,
+                    test_result_id,
+                )
+                continue
+
             file_create = schemas.FileCreate(
                 id=UUID(prebound_file_id) if prebound_file_id else None,
                 filename=filename,
@@ -467,14 +531,14 @@ def _store_output_files(
                 entity_id=test_result_id,
                 entity_type="TestResult",
                 position=idx,
-                storage_path=file_data.get("storage_path"),
+                storage_path=candidate_path,
                 content_hash=file_data.get("content_hash"),
                 extraction_status="pending",
             )
             crud.create_file(db, file_create, organization_id=organization_id, user_id=user_id)
             continue
 
-        # Path B: base64-encoded bytes — decode and stream to storage
+        # Path B: base64-encoded bytes — decode and write to storage.
         content_b64 = file_data.get("data")
         if not content_b64:
             continue
@@ -494,18 +558,12 @@ def _store_output_files(
             filename=filename,
         )
 
-        async def _upload(raw: bytes, path: str, ct: str):
-            async def _source():
-                yield raw
-
-            return await storage.put_object_streaming(_source(), path, ct)
-
         try:
-            loop = asyncio.new_event_loop()
-            storage_path, content_hash = loop.run_until_complete(
-                _upload(content, dest_path, content_type)
+            storage_path, content_hash = storage.put_object_bytes(
+                content=content,
+                dest_path=dest_path,
+                content_type=content_type,
             )
-            loop.close()
         except Exception as exc:
             logger.error(f"[TEST_RESULT] Failed to upload output file {idx}: {exc}")
             continue

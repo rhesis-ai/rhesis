@@ -6,6 +6,7 @@
  */
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -41,18 +42,23 @@ export function useFileMetadata(fileId: string | null, sessionToken: string) {
 }
 
 // ---------------------------------------------------------------------------
-// useFileThumbnail — resolves to an object URL for the thumbnail endpoint
+// useFileThumbnail — fetches the thumbnail Blob from /files/{id}/thumbnail.
 //
-// The hook fetches /files/{id}/thumbnail?size={size} with credentials and
-// creates a blob URL.  The blob URL is revoked when the cache entry is
-// garbage-collected.
+// IMPORTANT: This hook intentionally returns the `Blob` (not an object URL).
+// TanStack Query's `gcTime` only evicts the cache entry; it never calls
+// `URL.revokeObjectURL()`. If we created object URLs inside the queryFn
+// they would accumulate as the user navigated, leaking memory.
+//
+// Consumers should turn the Blob into an object URL inside a `useEffect`
+// and revoke it on cleanup — see `useThumbnailObjectUrl` below for the
+// canonical pattern.
 // ---------------------------------------------------------------------------
 export function useFileThumbnail(
   fileId: string | null,
   size: 72 | 144 | 288 = 144,
   sessionToken: string
 ) {
-  return useQuery<string>({
+  return useQuery<Blob>({
     queryKey: fileKeys.thumbnail(fileId ?? '', size),
     enabled: !!fileId && !!sessionToken,
     queryFn: async () => {
@@ -66,12 +72,35 @@ export function useFileThumbnail(
       );
       if (!response.ok)
         throw new Error(`Thumbnail fetch failed: ${response.status}`);
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
+      return response.blob();
     },
-    // Revoke the blob URL when the entry is removed from cache
     gcTime: 10 * 60_000,
   });
+}
+
+// ---------------------------------------------------------------------------
+// useThumbnailObjectUrl — render-side helper that turns the cached Blob into
+// a short-lived object URL and revokes it on unmount / Blob change.
+//
+// This is the safe consumer pattern for `useFileThumbnail`. Keep this
+// alongside the hook so future consumers don't reinvent the wheel.
+// ---------------------------------------------------------------------------
+export function useThumbnailObjectUrl(blob: Blob | undefined): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!blob) {
+      setUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    setUrl(objectUrl);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [blob]);
+
+  return url;
 }
 
 // ---------------------------------------------------------------------------

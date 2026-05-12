@@ -251,6 +251,46 @@ class StorageService:
 
         return dest_path, sha256.hexdigest()
 
+    def put_object_bytes(
+        self,
+        content: bytes,
+        dest_path: str,
+        content_type: str,  # noqa: ARG002 — kept for parity with put_object_streaming
+    ) -> tuple:
+        """Synchronously write ``content`` to storage and return ``(storage_path, sha256_hex)``.
+
+        Synchronous sibling of :meth:`put_object_streaming`.  Use this when the
+        bytes are already fully materialised in memory (e.g.  base64-decoded
+        sanitiser output that we want to externalise from a JSONB column) and
+        the caller is on a sync code path that already has an event loop
+        running on its thread — creating a second loop with
+        ``asyncio.new_event_loop().run_until_complete(...)`` would raise
+        ``RuntimeError: Cannot run the event loop while another loop is
+        running``.
+
+        ``content_type`` is accepted for signature parity but is not stored
+        here; the caller persists it in the ``File`` metadata row.
+        """
+        full_path = self._full_path(dest_path)
+
+        if self._protocol == "file":
+            Path(full_path).parent.mkdir(parents=True, exist_ok=True)
+
+        sha256 = hashlib.sha256()
+        sha256.update(content)
+
+        try:
+            with self.fs.open(full_path, "wb") as f:
+                f.write(content)
+        except Exception:
+            try:
+                self.fs.rm(full_path)
+            except Exception:
+                pass
+            raise
+
+        return dest_path, sha256.hexdigest()
+
     async def get_object_stream(self, path: str) -> AsyncIterator[bytes]:
         """Yield chunks from storage asynchronously."""
         full_path = self._full_path(path)

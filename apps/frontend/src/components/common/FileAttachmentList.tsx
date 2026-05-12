@@ -19,7 +19,11 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import AudioFileIcon from '@mui/icons-material/AudioFile';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
-import { useFileThumbnail, useFileContentUrl } from '@/hooks/useFileQueries';
+import {
+  useFileThumbnail,
+  useFileContentUrl,
+  useThumbnailObjectUrl,
+} from '@/hooks/useFileQueries';
 
 interface FileAttachmentListProps {
   files: FileResponse[];
@@ -36,7 +40,10 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-/** Renders an image thumbnail using the TanStack-cached useFileThumbnail hook. */
+/**
+ * Renders an image thumbnail backed by the TanStack-cached `useFileThumbnail`
+ * Blob and a render-scoped object URL that is revoked on unmount / change.
+ */
 function ThumbnailImage({
   fileId,
   filename,
@@ -46,7 +53,8 @@ function ThumbnailImage({
   filename: string;
   sessionToken: string;
 }) {
-  const { data: src, isLoading } = useFileThumbnail(fileId, 144, sessionToken);
+  const { data: blob, isLoading } = useFileThumbnail(fileId, 144, sessionToken);
+  const src = useThumbnailObjectUrl(blob);
 
   if (isLoading || !src) {
     return (

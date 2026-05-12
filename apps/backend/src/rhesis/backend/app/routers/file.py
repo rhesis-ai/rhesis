@@ -6,21 +6,35 @@ attachments associated with Tests, TestResults, Traces, and ArchitectSessions.
 Upload streams chunks directly to object storage via StorageService so bytes
 never reside in Python as a full buffer.  Download returns a 302 redirect to a
 presigned URL (or a streaming response fallback for local-FS backends).
+
+Threading note
+--------------
+``SessionLocal`` in this codebase is a plain ``sessionmaker`` — Session
+instances it produces are *not* thread-safe.  The async endpoints below
+therefore do **not** share a request-scoped ``db`` across threadpool
+workers via ``asyncio.to_thread(crud.x, db, ...)``.  All DB work flows
+through :func:`_in_fresh_session`, which opens a short-lived tenant-scoped
+session inside the worker thread, runs the callable, and closes it before
+returning the result.
 """
 
 import asyncio
 import uuid
-from typing import List, Optional
+from typing import Any, Callable, List, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.dependencies import get_tenant_context
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.file import FileEntityType
 from rhesis.backend.app.services.storage_service import NotSupportedError, StorageService
+
+T = TypeVar("T")
 
 router = APIRouter(
     prefix="/files",
@@ -48,6 +62,32 @@ def _get_storage() -> StorageService:
     if _storage_service is None:
         _storage_service = StorageService()
     return _storage_service
+
+
+def _in_fresh_session(
+    organization_id: str,
+    user_id: str,
+    fn: Callable[[Session], T],
+) -> T:
+    """Run a sync DB callable inside a freshly-opened tenant-scoped Session.
+
+    Wraps :func:`get_db_with_tenant_variables` so each ``asyncio.to_thread``
+    invocation owns its own short-lived Session, instead of sharing the
+    request-scoped one across threads (Session is not thread-safe under our
+    plain ``sessionmaker``).  The session is committed/closed by the
+    underlying context manager before this returns.
+    """
+    with get_db_with_tenant_variables(organization_id, user_id) as db:
+        return fn(db)
+
+
+async def _run_in_session(
+    organization_id: str,
+    user_id: str,
+    fn: Callable[[Session], T],
+) -> T:
+    """``asyncio.to_thread(_in_fresh_session, ...)`` with a friendlier signature."""
+    return await asyncio.to_thread(_in_fresh_session, organization_id, user_id, fn)
 
 
 def _validate_mime_type(content_type: str) -> None:
@@ -95,10 +135,9 @@ async def upload_files(
     files: List[UploadFile] = File(...),
     entity_id: uuid.UUID = Query(..., description="ID of the entity to attach files to"),
     entity_type: FileEntityType = Query(..., description="Type of entity"),
-    db=Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-):
+) -> List[schemas.FileResponse]:
     """Upload one or more files and attach them to an entity.
 
     Files are streamed chunk-by-chunk directly to object storage via StorageService
@@ -113,24 +152,17 @@ async def upload_files(
             detail=f"Maximum {MAX_FILES_PER_REQUEST} files per request.",
         )
 
-    existing_total = await asyncio.to_thread(
-        crud.get_entity_files_total_size,
-        db,
-        entity_id,
-        entity_type.value,
+    existing_total, max_position = await _run_in_session(
         organization_id,
-    )
-
-    max_position = await asyncio.to_thread(
-        crud.get_entity_files_max_position,
-        db,
-        entity_id,
-        entity_type.value,
-        organization_id,
+        str(user_id),
+        lambda db: (
+            crud.get_entity_files_total_size(db, entity_id, entity_type.value, organization_id),
+            crud.get_entity_files_max_position(db, entity_id, entity_type.value, organization_id),
+        ),
     )
     next_position = max_position + 1
 
-    created_files = []
+    created_files: List[schemas.FileResponse] = []
     upload_total = 0
 
     for idx, upload_file in enumerate(files):
@@ -141,6 +173,7 @@ async def upload_files(
         _validate_mime_type(content_type)
 
         # Allocate a file_id before storage so the path contains the real ID
+        # and the DB row carries the same id (matched via FileCreate(id=...)).
         file_id = uuid.uuid4()
 
         dest_path = storage.get_attachment_original_path(
@@ -151,7 +184,6 @@ async def upload_files(
             filename=upload_file.filename,
         )
 
-        # Check running total against per-entity limit before writing
         remaining_budget = MAX_TOTAL_BYTES - existing_total - upload_total
         if remaining_budget <= 0:
             raise HTTPException(
@@ -167,14 +199,11 @@ async def upload_files(
             content_type=content_type,
         )
 
-        # Infer actual size from the hash — size_bytes is the upload count
-        # We need to reset the counter via a second seek; since we can't,
-        # we re-read the size from storage (one metadata call).
+        # One metadata call to record the actual on-disk size.
         size_bytes = storage.get_file_size(storage._full_path(storage_path)) or 0
 
         upload_total += size_bytes
         if existing_total + upload_total > MAX_TOTAL_BYTES:
-            # Cleanup the just-uploaded object and abort
             await storage.delete_object(storage_path)
             raise HTTPException(
                 status_code=422,
@@ -184,6 +213,7 @@ async def upload_files(
             )
 
         file_data = schemas.FileCreate(
+            id=file_id,
             filename=upload_file.filename,
             content_type=content_type,
             size_bytes=size_bytes,
@@ -195,27 +225,22 @@ async def upload_files(
             extraction_status="pending",
         )
 
-        db_file = await asyncio.to_thread(
-            crud.create_file,
-            db,
-            file_data,
-            organization_id=organization_id,
-            user_id=user_id,
+        # Persist + serialise inside the threadpool session so we never
+        # touch a detached ORM instance after the session closes.
+        created = await _run_in_session(
+            organization_id,
+            str(user_id),
+            lambda db, fd=file_data: schemas.FileResponse.model_validate(
+                crud.create_file(db, fd, organization_id=organization_id, user_id=user_id)
+            ),
         )
-        # Patch the pre-allocated ID onto the row
-        if db_file.id != file_id:
-            # Row was created with a new auto-generated ID — rename in storage
-            # (best-effort; path mismatch is cosmetic in this rare race)
-            pass
+        created_files.append(created)
 
-        created_files.append(db_file)
-
-        # Enqueue text extraction task (non-blocking)
         try:
             from rhesis.backend.tasks.file.extract_text import extract_file_text
 
             extract_file_text.delay(
-                file_id=str(db_file.id),
+                file_id=str(created.id),
                 storage_path=storage_path,
                 filename=upload_file.filename,
                 content_type=content_type,
@@ -233,19 +258,88 @@ async def upload_files(
 # ---------------------------------------------------------------------------
 
 
+def _load_file_or_404_factory(
+    file_id: uuid.UUID,
+    organization_id: str,
+    user_id: Optional[str],
+) -> Callable[[Session], Optional[schemas.FileResponse]]:
+    """Build a session-local callable that fetches a file row and serialises it.
+
+    Returning a ``FileResponse`` instead of the ORM row means the caller can
+    safely use the result after the threadpool session has been closed.
+    """
+
+    def _load(db: Session) -> Optional[schemas.FileResponse]:
+        row = crud.get_file(db, file_id, organization_id, user_id)
+        if not row:
+            return None
+        return schemas.FileResponse.model_validate(row)
+
+    return _load
+
+
+class _FileForDownload:
+    """Internal projection used by download/thumbnail endpoints.
+
+    Carries the subset of File fields the storage layer needs — including
+    ``storage_path`` which ``FileResponse`` intentionally excludes — and is
+    a plain attribute holder (no ORM session needed after construction).
+    """
+
+    __slots__ = (
+        "id",
+        "filename",
+        "content_type",
+        "size_bytes",
+        "content_hash",
+        "storage_path",
+        "entity_id",
+        "entity_type",
+    )
+
+    def __init__(self, row: Any) -> None:
+        self.id = row.id
+        self.filename = row.filename
+        self.content_type = row.content_type
+        self.size_bytes = row.size_bytes
+        self.content_hash = row.content_hash
+        self.storage_path = row.storage_path
+        self.entity_id = row.entity_id
+        self.entity_type = row.entity_type
+
+
+def _load_file_for_download_factory(
+    file_id: uuid.UUID,
+    organization_id: str,
+    user_id: Optional[str],
+) -> Callable[[Session], Optional["_FileForDownload"]]:
+    """Build a session-local callable that materialises the download view."""
+
+    def _load(db: Session) -> Optional[_FileForDownload]:
+        row = crud.get_file(db, file_id, organization_id, user_id)
+        if not row:
+            return None
+        return _FileForDownload(row)
+
+    return _load
+
+
 @router.get("/{file_id}", response_model=schemas.FileResponse)
 async def get_file_metadata(
     file_id: uuid.UUID,
-    db=Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-):
+) -> schemas.FileResponse:
     """Get file metadata (does not include file content)."""
     organization_id, user_id = tenant_context
-    db_file = await asyncio.to_thread(crud.get_file, db, file_id, organization_id, user_id)
-    if not db_file:
+    result = await _run_in_session(
+        organization_id,
+        str(user_id),
+        _load_file_or_404_factory(file_id, organization_id, user_id),
+    )
+    if result is None:
         raise HTTPException(status_code=404, detail="File not found")
-    return db_file
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +351,6 @@ async def get_file_metadata(
 async def download_file_content(
     file_id: uuid.UUID,
     request: Request,
-    db=Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -272,7 +365,11 @@ async def download_file_content(
     organization_id, user_id = tenant_context
     storage = _get_storage()
 
-    db_file = await asyncio.to_thread(crud.get_file, db, file_id, organization_id, user_id)
+    db_file = await _run_in_session(
+        organization_id,
+        str(user_id),
+        _load_file_for_download_factory(file_id, organization_id, user_id),
+    )
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -331,7 +428,6 @@ async def get_file_thumbnail(
     file_id: uuid.UUID,
     size: int = Query(144, description="Thumbnail size (72, 144, or 288)"),
     request: Request = None,
-    db=Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -349,7 +445,11 @@ async def get_file_thumbnail(
     organization_id, user_id = tenant_context
     storage = _get_storage()
 
-    db_file = await asyncio.to_thread(crud.get_file, db, file_id, organization_id, user_id)
+    db_file = await _run_in_session(
+        organization_id,
+        str(user_id),
+        _load_file_for_download_factory(file_id, organization_id, user_id),
+    )
     if not db_file:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -443,17 +543,23 @@ async def _generate_thumbnail(
 @router.delete("/{file_id}", response_model=schemas.FileResponse)
 async def delete_file(
     file_id: uuid.UUID,
-    db=Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-):
+) -> schemas.FileResponse:
     """Soft-delete a file.
 
     The object is NOT removed from storage on soft-delete — it will be cleaned
     up when the organisation is purged.
     """
     organization_id, user_id = tenant_context
-    db_file = await asyncio.to_thread(crud.delete_file, db, file_id, organization_id, user_id)
-    if not db_file:
+
+    def _delete(db: Session) -> Optional[schemas.FileResponse]:
+        row = crud.delete_file(db, file_id, organization_id, user_id)
+        if not row:
+            return None
+        return schemas.FileResponse.model_validate(row)
+
+    result = await _run_in_session(organization_id, str(user_id), _delete)
+    if result is None:
         raise HTTPException(status_code=404, detail="File not found")
-    return db_file
+    return result
