@@ -65,7 +65,7 @@ class Target(ABC):
         self,
         message: str,
         conversation_id: Optional[str] = None,
-        files: Optional[List[Dict[str, str]]] = None,
+        files: Optional[List] = None,
         **kwargs,
     ) -> TargetResponse:
         """
@@ -99,7 +99,7 @@ class Target(ABC):
         self,
         message: str,
         conversation_id: Optional[str] = None,
-        files: Optional[List[Dict[str, str]]] = None,
+        files: Optional[List] = None,
         **kwargs,
     ) -> TargetResponse:
         """

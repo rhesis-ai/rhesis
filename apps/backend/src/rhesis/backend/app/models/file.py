@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, LargeBinary, String, Text
-from sqlalchemy.orm import deferred
+from sqlalchemy import Column, Integer, String, Text
 
 from .base import Base
 from .guid import GUID
@@ -8,9 +7,6 @@ from .mixins import OrganizationAndUserMixin
 
 class File(Base, OrganizationAndUserMixin):
     __tablename__ = "file"
-
-    # File content (deferred - never loaded on queries unless explicitly requested)
-    content = deferred(Column(LargeBinary))
 
     # File metadata
     filename = Column(String(255), nullable=False)
@@ -24,3 +20,15 @@ class File(Base, OrganizationAndUserMixin):
 
     # Ordering for multiple files on same entity
     position = Column(Integer, nullable=False, default=0)
+
+    # Object-storage path (relative to the active backend root).
+    storage_path = Column(String(512), nullable=True)
+
+    # SHA-256 hex digest of the original file bytes.
+    content_hash = Column(String(64), nullable=True)
+
+    # Text extracted from the file at upload time (OCR / text-layer).
+    extracted_text = Column(Text, nullable=True)
+
+    # Extraction lifecycle: pending | done | failed | not_applicable
+    extraction_status = Column(String(16), nullable=False, server_default="pending")

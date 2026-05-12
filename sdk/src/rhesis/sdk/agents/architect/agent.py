@@ -1378,7 +1378,10 @@ class ArchitectAgent(BaseAgent):
         if files:
             for f in files:
                 filename = f.get("filename", "unknown")
-                content = f.get("content", "")
+                # Prefer ``extracted_text`` (the canonical key across the rest
+                # of the pipeline); fall back to ``content`` for any
+                # in-flight payloads still using the legacy key.
+                content = f.get("extracted_text") or f.get("content") or ""
                 if len(content) > cfg.max_attachment_chars:
                     content = content[: cfg.max_attachment_chars] + "\n\n[... truncated ...]"
                 parts.append(f"Attached file: {filename}\n```\n{content}\n```")

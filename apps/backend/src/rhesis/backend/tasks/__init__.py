@@ -12,6 +12,7 @@ from rhesis.backend.tasks import (
     endpoint,  # noqa: F401
     example_task,  # noqa: F401
     execution,  # noqa: F401
+    file,  # noqa: F401
     task_notifications,  # noqa: F401
     test_configuration,  # noqa: F401
     test_set,  # noqa: F401

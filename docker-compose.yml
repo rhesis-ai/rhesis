@@ -10,6 +10,12 @@ x-common-database: &common-database
   SQLALCHEMY_DB_NAME: ${SQLALCHEMY_DB_NAME:-rhesis-db}
   DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-your-32-byte-base64-encryption-key}
 
+# Object storage configuration (local dev defaults to bind-mounted /app/storage)
+x-common-storage: &common-storage
+  STORAGE_SERVICE_URI: ${STORAGE_SERVICE_URI:-file:///app/storage}
+  STORAGE_SERVICE_ACCOUNT_KEY: ${STORAGE_SERVICE_ACCOUNT_KEY:-}
+  LOCAL_STORAGE_PATH: ${LOCAL_STORAGE_PATH:-/tmp/rhesis-files}
+
 x-common-redis: &common-redis
   REDIS_URL: ${REDIS_URL:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/0}
   BROKER_URL: ${BROKER_URL:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/0}
@@ -127,8 +133,10 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
+      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+    volumes:
+      - rhesis-storage:/app/storage
     ports:
       - "8080:8080"
     extra_hosts:
@@ -156,13 +164,15 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
+      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
       LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
       CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
       USE_TCP_DATABASE: ${USE_TCP_DATABASE:-true}
       ENABLE_FLOWER: ${ENABLE_FLOWER:-no}
+    volumes:
+      - rhesis-storage:/app/storage
     ports:
       - "8081:8081"
     extra_hosts:
@@ -234,6 +244,8 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  rhesis-storage:
     driver: local
 
 networks:

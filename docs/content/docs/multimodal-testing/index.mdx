@@ -12,14 +12,27 @@ Files attached to a test are passed to your endpoint at execution time using the
 
 For **multi-turn tests**, the testing agent (Penelope) decides autonomously when to introduce the files during the conversation, based on the test goal and scenario. You do not need to specify at which turn files should appear.
 
-## File Limits
+## Supported File Types
 
-| Limit | Value |
-|---|---|
-| Supported types | Images, PDFs, audio files |
-| Max size per file | 10 MB |
-| Max total size per test | 20 MB |
-| Max files per upload | 10 |
+Rhesis accepts any file whose MIME type matches one of these prefixes:
+
+| Category | Accepted MIME types | Examples |
+|---|---|---|
+| Images | `image/*` | `image/png`, `image/jpeg`, `image/gif`, `image/webp` |
+| Documents | `application/pdf` | `.pdf` |
+| Audio | `audio/*` | `audio/mpeg`, `audio/wav`, `audio/ogg`, `audio/webm` |
+
+Anything outside this allow-list is rejected with `422 Unprocessable Content` at upload time. The MIME prefix is read from the browser or HTTP client — files without a recognised content type are treated as `application/octet-stream` and rejected.
+
+## Size and Count Limits
+
+| Limit | Value | Scope |
+|---|---|---|
+| Max size per file | 10 MB | Each individual upload |
+| Max total size | 20 MB | Cumulative across all files attached to one entity (Test, Test Result, Trace, or Architect session) |
+| Max files per upload request | 10 | Per single `POST /files` call — attach more by uploading again |
+
+Limits are enforced server-side while the upload is still streaming, so an oversize file is rejected mid-stream (HTTP `413`) without consuming the full payload. The total-size budget includes files that were uploaded in earlier requests, so existing attachments count against the 20 MB cap.
 
 ## Attaching Files
 

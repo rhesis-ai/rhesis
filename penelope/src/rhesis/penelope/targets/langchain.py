@@ -5,7 +5,7 @@ Simple wrapper for LangChain Runnables (chains, agents, etc.) that makes them
 testable with Penelope's autonomous testing agent.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from rhesis.sdk.targets import Target, TargetResponse
 
@@ -84,7 +84,7 @@ class LangChainTarget(Target):
         self,
         message: str,
         conversation_id: Optional[str] = None,
-        files: Optional[List[Dict[str, str]]] = None,
+        files: Optional[List] = None,
         **kwargs: Any,
     ) -> TargetResponse:
         """Send a message to the LangChain runnable."""

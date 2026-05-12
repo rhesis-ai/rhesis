@@ -2971,3 +2971,71 @@ class TestArchitectSavePlanReconciliation:
         # The guard must pass (return None) because the session evidence
         # proves everything is done.
         assert result is None
+
+
+class TestArchitectFormatAttachments:
+    """``_format_attachments`` must read the canonical ``extracted_text``
+    key shared with the rest of the pipeline, while still tolerating
+    legacy payloads that carry ``content`` for backward compatibility.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        model = Mock(spec=BaseLLM)
+        model.generate = Mock(return_value={})
+        return model
+
+    def test_reads_extracted_text(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._attachments = {
+            "files": [
+                {
+                    "filename": "spec.pdf",
+                    "content_type": "application/pdf",
+                    "extracted_text": "  payload via the new key  ",
+                }
+            ]
+        }
+
+        rendered = agent._format_attachments()
+        assert "spec.pdf" in rendered
+        assert "payload via the new key" in rendered
+
+    def test_falls_back_to_legacy_content_key(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._attachments = {
+            "files": [
+                {
+                    "filename": "old.pdf",
+                    "content_type": "application/pdf",
+                    "content": "legacy payload",
+                }
+            ]
+        }
+
+        rendered = agent._format_attachments()
+        assert "old.pdf" in rendered
+        assert "legacy payload" in rendered
+
+    def test_prefers_extracted_text_when_both_present(self, mock_model):
+        """If a producer accidentally emits both keys, the canonical one wins."""
+        agent = _make_agent(mock_model)
+        agent._attachments = {
+            "files": [
+                {
+                    "filename": "both.pdf",
+                    "content_type": "application/pdf",
+                    "extracted_text": "modern",
+                    "content": "legacy",
+                }
+            ]
+        }
+
+        rendered = agent._format_attachments()
+        assert "modern" in rendered
+        assert "legacy" not in rendered
+
+    def test_returns_empty_string_when_no_attachments(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._attachments = None
+        assert agent._format_attachments() == ""

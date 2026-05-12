@@ -6,6 +6,7 @@ import {
   DashboardSidebarPageItem,
 } from '@toolpad/core/DashboardLayout';
 import type { NavigationPageItem } from '@toolpad/core/AppProvider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AuthErrorBoundary from './error-boundary';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -15,6 +16,16 @@ import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60_000,
+      gcTime: 30 * 60_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Define extended user interface that includes organization_id
 interface ExtendedUser {
@@ -188,11 +199,13 @@ export default function ProtectedLayout({
   );
 
   return (
-    <AuthErrorBoundary>
-      <FeaturesProvider>
-        {!isOnboarding && <VerificationBanner />}
-        {content}
-      </FeaturesProvider>
-    </AuthErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AuthErrorBoundary>
+        <FeaturesProvider>
+          {!isOnboarding && <VerificationBanner />}
+          {content}
+        </FeaturesProvider>
+      </AuthErrorBoundary>
+    </QueryClientProvider>
   );
 }
