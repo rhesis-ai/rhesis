@@ -10,6 +10,7 @@ global:
   registry: ""
   imagePullPolicy: IfNotPresent
   imageTag: "latest"
+  requirePinnedTag: false
 
 nameOverride: ""
 fullnameOverride: ""
@@ -155,7 +156,7 @@ frontend:
   enabled: true
   image:
     repository: rhesis-frontend
-    tag: "stg-latest"
+    tag: "latest"
   replicas: 1
   resources:
     requests:

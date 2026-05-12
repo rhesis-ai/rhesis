@@ -1,5 +1,5 @@
-# CloudNativePG Barman: a dedicated GSA for WAL/base backups to GCS, IAM on the
-# env-specific cnpg backup bucket, key material in Secret Manager for the ESO flow.
+# CloudNativePG Barman: a dedicated GSA for WAL/base backups to GCS, Workload Identity
+# binding so CNPG pods authenticate without a JSON key.
 
 terraform {
   required_providers {
@@ -16,18 +16,12 @@ resource "google_project_service" "iamcredentials" {
   disable_on_destroy = false
 }
 
-resource "google_project_service" "secretmanager" {
-  project            = var.project_id
-  service            = "secretmanager.googleapis.com"
-  disable_on_destroy = false
-}
-
 # account_id: 6-30 chars, alphanum and hyphens
 resource "google_service_account" "cnpg_barman" {
   project      = var.project_id
   account_id   = "rhesis-cnpg-bk-${var.environment}"
   display_name = "Rhesis ${var.environment} CNPG Barman (GCS backup)"
-  description  = "Uploads Barman / WAL data to the ${var.environment} cnpg backup bucket; key synced to Secret Manager for ESO"
+  description  = "Uploads Barman / WAL data to the ${var.environment} cnpg backup bucket; authenticates via Workload Identity"
 
   depends_on = [google_project_service.iamcredentials]
 }
@@ -47,33 +41,12 @@ resource "google_storage_bucket_iam_member" "cnpg_backup_bucket_viewer" {
   member = "serviceAccount:${google_service_account.cnpg_barman.email}"
 }
 
-# Single JSON key; rotate by taint/replace the key resource
-resource "google_service_account_key" "cnpg_barman" {
+# Workload Identity binding: allows the CNPG cluster's KSA to impersonate this GSA.
+# No JSON key is generated — credentials stay inside GCP, nothing in Terraform state.
+resource "google_service_account_iam_member" "cnpg_workload_identity" {
   service_account_id = google_service_account.cnpg_barman.name
-}
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[${var.kubernetes_namespace}/${var.kubernetes_service_account}]"
 
-# Private key: provider gives base64-encoded full JSON; GSM stores raw JSON for the pod
-resource "google_secret_manager_secret" "barman_gcs_key" {
-  project   = var.project_id
-  secret_id = var.secret_manager_secret_id
-  labels = {
-    purpose     = "cnpg-barman-gcs"
-    environment = var.environment
-  }
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.secretmanager]
-}
-
-resource "google_secret_manager_secret_version" "barman_gcs_key" {
-  secret = google_secret_manager_secret.barman_gcs_key.id
-  # google_service_account_key.private_key: full JSON, base64-encoded
-  secret_data = base64decode(google_service_account_key.cnpg_barman.private_key)
-
-  lifecycle {
-    # Key rotation creates a new version; avoid drift when key is replaced
-    create_before_destroy = true
-  }
+  depends_on = [google_project_service.iamcredentials]
 }

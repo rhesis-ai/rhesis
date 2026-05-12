@@ -13,8 +13,13 @@ variable "backup_bucket_name" {
   description = "GCS bucket for CloudNativePG Barman backups (from storage module; must already exist)"
 }
 
-variable "secret_manager_secret_id" {
+variable "kubernetes_namespace" {
   type        = string
-  description = "GSM secret name for the Barman service account JSON key; must match ExternalSecrets remoteRef.key in kubernetes/clusters/<env>/rhesis/cnpg-gcs-externalsecret.yaml"
+  default     = "rhesis"
+  description = "Kubernetes namespace where the CNPG cluster runs"
 }
 
+variable "kubernetes_service_account" {
+  type        = string
+  description = "Kubernetes service account name created by CNPG for the cluster (equals the cluster name)"
+}

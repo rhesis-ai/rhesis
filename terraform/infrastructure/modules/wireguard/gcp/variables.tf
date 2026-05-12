@@ -128,3 +128,9 @@ variable "bind9_tsig_keys" {
   }))
   default = {}
 }
+
+variable "bind9_allowed_names" {
+  description = "Per-environment list of DNS hostnames each TSIG key may update. Keys must match bind9_tsig_keys env names. Each entry generates a subdomain grant covering the hostname and its sub-names (TXT ownership, ACME challenge records)."
+  type        = map(list(string))
+  default     = {}
+}

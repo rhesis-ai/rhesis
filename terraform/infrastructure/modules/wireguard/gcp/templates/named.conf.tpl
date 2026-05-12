@@ -44,13 +44,23 @@ key "${key.keyname}" {
 %{ endfor ~}
 
 // rhesis.ai zone — split-horizon: dev-*/stg-* → internal LB IPs (BIND9 only, VPN),
-// prod records → Cloudflare (external-dns); written by internal-dns via RFC2136
+// prod records → rhesis.ai apex (written by prd ExternalDNS / cert-manager).
+//
+// update-policy: each key restricted to its own hostname subtrees via subdomain grants.
+// A subdomain grant on "dev-api.rhesis.ai." covers the A/AAAA record AND its sub-names
+// (_external-dns.dev-api.rhesis.ai., _acme-challenge.dev-api.rhesis.ai., etc.).
+// A compromised dev or stg key cannot overwrite api.rhesis.ai or app.rhesis.ai.
+//
+// Adding a new service requires updating bind9_allowed_names in terraform/infrastructure/main.tf
+// and re-applying before ExternalDNS can create records for the new hostname.
 zone "rhesis.ai" {
     type master;
     file "/var/lib/bind/rhesis.ai.zone";
-    allow-update {
+    update-policy {
 %{ for env, key in tsig_keys ~}
-        key "${key.keyname}";
+%{ for hostname in lookup(allowed_names, env, []) ~}
+        grant "${key.keyname}" subdomain "${hostname}." ANY;
+%{ endfor ~}
 %{ endfor ~}
     };
 };

@@ -49,6 +49,18 @@ resource "google_storage_bucket" "cnpg_backup" {
     enabled = true
   }
 
+  # Expire non-current object versions after 7 days; prevents indefinite WAL accumulation
+  # from versioned deletes/replaces. CNPG retentionPolicy manages WAL file names but does
+  # not delete GCS object versions.
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 7
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
   labels = merge(
     var.labels,
     {
@@ -56,6 +68,13 @@ resource "google_storage_bucket" "cnpg_backup" {
       environment = var.environment
     }
   )
+
+  lifecycle {
+    precondition {
+      condition     = !(var.environment == "prd" && var.force_destroy)
+      error_message = "force_destroy must not be true for the prd environment backup bucket."
+    }
+  }
 
   depends_on = [google_project_service.storage]
 }

@@ -2,7 +2,9 @@
 # Operator Application: kubernetes/clusters/prd/cnpg-operator.yaml
 # Argo CD Application: kubernetes/clusters/prd/cnpg-cluster-application.yaml (sync-wave 5)
 #
-# Secrets and bootstrap notes: see kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml
+# Auth: Workload Identity (gkeEnvironment: true). No JSON key — CNPG pods impersonate
+# GSA rhesis-cnpg-bk-prd@rhesis-prd.iam.gserviceaccount.com via the KSA annotation below.
+# Terraform module cnpg_barman_prd creates the WI IAM binding.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -13,16 +15,23 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   description: "Rhesis production PostgreSQL (CloudNativePG)"
-  instances: 2
+  instances: 3
   imageName: ghcr.io/cloudnative-pg/postgresql:17.4-1
   storage:
     size: 100Gi
+  # Annotate the CNPG-managed KSA so GKE Workload Identity links it to the GSA.
+  serviceAccountTemplate:
+    metadata:
+      annotations:
+        iam.gke.io/gcp-service-account: rhesis-cnpg-bk-prd@rhesis-prd.iam.gserviceaccount.com
   resources:
     requests:
       memory: 1Gi
       cpu: 500m
     limits:
       memory: 4Gi
+      # cpu limit intentionally omitted: databases benefit from absorbing CPU bursts.
+      # cpu request above ensures correct scheduler placement.
   postgresql:
     parameters:
       max_connections: "300"
@@ -51,9 +60,10 @@ spec:
     initdb:
       database: rhesis-prd-db
       owner: rhesis-admin
+      # spec.managed.roles above is the sole owner of role creation.
+      # CREATE ROLE is intentionally absent here to avoid a race with managed.roles
+      # reconciliation (second CREATE would fail with "role already exists").
       postInitSQL:
-        - CREATE ROLE "rhesis-user" LOGIN;
-        - CREATE ROLE "rhesis-analytics-user" LOGIN;
         - CREATE DATABASE "rhesis-analytics-prd-db" OWNER "rhesis-analytics-user";
         - GRANT CONNECT ON DATABASE "rhesis-analytics-prd-db" TO "rhesis-admin";
       postInitApplicationSQL:
@@ -71,6 +81,4 @@ spec:
       destinationPath: gs://cnpg-backup-rhesis-prd
       serverName: rhesis-prd
       googleCredentials:
-        applicationCredentials:
-          name: rhesis-prd-cnpg-gcs
-          key: key.json
+        gkeEnvironment: true

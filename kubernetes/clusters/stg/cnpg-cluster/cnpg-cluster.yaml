@@ -2,15 +2,12 @@
 # Operator Application: kubernetes/clusters/stg/cnpg-operator.yaml
 # Argo CD Application: kubernetes/clusters/stg/cnpg-cluster-application.yaml (sync-wave 5)
 #
-# Secrets:
-#   - <cluster>-app: owner (rhesis-admin) credentials — DBA / migrations
-#   - Declarative roles: rhesis-admin-credentials, rhesis-user-credentials,
-#     rhesis-analytics-user-credentials (passwords from GCP Secret Manager via ESO)
+# Auth: Workload Identity (gkeEnvironment: true). No JSON key — CNPG pods impersonate
+# GSA rhesis-cnpg-bk-stg@rhesis-stg.iam.gserviceaccount.com via the KSA annotation below.
+# Terraform module cnpg_barman_stg creates the WI IAM binding.
 #
-# BYPASSRLS for rhesis-admin is set via spec.managed.roles (not GRANT).
-# As DB owner, rhesis-admin already has full privileges on rhesis-stg-db.
-# GRANTs in postInitApplicationSQL are for the non-owner app role rhesis-user (DML on
-# tables owned by rhesis-admin; no CREATE on schema public).
+# Roles: rhesis-admin (BYPASSRLS, owner), rhesis-user (DML only), rhesis-analytics-user.
+# GRANTs in postInitApplicationSQL are for rhesis-user (DML on tables owned by rhesis-admin).
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -25,12 +22,18 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:17.4-1
   storage:
     size: 20Gi
+  # Annotate the CNPG-managed KSA so GKE Workload Identity links it to the GSA.
+  serviceAccountTemplate:
+    metadata:
+      annotations:
+        iam.gke.io/gcp-service-account: rhesis-cnpg-bk-stg@rhesis-stg.iam.gserviceaccount.com
   resources:
     requests:
       memory: 512Mi
       cpu: 250m
     limits:
       memory: 2Gi
+      # cpu limit intentionally omitted: databases benefit from absorbing CPU bursts.
   postgresql:
     parameters:
       max_connections: "200"
@@ -60,9 +63,10 @@ spec:
       owner: rhesis-admin
       # Runs as superuser in the postgres DB before the application DB exists.
       # Do not GRANT on rhesis-stg-db here — that DB is created after this phase.
+      # spec.managed.roles above is the sole owner of role creation.
+      # CREATE ROLE is intentionally absent here to avoid a race with managed.roles
+      # reconciliation (second CREATE would fail with "role already exists").
       postInitSQL:
-        - CREATE ROLE "rhesis-user" LOGIN;
-        - CREATE ROLE "rhesis-analytics-user" LOGIN;
         - CREATE DATABASE "rhesis-analytics-stg-db" OWNER "rhesis-analytics-user";
         - GRANT CONNECT ON DATABASE "rhesis-analytics-stg-db" TO "rhesis-admin";
       # Runs as superuser inside rhesis-stg-db after initdb creates it.
@@ -81,6 +85,4 @@ spec:
       destinationPath: gs://cnpg-backup-rhesis-stg
       serverName: rhesis-stg
       googleCredentials:
-        applicationCredentials:
-          name: rhesis-stg-cnpg-gcs
-          key: key.json
+        gkeEnvironment: true
