@@ -110,9 +110,8 @@ When you run `./rh start`, the `.env.docker.local` file is automatically created
 
 **Auto-Generated Keys:**
 - Database encryption key (using Python cryptography.fernet)
-- Local authentication bypass flags:
-  - `QUICK_START=true` (enables backend auto-login endpoint)
-  - `NEXT_PUBLIC_QUICK_START=true` (enables frontend auto-login detection)
+- Local authentication bypass flag:
+  - `QUICK_START=true` (single source of truth — enables backend auto-login and is propagated to the frontend at container start)
 
 **You can add (optional):**
 - Rhesis API key (for test generation)
@@ -298,22 +297,20 @@ pip install cryptography
 ### Auto-login not working
 
 <CodeBlock filename="Terminal" language="bash">
-{`# Check if Quick Start variables are set correctly
+{`# Check if Quick Start is set correctly
 cat .env.docker.local | grep QUICK_START
 
 # Should show:
 # QUICK_START=true
-# NEXT_PUBLIC_QUICK_START=true
 
-# If missing, add them:
+# If missing, add it:
 echo "QUICK_START=true" >> .env.docker.local
-echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
 
 # Then restart:
 ./rh restart`}
 </CodeBlock>
 
-**Note:** The `./rh start` command automatically sets both variables. If you're manually configuring, ensure both `QUICK_START=true` (for backend) and `NEXT_PUBLIC_QUICK_START=true` (for frontend) are set in your `.env.docker.local` file. If you add or change these after containers already exist, recreate the frontend with a local image build: `./rh restart --build` (or `./rh start --build` after `./rh delete`).
+**Note:** The `./rh start` command automatically sets `QUICK_START=true`, which is the single source of truth — the frontend container picks up the same value at startup. If you change this after containers already exist, recreate the frontend with a local image build: `./rh restart --build` (or `./rh start --build` after `./rh delete`).
 
 ## Next Steps
 

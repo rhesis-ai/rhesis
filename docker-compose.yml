@@ -56,6 +56,7 @@ x-common-environment: &common-environment
   FRONTEND_ENV: ${FRONTEND_ENV:-local}
   WORKER_ENV: ${WORKER_ENV:-local}
   LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+  QUICK_START: ${QUICK_START:-false}
 
 x-rhesis-config: &rhesis-config
   RHESIS_BASE_URL: ${RHESIS_BASE_URL:-https://api.rhesis.ai}
@@ -128,7 +129,6 @@ services:
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
-      QUICK_START: ${QUICK_START:-false}
     ports:
       - "8080:8080"
     extra_hosts:

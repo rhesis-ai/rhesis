@@ -26,11 +26,15 @@
  * ```
  */
 export function isQuickStartEnabled(hostname?: string): boolean {
-  // 1. Check QUICK_START environment variable (default: false for safety)
-  // In Next.js, check both NEXT_PUBLIC_QUICK_START (build-time) and QUICK_START (runtime)
-  const quickStartEnv =
-    process.env.NEXT_PUBLIC_QUICK_START === 'true' ||
-    process.env.QUICK_START === 'true';
+  // 1. Check QUICK_START environment variable (default: false for safety).
+  //
+  // The value is captured into a string variable before comparison so the
+  // build-time placeholder (`__NEXT_PUBLIC_QUICK_START__`) survives SWC
+  // constant folding and can be substituted at container start by
+  // scripts/replace-runtime-env.sh. Direct `=== 'true'` comparison gets
+  // folded to a static `false` and removes the placeholder from the bundle.
+  const raw = process.env.NEXT_PUBLIC_QUICK_START ?? '';
+  const quickStartEnv = String(raw).trim().toLowerCase() === 'true';
 
   if (!quickStartEnv) {
     return false;
