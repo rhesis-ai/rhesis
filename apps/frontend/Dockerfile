@@ -115,11 +115,18 @@ RUN addgroup --system --gid 1001 nodejs && \
 # The standalone output mirrors the repo-root structure because
 # outputFileTracingRoot is set to the repo root in next.config.mjs.
 # standalone/ contains apps/frontend/server.js (and ee/frontend/ if traced).
-COPY --from=builder /app/apps/frontend/.next/standalone ./
+#
+# --chown=nextjs:nodejs is required: the entrypoint script (replace-runtime-env.sh)
+# runs as the nextjs user and uses `sed -i` to inject runtime values into
+# .next/server/chunks/*.js. sed -i creates a temp file in the same directory
+# as the target, which fails with "Permission denied" if the standalone tree
+# is root-owned. Same applies to public/, which sed never touches today but
+# Next.js needs to read regardless.
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone ./
 
 # Static assets and public must sit alongside server.js so Next.js serves them.
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./apps/frontend/.next/static
-COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/scripts/replace-runtime-env.sh ./apps/frontend/scripts/replace-runtime-env.sh
 RUN chmod +x /app/apps/frontend/scripts/replace-runtime-env.sh
 
