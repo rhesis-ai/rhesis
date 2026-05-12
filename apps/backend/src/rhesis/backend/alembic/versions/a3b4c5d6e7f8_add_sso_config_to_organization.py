@@ -4,7 +4,7 @@ Add sso_config JSON column to the organization table for per-org SSO configurati
 Includes a CHECK constraint to validate required keys when config is present.
 
 Revision ID: a3b4c5d6e7f8
-Revises: c2e4f8a91b0d
+Revises: a1b2c3d4e5f8
 Create Date: 2026-04-15
 
 """
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a3b4c5d6e7f8"
-down_revision: Union[str, None] = "c2e4f8a91b0d"
+down_revision: Union[str, None] = "a1b2c3d4e5f8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
