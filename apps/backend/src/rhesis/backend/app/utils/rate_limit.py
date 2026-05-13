@@ -4,7 +4,8 @@ Rate limiting utilities for the application.
 
 import os
 
-from fastapi import Request
+from fastapi import HTTPException, Request, status
+from limits import parse as parse_rate_limit
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -70,3 +71,65 @@ AUTH_REGISTER_LIMIT = "10/hour"
 # EE features that need their own rate-limit constants define them
 # alongside their routers and decorate handlers with the shared
 # ``limiter`` instance defined above. Core has no per-feature constants.
+
+
+def hit_post_parse_limit(
+    rate_string: str,
+    *,
+    namespace: str,
+    key: str,
+) -> None:
+    """Apply a rate limit *after* the request body has been parsed.
+
+    The ``@limiter.limit(...)`` decorator runs at routing time, before
+    the handler reads the body. That is correct for per-IP limits
+    (which need no parsed payload) but useless for any dimension keyed
+    on a value the request carries inside the body or
+    ``Authorization`` header (e.g. ``client_id`` for token exchange).
+    This helper is the post-parse counterpart: call it from inside the
+    handler after the keying value is known.
+
+    The rate counter is stored in the same backend as the slowapi
+    decorator's, so per-IP and per-key limits compose naturally without
+    needing a second Redis connection / namespace.
+
+    Parameters
+    ----------
+    rate_string:
+        Standard ``limits`` rate string (e.g. ``"60/minute"``). Parsed
+        on every call -- callers SHOULD treat *rate_string* as a
+        constant and pass the same value each time so the parser
+        result is cache-friendly.
+    namespace:
+        Prefix that disambiguates this limit from any other call site
+        using the same key shape (e.g. ``"token-exchange:client"``
+        vs ``"refresh:client"``). Without a namespace, two endpoints
+        keying on ``client_id`` would share a single counter.
+    key:
+        The post-parse value being throttled (e.g. ``client_id``).
+
+    Raises
+    ------
+    fastapi.HTTPException
+        429 on rate-limit exceeded. The detail is intentionally
+        generic so the response cannot serve as an oracle for whether
+        the keying value (e.g. a specific ``client_id``) exists.
+
+    Notes
+    -----
+    Reaches into ``limiter._limiter`` and ``limiter._storage``, which
+    are slowapi-private. We accept that coupling because the
+    alternative (a parallel redis-keyed counter) doubles the
+    infrastructure surface for one feature; the slowapi internals
+    we touch (``MovingWindowRateLimiter.hit``) are themselves
+    re-exports of the very stable ``limits`` library API.
+    """
+    item = parse_rate_limit(rate_string)
+    full_key = f"{namespace}:{key}"
+    # ``hit`` returns True when the request is permitted (counter
+    # incremented) and False when the limit was already exceeded.
+    if not limiter._limiter.hit(item, full_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many requests",
+        )
