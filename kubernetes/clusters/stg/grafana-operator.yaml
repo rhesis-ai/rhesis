@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
+    targetRevision: test/rhesis-application-test
     path: kubernetes/clusters/stg/grafana-operator
   destination:
     server: https://kubernetes.default.svc
