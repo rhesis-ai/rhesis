@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, Table, and_, case, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import object_session, relationship
 
 from .base import Base
 from .guid import GUID
@@ -118,14 +118,33 @@ class Test(
         """
         from rhesis.backend.app.constants import TestType
         from rhesis.backend.tasks.execution.modes import get_test_type
+        from .behavior import Behavior
+        from .category import Category
+        from .prompt import Prompt
+        from .topic import Topic
 
         test_type = get_test_type(self)
 
+        sess = object_session(self)
+
+        def _fk_obj(related, fk_id, model_cls):
+            """Resolve FK when relationship not populated (e.g. during flush/mapper events)."""
+            if related is not None:
+                return related
+            if fk_id is None or sess is None:
+                return None
+            return sess.get(model_cls, fk_id)
+
+        topic = _fk_obj(self.topic, self.topic_id, Topic)
+        behavior = _fk_obj(self.behavior, self.behavior_id, Behavior)
+        category = _fk_obj(self.category, self.category_id, Category)
+        prompt = _fk_obj(self.prompt, self.prompt_id, Prompt)
+
         # Common metadata for both types
         metadata = [
-            self.topic.name if self.topic else None,
-            self.behavior.name if self.behavior else None,
-            self.category.name if self.category else None,
+            topic.name if topic else None,
+            behavior.name if behavior else None,
+            category.name if category else None,
         ]
 
         if test_type == TestType.MULTI_TURN:
@@ -141,8 +160,8 @@ class Test(
         else:  # SINGLE_TURN (default)
             # Single-turn: extract from prompt
             content = [
-                self.prompt.content if self.prompt else None,
-                self.prompt.expected_response if self.prompt else None,
+                prompt.content if prompt else None,
+                prompt.expected_response if prompt else None,
             ]
 
         return " ".join(filter(None, content + metadata))

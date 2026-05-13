@@ -159,6 +159,14 @@ class EmbeddingGenerator:
 
             searchable_text = entity.to_searchable_text()
 
+        if not (searchable_text or "").strip():
+            logger.info(
+                "Skipping embedding: empty searchable_text for %s:%s",
+                entity_type,
+                entity_id,
+            )
+            return {"status": "skipped_empty_text", "embedding_id": None}
+
         # Model row for persistence / hashing (entity-scoped embedding model)
         db_model = crud.get_model(self.db, model_id=model_id, organization_id=organization_id)
         if not db_model:

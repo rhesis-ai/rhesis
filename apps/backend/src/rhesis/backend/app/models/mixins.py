@@ -425,6 +425,14 @@ def _queue_embedding_after_commit(target) -> None:
         )
         return
 
+    if not (searchable_text or "").strip():
+        logger.info(
+            "Deferred embedding: skipping queue for %s id=%s (empty searchable text)",
+            target.__class__.__name__,
+            getattr(target, "id", None),
+        )
+        return
+
     job: dict[str, Any] = {
         "entity_type": target.__class__.__name__,
         "entity_id": str(target.id),
