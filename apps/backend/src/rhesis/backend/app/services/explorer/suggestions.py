@@ -274,8 +274,9 @@ async def _generate_suggestions_stream(
     yield {"type": "meta", "num_examples_used": sample_size}
 
     try:
-        token_stream = await model.a_generate(
-            prompt=prompt_text, schema=response_model, stream=True
+        token_stream = model.generate_stream(
+            prompt=prompt_text,
+            schema=response_model,
         )
     except Exception as e:
         logger.error("LLM streaming generation failed: %s", e, exc_info=True)
