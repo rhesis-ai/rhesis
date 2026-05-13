@@ -105,7 +105,7 @@ class AuthClientCreatedResponse(_AuthClientShared):
 
 
 class AuthClientCreate(BaseModel):
-    """Request body for ``POST /orgs/{org_id}/auth-clients``."""
+    """Request body for ``POST /organizations/{org_id}/auth-clients``."""
 
     client_id: str = Field(
         ...,

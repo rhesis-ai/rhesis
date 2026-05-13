@@ -73,7 +73,7 @@ If the EE minter is not registered (Community-only deployment) but a client-boun
 
 ## Coarse revocation
 
-`AuthClient.token_epoch` is a `BigInteger` updated whenever the secret rotates (via `POST /orgs/{id}/auth-clients/{id}/rotate`). The `epoch` claim embedded in every issued JWT is checked against the AuthClient row at verify time only when `azp` is present (`iat >= epoch`). Bumping the epoch therefore invalidates every previously issued JWT for that client -- no DB lookup at verify time, no cache to flush.
+`AuthClient.token_epoch` is a `BigInteger` updated whenever the secret rotates (via `POST /organizations/{id}/auth-clients/{id}/rotate`). The `epoch` claim embedded in every issued JWT is checked against the AuthClient row at verify time only when `azp` is present (`iat >= epoch`). Bumping the epoch therefore invalidates every previously issued JWT for that client -- no DB lookup at verify time, no cache to flush.
 
 ## Data at rest
 

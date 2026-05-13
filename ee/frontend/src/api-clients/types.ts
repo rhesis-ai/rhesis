@@ -46,8 +46,8 @@ export interface AuthClient {
 }
 
 /**
- * One-shot response from `POST /orgs/{id}/auth-clients` and
- * `POST /orgs/{id}/auth-clients/{id}/rotate`. The `client_secret`
+ * One-shot response from `POST /organizations/{id}/auth-clients` and
+ * `POST /organizations/{id}/auth-clients/{id}/rotate`. The `client_secret`
  * field appears here and ONLY here.
  */
 export interface AuthClientCreated extends AuthClient {
@@ -55,7 +55,7 @@ export interface AuthClientCreated extends AuthClient {
 }
 
 /**
- * Request body for `POST /orgs/{id}/auth-clients`.
+ * Request body for `POST /organizations/{id}/auth-clients`.
  *
  * `default_scope` MUST be one of the entries in `allowed_scopes`;
  * the backend validates this and the create dialog mirrors the rule

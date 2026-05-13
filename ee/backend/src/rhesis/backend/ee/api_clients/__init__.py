@@ -10,7 +10,7 @@ Contents
   ORM model and the constant-time authentication helper.
 - :mod:`.schemas` -- Pydantic CRUD request/response schemas.
 - :mod:`.router` -- org-scoped REST endpoints under
-  ``/orgs/{org_id}/auth-clients``.
+  ``/organizations/{org_id}/auth-clients``.
 - :mod:`.audit` -- structured audit events for both client lifecycle
   (``AUTH_CLIENT_*``) and the token-exchange flow
   (``TOKEN_EXCHANGE_*``).

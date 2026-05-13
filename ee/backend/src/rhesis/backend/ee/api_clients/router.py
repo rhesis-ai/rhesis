@@ -2,13 +2,13 @@
 
 URL surface (no ``/sso/`` prefix; this is its own EE feature):
 
-- ``POST   /orgs/{org_id}/auth-clients``        -- create + return one-shot secret
-- ``GET    /orgs/{org_id}/auth-clients``        -- list (no secrets)
-- ``GET    /orgs/{org_id}/auth-clients/{id}``   -- single row (no secret)
-- ``POST   /orgs/{org_id}/auth-clients/{id}/rotate``   -- rotate secret + epoch
-- ``POST   /orgs/{org_id}/auth-clients/{id}/disable``  -- soft-disable
-- ``POST   /orgs/{org_id}/auth-clients/{id}/enable``   -- re-enable
-- ``DELETE /orgs/{org_id}/auth-clients/{id}``    -- only when disabled
+- ``POST   /organizations/{org_id}/auth-clients``        -- create + return one-shot secret
+- ``GET    /organizations/{org_id}/auth-clients``        -- list (no secrets)
+- ``GET    /organizations/{org_id}/auth-clients/{id}``   -- single row (no secret)
+- ``POST   /organizations/{org_id}/auth-clients/{id}/rotate``   -- rotate secret + epoch
+- ``POST   /organizations/{org_id}/auth-clients/{id}/disable``  -- soft-disable
+- ``POST   /organizations/{org_id}/auth-clients/{id}/enable``   -- re-enable
+- ``DELETE /organizations/{org_id}/auth-clients/{id}``    -- only when disabled
 
 Cross-org isolation
 -------------------
@@ -189,7 +189,7 @@ def _request_ip(request: Request) -> Optional[str]:
 
 
 @router.post(
-    "/orgs/{org_id}/auth-clients",
+    "/organizations/{org_id}/auth-clients",
     response_model=AuthClientCreatedResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -261,14 +261,12 @@ async def create_auth_client(
         secret_hash_for_correlation=secret_hash,
     )
 
-    response = AuthClientCreatedResponse.model_validate(row)
-    # Pydantic round-trip strips the plaintext (it isn't a column);
-    # explicitly attach it for the one-shot return.
-    return response.model_copy(update={"client_secret": plaintext_secret})
+    response = AuthClientResponse.model_validate(row)
+    return AuthClientCreatedResponse(**response.model_dump(), client_secret=plaintext_secret)
 
 
 @router.get(
-    "/orgs/{org_id}/auth-clients",
+    "/organizations/{org_id}/auth-clients",
     response_model=List[AuthClientResponse],
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
@@ -295,7 +293,7 @@ async def list_auth_clients(
 
 
 @router.get(
-    "/orgs/{org_id}/auth-clients/{client_pk}",
+    "/organizations/{org_id}/auth-clients/{client_pk}",
     response_model=AuthClientResponse,
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
@@ -313,7 +311,7 @@ async def get_auth_client(
 
 
 @router.post(
-    "/orgs/{org_id}/auth-clients/{client_pk}/rotate",
+    "/organizations/{org_id}/auth-clients/{client_pk}/rotate",
     response_model=AuthClientCreatedResponse,
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
@@ -365,7 +363,7 @@ async def rotate_auth_client_secret(
 
 
 @router.post(
-    "/orgs/{org_id}/auth-clients/{client_pk}/disable",
+    "/organizations/{org_id}/auth-clients/{client_pk}/disable",
     response_model=AuthClientResponse,
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
@@ -398,7 +396,7 @@ async def disable_auth_client(
 
 
 @router.post(
-    "/orgs/{org_id}/auth-clients/{client_pk}/enable",
+    "/organizations/{org_id}/auth-clients/{client_pk}/enable",
     response_model=AuthClientResponse,
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)
@@ -431,7 +429,7 @@ async def enable_auth_client(
 
 
 @router.delete(
-    "/orgs/{org_id}/auth-clients/{client_pk}",
+    "/organizations/{org_id}/auth-clients/{client_pk}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 @limiter.limit(SSO_ADMIN_RATE_LIMIT)

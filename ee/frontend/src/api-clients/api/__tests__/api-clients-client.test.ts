@@ -30,13 +30,13 @@ describe('ApiClientsClient', () => {
     fetchSpy.mockRestore();
   });
 
-  it('listClients hits GET /orgs/<id>/auth-clients', async () => {
+  it('listClients hits GET /organizations/<id>/auth-clients', async () => {
     const client = new ApiClientsClient(FAKE_TOKEN);
     await client.listClients(ORG_ID);
-    expect(fetchSpy).toHaveBeenCalledWith(`/orgs/${ORG_ID}/auth-clients`);
+    expect(fetchSpy).toHaveBeenCalledWith(`/organizations/${ORG_ID}/auth-clients`);
   });
 
-  it('createClient POSTs the body to /orgs/<id>/auth-clients', async () => {
+  it('createClient POSTs the body to /organizations/<id>/auth-clients', async () => {
     fetchSpy.mockResolvedValueOnce({});
     const client = new ApiClientsClient(FAKE_TOKEN);
     const body: AuthClientCreateRequest = {
@@ -48,7 +48,7 @@ describe('ApiClientsClient', () => {
     };
     await client.createClient(ORG_ID, body);
     expect(fetchSpy).toHaveBeenCalledWith(
-      `/orgs/${ORG_ID}/auth-clients`,
+      `/organizations/${ORG_ID}/auth-clients`,
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify(body),
@@ -56,51 +56,51 @@ describe('ApiClientsClient', () => {
     );
   });
 
-  it('getClient hits GET /orgs/<id>/auth-clients/<pk>', async () => {
+  it('getClient hits GET /organizations/<id>/auth-clients/<pk>', async () => {
     fetchSpy.mockResolvedValueOnce({});
     const client = new ApiClientsClient(FAKE_TOKEN);
     await client.getClient(ORG_ID, CLIENT_PK);
     expect(fetchSpy).toHaveBeenCalledWith(
-      `/orgs/${ORG_ID}/auth-clients/${CLIENT_PK}`
+      `/organizations/${ORG_ID}/auth-clients/${CLIENT_PK}`
     );
   });
 
-  it('rotateClient POSTs to /orgs/<id>/auth-clients/<pk>/rotate', async () => {
+  it('rotateClient POSTs to /organizations/<id>/auth-clients/<pk>/rotate', async () => {
     fetchSpy.mockResolvedValueOnce({});
     const client = new ApiClientsClient(FAKE_TOKEN);
     await client.rotateClient(ORG_ID, CLIENT_PK);
     expect(fetchSpy).toHaveBeenCalledWith(
-      `/orgs/${ORG_ID}/auth-clients/${CLIENT_PK}/rotate`,
+      `/organizations/${ORG_ID}/auth-clients/${CLIENT_PK}/rotate`,
       expect.objectContaining({ method: 'POST' })
     );
   });
 
-  it('disableClient POSTs to /orgs/<id>/auth-clients/<pk>/disable', async () => {
+  it('disableClient POSTs to /organizations/<id>/auth-clients/<pk>/disable', async () => {
     fetchSpy.mockResolvedValueOnce({});
     const client = new ApiClientsClient(FAKE_TOKEN);
     await client.disableClient(ORG_ID, CLIENT_PK);
     expect(fetchSpy).toHaveBeenCalledWith(
-      `/orgs/${ORG_ID}/auth-clients/${CLIENT_PK}/disable`,
+      `/organizations/${ORG_ID}/auth-clients/${CLIENT_PK}/disable`,
       expect.objectContaining({ method: 'POST' })
     );
   });
 
-  it('enableClient POSTs to /orgs/<id>/auth-clients/<pk>/enable', async () => {
+  it('enableClient POSTs to /organizations/<id>/auth-clients/<pk>/enable', async () => {
     fetchSpy.mockResolvedValueOnce({});
     const client = new ApiClientsClient(FAKE_TOKEN);
     await client.enableClient(ORG_ID, CLIENT_PK);
     expect(fetchSpy).toHaveBeenCalledWith(
-      `/orgs/${ORG_ID}/auth-clients/${CLIENT_PK}/enable`,
+      `/organizations/${ORG_ID}/auth-clients/${CLIENT_PK}/enable`,
       expect.objectContaining({ method: 'POST' })
     );
   });
 
-  it('deleteClient DELETEs /orgs/<id>/auth-clients/<pk>', async () => {
+  it('deleteClient DELETEs /organizations/<id>/auth-clients/<pk>', async () => {
     fetchSpy.mockResolvedValueOnce(undefined);
     const client = new ApiClientsClient(FAKE_TOKEN);
     await client.deleteClient(ORG_ID, CLIENT_PK);
     expect(fetchSpy).toHaveBeenCalledWith(
-      `/orgs/${ORG_ID}/auth-clients/${CLIENT_PK}`,
+      `/organizations/${ORG_ID}/auth-clients/${CLIENT_PK}`,
       expect.objectContaining({ method: 'DELETE' })
     );
   });

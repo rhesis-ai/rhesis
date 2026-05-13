@@ -113,9 +113,9 @@ def bootstrap(app: "FastAPI") -> None:
     # Composing the runtime check explicitly here is what lets a
     # license that allows API_CLIENTS but not SSO fail closed at
     # request time rather than 500ing on a missing SSOConfig.
-    def _api_clients_runtime_check(org) -> bool:
-        # SSO must be both registered AND available for this org.
-        return sso_runtime_check(org)
+    def _api_clients_runtime_check() -> bool:
+        # SSO encryption must be configured for token-exchange to work.
+        return sso_runtime_check()
 
     FeatureRegistry.register(
         Feature(

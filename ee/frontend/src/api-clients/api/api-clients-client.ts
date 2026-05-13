@@ -9,20 +9,13 @@
  *
  * URL surface (see `ee/backend/src/rhesis/backend/ee/api_clients/router.py`):
  *
- *   POST   /orgs/{orgId}/auth-clients               (create + one-shot secret)
- *   GET    /orgs/{orgId}/auth-clients               (list)
- *   GET    /orgs/{orgId}/auth-clients/{id}          (detail)
- *   POST   /orgs/{orgId}/auth-clients/{id}/rotate   (rotate + new one-shot secret)
- *   POST   /orgs/{orgId}/auth-clients/{id}/disable
- *   POST   /orgs/{orgId}/auth-clients/{id}/enable
- *   DELETE /orgs/{orgId}/auth-clients/{id}          (only when disabled)
- *
- * The path is `/orgs/...` (not `/organizations/...`); the backend
- * router uses the shorter prefix to mirror the audience parameter
- * shape `rhesis:org:<slug>`. We hard-code the prefix here rather
- * than introduce a new entry in core's `API_ENDPOINTS` map -- doing
- * so would require a core-side edit for every EE feature, which is
- * the coupling the registry pattern exists to avoid.
+ *   POST   /organizations/{orgId}/auth-clients               (create + one-shot secret)
+ *   GET    /organizations/{orgId}/auth-clients               (list)
+ *   GET    /organizations/{orgId}/auth-clients/{id}          (detail)
+ *   POST   /organizations/{orgId}/auth-clients/{id}/rotate   (rotate + new one-shot secret)
+ *   POST   /organizations/{orgId}/auth-clients/{id}/disable
+ *   POST   /organizations/{orgId}/auth-clients/{id}/enable
+ *   DELETE /organizations/{orgId}/auth-clients/{id}          (only when disabled)
  */
 
 import { BaseApiClient } from '@/utils/api-client/base-client';
@@ -38,7 +31,7 @@ import type {
  * change rather than a search-and-replace across components.
  */
 function basePath(orgId: string): string {
-  return `/orgs/${orgId}/auth-clients`;
+  return `/organizations/${orgId}/auth-clients`;
 }
 
 export class ApiClientsClient extends BaseApiClient {
