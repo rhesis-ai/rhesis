@@ -101,6 +101,9 @@ main() {
     export SQLALCHEMY_DB_PASS="$DB_PASS"
     export SQLALCHEMY_DB_HOST="$DB_HOST"
     export SQLALCHEMY_DB_NAME="$DB_NAME"
+    # Override DATABASE_URL so alembic env.py uses the migration (admin) user,
+    # not the app user that the deployment injects into SQLALCHEMY_DATABASE_URL.
+    export SQLALCHEMY_DATABASE_URL="${SQLALCHEMY_DB_DRIVER:-postgresql}://${DB_USER}:${DB_PASS}@${DB_HOST}:${SQLALCHEMY_DB_PORT:-5432}/${DB_NAME}"
     
     # Wait for database to be ready
     wait_for_database
