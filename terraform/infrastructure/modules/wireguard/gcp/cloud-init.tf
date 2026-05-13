@@ -42,12 +42,25 @@ locals {
     [var.wireguard_peer_cidr]
   )
 
+  # For each allowed hostname (e.g. "stg-api.rhesis.ai"), derive the ExternalDNS TXT
+  # ownership record name that internal-dns-external-dns writes when using
+  # --txt-prefix=internaldns- and --registry=txt.
+  # Pattern: internaldns-a-{first_label}.rhesis.ai  (A-record ownership)
+  # The name grant covers only that exact TXT name — no wildcard, no zone-wide access.
+  bind9_txt_ownership_names = {
+    for env, hostnames in var.bind9_allowed_names : env => [
+      for hostname in hostnames :
+      "internaldns-a-${split(".", hostname)[0]}.rhesis.ai"
+    ]
+  }
+
   # Render BIND9 named.conf
   bind9_named_conf = length(var.bind9_tsig_keys) > 0 ? templatefile(
     "${path.module}/templates/named.conf.tpl", {
-      tsig_keys         = var.bind9_tsig_keys
-      allow_query_cidrs = local.bind9_allow_query_cidrs
-      allowed_names     = var.bind9_allowed_names
+      tsig_keys          = var.bind9_tsig_keys
+      allow_query_cidrs  = local.bind9_allow_query_cidrs
+      allowed_names      = var.bind9_allowed_names
+      txt_ownership_names = local.bind9_txt_ownership_names
     }
   ) : ""
 

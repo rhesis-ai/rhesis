@@ -61,6 +61,9 @@ zone "rhesis.ai" {
 %{ for hostname in lookup(allowed_names, env, []) ~}
         grant "${key.keyname}" subdomain "${hostname}." ANY;
 %{ endfor ~}
+%{ for txt_name in lookup(txt_ownership_names, env, []) ~}
+        grant "${key.keyname}" name "${txt_name}." TXT;
+%{ endfor ~}
 %{ endfor ~}
     };
 };
