@@ -396,6 +396,19 @@ class OIDCProvider(AuthProvider):
             if cached and (now - cached[1]) < JWKS_TTL:
                 return cached[0]
 
+        # Resolve metadata BEFORE acquiring _CACHE_LOCK. _get_oidc_metadata
+        # acquires the same lock when it has to fetch, so doing it inside
+        # this critical section deadlocks on a cold cache. The metadata
+        # cache check + fetch are themselves serialised by the inner
+        # acquire, so concurrent callers will still coalesce on a single
+        # discovery request. The lock acquired below is only for the JWKS
+        # cache + cooldown invariants.
+        metadata = await self._get_oidc_metadata()
+        jwks_uri = metadata.get("jwks_uri")
+        if not jwks_uri:
+            raise ValueError("OIDC metadata missing jwks_uri")
+        validate_endpoint_origin(jwks_uri, issuer)
+
         async with _CACHE_LOCK:
             # Double-check after acquiring lock
             if not force_refresh:
@@ -416,13 +429,6 @@ class OIDCProvider(AuthProvider):
                     raise ValueError(
                         "No cached JWKS available and refresh is on cooldown"
                     )
-
-            metadata = await self._get_oidc_metadata()
-            jwks_uri = metadata.get("jwks_uri")
-            if not jwks_uri:
-                raise ValueError("OIDC metadata missing jwks_uri")
-
-            validate_endpoint_origin(jwks_uri, issuer)
 
             try:
                 resp = await self._http.get(jwks_uri)
