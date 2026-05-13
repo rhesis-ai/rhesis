@@ -515,6 +515,9 @@ module "wireguard_server" {
         "dev-docs.rhesis.ai",
         "dev-chatbot.rhesis.ai",
         "dev-polyphemus.rhesis.ai",
+        "dev-argocd.rhesis.ai",
+        "dev-grafana.rhesis.ai",
+        "dev-telemetry.rhesis.ai",
       ]
     } : {},
     local.stg_enabled ? {
@@ -524,6 +527,9 @@ module "wireguard_server" {
         "stg-docs.rhesis.ai",
         "stg-chatbot.rhesis.ai",
         "stg-polyphemus.rhesis.ai",
+        "stg-argocd.rhesis.ai",
+        "stg-grafana.rhesis.ai",
+        "stg-telemetry.rhesis.ai",
       ]
     } : {},
     local.prd_enabled ? {
@@ -533,6 +539,9 @@ module "wireguard_server" {
         "docs.rhesis.ai",
         "chatbot.rhesis.ai",
         "polyphemus.rhesis.ai",
+        "argocd.rhesis.ai",
+        "grafana.rhesis.ai",
+        "telemetry.rhesis.ai",
       ]
     } : {}
   )
