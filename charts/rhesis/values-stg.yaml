@@ -91,7 +91,7 @@ backend:
 
 frontend:
   image:
-    tag: "latest"
+    tag: "stg-latest"
   resources:
     requests:
       memory: "256Mi"
