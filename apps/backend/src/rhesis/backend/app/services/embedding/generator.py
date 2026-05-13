@@ -148,7 +148,15 @@ class EmbeddingGenerator:
             embedder: Optional pre-resolved embedder. If missing, it is resolved from user settings.
 
         Returns:
-            Dictionary with generation result
+            A dict with at least ``status`` and ``embedding_id`` keys:
+
+            - ``{"status": "success", "embedding_id": "<uuid>"}`` — new or reused
+              active embedding for the text/config.
+            - ``{"status": "skipped_empty_text", "embedding_id": None}`` —
+              ``searchable_text`` was missing or only whitespace; no API call and
+              no embedding row created.
+
+            Celery task ``generate_embedding_task`` returns this dict unchanged.
         """
         if searchable_text is None:
             if not entity:

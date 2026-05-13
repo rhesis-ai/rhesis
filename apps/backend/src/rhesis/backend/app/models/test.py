@@ -133,7 +133,9 @@ class Test(
                 return related
             if fk_id is None or sess is None:
                 return None
-            return sess.get(model_cls, fk_id)
+            # Avoid re-entrant flush: to_searchable_text runs from after_insert/after_update.
+            with sess.no_autoflush:
+                return sess.get(model_cls, fk_id)
 
         topic = _fk_obj(self.topic, self.topic_id, Topic)
         behavior = _fk_obj(self.behavior, self.behavior_id, Behavior)

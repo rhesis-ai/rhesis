@@ -399,6 +399,33 @@ class TestEmbeddingGenerator:
                 model_id="00000000-0000-0000-0000-000000000000",
             )
 
+    @pytest.mark.parametrize("empty_text", ["", "   ", "\n\t"])
+    @patch("rhesis.backend.app.services.embedding.generator.get_model")
+    def test_generate_skips_when_searchable_text_empty(
+        self,
+        mock_get_model,
+        test_db,
+        test_entity,
+        embedding_model,
+        test_org_id,
+        authenticated_user_id,
+        empty_text,
+    ):
+        """No embedder or model resolution when precomputed text is empty."""
+        generator = EmbeddingGenerator(test_db)
+
+        result = generator.generate(
+            entity_id=str(test_entity.id),
+            entity_type="Test",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            model_id=str(embedding_model.id),
+            searchable_text=empty_text,
+        )
+
+        assert result == {"status": "skipped_empty_text", "embedding_id": None}
+        mock_get_model.assert_not_called()
+
     @patch("rhesis.backend.app.services.embedding.generator.get_model")
     def test_generate_different_dimensions(
         self,
