@@ -28,8 +28,8 @@ def fetch_embeddings(
     db: Session,
     entity_ids: Sequence[UUID],
     embedded_entity: type | str = Test,
-    organization_id: str | None = None,
-    user_id: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
 ) -> list[models.Embedding]:
     """Load embeddings for one entity type and a set of IDs."""
     if not entity_ids:
@@ -59,8 +59,6 @@ def _reduce_dimensions(X: np.ndarray, purpose: str) -> np.ndarray:
         n_neighbors = max(2, min(10, int(0.05 * n_samples)))
         n_neighbors = min(n_neighbors, max_neighbors)
         n_neighbors = max(1, n_neighbors)
-    else:
-        raise ValueError(f"Invalid purpose: {purpose}")
 
     umap = UMAP(n_components=n_components, n_neighbors=n_neighbors, random_state=42)
     return umap.fit_transform(X)
@@ -105,20 +103,9 @@ def _generate_cluster_labels(
     db: Session,
     user: User,
 ) -> dict[int, str]:
-    if not centroids:
-        return {}
-
-    try:
-        _model = get_user_generation_model(db, user)
-        if isinstance(_model, str):
-            _model = get_model(_model)
-    except Exception as e:
-        logger.warning(
-            "Skipping cluster labels: generation model unavailable (%s)",
-            e,
-            exc_info=True,
-        )
-        return {}
+    _model = get_user_generation_model(db, user)
+    if isinstance(_model, str):
+        _model = get_model(_model)
 
     labels = {}
     for cluster_id, centroid in centroids.items():
@@ -145,7 +132,7 @@ def _generate_cluster_labels(
             continue
 
         combined_text = "\n".join(sample_text)
-        prompt = "Create a very short label for these items (1-2-3 words max): " + combined_text
+        prompt = "Summarize these items in 1-2 words: " + combined_text
 
         try:
             label = _model.generate(prompt)
@@ -158,29 +145,21 @@ def _generate_cluster_labels(
     return labels
 
 
-def _scatter_point(
-    embedding: models.Embedding,
-    cluster_index: int,
-    x: float,
-    y: float,
-) -> ScatterPoint2D:
-    return ScatterPoint2D(
-        embedding_id=embedding.id,
-        entity_id=embedding.entity_id,
-        entity_type=embedding.entity_type,
-        cluster_index=cluster_index,
-        searchable_text=embedding.searchable_text or "",
-        x=x,
-        y=y,
-    )
-
-
 def _trivial_single_point_graph(embedding: models.Embedding, now_utc: datetime) -> Scatter2DGraph:
     """One sample: pin at origin, no clusters (noise only). Used when UMAP is ill-defined."""
     return Scatter2DGraph(
         computed_at=now_utc,
         clusters=[],
-        points=[_scatter_point(embedding, -1, 0.0, 0.0)],
+        points=[
+            ScatterPoint2D(
+                embedding_id=embedding.id,
+                entity_id=embedding.entity_id,
+                entity_type=embedding.entity_type,
+                cluster_id="-1",
+                x=0.0,
+                y=0.0,
+            )
+        ],
     )
 
 
@@ -194,19 +173,27 @@ def _trivial_two_point_graph(
         computed_at=now_utc,
         clusters=[],
         points=[
-            _scatter_point(left, -1, -0.5, 0.0),
-            _scatter_point(right, -1, 0.5, 0.0),
+            ScatterPoint2D(
+                embedding_id=left.id,
+                entity_id=left.entity_id,
+                entity_type=left.entity_type,
+                cluster_id="-1",
+                x=-0.5,
+                y=0.0,
+            ),
+            ScatterPoint2D(
+                embedding_id=right.id,
+                entity_id=right.entity_id,
+                entity_type=right.entity_type,
+                cluster_id="-1",
+                x=0.5,
+                y=0.0,
+            ),
         ],
     )
 
 
-def build_2d_graph(
-    db: Session,
-    entity_ids: Sequence[UUID],
-    user: User,
-    *,
-    embedded_entity: type | str = Test,
-) -> Scatter2DGraph:
+def build_2d_graph(db: Session, entity_ids: Sequence[UUID], user: User) -> Scatter2DGraph:
     """Build a graph from embeddings for visualization and clustering."""
 
     requested_count = len(entity_ids)
@@ -214,48 +201,23 @@ def build_2d_graph(
     embeddings = fetch_embeddings(
         db,
         entity_ids,
-        embedded_entity=embedded_entity,
         organization_id=user.organization_id,
         user_id=user.id,
     )
 
-    entity_type_key = _embedding_entity_type_key(embedded_entity)
     logger.info(
-        "Building embedding graph: entity_type=%s requested_entity_ids=%s "
-        "active_embeddings_loaded=%s",
-        entity_type_key,
+        "Building embedding graph: requested_entity_ids=%s active_embeddings_loaded=%s",
         requested_count,
         len(embeddings),
     )
 
     if requested_count > 0 and not embeddings:
         logger.warning(
-            "Embedding graph has no active embeddings for requested entities: "
-            "entity_type=%s requested_entity_ids=%s",
-            entity_type_key,
+            "Embedding graph has no active embeddings for requested tests: requested_entity_ids=%s",
             requested_count,
         )
 
     if not embeddings:
-        return Scatter2DGraph(computed_at=datetime.now(timezone.utc), clusters=[], points=[])
-
-    config_hashes = {e.config_hash for e in embeddings}
-    seen_entity_ids: set[UUID] = set()
-    duplicate_entity = False
-    for e in embeddings:
-        if e.entity_id in seen_entity_ids:
-            duplicate_entity = True
-            break
-        seen_entity_ids.add(e.entity_id)
-
-    if len(config_hashes) > 1 or duplicate_entity:
-        logger.warning(
-            "Skipping embedding graph: ambiguous active embeddings "
-            "(entity_type=%s mixed_config=%s duplicate_entity=%s)",
-            entity_type_key,
-            len(config_hashes) > 1,
-            duplicate_entity,
-        )
         return Scatter2DGraph(computed_at=datetime.now(timezone.utc), clusters=[], points=[])
 
     now_utc = datetime.now(timezone.utc)
@@ -266,7 +228,7 @@ def build_2d_graph(
     if n_samples == 2:
         return _trivial_two_point_graph(embeddings, now_utc)
 
-    X = np.array([e.embedding for e in embeddings], dtype=np.float64)
+    X = np.array([e.embedding for e in embeddings])
 
     umap_50d = _reduce_dimensions(X, purpose="clustering")
     umap_2d = _reduce_dimensions(X, purpose="visualization")
@@ -281,11 +243,13 @@ def build_2d_graph(
     points = []
     for embedding, cluster_id, coords_2d in zip(embeddings, cluster_ids, umap_2d):
         points.append(
-            _scatter_point(
-                embedding,
-                int(cluster_id),
-                float(coords_2d[0]),
-                float(coords_2d[1]),
+            ScatterPoint2D(
+                embedding_id=embedding.id,
+                entity_id=embedding.entity_id,
+                entity_type=embedding.entity_type,
+                cluster_id=str(cluster_id),
+                x=float(coords_2d[0]),
+                y=float(coords_2d[1]),
             )
         )
 
@@ -299,7 +263,7 @@ def build_2d_graph(
 
     clusters = [
         Cluster(
-            cluster_index=cluster_id,
+            id=f"cluster_{cluster_id}",
             label=cluster_labels.get(cluster_id, "Unlabeled"),
             size=cluster_counts[cluster_id],
         )
