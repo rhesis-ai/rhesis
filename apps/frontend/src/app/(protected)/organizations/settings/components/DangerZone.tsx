@@ -67,9 +67,6 @@ export default function DangerZone({
 
   return (
     <>
-      <Typography variant="h6" color="error" gutterBottom>
-        Danger Zone
-      </Typography>
       <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
         Leaving the organization will remove your access to all projects, tests,
         and data. Your contributions will remain, but you will no longer be able

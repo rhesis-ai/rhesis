@@ -1,8 +1,18 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Typography, Paper, Alert, CircularProgress } from '@mui/material';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Box,
+  CircularProgress,
+  Typography,
+} from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import { alpha } from '@mui/material/styles';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
@@ -13,6 +23,60 @@ import ContactInformationForm from './components/ContactInformationForm';
 import DangerZone from './components/DangerZone';
 import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
 import { getOrgSettingsSections } from '@/lib/extension-registries';
+
+/**
+ * Visual container for one settings section.
+ *
+ * Each section renders as a card-styled `Accordion` so the operator can
+ * collapse the noisier sections (SSO, API Clients, Danger Zone) and
+ * focus on what they're editing. Sections start collapsed by default;
+ * the page opts the most-edited card (Basic Information) into being
+ * expanded on first load.
+ */
+function SettingsSection({
+  title,
+  titleColor,
+  borderColor,
+  background,
+  defaultExpanded = false,
+  children,
+}: {
+  title: string;
+  titleColor?: string;
+  borderColor?: string;
+  background?: string | ((theme: Theme) => string);
+  defaultExpanded?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Accordion
+      defaultExpanded={defaultExpanded}
+      disableGutters
+      elevation={1}
+      sx={{
+        mb: 3,
+        borderRadius: 1,
+        border: borderColor ? '1px solid' : undefined,
+        borderColor,
+        backgroundColor: background,
+        '&:before': { display: 'none' },
+        '&.Mui-expanded': { mb: 3 },
+      }}
+    >
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        sx={{ px: 3, py: 1 }}
+      >
+        <Typography variant="h6" sx={{ color: titleColor }}>
+          {title}
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails sx={{ px: 3, pb: 3, pt: 0 }}>
+        {children}
+      </AccordionDetails>
+    </Accordion>
+  );
+}
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
@@ -106,27 +170,21 @@ export default function OrganizationSettingsPage() {
 
   return (
     <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Basic Information
-        </Typography>
+      <SettingsSection title="Basic Information" defaultExpanded>
         <OrganizationDetailsForm
           organization={organization}
           sessionToken={session?.session_token || ''}
           onUpdate={handleUpdate}
         />
-      </Paper>
+      </SettingsSection>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-          Contact Information
-        </Typography>
+      <SettingsSection title="Contact Information">
         <ContactInformationForm
           organization={organization}
           sessionToken={session?.session_token || ''}
           onUpdate={handleUpdate}
         />
-      </Paper>
+      </SettingsSection>
 
       {/* EE-registered sections (e.g. SSO) -- discovered via the
           extension registry rather than imported by name. Sections
@@ -142,32 +200,24 @@ export default function OrganizationSettingsPage() {
         {extensionSections.map(section => {
           const Section = section.component;
           return (
-            <Paper key={section.id} sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
-                {section.title}
-              </Typography>
+            <SettingsSection key={section.id} title={section.title}>
               <Section />
-            </Paper>
+            </SettingsSection>
           );
         })}
       </OrgSettingsProvider>
 
-      <Paper sx={{ p: 3 }}>
-        <Box
-          sx={{
-            border: '1px solid',
-            borderColor: 'error.light',
-            borderRadius: theme => theme.shape.borderRadius,
-            p: 3,
-            backgroundColor: theme => alpha(theme.palette.error.main, 0.05),
-          }}
-        >
-          <DangerZone
-            organization={organization}
-            sessionToken={session?.session_token || ''}
-          />
-        </Box>
-      </Paper>
+      <SettingsSection
+        title="Danger Zone"
+        titleColor="error.main"
+        borderColor="error.light"
+        background={theme => alpha(theme.palette.error.main, 0.05)}
+      >
+        <DangerZone
+          organization={organization}
+          sessionToken={session?.session_token || ''}
+        />
+      </SettingsSection>
     </PageContainer>
   );
 }

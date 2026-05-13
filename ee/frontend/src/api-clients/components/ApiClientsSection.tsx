@@ -176,11 +176,21 @@ export default function ApiClientsSection() {
 
   return (
     <Stack spacing={2}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
+      {/* Description and CTA share one row. `alignItems: flex-start`
+          pins the button to the top so the description wraps cleanly
+          underneath it instead of being vertically centred against
+          the button (which made the layout feel lopsided). */}
+      <Box
+        sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}
+      >
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ flexGrow: 1 }}
+        >
           API Clients let an external integration trade an OIDC access
           token from your IdP for a Rhesis access token (RFC 8693).
-          Configure the IdP under <strong>Single Sign-On</strong>
+          Configure the IdP under <strong>Single Sign-On</strong>{' '}
           first; clients only work for organizations with SSO enabled
           and a slug set.
         </Typography>
@@ -192,8 +202,9 @@ export default function ApiClientsSection() {
             setCreateError(null);
             setCreateOpen(true);
           }}
+          sx={{ flexShrink: 0 }}
         >
-          Create client
+          Create
         </Button>
       </Box>
 

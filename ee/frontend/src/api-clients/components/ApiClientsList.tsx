@@ -183,18 +183,28 @@ export default function ApiClientsList({
                 </TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                    {client.allowed_scopes.map(scope => (
-                      <Chip
-                        key={scope}
-                        label={scope}
-                        size="small"
-                        variant={
-                          scope === client.default_scope
-                            ? 'filled'
-                            : 'outlined'
-                        }
-                      />
-                    ))}
+                    {client.allowed_scopes.map(scope => {
+                      const isDefault = scope === client.default_scope;
+                      const chip = (
+                        <Chip
+                          key={scope}
+                          label={scope}
+                          size="small"
+                          variant="outlined"
+                        />
+                      );
+                      // Tooltip the default scope so the distinction
+                      // we previously encoded with a filled variant
+                      // isn't lost; the chips themselves render with
+                      // a single consistent style.
+                      return isDefault ? (
+                        <Tooltip key={scope} title="Default scope">
+                          {chip}
+                        </Tooltip>
+                      ) : (
+                        chip
+                      );
+                    })}
                   </Stack>
                 </TableCell>
                 <TableCell>
