@@ -58,10 +58,7 @@ def upgrade() -> None:
     conn = op.get_bind()
 
     table_exists = conn.execute(
-        sa.text(
-            "SELECT 1 FROM information_schema.tables "
-            "WHERE table_name='auth_client'"
-        )
+        sa.text("SELECT 1 FROM information_schema.tables WHERE table_name='auth_client'")
     ).fetchone()
 
     if not table_exists:

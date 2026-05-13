@@ -67,8 +67,7 @@ class RefreshToken(Base):
         String(255),
         nullable=True,
         comment=(
-            "Space-separated scope string preserved across rotation; "
-            "set when client_id is set."
+            "Space-separated scope string preserved across rotation; set when client_id is set."
         ),
     )
 

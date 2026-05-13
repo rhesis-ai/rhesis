@@ -43,6 +43,7 @@ describe('ApiClientsClient', () => {
       client_id: 'brain',
       name: 'br.AI.n',
       expected_subject_azp: 'brain-keycloak',
+      expected_subject_audience: 'rhesis-api',
       allowed_scopes: ['full', 'offline_access'],
       default_scope: 'full',
     };

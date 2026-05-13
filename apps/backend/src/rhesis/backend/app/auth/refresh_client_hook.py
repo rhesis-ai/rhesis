@@ -57,9 +57,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 #: Signature of the registered refresh minter.
-RefreshClientMinter = Callable[
-    ["Session", "Request", "RefreshToken", "User"], str
-]
+RefreshClientMinter = Callable[["Session", "Request", "RefreshToken", "User"], str]
 
 _minter: Optional[RefreshClientMinter] = None
 

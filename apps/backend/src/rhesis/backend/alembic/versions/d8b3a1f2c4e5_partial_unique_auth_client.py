@@ -57,9 +57,7 @@ def upgrade() -> None:
         )
     ).fetchone()
     if constraint_exists:
-        op.drop_constraint(
-            "uq_auth_client_org_client", "auth_client", type_="unique"
-        )
+        op.drop_constraint("uq_auth_client_org_client", "auth_client", type_="unique")
 
     new_index_exists = conn.execute(
         sa.text(
@@ -93,17 +91,13 @@ def upgrade() -> None:
     if name_index_old_predicate is not None:
         # Replace the index by drop + recreate. Postgres cannot ALTER
         # the WHERE clause of an existing index in place.
-        op.drop_index(
-            "uq_auth_client_org_name", table_name="auth_client"
-        )
+        op.drop_index("uq_auth_client_org_name", table_name="auth_client")
         op.create_index(
             "uq_auth_client_org_name",
             "auth_client",
             ["organization_id", "name"],
             unique=True,
-            postgresql_where=sa.text(
-                "name IS NOT NULL AND deleted_at IS NULL"
-            ),
+            postgresql_where=sa.text("name IS NOT NULL AND deleted_at IS NULL"),
         )
 
 
@@ -119,9 +113,7 @@ def downgrade() -> None:
         )
     ).fetchone()
     if name_idx is not None:
-        op.drop_index(
-            "uq_auth_client_org_name", table_name="auth_client"
-        )
+        op.drop_index("uq_auth_client_org_name", table_name="auth_client")
         op.create_index(
             "uq_auth_client_org_name",
             "auth_client",
@@ -142,9 +134,7 @@ def downgrade() -> None:
         )
     ).fetchone()
     if partial_idx is not None:
-        op.drop_index(
-            "uq_auth_client_org_client_active", table_name="auth_client"
-        )
+        op.drop_index("uq_auth_client_org_client_active", table_name="auth_client")
 
     constraint_exists = conn.execute(
         sa.text(

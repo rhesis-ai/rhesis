@@ -1362,7 +1362,12 @@ class TestAuthRefreshToken:
             )
         assert resp1.status_code == status.HTTP_200_OK
 
-        # Second use of the SAME token should fail (reuse detection)
+        # Second use of the SAME token should fail (reuse detection).
+        # The HTTP body is uniform across every 401 path so the
+        # response cannot serve as an oracle for which failure mode
+        # tripped (reuse vs expired vs unknown vs wrong client). The
+        # detailed reason still lands in structured logs and the audit
+        # stream; the public surface is intentionally generic.
         with patch(
             "rhesis.backend.app.auth.token_utils.get_secret_key",
             return_value="test-secret",
@@ -1372,7 +1377,7 @@ class TestAuthRefreshToken:
                 json={"refresh_token": raw_token},
             )
         assert resp2.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "reuse" in resp2.json()["detail"].lower()
+        assert resp2.json()["detail"] == "Invalid refresh token"
 
     def test_refresh_missing_body(self, client: TestClient):
         """POST /auth/refresh without body returns 422."""

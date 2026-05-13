@@ -55,7 +55,7 @@ function SettingsSection({
       elevation={1}
       sx={{
         mb: 3,
-        borderRadius: 1,
+        borderRadius: theme => theme.shape.borderRadius,
         border: borderColor ? '1px solid' : undefined,
         borderColor,
         backgroundColor: background,

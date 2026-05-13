@@ -1219,9 +1219,7 @@ async def refresh_tokens(
     # body with the uniform "invalid" string while still letting the
     # function's structured logs capture the precise reason.
     try:
-        old_token, new_raw_refresh = verify_and_rotate_refresh_token(
-            db, body.refresh_token
-        )
+        old_token, new_raw_refresh = verify_and_rotate_refresh_token(db, body.refresh_token)
     except HTTPException as exc:
         # Keep 503 / 5xx as-is (those aren't oracles); collapse 401s.
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
