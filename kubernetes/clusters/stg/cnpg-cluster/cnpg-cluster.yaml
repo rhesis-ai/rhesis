@@ -73,6 +73,7 @@ spec:
         - GRANT CONNECT ON DATABASE "rhesis-analytics-stg-db" TO "rhesis-admin";
       # Runs as superuser inside rhesis-stg-db after initdb creates it.
       postInitApplicationSQL:
+        - GRANT ALL ON SCHEMA public TO "rhesis-admin";
         - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         - CREATE EXTENSION IF NOT EXISTS vector;
         - GRANT CONNECT ON DATABASE "rhesis-stg-db" TO "rhesis-user";

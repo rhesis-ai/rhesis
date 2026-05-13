@@ -69,6 +69,7 @@ spec:
         - CREATE DATABASE "rhesis-analytics-prd-db" OWNER "rhesis-analytics-user";
         - GRANT CONNECT ON DATABASE "rhesis-analytics-prd-db" TO "rhesis-admin";
       postInitApplicationSQL:
+        - GRANT ALL ON SCHEMA public TO "rhesis-admin";
         - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         - CREATE EXTENSION IF NOT EXISTS vector;
         - GRANT CONNECT ON DATABASE "rhesis-prd-db" TO "rhesis-user";
