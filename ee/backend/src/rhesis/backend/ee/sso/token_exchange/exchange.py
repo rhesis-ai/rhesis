@@ -18,27 +18,33 @@ surface area or skips a security check entirely. The order is:
    is unique only per-organization; without the org binding,
    ``authenticate_client`` could not distinguish two tenants that both
    chose the same client_id and would lock one of them out at random.
-3. Authenticate the calling client against ``(org_id, client_id)``
+3. Feature availability: ``FeatureRegistry.is_available(API_CLIENTS, org)``
+   MUST be True for the resolved org. Doing the check between org
+   resolution and client authentication means a feature-disabled org
+   returns the same uniform ``invalid_target`` whether or not a
+   matching ``auth_client`` row exists -- the response cannot be
+   probed for client existence.
+4. Authenticate the calling client against ``(org_id, client_id)``
    (constant time, dummy hash on miss). On any failure ->
    ``invalid_client``, single log shape.
-4. Validate the subject token against the org's SSOConfig issuer URL.
-5. Subject-token client binding: ``azp`` claim must match the
+5. Validate the subject token against the org's SSOConfig issuer URL.
+6. Subject-token client binding: ``azp`` claim must match the
    AuthClient's ``expected_subject_azp`` (S1 -- the only mitigation
    against attacker A3, a sibling integration replaying its valid
    Keycloak token here).
-6. Subject-token replay protection (S9): claim the subject token's
+7. Subject-token replay protection (S9): claim the subject token's
    ``jti`` in Redis with TTL = min(remaining_lifetime, 600). Reuse ->
    ``invalid_grant``. Redis unavailable -> log + proceed (matches the
    existing ``auth_code`` policy: fail-open on infra outage,
    fail-closed on confirmed replay).
-7. Resolve the user via the same path as the SSO callback (domain
+8. Resolve the user via the same path as the SSO callback (domain
    allowlist, cross-org collision, auto-provision gate, is_active).
-8. Mint the Rhesis JWT with ``azp`` / ``aud`` / ``scope`` / ``jti`` /
+9. Mint the Rhesis JWT with ``azp`` / ``aud`` / ``scope`` / ``jti`` /
    ``epoch`` claims via the extended ``create_session_token``.
-9. Conditionally mint a refresh token (only when ``offline_access`` is
-   in the resolved scope), persisting ``client_id`` and ``scope`` so
-   the refresh path can preserve them on rotation.
-10. Emit success audit event and return the RFC 8693 payload.
+10. Conditionally mint a refresh token (only when ``offline_access`` is
+    in the resolved scope), persisting ``client_id`` and ``scope`` so
+    the refresh path can preserve them on rotation.
+11. Emit success audit event and return the RFC 8693 payload.
 
 Error contract
 --------------
@@ -75,6 +81,7 @@ from rhesis.backend.app.auth.used_token_store import (
     TokenStoreUnavailableError,
     claim_token_jti,
 )
+from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.ee.api_clients.audit import (
@@ -245,11 +252,7 @@ async def run_token_exchange(
     if slug is None:
         _deny("invalid_target", "audience_malformed")
 
-    org = (
-        db.query(Organization).filter(Organization.slug == slug).first()
-        if slug
-        else None
-    )
+    org = db.query(Organization).filter(Organization.slug == slug).first() if slug else None
     if org is None:
         _deny("invalid_target", "org_not_found")
     assert org is not None
@@ -258,10 +261,27 @@ async def run_token_exchange(
     if org.sso_config is None:
         _deny("invalid_target", "org_no_sso_config", org_id=str(org.id))
 
-    # ---- Step 3: client authentication (org-scoped) ----------------------
-    auth_client = authenticate_client(
-        db, org.id, payload.client_id, payload.client_secret
-    )
+    # ---- Step 3: feature availability ------------------------------------
+    # ``FeatureRegistry.is_available`` is the single primitive that
+    # combines license enforcement + runtime preconditions for the
+    # resolved org. Without this check the endpoint's "feature-gated
+    # by ``API_CLIENTS``" claim was documentation-only: an org with
+    # stale ``auth_client`` rows could exchange tokens after the
+    # feature was disabled in the license, and the runtime check
+    # (encryption-configured) would never be consulted on the request
+    # path. We run the check before client authentication so a
+    # feature-disabled org cannot be used as an oracle for client
+    # existence -- the rejection is uniform ``invalid_target``
+    # regardless of whether a matching auth_client row exists.
+    if not FeatureRegistry.is_available(FeatureName.API_CLIENTS, org):
+        _deny(
+            "invalid_target",
+            "feature_unavailable",
+            org_id=str(org.id),
+        )
+
+    # ---- Step 4: client authentication (org-scoped) ----------------------
+    auth_client = authenticate_client(db, org.id, payload.client_id, payload.client_secret)
     if auth_client is None:
         # invalid_client per RFC 6749 §5.2; HTTP 401 because the
         # request lacked valid client credentials. Note that the
@@ -277,7 +297,7 @@ async def run_token_exchange(
         )
     assert auth_client is not None  # narrow for the type checker
 
-    # ---- Step 4: subject token validation --------------------------------
+    # ---- Step 5: subject token validation --------------------------------
     sso_config: Optional[SSOConfig] = sso_config_loader(org)
     if sso_config is None:
         _deny("invalid_target", "sso_config_unparseable", org_id=str(org.id))
@@ -372,7 +392,7 @@ async def run_token_exchange(
                 iss=sso_config.issuer_url,
             )
 
-    # ---- Step 5: subject-token client binding (S1) -----------------------
+    # ---- Step 6: subject-token client binding (S1) -----------------------
     azp = claims.get("azp")
     if not azp:
         # Per OIDC core §2 azp is REQUIRED whenever an ID token has
@@ -395,7 +415,7 @@ async def run_token_exchange(
             jti=claims.get("jti"),
         )
 
-    # ---- Step 6: subject-token replay protection (S9) --------------------
+    # ---- Step 7: subject-token replay protection (S9) --------------------
     subject_jti = claims.get("jti")
     if subject_jti:
         ttl_seconds = _ttl_until_expiry(claims, max_seconds=600)
@@ -427,7 +447,7 @@ async def run_token_exchange(
                 jti=subject_jti,
             )
 
-    # ---- Step 7: user resolution -----------------------------------------
+    # ---- Step 8: user resolution -----------------------------------------
     user = _resolve_user(db, claims, org, sso_config, deny=_deny)
     if not user.is_active:
         _deny(
@@ -461,7 +481,7 @@ async def run_token_exchange(
         resolved_scopes = requested_scopes
     resolved_scope_str = " ".join(resolved_scopes)
 
-    # ---- Step 8: mint Rhesis JWT -----------------------------------------
+    # ---- Step 9: mint Rhesis JWT -----------------------------------------
     # ``offline_access`` is an OIDC convention for "I want a refresh
     # token alongside the access token"; it does not grant authority
     # on the access token itself. Stripping it from the JWT scope
@@ -482,7 +502,7 @@ async def run_token_exchange(
         epoch=auth_client.token_epoch,
     )
 
-    # ---- Step 9: refresh token (only when offline_access requested) ------
+    # ---- Step 10: refresh token (only when offline_access requested) -----
     refresh_token: Optional[str] = None
     refresh_expires_in: Optional[int] = None
     if SCOPE_OFFLINE_ACCESS in resolved_scopes:
@@ -495,7 +515,7 @@ async def run_token_exchange(
         db.commit()
         refresh_expires_in = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600
 
-    # ---- Step 10: success audit + return ---------------------------------
+    # ---- Step 11: success audit + return ---------------------------------
     token_exchange_audit_log(
         TokenExchangeEvent.SUCCESS,
         org_id=str(org.id),

@@ -80,10 +80,11 @@ def create_session_token(
     - ``jti`` -- per-token UUID, logged in the issuance audit event so
       a leaked token can be correlated to its origin during forensics.
     - ``epoch`` -- ``AuthClient.token_epoch`` as either a UTC datetime
-      or unix seconds. Stored as integer seconds in the JWT so the
-      ``iat >= epoch`` check at verify time is one int comparison with
-      no DB lookup; that is the entire mechanism behind coarse
-      revocation.
+      or unix seconds. **Required** whenever ``azp`` is set: it is
+      stored as integer seconds in the JWT so the ``iat >= epoch``
+      check at verify time is one int comparison with no DB lookup,
+      and that is the entire mechanism behind coarse revocation.
+      Minting an azp-bearing token without it raises immediately.
     """
     if aud is not None and azp is None:
         # An ``aud`` without ``azp`` is unverifiable: ``verify_jwt_token``
@@ -92,6 +93,13 @@ def create_session_token(
         # programmer error surfaces immediately rather than as a token
         # that "looks bound" but isn't.
         raise ValueError("aud cannot be set without azp")
+    if azp is not None and epoch is None:
+        # Symmetric guard: ``epoch`` is the *only* mechanism behind
+        # coarse revocation, and ``verify_jwt_token`` rejects azp-bearing
+        # tokens that lack it. Minting without ``epoch`` would produce
+        # a token that fails verification immediately -- catch the
+        # programmer error here instead of at the first request.
+        raise ValueError("epoch is required whenever azp is set")
 
     expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     now = datetime.now(timezone.utc)
@@ -185,19 +193,24 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
     in ``tests/backend/auth/`` -- do not collapse it back to ``None``.
 
     Token-exchange-issued JWTs (anything carrying an ``azp`` claim)
-    pick up two additional checks beyond the standard exp/iat:
+    pick up three additional checks beyond the standard exp/iat:
 
     - ``aud`` MUST be present and equal to :data:`RHESIS_TOKEN_AUDIENCE`.
       Without this check, a token issued for some other Rhesis backend
       (different ``RHESIS_TOKEN_AUDIENCE``) would be accepted here.
+    - ``epoch`` MUST be present. The whole client-bound revocation
+      model rests on the ``iat >= epoch`` comparison; a token minted
+      with ``azp`` but no ``epoch`` (programmer error or tampering)
+      would silently bypass coarse revocation and survive a secret
+      rotation. Reject loudly rather than fail-open.
     - ``iat >= epoch`` MUST hold. ``epoch`` is the unix-seconds copy
       of ``AuthClient.token_epoch`` embedded at mint time; bumping
       ``token_epoch`` invalidates every previously issued token via
       this check, with no DB lookup at verify time. That is the
       entire mechanism behind coarse client-level revocation in v1.
 
-    UI / SSO tokens carry no ``azp`` and skip both checks, which keeps
-    their payload byte-identical to the pre-extension shape.
+    UI / SSO tokens carry no ``azp`` and skip all three checks, which
+    keeps their payload byte-identical to the pre-extension shape.
     """
     try:
         # PyJWT's built-in ``verify_aud`` requires us to pass the
@@ -235,9 +248,21 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
                 )
                 raise JWTError("Invalid audience")
 
+            # ``epoch`` is required whenever ``azp`` is set: it is the
+            # only knob behind coarse client-level revocation. Treating
+            # a missing ``epoch`` as "skip the check" would mean a token
+            # minted by a buggy or compromised path could survive
+            # rotation forever; we'd rather reject the token than
+            # silently grant it immortality.
             epoch = payload.get("epoch")
             iat = payload.get("iat")
-            if epoch is not None and iat is not None and int(iat) < int(epoch):
+            if epoch is None:
+                logger.warning(
+                    "JWT azp=%s present but epoch missing; rejecting",
+                    payload.get("azp"),
+                )
+                raise JWTError("Token revoked")
+            if iat is not None and int(iat) < int(epoch):
                 logger.warning(
                     "JWT iat (%s) < client token_epoch (%s); coarse revocation",
                     iat,
