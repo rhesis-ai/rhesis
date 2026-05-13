@@ -54,7 +54,7 @@ runcmd:
   - systemctl restart systemd-resolved
 %{ if bind9_enabled ~}
   - mkdir -p /var/lib/bind
-  - base64 -d /tmp/named.conf.b64 > /tmp/named.conf.new && mv /tmp/named.conf.new /etc/bind/named.conf && rm /tmp/named.conf.b64
+  - base64 -d /tmp/named.conf.b64 > /etc/bind/named.conf && rm /tmp/named.conf.b64
   - "test -f /var/lib/bind/rhesis.ai.zone || (base64 -d /tmp/rhesis.ai.zone.b64 > /var/lib/bind/rhesis.ai.zone && rm /tmp/rhesis.ai.zone.b64)"
   - chown -R bind:bind /var/lib/bind
   - systemctl enable named

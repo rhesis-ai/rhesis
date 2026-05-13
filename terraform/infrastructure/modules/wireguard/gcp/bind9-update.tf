@@ -67,16 +67,14 @@ resource "terraform_data" "bind9_config_update" {
         sleep 10
       done
 
-      # Remove any stale file from a previous failed run.
-      # Uses named.conf.tf.b64 (not named.conf.b64) to avoid colliding with
-      # the identically-named temp file that cloud-init writes during first boot.
+      # Remove any stale file from a previous failed run
       gcloud_retry gcloud compute ssh wireguard-server \
         --zone="$ZONE" --project="$PROJECT" \
         --tunnel-through-iap \
-        --command="sudo rm -f /tmp/named.conf.tf.b64 /tmp/named.conf.new" 2>/dev/null || true
+        --command="sudo rm -f /tmp/named.conf.b64 /tmp/named.conf.new" 2>/dev/null || true
 
       # Copy base64-encoded config to server
-      gcloud_retry gcloud compute scp "$tmpfile" wireguard-server:/tmp/named.conf.tf.b64 \
+      gcloud_retry gcloud compute scp "$tmpfile" wireguard-server:/tmp/named.conf.b64 \
         --zone="$ZONE" --project="$PROJECT" \
         --tunnel-through-iap
 
@@ -95,8 +93,8 @@ resource "terraform_data" "bind9_config_update" {
           apt-get install -y -qq bind9 > /dev/null 2>&1 || true && \
           systemctl stop dnsmasq 2>/dev/null || true && \
           systemctl disable dnsmasq 2>/dev/null || true && \
-          base64 -d /tmp/named.conf.tf.b64 > /tmp/named.conf.new && \
-          rm /tmp/named.conf.tf.b64 && \
+          base64 -d /tmp/named.conf.b64 > /tmp/named.conf.new && \
+          rm /tmp/named.conf.b64 && \
           [ -s /tmp/named.conf.new ] || { echo \"ERROR: decoded named.conf is empty\"; rm -f /tmp/named.conf.new; exit 1; } && \
           named-checkconf /tmp/named.conf.new && \
           mv /tmp/named.conf.new /etc/bind/named.conf && \
