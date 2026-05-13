@@ -63,10 +63,7 @@ function SettingsSection({
         '&.Mui-expanded': { mb: 3 },
       }}
     >
-      <AccordionSummary
-        expandIcon={<ExpandMoreIcon />}
-        sx={{ px: 3, py: 1 }}
-      >
+      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 3, py: 1 }}>
         <Typography variant="h6" sx={{ color: titleColor }}>
           {title}
         </Typography>
