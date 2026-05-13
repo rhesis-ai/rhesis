@@ -26,10 +26,24 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
     1. Checks user's telemetry preference
     2. Sets telemetry context for the request
     3. Tracks API endpoint usage
+
+    Paths in EXCLUDED_PREFIXES are skipped entirely to prevent the
+    OTel self-export loop documented in the cloud-run incident.
     """
+
+    # Paths that must never produce OTel spans (prevents self-export loops
+    # and avoids tracking high-frequency infra endpoints).
+    EXCLUDED_PREFIXES = ("/files/", "/telemetry/traces", "/mcp/", "/healthz")
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request and track telemetry if enabled"""
+
+        # Skip telemetry entirely for high-frequency / infra paths to prevent
+        # the OTel self-export loop (e.g. /files/ download redirects, trace ingest).
+        path = request.url.path
+        for prefix in self.EXCLUDED_PREFIXES:
+            if path.startswith(prefix):
+                return await call_next(request)
 
         # Check if telemetry is globally enabled (based on deployment type + env var)
         telemetry_enabled = is_telemetry_enabled()

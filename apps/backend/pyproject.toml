@@ -61,6 +61,7 @@ dependencies = [
     "proto-plus>=1.26.1",
     # --- MCP server bits (small) ---
     "mcp>=1.2.0",
+    "google-cloud-storage>=3.8.0",
 ]
 
 [project.optional-dependencies]

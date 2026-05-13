@@ -1,5 +1,6 @@
 """Tests for the architect Celery task and WebSocketEventHandler."""
 
+import base64
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +11,7 @@ from rhesis.backend.app.schemas.websocket import (
 )
 from rhesis.backend.tasks.architect import (
     WebSocketEventHandler,
+    _process_attachments,
     _safe_preview,
     _tool_description,
 )
@@ -317,3 +319,61 @@ class TestSafePreview:
     def test_bool_preserved(self):
         result = _safe_preview({"flag": True})
         assert result["flag"] is True
+
+
+class TestProcessAttachments:
+    """``_process_attachments`` produces dicts compatible with the rest of
+    the pipeline (``filename``, ``content_type``, ``extracted_text``) —
+    NOT the legacy ``content`` key.
+    """
+
+    _EXTRACT_PATH = "rhesis.sdk.services.extractor.extract_with_vision_fallback"
+
+    def test_returns_none_for_empty_input(self):
+        assert _process_attachments(None) is None
+        assert _process_attachments({}) is None
+
+    def test_files_produce_extracted_text_key(self):
+        b64_data = base64.b64encode(b"%PDF-fake").decode("ascii")
+        attachments = {
+            "files": [
+                {
+                    "filename": "deck.pdf",
+                    "content_type": "application/pdf",
+                    "data": b64_data,
+                }
+            ]
+        }
+
+        with patch(self._EXTRACT_PATH, return_value="3 microservices"):
+            result = _process_attachments(attachments)
+
+        assert result is not None
+        assert "files" in result
+        f = result["files"][0]
+        assert f["filename"] == "deck.pdf"
+        assert f["content_type"] == "application/pdf"
+        # Canonical key shared with the rest of the pipeline.
+        assert f["extracted_text"] == "3 microservices"
+        # Legacy key must not be emitted any more.
+        assert "content" not in f
+
+    def test_extraction_failure_falls_back_to_marker_in_extracted_text(self):
+        b64_data = base64.b64encode(b"%PDF-fake").decode("ascii")
+        attachments = {
+            "files": [
+                {"filename": "broken.pdf", "content_type": "application/pdf", "data": b64_data}
+            ]
+        }
+
+        with patch(self._EXTRACT_PATH, side_effect=RuntimeError("LLM down")):
+            result = _process_attachments(attachments)
+
+        f = result["files"][0]
+        assert "could not extract" in f["extracted_text"].lower()
+        assert "content" not in f
+
+    def test_mentions_pass_through(self):
+        attachments = {"mentions": [{"type": "test", "id": "t-1", "display": "a"}]}
+        result = _process_attachments(attachments)
+        assert result == {"mentions": attachments["mentions"]}

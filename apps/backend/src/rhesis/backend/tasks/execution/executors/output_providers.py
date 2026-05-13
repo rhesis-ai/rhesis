@@ -11,12 +11,11 @@ All providers return a TestOutput dataclass, enabling the runner to evaluate
 metrics uniformly regardless of how the output was obtained.
 """
 
-import base64
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -24,9 +23,6 @@ if TYPE_CHECKING:
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
-from rhesis.backend.app.services.model_resolution import (
-    resolve_model_for_extraction as _resolve_model_for_extraction,
-)
 from rhesis.backend.tasks.execution.executors.results import (
     process_endpoint_result,
 )
@@ -89,7 +85,7 @@ class SingleTurnOutput(OutputProvider):
 
         # Inject file data if the test has attached files
         if test_id:
-            input_files = self._load_input_files(db, test_id, organization_id, model=self.model)
+            input_files = self._load_input_files(db, test_id, organization_id)
             if input_files:
                 input_data["files"] = input_files
 
@@ -110,17 +106,14 @@ class SingleTurnOutput(OutputProvider):
         return TestOutput(response=processed, execution_time=execution_time)
 
     @staticmethod
-    def _load_input_files(db, test_id, organization_id, model=None) -> List[Dict[str, Any]]:
-        """Load files attached to a test, encode as base64, and add extracted_text where possible.
+    def _load_input_files(db, test_id, organization_id):
+        """Load files attached to a test and return them as FileReference metadata.
 
-        For images and documents the appropriate SDK extractor is selected automatically.
-        If extraction fails the file is still included with its raw base64 data.
-        The optional model (BaseLLM instance or provider string) is used by ImageExtractor
-        for vision-based description; without it images fall back to EXIF-only extraction.
+        No bytes are loaded, no base64 encoding, no extraction — extraction was
+        performed at upload time and is available on ``File.extracted_text``.
         """
-        from sqlalchemy.orm import undefer
-
         from rhesis.backend.app.models.file import File
+        from rhesis.sdk.connector.types import FileReference
 
         try:
             files = (
@@ -130,34 +123,35 @@ class SingleTurnOutput(OutputProvider):
                     File.entity_type == "Test",
                     File.deleted_at.is_(None),
                 )
-                .options(undefer(File.content))
                 .order_by(File.position)
                 .all()
             )
 
-            if not files:
-                return []
-
-            resolved_model = _resolve_model_for_extraction(model)
-
-            from rhesis.sdk.services.extractor import extract_with_vision_fallback
-
-            result = []
-            for f in files:
-                if not f.content:
-                    continue
-                entry: Dict[str, Any] = {
-                    "filename": f.filename,
-                    "content_type": f.content_type,
-                    "data": base64.b64encode(f.content).decode("ascii"),
-                    "extracted_text": extract_with_vision_fallback(
-                        f.content, f.filename, f.content_type, model=resolved_model
-                    ),
-                }
-                result.append(entry)
-            return result
+            return [
+                FileReference(
+                    id=str(f.id),
+                    filename=f.filename,
+                    content_type=f.content_type,
+                    size_bytes=f.size_bytes,
+                    content_hash=f.content_hash or "",
+                    storage_path=f.storage_path,
+                    extracted_text=f.extracted_text,
+                )
+                for f in files
+                if f.storage_path  # only include files that have been migrated to storage
+            ]
         except Exception as e:
-            logger.warning(f"Failed to load input files for test {test_id}: {e}")
+            # Promote to ERROR with full traceback: silently dropping
+            # attached files causes downstream tests to run without
+            # context the user expected to provide.  Returning [] keeps
+            # the test runnable; the operator must catch this in the logs.
+            logger.error(
+                "Failed to load input files for test %s — test will execute "
+                "WITHOUT its attached file context: %s",
+                test_id,
+                e,
+                exc_info=True,
+            )
             return []
 
 
@@ -195,9 +189,7 @@ class MultiTurnOutput(OutputProvider):
         min_turns = test_config.get("min_turns")
 
         # Load files attached to the test (reuse SingleTurnOutput's static method)
-        input_files = SingleTurnOutput._load_input_files(
-            db, test.id, organization_id, model=self.model
-        )
+        input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
 
         from rhesis.backend.tasks.execution.penelope_target import (
             BackendEndpointTarget,

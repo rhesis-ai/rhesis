@@ -411,3 +411,149 @@ class TestStorageServiceEdgeCases(StorageServiceTestMixin, BaseStorageServiceTes
 
         # Test file size with permission error
         assert storage_service.get_file_size(file_path) is None
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestStorageServicePathBuilders:
+    """Tests for domain-scoped path builder methods."""
+
+    def _local_service(self, tmp_path):
+        """Build a StorageService that uses a temp local directory."""
+        with patch.dict(
+            os.environ,
+            {"STORAGE_SERVICE_URI": f"file://{tmp_path}", "LOCAL_STORAGE_PATH": str(tmp_path)},
+            clear=True,
+        ):
+            return StorageService()
+
+    def test_get_source_path_is_alias_of_get_file_path(self, tmp_path):
+        svc = self._local_service(tmp_path)
+        assert svc.get_source_path("org", "src", "file.pdf") == svc.get_file_path(
+            "org", "src", "file.pdf"
+        )
+
+    def test_get_attachment_prefix(self, tmp_path):
+        svc = self._local_service(tmp_path)
+        prefix = svc.get_attachment_prefix("org", "Test", "entity-1", "file-1")
+        assert prefix == "attachments/org/Test/entity-1/file-1"
+
+    def test_get_attachment_original_path_with_extension(self, tmp_path):
+        svc = self._local_service(tmp_path)
+        path = svc.get_attachment_original_path("org", "Test", "eid", "fid", "photo.png")
+        assert path.endswith("/original.png")
+        assert "attachments/org/Test/eid/fid" in path
+
+    def test_get_attachment_original_path_no_extension(self, tmp_path):
+        svc = self._local_service(tmp_path)
+        path = svc.get_attachment_original_path("org", "Test", "eid", "fid", "noext")
+        assert path.endswith("/original.bin")
+
+    def test_get_attachment_thumbnail_path(self, tmp_path):
+        svc = self._local_service(tmp_path)
+        path = svc.get_attachment_thumbnail_path("org", "Test", "eid", "fid", 144)
+        assert path.endswith("/thumb-144.webp")
+        assert "attachments/org/Test/eid/fid" in path
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+class TestStorageServiceStreaming:
+    """Tests for put_object_streaming and get_object_stream using local FS."""
+
+    def _local_service(self, tmp_path):
+        import os as _os
+
+        with patch.dict(
+            _os.environ,
+            {"STORAGE_SERVICE_URI": f"file://{tmp_path}", "LOCAL_STORAGE_PATH": str(tmp_path)},
+            clear=True,
+        ):
+            return StorageService()
+
+    async def test_put_and_get_streaming_roundtrip(self, tmp_path):
+        svc = self._local_service(tmp_path)
+        data = b"Hello, streaming world!" * 100
+        dest = "test-org/my-file.bin"
+
+        async def _source():
+            for i in range(0, len(data), 8):
+                yield data[i : i + 8]
+
+        storage_path, sha256_hex = await svc.put_object_streaming(
+            _source(), dest, "application/octet-stream"
+        )
+        assert storage_path == dest
+        import hashlib
+
+        assert sha256_hex == hashlib.sha256(data).hexdigest()
+
+        chunks = []
+        stream = await svc.get_object_stream(dest)
+        async for chunk in stream:
+            chunks.append(chunk)
+        assert b"".join(chunks) == data
+
+    async def test_generate_presigned_url_raises_for_local(self, tmp_path):
+        from rhesis.backend.app.services.storage_service import NotSupportedError
+
+        svc = self._local_service(tmp_path)
+        with pytest.raises(NotSupportedError):
+            await svc.generate_presigned_url("some/path.bin")
+
+
+class TestStorageServicePutObjectBytes:
+    """Tests for the synchronous ``put_object_bytes`` sibling.
+
+    Exists specifically for callers that already hold the bytes and cannot
+    safely run an inner event loop (e.g. ``_store_output_files`` is called
+    from sync code that itself runs inside an async task body).
+    """
+
+    def _local_service(self, tmp_path):
+        import os as _os
+
+        with patch.dict(
+            _os.environ,
+            {"STORAGE_SERVICE_URI": f"file://{tmp_path}", "LOCAL_STORAGE_PATH": str(tmp_path)},
+            clear=True,
+        ):
+            return StorageService()
+
+    def test_writes_bytes_and_returns_path_and_sha(self, tmp_path):
+        import hashlib
+
+        svc = self._local_service(tmp_path)
+        data = b"sync bytes path"
+        dest = "test-org/sync/file.bin"
+
+        storage_path, sha256_hex = svc.put_object_bytes(
+            content=data,
+            dest_path=dest,
+            content_type="application/octet-stream",
+        )
+        assert storage_path == dest
+        assert sha256_hex == hashlib.sha256(data).hexdigest()
+        # Bytes actually landed on disk
+        on_disk = (tmp_path / dest).read_bytes()
+        assert on_disk == data
+
+    def test_does_not_create_event_loop(self, tmp_path):
+        """The regression guard for the original bug: this method must not
+        touch asyncio at all — callers may already be inside a running
+        event loop on this thread."""
+        import asyncio
+
+        async def _outer():
+            svc = self._local_service(tmp_path)
+            # If put_object_bytes ever reintroduces ``loop.run_until_complete``
+            # this call will raise ``RuntimeError: Cannot run the event loop
+            # while another loop is running``.
+            return svc.put_object_bytes(
+                content=b"hi from inside a loop",
+                dest_path="test-org/sync/inner.bin",
+                content_type="text/plain",
+            )
+
+        storage_path, _hash = asyncio.run(_outer())
+        assert storage_path == "test-org/sync/inner.bin"

@@ -163,6 +163,7 @@ start_server() {
             --worker-class uvicorn.workers.UvicornWorker \
             --bind "$host:$port" \
             --timeout "$timeout" \
+            --graceful-timeout "${GRACEFUL_TIMEOUT:-30}" \
             --access-logfile - \
             --error-logfile - \
             --log-level info \

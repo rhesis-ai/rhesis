@@ -78,10 +78,11 @@ The `tojson` filter ensures values are properly formatted as JSON:
 
 ### File Format Filters
 
-When tests include file attachments (images, PDFs, or other documents), the
-`files` variable contains an array of file objects. Each provider expects files
-in a different format, so Rhesis provides built-in filters to handle the
-conversion:
+When tests include file attachments (images, PDFs, or audio — see
+[Multi-modal Testing](/docs/multimodal-testing) for the full type and size
+matrix), the `files` variable contains an array of file objects. Each provider
+expects files in a different format, so Rhesis provides built-in filters to
+handle the conversion:
 
 | Filter | Provider | Description |
 |---|---|---|

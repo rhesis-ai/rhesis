@@ -2,6 +2,86 @@
 
 import os
 from enum import Enum
+from typing import TYPE_CHECKING, Optional
+
+from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    import aiohttp
+
+
+class FileReference(BaseModel):
+    """A reference to a file stored in object storage.
+
+    Passed through the execution pipeline instead of raw bytes so that
+    the full file content never resides in Python memory except at the
+    moment an endpoint actually needs it (on-demand materialisation).
+    """
+
+    id: str
+    filename: str
+    content_type: str
+    size_bytes: int
+    content_hash: str
+    storage_path: Optional[str] = None
+    signed_url: Optional[str] = None
+    extracted_text: Optional[str] = None
+
+    def read_bytes(self) -> bytes:
+        """Fetch the file bytes via the signed URL (blocking I/O).
+
+        .. warning::
+
+           This call blocks on the network using stdlib ``urllib``. Do
+           **not** call from an asyncio event loop or a Celery task that
+           interleaves with other I/O — use :meth:`aread_bytes` instead.
+           This sync variant is intended for synchronous SDK user code
+           (scripts, notebooks, sync metric implementations).
+
+        Raises:
+            RuntimeError: when ``signed_url`` is not populated. The
+                backend must set it before passing ``FileReference``
+                instances to SDK user functions that need raw bytes.
+        """
+        if not self.signed_url:
+            raise RuntimeError(
+                f"No signed_url available for FileReference id={self.id}. "
+                "The backend must populate signed_url before passing FileReferences "
+                "to SDK user functions that need raw bytes."
+            )
+        import urllib.request
+
+        with urllib.request.urlopen(self.signed_url) as resp:
+            return resp.read()
+
+    async def aread_bytes(self, session: Optional["aiohttp.ClientSession"] = None) -> bytes:
+        """Async sibling of :meth:`read_bytes` — fetches bytes without blocking.
+
+        Uses ``aiohttp`` (already an SDK runtime dependency).  Pass an
+        existing ``aiohttp.ClientSession`` for connection reuse when
+        invoking from a long-lived async context; otherwise a one-shot
+        session is created and closed for this call.
+
+        Raises:
+            RuntimeError: when ``signed_url`` is not populated.
+        """
+        if not self.signed_url:
+            raise RuntimeError(
+                f"No signed_url available for FileReference id={self.id}. "
+                "The backend must populate signed_url before passing FileReferences "
+                "to SDK user functions that need raw bytes."
+            )
+        import aiohttp
+
+        async def _fetch(s: aiohttp.ClientSession) -> bytes:
+            async with s.get(self.signed_url) as resp:
+                resp.raise_for_status()
+                return await resp.read()
+
+        if session is not None:
+            return await _fetch(session)
+        async with aiohttp.ClientSession() as owned_session:
+            return await _fetch(owned_session)
 
 
 class ConnectionState(Enum):
