@@ -67,6 +67,8 @@ spec:
       # CREATE ROLE is intentionally absent here to avoid a race with managed.roles
       # reconciliation (second CREATE would fail with "role already exists").
       postInitSQL:
+        - CREATE ROLE "rhesis-analytics-user" WITH LOGIN PASSWORD '{{ .Values.analyticsUserPassword }}';
+        - CREATE ROLE "rhesis-user" WITH LOGIN PASSWORD '{{ .Values.userPassword }}';
         - CREATE DATABASE "rhesis-analytics-stg-db" OWNER "rhesis-analytics-user";
         - GRANT CONNECT ON DATABASE "rhesis-analytics-stg-db" TO "rhesis-admin";
       # Runs as superuser inside rhesis-stg-db after initdb creates it.
