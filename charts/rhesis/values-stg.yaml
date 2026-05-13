@@ -9,7 +9,7 @@
 # Global — Artifact Registry
 # ---------------------------------------------------------------------------
 global:
-  registry: "europe-west4-docker.pkg.dev/rhesis-stg/rhesis"
+  registry: "europe-west4-docker.pkg.dev/rhesis-stg-494712/rhesis"
   imagePullPolicy: Always
   imageTag: "latest"
 
@@ -46,7 +46,7 @@ config:
   backendUrl: "http://backend:8080"
 
   # GCP
-  vertexAiProject: "rhesis-stg"
+  vertexAiProject: "playground-437609"
 
   # AI / Vertex (same model stack as dev; override per staging policy if needed)
   geminiModelName: "gemini-2.5-flash-001"

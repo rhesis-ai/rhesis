@@ -12,8 +12,8 @@ configMapGenerator:
   - name: eso-config
     literals:
     # GCP project rhesis-stg; ESO uses dedicated GSA eso-stg in this project.
-      - gcp-project-id=rhesis-stg
-      - eso-service-account-email=eso-stg@rhesis-stg.iam.gserviceaccount.com
+      - gcp-project-id=rhesis-stg-494712
+      - eso-service-account-email=eso-stg@rhesis-stg-494712.iam.gserviceaccount.com
     options:
       annotations:
         config.kubernetes.io/local-config: "true"

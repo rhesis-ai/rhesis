@@ -26,7 +26,7 @@ spec:
   serviceAccountTemplate:
     metadata:
       annotations:
-        iam.gke.io/gcp-service-account: rhesis-cnpg-bk-stg@rhesis-stg.iam.gserviceaccount.com
+        iam.gke.io/gcp-service-account: rhesis-cnpg-bk-stg@rhesis-stg-494712.iam.gserviceaccount.com
   resources:
     requests:
       memory: 512Mi

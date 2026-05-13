@@ -440,7 +440,7 @@ module "cnpg_barman_stg" {
   project_id                 = var.project_id
   environment                = "stg"
   backup_bucket_name         = var.gcs.stg.cnpg_backup_bucket_name
-  kubernetes_service_account = "rhesis-stg"
+  kubernetes_service_account = "rhesis-stg-494712"
 
   depends_on = [module.gcs_stg]
 }
