@@ -49,7 +49,7 @@ from rhesis.backend.app.utils.execution_validation import (
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.embedding.graph import compute_test_set_graph_task
+from rhesis.backend.tasks.embedding.graph import compute_graph_task
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
@@ -841,6 +841,28 @@ def remove_metric_from_test_set(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+def _test_entity_ids_for_embedding_graph(db: Session, test_set_id: uuid.UUID) -> list[uuid.UUID]:
+    """Paginate through all tests linked to a test set."""
+    entity_ids: list[uuid.UUID] = []
+    skip = 0
+    page_size = 100
+    while True:
+        items, _count = crud.get_test_set_tests(
+            db=db,
+            test_set_id=test_set_id,
+            skip=skip,
+            limit=page_size,
+            sort_by="created_at",
+            sort_order="desc",
+            filter=None,
+        )
+        entity_ids.extend(t.id for t in items)
+        if len(items) < page_size:
+            break
+        skip += page_size
+    return entity_ids
+
+
 @router.post(
     "/{test_set_identifier}/embeddings/compute-graph",
     response_model=EmbeddingGraphComputeResponse,
@@ -856,7 +878,9 @@ def compute_test_set_embedding_graph(
     db_test_set = resolve_test_set_or_raise(
         test_set_identifier, db, str(current_user.organization_id)
     )
-    task = compute_test_set_graph_task.delay(str(db_test_set.id), str(current_user.id))
+    entity_ids = _test_entity_ids_for_embedding_graph(db, db_test_set.id)
+    entity_id_strs = [str(eid) for eid in entity_ids]
+    task = compute_graph_task.delay(entity_id_strs, str(db_test_set.id), str(current_user.id))
     return EmbeddingGraphComputeResponse(status="pending", task_id=str(task.id))
 
 
