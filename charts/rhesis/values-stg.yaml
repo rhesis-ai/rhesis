@@ -61,6 +61,13 @@ config:
 # Ingress — stg (internal; VPN / same pattern as dev)
 # ---------------------------------------------------------------------------
 backend:
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
   ingress:
     enabled: true
     host: "stg-api.rhesis.ai"
@@ -83,7 +90,15 @@ backend:
     failureThreshold: 6
 
 frontend:
-  imageTag: "stg-latest"
+  image:
+    tag: "latest"
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
   ingress:
     enabled: true
     host: "stg-app.rhesis.ai"
@@ -91,7 +106,36 @@ frontend:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
+workers:
+  - name: default
+    enabled: true
+    image:
+      repository: rhesis-worker
+      tag: ""
+    replicas: 1
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "500m"
+    hpa:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+    env: []
+
 docs:
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
   ingress:
     enabled: true
     host: "stg-docs.rhesis.ai"
@@ -100,6 +144,13 @@ docs:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 chatbot:
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "500m"
+    limits:
+      memory: "4Gi"
+      cpu: "1000m"
   ingress:
     enabled: true
     host: "stg-chatbot.rhesis.ai"
@@ -108,6 +159,13 @@ chatbot:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 polyphemus:
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
   ingress:
     enabled: true
     host: "stg-polyphemus.rhesis.ai"

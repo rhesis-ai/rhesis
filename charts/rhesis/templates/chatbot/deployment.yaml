@@ -10,7 +10,9 @@ metadata:
     tier: chatbot
     {{- include "rhesis.labels" . | nindent 4 }}
 spec:
+  {{- if not .Values.chatbot.hpa.enabled }}
   replicas: {{ .Values.chatbot.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app: chatbot

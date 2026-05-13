@@ -68,6 +68,19 @@ config:
 # ---------------------------------------------------------------------------
 backend:
   replicas: 2
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   ingress:
     enabled: true
     host: "api.rhesis.ai"
@@ -92,6 +105,13 @@ backend:
 
 frontend:
   replicas: 2
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
   ingress:
     enabled: true
     host: "app.rhesis.ai"
@@ -100,7 +120,37 @@ frontend:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
+workers:
+  - name: default
+    enabled: true
+    image:
+      repository: rhesis-worker
+      tag: ""
+    replicas: 2
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "500m"
+      limits:
+        memory: "4Gi"
+        cpu: "1000m"
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+    env: []
+
 docs:
+  replicas: 2
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
   ingress:
     enabled: true
     host: "docs.rhesis.ai"
@@ -110,6 +160,20 @@ docs:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 chatbot:
+  replicas: 2
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   ingress:
     enabled: true
     host: "chatbot.rhesis.ai"
@@ -119,6 +183,20 @@ chatbot:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 polyphemus:
+  replicas: 2
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   ingress:
     enabled: true
     host: "polyphemus.rhesis.ai"

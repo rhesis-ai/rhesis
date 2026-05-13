@@ -113,11 +113,17 @@ backend:
   replicas: 1
   resources:
     requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
       memory: "1Gi"
       cpu: "500m"
-    limits:
-      memory: "2Gi"
-      cpu: "1000m"
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   # Backend may run heavy startup (e.g. probe caches). Worst-case time before
   # liveness restart ≈ initialDelaySeconds + (failureThreshold - 1) * periodSeconds.
   livenessProbe:
@@ -156,15 +162,21 @@ frontend:
   enabled: true
   image:
     repository: rhesis-frontend
-    tag: "latest"
+    tag: ""
   replicas: 1
   resources:
     requests:
-      memory: "256Mi"
+      memory: "128Mi"
       cpu: "100m"
     limits:
-      memory: "512Mi"
+      memory: "256Mi"
       cpu: "200m"
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   service:
     type: ClusterIP
     port: 3000
@@ -192,11 +204,17 @@ workers:
     replicas: 1
     resources:
       requests:
-        memory: "1Gi"
+        memory: "512Mi"
         cpu: "100m"
       limits:
-        memory: "2Gi"
-        cpu: "500m"
+        memory: "1Gi"
+        cpu: "250m"
+    hpa:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
     env: []
 
 # ---------------------------------------------------------------------------
@@ -210,11 +228,17 @@ chatbot:
   replicas: 1
   resources:
     requests:
-      memory: "512Mi"
+      memory: "1Gi"
       cpu: "250m"
     limits:
-      memory: "1Gi"
+      memory: "2Gi"
       cpu: "500m"
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   service:
     type: ClusterIP
     port: 8083
@@ -241,11 +265,17 @@ polyphemus:
   replicas: 1
   resources:
     requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
       memory: "1Gi"
       cpu: "500m"
-    limits:
-      memory: "2Gi"
-      cpu: "1000m"
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   livenessProbe:
     httpGet:
       path: /health
@@ -286,11 +316,17 @@ docs:
   replicas: 1
   resources:
     requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
       memory: "256Mi"
       cpu: "100m"
-    limits:
-      memory: "512Mi"
-      cpu: "200m"
+  hpa:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
   service:
     type: ClusterIP
     port: 3001

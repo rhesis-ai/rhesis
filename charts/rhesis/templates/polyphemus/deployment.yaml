@@ -10,7 +10,9 @@ metadata:
     tier: polyphemus
     {{- include "rhesis.labels" . | nindent 4 }}
 spec:
+  {{- if not .Values.polyphemus.hpa.enabled }}
   replicas: {{ .Values.polyphemus.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app: polyphemus

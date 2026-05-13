@@ -10,7 +10,9 @@ metadata:
     tier: frontend
     {{- include "rhesis.labels" . | nindent 4 }}
 spec:
+  {{- if not .Values.frontend.hpa.enabled }}
   replicas: {{ .Values.frontend.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app: frontend
