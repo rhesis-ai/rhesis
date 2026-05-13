@@ -137,9 +137,20 @@ def _truncate_hash_for_log(value: Optional[str], chars: int = 8) -> Optional[str
     """Return at most *chars* characters of *value* for log correlation.
 
     Used when we want to correlate two log lines about the same
-    secret hash without ever printing the full hash. Eight characters
-    of a SHA-256 output give 32 bits, which is enough to grep through
-    a single tenant's logs without being useful for offline brute force.
+    secret hash without ever printing the full hash. Eight hex chars
+    of a SHA-256 output = 32 bits of distinguishing power, which:
+
+    - is enough to grep through a single tenant's lifecycle events
+      without collisions in any realistic volume (creates / rotates
+      are sparse compared to token-exchange traffic),
+    - is *not* enough to materially help offline brute force: each
+      additional bit doubles attacker work, but the input alphabet
+      (a 256-bit Fernet ciphertext over a versioned hash string) has
+      effectively no exploitable structure either way.
+
+    A 4-char (16-bit) prefix would still be useful for correlation
+    but starts colliding around ~256 entries (birthday bound), which
+    is uncomfortably close to the operational scale of a busy org.
     """
     if not value:
         return None

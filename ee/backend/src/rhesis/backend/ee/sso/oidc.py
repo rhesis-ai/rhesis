@@ -11,12 +11,12 @@ import json
 import logging
 import os
 import time
-from typing import Any, Awaitable, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 from urllib.parse import urlencode
 
 import jwt as pyjwt
 
-from rhesis.backend.app.auth.constants import ALGORITHM, AuthProviderType
+from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
 from rhesis.backend.ee.sso.http_client import (
     SSOHttpClient,
@@ -87,7 +87,6 @@ def verify_oidc_jwt(
     jwks: dict,
     audience: Optional[Union[str, Iterable[str]]] = None,
     leeway: int = CLOCK_SKEW_SECONDS,
-    refresh_jwks: Optional[Callable[[], Awaitable[dict]]] = None,
 ) -> dict:
     """Verify an OIDC JWT (ID token or access token) and return its claims.
 
@@ -118,11 +117,12 @@ def verify_oidc_jwt(
     - **Clock skew.** ``leeway`` defaults to
       :data:`CLOCK_SKEW_SECONDS` (30s) so a slightly fast or slow IdP
       clock does not cause spurious ``expired`` rejections.
-    - **JWKS rotation.** When *refresh_jwks* is supplied and the
-      header ``kid`` is not in the cached JWKS, the helper invokes the
-      callback once and retries. The callback is responsible for
-      enforcing the per-issuer cooldown (see ``_get_jwks``); without
-      it, the second lookup uses the same cached JWKS as the first.
+    - **JWKS rotation.** When the header ``kid`` is not in the
+      supplied *jwks*, this helper raises ``no_matching_key`` and lets
+      the caller (the token-exchange orchestrator) decide whether to
+      force-refresh the JWKS and retry. Doing the retry here would
+      need a callback wired through every call site and would be
+      easier to mis-wire (e.g. forgetting the per-issuer cooldown).
 
     Failure mode contract: on any rejection a
     :class:`SubjectTokenError` is raised with one of
@@ -155,7 +155,6 @@ def verify_oidc_jwt(
         issuer=issuer,
         audience=audience,
         leeway=leeway,
-        refresh_jwks=refresh_jwks,
     )
 
 
@@ -189,31 +188,16 @@ def _decode_with_jwks(
     issuer: str,
     audience: Optional[Union[str, Iterable[str]]],
     leeway: int,
-    refresh_jwks: Optional[Callable[[], Awaitable[dict]]],
 ) -> dict:
-    """Inner helper: pick the key for *kid* (refresh once on miss) and decode."""
+    """Inner helper: pick the key for *kid* in *jwks* and decode.
+
+    On a JWKS cache miss we raise ``no_matching_key`` and let the
+    caller decide whether to force-refresh the JWKS and retry; the
+    retry policy depends on per-issuer cooldown state we deliberately
+    don't reach into from here.
+    """
 
     signing_key = _select_signing_key(jwks, kid)
-
-    if signing_key is None and refresh_jwks is not None:
-        # Key rotation path: the cached JWKS does not have the kid the
-        # IdP just used. Force a single refresh and try again. The
-        # refresh callback is expected to enforce the per-issuer
-        # cooldown so a stream of invalid tokens cannot DoS our JWKS
-        # endpoint.
-        try:
-            jwks = asyncio.get_event_loop().run_until_complete(refresh_jwks())  # type: ignore[arg-type]
-        except RuntimeError:
-            # Already inside an event loop -- the caller should pass a
-            # pre-refreshed JWKS in that case. Falling back to the
-            # cached jwks here would silently mask the rotation, so
-            # surface the failure.
-            raise SubjectTokenError(
-                "jwks_unavailable",
-                "cannot synchronously refresh JWKS from inside event loop",
-            )
-        signing_key = _select_signing_key(jwks, kid)
-
     if signing_key is None:
         raise SubjectTokenError("no_matching_key", f"no JWK for kid={kid!r}")
 
