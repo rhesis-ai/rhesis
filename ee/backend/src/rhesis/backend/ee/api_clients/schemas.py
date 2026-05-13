@@ -127,18 +127,26 @@ class AuthClientCreate(BaseModel):
         max_length=255,
         description=(
             "Required azp claim of the subject token (RFC 8693). The "
-            "subject token's azp must match this value exactly. This "
-            "is the only mitigation against a co-tenant integration "
+            "subject token's azp must match this value exactly. "
+            "Combined with expected_subject_audience this is the "
+            "binding that prevents a co-tenant integration from "
             "replaying its own valid Keycloak token at our endpoint."
         ),
     )
-    expected_subject_audience: Optional[str] = Field(
-        default=None,
+    expected_subject_audience: str = Field(
+        ...,
+        min_length=1,
         max_length=255,
         description=(
-            "Optional aud claim the subject token must contain on "
-            "top of the azp check; set when the configured IdP emits "
-            "an aud."
+            "Required aud claim the subject token must contain. Many "
+            "IdPs (notably Keycloak service-account flows) hand the "
+            "same azp to multiple downstream apps in the same realm, "
+            "so azp on its own is insufficient to distinguish 'this "
+            "integration' from 'a sibling app in the same realm'. "
+            "The audience claim is the disambiguator and is therefore "
+            "required at create time. For Keycloak this is typically "
+            "the realm's `account` audience or a custom audience "
+            "mapped onto the client."
         ),
     )
     allowed_scopes: List[str] = Field(

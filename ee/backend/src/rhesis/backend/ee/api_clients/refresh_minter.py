@@ -13,6 +13,10 @@ model documented on the orchestrator):
 - ``client_secret`` MUST authenticate against the AuthClient row
   (constant-time, dummy-hash on miss inside ``authenticate_client``).
 - AuthClient MUST NOT be ``disabled``.
+- AuthClient ``organization_id`` MUST equal the bound user's
+  ``organization_id``. If a user moved orgs between issuance and
+  refresh (rare but possible), the original (user, client) binding
+  is no longer coherent and must not silently mint a fresh JWT.
 
 If any check fails the minter raises :class:`HTTPException(401)` with
 a generic detail. The detail string is identical across all failure
@@ -113,19 +117,56 @@ def mint_for_client_bound_refresh(
     if client_id != old_token.client_id:
         _raise_401()
 
-    auth_client = authenticate_client(db, client_id, client_secret)
+    # Org-scope the lookup using the bound user's org. Two tenants may
+    # share a client_id (per-org unique constraint), so passing
+    # client_id alone would risk authenticating against the wrong
+    # row. The user's org is the authoritative scope here because the
+    # refresh row was minted for this exact (user, client) pair.
+    auth_client = authenticate_client(
+        db, user.organization_id, client_id, client_secret
+    )
     if auth_client is None or auth_client.disabled:
         _raise_401()
     assert auth_client is not None  # narrow for the type checker
 
+    # Defence in depth: the org-scoped lookup above already filters by
+    # ``user.organization_id``, so a row from a different org cannot
+    # be returned. Re-asserting the invariant here makes the contract
+    # explicit so a future refactor of authenticate_client cannot
+    # accidentally widen the scope without this check tripping in
+    # tests first.
+    if str(auth_client.organization_id) != str(user.organization_id):
+        _raise_401()
+
     # Mint with the AuthClient's *current* token_epoch so a secret
     # rotation invalidates the chain on its next refresh.
+    #
+    # Strip ``offline_access`` from the access token's scope claim --
+    # it's an OIDC convention for "give me a refresh token", not an
+    # authority. The refresh row still carries it (so re-rotation
+    # preserves the original intent) and is consulted on the next
+    # refresh; only the access token's scope is filtered.
+    access_scope = _strip_offline_access(old_token.scope)
     return create_session_token(
         user,
         azp=auth_client.client_id,
-        scope=old_token.scope,
+        scope=access_scope,
         epoch=auth_client.token_epoch,
     )
+
+
+def _strip_offline_access(scope: str | None) -> str | None:
+    """Return *scope* with the ``offline_access`` token removed.
+
+    Keeps order and other tokens intact. Returns ``None`` when the
+    input is ``None`` so callers that pass ``old_token.scope``
+    unchanged for UI/SSO refresh tokens (NULL scope) keep the
+    historical behaviour.
+    """
+    if not scope:
+        return scope
+    parts = [p for p in scope.split(" ") if p and p != "offline_access"]
+    return " ".join(parts) if parts else None
 
 
 __all__ = ["mint_for_client_bound_refresh"]

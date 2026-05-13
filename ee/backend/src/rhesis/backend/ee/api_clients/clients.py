@@ -68,7 +68,6 @@ from sqlalchemy import (
     Index,
     String,
     Text,
-    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -211,17 +210,28 @@ class AuthClient(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
+        # Partial unique index on (organization_id, client_id), scoped
+        # to live rows. A plain UniqueConstraint would forbid even
+        # soft-deleted rows from sharing the same client_id, which
+        # means an org that disables their ``brain`` integration and
+        # later wants to recreate it would hit a 409 forever (or,
+        # worse, the operator would have to hard-delete the audit
+        # trail). The partial index lets us re-create after
+        # soft-delete while still preventing two LIVE rows with the
+        # same id.
+        Index(
+            "uq_auth_client_org_client_active",
             "organization_id",
             "client_id",
-            name="uq_auth_client_org_client",
+            unique=True,
+            postgresql_where="deleted_at IS NULL",
         ),
         Index(
             "uq_auth_client_org_name",
             "organization_id",
             "name",
             unique=True,
-            postgresql_where="name IS NOT NULL",
+            postgresql_where="name IS NOT NULL AND deleted_at IS NULL",
         ),
         CheckConstraint(
             "default_scope = ANY(allowed_scopes)",
@@ -279,30 +289,9 @@ def _verify_secret_hash(presented: str, stored_hash: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def get_client_by_id_for_org(
-    db: Session,
-    organization_id,
-    client_id: str,
-) -> Optional[AuthClient]:
-    """Return the :class:`AuthClient` row for ``(org, client_id)`` or ``None``.
-
-    Used by the CRUD router for org-scoped lookups -- never by the
-    token-exchange auth path, which goes through
-    :func:`authenticate_client` so the dummy-hash on miss runs.
-    """
-    return (
-        db.query(AuthClient)
-        .filter(
-            AuthClient.organization_id == organization_id,
-            AuthClient.client_id == client_id,
-            AuthClient.deleted_at.is_(None),
-        )
-        .first()
-    )
-
-
 def authenticate_client(
     db: Session,
+    organization_id,
     client_id: str,
     presented_secret: str,
 ) -> Optional[AuthClient]:
@@ -315,26 +304,32 @@ def authenticate_client(
 
     Hardening (each item maps to a security requirement in the plan):
 
-    - **S4a (constant-time lookup):** if ``client_id`` is unknown we
-      still hash :data:`_DUMMY_HASH_INPUT` so the wall clock is
-      comparable to the success path. Without this, an attacker can
-      enumerate which clients exist by measuring response time.
+    - **S4a (constant-time lookup):** if ``(org, client_id)`` does not
+      resolve we still hash :data:`_DUMMY_HASH_INPUT` so the wall
+      clock is comparable to the success path. Without this, an
+      attacker can enumerate which clients exist by measuring response
+      time.
     - **S4 (constant-time compare):** the hash comparison goes through
       :func:`hmac.compare_digest`, never ``==``.
     - **Single log shape:** unknown client / wrong secret / disabled
       all log the same warning; we never tell the caller (or the log
       reader) which branch fired. Per-branch debug logs would
       reintroduce the oracle the rest of the function works to remove.
-    - Looks up by ``client_id`` alone (never by ``(org, client_id)``)
-      because the caller has not yet authenticated the org. Matching
-      ``AuthClient.organization_id`` against the requested audience
-      happens in step 3 of the exchange orchestrator, after this
-      function returns successfully.
+    - **Org-scoped lookup:** the unique constraint on ``auth_client``
+      is ``(organization_id, client_id)``, so two orgs may legitimately
+      have the same ``client_id`` (e.g. ``brain``). Looking up by
+      ``client_id`` alone would return whichever row sorts first and
+      lock the other org out of token exchange. The caller passes the
+      org resolved from the request's ``audience`` parameter (or, on
+      the refresh path, from the bound user / client row) so this
+      function authenticates against the correct row even under
+      identifier collision across tenants.
     """
 
     row: Optional[AuthClient] = (
         db.query(AuthClient)
         .filter(
+            AuthClient.organization_id == organization_id,
             AuthClient.client_id == client_id,
             AuthClient.deleted_at.is_(None),
         )
@@ -372,6 +367,5 @@ __all__ = [
     "SECRET_HASH_PREFIX",
     "authenticate_client",
     "generate_client_secret",
-    "get_client_by_id_for_org",
     "hash_client_secret",
 ]

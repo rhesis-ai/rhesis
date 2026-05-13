@@ -23,7 +23,6 @@
 
 /** Coarse v1 scopes (mirror of backend `V1_SUPPORTED_SCOPES`). */
 export const V1_SUPPORTED_SCOPES = ['read', 'full', 'offline_access'] as const;
-export type V1Scope = (typeof V1_SUPPORTED_SCOPES)[number];
 
 /**
  * Read-side AuthClient row. Returned by GET (list, detail) and the
@@ -35,6 +34,12 @@ export interface AuthClient {
   client_id: string;
   name: string | null;
   expected_subject_azp: string;
+  /**
+   * Required on every newly-created row. Existing rows from before
+   * the requirement landed may still be `null` until they are rotated;
+   * the orchestrator refuses to use a row with a null audience, so a
+   * `null` value here means the row needs admin attention.
+   */
   expected_subject_audience: string | null;
   allowed_scopes: string[];
   default_scope: string;
@@ -65,7 +70,14 @@ export interface AuthClientCreateRequest {
   client_id: string;
   name?: string;
   expected_subject_azp: string;
-  expected_subject_audience?: string;
+  /**
+   * Required. Combined with `expected_subject_azp` this is the binding
+   * that prevents a co-tenant integration from replaying its own valid
+   * Keycloak token at our endpoint -- many IdPs (notably Keycloak
+   * service-account flows) hand the same `azp` to multiple downstream
+   * apps in the same realm, so `azp` alone is insufficient.
+   */
+  expected_subject_audience: string;
   allowed_scopes: string[];
   default_scope: string;
 }

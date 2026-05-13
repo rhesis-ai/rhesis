@@ -11,12 +11,16 @@ Order of operations is load-bearing
 Each step gates the next; reordering changes the timing-oracle
 surface area or skips a security check entirely. The order is:
 
-1. Parse + validate request shape.
-2. Authenticate the calling client (constant time, dummy hash on
-   miss). On any failure -> ``invalid_client``, single log shape.
-3. Resolve the organization by slug from the ``audience`` parameter.
-   Reject if missing / inactive / no SSOConfig / org-vs-client
-   mismatch.
+1. Parse + validate request shape (including ``audience``).
+2. Resolve the organization by slug from the ``audience`` parameter.
+   Reject if missing / inactive / no SSOConfig. The org must be
+   resolved BEFORE client authentication because ``auth_client.client_id``
+   is unique only per-organization; without the org binding,
+   ``authenticate_client`` could not distinguish two tenants that both
+   chose the same client_id and would lock one of them out at random.
+3. Authenticate the calling client against ``(org_id, client_id)``
+   (constant time, dummy hash on miss). On any failure ->
+   ``invalid_client``, single log shape.
 4. Validate the subject token against the org's SSOConfig issuer URL.
 5. Subject-token client binding: ``azp`` claim must match the
    AuthClient's ``expected_subject_azp`` (S1 -- the only mitigation
@@ -199,7 +203,9 @@ async def run_token_exchange(
     # tests can substitute their own loader without dragging the
     # SSO router (and its FastAPI deps) into the test process.
     if sso_config_loader is None:
-        from rhesis.backend.ee.sso.router import _get_sso_config as sso_config_loader  # type: ignore[import-not-found]
+        from rhesis.backend.ee.sso.router import (
+            _get_sso_config as sso_config_loader,  # type: ignore[import-not-found]
+        )
 
     # ---- Step 1: shape validation ----------------------------------------
     _check_request_shape(payload)
@@ -229,17 +235,12 @@ async def run_token_exchange(
         )
         raise TokenExchangeError(error, reason_code, http_status=http)
 
-    # ---- Step 2: client authentication -----------------------------------
-    auth_client = authenticate_client(
-        db, payload.client_id, payload.client_secret
-    )
-    if auth_client is None:
-        # invalid_client per RFC 6749 §5.2; HTTP 401 because the
-        # request lacked valid client credentials.
-        _deny("invalid_client", "client_auth_failed", http=401)
-    assert auth_client is not None  # narrow for the type checker
-
-    # ---- Step 3: org resolution + cross-org match ------------------------
+    # ---- Step 2: org resolution ------------------------------------------
+    # Resolve the org BEFORE authenticating the client so the
+    # ``(organization_id, client_id)`` lookup in step 3 hits the right
+    # row even when two tenants share a client_id. Doing client auth
+    # first would scope the lookup to ``client_id`` alone, return
+    # whichever row sorts first, and lock the other tenant out.
     slug = _audience_to_slug(payload.audience)
     if slug is None:
         _deny("invalid_target", "audience_malformed")
@@ -256,16 +257,25 @@ async def run_token_exchange(
         _deny("invalid_target", "org_inactive", org_id=str(org.id))
     if org.sso_config is None:
         _deny("invalid_target", "org_no_sso_config", org_id=str(org.id))
-    if str(org.id) != str(auth_client.organization_id):
-        # Cross-org mint attempt -- A5 in the threat model. RFC 6749
-        # uses ``unauthorized_client`` for "this client is not
-        # authorized to use this grant for this resource".
+
+    # ---- Step 3: client authentication (org-scoped) ----------------------
+    auth_client = authenticate_client(
+        db, org.id, payload.client_id, payload.client_secret
+    )
+    if auth_client is None:
+        # invalid_client per RFC 6749 §5.2; HTTP 401 because the
+        # request lacked valid client credentials. Note that the
+        # uniform invalid_client response covers both "no such client
+        # in this org" and "wrong secret" -- the org binding does NOT
+        # turn into a tenant-existence oracle because the per-IP rate
+        # limit applies before this code path runs.
         _deny(
-            "unauthorized_client",
-            "client_org_mismatch",
-            http=403,
+            "invalid_client",
+            "client_auth_failed",
+            http=401,
             org_id=str(org.id),
         )
+    assert auth_client is not None  # narrow for the type checker
 
     # ---- Step 4: subject token validation --------------------------------
     sso_config: Optional[SSOConfig] = sso_config_loader(org)
@@ -299,11 +309,28 @@ async def run_token_exchange(
             org_id=str(org.id),
         )
 
+    # ``expected_subject_audience`` is REQUIRED at create time, but a
+    # row created before that requirement existed may have NULL. Fail
+    # closed here rather than silently disabling the audience check by
+    # passing ``None`` to verify_oidc_jwt -- a missing audience binding
+    # is the difference between A3 being "exploitable" and "impossible
+    # in practice" for IdPs that share azp across siblings (Keycloak
+    # service-account flows being the canonical example).
+    audience_claim = auth_client.expected_subject_audience
+    if not audience_claim:
+        _deny(
+            "invalid_target",
+            "client_missing_audience_binding",
+            org_id=str(org.id),
+            iss=sso_config.issuer_url,
+        )
+        # _deny raises; this assert just narrows for the type checker.
+        assert audience_claim is not None
+
     # JWKS rotation: if the IdP rotated keys after our cache filled
     # the first decode raises ``no_matching_key``. Force-refresh once
     # and retry. ``_get_jwks(force_refresh=True)`` enforces a per-issuer
     # cooldown so a stream of bogus tokens cannot DoS the JWKS endpoint.
-    audience_claim = auth_client.expected_subject_audience
     try:
         claims = verify_oidc_jwt(
             payload.subject_token,
@@ -373,7 +400,14 @@ async def run_token_exchange(
     if subject_jti:
         ttl_seconds = _ttl_until_expiry(claims, max_seconds=600)
         try:
-            first_use = await claim_token_jti(subject_jti, ttl_seconds)
+            # Namespace by issuer URL so two IdPs that legitimately
+            # mint the same jti (the spec only RECOMMENDS uniqueness)
+            # do not DoS each other through a shared replay-set.
+            first_use = await claim_token_jti(
+                subject_jti,
+                ttl_seconds,
+                namespace=sso_config.issuer_url,
+            )
         except TokenStoreUnavailableError:
             # Fail-open on infra outage, matching the auth_code policy.
             # Without this we'd take down all integrators every time
@@ -428,12 +462,22 @@ async def run_token_exchange(
     resolved_scope_str = " ".join(resolved_scopes)
 
     # ---- Step 8: mint Rhesis JWT -----------------------------------------
+    # ``offline_access`` is an OIDC convention for "I want a refresh
+    # token alongside the access token"; it does not grant authority
+    # on the access token itself. Stripping it from the JWT scope
+    # claim means a future per-route scope check cannot accidentally
+    # treat ``offline_access`` as an authority. The refresh row still
+    # carries it (so the refresh path knows the chain was minted with
+    # offline intent), and the response body still reports it back to
+    # the caller for parity with the requested scope.
+    access_scopes = [s for s in resolved_scopes if s != SCOPE_OFFLINE_ACCESS]
+    access_scope_str = " ".join(access_scopes)
     issued_jti = str(uuid.uuid4())
     access_token = create_session_token(
         user,
         azp=auth_client.client_id,
         aud=RHESIS_TOKEN_AUDIENCE,
-        scope=resolved_scope_str,
+        scope=access_scope_str,
         jti=issued_jti,
         epoch=auth_client.token_epoch,
     )

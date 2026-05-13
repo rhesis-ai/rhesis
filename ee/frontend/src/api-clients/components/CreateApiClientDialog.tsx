@@ -123,6 +123,7 @@ export default function CreateApiClientDialog({
     form.client_id.length > 0 &&
     clientIdValid &&
     form.expected_subject_azp.trim().length > 0 &&
+    form.expected_subject_audience.trim().length > 0 &&
     form.allowed_scopes.length > 0 &&
     form.default_scope.length > 0 &&
     form.allowed_scopes.includes(form.default_scope);
@@ -136,13 +137,11 @@ export default function CreateApiClientDialog({
       const payload: AuthClientCreateRequest = {
         client_id: form.client_id,
         expected_subject_azp: form.expected_subject_azp.trim(),
+        expected_subject_audience: form.expected_subject_audience.trim(),
         allowed_scopes: form.allowed_scopes,
         default_scope: form.default_scope,
       };
       if (form.name && form.name.trim()) payload.name = form.name.trim();
-      if (form.expected_subject_audience && form.expected_subject_audience.trim()) {
-        payload.expected_subject_audience = form.expected_subject_audience.trim();
-      }
       await onSubmit(payload);
       // Parent decides whether to close on success (typically yes,
       // because the secret-display dialog opens immediately after).
@@ -204,6 +203,7 @@ export default function CreateApiClientDialog({
 
           <TextField
             label="Expected audience"
+            required
             value={form.expected_subject_audience ?? ''}
             onChange={e =>
               setForm({
@@ -211,7 +211,13 @@ export default function CreateApiClientDialog({
                 expected_subject_audience: e.target.value,
               })
             }
-            helperText="Optional. Set when your IdP emits an aud claim on access tokens."
+            helperText={
+              'Required. The exact aud claim the subject token must ' +
+              'contain. Many IdPs (notably Keycloak service-account ' +
+              'flows) hand the same azp to multiple downstream apps in ' +
+              'the same realm, so azp on its own is insufficient -- the ' +
+              'audience claim is the disambiguator.'
+            }
             inputProps={{ maxLength: 255 }}
             fullWidth
           />

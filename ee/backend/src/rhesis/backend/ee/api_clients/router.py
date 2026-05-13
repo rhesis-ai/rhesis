@@ -53,9 +53,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.feature_gates import require_feature
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName
-from rhesis.backend.app.auth.feature_gates import require_feature
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.utils.rate_limit import limiter
 from rhesis.backend.ee.api_clients.audit import (
@@ -65,7 +65,6 @@ from rhesis.backend.ee.api_clients.audit import (
 from rhesis.backend.ee.api_clients.clients import (
     AuthClient,
     generate_client_secret,
-    get_client_by_id_for_org,
     hash_client_secret,
 )
 from rhesis.backend.ee.api_clients.schemas import (
@@ -324,12 +323,12 @@ async def rotate_auth_client_secret(
 ):
     """Rotate the secret. Old hash is overwritten immediately (no overlap).
 
-    Also bumps ``token_epoch`` to the rotation instant, which (via the
-    ``iat >= epoch`` check in :func:`verify_jwt_token`) invalidates
-    every Rhesis JWT issued before the rotation. That is the only
-    coarse-revocation lever in v1; per-token revocation lands later.
+    Also bumps ``token_epoch`` (via the ``iat >= epoch`` check in
+    :func:`verify_jwt_token`) which invalidates every Rhesis JWT
+    issued before the rotation. That is the only coarse-revocation
+    lever in v1; per-token revocation lands later.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
 
     user = await _require_org_admin_for(request, org_id)
     _get_org_or_404(db, org_id)
@@ -341,7 +340,18 @@ async def rotate_auth_client_secret(
     # Bumping the epoch invalidates every previously-issued access
     # token for this client; that's why rotate is the recommended
     # incident-response action when a secret is suspected compromised.
-    row.token_epoch = datetime.now(timezone.utc)
+    #
+    # We add 1 second to ``now()`` to close a sub-second race: JWTs
+    # encode ``iat`` and ``epoch`` as integer Unix seconds (truncating
+    # the float), so an access token minted at T=1700000000.4 ends up
+    # with ``iat=1700000000``. If the rotation runs at T=1700000000.6
+    # and we set ``epoch=int(1700000000.6)=1700000000`` the check
+    # ``iat < epoch`` is ``1700000000 < 1700000000`` -> False, and the
+    # pre-rotation token survives. Pinning epoch one whole second in
+    # the future closes that window unconditionally; the only cost is
+    # that a token minted in the same second as rotation is also
+    # invalidated, which is the desired behaviour anyway.
+    row.token_epoch = datetime.now(timezone.utc) + timedelta(seconds=1)
     db.commit()
     db.refresh(row)
 
