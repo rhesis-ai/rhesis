@@ -19,6 +19,7 @@ from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
 
+
 def _embedding_entity_type_key(model_or_name: type | str) -> str:
     return model_or_name if isinstance(model_or_name, str) else model_or_name.__name__
 
@@ -41,6 +42,7 @@ def fetch_embeddings(
         user_id=user_id,
     )
 
+
 def _reduce_dimensions(X: np.ndarray, purpose: str) -> np.ndarray:
     """Reduce the dimensions of the embeddings (requires n_samples >= 3)."""
     n_samples = X.shape[0]
@@ -60,6 +62,7 @@ def _reduce_dimensions(X: np.ndarray, purpose: str) -> np.ndarray:
 
     umap = UMAP(n_components=n_components, n_neighbors=n_neighbors, random_state=42)
     return umap.fit_transform(X)
+
 
 def _cluster_with_hdbscan(X: np.ndarray) -> tuple[np.ndarray, dict[int, np.ndarray]]:
     """Cluster the embeddings with HDBSCAN."""
@@ -90,6 +93,7 @@ def _cluster_with_hdbscan(X: np.ndarray) -> tuple[np.ndarray, dict[int, np.ndarr
         centroids[int(cluster_id)] = X[mask].mean(axis=0)
 
     return cluster_ids, centroids
+
 
 def _generate_cluster_labels(
     embeddings: list[models.Embedding],
@@ -139,6 +143,7 @@ def _generate_cluster_labels(
             continue
 
     return labels
+
 
 def _trivial_single_point_graph(embedding: models.Embedding, now_utc: datetime) -> Scatter2DGraph:
     """One sample: pin at origin, no clusters (noise only). Used when UMAP is ill-defined."""
@@ -208,8 +213,7 @@ def build_2d_graph(db: Session, entity_ids: Sequence[UUID], user: User) -> Scatt
 
     if requested_count > 0 and not embeddings:
         logger.warning(
-            "Embedding graph has no active embeddings for requested tests: "
-            "requested_entity_ids=%s",
+            "Embedding graph has no active embeddings for requested tests: requested_entity_ids=%s",
             requested_count,
         )
 
