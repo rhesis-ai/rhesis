@@ -440,9 +440,9 @@ module "cnpg_barman_stg" {
   project_id                 = var.project_id
   environment                = "stg"
   backup_bucket_name         = var.gcs.stg.cnpg_backup_bucket_name
-  kubernetes_service_account = "rhesis-stg-494712"
+  kubernetes_service_account = "rhesis-stg"
 
-  depends_on = [module.gcs_stg]
+  depends_on = [module.gcs_stg, module.gke_stg]
 }
 
 module "cnpg_barman_prd" {
@@ -454,7 +454,7 @@ module "cnpg_barman_prd" {
   backup_bucket_name         = var.gcs.prd.cnpg_backup_bucket_name
   kubernetes_service_account = "rhesis-prd"
 
-  depends_on = [module.gcs_prd]
+  depends_on = [module.gcs_prd, module.gke_prd]
 }
 
 # ── WireGuard VPN server ─────────────────────────────────────────────
