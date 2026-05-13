@@ -148,7 +148,15 @@ class EmbeddingGenerator:
             embedder: Optional pre-resolved embedder. If missing, it is resolved from user settings.
 
         Returns:
-            Dictionary with generation result
+            A dict with at least ``status`` and ``embedding_id`` keys:
+
+            - ``{"status": "success", "embedding_id": "<uuid>"}`` — new or reused
+              active embedding for the text/config.
+            - ``{"status": "skipped_empty_text", "embedding_id": None}`` —
+              ``searchable_text`` was missing or only whitespace; no API call and
+              no embedding row created.
+
+            Celery task ``generate_embedding_task`` returns this dict unchanged.
         """
         if searchable_text is None:
             if not entity:
@@ -158,6 +166,14 @@ class EmbeddingGenerator:
                 raise ValueError(f"Entity {entity_type} does not support embedding")
 
             searchable_text = entity.to_searchable_text()
+
+        if not (searchable_text or "").strip():
+            logger.info(
+                "Skipping embedding: empty searchable_text for %s:%s",
+                entity_type,
+                entity_id,
+            )
+            return {"status": "skipped_empty_text", "embedding_id": None}
 
         # Model row for persistence / hashing (entity-scoped embedding model)
         db_model = crud.get_model(self.db, model_id=model_id, organization_id=organization_id)
