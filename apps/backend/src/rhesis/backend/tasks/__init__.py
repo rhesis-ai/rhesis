@@ -23,7 +23,7 @@ from rhesis.backend.tasks.base import (
     SilentTask,
     email_notification,
 )
-from rhesis.backend.tasks.embedding import generate_embedding_task
+from rhesis.backend.tasks.embedding import compute_graph_task, generate_embedding_task
 from rhesis.backend.tasks.enums import (
     DEFAULT_METRIC_WORKERS,
     DEFAULT_RESULT_STATUS,
@@ -69,6 +69,7 @@ __all__ = [
     # Tasks
     "echo",
     "generate_embedding_task",
+    "compute_graph_task",
     "count_test_sets",
     "execute_test_configuration",
     "collect_results",

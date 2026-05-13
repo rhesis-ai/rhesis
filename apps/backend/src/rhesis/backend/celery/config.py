@@ -83,6 +83,7 @@ CELERY_CONFIG = {
     "include": [
         "rhesis.backend.tasks.test_configuration",
         "rhesis.backend.tasks.embedding.generate",
+        "rhesis.backend.tasks.embedding.graph",
         "rhesis.backend.tasks.example_task",
         "rhesis.backend.tasks.test_set",
         "rhesis.backend.tasks.execution.results",
