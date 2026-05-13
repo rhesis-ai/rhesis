@@ -351,9 +351,11 @@ class EmbeddableMixin:
         return relationship(
             "Embedding",
             primaryjoin=(
+                # foreign() wraps entity_id, the referencing side, not the parent id. Works anyways
                 f"and_(Embedding.entity_id == foreign({cls.__name__}.id), "
                 f"Embedding.entity_type == '{cls.__name__}')"
             ),
+            # this likely overrides the foreign() above
             foreign_keys="[Embedding.entity_id]",
             viewonly=True,
             uselist=True,
