@@ -60,6 +60,16 @@ def create_test_run(
     if initial_status == RunStatus.PROGRESS:
         attributes["started_at"] = datetime.utcnow().isoformat()
 
+    from rhesis.backend.app.services.experiment import apply_parameter_snapshot_to_run_attributes
+
+    attributes = apply_parameter_snapshot_to_run_attributes(
+        session,
+        test_config=test_config,
+        attributes=attributes,
+        organization_id=str(test_config.organization_id),
+        user_id=str(executor_user_id) if executor_user_id else str(test_config.user_id or ""),
+    )
+
     test_run_data = {
         "test_configuration_id": test_config.id,
         "user_id": executor_user_id,

@@ -4,7 +4,7 @@
 # Keep in sync - these define the WebSocket wire protocol.
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -57,6 +57,12 @@ class ExecuteTestMessage(BaseModel):
     test_run_id: str
     function_name: str
     inputs: Dict[str, Any]
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    parameter_version: Optional[str] = None
+    parameter_experiment_id: Optional[str] = None
+    parameter_source: Optional[Literal["label", "experiment_id", "version"]] = None
+    parameter_source_label: Optional[str] = None
+    parameter_schema: Optional[Dict[str, Any]] = None
 
 
 class TestResultMessage(BaseModel):

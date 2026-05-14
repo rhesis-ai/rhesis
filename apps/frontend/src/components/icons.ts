@@ -1,5 +1,9 @@
 // Bundle MUI icon imports to optimize compile times - Using Outlined variants as default
 export { default as ScienceIcon } from '@mui/icons-material/ScienceOutlined';
+export { default as BiotechIcon } from '@mui/icons-material/BiotechOutlined';
+export { default as TuneIcon } from '@mui/icons-material/TuneOutlined';
+export { default as PublicIcon } from '@mui/icons-material/PublicOutlined';
+export { default as PublicOffIcon } from '@mui/icons-material/PublicOffOutlined';
 export { default as HorizontalSplitIcon } from '@mui/icons-material/HorizontalSplitOutlined';
 export { default as PlayArrowIcon } from '@mui/icons-material/PlayArrowOutlined';
 export { default as EditIcon } from '@mui/icons-material/EditOutlined';

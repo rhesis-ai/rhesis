@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.tag import Tag
@@ -232,6 +232,16 @@ class TestSetExecutionRequest(BaseModel):
     reference_test_run_id: Optional[UUID4] = None
     execution_model_id: Optional[UUID4] = None
     evaluation_model_id: Optional[UUID4] = None
+    experiment_id: Optional[UUID4] = Field(
+        default=None,
+        description=(
+            "When set (optionally with version / label), intent is stored on the "
+            "created test configuration and resolved into a run snapshot at queue "
+            "time. Omit experiment_id, version, and label for legacy executions."
+        ),
+    )
+    version: Optional[str] = None
+    label: Optional[str] = None
 
     @field_validator("execution_options")
     @classmethod

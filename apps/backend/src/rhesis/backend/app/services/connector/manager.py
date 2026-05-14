@@ -30,6 +30,22 @@ from rhesis.backend.app.services.connector.schemas import (
 
 logger = logging.getLogger(__name__)
 
+_EXECUTE_TEST_EXTRA_KEYS = frozenset(
+    {
+        "parameters",
+        "parameter_version",
+        "parameter_experiment_id",
+        "parameter_source",
+        "parameter_source_label",
+        "parameter_schema",
+    }
+)
+
+
+def _extract_execute_test_message_extras(request: Dict[str, Any]) -> Dict[str, Any]:
+    """Pull optional ExecuteTestMessage fields from an RPC payload."""
+    return {k: request[k] for k in _EXECUTE_TEST_EXTRA_KEYS if k in request}
+
 
 class ConnectionManager:
     """Manages WebSocket connections with SDK clients."""
@@ -374,6 +390,7 @@ class ConnectionManager:
         test_run_id: str,
         function_name: str,
         inputs: Dict[str, Any],
+        execute_extras: Dict[str, Any] | None = None,
     ) -> bool:
         """Send test execution request to SDK via project:env routing.
 
@@ -390,6 +407,7 @@ class ConnectionManager:
             test_run_id=test_run_id,
             function_name=function_name,
             inputs=inputs,
+            **(execute_extras or {}),
         )
 
         try:
@@ -410,6 +428,7 @@ class ConnectionManager:
         function_name: str,
         inputs: Dict[str, Any],
         timeout: float = 30.0,
+        execute_extras: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Send test request and wait for the result using an asyncio.Event.
 
@@ -426,6 +445,7 @@ class ConnectionManager:
                 test_run_id,
                 function_name,
                 inputs,
+                execute_extras=execute_extras,
             )
             if not sent:
                 return {
@@ -1103,7 +1123,10 @@ class ConnectionManager:
         if request_type == "execute_metric":
             await self._forward_metric_to_sdk(request_id, key, websocket, name, inputs)
         else:
-            await self._forward_to_sdk(request_id, key, websocket, name, inputs)
+            extras = _extract_execute_test_message_extras(request)
+            await self._forward_to_sdk(
+                request_id, key, websocket, name, inputs, execute_extras=extras
+            )
 
     async def _forward_to_sdk(
         self,
@@ -1112,12 +1135,14 @@ class ConnectionManager:
         websocket: WebSocket,
         function_name: str,
         inputs: Dict[str, Any],
+        execute_extras: Dict[str, Any] | None = None,
     ) -> None:
         """Forward test RPC request to SDK via WebSocket."""
         message = ExecuteTestMessage(
             test_run_id=request_id,
             function_name=function_name,
             inputs=inputs,
+            **(execute_extras or {}),
         )
         await self._forward_message_to_sdk(
             request_id=request_id,

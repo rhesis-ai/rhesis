@@ -1,0 +1,365 @@
+"""Project-scoped parameter management endpoints.
+
+This router carries the full surface that lives under
+``/projects/{project_id}/parameters/...`` plus the per-project
+experiments *list/create* endpoints. The singleton experiment
+endpoints (`GET /experiments/{id}`, version sub-resource, …) live in
+:mod:`rhesis.backend.app.routers.experiments` because they're not
+project-scoped in the URL even though the data is.
+
+Endpoints in this module:
+
+- ``GET / PUT /projects/{id}/parameters/schema``
+- ``GET /projects/{id}/parameters/labels``
+- ``PUT / DELETE /projects/{id}/parameters/labels/{name}``
+- ``GET /projects/{id}/parameters/resolve``
+- ``GET / POST /projects/{id}/experiments``
+
+Visibility, project-scoping, and the resolver invariants are
+enforced by :mod:`rhesis.backend.app.services.experiment` so the
+routes stay thin.
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from rhesis.backend.app import crud
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+)
+from rhesis.backend.app.models.experiment import Experiment as ExperimentModel
+from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.parameters import (
+    ExperimentCreate,
+    ExperimentRead,
+    LabelBindRequest,
+    LabelPointer,
+    ParameterSchema,
+    ProjectLabels,
+    ResolveResponse,
+)
+from rhesis.backend.app.services import experiment as experiment_service
+
+router = APIRouter(
+    prefix="/projects/{project_id}/parameters",
+    tags=["parameters"],
+    responses={404: {"description": "Not found"}},
+    dependencies=[Depends(require_current_user_or_token)],
+)
+
+
+# A second router for the per-project *experiments* collection. Mounted
+# under the same project prefix but a different URL segment, so it
+# carries its own tag for the OpenAPI grouping.
+project_experiments_router = APIRouter(
+    prefix="/projects/{project_id}/experiments",
+    tags=["experiments"],
+    responses={404: {"description": "Not found"}},
+    dependencies=[Depends(require_current_user_or_token)],
+)
+
+
+# --------------------------------------------------------------------------- #
+# Helpers                                                                     #
+# --------------------------------------------------------------------------- #
+
+
+def _load_project(
+    project_id: uuid.UUID,
+    db: Session,
+    organization_id: str,
+    user_id: str,
+):
+    db_project = crud.get_project(
+        db,
+        project_id=project_id,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    if db_project is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+    return db_project
+
+
+def _coerce_schema(project) -> ParameterSchema:
+    raw = project.parameters_schema
+    if isinstance(raw, ParameterSchema):
+        return raw
+    if raw is None:
+        return ParameterSchema()
+    return ParameterSchema.model_validate(raw)
+
+
+def _coerce_labels(project) -> ProjectLabels:
+    raw = project.parameter_labels
+    if isinstance(raw, ProjectLabels):
+        return raw
+    if raw is None:
+        return ProjectLabels()
+    return ProjectLabels.model_validate(raw)
+
+
+# --------------------------------------------------------------------------- #
+# Schema GET / PUT                                                            #
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/schema", response_model=ParameterSchema)
+def get_parameters_schema(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> ParameterSchema:
+    """Return the project's :class:`ParameterSchema`.
+
+    Empty schemas serialize as ``{"fields": []}`` — the same default
+    the column carries on insert, so a freshly created project is
+    indistinguishable on the wire from one that has been deliberately
+    cleared.
+    """
+    organization_id, user_id = tenant_context
+    project = _load_project(project_id, db, organization_id, user_id)
+    return _coerce_schema(project)
+
+
+@router.put("/schema", response_model=ParameterSchema)
+def put_parameters_schema(
+    project_id: uuid.UUID,
+    payload: ParameterSchema,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> ParameterSchema:
+    """Replace the project's :class:`ParameterSchema` atomically.
+
+    Last-write-wins: concurrent edits clobber each other. An
+    ``If-Match`` ETag is deferred to v2 (see plan). The whole schema
+    goes in and out in one round-trip, which matches what the list
+    editor produces on save and keeps the API surface minimal.
+    """
+    organization_id, user_id = tenant_context
+    project = _load_project(project_id, db, organization_id, user_id)
+    project.parameters_schema = payload
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return _coerce_schema(project)
+
+
+# --------------------------------------------------------------------------- #
+# Labels (read all + bind/unbind one)                                         #
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/labels", response_model=ProjectLabels)
+def get_project_labels(
+    project_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> ProjectLabels:
+    """Return only the *bound* labels.
+
+    Well-known labels that haven't been promoted yet aren't in the
+    response — the frontend overlays them client-side from
+    ``WELL_KNOWN_LABELS`` so the UI keeps rendering ``default`` /
+    ``production`` / ``staging`` rows even before any binding exists.
+    """
+    organization_id, user_id = tenant_context
+    project = _load_project(project_id, db, organization_id, user_id)
+    return _coerce_labels(project)
+
+
+@router.put("/labels/{label_name}", response_model=ProjectLabels)
+def put_project_label(
+    project_id: uuid.UUID,
+    label_name: str,
+    payload: LabelBindRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> ProjectLabels:
+    """Bind or move ``label_name`` to ``(experiment_id, version)``.
+
+    Refused with 409 when the experiment isn't ``shared`` — the
+    "labels point only at shared experiments" invariant is enforced
+    here, and protected from later violation by the no-active-label
+    rule on unsharing.
+    """
+    organization_id, user_id = tenant_context
+    project = _load_project(project_id, db, organization_id, user_id)
+    pointer = LabelPointer(
+        experiment_id=payload.experiment_id,
+        version=payload.version,
+    )
+    return experiment_service.bind_label(
+        db,
+        project=project,
+        label_name=label_name,
+        pointer=pointer,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+
+@router.delete("/labels/{label_name}", response_model=ProjectLabels)
+def delete_project_label(
+    project_id: uuid.UUID,
+    label_name: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> ProjectLabels:
+    """Unbind ``label_name`` (idempotent — unknown names succeed)."""
+    organization_id, user_id = tenant_context
+    project = _load_project(project_id, db, organization_id, user_id)
+    return experiment_service.unbind_label(
+        db,
+        project=project,
+        label_name=label_name,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Resolver                                                                    #
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/resolve", response_model=ResolveResponse)
+def resolve(
+    project_id: uuid.UUID,
+    label: str | None = Query(default=None),
+    experiment_id: uuid.UUID | None = Query(default=None),
+    version: str | None = Query(default=None),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> ResolveResponse:
+    """Single canonical resolver shared by SDK and run-snapshot path.
+
+    See :func:`experiment_service.resolve_parameters` for the
+    precedence and visibility rules.
+    """
+    organization_id, user_id = tenant_context
+    project = _load_project(project_id, db, organization_id, user_id)
+    return experiment_service.resolve_parameters(
+        db,
+        project=project,
+        label=label,
+        experiment_id=experiment_id,
+        version=version,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Per-project experiments collection                                          #
+# --------------------------------------------------------------------------- #
+
+
+def _to_read(db_experiment: ExperimentModel) -> ExperimentRead:
+    last = experiment_service.latest_version(db_experiment)
+    return ExperimentRead(
+        id=db_experiment.id,
+        name=db_experiment.name,
+        description=db_experiment.description,
+        visibility=db_experiment.visibility,  # type: ignore[arg-type]
+        project_id=db_experiment.project_id,
+        owner_user_id=db_experiment.owner_user_id,
+        organization_id=db_experiment.organization_id,
+        versions_count=len(db_experiment.versions or []),
+        latest_version=last.version if last else None,
+        created_at=db_experiment.created_at,
+        updated_at=db_experiment.updated_at,
+    )
+
+
+@project_experiments_router.get("", response_model=list[ExperimentRead])
+def list_project_experiments(
+    project_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> list[ExperimentRead]:
+    """List experiments visible to the requester within ``project_id``.
+
+    Returns shared experiments + the requester's private ones. Other
+    users' private experiments are filtered out at the application
+    layer regardless of org role — this is the "private experiments
+    are strictly invisible" plan-locked decision.
+    """
+    organization_id, user_id = tenant_context
+    _load_project(project_id, db, organization_id, user_id)
+
+    rows = (
+        db.query(ExperimentModel)
+        .filter(ExperimentModel.project_id == project_id)
+        .filter(ExperimentModel.organization_id == organization_id)
+        .filter(ExperimentModel.deleted_at.is_(None))
+        .order_by(ExperimentModel.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    visible: list[ExperimentModel] = []
+    for row in rows:
+        if row.visibility == "private" and (
+            user_id is None or str(row.owner_user_id) != str(user_id)
+        ):
+            continue
+        visible.append(row)
+    return [_to_read(r) for r in visible]
+
+
+@project_experiments_router.post(
+    "",
+    response_model=ExperimentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_project_experiment(
+    project_id: uuid.UUID,
+    payload: ExperimentCreate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> ExperimentRead:
+    """Create a new (header-only, no versions yet) experiment.
+
+    ``project_id`` comes from the path. Owner is the authenticated
+    user. Visibility defaults to ``private`` per the plan-locked
+    decision so a fresh experiment never accidentally hits the team's
+    radar before its first save.
+    """
+    organization_id, user_id = tenant_context
+    _load_project(project_id, db, organization_id, user_id)
+
+    db_experiment = ExperimentModel(
+        project_id=project_id,
+        organization_id=uuid.UUID(organization_id),
+        owner_user_id=current_user.id,
+        name=payload.name,
+        description=payload.description,
+        visibility=payload.visibility,
+        versions=[],
+    )
+    db.add(db_experiment)
+    db.flush()
+    db.refresh(db_experiment)
+    return _to_read(db_experiment)
+
+
+__all__ = ["router", "project_experiments_router"]

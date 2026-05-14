@@ -97,6 +97,7 @@ class SDKRpcClient:
         function_name: str,
         inputs: Dict[str, Any],
         timeout: float = 30.0,
+        execute_extras: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """
         Send RPC request to backend with direct worker routing and await result.
@@ -127,6 +128,8 @@ class SDKRpcClient:
             "function_name": function_name,
             "inputs": inputs,
         }
+        if execute_extras:
+            request.update(execute_extras)
         dispatch_context = f"({function_name})"
         logger.debug(f"Sending RPC request to {request}")
         return await self._send_and_await(

@@ -14,6 +14,7 @@ import '../ee_bootstrap';
 import {
   DashboardIcon,
   ScienceIcon,
+  BiotechIcon,
   AppsIcon,
   VpnKeyIcon,
   BusinessIcon,
@@ -194,6 +195,12 @@ async function getNavigationItems(
       segment: 'test-sets',
       title: 'Test Sets',
       icon: <CategoryIcon key="test-sets-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'experiments',
+      title: 'Experiments',
+      icon: <BiotechIcon key="experiments-icon" />,
     },
     // Results Section
     {

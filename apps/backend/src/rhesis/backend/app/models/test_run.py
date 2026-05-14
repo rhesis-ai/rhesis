@@ -56,3 +56,12 @@ class TestRun(
         viewonly=True,
         uselist=True,
     )
+
+    @property
+    def experiment_summary(self):
+        """Hydrated experiment card for API responses (from run snapshot only)."""
+        from rhesis.backend.app.services.experiment import (
+            experiment_summary_dict_from_run_attributes,
+        )
+
+        return experiment_summary_dict_from_run_attributes(self.attributes)

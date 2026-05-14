@@ -77,6 +77,7 @@ def create_detailed_schema(
         ("organization_id", Optional[UUID4], None),
         ("status_id", Optional[UUID4], None),
         ("attributes", Optional[Dict[str, Any]], None),
+        ("experiment_summary", Optional[Dict[str, Any]], None),
         ("tags", Optional[List[TagRead]], None),
         ("icon", Optional[str], None),
         ("endpoint_id", Optional[UUID4], None),

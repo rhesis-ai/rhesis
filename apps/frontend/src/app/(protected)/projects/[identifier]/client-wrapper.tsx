@@ -7,6 +7,8 @@ import ProjectContent from '../components/ProjectContent';
 import ProjectEditDrawer from './edit-drawer';
 import ProjectEndpoints from './components/ProjectEndpoints';
 import ProjectTraceMetrics from './components/ProjectTraceMetrics';
+import ProjectParameters from './components/ProjectParameters';
+import ProjectLabels from './components/ProjectLabels';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -189,6 +191,54 @@ export default function ClientWrapper({
             project={currentProject}
             sessionToken={sessionToken}
             onProjectUpdate={handleUpdateProject}
+          />
+        </Paper>
+      </Box>
+
+      {/* Parameter Schema Section */}
+      <Box sx={{ mt: 3 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            mb: 2,
+            fontWeight: 600,
+            color: 'text.primary',
+          }}
+        >
+          Parameters
+        </Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: 2 }}
+        >
+          Declare the parameter slots experiments will fill. Each field
+          becomes a typed value referenced from prompts and connector code.
+        </Typography>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <ProjectParameters
+            projectId={projectId}
+            sessionToken={sessionToken}
+          />
+        </Paper>
+      </Box>
+
+      {/* Project Labels Section */}
+      <Box sx={{ mt: 3 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            mb: 2,
+            fontWeight: 600,
+            color: 'text.primary',
+          }}
+        >
+          Labels
+        </Typography>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <ProjectLabels
+            projectId={projectId}
+            sessionToken={sessionToken}
           />
         </Paper>
       </Box>

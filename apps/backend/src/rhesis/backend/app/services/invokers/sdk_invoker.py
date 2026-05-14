@@ -130,6 +130,26 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return rendered
 
+    def _connector_parameter_extras(self) -> Dict[str, Any]:
+        """Load resolved-parameter snapshot from the active test run, if any."""
+        from uuid import UUID
+
+        from rhesis.backend.app import crud
+        from rhesis.backend.app.services.experiment import (
+            connector_execute_extras_from_run_attributes,
+        )
+
+        ctx = self.context.test_execution_context or {}
+        tr_id = ctx.get("test_run_id")
+        db = self.context.db
+        if not tr_id or db is None:
+            return {}
+        org = str(self.context.endpoint.organization_id)
+        run = crud.get_test_run(db, UUID(str(tr_id)), organization_id=org, user_id=None)
+        if run is None:
+            return {}
+        return connector_execute_extras_from_run_attributes(run.attributes)
+
     async def _execute_via_rpc(
         self,
         project_id: str,
@@ -137,6 +157,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         test_run_id: str,
         function_name: str,
         function_kwargs: Dict[str, Any],
+        execute_extras: Dict[str, Any] | None = None,
     ) -> Union[Dict[str, Any], ErrorResponse]:
         """
         Execute SDK function via RPC (Redis pub/sub).
@@ -186,6 +207,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             function_name=function_name,
             inputs=function_kwargs,
             timeout=SDK_FUNCTION_TIMEOUT,
+            execute_extras=execute_extras,
         )
 
     async def _execute_via_websocket(
@@ -195,6 +217,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         test_run_id: str,
         function_name: str,
         function_kwargs: Dict[str, Any],
+        execute_extras: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """
         Execute SDK function via direct WebSocket connection.
@@ -218,6 +241,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             function_name=function_name,
             inputs=function_kwargs,
             timeout=SDK_FUNCTION_TIMEOUT,
+            execute_extras=execute_extras,
         )
 
     def _check_result_errors(
@@ -525,14 +549,25 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
             # Execute via RPC or direct WebSocket
             invocation_id = f"invoke_{uuid.uuid4().hex[:12]}"
+            execute_extras = self._connector_parameter_extras()
 
             if use_rpc:
                 result = await self._execute_via_rpc(
-                    project_id, environment, invocation_id, function_name, function_kwargs
+                    project_id,
+                    environment,
+                    invocation_id,
+                    function_name,
+                    function_kwargs,
+                    execute_extras=execute_extras,
                 )
             else:
                 result = await self._execute_via_websocket(
-                    project_id, environment, invocation_id, function_name, function_kwargs
+                    project_id,
+                    environment,
+                    invocation_id,
+                    function_name,
+                    function_kwargs,
+                    execute_extras=execute_extras,
                 )
 
             # Check for execution errors

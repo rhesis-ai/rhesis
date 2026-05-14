@@ -10,6 +10,7 @@ from .demographic import Demographic
 from .dimension import Dimension
 from .embedding import Embedding
 from .endpoint import Endpoint
+from .experiment import Experiment
 from .file import File
 from .guid import GUID
 from .metric import Metric, behavior_metric_association
@@ -60,6 +61,7 @@ __all__ = [
     "Comment",
     "Embedding",
     "Endpoint",
+    "Experiment",
     "File",
     "GUID",
     "Metric",
