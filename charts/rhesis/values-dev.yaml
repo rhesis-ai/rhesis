@@ -51,6 +51,14 @@ config:
 # Ingress — all exposed via internal ingress-nginx (accessible over VPN)
 # ---------------------------------------------------------------------------
 backend:
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      # Garak probe cache pre-warm loads probes + wordnet; 1Gi OOMKills the API.
+      memory: "2Gi"
+      cpu: "1000m"
   ingress:
     enabled: true
     host: "dev-api.rhesis.ai"
