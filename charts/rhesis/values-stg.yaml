@@ -93,10 +93,6 @@ backend:
 frontend:
   image:
     tag: "latest"
-  # Chart defaults runAsUser 1000; the frontend image uses USER nextjs (1001) until
-  # the Dockerfile UID alignment ships. Disable K8s UID override so entrypoint
-  # sed -i can write under .next/server/chunks. Remove after the next frontend image build.
-  disableSecurityContext: true
   resources:
     requests:
       memory: "256Mi"

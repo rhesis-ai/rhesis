@@ -37,7 +37,9 @@ replace_placeholder() {
 }
 
 # API base URL
-API_URL_VALUE="${API_BASE_URL:-${BACKEND_URL:-http://localhost:8080}}"
+# Prefer NEXT_PUBLIC_API_BASE_URL (public HTTPS URL set by Helm), then API_BASE_URL,
+# then BACKEND_URL (internal service URL — wrong for browser), then localhost fallback.
+API_URL_VALUE="${NEXT_PUBLIC_API_BASE_URL:-${API_BASE_URL:-${BACKEND_URL:-http://localhost:8080}}}"
 if [ -z "$API_URL_VALUE" ] || [ "$API_URL_VALUE" = '__NEXT_PUBLIC_API_BASE_URL__' ]; then
   API_URL_VALUE='http://localhost:8080'
 fi
