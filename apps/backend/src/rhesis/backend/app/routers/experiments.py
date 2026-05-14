@@ -7,7 +7,7 @@ endpoints live here on ``/experiments/{experiment_id}``. The plan
 calls these "header" endpoints because the version array is appended
 through a sub-resource and visibility flips through ``PATCH``.
 
-Visibility, project scoping, append idempotency, and label-bind
+Visibility, project scoping, append idempotency, and environment-bind
 guards are all enforced by :mod:`rhesis.backend.app.services.experiment`
 so this router stays thin: parse, dispatch, format.
 """
@@ -36,7 +36,7 @@ from rhesis.backend.app.schemas.parameters import (
 )
 from rhesis.backend.app.services.experiment import (
     append_version,
-    assert_no_active_labels,
+    assert_no_active_environments,
     coerce_schema,
     find_version,
     get_visible_experiment,
@@ -84,13 +84,13 @@ def update_experiment(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> ExperimentDetail:
-    """Update header fields. Visibility flips guard the label invariant.
+    """Update header fields. Visibility flips guard the environment invariant.
 
     Specifically: unsharing (``visibility: 'shared' → 'private'``) is
-    refused with 409 if any project label currently points at this
-    experiment, because labels can only target shared experiments.
-    The caller has to move the label first. Re-sharing a private
-    experiment is unconditional (no labels can target it yet).
+    refused with 409 if any project environment currently points at this
+    experiment, because environments can only target shared experiments.
+    The caller has to move the environment first. Re-sharing a private
+    experiment is unconditional (no environments can target it yet).
     """
     organization_id, user_id = tenant_context
     db_experiment = get_visible_experiment(
@@ -116,7 +116,7 @@ def update_experiment(
             user_id=user_id,
         )
         if project is not None:
-            assert_no_active_labels(
+            assert_no_active_environments(
                 project,
                 db_experiment.id,
                 action="unshare",
@@ -137,9 +137,9 @@ def delete_experiment(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> ExperimentRead:
-    """Soft-delete an experiment. Refused if any label still points at it.
+    """Soft-delete an experiment. Refused if any environment still points at it.
 
-    Same 409-then-move-the-label-first dance as ``PATCH visibility``;
+    Same 409-then-move-the-environment-first dance as ``PATCH visibility``;
     same rationale.
     """
     organization_id, user_id = tenant_context
@@ -157,7 +157,7 @@ def delete_experiment(
         user_id=user_id,
     )
     if project is not None:
-        assert_no_active_labels(project, db_experiment.id, action="delete")
+        assert_no_active_environments(project, db_experiment.id, action="delete")
 
     snapshot = to_read(db_experiment)
     crud.delete_item(

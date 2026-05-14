@@ -88,7 +88,7 @@ def bootstrap_chatbot_parameters():
                 "context_strategy": "heuristic",
             },
             message="Initial baseline commit",
-            label="default",
+            environment="default",
         )
         logger.info("Baseline experiment created, shared, and promoted to 'default'.")
     except Exception as e:

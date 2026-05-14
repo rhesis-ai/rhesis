@@ -59,14 +59,14 @@ v2 = exp.commit(
 {`# Make visible to the team
 exp.share()
 
-# Bind the latest version to a label
-exp.promote(label="default")
+# Bind the latest version to an environment
+exp.promote(environment="default")
 
 # Revert to private
 exp.unshare()`}
 </CodeBlock>
 
-Only shared experiments can be promoted to a label.
+Only shared experiments can be promoted to an environment.
 
 ## One-liner publish
 
@@ -78,7 +78,7 @@ Only shared experiments can be promoted to a label.
     project_id="my-project",
     values={"model": "claude-sonnet", "temperature": 0.5},
     message="switch to Claude",
-    label="default",
+    environment="default",
 )
 print(f"Live at version {exp.latest_version}")`}
 </CodeBlock>

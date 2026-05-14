@@ -8,7 +8,7 @@ import ProjectEditDrawer from './edit-drawer';
 import ProjectEndpoints from './components/ProjectEndpoints';
 import ProjectTraceMetrics from './components/ProjectTraceMetrics';
 import ProjectParameters from './components/ProjectParameters';
-import ProjectLabels from './components/ProjectLabels';
+import ProjectEnvironments from './components/ProjectEnvironments';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
@@ -223,7 +223,7 @@ export default function ClientWrapper({
         </Paper>
       </Box>
 
-      {/* Project Labels Section */}
+      {/* Project environments Section */}
       <Box sx={{ mt: 3 }}>
         <Typography
           variant="h6"
@@ -233,10 +233,10 @@ export default function ClientWrapper({
             color: 'text.primary',
           }}
         >
-          Labels
+          Environments
         </Typography>
         <Paper variant="outlined" sx={{ p: 2 }}>
-          <ProjectLabels
+          <ProjectEnvironments
             projectId={projectId}
             sessionToken={sessionToken}
           />

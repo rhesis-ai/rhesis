@@ -37,9 +37,9 @@ class TestConfigurationExecutionRequest(BaseModel):
     experiment_id: Optional[UUID4] = Field(
         default=None,
         description=(
-            "When set (optionally with version / label), intent is stored on the "
+            "When set (optionally with version / environment), intent is stored on the "
             "test configuration and resolved into a run snapshot at queue time."
         ),
     )
     version: Optional[str] = None
-    label: Optional[str] = None
+    environment: Optional[str] = None

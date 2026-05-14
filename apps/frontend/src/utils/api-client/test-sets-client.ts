@@ -369,6 +369,7 @@ export class TestSetsClient extends BaseApiClient {
         evaluation_model_id,
         experiment_id,
         experiment_version,
+        experiment_environment,
         experiment_label,
         ...executionOptions
       } = testConfigurationAttributes;
@@ -401,8 +402,9 @@ export class TestSetsClient extends BaseApiClient {
         requestBody.version = experiment_version;
       }
 
-      if (experiment_label) {
-        requestBody.label = experiment_label;
+      const resolvedEnvironment = experiment_environment ?? experiment_label;
+      if (resolvedEnvironment) {
+        requestBody.environment = resolvedEnvironment;
       }
     }
 

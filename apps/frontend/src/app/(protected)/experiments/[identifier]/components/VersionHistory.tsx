@@ -22,7 +22,7 @@ import {
   ExperimentVersion,
   ParameterSchema,
   ParameterValue,
-  ProjectLabels,
+  ProjectEnvironments,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { ArrowOutwardIcon } from '@/components/icons';
@@ -31,7 +31,7 @@ import { renderValuePreview } from './TypedValueEditor';
 interface VersionHistoryProps {
   versions: ExperimentVersion[];
   schema: ParameterSchema;
-  projectLabels: ProjectLabels | null;
+  projectEnvironments: ProjectEnvironments | null;
   experimentId: string;
   canPromote: boolean;
   onPromoteVersion: (version: string) => void;
@@ -75,22 +75,22 @@ function diffVersions(
 export default function VersionHistory({
   versions,
   schema: _schema,
-  projectLabels,
+  projectEnvironments,
   experimentId,
   canPromote,
   onPromoteVersion,
 }: VersionHistoryProps) {
-  const labelsByVersion = React.useMemo(() => {
+  const environmentsByVersion = React.useMemo(() => {
     const map = new Map<string, string[]>();
-    if (!projectLabels) return map;
-    for (const [name, ptr] of Object.entries(projectLabels.labels)) {
+    if (!projectEnvironments) return map;
+    for (const [name, ptr] of Object.entries(projectEnvironments.environments)) {
       if (ptr.experiment_id !== experimentId) continue;
       const arr = map.get(ptr.version) ?? [];
       arr.push(name);
       map.set(ptr.version, arr);
     }
     return map;
-  }, [projectLabels, experimentId]);
+  }, [projectEnvironments, experimentId]);
 
   if (versions.length === 0) {
     return (
@@ -112,7 +112,7 @@ export default function VersionHistory({
         const idxFromBottom = versions.length - 1 - idxFromTop;
         const previous = idxFromBottom > 0 ? versions[idxFromBottom - 1] : undefined;
         const diff = diffVersions(previous, version);
-        const labels = labelsByVersion.get(version.version) ?? [];
+        const envNames = environmentsByVersion.get(version.version) ?? [];
 
         return (
           <Accordion key={version.version} defaultExpanded={idxFromTop === 0}>
@@ -138,7 +138,7 @@ export default function VersionHistory({
                     {new Date(version.created_at).toLocaleString()}
                   </Typography>
                 </Box>
-                {labels.map(name => (
+                {envNames.map(name => (
                   <Chip
                     key={name}
                     size="small"
@@ -149,7 +149,7 @@ export default function VersionHistory({
                 <Tooltip
                   title={
                     canPromote
-                      ? 'Promote this version onto a project label'
+                      ? 'Promote this version onto a project environment'
                       : 'Share the experiment first to promote'
                   }
                 >

@@ -25,7 +25,7 @@ import {
   ExperimentVersion,
   ParameterSchema,
   ParameterValue,
-  ProjectLabels,
+  ProjectEnvironments,
 } from '@/utils/api-client/interfaces/parameters';
 import {
   AddIcon,
@@ -37,7 +37,7 @@ import {
 import { useNotifications } from '@/components/common/NotificationContext';
 import TypedValueEditor from './TypedValueEditor';
 import VersionHistory from './VersionHistory';
-import PromoteLabelDialog from './PromoteLabelDialog';
+import PromoteEnvironmentDialog from './PromoteEnvironmentDialog';
 import LatestResultsPanel from './LatestResultsPanel';
 
 interface ExperimentDetailClientProps {
@@ -79,8 +79,8 @@ function valuesFromVersion(
  * 3. "Versions" tab: history list + per-row Promote action and
  *    typed before/after diff vs the previous version.
  *
- * Visibility flips and label promotions both have guard rails — the
- * backend rejects unsharing while a label points here, and labels
+ * Visibility flips and environment promotions both have guard rails — the
+ * backend rejects unsharing while an environment points here, and environments
  * can only target shared experiments. The UI surfaces both as
  * disabled affordances rather than catching the 409 after the fact.
  */
@@ -93,7 +93,9 @@ export default function ExperimentDetailClient({
 
   const [experiment, setExperiment] = useState<ExperimentDetail | null>(null);
   const [schema, setSchema] = useState<ParameterSchema | null>(null);
-  const [labels, setLabels] = useState<ProjectLabels | null>(null);
+  const [environments, setEnvironments] = useState<ProjectEnvironments | null>(
+    null
+  );
   const [draft, setDraft] = useState<
     Record<string, ParameterValue | null>
   >({});
@@ -104,7 +106,7 @@ export default function ExperimentDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [promotePrefill, setPromotePrefill] = useState<{
-    label?: string;
+    environment?: string;
     version?: string;
   }>({});
 
@@ -122,8 +124,8 @@ export default function ExperimentDetailClient({
       setExperiment(detail);
       const schemaResp = await client.getSchema(detail.project_id);
       setSchema(schemaResp);
-      const labelsResp = await client.getLabels(detail.project_id);
-      setLabels(labelsResp);
+      const environmentsResp = await client.getEnvironments(detail.project_id);
+      setEnvironments(environmentsResp);
       const latest = detail.versions[detail.versions.length - 1];
       setDraft(valuesFromVersion(latest, schemaResp));
     } catch (e) {
@@ -137,12 +139,12 @@ export default function ExperimentDetailClient({
     refresh();
   }, [refresh]);
 
-  const labelsForExperiment = useMemo(() => {
-    if (!labels || !experiment) return [] as string[];
-    return Object.entries(labels.labels)
+  const environmentsForExperiment = useMemo(() => {
+    if (!environments || !experiment) return [] as string[];
+    return Object.entries(environments.environments)
       .filter(([, ptr]) => ptr.experiment_id === experiment.id)
       .map(([name]) => name);
-  }, [labels, experiment]);
+  }, [environments, experiment]);
 
   const updateDraft = useCallback(
     (name: string, value: ParameterValue | null) => {
@@ -226,29 +228,29 @@ export default function ExperimentDetailClient({
   }, [apiFactory, experiment, notifications, router]);
 
   const handlePromote = useCallback(
-    (version?: string, label?: string) => {
-      setPromotePrefill({ version, label });
+    (version?: string, environment?: string) => {
+      setPromotePrefill({ version, environment });
       setPromoteOpen(true);
     },
     []
   );
 
-  const handleUnbindLabel = useCallback(
-    async (labelName: string) => {
+  const handleUnbindEnvironment = useCallback(
+    async (environmentName: string) => {
       if (!experiment) return;
       try {
         const client = apiFactory.getParametersClient();
-        const next = await client.deleteLabel(
+        const next = await client.deleteEnvironment(
           experiment.project_id,
-          labelName
+          environmentName
         );
-        setLabels(next);
-        notifications.show(`Label "${labelName}" unbound`, {
+        setEnvironments(next);
+        notifications.show(`Environment "${environmentName}" unbound`, {
           severity: 'success',
         });
       } catch (e) {
         notifications.show(
-          e instanceof Error ? e.message : 'Failed to unbind label',
+          e instanceof Error ? e.message : 'Failed to unbind environment',
           { severity: 'error' }
         );
       }
@@ -318,13 +320,13 @@ export default function ExperimentDetailClient({
                     experiment.versions_count === 1 ? '' : 's'
                   }`}
                 />
-                {labelsForExperiment.map(name => (
+                {environmentsForExperiment.map(name => (
                   <Chip
                     key={name}
                     size="small"
                     color="success"
-                    label={`label: ${name}`}
-                    onDelete={() => handleUnbindLabel(name)}
+                    label={`environment: ${name}`}
+                    onDelete={() => handleUnbindEnvironment(name)}
                   />
                 ))}
               </Stack>
@@ -333,8 +335,8 @@ export default function ExperimentDetailClient({
               <Tooltip
                 title={
                   isShared
-                    ? 'Make this experiment private — fails if a label points at it'
-                    : 'Share with the project so it can be promoted to a label'
+                    ? 'Make this experiment private — fails if an environment points at it'
+                    : 'Share with the project so it can be promoted to an environment'
                 }
               >
                 <Button
@@ -348,8 +350,8 @@ export default function ExperimentDetailClient({
               <Tooltip
                 title={
                   isShared
-                    ? 'Promote a version to a project label'
-                    : 'Share the experiment first to promote it to a label'
+                    ? 'Promote a version to a project environment'
+                    : 'Share the experiment first to promote it to an environment'
                 }
               >
                 <span>
@@ -436,7 +438,7 @@ export default function ExperimentDetailClient({
               <VersionHistory
                 versions={experiment.versions}
                 schema={schema}
-                projectLabels={labels}
+                projectEnvironments={environments}
                 experimentId={experiment.id}
                 canPromote={isShared}
                 onPromoteVersion={version => handlePromote(version)}
@@ -451,8 +453,8 @@ export default function ExperimentDetailClient({
         sessionToken={sessionToken}
       />
 
-      {experiment && labels && (
-        <PromoteLabelDialog
+      {experiment && environments && (
+        <PromoteEnvironmentDialog
           open={promoteOpen}
           onClose={() => setPromoteOpen(false)}
           sessionToken={sessionToken}
@@ -460,12 +462,12 @@ export default function ExperimentDetailClient({
           experimentId={experiment.id}
           experimentName={experiment.name}
           versions={experiment.versions}
-          currentLabels={labels}
+          currentEnvironments={environments}
           defaultVersion={
             promotePrefill.version ??
             experiment.versions[experiment.versions.length - 1]?.version
           }
-          defaultLabel={promotePrefill.label}
+          defaultEnvironment={promotePrefill.environment}
           onPromoted={async () => {
             setPromoteOpen(false);
             await refresh();

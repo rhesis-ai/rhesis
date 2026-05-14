@@ -22,12 +22,18 @@ from rhesis.sdk import Parameters, endpoint
 from rhesis.sdk.services.extractor import extract_with_vision_fallback
 
 CHATBOT_PROJECT = os.getenv("RHESIS_CHATBOT_PROJECT", "chatbot-demo")
-PARAMETERS_LABEL = os.getenv("RHESIS_PARAMETERS_LABEL", "default")
+PARAMETERS_ENVIRONMENT = os.getenv(
+    "RHESIS_PARAMETERS_ENVIRONMENT",
+    os.getenv("RHESIS_PARAMETERS_LABEL", "default"),
+)
+
 
 def _resolve_chatbot_params() -> dict:
     """Resolve chatbot params; fall back to env defaults when SDK is unreachable."""
     try:
-        params = Parameters.get(project=CHATBOT_PROJECT, label=PARAMETERS_LABEL)
+        params = Parameters.get(
+            project=CHATBOT_PROJECT, environment=PARAMETERS_ENVIRONMENT
+        )
         return {
             "system_prompt": params.get_text("system_prompt") or params.get_string("system_prompt"),
             "use_case": params.get_enum("use_case"),

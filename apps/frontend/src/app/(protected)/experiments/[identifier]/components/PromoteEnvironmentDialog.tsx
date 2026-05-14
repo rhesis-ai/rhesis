@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  FormHelperText,
   InputLabel,
   MenuItem,
   Select,
@@ -21,13 +20,13 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentVersion,
-  ProjectLabels,
-  WELL_KNOWN_LABELS,
+  ProjectEnvironments,
+  WELL_KNOWN_ENVIRONMENTS,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
 
-interface PromoteLabelDialogProps {
+interface PromoteEnvironmentDialogProps {
   open: boolean;
   onClose: () => void;
   sessionToken: string;
@@ -35,23 +34,23 @@ interface PromoteLabelDialogProps {
   experimentId: string;
   experimentName: string;
   versions: ExperimentVersion[];
-  currentLabels: ProjectLabels;
+  currentEnvironments: ProjectEnvironments;
   defaultVersion?: string;
-  defaultLabel?: string;
+  defaultEnvironment?: string;
   onPromoted: () => void;
 }
 
 /**
- * Promote a (version, label) pair onto the project.
+ * Promote a (version, environment) pair onto the project.
  *
- * Promote is the deployment primitive — moving a label flips what
+ * Promote is the deployment primitive — moving an environment flips what
  * SDK consumers and queue-time test runs resolve. The dialog shows
- * the current binding (if any) for the selected label so the user
+ * the current binding (if any) for the selected environment so the user
  * sees what they're about to overwrite, and offers the well-known
  * names plus any already-bound custom names as autocomplete options
  * (custom names are still freely typeable).
  */
-export default function PromoteLabelDialog({
+export default function PromoteEnvironmentDialog({
   open,
   onClose,
   sessionToken,
@@ -59,59 +58,59 @@ export default function PromoteLabelDialog({
   experimentId,
   experimentName,
   versions,
-  currentLabels,
+  currentEnvironments,
   defaultVersion,
-  defaultLabel,
+  defaultEnvironment,
   onPromoted,
-}: PromoteLabelDialogProps) {
+}: PromoteEnvironmentDialogProps) {
   const notifications = useNotifications();
 
   const [version, setVersion] = useState<string>('');
-  const [label, setLabel] = useState<string>('');
+  const [environment, setEnvironment] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setVersion(defaultVersion ?? versions[versions.length - 1]?.version ?? '');
-    setLabel(defaultLabel ?? 'default');
-  }, [open, defaultVersion, defaultLabel, versions]);
+    setEnvironment(defaultEnvironment ?? 'default');
+  }, [open, defaultVersion, defaultEnvironment, versions]);
 
   const apiFactory = useMemo(
     () => new ApiClientFactory(sessionToken),
     [sessionToken]
   );
 
-  const labelOptions = useMemo(() => {
-    const set = new Set<string>([...WELL_KNOWN_LABELS]);
-    for (const name of Object.keys(currentLabels.labels)) {
+  const environmentOptions = useMemo(() => {
+    const set = new Set<string>([...WELL_KNOWN_ENVIRONMENTS]);
+    for (const name of Object.keys(currentEnvironments.environments)) {
       set.add(name);
     }
     return Array.from(set).sort();
-  }, [currentLabels]);
+  }, [currentEnvironments]);
 
-  const currentBinding = currentLabels.labels[label];
+  const currentBinding = currentEnvironments.environments[environment];
   const currentTargetIsDifferent =
     currentBinding &&
     (currentBinding.experiment_id !== experimentId ||
       currentBinding.version !== version);
 
   const handlePromote = async () => {
-    if (!label || !version) return;
+    if (!environment || !version) return;
     setSubmitting(true);
     try {
       const client = apiFactory.getParametersClient();
-      await client.putLabel(projectId, label, {
+      await client.putEnvironment(projectId, environment, {
         experiment_id: experimentId,
         version,
       });
       notifications.show(
-        `Label "${label}" now points at ${experimentName} ${shortVersion(version)}`,
+        `Environment "${environment}" now points at ${experimentName} ${shortVersion(version)}`,
         { severity: 'success' }
       );
       onPromoted();
     } catch (e) {
       notifications.show(
-        e instanceof Error ? e.message : 'Failed to promote label',
+        e instanceof Error ? e.message : 'Failed to promote environment',
         { severity: 'error' }
       );
     } finally {
@@ -121,7 +120,7 @@ export default function PromoteLabelDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Promote to label</DialogTitle>
+      <DialogTitle>Promote to environment</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <FormControl fullWidth size="small">
@@ -142,14 +141,14 @@ export default function PromoteLabelDialog({
 
           <Autocomplete
             freeSolo
-            options={labelOptions}
-            value={label}
-            onChange={(_, v) => setLabel(v ?? '')}
-            onInputChange={(_, v) => setLabel(v)}
+            options={environmentOptions}
+            value={environment}
+            onChange={(_, v) => setEnvironment(v ?? '')}
+            onInputChange={(_, v) => setEnvironment(v)}
             renderInput={params => (
               <TextField
                 {...params}
-                label="Label"
+                label="Environment"
                 size="small"
                 helperText="Pick a well-known name (default, production, staging) or type a custom one."
               />
@@ -158,14 +157,14 @@ export default function PromoteLabelDialog({
 
           {currentTargetIsDifferent && (
             <Alert severity="warning">
-              <strong>{label}</strong> currently points at a different
+              <strong>{environment}</strong> currently points at a different
               version. Promoting will move it.
             </Alert>
           )}
-          {label === 'production' && (
+          {environment === 'production' && (
             <Alert severity="info">
               Promoting <strong>production</strong> is a deploy. Test
-              runs and SDK consumers asking for this label will pick up
+              runs and SDK consumers asking for this environment will pick up
               the new values on their next TTL window.
             </Alert>
           )}
@@ -178,7 +177,7 @@ export default function PromoteLabelDialog({
         <Button
           onClick={handlePromote}
           variant="contained"
-          disabled={!label || !version || submitting}
+          disabled={!environment || !version || submitting}
         >
           {submitting ? 'Promoting...' : 'Promote'}
         </Button>

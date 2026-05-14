@@ -1,14 +1,14 @@
 import { BaseApiClient } from './base-client';
 import {
+  EnvironmentBindRequest,
   ExperimentCreate,
   ExperimentDetail,
   ExperimentRead,
   ExperimentUpdate,
   ExperimentVersion,
   ExperimentVersionCreate,
-  LabelBindRequest,
   ParameterSchema,
-  ProjectLabels,
+  ProjectEnvironments,
   ResolveResponse,
   ExperimentResultsRunItem,
   ExperimentResultsVersionItem,
@@ -18,7 +18,7 @@ import {
  * Client for project-scoped parameter management endpoints.
  *
  * Phases 1 & 2 surface: schema GET/PUT, experiment header CRUD with
- * an inline-versions sub-resource, project-labels bind/unbind, and
+ * an inline-versions sub-resource, project-environments bind/unbind, and
  * the canonical resolver. Phases 4+ extend this client with run
  * snapshotting hooks; nothing in those phases reshapes the existing
  * methods.
@@ -48,22 +48,22 @@ export class ParametersClient extends BaseApiClient {
   }
 
   // ----------------------------------------------------------------- //
-  // Project labels                                                    //
+  // Project environments                                              //
   // ----------------------------------------------------------------- //
 
-  async getLabels(projectId: string): Promise<ProjectLabels> {
-    return this.fetch<ProjectLabels>(
-      `/projects/${projectId}/parameters/labels`
+  async getEnvironments(projectId: string): Promise<ProjectEnvironments> {
+    return this.fetch<ProjectEnvironments>(
+      `/projects/${projectId}/parameters/environments`
     );
   }
 
-  async putLabel(
+  async putEnvironment(
     projectId: string,
-    labelName: string,
-    payload: LabelBindRequest
-  ): Promise<ProjectLabels> {
-    return this.fetch<ProjectLabels>(
-      `/projects/${projectId}/parameters/labels/${encodeURIComponent(labelName)}`,
+    environmentName: string,
+    payload: EnvironmentBindRequest
+  ): Promise<ProjectEnvironments> {
+    return this.fetch<ProjectEnvironments>(
+      `/projects/${projectId}/parameters/environments/${encodeURIComponent(environmentName)}`,
       {
         method: 'PUT',
         body: JSON.stringify(payload),
@@ -71,12 +71,12 @@ export class ParametersClient extends BaseApiClient {
     );
   }
 
-  async deleteLabel(
+  async deleteEnvironment(
     projectId: string,
-    labelName: string
-  ): Promise<ProjectLabels> {
-    return this.fetch<ProjectLabels>(
-      `/projects/${projectId}/parameters/labels/${encodeURIComponent(labelName)}`,
+    environmentName: string
+  ): Promise<ProjectEnvironments> {
+    return this.fetch<ProjectEnvironments>(
+      `/projects/${projectId}/parameters/environments/${encodeURIComponent(environmentName)}`,
       { method: 'DELETE' }
     );
   }
@@ -87,10 +87,10 @@ export class ParametersClient extends BaseApiClient {
 
   async resolve(
     projectId: string,
-    args: { label?: string; experimentId?: string; version?: string } = {}
+    args: { environment?: string; experimentId?: string; version?: string } = {}
   ): Promise<ResolveResponse> {
     const params = new URLSearchParams();
-    if (args.label) params.set('label', args.label);
+    if (args.environment) params.set('environment', args.environment);
     if (args.experimentId) params.set('experiment_id', args.experimentId);
     if (args.version) params.set('version', args.version);
     const qs = params.toString();

@@ -618,7 +618,7 @@ def execute_test_set_on_endpoint(
     evaluation_model_id: uuid.UUID = None,
     experiment_id: uuid.UUID | None = None,
     experiment_version: str | None = None,
-    experiment_label: str | None = None,
+    experiment_environment: str | None = None,
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration
@@ -705,14 +705,14 @@ def execute_test_set_on_endpoint(
 
     parameters_ref: Dict[str, Any] | None = None
     has_version = bool(experiment_version and str(experiment_version).strip())
-    if experiment_id is not None or has_version or experiment_label is not None:
+    if experiment_id is not None or has_version or experiment_environment is not None:
         parameters_ref = {}
         if experiment_id is not None:
             parameters_ref["experiment_id"] = str(experiment_id)
         if experiment_version:
             parameters_ref["version"] = experiment_version
-        if experiment_label is not None:
-            parameters_ref["label"] = experiment_label
+        if experiment_environment is not None:
+            parameters_ref["environment"] = experiment_environment
 
     test_config_id = _create_test_configuration(
         db,

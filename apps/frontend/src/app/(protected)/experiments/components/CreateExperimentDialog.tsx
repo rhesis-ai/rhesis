@@ -150,7 +150,7 @@ export default function CreateExperimentDialog({
             </Select>
             <FormHelperText>
               Only shared experiments can be promoted onto a project
-              label (default, production, staging).
+              environment (default, production, staging).
             </FormHelperText>
           </FormControl>
         </Stack>

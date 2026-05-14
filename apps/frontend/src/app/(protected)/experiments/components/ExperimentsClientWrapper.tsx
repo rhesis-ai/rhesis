@@ -144,7 +144,7 @@ export default function ExperimentsClientWrapper({
           <Typography color="text.secondary">
             Named bundles of parameter values that test runs and SDK
             consumers resolve through. Each save mints an immutable
-            version; movable labels (default, production, staging) point
+            version; environments (default, production, staging) point
             at one (experiment, version) pair.
           </Typography>
           <Button

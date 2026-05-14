@@ -236,7 +236,7 @@ class TestSet(BaseEntity):
         evaluation_model_id: Optional[str] = None,
         experiment_id: Optional[str] = None,
         version: Optional[str] = None,
-        label: Optional[str] = None,
+        environment: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Build the request body for the execute endpoint."""
         resolved_mode = ExecutionMode.from_string(mode)
@@ -257,8 +257,8 @@ class TestSet(BaseEntity):
             body["experiment_id"] = str(experiment_id)
         if version is not None:
             body["version"] = version
-        if label is not None:
-            body["label"] = label
+        if environment is not None:
+            body["environment"] = environment
         return body
 
     # ------------------------------------------------------------------
@@ -276,7 +276,7 @@ class TestSet(BaseEntity):
         evaluation_model_id: Optional[str] = None,
         experiment_id: Optional[str] = None,
         version: Optional[str] = None,
-        label: Optional[str] = None,
+        environment: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """Execute the test set against the given endpoint.
 
@@ -295,7 +295,7 @@ class TestSet(BaseEntity):
                 evaluation model (LLM as Judge).
             experiment_id: Optional experiment ID for parameter resolution.
             version: Optional version pin for parameter resolution.
-            label: Optional label for parameter resolution.
+            environment: Optional environment name for parameter resolution.
 
         Returns:
             Dict containing the execution submission response.
@@ -308,7 +308,9 @@ class TestSet(BaseEntity):
             >>> test_set = TestSets.pull(name="Safety Tests")
             >>> endpoint = Endpoints.pull(name="GPT-4o")
             >>> result = test_set.execute(endpoint)
-            >>> result = test_set.execute(endpoint, experiment_id="<uuid>", label="staging")
+            >>> result = test_set.execute(
+            ...     endpoint, experiment_id="<uuid>", environment="staging"
+            ... )
         """
         if not self.id:
             raise ValueError("Test set ID must be set before executing")
@@ -320,7 +322,7 @@ class TestSet(BaseEntity):
             evaluation_model_id=evaluation_model_id,
             experiment_id=experiment_id,
             version=version,
-            label=label,
+            environment=environment,
         )
         client = APIClient()
         return client.send_request(

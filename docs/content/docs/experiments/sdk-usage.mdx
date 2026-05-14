@@ -13,7 +13,7 @@ Retrieving configuration in your application code should be simple and unobtrusi
 ```python
 from rhesis.sdk import Parameters
 
-# Resolves against the 'default' label
+# Resolves against the 'default' environment
 params = Parameters.get(project="customer-support")
 
 # Use the typed accessors
@@ -29,10 +29,10 @@ Production code typically looks just like this — no wrappers, no fallbacks, no
 
 There are three ways to call `Parameters.get()`, depending on your use case:
 
-1. **By Label (Live config):**
+1. **By Environment (live config):**
    ```python
    # Evaluates the pointer and returns whatever it currently targets
-   params = Parameters.get(project="support", label="production")
+   params = Parameters.get(project="support", environment="production")
    ```
 
 2. **By Version (Immutable pin):**
@@ -70,8 +70,8 @@ Plain dictionary access (`params["model"]`) and `.get(name)` are also available 
 The `Parameters.get()` method resolves values using a strict precedence order (first match wins):
 
 1. **Connector Contextvar:** Injected by the platform during a test run. This wins unconditionally so tests cannot accidentally hit the network for live configuration.
-2. **Environment Variables:** `RHESIS_PARAMETERS_PIN` or `RHESIS_PARAMETERS_LABEL`. Lets ops pin a deploy without code changes.
-3. **Explicit Kwargs:** `version` > `experiment_id` > `label` > implicit `label='default'`. Lets application code be explicit.
+2. **Environment Variables:** `RHESIS_PARAMETERS_PIN` or `RHESIS_PARAMETERS_ENVIRONMENT` (legacy: `RHESIS_PARAMETERS_LABEL`). Lets ops pin a deploy without code changes.
+3. **Explicit Kwargs:** `version` > `experiment_id` > `environment` > implicit `environment='default'`. Lets application code be explicit.
 4. **HTTP API Fetch:** If none of the above short-circuit the resolution, it fetches from the Rhesis API.
 
 The order is "innermost wins" — overrides closer to the running call beat global settings.
@@ -81,7 +81,7 @@ The order is "innermost wins" — overrides closer to the running call beat glob
 The SDK implements an in-process cache so production code can call `Parameters.get()` on every request without paying constant network costs.
 
 - **Version entries** are cached forever, because versions are immutable by definition.
-- **Label and Experiment ID entries** are cached with a Time-To-Live (TTL), defaulting to 60 seconds. Since the underlying version a label points to can change, stale entries trigger a refresh on the next access.
+- **Environment and Experiment ID entries** are cached with a Time-To-Live (TTL), defaulting to 60 seconds. Since the underlying version an environment points to can change, stale entries trigger a refresh on the next access.
 
 You can manually invalidate the cache during testing using `Parameters.invalidate(...)`.
 
@@ -89,14 +89,14 @@ You can manually invalidate the cache during testing using `Parameters.invalidat
 
 The SDK respects environment variables as a deployment primitive. 
 
-- `RHESIS_PARAMETERS_PIN=v_abc123` pins the application to an immutable version regardless of label movement. This acts as a production safety net or staged rollout mechanism.
-- `RHESIS_PARAMETERS_LABEL=production` switches the application to a non-default label without requiring code changes.
+- `RHESIS_PARAMETERS_PIN=v_abc123` pins the application to an immutable version regardless of environment movement. This acts as a production safety net or staged rollout mechanism.
+- `RHESIS_PARAMETERS_ENVIRONMENT=production` switches the application to a non-default environment without requiring code changes.
 
 This gives operators a code-free escape hatch to manage configuration rollouts.
 
 ## Error handling & graceful degradation
 
-By default, `Parameters.get()` fails loudly. It raises `RhesisAPIError` on backend failure and `KeyError` on a missing label.
+By default, `Parameters.get()` fails loudly. It raises `RhesisAPIError` on backend failure (for example an unbound environment) and `KeyError` when you read a parameter name that is not present in the resolved map.
 
 Failing loudly is the default behavior because silently serving stale configuration in production is often worse than a noisy error. 
 
@@ -105,7 +105,7 @@ However, if your application requires graceful degradation, you must implement i
 ```python
 def _resolve_chatbot_params() -> dict:
     try:
-        params = Parameters.get(project="chatbot-demo", label="default")
+        params = Parameters.get(project="chatbot-demo", environment="default")
         return {
             "model": params.get_string("model"),
             "temperature": params.get_number("temperature", 0.7),
@@ -142,6 +142,6 @@ exp.commit(
 # 3. Flip visibility to shared (opens it up to the team)
 exp.share()
 
-# 4. Move a label to point at the new version (the deploy step)
-exp.promote(label="default")
+# 4. Move an environment to point at the new version (the deploy step)
+exp.promote(environment="default")
 ```

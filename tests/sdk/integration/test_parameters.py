@@ -100,7 +100,7 @@ def test_experiment_crud(docker_compose_test_env):
 
 
 def test_experiment_share_and_promote(docker_compose_test_env):
-    """Share → promote → resolve via label."""
+    """Share → promote → resolve via environment."""
     Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
 
     exp = Experiment(
@@ -110,16 +110,16 @@ def test_experiment_share_and_promote(docker_compose_test_env):
     exp.push()
     exp.commit({"model": "claude-sonnet", "temperature": 0.5})
     exp.share()
-    exp.promote(label="default")
+    exp.promote(environment="default")
 
     # Resolve through Parameters facade
     Parameters.invalidate(TEST_PROJECT_ID)
-    params = Parameters.get(TEST_PROJECT_ID, label="default")
+    params = Parameters.get(TEST_PROJECT_ID, environment="default")
 
     assert params["model"] == "claude-sonnet"
     assert params["temperature"] == 0.5
-    assert params.source == "label"
-    assert params.source_label == "default"
+    assert params.source == "environment"
+    assert params.source_environment == "default"
     assert str(params.experiment_id) == str(exp.id)
 
     # Typed accessors
@@ -151,11 +151,11 @@ def test_experiment_version_pinning(docker_compose_test_env):
     v2_hash = v2["version"]
 
     exp.share()
-    exp.promote(label="default")
+    exp.promote(environment="default")
 
-    # Label resolves to latest (v2)
+    # Environment resolves to latest (v2)
     Parameters.invalidate()
-    params_latest = Parameters.get(TEST_PROJECT_ID, label="default")
+    params_latest = Parameters.get(TEST_PROJECT_ID, environment="default")
     assert params_latest["model"] == "v2-model"
 
     # Pin resolves to v1
@@ -176,14 +176,14 @@ def test_experiment_publish_shorthand(docker_compose_test_env):
         project_id=TEST_PROJECT_ID,
         values={"model": "published-model", "temperature": 0.6},
         message="one-liner publish",
-        label="default",
+        environment="default",
     )
 
     assert exp.id is not None
     assert exp.latest_version is not None
 
     Parameters.invalidate()
-    params = Parameters.get(TEST_PROJECT_ID, label="default")
+    params = Parameters.get(TEST_PROJECT_ID, environment="default")
     assert params["model"] == "published-model"
     assert params["temperature"] == 0.6
 
@@ -192,37 +192,37 @@ def test_experiment_publish_shorthand(docker_compose_test_env):
 
 
 # ------------------------------------------------------------------ #
-# Labels                                                               #
+# Environments                                                         #
 # ------------------------------------------------------------------ #
 
 
-def test_labels_round_trip(docker_compose_test_env):
-    """Put a label and read it back."""
+def test_environments_round_trip(docker_compose_test_env):
+    """Bind an environment and read it back."""
     Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
 
     exp = Experiment.publish(
-        name="integration-labels",
+        name="integration-environments",
         project_id=TEST_PROJECT_ID,
-        values={"model": "label-test"},
-        label="default",
+        values={"model": "environment-test"},
+        environment="default",
     )
 
-    # Read labels
-    labels = Parameters.labels(TEST_PROJECT_ID)
-    assert "default" in labels.labels
-    lp = labels.labels["default"]
-    assert str(lp.experiment_id) == str(exp.id)
-    assert lp.version == exp.latest_version
+    # Read environments
+    envs = Parameters.environments(TEST_PROJECT_ID)
+    assert "default" in envs.environments
+    ep = envs.environments["default"]
+    assert str(ep.experiment_id) == str(exp.id)
+    assert ep.version == exp.latest_version
 
-    # Promote to a different label
-    Parameters.put_label(
+    # Bind a different environment
+    Parameters.put_environment(
         TEST_PROJECT_ID,
         "staging",
         experiment_id=str(exp.id),
         version=exp.latest_version,
     )
-    labels2 = Parameters.labels(TEST_PROJECT_ID)
-    assert "staging" in labels2.labels
+    envs2 = Parameters.environments(TEST_PROJECT_ID)
+    assert "staging" in envs2.environments
 
     # Cleanup
     exp.delete()
@@ -278,24 +278,24 @@ def test_cache_invalidation(docker_compose_test_env):
         name="integration-cache",
         project_id=TEST_PROJECT_ID,
         values={"model": "cached-v1"},
-        label="default",
+        environment="default",
     )
 
     Parameters.invalidate()
-    p1 = Parameters.get(TEST_PROJECT_ID, label="default")
+    p1 = Parameters.get(TEST_PROJECT_ID, environment="default")
     assert p1["model"] == "cached-v1"
 
     # Update with new version
     exp.commit({"model": "cached-v2"})
-    exp.promote(label="default")
+    exp.promote(environment="default")
 
     # Cached value should still be v1
-    p_cached = Parameters.get(TEST_PROJECT_ID, label="default")
+    p_cached = Parameters.get(TEST_PROJECT_ID, environment="default")
     assert p_cached["model"] == "cached-v1"
 
     # After invalidation, should see v2
     Parameters.invalidate(TEST_PROJECT_ID)
-    p_fresh = Parameters.get(TEST_PROJECT_ID, label="default")
+    p_fresh = Parameters.get(TEST_PROJECT_ID, environment="default")
     assert p_fresh["model"] == "cached-v2"
 
     # Cleanup
@@ -319,11 +319,11 @@ def test_resolved_parameters_mapping_protocol(docker_compose_test_env):
             "temperature": 0.42,
             "mode": "json",
         },
-        label="default",
+        environment="default",
     )
 
     Parameters.invalidate()
-    p = Parameters.get(TEST_PROJECT_ID, label="default")
+    p = Parameters.get(TEST_PROJECT_ID, environment="default")
 
     # Dict-style access
     assert p["model"] == "mapping-test"

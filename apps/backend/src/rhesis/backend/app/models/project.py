@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from rhesis.backend.app.models.pydantic_column import pydantic_jsonb_column
 from rhesis.backend.app.schemas.parameters import (
     ParameterSchema,
-    ProjectLabels,
+    ProjectEnvironments,
 )
 
 from .base import Base
@@ -25,7 +25,7 @@ class Project(Base, ActivityTrackableMixin, TagsMixin):
     is_active = Column(Boolean, default=True)
     attributes = Column(JSONB, nullable=True)
 
-    # Parameter management — schema declares the typed slots, labels map
+    # Parameter management — schema declares the typed slots; environments map
     # well-known names (``default`` etc.) to a single (experiment, version)
     # pair. Both default to empty so existing projects pick up the feature
     # without a row-level migration.
@@ -34,10 +34,10 @@ class Project(Base, ActivityTrackableMixin, TagsMixin):
         nullable=False,
         server_default='{"fields": []}',
     )
-    parameter_labels = Column(
-        pydantic_jsonb_column(ProjectLabels),
+    parameter_environments = Column(
+        pydantic_jsonb_column(ProjectEnvironments),
         nullable=False,
-        server_default='{"labels": {}}',
+        server_default='{"environments": {}}',
     )
 
     # Relationships - Foreign Keys

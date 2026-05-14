@@ -1,15 +1,15 @@
 """Service-layer helpers for experiment lookup, validation, and resolution.
 
 Sits between the route layer and the ORM so the visibility, project
-scoping, label-bind, and resolver invariants are enforced once and
+scoping, environment-bind, and resolver invariants are enforced once and
 shared across:
 
 - ``GET /experiments/{id}`` and friends (visibility 404)
 - ``POST /experiments/{id}/versions`` (idempotent append, optimistic
   concurrency)
-- ``PUT /projects/{id}/parameters/labels/{name}`` (only shared
+- ``PUT /projects/{id}/parameters/environments/{name}`` (only shared
   experiments + version-must-exist)
-- ``DELETE /experiments/{id}`` and visibility flips (refuse if a label
+- ``DELETE /experiments/{id}`` and visibility flips (refuse if an environment
   points here)
 - ``GET /projects/{id}/parameters/resolve`` (single canonical resolver
   used by SDK, run-snapshot, and templating)
@@ -38,9 +38,9 @@ from rhesis.backend.app.schemas.parameters import (
     ExperimentRead,
     ExperimentSummary,
     ExperimentVersion,
-    LabelPointer,
+    EnvironmentPointer,
     ParameterSchema,
-    ProjectLabels,
+    ProjectEnvironments,
     ResolveResponse,
     canonical_hash,
     canonical_schema_fingerprint,
@@ -242,18 +242,18 @@ def append_version(
 
 
 # --------------------------------------------------------------------------- #
-# Project labels                                                              #
+# Project environments                                                        #
 # --------------------------------------------------------------------------- #
 
 
-def coerce_labels(project: Project) -> ProjectLabels:
-    """Safely coerce the project's ``parameter_labels`` JSONB to a typed model."""
-    raw = project.parameter_labels
-    if isinstance(raw, ProjectLabels):
+def coerce_environments(project: Project) -> ProjectEnvironments:
+    """Safely coerce the project's ``parameter_environments`` JSONB to a typed model."""
+    raw = project.parameter_environments
+    if isinstance(raw, ProjectEnvironments):
         return raw
     if raw is None:
-        return ProjectLabels()
-    return ProjectLabels.model_validate(raw)
+        return ProjectEnvironments()
+    return ProjectEnvironments.model_validate(raw)
 
 
 def coerce_schema(project: Project) -> ParameterSchema:
@@ -267,36 +267,36 @@ def coerce_schema(project: Project) -> ParameterSchema:
 
 
 # Keep private aliases for backward compat within this module
-_coerce_labels = coerce_labels
+_coerce_environments = coerce_environments
 _coerce_schema = coerce_schema
 
 
-def labels_pointing_at_experiment(
+def environments_pointing_at_experiment(
     project: Project,
     experiment_id: uuid.UUID,
 ) -> list[str]:
-    """Names of project labels currently pointing at ``experiment_id``."""
-    labels = _coerce_labels(project)
+    """Names of project environments currently pointing at ``experiment_id``."""
+    environments = _coerce_environments(project)
     return sorted(
         name
-        for name, ptr in labels.labels.items()
+        for name, ptr in environments.environments.items()
         if str(ptr.experiment_id) == str(experiment_id)
     )
 
 
-def bind_label(
+def bind_environment(
     db: Session,
     *,
     project: Project,
-    label_name: str,
-    pointer: LabelPointer,
+    environment_name: str,
+    pointer: EnvironmentPointer,
     organization_id: str,
     user_id: str,
-) -> ProjectLabels:
-    """Set ``project.parameter_labels[label_name] = pointer``.
+) -> ProjectEnvironments:
+    """Set ``project.parameter_environments[environment_name] = pointer``.
 
     Validates the referenced experiment is shared and the version
-    exists. The label name itself is unrestricted in v1 (any string).
+    exists. The environment name itself is unrestricted in v1 (any string).
     """
     db_experiment = get_visible_experiment_in_project(
         db,
@@ -309,43 +309,43 @@ def bind_label(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                "Only shared experiments may be promoted to a label. "
+                "Only shared experiments may be promoted to an environment. "
                 "Share the experiment first."
             ),
         )
     find_version(db_experiment, pointer.version)
 
-    # Materialize a fresh ProjectLabels instance so SQLAlchemy sees the
+    # Materialize a fresh ProjectEnvironments instance so SQLAlchemy sees the
     # ORM attribute change. Mutating the existing model in place is
     # invisible to the dirty-tracking layer because the attribute
     # value is identity-equal before and after the mutation; the
     # PydanticColumn TypeDecorator only fires `process_bind_param` on
     # an attribute set, not on in-place updates.
-    current = _coerce_labels(project)
-    new_map = dict(current.labels)
-    new_map[label_name] = pointer
-    project.parameter_labels = ProjectLabels(labels=new_map)
+    current = _coerce_environments(project)
+    new_map = dict(current.environments)
+    new_map[environment_name] = pointer
+    project.parameter_environments = ProjectEnvironments(environments=new_map)
     db.add(project)
     db.commit()
     db.refresh(project)
-    return _coerce_labels(project)
+    return _coerce_environments(project)
 
 
-def unbind_label(
+def unbind_environment(
     db: Session,
     *,
     project: Project,
-    label_name: str,
-) -> ProjectLabels:
-    """Remove ``label_name`` from the project's label map (idempotent)."""
-    current = _coerce_labels(project)
-    new_map = dict(current.labels)
-    new_map.pop(label_name, None)
-    project.parameter_labels = ProjectLabels(labels=new_map)
+    environment_name: str,
+) -> ProjectEnvironments:
+    """Remove ``environment_name`` from the project's environment map (idempotent)."""
+    current = _coerce_environments(project)
+    new_map = dict(current.environments)
+    new_map.pop(environment_name, None)
+    project.parameter_environments = ProjectEnvironments(environments=new_map)
     db.add(project)
     db.commit()
     db.refresh(project)
-    return _coerce_labels(project)
+    return _coerce_environments(project)
 
 
 # --------------------------------------------------------------------------- #
@@ -353,25 +353,25 @@ def unbind_label(
 # --------------------------------------------------------------------------- #
 
 
-def assert_no_active_labels(
+def assert_no_active_environments(
     project: Project,
     experiment_id: uuid.UUID,
     *,
     action: str,
 ) -> None:
-    """Refuse with 409 if any project label still points at this experiment.
+    """Refuse with 409 if any project environment still points at this experiment.
 
     Used to guard the two destructive operations that would break the
-    "labels point only at shared experiments and only at existing
+    "environments point only at shared experiments and only at existing
     versions" invariant: unsharing an experiment, and deleting it.
     """
-    bound = labels_pointing_at_experiment(project, experiment_id)
+    bound = environments_pointing_at_experiment(project, experiment_id)
     if bound:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Cannot {action} experiment while these labels still"
-                f" point at it: {bound}. Move or unbind the labels first."
+                f"Cannot {action} experiment while these environments still"
+                f" point at it: {bound}. Move or unbind the environments first."
             ),
         )
 
@@ -385,7 +385,7 @@ def resolve_parameters(
     db: Session,
     *,
     project: Project,
-    label: str | None,
+    environment: str | None,
     experiment_id: uuid.UUID | None,
     version: str | None,
     organization_id: str,
@@ -394,19 +394,19 @@ def resolve_parameters(
     """The single canonical resolver used by the SDK and run-snapshot.
 
     Precedence: ``version`` (immutable) > ``experiment_id`` (latest
-    version of that experiment) > ``label`` (lookup in
-    :class:`ProjectLabels`) > implicit ``label='default'``. The handler
+    version of that experiment) > ``environment`` (lookup in
+    :class:`ProjectEnvironments`) > implicit ``environment='default'``. The handler
     walks the precedence top-down and returns as soon as one of them
     resolves; it never silently falls back to ``default`` after a
-    user-supplied filter fails — that would mask a typo as a label
+    user-supplied filter fails — that would mask a typo as an environment
     promotion.
 
     Visibility: resolving by ``experiment_id`` or ``version`` against
     a private experiment owned by another user surfaces as 404.
-    Resolving by label is open to all project members because the
-    label is the *public face*; the underlying experiment is
+    Resolving by environment is open to all project members because the
+    environment is the *public face*; the underlying experiment is
     necessarily shared (enforced at bind time and protected by the
-    no-active-label rule).
+    no-active-environment rule).
     """
     project_schema = _coerce_schema(project)
 
@@ -428,7 +428,7 @@ def resolve_parameters(
             experiment=match,
             version_entry=find_version(match, version),
             source="version",
-            source_label=None,
+            source_environment=None,
         )
 
     if experiment_id is not None:
@@ -446,7 +446,7 @@ def resolve_parameters(
                 experiment=db_experiment,
                 version_entry=entry,
                 source="version",
-                source_label=None,
+                source_environment=None,
             )
         latest = latest_version(db_experiment)
         if latest is None:
@@ -459,16 +459,16 @@ def resolve_parameters(
             experiment=db_experiment,
             version_entry=latest,
             source="experiment_id",
-            source_label=None,
+            source_environment=None,
         )
 
-    label_name = label or "default"
-    labels = _coerce_labels(project)
-    pointer = labels.labels.get(label_name)
+    environment_name = environment or "default"
+    environments = _coerce_environments(project)
+    pointer = environments.environments.get(environment_name)
     if pointer is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Label {label_name!r} is not bound for this project",
+            detail=f"Environment {environment_name!r} is not bound for this project",
         )
     db_experiment = get_visible_experiment_in_project(
         db,
@@ -482,8 +482,8 @@ def resolve_parameters(
         schema=project_schema,
         experiment=db_experiment,
         version_entry=entry,
-        source="label",
-        source_label=label_name,
+        source="environment",
+        source_environment=environment_name,
     )
 
 
@@ -533,7 +533,7 @@ def _build_resolve_response(
     experiment: Experiment,
     version_entry: ExperimentVersion,
     source: str,
-    source_label: str | None,
+    source_environment: str | None,
 ) -> ResolveResponse:
     return ResolveResponse(
         schema=schema,
@@ -541,7 +541,7 @@ def _build_resolve_response(
         experiment_id=experiment.id,
         version=version_entry.version,
         source=source,
-        source_label=source_label,
+        source_environment=source_environment,
     )
 
 
@@ -554,14 +554,14 @@ def to_summary(
     db_experiment: Experiment,
     *,
     version: str,
-    source_label: str | None,
+    source_environment: str | None,
 ) -> ExperimentSummary:
     """Compact shape used inline on TestRun responses."""
     return ExperimentSummary(
         id=db_experiment.id,
         name=db_experiment.name,
         version=version,
-        source_label=source_label,
+        source_environment=source_environment,
         visibility=db_experiment.visibility,  # type: ignore[arg-type]
     )
 
@@ -579,11 +579,14 @@ def experiment_summary_dict_from_run_attributes(
     exp_id = attributes.get("parameter_experiment_id")
     if not exp_id:
         return None
+    src_env = attributes.get("parameter_source_environment")
+    if src_env is None:
+        src_env = attributes.get("parameter_source_label")
     return {
         "id": exp_id,
         "name": attributes.get("parameter_experiment_name") or "Experiment",
         "version": attributes.get("parameter_version") or "",
-        "source_label": attributes.get("parameter_source_label"),
+        "source_environment": src_env,
         "visibility": attributes.get("parameter_experiment_visibility") or "shared",
     }
 
@@ -635,13 +638,15 @@ def apply_parameter_snapshot_to_run_attributes(
     if isinstance(version, str) and not version.strip():
         version = None
 
-    label = ref.get("label")
+    environment = ref.get("environment")
+    if environment is None:
+        environment = ref.get("label")
 
     try:
         resolved = resolve_parameters(
             db,
             project=project,
-            label=label,
+            environment=environment,
             experiment_id=experiment_uuid,
             version=version,
             organization_id=organization_id,
@@ -659,8 +664,8 @@ def apply_parameter_snapshot_to_run_attributes(
     merged["parameter_version"] = resolved.version
     merged["parameter_experiment_id"] = str(resolved.experiment_id)
     merged["parameter_source"] = resolved.source
-    if resolved.source_label is not None:
-        merged["parameter_source_label"] = resolved.source_label
+    if resolved.source_environment is not None:
+        merged["parameter_source_environment"] = resolved.source_environment
     merged["parameter_schema"] = resolved.schema_.model_dump(mode="json")
     merged["parameter_experiment_name"] = exp_name
     merged["parameter_experiment_visibility"] = exp_vis
@@ -675,12 +680,15 @@ def connector_execute_extras_from_run_attributes(
         return {}
     params = attributes.get("parameters") or {}
     schema = attributes.get("parameter_schema")
+    src_env = attributes.get("parameter_source_environment")
+    if src_env is None:
+        src_env = attributes.get("parameter_source_label")
     extras: dict[str, Any] = {
         "parameters": params,
         "parameter_version": attributes.get("parameter_version"),
         "parameter_experiment_id": attributes.get("parameter_experiment_id"),
         "parameter_source": attributes.get("parameter_source"),
-        "parameter_source_label": attributes.get("parameter_source_label"),
+        "parameter_source_environment": src_env,
     }
     if schema is not None:
         extras["parameter_schema"] = schema
@@ -733,20 +741,20 @@ __all__ = [
     "AppendResult",
     "append_version",
     "apply_parameter_snapshot_to_run_attributes",
-    "assert_no_active_labels",
-    "bind_label",
-    "coerce_labels",
+    "assert_no_active_environments",
+    "bind_environment",
+    "coerce_environments",
     "coerce_schema",
     "connector_execute_extras_from_run_attributes",
     "experiment_summary_dict_from_run_attributes",
     "find_version",
     "get_visible_experiment",
     "get_visible_experiment_in_project",
-    "labels_pointing_at_experiment",
+    "environments_pointing_at_experiment",
     "latest_version",
     "resolve_parameters",
     "to_detail",
     "to_read",
     "to_summary",
-    "unbind_label",
+    "unbind_environment",
 ]

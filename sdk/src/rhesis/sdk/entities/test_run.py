@@ -38,7 +38,7 @@ class TestRun(BaseEntity):
         """Parameter experiment snapshot stored at queue time, if any.
 
         Returns a dict with keys ``experiment_id``, ``version``,
-        ``source``, ``source_label``, ``experiment_name``, and
+        ``source``, ``source_environment``, ``experiment_name``, and
         ``parameters`` (the resolved values) when the run was
         executed with parameter management, or ``None`` otherwise.
         """
@@ -47,13 +47,17 @@ class TestRun(BaseEntity):
         exp_id = self.attributes.get("parameter_experiment_id")
         if exp_id is None:
             return None
+        src = self.attributes.get("parameter_source")
+        if src == "label":
+            src = "environment"
+        src_env = self.attributes.get("parameter_source_environment")
+        if src_env is None:
+            src_env = self.attributes.get("parameter_source_label")
         return {
             "experiment_id": exp_id,
             "version": self.attributes.get("parameter_version"),
-            "source": self.attributes.get("parameter_source"),
-            "source_label": self.attributes.get(
-                "parameter_source_label"
-            ),
+            "source": src,
+            "source_environment": src_env,
             "experiment_name": self.attributes.get(
                 "parameter_experiment_name"
             ),

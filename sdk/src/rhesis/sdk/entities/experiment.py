@@ -28,7 +28,7 @@ class Experiment(BaseEntity):
         exp.push()
         exp.commit({"temperature": 0.9, "model": "gpt-4o"}, message="bump temp")
         exp.share()
-        exp.promote(label="staging")
+        exp.promote(environment="staging")
     """
 
     endpoint: ClassVar[Endpoints] = ENDPOINT
@@ -128,7 +128,7 @@ class Experiment(BaseEntity):
         project_id: str,
         values: dict[str, Any],
         message: str | None = None,
-        label: str = "default",
+        environment: str = "default",
         description: str | None = None,
     ) -> "Experiment":
         """One-liner: create → commit → share → promote.
@@ -139,7 +139,7 @@ class Experiment(BaseEntity):
                 name="tuning-v3",
                 project_id="<uuid>",
                 values={"temperature": 0.9},
-                label="default",
+                environment="default",
             )
         """
         exp = cls(
@@ -150,12 +150,12 @@ class Experiment(BaseEntity):
         exp.push()
         exp.commit(values, message=message)
         exp.share()
-        exp.promote(label=label)
+        exp.promote(environment=environment)
         return exp
 
     @handle_http_errors
-    def promote(self, label: str = "default") -> None:
-        """Bind this experiment's latest version to *label*.
+    def promote(self, environment: str = "default") -> None:
+        """Bind this experiment's latest version to *environment*.
 
         The experiment must be shared and must have at least one version.
         """
@@ -163,7 +163,7 @@ class Experiment(BaseEntity):
             raise ValueError("Experiment has no versions to promote")
         client = self._get_client()
         url = client.get_url(
-            f"projects/{self.project_id}/parameters/labels/{label}"
+            f"projects/{self.project_id}/parameters/environments/{environment}"
         )
         import requests as _requests
 

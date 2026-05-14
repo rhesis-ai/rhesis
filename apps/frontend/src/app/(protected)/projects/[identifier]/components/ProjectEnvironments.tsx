@@ -23,48 +23,48 @@ import Link from 'next/link';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentRead,
-  LabelPointer,
-  ProjectLabels as ProjectLabelsShape,
-  WELL_KNOWN_LABELS,
+  EnvironmentPointer,
+  ProjectEnvironments as ProjectEnvironmentsShape,
+  WELL_KNOWN_ENVIRONMENTS,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { CloseIcon, AddIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 
-interface ProjectLabelsProps {
+interface ProjectEnvironmentsProps {
   projectId: string;
   sessionToken: string;
 }
 
-interface LabelRow {
+interface EnvironmentRow {
   name: string;
-  pointer: LabelPointer | null;
+  pointer: EnvironmentPointer | null;
   isWellKnown: boolean;
 }
 
 /**
- * Project-scoped labels block.
+ * Project-scoped environments block.
  *
- * Always renders the three well-known labels (default, production,
+ * Always renders the three well-known environments (default, production,
  * staging) so the user understands these names exist as first-class
- * citizens even when no experiment is bound. Bound custom labels
+ * citizens even when no experiment is bound. Bound custom environments
  * appear below in a separate group.
  *
- * Promoting a label is a single click that opens an autocomplete
+ * Promoting an environment is a single click that opens an autocomplete
  * picker over the project's shared experiments. Unbinding removes
  * the entry; the well-known names continue to render unbound.
  */
-export default function ProjectLabels({
+export default function ProjectEnvironments({
   projectId,
   sessionToken,
-}: ProjectLabelsProps) {
+}: ProjectEnvironmentsProps) {
   const notifications = useNotifications();
 
-  const [labels, setLabels] = useState<ProjectLabelsShape | null>(null);
+  const [bindings, setBindings] = useState<ProjectEnvironmentsShape | null>(null);
   const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pickerLabel, setPickerLabel] = useState<string | null>(null);
+  const [pickerEnvironmentName, setPickerEnvironmentName] = useState<string | null>(null);
   const [picker, setPicker] = useState<{
     experimentId?: string;
     version?: string;
@@ -80,14 +80,14 @@ export default function ProjectLabels({
     setError(null);
     try {
       const client = apiFactory.getParametersClient();
-      const [labelsResp, expsResp] = await Promise.all([
-        client.getLabels(projectId),
+      const [bindingsResp, expsResp] = await Promise.all([
+        client.getEnvironments(projectId),
         client.listProjectExperiments(projectId, { limit: 200 }),
       ]);
-      setLabels(labelsResp);
+      setBindings(bindingsResp);
       setExperiments(expsResp);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load labels');
+      setError(e instanceof Error ? e.message : 'Failed to load environments');
     } finally {
       setLoading(false);
     }
@@ -97,20 +97,20 @@ export default function ProjectLabels({
     refresh();
   }, [refresh]);
 
-  const rows: LabelRow[] = useMemo(() => {
-    const out: LabelRow[] = WELL_KNOWN_LABELS.map(name => ({
+  const rows: EnvironmentRow[] = useMemo(() => {
+    const out: EnvironmentRow[] = WELL_KNOWN_ENVIRONMENTS.map(name => ({
       name,
-      pointer: labels?.labels[name] ?? null,
+      pointer: bindings?.environments[name] ?? null,
       isWellKnown: true,
     }));
-    if (labels) {
-      for (const [name, pointer] of Object.entries(labels.labels)) {
-        if (WELL_KNOWN_LABELS.includes(name)) continue;
+    if (bindings) {
+      for (const [name, pointer] of Object.entries(bindings.environments)) {
+        if (WELL_KNOWN_ENVIRONMENTS.includes(name)) continue;
         out.push({ name, pointer, isWellKnown: false });
       }
     }
     return out;
-  }, [labels]);
+  }, [bindings]);
 
   const sharedExperiments = useMemo(
     () =>
@@ -129,14 +129,14 @@ export default function ProjectLabels({
     async (name: string) => {
       try {
         const client = apiFactory.getParametersClient();
-        const next = await client.deleteLabel(projectId, name);
-        setLabels(next);
-        notifications.show(`Label "${name}" unbound`, {
+        const next = await client.deleteEnvironment(projectId, name);
+        setBindings(next);
+        notifications.show(`Environment "${name}" unbound`, {
           severity: 'success',
         });
       } catch (e) {
         notifications.show(
-          e instanceof Error ? e.message : 'Failed to unbind label',
+          e instanceof Error ? e.message : 'Failed to unbind environment',
           { severity: 'error' }
         );
       }
@@ -148,7 +148,7 @@ export default function ProjectLabels({
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', p: 2, gap: 2 }}>
         <CircularProgress size={20} />
-        <Typography color="text.secondary">Loading labels...</Typography>
+        <Typography color="text.secondary">Loading environments...</Typography>
       </Box>
     );
   }
@@ -164,8 +164,8 @@ export default function ProjectLabels({
         color="text.secondary"
         sx={{ mb: 2 }}
       >
-        Labels are movable pointers at one (experiment, version) pair.
-        SDK consumers and test runs that ask for a label resolve to
+        Environments are movable pointers at one (experiment, version) pair.
+        SDK consumers and test runs that ask for an environment resolve to
         whatever it points at. The three well-known names render
         below even when unbound.
       </Typography>
@@ -173,7 +173,7 @@ export default function ProjectLabels({
       {sharedExperiments.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           No shared experiments yet. Create an experiment, save a
-          version, and share it before promoting it onto a label.
+          version, and share it before promoting it onto an environment.
         </Alert>
       )}
 
@@ -181,7 +181,7 @@ export default function ProjectLabels({
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Label</TableCell>
+              <TableCell>Environment</TableCell>
               <TableCell>Currently bound to</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -245,7 +245,7 @@ export default function ProjectLabels({
                       title={
                         sharedExperiments.length === 0
                           ? 'No shared experiments to promote'
-                          : 'Promote a shared experiment to this label'
+                          : 'Promote a shared experiment to this environment'
                       }
                     >
                       <span>
@@ -254,7 +254,7 @@ export default function ProjectLabels({
                           startIcon={<AddIcon />}
                           disabled={sharedExperiments.length === 0}
                           onClick={() => {
-                            setPickerLabel(row.name);
+                            setPickerEnvironmentName(row.name);
                             setPicker({});
                           }}
                         >
@@ -263,7 +263,7 @@ export default function ProjectLabels({
                       </span>
                     </Tooltip>
                     {row.pointer && (
-                      <Tooltip title="Unbind label">
+                      <Tooltip title="Unbind environment">
                         <IconButton
                           size="small"
                           onClick={() => handleUnbind(row.name)}
@@ -280,16 +280,16 @@ export default function ProjectLabels({
         </Table>
       </TableContainer>
 
-      {pickerLabel && (
+      {pickerEnvironmentName && (
         <PromoteFromProjectDialog
-          open={!!pickerLabel}
-          labelName={pickerLabel}
+          open={!!pickerEnvironmentName}
+          environmentName={pickerEnvironmentName}
           projectId={projectId}
           sessionToken={sessionToken}
           experiments={sharedExperiments}
-          onClose={() => setPickerLabel(null)}
+          onClose={() => setPickerEnvironmentName(null)}
           onPromoted={async () => {
-            setPickerLabel(null);
+            setPickerEnvironmentName(null);
             await refresh();
           }}
         />
@@ -300,7 +300,7 @@ export default function ProjectLabels({
 
 interface PromoteFromProjectDialogProps {
   open: boolean;
-  labelName: string;
+  environmentName: string;
   projectId: string;
   sessionToken: string;
   experiments: ExperimentRead[];
@@ -321,7 +321,7 @@ import {
 
 function PromoteFromProjectDialog({
   open,
-  labelName,
+  environmentName,
   projectId,
   sessionToken,
   experiments,
@@ -374,12 +374,12 @@ function PromoteFromProjectDialog({
     setSubmitting(true);
     try {
       const client = apiFactory.getParametersClient();
-      await client.putLabel(projectId, labelName, {
+      await client.putEnvironment(projectId, environmentName, {
         experiment_id: experimentId,
         version,
       });
       notifications.show(
-        `Label "${labelName}" now points at ${
+        `Environment "${environmentName}" now points at ${
           selectedExperiment?.name ?? experimentId
         } ${shortVersion(version)}`,
         { severity: 'success' }
@@ -387,7 +387,7 @@ function PromoteFromProjectDialog({
       onPromoted();
     } catch (e) {
       notifications.show(
-        e instanceof Error ? e.message : 'Failed to promote label',
+        e instanceof Error ? e.message : 'Failed to promote environment',
         { severity: 'error' }
       );
     } finally {
@@ -397,7 +397,7 @@ function PromoteFromProjectDialog({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Promote to {labelName}</DialogTitle>
+      <DialogTitle>Promote to {environmentName}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <FormControl fullWidth size="small">

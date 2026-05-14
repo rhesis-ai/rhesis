@@ -127,8 +127,10 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
             const passed = attr.passed_tests || 0;
             const failed = attr.failed_tests || 0;
             const version = attr.parameter_version;
-            const sourceLabel = attr.parameter_source_label;
-            
+            const sourceEnvironment =
+              (attr.parameter_source_environment as string | undefined) ??
+              (attr.parameter_source_label as string | undefined);
+
             return (
               <TableRow key={run.id}>
                 <TableCell>
@@ -148,7 +150,7 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" color="text.secondary">
-                    {sourceLabel ? `via ${sourceLabel}` : ''}
+                    {sourceEnvironment ? `via ${sourceEnvironment}` : ''}
                   </Typography>
                 </TableCell>
                 <TableCell>{total}</TableCell>

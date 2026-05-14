@@ -2,9 +2,9 @@
 
 Introduces the data model that backs the Parameter Management feature:
 
-- ``project.parameters_schema`` and ``project.parameter_labels`` are
+- ``project.parameters_schema`` and ``project.parameter_environments`` are
   added as JSONB columns on the existing ``project`` table. Both default
-  to empty Pydantic-shaped JSON (``{"fields": []}`` / ``{"labels": {}}``)
+  to empty Pydantic-shaped JSON (``{"fields": []}`` / ``{"environments": {}}``)
   so existing projects pick up the feature without a row migration.
 - ``experiment`` is a new per-organization table holding named, owned
   attempts at a configuration. Versions are stored inline in a JSONB
@@ -83,14 +83,14 @@ def upgrade() -> None:
                 server_default=sa.text("'{\"fields\": []}'::jsonb"),
             ),
         )
-    if not _column_exists("project", "parameter_labels"):
+    if not _column_exists("project", "parameter_environments"):
         op.add_column(
             "project",
             sa.Column(
-                "parameter_labels",
+                "parameter_environments",
                 postgresql.JSONB(),
                 nullable=False,
-                server_default=sa.text("'{\"labels\": {}}'::jsonb"),
+                server_default=sa.text("'{\"environments\": {}}'::jsonb"),
             ),
         )
 
@@ -262,5 +262,5 @@ def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_experiment_organization_id")
     op.execute("DROP TABLE IF EXISTS public.experiment")
 
-    op.execute("ALTER TABLE project DROP COLUMN IF EXISTS parameter_labels")
+    op.execute("ALTER TABLE project DROP COLUMN IF EXISTS parameter_environments")
     op.execute("ALTER TABLE project DROP COLUMN IF EXISTS parameters_schema")

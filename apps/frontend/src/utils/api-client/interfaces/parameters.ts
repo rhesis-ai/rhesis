@@ -145,17 +145,17 @@ export interface ExperimentVersionCreate {
   parent_version?: string | null;
 }
 
-/** Map of label name → ``(experiment_id, version)`` pair. */
-export interface LabelPointer {
+/** Map of environment name → ``(experiment_id, version)`` pair. */
+export interface EnvironmentPointer {
   experiment_id: string;
   version: string;
 }
 
-export interface ProjectLabels {
-  labels: Record<string, LabelPointer>;
+export interface ProjectEnvironments {
+  environments: Record<string, EnvironmentPointer>;
 }
 
-export interface LabelBindRequest {
+export interface EnvironmentBindRequest {
   experiment_id: string;
   version: string;
 }
@@ -165,19 +165,19 @@ export interface ResolveResponse {
   values: Record<string, ParameterValue>;
   experiment_id: string;
   version: string;
-  source: 'label' | 'experiment_id' | 'version';
-  source_label?: string | null;
+  source: 'environment' | 'experiment_id' | 'version';
+  source_environment?: string | null;
 }
 
 /**
- * Well-known label names rendered in every project's labels block,
+ * Well-known environment names rendered in every project's environments block,
  * even when unbound. Custom names are still freely user-creatable;
  * this list is the closed set of names the frontend overlays for
  * first-class display. Mirrors
- * ``WELL_KNOWN_LABELS`` in
+ * ``WELL_KNOWN_ENVIRONMENTS`` in
  * ``apps/backend/src/rhesis/backend/app/schemas/parameters.py``.
  */
-export const WELL_KNOWN_LABELS: ReadonlyArray<string> = [
+export const WELL_KNOWN_ENVIRONMENTS: ReadonlyArray<string> = [
   'default',
   'production',
   'staging',
@@ -203,7 +203,7 @@ export interface ExperimentResultsRunItem {
     id: string;
     name: string;
     version: string;
-    source_label?: string | null;
+    source_environment?: string | null;
     visibility: ExperimentVisibility;
   } | null;
 }

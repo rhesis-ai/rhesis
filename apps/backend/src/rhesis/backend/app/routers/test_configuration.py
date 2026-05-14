@@ -210,8 +210,8 @@ def execute_test_configuration_endpoint(
                 parameters_ref["experiment_id"] = str(execution_request.experiment_id)
             if execution_request.version and str(execution_request.version).strip():
                 parameters_ref["version"] = str(execution_request.version).strip()
-            if execution_request.label is not None:
-                parameters_ref["label"] = str(execution_request.label)
+            if execution_request.environment is not None:
+                parameters_ref["environment"] = str(execution_request.environment)
 
             if parameters_ref:
                 attrs = dict(db_test_configuration.attributes) if db_test_configuration.attributes else {}

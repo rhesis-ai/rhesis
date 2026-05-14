@@ -2,15 +2,15 @@
 
 Covers Phase 2 surface: per-project list/create, header CRUD on
 ``/experiments/{id}``, the version append (idempotency + content
-hashing), label binding (gated on shared visibility + version exists),
+hashing), environment binding (gated on shared visibility + version exists),
 and the canonical resolver. Plan-locked invariants under test:
 
 - Visibility 404 (private experiments invisible to non-owners, even
   with elevated org roles).
 - Cross-project leak is also a 404.
-- Unsharing or deleting an experiment with an active label → 409.
+- Unsharing or deleting an experiment with an active environment → 409.
 - Saving identical values is idempotent (no new version, 200 not 201).
-- Resolver precedence: ``version`` > ``experiment_id`` > ``label`` >
+- Resolver precedence: ``version`` > ``experiment_id`` > ``environment`` >
   implicit ``default``.
 """
 
@@ -44,12 +44,12 @@ def _versions_url(experiment_id) -> str:
     return f"/experiments/{experiment_id}/versions"
 
 
-def _labels_url(project_id) -> str:
-    return f"/projects/{project_id}/parameters/labels"
+def _environments_url(project_id) -> str:
+    return f"/projects/{project_id}/parameters/environments"
 
 
-def _label_url(project_id, name) -> str:
-    return f"/projects/{project_id}/parameters/labels/{name}"
+def _environment_url(project_id, name) -> str:
+    return f"/projects/{project_id}/parameters/environments/{name}"
 
 
 def _resolve_url(project_id) -> str:
@@ -185,7 +185,7 @@ class TestExperimentHeaderCRUD:
         assert body["name"] == "renamed"
         assert body["description"] == "new desc"
 
-    def test_delete_with_no_label_succeeds(
+    def test_delete_with_no_environment_succeeds(
         self, authenticated_client: TestClient, db_project
     ) -> None:
         created = _create_experiment(authenticated_client, db_project.id)
@@ -328,27 +328,27 @@ class TestExperimentVersions:
 
 
 # --------------------------------------------------------------------------- #
-# Labels + visibility-bind invariant                                          #
+# Environments + visibility-bind invariant                                    #
 # --------------------------------------------------------------------------- #
 
 
 @pytest.mark.integration
-class TestProjectLabels:
-    """Labels are movable pointers; binding has guard rails."""
+class TestProjectEnvironments:
+    """Environments are movable pointers; binding has guard rails."""
 
-    def test_labels_default_empty(
+    def test_environments_default_empty(
         self, authenticated_client: TestClient, db_project
     ) -> None:
-        response = authenticated_client.get(_labels_url(db_project.id))
+        response = authenticated_client.get(_environments_url(db_project.id))
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == {"labels": {}}
+        assert response.json() == {"environments": {}}
 
-    def test_bind_label_requires_shared_experiment(
+    def test_bind_environment_requires_shared_experiment(
         self, authenticated_client: TestClient, db_project
     ) -> None:
         _seed_schema(authenticated_client, db_project.id)
         # Private experiments cannot be promoted — this is the
-        # "labels point only at shared experiments" plan-locked rule.
+        # "environments point only at shared experiments" plan-locked rule.
         private_exp = _create_experiment(
             authenticated_client, db_project.id, name="priv"
         )
@@ -358,7 +358,7 @@ class TestProjectLabels:
             values={"temperature": 0.7},
         )
         response = authenticated_client.put(
-            _label_url(db_project.id, "default"),
+            _environment_url(db_project.id, "default"),
             json={
                 "experiment_id": private_exp["id"],
                 "version": committed["version"],
@@ -366,7 +366,7 @@ class TestProjectLabels:
         )
         assert response.status_code == status.HTTP_409_CONFLICT
 
-    def test_bind_label_then_unbind(
+    def test_bind_environment_then_unbind(
         self, authenticated_client: TestClient, db_project
     ) -> None:
         _seed_schema(authenticated_client, db_project.id)
@@ -382,17 +382,19 @@ class TestProjectLabels:
             values={"temperature": 0.7},
         )
         bind = authenticated_client.put(
-            _label_url(db_project.id, "default"),
+            _environment_url(db_project.id, "default"),
             json={"experiment_id": exp["id"], "version": committed["version"]},
         )
         assert bind.status_code == status.HTTP_200_OK
-        assert "default" in bind.json()["labels"]
+        assert "default" in bind.json()["environments"]
 
-        unbind = authenticated_client.delete(_label_url(db_project.id, "default"))
+        unbind = authenticated_client.delete(
+            _environment_url(db_project.id, "default")
+        )
         assert unbind.status_code == status.HTTP_200_OK
-        assert "default" not in unbind.json()["labels"]
+        assert "default" not in unbind.json()["environments"]
 
-    def test_unsharing_with_active_label_is_409(
+    def test_unsharing_with_active_environment_is_409(
         self, authenticated_client: TestClient, db_project
     ) -> None:
         _seed_schema(authenticated_client, db_project.id)
@@ -408,18 +410,18 @@ class TestProjectLabels:
             values={"temperature": 0.7},
         )
         authenticated_client.put(
-            _label_url(db_project.id, "default"),
+            _environment_url(db_project.id, "default"),
             json={"experiment_id": exp["id"], "version": committed["version"]},
         )
 
-        # Trying to unshare while the label is bound is refused.
+        # Trying to unshare while the environment is bound is refused.
         response = authenticated_client.patch(
             _experiment_url(exp["id"]),
             json={"visibility": "private"},
         )
         assert response.status_code == status.HTTP_409_CONFLICT
 
-    def test_deleting_with_active_label_is_409(
+    def test_deleting_with_active_environment_is_409(
         self, authenticated_client: TestClient, db_project
     ) -> None:
         _seed_schema(authenticated_client, db_project.id)
@@ -435,7 +437,7 @@ class TestProjectLabels:
             values={"temperature": 0.7},
         )
         authenticated_client.put(
-            _label_url(db_project.id, "default"),
+            _environment_url(db_project.id, "default"),
             json={"experiment_id": exp["id"], "version": committed["version"]},
         )
 
@@ -452,7 +454,7 @@ class TestProjectLabels:
             visibility="shared",
         )
         response = authenticated_client.put(
-            _label_url(db_project.id, "default"),
+            _environment_url(db_project.id, "default"),
             json={"experiment_id": exp["id"], "version": "v_nope"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -467,7 +469,7 @@ class TestProjectLabels:
 class TestResolver:
     """`/resolve` is the single canonical path used by SDK and run-snapshot."""
 
-    def test_implicit_default_label_when_no_args(
+    def test_implicit_default_environment_when_no_args(
         self, authenticated_client: TestClient, db_project
     ) -> None:
         _seed_schema(authenticated_client, db_project.id)
@@ -483,15 +485,15 @@ class TestResolver:
             values={"temperature": 0.7},
         )
         authenticated_client.put(
-            _label_url(db_project.id, "default"),
+            _environment_url(db_project.id, "default"),
             json={"experiment_id": exp["id"], "version": committed["version"]},
         )
 
         response = authenticated_client.get(_resolve_url(db_project.id))
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
-        assert body["source"] == "label"
-        assert body["source_label"] == "default"
+        assert body["source"] == "environment"
+        assert body["source_environment"] == "default"
         assert body["version"] == committed["version"]
         assert body["values"]["temperature"] == {
             "type": "number",
@@ -531,7 +533,7 @@ class TestResolver:
         body = response.json()
         assert body["source"] == "version"
         assert body["version"] == first["version"]
-        assert body["source_label"] is None
+        assert body["source_environment"] is None
 
     def test_resolve_by_experiment_id_returns_latest(
         self, authenticated_client: TestClient, db_project
@@ -562,12 +564,12 @@ class TestResolver:
         assert body["source"] == "experiment_id"
         assert body["version"] == latest["version"]
 
-    def test_resolve_unbound_label_is_404(
+    def test_resolve_unbound_environment_is_404(
         self, authenticated_client: TestClient, db_project
     ) -> None:
         response = authenticated_client.get(
             _resolve_url(db_project.id),
-            params={"label": "production"},
+            params={"environment": "production"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 

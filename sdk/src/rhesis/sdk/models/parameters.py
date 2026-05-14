@@ -42,10 +42,10 @@ from pydantic import (
 )
 
 # --------------------------------------------------------------------------- #
-# Well-known labels                                                           #
+# Well-known environments                                                    #
 # --------------------------------------------------------------------------- #
 
-WELL_KNOWN_LABELS: tuple[str, ...] = ("default", "production", "staging")
+WELL_KNOWN_ENVIRONMENTS: tuple[str, ...] = ("default", "production", "staging")
 
 
 # --------------------------------------------------------------------------- #
@@ -248,27 +248,29 @@ class ExperimentVersion(BaseModel):
         return data
 
 
-class LabelPointer(BaseModel):
+class EnvironmentPointer(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     experiment_id: UUID4
     version: str
 
 
-class ProjectLabels(BaseModel):
+class ProjectEnvironments(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    labels: dict[str, LabelPointer] = Field(default_factory=dict)
+    environments: dict[str, EnvironmentPointer] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
-    def _default_labels(cls, data: Any) -> Any:
+    def _default_and_legacy(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            data.setdefault("labels", {})
+            if "environments" not in data and "labels" in data:
+                data = {**data, "environments": data["labels"]}
+            data.setdefault("environments", {})
         return data
 
 
-ResolveSource = Literal["label", "experiment_id", "version"]
+ResolveSource = Literal["environment", "experiment_id", "version"]
 
 
 class ResolveResponse(BaseModel):
@@ -277,6 +279,10 @@ class ResolveResponse(BaseModel):
     The ``schema`` JSON key is mapped to the Python attribute
     ``schema_`` to avoid Pydantic's ``BaseModel.schema`` shadow warning
     while keeping the on-the-wire shape exactly what the backend emits.
+
+    Legacy payloads may still use ``source == \"label\"`` and
+    ``source_label``; a ``mode=\"before\"`` validator normalizes those to
+    ``environment`` / ``source_environment``.
     """
 
     model_config = ConfigDict(
@@ -290,7 +296,18 @@ class ResolveResponse(BaseModel):
     experiment_id: UUID4
     version: str
     source: ResolveSource
-    source_label: str | None = None
+    source_environment: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_resolve_wire(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if data.get("source") == "label":
+            data = {**data, "source": "environment"}
+        if "source_environment" not in data and "source_label" in data:
+            data = {**data, "source_environment": data.get("source_label")}
+        return data
 
 
 # --------------------------------------------------------------------------- #
@@ -444,7 +461,7 @@ class ResolvedParameters(Mapping[str, Any]):
     :meth:`get_typed`.
 
     Provenance fields (``experiment_id``, ``version``, ``source``,
-    ``source_label``) carry the same shape the backend's
+    ``source_environment``) carry the same shape the backend's
     :class:`ResolveResponse` exposes, so resolved parameters survive
     round-trips intact whether they came from the SDK fetch path or
     the connector wire.
@@ -455,7 +472,7 @@ class ResolvedParameters(Mapping[str, Any]):
         "experiment_id",
         "version",
         "source",
-        "source_label",
+        "source_environment",
         "schema",
     )
 
@@ -466,14 +483,14 @@ class ResolvedParameters(Mapping[str, Any]):
         experiment_id: UUID,
         version: str,
         source: ResolveSource,
-        source_label: str | None = None,
+        source_environment: str | None = None,
         schema: ParameterSchema | None = None,
     ) -> None:
         self._typed: dict[str, ParameterValue] = dict(values)
         self.experiment_id: UUID = experiment_id
         self.version: str = version
         self.source: ResolveSource = source
-        self.source_label: str | None = source_label
+        self.source_environment: str | None = source_environment
         self.schema: ParameterSchema | None = schema
 
     # --- Mapping protocol ------------------------------------------------ #
@@ -601,7 +618,7 @@ class ResolvedParameters(Mapping[str, Any]):
             experiment_id=response.experiment_id,
             version=response.version,
             source=response.source,
-            source_label=response.source_label,
+            source_environment=response.source_environment,
             schema=response.schema_,
         )
 
@@ -618,23 +635,23 @@ class ResolvedParameters(Mapping[str, Any]):
 __all__ = [
     "BooleanValue",
     "EnumValue",
+    "EnvironmentPointer",
     "ExperimentVersion",
     "IntegerValue",
-    "LabelPointer",
     "ModelRefValue",
     "NumberValue",
     "ParameterField",
     "ParameterSchema",
     "ParameterType",
     "ParameterValue",
-    "ProjectLabels",
+    "ProjectEnvironments",
     "ResolveResponse",
     "ResolveSource",
     "ResolvedParameters",
     "SecretRefValue",
     "StringValue",
     "TextValue",
-    "WELL_KNOWN_LABELS",
+    "WELL_KNOWN_ENVIRONMENTS",
     "canonical_hash",
     "canonical_schema_fingerprint",
     "canonical_version",

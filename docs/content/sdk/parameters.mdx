@@ -5,7 +5,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 Manage typed configuration for your AI application. Define a schema once, create experiments with different values, and resolve the active configuration at runtime.
 
 <Callout type="default">
-  For the conceptual overview (schemas, versions, labels, visibility), see [Parameters](/docs/parameters) and [Experiments](/docs/experiments). This page covers the SDK API.
+  For the conceptual overview (schemas, versions, environments, visibility), see [Parameters](/docs/parameters) and [Experiments](/docs/experiments). This page covers the SDK API.
 </Callout>
 
 ## Quick start
@@ -28,7 +28,7 @@ Experiment.publish(
     name="tuning-v1",
     project_id="my-project",
     values={"model": "claude-sonnet", "temperature": 0.5},
-    label="default",
+    environment="default",
 )
 
 # 3. Resolve at runtime
@@ -92,8 +92,8 @@ for field in schema.fields:
 <CodeBlock filename="resolve.py" language="python">
 {`from rhesis.sdk import Parameters
 
-# By label (default when omitted)
-params = Parameters.get("my-project", label="production")
+# By environment (default when omitted)
+params = Parameters.get("my-project", environment="production")
 
 # By version (immutable pin)
 params = Parameters.get("my-project", version="v_abc123")
@@ -132,14 +132,14 @@ Every `ResolvedParameters` carries metadata about where the values came from:
 <CodeBlock filename="provenance.py" language="python">
 {`params.experiment_id   # UUID of the source experiment
 params.version         # content hash, e.g. "v_a3f9b8..."
-params.source          # "label", "experiment_id", or "version"
-params.source_label    # "default", "production", etc. (if resolved via label)`}
+params.source          # "environment", "experiment_id", or "version"
+params.source_environment    # "default", "production", etc. (if resolved via environment)`}
 </CodeBlock>
 
 ### Caching
 
 - **Version lookups** are cached forever (versions are immutable).
-- **Label and experiment lookups** are cached with a 60-second TTL.
+- **Environment and experiment lookups** are cached with a 60-second TTL.
 
 Force a re-fetch:
 
@@ -148,16 +148,16 @@ Force a re-fetch:
 Parameters.invalidate()                # all projects`}
 </CodeBlock>
 
-## Managing labels
+## Managing environments
 
-<CodeBlock filename="labels.py" language="python">
-{`# Read current labels
-labels = Parameters.labels("my-project")
-for name, pointer in labels.labels.items():
+<CodeBlock filename="environments.py" language="python">
+{`# Read current environment bindings
+envs = Parameters.environments("my-project")
+for name, pointer in envs.environments.items():
     print(f"{name} → experiment={pointer.experiment_id}, version={pointer.version}")
 
-# Move a label
-Parameters.put_label(
+# Move an environment
+Parameters.put_environment(
     "my-project", "staging",
     experiment_id="exp-uuid",
     version="v_abc123",
@@ -183,8 +183,8 @@ exp.commit({"model": "gpt-4o", "temperature": 0.9}, message="bump temp")
 # Make visible to the team
 exp.share()
 
-# Promote to a label
-exp.promote(label="default")`}
+# Promote to an environment
+exp.promote(environment="default")`}
 </CodeBlock>
 
 ### One-liner with publish()
@@ -195,7 +195,7 @@ exp.promote(label="default")`}
     project_id="my-project",
     values={"model": "gpt-4o", "temperature": 0.9},
     message="bump temp",
-    label="default",
+    environment="default",
 )`}
 </CodeBlock>
 
@@ -203,7 +203,7 @@ exp.promote(label="default")`}
 
 ## Running tests with parameters
 
-Pass `experiment_id`, `version`, or `label` to `TestSet.execute()` to pin a test run to a specific configuration:
+Pass `experiment_id`, `version`, or `environment` to `TestSet.execute()` to pin a test run to a specific configuration:
 
 <CodeBlock filename="execute_with_params.py" language="python">
 {`from rhesis.sdk.entities import TestSets, Endpoints
@@ -215,11 +215,11 @@ endpoint = Endpoints.pull(name="GPT-4o")
 result = test_set.execute(
     endpoint,
     experiment_id="exp-uuid",
-    label="staging",
+    environment="staging",
 )`}
 </CodeBlock>
 
-The resolved values are snapshotted at queue time. Moving a label after the run is queued does not affect it.
+The resolved values are snapshotted at queue time. Moving an environment after the run is queued does not affect it.
 
 ### Reading parameters from a test run
 
@@ -231,7 +231,7 @@ summary = run.experiment_summary
 if summary:
     print(f"Experiment: {summary['experiment_name']} ({summary['experiment_id']})")
     print(f"Version: {summary['version']}")
-    print(f"Source: {summary['source']} / {summary['source_label']}")
+    print(f"Source: {summary['source']} / {summary['source_environment']}")
     print(f"Resolved values: {summary['parameters']}")`}
 </CodeBlock>
 
@@ -274,5 +274,5 @@ During a test run, `Parameters.get()` returns the injected snapshot instead of h
   **Next Steps**
   - [Experiments entity reference](/sdk/entities/experiments) for the full CRUD API
   - [Connector Injection](/docs/experiments/connector-injection) for protocol details
-  - [Experiments concepts](/docs/experiments) for the mental model (versions, labels, visibility)
+  - [Experiments concepts](/docs/experiments) for the mental model (versions, environments, visibility)
 </Callout>

@@ -10,8 +10,8 @@ project-scoped in the URL even though the data is.
 Endpoints in this module:
 
 - ``GET / PUT /projects/{id}/parameters/schema``
-- ``GET /projects/{id}/parameters/labels``
-- ``PUT / DELETE /projects/{id}/parameters/labels/{name}``
+- ``GET /projects/{id}/parameters/environments``
+- ``PUT / DELETE /projects/{id}/parameters/environments/{name}``
 - ``GET /projects/{id}/parameters/resolve``
 - ``GET / POST /projects/{id}/experiments``
 
@@ -36,17 +36,17 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.experiment import Experiment as ExperimentModel
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.parameters import (
+    EnvironmentBindRequest,
+    EnvironmentPointer,
     ExperimentCreate,
     ExperimentRead,
-    LabelBindRequest,
-    LabelPointer,
     ParameterSchema,
-    ProjectLabels,
+    ProjectEnvironments,
     ResolveResponse,
 )
 from rhesis.backend.app.services import experiment as experiment_service
 from rhesis.backend.app.services.experiment import (
-    coerce_labels,
+    coerce_environments,
     coerce_schema,
     to_read,
 )
@@ -146,76 +146,76 @@ def put_parameters_schema(
 
 
 # --------------------------------------------------------------------------- #
-# Labels (read all + bind/unbind one)                                         #
+# Environments (read all + bind/unbind one)                                   #
 # --------------------------------------------------------------------------- #
 
 
-@router.get("/labels", response_model=ProjectLabels)
-def get_project_labels(
+@router.get("/environments", response_model=ProjectEnvironments)
+def get_project_environments(
     project_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-) -> ProjectLabels:
-    """Return only the *bound* labels.
+) -> ProjectEnvironments:
+    """Return only the *bound* environments.
 
-    Well-known labels that haven't been promoted yet aren't in the
+    Well-known environments that haven't been promoted yet aren't in the
     response — the frontend overlays them client-side from
-    ``WELL_KNOWN_LABELS`` so the UI keeps rendering ``default`` /
+    ``WELL_KNOWN_ENVIRONMENTS`` so the UI keeps rendering ``default`` /
     ``production`` / ``staging`` rows even before any binding exists.
     """
     organization_id, user_id = tenant_context
     project = _load_project(project_id, db, organization_id, user_id)
-    return coerce_labels(project)
+    return coerce_environments(project)
 
 
-@router.put("/labels/{label_name}", response_model=ProjectLabels)
-def put_project_label(
+@router.put("/environments/{environment_name}", response_model=ProjectEnvironments)
+def put_project_environment(
     project_id: uuid.UUID,
-    label_name: str,
-    payload: LabelBindRequest,
+    environment_name: str,
+    payload: EnvironmentBindRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-) -> ProjectLabels:
-    """Bind or move ``label_name`` to ``(experiment_id, version)``.
+) -> ProjectEnvironments:
+    """Bind or move ``environment_name`` to ``(experiment_id, version)``.
 
     Refused with 409 when the experiment isn't ``shared`` — the
-    "labels point only at shared experiments" invariant is enforced
-    here, and protected from later violation by the no-active-label
+    "environments point only at shared experiments" invariant is enforced
+    here, and protected from later violation by the no-active-environment
     rule on unsharing.
     """
     organization_id, user_id = tenant_context
     project = _load_project(project_id, db, organization_id, user_id)
-    pointer = LabelPointer(
+    pointer = EnvironmentPointer(
         experiment_id=payload.experiment_id,
         version=payload.version,
     )
-    return experiment_service.bind_label(
+    return experiment_service.bind_environment(
         db,
         project=project,
-        label_name=label_name,
+        environment_name=environment_name,
         pointer=pointer,
         organization_id=organization_id,
         user_id=user_id,
     )
 
 
-@router.delete("/labels/{label_name}", response_model=ProjectLabels)
-def delete_project_label(
+@router.delete("/environments/{environment_name}", response_model=ProjectEnvironments)
+def delete_project_environment(
     project_id: uuid.UUID,
-    label_name: str,
+    environment_name: str,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-) -> ProjectLabels:
-    """Unbind ``label_name`` (idempotent — unknown names succeed)."""
+) -> ProjectEnvironments:
+    """Unbind ``environment_name`` (idempotent — unknown names succeed)."""
     organization_id, user_id = tenant_context
     project = _load_project(project_id, db, organization_id, user_id)
-    return experiment_service.unbind_label(
+    return experiment_service.unbind_environment(
         db,
         project=project,
-        label_name=label_name,
+        environment_name=environment_name,
     )
 
 
@@ -227,7 +227,7 @@ def delete_project_label(
 @router.get("/resolve", response_model=ResolveResponse)
 def resolve(
     project_id: uuid.UUID,
-    label: str | None = Query(default=None),
+    environment: str | None = Query(default=None),
     experiment_id: uuid.UUID | None = Query(default=None),
     version: str | None = Query(default=None),
     db: Session = Depends(get_tenant_db_session),
@@ -244,7 +244,7 @@ def resolve(
     return experiment_service.resolve_parameters(
         db,
         project=project,
-        label=label,
+        environment=environment,
         experiment_id=experiment_id,
         version=version,
         organization_id=organization_id,

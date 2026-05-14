@@ -42,7 +42,7 @@ class Project(BaseEntity):
     organization_id: Optional[str] = None
     id: Optional[str] = None
     parameters_schema: Optional[Dict[str, Any]] = None
-    parameter_labels: Optional[Dict[str, Any]] = None
+    parameter_environments: Optional[Dict[str, Any]] = None
 
 
 class Projects(BaseCollection):

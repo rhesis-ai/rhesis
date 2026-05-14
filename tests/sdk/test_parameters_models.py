@@ -229,8 +229,8 @@ def _make_resolved(**overrides) -> ResolvedParameters:
         },
         experiment_id=uuid4(),
         version="v_abc123",
-        source="label",
-        source_label="default",
+        source="environment",
+        source_environment="default",
     )
     defaults.update(overrides)
     return ResolvedParameters(**defaults)
@@ -287,7 +287,7 @@ def test_resolved_repr_masks_secrets():
         values={"api_key": SecretRefValue(value=uuid4())},
         experiment_id=uuid4(),
         version="v_x",
-        source="label",
+        source="version",
     )
     rep = repr(r)
     assert "<secret>" in rep
@@ -300,13 +300,13 @@ def test_resolved_from_response():
         values={"a": StringValue(value="hello")},
         experiment_id=uuid4(),
         version="v_test",
-        source="label",
-        source_label="default",
+        source="environment",
+        source_environment="default",
     )
     r = ResolvedParameters.from_response(resp)
     assert r["a"] == "hello"
     assert r.version == "v_test"
-    assert r.source_label == "default"
+    assert r.source_environment == "default"
 
 
 def test_resolved_provenance_fields():
@@ -314,13 +314,13 @@ def test_resolved_provenance_fields():
     r = _make_resolved(
         experiment_id=eid,
         version="v_abc",
-        source="label",
-        source_label="production",
+        source="environment",
+        source_environment="production",
     )
     assert r.experiment_id == eid
     assert r.version == "v_abc"
-    assert r.source == "label"
-    assert r.source_label == "production"
+    assert r.source == "environment"
+    assert r.source_environment == "production"
 
 
 # ------------------------------------------------------------------ #

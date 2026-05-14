@@ -44,8 +44,9 @@ from rhesis.sdk.models.parameters import (
         "ParameterSchema",
         "ParameterField",
         "ExperimentVersion",
-        "LabelPointer",
-        "ProjectLabels",
+        "EnvironmentPointer",
+        "ProjectEnvironments",
+        "EnvironmentBindRequest",
         "ResolveResponse",
     ],
 )
@@ -202,8 +203,8 @@ def _make_response() -> ResolveResponse:
             },
             "experiment_id": str(experiment_id),
             "version": "v_deadbeef",
-            "source": "label",
-            "source_label": "default",
+            "source": "environment",
+            "source_environment": "default",
         }
     )
 
@@ -215,8 +216,8 @@ def test_resolved_parameters_acts_like_a_mapping() -> None:
     assert "model" in resolved
     assert resolved["model"] == "gpt-4o"
     assert sorted(resolved.keys()) == ["api_key", "model"]
-    assert resolved.source == "label"
-    assert resolved.source_label == "default"
+    assert resolved.source == "environment"
+    assert resolved.source_environment == "default"
     native = resolved.as_native()
     assert native["model"] == "gpt-4o"
 
@@ -230,8 +231,8 @@ def test_resolved_parameters_repr_masks_secret_refs() -> None:
         },
         experiment_id=uuid.uuid4(),
         version="v_test",
-        source="label",
-        source_label="default",
+        source="environment",
+        source_environment="default",
     )
     rendered = repr(resolved)
     assert "<secret>" in rendered

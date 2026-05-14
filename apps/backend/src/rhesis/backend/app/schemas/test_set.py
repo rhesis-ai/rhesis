@@ -235,13 +235,13 @@ class TestSetExecutionRequest(BaseModel):
     experiment_id: Optional[UUID4] = Field(
         default=None,
         description=(
-            "When set (optionally with version / label), intent is stored on the "
+            "When set (optionally with version / environment), intent is stored on the "
             "created test configuration and resolved into a run snapshot at queue "
-            "time. Omit experiment_id, version, and label for legacy executions."
+            "time. Omit experiment_id, version, and environment for legacy executions."
         ),
     )
     version: Optional[str] = None
-    label: Optional[str] = None
+    environment: Optional[str] = None
 
     @field_validator("execution_options")
     @classmethod

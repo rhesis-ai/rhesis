@@ -20,12 +20,17 @@ def display_experiment_pill(container):
     """Display the active experiment/version pill if resolved from Parameters.get()"""
     from rhesis.sdk import Parameters
     CHATBOT_PROJECT = os.getenv("RHESIS_CHATBOT_PROJECT", "chatbot-demo")
-    PARAMETERS_LABEL = os.getenv("RHESIS_PARAMETERS_LABEL", "default")
+    parameters_environment = os.getenv(
+        "RHESIS_PARAMETERS_ENVIRONMENT",
+        os.getenv("RHESIS_PARAMETERS_LABEL", "default"),
+    )
     try:
-        params = Parameters.get(project=CHATBOT_PROJECT, label=PARAMETERS_LABEL)
+        params = Parameters.get(
+            project=CHATBOT_PROJECT, environment=parameters_environment
+        )
         version_chip = short_version(params.version)
-        source_lbl = params.source_label or params.source
-        container.info(f"🧪 **Live Configuration:** {version_chip} via `{source_lbl}`")
+        source_env = params.source_environment or params.source
+        container.info(f"🧪 **Live Configuration:** {version_chip} via `{source_env}`")
     except Exception:
         # Silently fail, it will fall back to default env/values
         pass

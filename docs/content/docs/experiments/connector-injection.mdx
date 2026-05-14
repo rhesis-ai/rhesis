@@ -73,11 +73,11 @@ For those debugging at the protocol level, the `ExecuteTestMessage` payload sent
 - `parameters`: The resolved `Dict[str, Any]` of values.
 - `parameter_version`: The content hash of the version being executed.
 - `parameter_experiment_id`: The UUID of the experiment.
-- `parameter_source`: The resolution method used (`"label"`, `"experiment_id"`, or `"version"`).
-- `parameter_source_label`: The label name if resolved via a label (e.g., `"default"`).
+- `parameter_source`: The resolution method used (`"environment"`, `"experiment_id"`, or `"version"`). Older snapshots may still show `"label"`; treat it as `"environment"`.
+- `parameter_source_environment`: The environment name when resolution went through an environment (for example `"default"`). Legacy snapshots may use `parameter_source_label` instead.
 - `parameter_schema`: The full schema, allowing the SDK to validate the payload locally.
 
-Because the backend dispatcher copies the `parameter_source` and `parameter_source_label` directly from the run snapshot, the `ResolvedParameters.source_label` inside your application will accurately reflect the label (e.g., "via `default`") that was targeted at run-queue time.
+Because the backend dispatcher copies `parameter_source` and `parameter_source_environment` from the run snapshot, the `ResolvedParameters.source_environment` inside your application reflects the environment (for example "via `default`") that was targeted at run-queue time.
 
 ## Worked Example: The Chatbot
 
@@ -88,7 +88,7 @@ The FastAPI route serves production traffic and uses the context-resolved fetch 
 ```python
 def _resolve_chatbot_params() -> dict:
     try:
-        params = Parameters.get(project="chatbot-demo", label="default")
+        params = Parameters.get(project="chatbot-demo", environment="default")
         return {
             "model": params.get_string("model"),
             "temperature": params.get_number("temperature", 0.7),

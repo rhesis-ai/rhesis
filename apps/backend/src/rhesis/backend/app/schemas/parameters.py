@@ -37,13 +37,13 @@ from pydantic import (
 )
 
 # --------------------------------------------------------------------------- #
-# Well-known labels                                                            #
+# Well-known environments                                                    #
 # --------------------------------------------------------------------------- #
 
-#: Labels rendered in the project labels UI even when unbound. Custom
-#: label names are still freely user-creatable; this tuple is the
+#: Environments rendered in the project UI even when unbound. Custom
+#: environment names are still freely user-creatable; this tuple is the
 #: closed set of names the frontend overlays for first-class display.
-WELL_KNOWN_LABELS: tuple[str, ...] = ("default", "production", "staging")
+WELL_KNOWN_ENVIRONMENTS: tuple[str, ...] = ("default", "production", "staging")
 
 
 # --------------------------------------------------------------------------- #
@@ -257,8 +257,8 @@ class ExperimentVersion(BaseModel):
         return data
 
 
-class LabelPointer(BaseModel):
-    """Resolves a label name to a single ``(experiment, version)`` pair."""
+class EnvironmentPointer(BaseModel):
+    """Resolves an environment name to a single ``(experiment, version)`` pair."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -266,23 +266,28 @@ class LabelPointer(BaseModel):
     version: str
 
 
-class ProjectLabels(BaseModel):
-    """Project-scoped, mutable map of label name -> :class:`LabelPointer`.
+class ProjectEnvironments(BaseModel):
+    """Project-scoped, mutable map of environment name -> :class:`EnvironmentPointer`.
 
-    Only *bound* labels appear in this map. Well-known labels that have
+    Only *bound* environments appear in this map. Well-known environments that have
     not yet been promoted are not stored; the frontend overlays them
     client-side from a shared constants file.
+
+    Legacy rows may still use the ``{"labels": {...}}`` JSON shape; the
+    ``mode="before"`` validator lifts that onto ``environments`` on read.
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    labels: dict[str, LabelPointer] = Field(default_factory=dict)
+    environments: dict[str, EnvironmentPointer] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
-    def _default_labels(cls, data: Any) -> Any:
+    def _default_and_legacy(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            data.setdefault("labels", {})
+            if "environments" not in data and "labels" in data:
+                data = {**data, "environments": data["labels"]}
+            data.setdefault("environments", {})
         return data
 
 
@@ -291,13 +296,17 @@ class ResolveResponse(BaseModel):
 
     Carries the resolved values plus the provenance the SDK and the run
     snapshot need to faithfully record where the values came from. The
-    ``source_label`` is populated only when ``source == 'label'``; for
+    ``source_environment`` is populated only when ``source == 'environment'``; for
     direct ``experiment_id`` / ``version`` lookups it stays ``None`` so
     consumers can tell the two cases apart without ambiguity.
 
     The ``schema`` JSON key is mapped to the Python attribute ``schema_``
     to dodge Pydantic's ``BaseModel.schema`` shadow warning while keeping
     the on-the-wire shape exactly what the plan and the SDK expect.
+
+    Legacy payloads may still use ``source == \"label\"`` and
+    ``source_label``; a ``mode=\"before\"`` validator normalizes those to
+    ``environment`` / ``source_environment``.
     """
 
     model_config = ConfigDict(
@@ -310,8 +319,19 @@ class ResolveResponse(BaseModel):
     values: dict[str, ParameterValue]
     experiment_id: UUID4
     version: str
-    source: Literal["label", "experiment_id", "version"]
-    source_label: str | None = None
+    source: Literal["environment", "experiment_id", "version"]
+    source_environment: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_resolve_wire(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if data.get("source") == "label":
+            data = {**data, "source": "environment"}
+        if "source_environment" not in data and "source_label" in data:
+            data = {**data, "source_environment": data.get("source_label")}
+        return data
 
 
 # --------------------------------------------------------------------------- #
@@ -530,8 +550,8 @@ class ExperimentUpdate(BaseModel):
     """Request body for ``PATCH /experiments/{id}``.
 
     All fields optional — only the keys present in the body are
-    applied. ``visibility`` flips honor the "labels point only at
-    shared experiments" invariant: unsharing while a label points at
+    applied. ``visibility`` flips honor the "environments point only at
+    shared experiments" invariant: unsharing while an environment points at
     this experiment is rejected with 409.
     """
 
@@ -588,10 +608,10 @@ class ExperimentVersionCreate(BaseModel):
     parent_version: str | None = None
 
 
-class LabelBindRequest(BaseModel):
-    """Request body for ``PUT /projects/{id}/parameters/labels/{name}``.
+class EnvironmentBindRequest(BaseModel):
+    """Request body for ``PUT /projects/{id}/parameters/environments/{name}``.
 
-    Carries the ``(experiment_id, version)`` pair the label should
+    Carries the ``(experiment_id, version)`` pair the environment should
     point at. The server validates that the experiment is shared and
     that the version exists before persisting.
     """
@@ -616,13 +636,15 @@ class ExperimentSummary(BaseModel):
     id: UUID4
     name: str
     version: str
-    source_label: str | None = None
+    source_environment: str | None = None
     visibility: Literal["private", "shared"]
 
 
 __all__ = [
     "BooleanValue",
     "EnumValue",
+    "EnvironmentBindRequest",
+    "EnvironmentPointer",
     "ExperimentBase",
     "ExperimentCreate",
     "ExperimentDetail",
@@ -632,20 +654,18 @@ __all__ = [
     "ExperimentVersion",
     "ExperimentVersionCreate",
     "IntegerValue",
-    "LabelBindRequest",
-    "LabelPointer",
     "ModelRefValue",
     "NumberValue",
     "ParameterField",
     "ParameterSchema",
     "ParameterType",
     "ParameterValue",
-    "ProjectLabels",
+    "ProjectEnvironments",
     "ResolveResponse",
     "SecretRefValue",
     "StringValue",
     "TextValue",
-    "WELL_KNOWN_LABELS",
+    "WELL_KNOWN_ENVIRONMENTS",
     "canonical_hash",
     "canonical_schema_fingerprint",
     "canonical_version",

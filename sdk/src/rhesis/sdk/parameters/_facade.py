@@ -8,6 +8,7 @@ instance.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import requests
@@ -15,7 +16,7 @@ import requests
 from rhesis.sdk.config import get_api_key, get_base_url
 from rhesis.sdk.models.parameters import (
     ParameterSchema,
-    ProjectLabels,
+    ProjectEnvironments,
     ResolvedParameters,
     ResolveResponse,
 )
@@ -31,7 +32,7 @@ class Parameters:
 
     All methods are class methods — no instantiation needed::
 
-        params = Parameters.get(project="chatbot-demo", label="default")
+        params = Parameters.get(project="chatbot-demo", environment="default")
         print(params["temperature"])
     """
 
@@ -40,7 +41,7 @@ class Parameters:
         cls,
         project: str,
         *,
-        label: str | None = None,
+        environment: str | None = None,
         experiment_id: str | None = None,
         version: str | None = None,
     ) -> ResolvedParameters:
@@ -50,15 +51,31 @@ class Parameters:
 
         1. ``version`` — immutable content-hash pin
         2. ``experiment_id`` — latest version of that experiment
-        3. ``label`` — movable pointer (``"default"`` when omitted)
+        3. ``environment`` — movable pointer (``"default"`` when omitted)
+
+        When *version*, *experiment_id*, and *environment* are all omitted,
+        ``RHESIS_PARAMETERS_ENVIRONMENT`` is consulted (with legacy
+        ``RHESIS_PARAMETERS_LABEL`` as a fallback) so deploys can pin an
+        environment without code changes.
 
         Results are cached: immutable ``version`` lookups live forever;
-        ``label`` and ``experiment_id`` lookups honour a TTL (default
+        ``environment`` and ``experiment_id`` lookups honour a TTL (default
         60 s). Call :meth:`invalidate` to force a re-fetch.
         """
+        if (
+            environment is None
+            and experiment_id is None
+            and version is None
+        ):
+            pinned = os.getenv("RHESIS_PARAMETERS_ENVIRONMENT") or os.getenv(
+                "RHESIS_PARAMETERS_LABEL"
+            )
+            if pinned:
+                environment = pinned
+
         cached = _cache.get(
             project,
-            label=label,
+            environment=environment,
             experiment_id=experiment_id,
             version=version,
         )
@@ -67,7 +84,7 @@ class Parameters:
 
         response = cls._fetch(
             project,
-            label=label,
+            environment=environment,
             experiment_id=experiment_id,
             version=version,
         )
@@ -75,7 +92,7 @@ class Parameters:
         _cache.put(
             project,
             resolved,
-            label=label,
+            environment=environment,
             experiment_id=experiment_id,
             version=version,
         )
@@ -94,16 +111,16 @@ class Parameters:
         return ParameterSchema.model_validate(resp.json())
 
     @classmethod
-    def labels(cls, project: str) -> ProjectLabels:
-        """Fetch the project's bound labels."""
+    def environments(cls, project: str) -> ProjectEnvironments:
+        """Fetch the project's bound environments."""
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
-        url = f"{base}/projects/{project}/parameters/labels"
+        url = f"{base}/projects/{project}/parameters/environments"
         resp = requests.get(
             url, headers={"Authorization": f"Bearer {api_key}"}
         )
         resp.raise_for_status()
-        return ProjectLabels.model_validate(resp.json())
+        return ProjectEnvironments.model_validate(resp.json())
 
     @classmethod
     def put_schema(cls, project: str, schema: ParameterSchema) -> None:
@@ -122,18 +139,18 @@ class Parameters:
         resp.raise_for_status()
 
     @classmethod
-    def put_label(
+    def put_environment(
         cls,
         project: str,
-        label: str,
+        environment: str,
         *,
         experiment_id: str,
         version: str,
     ) -> None:
-        """Bind *label* to a specific (experiment_id, version) pair."""
+        """Bind *environment* to a specific (experiment_id, version) pair."""
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
-        url = f"{base}/projects/{project}/parameters/labels/{label}"
+        url = f"{base}/projects/{project}/parameters/environments/{environment}"
         resp = requests.put(
             url,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -158,7 +175,7 @@ class Parameters:
         cls,
         project: str,
         *,
-        label: str | None = None,
+        environment: str | None = None,
         experiment_id: str | None = None,
         version: str | None = None,
     ) -> ResolveResponse:
@@ -171,8 +188,8 @@ class Parameters:
             params["version"] = version
         if experiment_id is not None:
             params["experiment_id"] = str(experiment_id)
-        if label is not None:
-            params["label"] = label
+        if environment is not None:
+            params["environment"] = environment
 
         resp = requests.get(
             url,

@@ -523,11 +523,11 @@ async def execute_test_set(
         organization_id, user_id = tenant_context
         experiment_id = None
         experiment_version = None
-        experiment_label = None
+        experiment_environment = None
         if test_configuration_attributes:
             experiment_id = test_configuration_attributes.experiment_id
             experiment_version = test_configuration_attributes.version
-            experiment_label = test_configuration_attributes.label
+            experiment_environment = test_configuration_attributes.environment
 
         result = execute_test_set_on_endpoint(
             db=db,
@@ -543,7 +543,7 @@ async def execute_test_set(
             evaluation_model_id=evaluation_model_id,
             experiment_id=experiment_id,
             experiment_version=experiment_version,
-            experiment_label=experiment_label,
+            experiment_environment=experiment_environment,
         )
         return result
 

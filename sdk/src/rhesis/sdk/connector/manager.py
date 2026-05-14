@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import uuid
 from collections.abc import Callable
 from typing import Any
 
@@ -252,12 +253,15 @@ class ConnectorManager:
                 try:
                     schema = ParameterSchema.model_validate(test_msg.parameter_schema)
                     typed_values = validate_values_against_schema(test_msg.parameters, schema)
+                    src = test_msg.parameter_source or "version"
+                    if src == "label":
+                        src = "environment"
                     resolved_params = ResolvedParameters(
                         values=typed_values,
-                        experiment_id=test_msg.parameter_experiment_id,
+                        experiment_id=uuid.UUID(str(test_msg.parameter_experiment_id)),
                         version=test_msg.parameter_version or "",
-                        source=test_msg.parameter_source or "version",
-                        source_label=test_msg.parameter_source_label,
+                        source=src,
+                        source_environment=test_msg.parameter_source_environment,
                         schema=schema,
                     )
                 except Exception as e:
