@@ -253,11 +253,11 @@ FROM_EMAIL=your_from_email`}
 
 #### AI Model Configuration
 
-An AI provider is required for test generation, evaluation, and multi-turn execution. By default, the system uses `rhesis/rhesis-default` as the model, which requires a `RHESIS_API_KEY`. If you do not configure either a `RHESIS_API_KEY` or an alternative provider with matching `DEFAULT_GENERATION_MODEL`, `DEFAULT_EVALUATION_MODEL`, and `DEFAULT_EXECUTION_MODEL`, test generation and execution will fail.
+An AI provider is required for test generation, evaluation, multi-turn execution, and embeddings. By default, the system uses `rhesis/rhesis-default` for generation, evaluation, and execution, and `rhesis/rhesis-embedding` for embeddings. These hosted defaults require a `RHESIS_API_KEY`. If you do not configure either a `RHESIS_API_KEY` or alternative providers with matching `DEFAULT_GENERATION_MODEL`, `DEFAULT_EVALUATION_MODEL`, `DEFAULT_EXECUTION_MODEL`, and `DEFAULT_EMBEDDING_MODEL`, generation, execution, and Explorer embedding workflows will fail.
 
 **Option 1: Use Rhesis API (Recommended)**
 
-Set your Rhesis API key — no other model configuration is needed since the defaults already use `rhesis/rhesis-default`:
+Set your Rhesis API key — no other model configuration is needed since the defaults already use Rhesis-hosted generation and embedding models:
 
 <CodeBlock filename=".env.docker" language="bash">
 {`# Rhesis API key (get from https://app.rhesis.ai/)
@@ -266,7 +266,7 @@ RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
 
 **Option 2: Use Your Own AI Provider**
 
-Set your provider's API key **and** change the default models to use that provider:
+Set your provider API keys **and** change the default models to use those providers. The embedding provider can be different from the language-model provider:
 
 <CodeBlock filename=".env.docker" language="bash">
 {`# Google Gemini
@@ -275,8 +275,9 @@ GOOGLE_API_KEY=your-google-api-key
 DEFAULT_GENERATION_MODEL=gemini/gemini-2.0-flash-001
 DEFAULT_EVALUATION_MODEL=gemini/gemini-2.0-flash-001
 DEFAULT_EXECUTION_MODEL=gemini/gemini-2.0-flash-001
+DEFAULT_EMBEDDING_MODEL=gemini/gemini-embedding-001
 
-# Or Azure OpenAI
+# Or Azure OpenAI for language models, paired with a supported embedding provider
 AZURE_OPENAI_ENDPOINT=YOUR_AZURE_OPENAI_API_ENDPOINT
 AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_API_KEY
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
@@ -284,15 +285,20 @@ AZURE_OPENAI_API_VERSION=YOUR_AZURE_OPENAI_API_VERSION
 DEFAULT_GENERATION_MODEL=azure/gpt-4o
 DEFAULT_EVALUATION_MODEL=azure/gpt-4o
 DEFAULT_EXECUTION_MODEL=azure/gpt-4o
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+DEFAULT_EMBEDDING_MODEL=openai/text-embedding-3-small
 
 # Or OpenAI
 OPENAI_API_KEY=YOUR_OPENAI_API_KEY
 DEFAULT_GENERATION_MODEL=openai/gpt-4o
 DEFAULT_EVALUATION_MODEL=openai/gpt-4o
-DEFAULT_EXECUTION_MODEL=openai/gpt-4o`}
+DEFAULT_EXECUTION_MODEL=openai/gpt-4o
+DEFAULT_EMBEDDING_MODEL=openai/text-embedding-3-small`}
 </CodeBlock>
 
-Supported provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`, `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`.
+For embeddings, supported default provider prefixes are `rhesis`, `openai`, `gemini`, and `vertex_ai`. If you previously relied on an explicit deployment secret such as `DEFAULT_EMBEDDING_MODEL=vertex_ai/text-embedding-005`, that explicit value continues to override the new `rhesis/rhesis-embedding` code default.
+
+Supported language-model provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`, `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`.
 
 ## Telemetry & Privacy
 
