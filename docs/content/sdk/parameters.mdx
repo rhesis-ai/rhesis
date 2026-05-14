@@ -229,8 +229,10 @@ The resolved values are snapshotted at queue time. Moving a label after the run 
 run = TestRuns.pull(id="run-uuid")
 summary = run.experiment_summary
 if summary:
-    print(f"Experiment: {summary['experiment_id']}")
-    print(f"Version: {summary['version']}")`}
+    print(f"Experiment: {summary['experiment_name']} ({summary['experiment_id']})")
+    print(f"Version: {summary['version']}")
+    print(f"Source: {summary['source']} / {summary['source_label']}")
+    print(f"Resolved values: {summary['parameters']}")`}
 </CodeBlock>
 
 ## Connector injection

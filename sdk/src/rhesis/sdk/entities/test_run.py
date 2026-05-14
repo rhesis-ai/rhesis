@@ -37,13 +37,28 @@ class TestRun(BaseEntity):
     def experiment_summary(self) -> Optional[Dict[str, Any]]:
         """Parameter experiment snapshot stored at queue time, if any.
 
-        Returns a dict with ``experiment_id``, ``version``, and
-        ``resolved_values`` when the run was executed with parameter
-        management, or ``None`` otherwise.
+        Returns a dict with keys ``experiment_id``, ``version``,
+        ``source``, ``source_label``, ``experiment_name``, and
+        ``parameters`` (the resolved values) when the run was
+        executed with parameter management, or ``None`` otherwise.
         """
         if not self.attributes:
             return None
-        return self.attributes.get("experiment_summary")
+        exp_id = self.attributes.get("parameter_experiment_id")
+        if exp_id is None:
+            return None
+        return {
+            "experiment_id": exp_id,
+            "version": self.attributes.get("parameter_version"),
+            "source": self.attributes.get("parameter_source"),
+            "source_label": self.attributes.get(
+                "parameter_source_label"
+            ),
+            "experiment_name": self.attributes.get(
+                "parameter_experiment_name"
+            ),
+            "parameters": self.attributes.get("parameters", {}),
+        }
 
     @field_validator("status", mode="before")
     @classmethod
