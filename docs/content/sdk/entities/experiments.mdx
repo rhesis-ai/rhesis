@@ -1,0 +1,127 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Experiments
+
+An experiment is a named bundle of parameter values for a project. Each save creates an immutable version identified by a content hash.
+
+## Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `name` | `str` | Display name |
+| `description` | `str` | Optional description |
+| `project_id` | `str` | Parent project ID |
+| `visibility` | `str` | `"private"` (default) or `"shared"` |
+| `versions_count` | `int` | Number of committed versions |
+| `latest_version` | `str` | Content hash of the most recent version |
+
+## Creating experiments
+
+<CodeBlock filename="create.py" language="python">
+{`from rhesis.sdk.entities import Experiment
+
+exp = Experiment(
+    name="tuning-v1",
+    project_id="my-project",
+    description="Initial tuning run",
+)
+exp.push()
+print(f"Created: {exp.id}")`}
+</CodeBlock>
+
+## Committing values
+
+Each commit creates an immutable version. Pass bare Python values — the SDK wraps them using the project schema:
+
+<CodeBlock filename="commit.py" language="python">
+{`version = exp.commit(
+    {"model": "gpt-4o", "temperature": 0.9},
+    message="bump temp",
+)
+print(f"Version: {version['version']}")  # v_a3f9b8...`}
+</CodeBlock>
+
+Chain versions using `parent_version`:
+
+<CodeBlock filename="commit_chain.py" language="python">
+{`v1 = exp.commit({"temperature": 0.3}, message="cold")
+v2 = exp.commit(
+    {"temperature": 0.9},
+    message="hot",
+    parent_version=v1["version"],
+)`}
+</CodeBlock>
+
+## Sharing and promoting
+
+<CodeBlock filename="share_promote.py" language="python">
+{`# Make visible to the team
+exp.share()
+
+# Bind the latest version to a label
+exp.promote(label="default")
+
+# Revert to private
+exp.unshare()`}
+</CodeBlock>
+
+Only shared experiments can be promoted to a label.
+
+## One-liner publish
+
+`publish()` does create, commit, share, and promote in a single call:
+
+<CodeBlock filename="publish.py" language="python">
+{`exp = Experiment.publish(
+    name="tuning-v2",
+    project_id="my-project",
+    values={"model": "claude-sonnet", "temperature": 0.5},
+    message="switch to Claude",
+    label="default",
+)
+print(f"Live at version {exp.latest_version}")`}
+</CodeBlock>
+
+## Reading version history
+
+<CodeBlock filename="versions.py" language="python">
+{`# Latest version
+latest = exp.latest_version_data()
+print(f"{latest['version']}: {latest['message']}")
+
+# Specific version
+v = exp.get_version("v_abc123")
+print(v["values"])`}
+</CodeBlock>
+
+## Fetching experiments
+
+<CodeBlock filename="fetch.py" language="python">
+{`from rhesis.sdk.entities import Experiments
+
+# List all
+for exp in Experiments.all():
+    print(f"{exp.name} ({exp.visibility})")
+
+# By name
+exp = Experiments.pull(name="tuning-v1")
+
+# By ID
+exp = Experiments.pull(id="exp-uuid")`}
+</CodeBlock>
+
+## Deleting experiments
+
+<CodeBlock filename="delete.py" language="python">
+{`exp.delete()`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - [Parameters & Experiments SDK guide](/sdk/parameters) for the full workflow
+  - [Parameters schema](/docs/parameters) for defining typed slots
+  - [Experiments concepts](/docs/experiments) for the mental model
+</Callout>

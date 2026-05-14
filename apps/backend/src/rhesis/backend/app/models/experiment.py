@@ -20,7 +20,6 @@ from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.pydantic_column import (
-    pydantic_jsonb_column,
     pydantic_list_jsonb_column,
 )
 from rhesis.backend.app.schemas.parameters import (

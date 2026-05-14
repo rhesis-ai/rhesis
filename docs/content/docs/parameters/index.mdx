@@ -1,0 +1,116 @@
+import { Callout } from 'nextra/components'
+
+# Parameter Schema
+
+<Callout type="default">
+  A *Parameter Schema* declares the typed knobs your project supports. It doesn't hold values — it defines what's possible. [Experiments](/docs/experiments) fill in the values.
+</Callout>
+
+## Why parameter schemas?
+
+Production AI applications have many knobs: system prompts, model selections, sampling temperatures, retrieval strategies, and evaluation thresholds. 
+
+Without a central place to declare and govern these parameters, configuration drifts over time: you end up with stale prompts hardcoded in application logic, mystery numbers scattered in `.env` files, and disparate configuration approaches across teams.
+
+Parameter management gives the *configuration surface* of an application a typed, versioned home — extending far beyond just prompt management to encompass the entire behavioral surface of your AI features.
+
+## The schema as a contract
+
+Your project's Parameter Schema declares the *shape* of every experiment in that project. It acts as a strict contract between your application code and your configuration layer.
+
+Because it serves as a contract, there is only **one schema per project**, not per experiment. Adding a slot to the schema is a non-breaking change (existing experiments simply lack the new key), but renaming or removing a slot must be treated carefully since application code may still expect it. 
+
+<Callout type="warning">
+  **Renaming parameters:** Renaming a slot in the schema is not auto-migrated. The recommended workflow is: add the new field, dual-read both fields in your application code, update your experiments to populate the new field, and finally remove the old field from the schema.
+</Callout>
+
+## Supported parameter types
+
+| Type | Description | Example | UI Input |
+| --- | --- | --- | --- |
+| `text` | Multi-line text block. Use this for system prompts, context templates, and long-form instructions. | `"You are a helpful assistant..."` | Multi-line textarea |
+| `string` | Single-line identifier. Use this for model names, IDs, or short text. | `"vertex_ai/gemini-2.0-flash"` | Single-line input |
+| `number` | Floating point numeric value. Use for temperature, thresholds, etc. | `0.7` | Numeric input |
+| `integer` | Whole number value. Use for token limits, retry counts, K-values. | `1024` | Numeric input |
+| `boolean` | True/false toggle. Use for feature flags or boolean behaviors. | `true` | Switch / toggle |
+| `enum` | Closed set of string options. | `"travel"` (from `["travel", "medical"]`) | Dropdown select |
+| `model_ref` | Reference to an LLM model configured in Rhesis. | `"550e8400-e29b-41d4-a716-446655440000"` | Model autocomplete |
+| `secret_ref` | Reference to a secure credential. Masked in UI. | `"f47ac10b-58cc-4372-a567-0e02b2c3d479"` | Secret picker |
+
+## Defining the schema in the UI
+
+To define your schema visually:
+
+1. Navigate to your **Project** page.
+2. Select the **Parameters** tab.
+3. Use the list editor to add parameter slots. For each slot:
+   - Provide a `snake_case` name.
+   - Select the parameter type.
+   - (Optional) Provide a default value.
+   - If you selected `enum`, provide the allowed options.
+4. Click **Save** to update the project schema.
+
+*(Screenshot placeholder: Parameter schema editor)*
+
+## Defining via the API
+
+You can also define your schema programmatically. The API uses a single `PUT` request to replace the entire schema atomically.
+
+Here is a realistic schema for a chatbot application containing seven parameter slots:
+
+```json
+PUT /v1/projects/{project_id}/parameters/schema
+{
+  "fields": [
+    {
+      "name": "system_prompt",
+      "type": "text",
+      "required": false,
+      "description": "Override the system prompt"
+    },
+    {
+      "name": "use_case",
+      "type": "enum",
+      "required": false,
+      "options": ["travel", "insurance", "medical", "echo"],
+      "default": {"type": "enum", "value": "travel"}
+    },
+    {
+      "name": "model",
+      "type": "string",
+      "required": false,
+      "description": "LLM provider string"
+    },
+    {
+      "name": "temperature",
+      "type": "number",
+      "required": false,
+      "default": {"type": "number", "value": 0.7}
+    },
+    {
+      "name": "max_tokens",
+      "type": "integer",
+      "required": false,
+      "default": {"type": "integer", "value": 1024}
+    },
+    {
+      "name": "output_mode",
+      "type": "enum",
+      "required": false,
+      "options": ["text", "json"],
+      "default": {"type": "enum", "value": "text"}
+    },
+    {
+      "name": "context_strategy",
+      "type": "enum",
+      "required": false,
+      "options": ["heuristic", "rag", "none"],
+      "default": {"type": "enum", "value": "heuristic"}
+    }
+  ]
+}
+```
+
+## Next steps
+
+Once your schema is defined, the next step is creating experiments that fill it in. See [Experiments](/docs/experiments) for details on how to bundle, version, and promote your parameter values.

@@ -151,26 +151,38 @@ class TemplateRenderer:
         """
         import re
 
-        # Check if template is a simple variable reference: {{ var_name }}
-        simple_var_pattern = r"^\{\{\s*(\w+)\s*\}\}$"
+        # Check if template is a simple variable reference: {{ var_name }} or {{ var.name }}
+        simple_var_pattern = r"^\{\{\s*([A-Za-z0-9_.]+)\s*\}\}$"
         match = re.match(simple_var_pattern, original_template)
 
         if match:
-            var_name = match.group(1)
-            if var_name in render_context:
-                value = render_context[var_name]
-
+            var_path = match.group(1)
+            
+            # Navigate dotted path to get value
+            parts = var_path.split('.')
+            value = render_context
+            found = True
+            for part in parts:
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                elif hasattr(value, part):
+                    value = getattr(value, part)
+                else:
+                    found = False
+                    break
+                    
+            if found:
                 # Check if value is a Pydantic model - convert to dict for serialization
                 if hasattr(value, "model_dump"):
                     logger.debug(
                         f"Converting Pydantic model {type(value).__name__} to dict "
-                        f"for template {{ {var_name} }}"
+                        f"for template {{ {var_path} }}"
                     )
                     return value.model_dump(exclude_none=True)
 
                 # If the value is a complex type, return it directly
                 if isinstance(value, (dict, list)):
-                    logger.debug(f"Preserving {type(value).__name__} for template {{ {var_name} }}")
+                    logger.debug(f"Preserving {type(value).__name__} for template {{ {var_path} }}")
                     return value
 
         # For non-simple templates, try to parse as JSON (e.g. filter output)

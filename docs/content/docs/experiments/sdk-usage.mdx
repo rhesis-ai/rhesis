@@ -1,0 +1,147 @@
+import { Callout } from 'nextra/components'
+
+# SDK Usage
+
+<Callout type="default">
+  How your application code reads parameter values, with the right caching and override semantics for production.
+</Callout>
+
+## The simple case
+
+Retrieving configuration in your application code should be simple and unobtrusive. In the typical case, fetching parameter values is a single line:
+
+```python
+from rhesis.sdk import Parameters
+
+# Resolves against the 'default' label
+params = Parameters.get(project="customer-support")
+
+# Use the typed accessors
+response = llm.chat(
+    model=params.get_string("model"), 
+    temperature=params.get_number("temperature")
+)
+```
+
+Production code typically looks just like this — no wrappers, no fallbacks, no special-casing for tests. Tests "just work" because of the contextvar precedence (covered in [Connector Injection](/docs/experiments/connector-injection)).
+
+## Retrieval modes
+
+There are three ways to call `Parameters.get()`, depending on your use case:
+
+1. **By Label (Live config):**
+   ```python
+   # Evaluates the pointer and returns whatever it currently targets
+   params = Parameters.get(project="support", label="production")
+   ```
+
+2. **By Version (Immutable pin):**
+   ```python
+   # Fetches an exact, immutable snapshot. Useful for deploy-time pinning.
+   params = Parameters.get(project="support", version="v_abc123")
+   ```
+
+3. **By Experiment ID (Latest draft):**
+   ```python
+   # Fetches the newest version of a specific experiment. 
+   # Useful for staging a candidate before promoting it.
+   params = Parameters.get(project="support", experiment_id="exp_...")
+   ```
+
+## Typed accessors
+
+The `ResolvedParameters` object returned by `Parameters.get()` provides typed accessors for your schema slots:
+
+- `params.get_text("system_prompt")`
+- `params.get_string("model")`
+- `params.get_number("temperature")`
+- `params.get_integer("max_tokens")`
+- `params.get_boolean("use_streaming")`
+- `params.get_enum("use_case")`
+- `params.get_model_ref("primary_model")` (Returns a UUID)
+- `params.get_secret_ref("api_key")` (Returns a UUID)
+
+These methods return the underlying typed Python value and will raise a `TypeError` on a type mismatch. You can provide a default value as the second argument.
+
+Plain dictionary access (`params["model"]`) and `.get(name)` are also available for ad-hoc reads.
+
+## Resolution order (Policy)
+
+The `Parameters.get()` method resolves values using a strict precedence order (first match wins):
+
+1. **Connector Contextvar:** Injected by the platform during a test run. This wins unconditionally so tests cannot accidentally hit the network for live configuration.
+2. **Environment Variables:** `RHESIS_PARAMETERS_PIN` or `RHESIS_PARAMETERS_LABEL`. Lets ops pin a deploy without code changes.
+3. **Explicit Kwargs:** `version` > `experiment_id` > `label` > implicit `label='default'`. Lets application code be explicit.
+4. **HTTP API Fetch:** If none of the above short-circuit the resolution, it fetches from the Rhesis API.
+
+The order is "innermost wins" — overrides closer to the running call beat global settings.
+
+## Caching, with intent
+
+The SDK implements an in-process cache so production code can call `Parameters.get()` on every request without paying constant network costs.
+
+- **Version entries** are cached forever, because versions are immutable by definition.
+- **Label and Experiment ID entries** are cached with a Time-To-Live (TTL), defaulting to 60 seconds. Since the underlying version a label points to can change, stale entries trigger a refresh on the next access.
+
+You can manually invalidate the cache during testing using `Parameters.invalidate(...)`.
+
+## Environment Variable Overrides
+
+The SDK respects environment variables as a deployment primitive. 
+
+- `RHESIS_PARAMETERS_PIN=v_abc123` pins the application to an immutable version regardless of label movement. This acts as a production safety net or staged rollout mechanism.
+- `RHESIS_PARAMETERS_LABEL=production` switches the application to a non-default label without requiring code changes.
+
+This gives operators a code-free escape hatch to manage configuration rollouts.
+
+## Error handling & graceful degradation
+
+By default, `Parameters.get()` fails loudly. It raises `RhesisAPIError` on backend failure and `KeyError` on a missing label.
+
+Failing loudly is the default behavior because silently serving stale configuration in production is often worse than a noisy error. 
+
+However, if your application requires graceful degradation, you must implement it yourself. The chatbot demo application provides an example of a try/except wrapper that falls back to environment defaults:
+
+```python
+def _resolve_chatbot_params() -> dict:
+    try:
+        params = Parameters.get(project="chatbot-demo", label="default")
+        return {
+            "model": params.get_string("model"),
+            "temperature": params.get_number("temperature", 0.7),
+        }
+    except Exception:
+        logger.exception("SDK Parameters.get() failed, using fallbacks")
+        return {
+            "model": os.getenv("DEFAULT_GENERATION_MODEL"), 
+            "temperature": 0.7,
+        }
+```
+
+## Authoring experiments programmatically
+
+You can author experiments entirely through the SDK using the `Experiment` entity:
+
+```python
+from rhesis.sdk.entities import Experiment
+
+# 1. Create the empty experiment shell
+exp = Experiment(
+    name="high-temp", 
+    project_id="customer-support", 
+    description="hotter sampling"
+)
+exp.push()
+
+# 2. Save values (creates a new immutable Version)
+exp.commit(
+    values={"model": "gpt-4o", "temperature": 0.9},
+    message="bump temp"
+)
+
+# 3. Flip visibility to shared (opens it up to the team)
+exp.share()
+
+# 4. Move a label to point at the new version (the deploy step)
+exp.promote(label="default")
+```

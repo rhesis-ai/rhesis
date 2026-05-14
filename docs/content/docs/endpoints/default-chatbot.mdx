@@ -95,7 +95,7 @@ Authorization: Bearer <your-api-key>  # Required if authentication is enabled
 
 - `message` (string, required): Your question or message to Rosalind
 - `session_id` (string, optional): UUID for conversation continuity. If omitted, a new session is created
-- `use_case` (string, optional): The domain context. Defaults to "insurance"
+- `use_case` (string, optional): The domain context. Defaults to "travel"
 
 ### Health Check Endpoint
 
@@ -184,6 +184,12 @@ Retrieve conversation history for a specific session.
 **DELETE** `/sessions/{session_id}`
 
 Delete a conversation session and its history.
+
+## Parameter Awareness
+
+The default chatbot is a parameter-aware endpoint. It uses **[Parameters & Experiments](/docs/parameters)** to manage its system prompt, use case, model, temperature, and output mode. 
+
+In the Streamlit UI, you will see an **Experiment Pill** indicating which experiment and version is currently live (and which label was used to fetch it). This allows you to explore the parameter management workflow immediately: simply create a new experiment in the project, promote it to the `default` label, and watch the chatbot pick up the new behavior after the next TTL cache refresh.
 
 ## Authentication
 

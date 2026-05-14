@@ -1,0 +1,133 @@
+import { Callout } from 'nextra/components'
+
+# Experiments
+
+<Callout type="default">
+  An *Experiment* is one attempt at a configuration. *Versions* are its history. *Labels* are how the world finds it.
+</Callout>
+
+## The mental model
+
+Experiments follow a specific lifecycle from private drafting to production deployment:
+
+```mermaid
+flowchart LR
+    Schema["Project schema<br/>declares typed slots"]
+    Author["Create experiment<br/>private to me"]
+    Commit["Save values<br/>= new immutable version"]
+    Share["Flip to shared<br/>visible to project"]
+    Promote["Promote to label<br/>(e.g. 'default')"]
+    Resolve["SDK / test runs<br/>resolve via label"]
+
+    Schema --> Author
+    Author --> Commit
+    Commit -. iterate .-> Commit
+    Commit --> Share
+    Share --> Promote
+    Promote --> Resolve
+```
+
+1. **Schema:** The project's [Parameter Schema](/docs/parameters) defines the typed slots available to configure.
+2. **Author:** You create a new experiment. By default, it is private to you, providing a safe sandbox.
+3. **Commit:** You fill in values for the parameter slots and save. Every save mints a new, immutable *Version* with a content hash.
+4. **Share:** Once the experiment is ready, you flip its visibility to shared, making it visible to your team.
+5. **Promote:** You promote a specific version of your shared experiment to a *Label* (like `default` or `production`). 
+6. **Resolve:** Application code and test runs request parameters by label, automatically receiving the newly promoted configuration.
+
+## Vocabulary
+
+Before diving into mechanics, it's helpful to establish precise definitions:
+
+- **Parameter Schema** — A project-scoped, typed *contract*. Declares what knobs exist (slot name + type + default).
+- **Parameter** (or *slot*) — One named entry in the schema.
+- **Experiment** — A named, owned attempt at a configuration. Holds values for the schema's slots.
+- **Version** — An immutable snapshot of an experiment's values at a moment in time, identified by a content hash. 
+- **Label** — A movable, project-scoped pointer at a specific `(experiment, version)` pair.
+- **Visibility** — A per-experiment flag (`private` vs `shared`).
+- **Promoting** — Moving a label to point at a different version.
+- **Pinning** — Fetching configuration by `version` instead of by label.
+- **Snapshotting** — Capturing resolved values at run-queue time to guarantee test reproducibility.
+
+## Why immutable versions?
+
+Versions are immutable so a test run can be re-run six months from now and produce bit-identical inputs. 
+
+If versions were mutable, changing a parameter would silently invalidate historical test results. Because Rhesis uses a content-hash identifier for versions, the audit trail is exact: "this run used `v_a3f9b8`".
+
+## Why movable labels?
+
+Production code shouldn't hardcode version hashes — it asks for `label="production"`. 
+
+Labels separate *what's running* from *what was running*. Promoting a label is the deployment step. Tying labels to versions (not to experiments) means you can promote the same experiment to multiple labels (e.g., staging an experiment before rolling it out to production).
+
+## Visibility: private vs shared
+
+Private experiments are your personal sandboxes — your colleagues can't accidentally use yours, and you can't accidentally affect theirs. 
+
+Sharing an experiment is the explicit act of saying "this is ready to be a team artifact". As a safety mechanism, only `shared` experiments can be promoted onto a label, ensuring a stray draft can't accidentally hit production.
+
+## Promoting (the deployment primitive)
+
+*Promoting* is the act of moving a label.
+
+The mechanics are simple: pick a `shared` experiment, select a version, and click "Promote to default" (or any other label).
+
+<Callout type="warning">
+  **Deployment Impact:** Moving a label immediately impacts all consumers resolving against that label (after their short TTL cache expires). Promoting the `production` label is a true deployment and should be treated as a deliberate action.
+</Callout>
+
+## Default vs production vs staging
+
+Rhesis provides three well-known labels out of the box: `default`, `production`, and `staging`.
+
+- `default` is the implicit pointer. It's what the SDK returns when no label is explicitly requested.
+- `production` and `staging` enable environment-style fan-out without needing to copy experiments between projects.
+
+You can also create custom labels at will for your own environments or workflows.
+
+## Reproducibility: snapshotting
+
+When a test run is queued, Rhesis *snapshots* the resolved parameter values.
+
+This means that if a label is moved *after* a run is queued, the test run is not perturbed. The worker only reads from the snapshot. This guarantees that test runs remain reproducible even as your labels point to newer configurations over time.
+
+For the most reproducible production deployments, you can *pin* a version in the SDK (`version="v_abc"`) to bypass label resolution entirely.
+
+## UI Walkthrough
+
+### Running a test set against an experiment
+
+When executing a Test Set, you can optionally target it against an experiment:
+
+1. Open the Execute drawer for a Test Set.
+2. Select an **Experiment** from the dropdown.
+3. (Optional) Pin to a specific version.
+4. Review the resolved-values preview (secret references are masked).
+5. Click Run.
+
+*(Screenshot placeholder: Execute drawer with experiment selector)*
+
+### The Latest Results panel
+
+The bottom of the Experiment detail page features the Latest Results panel. This fetches recent test runs that executed against versions of this experiment.
+
+It offers two toggleable views:
+
+1. **By run:** A flat list providing a pass/fail summary per run with deep links to the test run details.
+2. **By version (config-diff):** Runs grouped by `parameter_version`, ordered newest first. For each pair of adjacent versions, a compact diff row shows:
+   - The changed parameter slots and their before/after values (e.g., `temperature: 0.7 → 1.4`).
+   - The pass-rate before vs after, and the delta (e.g., `82% → 70% (-12pp)`).
+
+The config-diff view is your primary regression-finder: it surfaces exactly which edit broke things without requiring manual reasoning.
+
+*(Screenshot placeholder: Latest results panel showing config diffs)*
+
+## Comparisons
+
+To help anchor the mental model, here is how Rhesis parameter management compares to systems you may already know:
+
+| Rhesis | Git | Feature Flags | MLflow |
+| --- | --- | --- | --- |
+| Version | Commit (immutable hash) | Rule Snapshot | Run |
+| Label | Branch Tip / Tag | Environment | Tag |
+| Experiment | Branch | Flag | Experiment |

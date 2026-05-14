@@ -1,8 +1,34 @@
+import os
+
 import streamlit as st
+from client import _resolve_chatbot_params
 from endpoint import stream_assistant_response_sync
+
+
+def short_version(v: str) -> str:
+    if not v:
+        return ""
+    if v.startswith("v_"):
+        return f"v_{v[2:8]}"
+    return v[:8]
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="Insurance Assistant", page_icon="👩‍💼", layout="centered")
+
+
+def display_experiment_pill(container):
+    """Display the active experiment/version pill if resolved from Parameters.get()"""
+    from rhesis.sdk import Parameters
+    CHATBOT_PROJECT = os.getenv("RHESIS_CHATBOT_PROJECT", "chatbot-demo")
+    PARAMETERS_LABEL = os.getenv("RHESIS_PARAMETERS_LABEL", "default")
+    try:
+        params = Parameters.get(project=CHATBOT_PROJECT, label=PARAMETERS_LABEL)
+        version_chip = short_version(params.version)
+        source_lbl = params.source_label or params.source
+        container.info(f"🧪 **Live Configuration:** {version_chip} via `{source_lbl}`")
+    except Exception:
+        # Silently fail, it will fall back to default env/values
+        pass
 
 
 def display_welcome_message(container):
@@ -55,6 +81,7 @@ def main():
 
     # Header section
     with header:
+        display_experiment_pill(header)
         st.title("Hi, I'm Rosalind 👩‍💼")
         if not st.session_state.messages:
             display_welcome_message(header)
@@ -99,12 +126,23 @@ def main():
 
             # Show loading spinner before streaming starts
             with st.spinner("Thinking..."):
+                # Resolve parameters so they affect the stream
+                params = _resolve_chatbot_params()
+                
                 # Get first chunk to ensure connection is established
                 try:
                     # Pass conversation history (excluding the current user message we just added)
                     conversation_history = st.session_state.messages[:-1]
                     stream = stream_assistant_response_sync(
-                        prompt, conversation_history=conversation_history
+                        prompt, 
+                        use_case=params.get("use_case", "travel"),
+                        conversation_history=conversation_history,
+                        mode=params.get("output_mode", "text"),
+                        system_prompt_override=params.get("system_prompt"),
+                        model=params.get("model"),
+                        temperature=params.get("temperature", 0.7),
+                        max_tokens=params.get("max_tokens", 1024),
+                        context_strategy=params.get("context_strategy", "heuristic"),
                     )
                     first_chunk = next(stream)
                     full_response = first_chunk

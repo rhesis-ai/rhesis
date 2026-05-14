@@ -25,6 +25,8 @@ from .model import router as model_router
 from .organization import router as organization_router
 from .parameters import (
     project_experiments_router as project_experiments_router,
+)
+from .parameters import (
     router as parameters_router,
 )
 from .project import router as project_router

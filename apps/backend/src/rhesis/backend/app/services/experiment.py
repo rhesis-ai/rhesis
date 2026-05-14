@@ -34,11 +34,12 @@ from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.experiment import Experiment
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.schemas.parameters import (
+    ExperimentDetail,
+    ExperimentRead,
     ExperimentSummary,
     ExperimentVersion,
     LabelPointer,
     ParameterSchema,
-    ParameterValue,
     ProjectLabels,
     ResolveResponse,
     canonical_hash,
@@ -210,6 +211,15 @@ def append_version(
     if versions and versions[-1].version == new_version_id:
         return AppendResult(version=versions[-1], created=False)
 
+    # Validate explicit parent_version exists in the versions array
+    if parent_version is not None and versions:
+        known = {v.version for v in versions}
+        if parent_version not in known:
+            raise ValueError(
+                f"parent_version {parent_version!r} does not exist"
+                " in this experiment's version history"
+            )
+
     new_entry = ExperimentVersion(
         version=new_version_id,
         schema_fingerprint=fingerprint,
@@ -236,7 +246,8 @@ def append_version(
 # --------------------------------------------------------------------------- #
 
 
-def _coerce_labels(project: Project) -> ProjectLabels:
+def coerce_labels(project: Project) -> ProjectLabels:
+    """Safely coerce the project's ``parameter_labels`` JSONB to a typed model."""
     raw = project.parameter_labels
     if isinstance(raw, ProjectLabels):
         return raw
@@ -245,13 +256,19 @@ def _coerce_labels(project: Project) -> ProjectLabels:
     return ProjectLabels.model_validate(raw)
 
 
-def _coerce_schema(project: Project) -> ParameterSchema:
+def coerce_schema(project: Project) -> ParameterSchema:
+    """Safely coerce the project's ``parameters_schema`` JSONB to a typed model."""
     raw = project.parameters_schema
     if isinstance(raw, ParameterSchema):
         return raw
     if raw is None:
         return ParameterSchema()
     return ParameterSchema.model_validate(raw)
+
+
+# Keep private aliases for backward compat within this module
+_coerce_labels = coerce_labels
+_coerce_schema = coerce_schema
 
 
 def labels_pointing_at_experiment(
@@ -670,12 +687,56 @@ def connector_execute_extras_from_run_attributes(
     return extras
 
 
+def to_read(db_experiment: Experiment) -> ExperimentRead:
+    """Convert a DB experiment row to the compact list/read shape."""
+    last = latest_version(db_experiment)
+    return ExperimentRead(
+        id=db_experiment.id,
+        name=db_experiment.name,
+        description=db_experiment.description,
+        visibility=db_experiment.visibility,  # type: ignore[arg-type]
+        project_id=db_experiment.project_id,
+        owner_user_id=db_experiment.owner_user_id,
+        organization_id=db_experiment.organization_id,
+        versions_count=len(db_experiment.versions or []),
+        latest_version=last.version if last else None,
+        created_at=db_experiment.created_at,
+        updated_at=db_experiment.updated_at,
+    )
+
+
+def to_detail(db_experiment: Experiment) -> ExperimentDetail:
+    """Convert a DB experiment row to the detail shape (with versions)."""
+    versions: list[ExperimentVersion] = [
+        v if isinstance(v, ExperimentVersion)
+        else ExperimentVersion.model_validate(v)
+        for v in (db_experiment.versions or [])
+    ]
+    last = versions[-1] if versions else None
+    return ExperimentDetail(
+        id=db_experiment.id,
+        name=db_experiment.name,
+        description=db_experiment.description,
+        visibility=db_experiment.visibility,  # type: ignore[arg-type]
+        project_id=db_experiment.project_id,
+        owner_user_id=db_experiment.owner_user_id,
+        organization_id=db_experiment.organization_id,
+        versions_count=len(versions),
+        latest_version=last.version if last else None,
+        created_at=db_experiment.created_at,
+        updated_at=db_experiment.updated_at,
+        versions=versions,
+    )
+
+
 __all__ = [
     "AppendResult",
     "append_version",
     "apply_parameter_snapshot_to_run_attributes",
     "assert_no_active_labels",
     "bind_label",
+    "coerce_labels",
+    "coerce_schema",
     "connector_execute_extras_from_run_attributes",
     "experiment_summary_dict_from_run_attributes",
     "find_version",
@@ -684,6 +745,8 @@ __all__ = [
     "labels_pointing_at_experiment",
     "latest_version",
     "resolve_parameters",
+    "to_detail",
+    "to_read",
     "to_summary",
     "unbind_label",
 ]

@@ -5,7 +5,6 @@ from typing import Any, Dict, Union
 
 import httpx
 from fastapi import HTTPException
-from jinja2 import Template
 from sqlalchemy.orm import Session
 from tenacity import (
     retry,
@@ -314,25 +313,32 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         if endpoint.auth_type or endpoint.auth_token:
             auth_token = self._get_valid_token(db, endpoint)
 
-            # Replace {{ auth_token }} placeholders in header values
-            for key, value in headers.items():
-                if isinstance(value, str):
-                    # Handle {{ auth_token }} Jinja2 template
-                    if "{{ auth_token }}" in value:
-                        template = Template(value)
-                        headers[key] = template.render(auth_token=auth_token)
-
-                    # Handle legacy {API_KEY} placeholder (single braces)
-                    elif "{API_KEY}" in value:
-                        headers[key] = value.replace("{API_KEY}", auth_token or "")
-
-                    # Handle {auth_token} placeholder (single braces)
-                    elif "{auth_token}" in value:
-                        headers[key] = value.replace("{auth_token}", auth_token or "")
-
             # Automatically add Authorization header if not explicitly set
             if "Authorization" not in headers and auth_token:
                 headers["Authorization"] = f"Bearer {auth_token}"
+        else:
+            auth_token = ""
+
+        # Prepare context for rendering
+        template_context = input_data.copy() if input_data else {}
+        template_context["auth_token"] = auth_token
+
+        # Render headers
+        rendered_headers = {}
+        for key, value in headers.items():
+            if isinstance(value, str):
+                # Legacy replacements first
+                if "{API_KEY}" in value:
+                    value = value.replace("{API_KEY}", auth_token or "")
+                if "{auth_token}" in value:
+                    value = value.replace("{auth_token}", auth_token or "")
+                
+                # Jinja rendering (handles {{ auth_token }} and {{ params.* }})
+                rendered_headers[key] = str(self.template_renderer.render(value, template_context))
+            else:
+                rendered_headers[key] = value
+        
+        headers = rendered_headers
 
         # Inject context headers using shared base method
         self._inject_context_headers(headers, input_data)

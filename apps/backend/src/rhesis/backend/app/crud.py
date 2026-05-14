@@ -2153,9 +2153,18 @@ def get_test_runs(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    experiment_id: str | None = None,
+    parameter_version: str | None = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
+    def experiment_filter(q):
+        if experiment_id:
+            q = q.filter(models.TestRun.attributes['parameter_experiment_id'].astext == str(experiment_id))
+        if parameter_version:
+            q = q.filter(models.TestRun.attributes['parameter_version'].astext == str(parameter_version))
+        return q
+
     return (
         QueryBuilder(db, models.TestRun)
         .with_optimized_loads(
@@ -2164,6 +2173,7 @@ def get_test_runs(
             nested_relationships=_TEST_RUN_NESTED_RELS,
         )
         .with_custom_filter(_defer_endpoint_last_token)
+        .with_custom_filter(experiment_filter)
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_odata_filter(filter)

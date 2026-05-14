@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional
+from typing import Any, ClassVar, Dict, Optional
 
 from rhesis.sdk.clients import Endpoints
 from rhesis.sdk.entities.base_collection import BaseCollection
@@ -41,6 +41,8 @@ class Project(BaseEntity):
     owner_id: Optional[str] = None
     organization_id: Optional[str] = None
     id: Optional[str] = None
+    parameters_schema: Optional[Dict[str, Any]] = None
+    parameter_labels: Optional[Dict[str, Any]] = None
 
 
 class Projects(BaseCollection):

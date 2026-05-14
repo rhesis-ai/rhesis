@@ -233,6 +233,12 @@ class ConnectorManager:
         Args:
             message: Test execution message
         """
+        from rhesis.sdk.models.parameters import (
+            ParameterSchema,
+            ResolvedParameters,
+            validate_values_against_schema,
+        )
+        
         try:
             test_msg = ExecuteTestMessage(**message)
             function_name = test_msg.function_name
@@ -240,6 +246,22 @@ class ConnectorManager:
             inputs = test_msg.inputs
 
             logger.info(f"Executing test for function: {function_name}")
+            
+            resolved_params = None
+            if test_msg.parameter_experiment_id and test_msg.parameter_schema:
+                try:
+                    schema = ParameterSchema.model_validate(test_msg.parameter_schema)
+                    typed_values = validate_values_against_schema(test_msg.parameters, schema)
+                    resolved_params = ResolvedParameters(
+                        values=typed_values,
+                        experiment_id=test_msg.parameter_experiment_id,
+                        version=test_msg.parameter_version or "",
+                        source=test_msg.parameter_source or "version",
+                        source_label=test_msg.parameter_source_label,
+                        schema=schema,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to parse resolved parameters: {e}")
 
             # Validate function exists
             if not self._registry.has(function_name):
@@ -266,9 +288,33 @@ class ConnectorManager:
                 )
                 return
 
-            result = await self._executor.execute(
-                func, function_name, inputs, serializers=serializers
-            )
+            from rhesis.sdk.decorators._state import _parameters_context
+            token = _parameters_context.set(resolved_params)
+            try:
+                # If the endpoint declared parameters=True (or a list of
+                # names), merge resolved parameter values into inputs.
+                # Per plan: parameter wins on collision with request-mapping.
+                expects_params = metadata.get("parameters", False)
+                if expects_params and resolved_params:
+                    native = resolved_params.as_native()
+                    if isinstance(expects_params, list):
+                        native = {
+                            k: v for k, v in native.items()
+                            if k in expects_params
+                        }
+                    for k, v in native.items():
+                        if k in inputs and inputs[k] != v:
+                            logger.warning(
+                                "Parameter %r overrides input (param=%r, input=%r)",
+                                k, v, inputs[k],
+                            )
+                        inputs[k] = v
+
+                result = await self._executor.execute(
+                    func, function_name, inputs, serializers=serializers
+                )
+            finally:
+                _parameters_context.reset(token)
 
             # Send result
             await self._send_test_result(

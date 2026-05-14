@@ -193,3 +193,32 @@ export function shortVersion(version: string | null | undefined): string {
   }
   return version.slice(0, 8);
 }
+
+export interface ExperimentResultsRunItem {
+  id: string;
+  name?: string;
+  created_at?: string;
+  attributes?: Record<string, any>;
+  experiment_summary?: {
+    id: string;
+    name: string;
+    version: string;
+    source_label?: string | null;
+    visibility: ExperimentVisibility;
+  } | null;
+}
+
+export interface ExperimentResultsVersionItem {
+  version: string;
+  runs: ExperimentResultsRunItem[];
+  total_tests: number;
+  diff: Record<string, { before: any; after: any }>;
+}
+
+export interface ExperimentResultsByRun {
+  items: ExperimentResultsRunItem[];
+}
+
+export interface ExperimentResultsByVersion {
+  items: ExperimentResultsVersionItem[];
+}

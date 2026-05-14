@@ -18,8 +18,36 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from rhesis.sdk import endpoint
+from rhesis.sdk import Parameters, endpoint
 from rhesis.sdk.services.extractor import extract_with_vision_fallback
+
+CHATBOT_PROJECT = os.getenv("RHESIS_CHATBOT_PROJECT", "chatbot-demo")
+PARAMETERS_LABEL = os.getenv("RHESIS_PARAMETERS_LABEL", "default")
+
+def _resolve_chatbot_params() -> dict:
+    """Resolve chatbot params; fall back to env defaults when SDK is unreachable."""
+    try:
+        params = Parameters.get(project=CHATBOT_PROJECT, label=PARAMETERS_LABEL)
+        return {
+            "system_prompt": params.get_text("system_prompt") or params.get_string("system_prompt"),
+            "use_case": params.get_enum("use_case"),
+            "model": params.get_string("model") or os.getenv("DEFAULT_GENERATION_MODEL"),
+            "temperature": params.get_number("temperature", 0.7),
+            "max_tokens": params.get_integer("max_tokens", 1024),
+            "output_mode": params.get_enum("output_mode", "text"),
+            "context_strategy": params.get_enum("context_strategy", "heuristic"),
+        }
+    except Exception:
+        logger.exception("Falling back to env defaults: SDK Parameters.get() failed")
+        return {
+            "system_prompt": None,
+            "use_case": None,
+            "model": os.getenv("DEFAULT_GENERATION_MODEL"), 
+            "temperature": 0.7, 
+            "max_tokens": 1024,
+            "output_mode": "text",
+            "context_strategy": "heuristic",
+        }
 
 # Configure logging
 logging.basicConfig(
@@ -115,9 +143,9 @@ async def cleanup_stale_sessions():
                 if session_data.is_stale(SESSION_TIMEOUT_HOURS)
             ]
 
-            # Remove stale sessions
+            # Remove stale sessions (pop avoids KeyError if already removed)
             for session_id in stale_session_ids:
-                del sessions[session_id]
+                sessions.pop(session_id, None)
 
             if stale_session_ids:
                 logger.info(
@@ -410,11 +438,13 @@ def extract_file_content(file_input: FileInput) -> dict:
 @endpoint(
     name="chat",
     description="Process a chat message and return structured response",
+    parameters=["system_prompt", "model", "temperature", "max_tokens",
+                "output_mode", "context_strategy", "use_case"],
     request_mapping={
         "message": "{{ input }}",
         "session_id": "{{ session_id | default(none) }}",
         "use_case": "{{ use_case | default('travel') }}",
-        "mode": "{{ mode | default('text') }}",
+        "output_mode": "{{ output_mode | default(mode | default('text')) }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
         "files": "{{ files }}",
         "rhesis": {
@@ -433,9 +463,15 @@ def extract_file_content(file_input: FileInput) -> dict:
 )
 async def chat(
     message: str,
+    *,
     session_id: Optional[str] = None,
+    system_prompt: Optional[str] = None,
     use_case: str = "travel",
-    mode: str = "text",
+    model: Optional[str] = None,
+    temperature: float = 0.7,
+    max_tokens: int = 1024,
+    output_mode: str = "text",
+    context_strategy: str = "heuristic",
     conversation_history: Optional[List[dict]] = None,
     files: Optional[List[dict]] = None,
     file_contents: Optional[List[dict]] = None,
@@ -558,13 +594,20 @@ async def chat(
             message=message,
             session_id=session_id,
             context=[],
-            metadata={"use_case": "echo", "mode": mode},
+            metadata={"use_case": "echo", "output_mode": output_mode},
             tool_calls=[],
         )
 
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
-    response_generator = endpoint_module.get_response_generator(use_case)
+    response_generator = endpoint_module.get_response_generator(
+        use_case,
+        system_prompt_override=system_prompt,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        context_strategy=context_strategy,
+    )
     tool_calls = []
 
     # Generate context using the instance
@@ -593,11 +636,11 @@ async def chat(
         message,
         conversation_history=conversation_history,
         file_contents=file_contents,
-        mode=mode,
+        mode=output_mode,
     ):
         chunks.append(chunk)
 
-    if mode == "json":
+    if output_mode == "json":
         # In JSON mode, the generator yields dicts
         response_message = chunks[0] if chunks else {}
     else:
@@ -608,7 +651,7 @@ async def chat(
             "name": "generate_response",
             "arguments": {
                 "message": message,
-                "mode": mode,
+                "output_mode": output_mode,
                 "has_file_contents": file_contents is not None,
                 "history_length": len(conversation_history),
             },
@@ -627,7 +670,7 @@ async def chat(
         context=context_fragments,
         metadata={
             "use_case": use_case,
-            "mode": mode,
+            "output_mode": output_mode,
             "intent": intent_result,
             "rhesis": rhesis,
         },
@@ -674,13 +717,18 @@ async def chat_endpoint(
             f"Chat request received - Auth tier: {auth['tier']}, "
             f"Message: {chat_request.message[:50]}..."
         )
+        
+        # Resolve parameters from Rhesis (or fallback to env/defaults)
+        params = _resolve_chatbot_params()
 
         # Validate use case exists, default to travel if not
-        # "echo" is a built-in use case that does not require a prompt file
-        use_case = chat_request.use_case or "travel"
+        # The request payload overrides the resolved parameter if provided
+        use_case = chat_request.use_case or params.get("use_case") or "travel"
         available_use_cases = get_available_use_cases() + ["echo"]
         if use_case not in available_use_cases:
             use_case = "travel"
+            
+        output_mode = chat_request.mode or params.get("output_mode", "text")
 
         # Extract file contents if provided
         file_contents = None
@@ -696,8 +744,13 @@ async def chat_endpoint(
         result = await chat(
             message=chat_request.message,
             session_id=chat_request.session_id,
+            system_prompt=params.get("system_prompt"),
             use_case=use_case,
-            mode=chat_request.mode or "text",
+            model=params.get("model"),
+            temperature=params.get("temperature", 0.7),
+            max_tokens=params.get("max_tokens", 1024),
+            output_mode=output_mode,
+            context_strategy=params.get("context_strategy", "heuristic"),
             file_contents=file_contents,
             rhesis=chat_request.rhesis,
         )

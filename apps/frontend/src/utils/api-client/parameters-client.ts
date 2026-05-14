@@ -10,6 +10,8 @@ import {
   ParameterSchema,
   ProjectLabels,
   ResolveResponse,
+  ExperimentResultsRunItem,
+  ExperimentResultsVersionItem,
 } from './interfaces/parameters';
 
 /**
@@ -175,6 +177,24 @@ export class ParametersClient extends BaseApiClient {
         method: 'POST',
         body: JSON.stringify(payload),
       }
+    );
+  }
+
+  async getExperimentResultsByRun(
+    experimentId: string,
+    limit: number = 100
+  ): Promise<{ items: ExperimentResultsRunItem[] }> {
+    return this.fetch<{ items: ExperimentResultsRunItem[] }>(
+      `/experiments/${experimentId}/results?group_by=run&limit=${limit}`
+    );
+  }
+
+  async getExperimentResultsByVersion(
+    experimentId: string,
+    limit: number = 100
+  ): Promise<{ items: ExperimentResultsVersionItem[] }> {
+    return this.fetch<{ items: ExperimentResultsVersionItem[] }>(
+      `/experiments/${experimentId}/results?group_by=version&limit=${limit}`
     );
   }
 }

@@ -33,14 +33,15 @@ from rhesis.backend.app.schemas.parameters import (
     ExperimentUpdate,
     ExperimentVersion,
     ExperimentVersionCreate,
-    ParameterSchema,
 )
 from rhesis.backend.app.services.experiment import (
     append_version,
     assert_no_active_labels,
+    coerce_schema,
     find_version,
     get_visible_experiment,
-    latest_version,
+    to_detail,
+    to_read,
 )
 
 router = APIRouter(
@@ -51,54 +52,6 @@ router = APIRouter(
 )
 
 
-def _coerce_schema(project) -> ParameterSchema:
-    raw = project.parameters_schema
-    if isinstance(raw, ParameterSchema):
-        return raw
-    if raw is None:
-        return ParameterSchema()
-    return ParameterSchema.model_validate(raw)
-
-
-def _to_read(db_experiment: Experiment) -> ExperimentRead:
-    """Compact list / single shape — omits the inline ``versions`` array."""
-    last = latest_version(db_experiment)
-    return ExperimentRead(
-        id=db_experiment.id,
-        name=db_experiment.name,
-        description=db_experiment.description,
-        visibility=db_experiment.visibility,  # type: ignore[arg-type]
-        project_id=db_experiment.project_id,
-        owner_user_id=db_experiment.owner_user_id,
-        organization_id=db_experiment.organization_id,
-        versions_count=len(db_experiment.versions or []),
-        latest_version=last.version if last else None,
-        created_at=db_experiment.created_at,
-        updated_at=db_experiment.updated_at,
-    )
-
-
-def _to_detail(db_experiment: Experiment) -> ExperimentDetail:
-    """Detail shape — inlines the ``versions`` array."""
-    versions: list[ExperimentVersion] = [
-        v if isinstance(v, ExperimentVersion) else ExperimentVersion.model_validate(v)
-        for v in (db_experiment.versions or [])
-    ]
-    last = versions[-1] if versions else None
-    return ExperimentDetail(
-        id=db_experiment.id,
-        name=db_experiment.name,
-        description=db_experiment.description,
-        visibility=db_experiment.visibility,  # type: ignore[arg-type]
-        project_id=db_experiment.project_id,
-        owner_user_id=db_experiment.owner_user_id,
-        organization_id=db_experiment.organization_id,
-        versions_count=len(versions),
-        latest_version=last.version if last else None,
-        created_at=db_experiment.created_at,
-        updated_at=db_experiment.updated_at,
-        versions=versions,
-    )
 
 
 @router.get("/{experiment_id}", response_model=ExperimentDetail)
@@ -120,7 +73,7 @@ def read_experiment(
         organization_id=organization_id,
         user_id=user_id,
     )
-    return _to_detail(db_experiment)
+    return to_detail(db_experiment)
 
 
 @router.patch("/{experiment_id}", response_model=ExperimentDetail)
@@ -174,7 +127,7 @@ def update_experiment(
     db.add(db_experiment)
     db.flush()
     db.refresh(db_experiment)
-    return _to_detail(db_experiment)
+    return to_detail(db_experiment)
 
 
 @router.delete("/{experiment_id}", response_model=ExperimentRead)
@@ -206,7 +159,7 @@ def delete_experiment(
     if project is not None:
         assert_no_active_labels(project, db_experiment.id, action="delete")
 
-    snapshot = _to_read(db_experiment)
+    snapshot = to_read(db_experiment)
     crud.delete_item(
         db,
         Experiment,
@@ -266,7 +219,7 @@ def create_experiment_version(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found",
         )
-    project_schema = _coerce_schema(project)
+    project_schema = coerce_schema(project)
 
     try:
         result = append_version(
@@ -337,6 +290,92 @@ def read_experiment_version(
         user_id=user_id,
     )
     return find_version(db_experiment, version)
+
+
+@router.get(
+    "/{experiment_id}/results",
+    response_model=dict,
+)
+def get_experiment_results(
+    experiment_id: uuid.UUID,
+    group_by: str = Query("run", description="Group by 'run' or 'version'"),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> dict:
+    """Aggregate TestRun results by run or by version."""
+    from fastapi.encoders import jsonable_encoder
+
+    organization_id, user_id = tenant_context
+    db_experiment = get_visible_experiment(
+        db,
+        experiment_id,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    runs = crud.get_test_runs(
+        db,
+        skip=0,
+        limit=limit,
+        experiment_id=str(experiment_id),
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    if group_by == "run":
+        return {"items": jsonable_encoder(runs)}
+
+    # Version-grouped response with diffs
+    version_groups: dict[str, dict] = {}
+    for run in runs:
+        v = (run.attributes or {}).get("parameter_version")
+        if not v:
+            continue
+        if v not in version_groups:
+            version_groups[v] = {
+                "version": v, "runs": [], "total_tests": 0, "diff": {},
+            }
+        version_groups[v]["runs"].append(jsonable_encoder(run))
+        version_groups[v]["total_tests"] += (
+            (run.attributes or {}).get("total_tests", 0)
+        )
+
+    # Walk versions newest-first, compute diffs against parent
+    versions_in_order = [
+        v.version if isinstance(v, ExperimentVersion)
+        else v.get("version")
+        for v in (db_experiment.versions or [])
+    ]
+
+    items = []
+    for v_id in reversed(versions_in_order):
+        if v_id not in version_groups:
+            continue
+        v_entry = find_version(db_experiment, v_id)
+        current_values = v_entry.values
+        diff: dict[str, dict] = {}
+        if v_entry.parent_version:
+            try:
+                parent = find_version(db_experiment, v_entry.parent_version)
+                parent_values = parent.values
+                all_keys = set(current_values) | set(parent_values)
+                for k in all_keys:
+                    cv = current_values.get(k)
+                    pv = parent_values.get(k)
+                    if cv != pv:
+                        diff[k] = {
+                            "before": jsonable_encoder(pv),
+                            "after": jsonable_encoder(cv),
+                        }
+            except HTTPException:
+                pass
+        group_data = version_groups[v_id]
+        group_data["diff"] = diff
+        items.append(group_data)
+
+    return {"items": items}
 
 
 __all__ = ["router"]

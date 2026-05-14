@@ -1,0 +1,136 @@
+import { Callout } from 'nextra/components'
+
+# Connector Injection
+
+<Callout type="default">
+  When the platform runs a test against your `@endpoint`-decorated function, it injects the experiment's values directly. You can receive them as kwargs or read them through the same `Parameters.get()` you use in production.
+</Callout>
+
+## Two injection styles
+
+The SDK supports two distinct styles for receiving injected parameters during a test run. Both can coexist in the same application.
+
+### 1. Kwarg Merging (Explicit)
+
+Using the `parameters` argument on the `@endpoint` decorator makes your function's contract explicit. The connector runner will automatically merge the resolved parameter values into your function's keyword arguments.
+
+```python
+from rhesis.sdk import endpoint
+
+@endpoint(
+    name="rag", 
+    parameters=["system_prompt", "model", "temperature"]
+)
+def rag_injected(query: str, *, system_prompt: str, model: str, temperature: float):
+    return llm.chat(
+        model=model, 
+        temperature=temperature,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query}
+        ]
+    )
+```
+
+By default, `parameters=True` merges *any* parameter whose name matches a kwarg in your function signature. Passing a list of strings acts as an explicit allow-list. 
+
+If a parameter name collides with a field mapped in your `request_mapping`, the **parameter wins**. The parameter represents the configuration-of-record for the experiment, while the request mapping fills test-data.
+
+### 2. Context-Resolved Fetch (Implicit)
+
+If you disable kwarg merging (`parameters=False`), your function can simply read the parameters using the `Parameters.get()` facade. 
+
+```python
+from rhesis.sdk import endpoint, Parameters
+
+@endpoint(name="rag-context", parameters=False)
+def rag_context(query: str):
+    # Resolves from the connector contextvar during a test run
+    p = Parameters.get()                
+    
+    return llm.chat(
+        model=p.get_string("model"), 
+        temperature=p.get_number("temperature"),
+        messages=[
+            {"role": "system", "content": p.get_text("system_prompt")},
+            {"role": "user", "content": query}
+        ]
+    )
+```
+
+## Why production code "just works" in tests
+
+The context-resolved fetch style is incredibly powerful because it allows unmodified production code to receive test-time overrides for free.
+
+During a test run, the connector sets an internal context variable before invoking your function. The `Parameters.get()` method checks this context variable *before* checking the cache or hitting the network.
+
+This means that the very same `Parameters.get()` call that performs a network fetch in production will silently pick up the injected snapshot values during a test. There is no need for test-only branching or complex mocking plumbing.
+
+## The Wire Protocol
+
+For those debugging at the protocol level, the `ExecuteTestMessage` payload sent by the Rhesis platform over the connector includes the full parameter snapshot:
+
+- `parameters`: The resolved `Dict[str, Any]` of values.
+- `parameter_version`: The content hash of the version being executed.
+- `parameter_experiment_id`: The UUID of the experiment.
+- `parameter_source`: The resolution method used (`"label"`, `"experiment_id"`, or `"version"`).
+- `parameter_source_label`: The label name if resolved via a label (e.g., `"default"`).
+- `parameter_schema`: The full schema, allowing the SDK to validate the payload locally.
+
+Because the backend dispatcher copies the `parameter_source` and `parameter_source_label` directly from the run snapshot, the `ResolvedParameters.source_label` inside your application will accurately reflect the label (e.g., "via `default`") that was targeted at run-queue time.
+
+## Worked Example: The Chatbot
+
+The Rhesis chatbot demo application is the canonical reference for parameter management. It demonstrates both paths side-by-side.
+
+The FastAPI route serves production traffic and uses the context-resolved fetch style, falling back to environment variables if the SDK is unreachable:
+
+```python
+def _resolve_chatbot_params() -> dict:
+    try:
+        params = Parameters.get(project="chatbot-demo", label="default")
+        return {
+            "model": params.get_string("model"),
+            "temperature": params.get_number("temperature", 0.7),
+        }
+    except Exception:
+        # Graceful degradation
+        return {"model": os.getenv("DEFAULT_GENERATION_MODEL"), "temperature": 0.7}
+
+@app.post("/chat")
+async def chat_endpoint(request: Request, chat_request: ChatRequest):
+    # Resolves live config
+    params = _resolve_chatbot_params()
+    
+    # ... handles request ...
+    
+    result = await chat(
+        message=chat_request.message,
+        model=params.get("model"),
+        temperature=params.get("temperature"),
+        # ...
+    )
+    return result
+```
+
+Meanwhile, the actual core `chat()` function is decorated as an `@endpoint` and accepts the parameters via explicit kwarg injection for test runs:
+
+```python
+@endpoint(
+    name="chat",
+    parameters=["model", "temperature", "max_tokens", "system_prompt"],
+    request_mapping={...},
+    response_mapping={...}
+)
+async def chat(
+    message: str,
+    *,
+    model: Optional[str] = None,
+    temperature: float = 0.7,
+    # ...
+) -> ChatResponse:
+    # Uses model and temperature directly
+    pass
+```
+
+This dual setup ensures the chatbot operates correctly in production while remaining perfectly testable against different experiment configurations.

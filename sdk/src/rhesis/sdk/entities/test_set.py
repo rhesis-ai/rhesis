@@ -234,6 +234,9 @@ class TestSet(BaseEntity):
         reference_test_run_id: Optional[str] = None,
         execution_model_id: Optional[str] = None,
         evaluation_model_id: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        version: Optional[str] = None,
+        label: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Build the request body for the execute endpoint."""
         resolved_mode = ExecutionMode.from_string(mode)
@@ -250,6 +253,12 @@ class TestSet(BaseEntity):
             body["execution_model_id"] = execution_model_id
         if evaluation_model_id:
             body["evaluation_model_id"] = evaluation_model_id
+        if experiment_id is not None:
+            body["experiment_id"] = str(experiment_id)
+        if version is not None:
+            body["version"] = version
+        if label is not None:
+            body["label"] = label
         return body
 
     # ------------------------------------------------------------------
@@ -265,6 +274,9 @@ class TestSet(BaseEntity):
         metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
         execution_model_id: Optional[str] = None,
         evaluation_model_id: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        version: Optional[str] = None,
+        label: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """Execute the test set against the given endpoint.
 
@@ -281,6 +293,9 @@ class TestSet(BaseEntity):
                 execution model for multi-turn tests (Penelope).
             evaluation_model_id: Optional model ID to override the default
                 evaluation model (LLM as Judge).
+            experiment_id: Optional experiment ID for parameter resolution.
+            version: Optional version pin for parameter resolution.
+            label: Optional label for parameter resolution.
 
         Returns:
             Dict containing the execution submission response.
@@ -293,12 +308,7 @@ class TestSet(BaseEntity):
             >>> test_set = TestSets.pull(name="Safety Tests")
             >>> endpoint = Endpoints.pull(name="GPT-4o")
             >>> result = test_set.execute(endpoint)
-            >>> result = test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL)
-            >>> result = test_set.execute(
-            ...     endpoint,
-            ...     execution_model_id="<uuid>",
-            ...     evaluation_model_id="<uuid>",
-            ... )
+            >>> result = test_set.execute(endpoint, experiment_id="<uuid>", label="staging")
         """
         if not self.id:
             raise ValueError("Test set ID must be set before executing")
@@ -308,6 +318,9 @@ class TestSet(BaseEntity):
             metrics=metrics,
             execution_model_id=execution_model_id,
             evaluation_model_id=evaluation_model_id,
+            experiment_id=experiment_id,
+            version=version,
+            label=label,
         )
         client = APIClient()
         return client.send_request(

@@ -144,6 +144,36 @@ class ParameterField(BaseModel):
     options: list[str] | None = None
     display_order: int = 0
 
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_bare_default(cls, data: Any) -> Any:
+        """Accept bare Python values as ``default`` and wrap them.
+
+        When the ``type`` field is known, a bare value like ``0.7`` is
+        automatically wrapped into ``{"type": "number", "value": 0.7}``.
+        This lets callers write::
+
+            ParameterField(name="temp", type="number", default=0.7)
+
+        instead of the verbose::
+
+            ParameterField(name="temp", type="number",
+                           default=NumberValue(value=0.7))
+        """
+        if not isinstance(data, dict):
+            return data
+        default = data.get("default")
+        ptype = data.get("type")
+        if default is None or ptype is None:
+            return data
+        if isinstance(default, _ParameterValueBase):
+            return data
+        if isinstance(default, dict) and "type" in default and "value" in default:
+            return data
+        data = dict(data)
+        data["default"] = {"type": ptype, "value": default}
+        return data
+
 
 class ParameterSchema(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -490,6 +520,76 @@ class ResolvedParameters(Mapping[str, Any]):
         (the connector's ``parameters=True`` mode does exactly this).
         """
         return {name: v.value for name, v in self._typed.items()}
+
+    # --- Convenience typed getters --------------------------------------- #
+
+    def _get_of_type(
+        self, key: str, expected: str, default: Any = None
+    ) -> Any:
+        pv = self._typed.get(key)
+        if pv is None:
+            return default
+        if pv.type != expected:
+            raise TypeError(
+                f"Parameter {key!r} is {pv.type!r}, not {expected!r}"
+            )
+        return pv.value
+
+    def get_text(self, key: str, default: str | None = None) -> str | None:
+        return self._get_of_type(key, "text", default)
+
+    def get_string(
+        self, key: str, default: str | None = None
+    ) -> str | None:
+        return self._get_of_type(key, "string", default)
+
+    def get_integer(
+        self, key: str, default: int | None = None
+    ) -> int | None:
+        return self._get_of_type(key, "integer", default)
+
+    def get_number(
+        self, key: str, default: float | None = None
+    ) -> float | None:
+        return self._get_of_type(key, "number", default)
+
+    def get_boolean(
+        self, key: str, default: bool | None = None
+    ) -> bool | None:
+        return self._get_of_type(key, "boolean", default)
+
+    def get_enum(
+        self, key: str, default: str | None = None
+    ) -> str | None:
+        return self._get_of_type(key, "enum", default)
+
+    def get_str(
+        self, key: str, default: str | None = None
+    ) -> str | None:
+        """Return a string value regardless of whether the type is ``text`` or ``string``.
+
+        Raises :class:`TypeError` if the parameter exists but is neither
+        ``text`` nor ``string``.
+        """
+        pv = self._typed.get(key)
+        if pv is None:
+            return default
+        if pv.type not in ("text", "string"):
+            raise TypeError(
+                f"Parameter {key!r} is {pv.type!r},"
+                f" not 'text' or 'string'"
+            )
+        return pv.value
+
+    def get_model_ref(
+        self, key: str, default: UUID | None = None
+    ) -> UUID | None:
+        return self._get_of_type(key, "model_ref", default)
+
+    def get_secret_ref(
+        self, key: str, default: UUID | None = None
+    ) -> UUID | None:
+        return self._get_of_type(key, "secret_ref", default)
 
     # --- Constructors ---------------------------------------------------- #
 

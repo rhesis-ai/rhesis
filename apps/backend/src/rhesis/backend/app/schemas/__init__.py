@@ -143,6 +143,7 @@ from .test_configuration import (
     TestConfiguration,
     TestConfigurationBase,
     TestConfigurationCreate,
+    TestConfigurationExecutionRequest,
     TestConfigurationUpdate,
 )
 from .test_context import TestContext, TestContextBase, TestContextCreate, TestContextUpdate
@@ -244,6 +245,7 @@ __all__ = [
     "TestConfigurationBase",
     "TestConfigurationCreate",
     "TestConfigurationUpdate",
+    "TestConfigurationExecutionRequest",
     "TestResult",
     "TestResultBase",
     "TestResultCreate",

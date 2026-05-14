@@ -14,7 +14,8 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status as http_status
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi import status as http_status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 

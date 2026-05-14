@@ -23,7 +23,6 @@ routes stay thin.
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -46,6 +45,11 @@ from rhesis.backend.app.schemas.parameters import (
     ResolveResponse,
 )
 from rhesis.backend.app.services import experiment as experiment_service
+from rhesis.backend.app.services.experiment import (
+    coerce_labels,
+    coerce_schema,
+    to_read,
+)
 
 router = APIRouter(
     prefix="/projects/{project_id}/parameters",
@@ -91,22 +95,6 @@ def _load_project(
     return db_project
 
 
-def _coerce_schema(project) -> ParameterSchema:
-    raw = project.parameters_schema
-    if isinstance(raw, ParameterSchema):
-        return raw
-    if raw is None:
-        return ParameterSchema()
-    return ParameterSchema.model_validate(raw)
-
-
-def _coerce_labels(project) -> ProjectLabels:
-    raw = project.parameter_labels
-    if isinstance(raw, ProjectLabels):
-        return raw
-    if raw is None:
-        return ProjectLabels()
-    return ProjectLabels.model_validate(raw)
 
 
 # --------------------------------------------------------------------------- #
@@ -130,7 +118,7 @@ def get_parameters_schema(
     """
     organization_id, user_id = tenant_context
     project = _load_project(project_id, db, organization_id, user_id)
-    return _coerce_schema(project)
+    return coerce_schema(project)
 
 
 @router.put("/schema", response_model=ParameterSchema)
@@ -154,7 +142,7 @@ def put_parameters_schema(
     db.add(project)
     db.commit()
     db.refresh(project)
-    return _coerce_schema(project)
+    return coerce_schema(project)
 
 
 # --------------------------------------------------------------------------- #
@@ -178,7 +166,7 @@ def get_project_labels(
     """
     organization_id, user_id = tenant_context
     project = _load_project(project_id, db, organization_id, user_id)
-    return _coerce_labels(project)
+    return coerce_labels(project)
 
 
 @router.put("/labels/{label_name}", response_model=ProjectLabels)
@@ -269,21 +257,6 @@ def resolve(
 # --------------------------------------------------------------------------- #
 
 
-def _to_read(db_experiment: ExperimentModel) -> ExperimentRead:
-    last = experiment_service.latest_version(db_experiment)
-    return ExperimentRead(
-        id=db_experiment.id,
-        name=db_experiment.name,
-        description=db_experiment.description,
-        visibility=db_experiment.visibility,  # type: ignore[arg-type]
-        project_id=db_experiment.project_id,
-        owner_user_id=db_experiment.owner_user_id,
-        organization_id=db_experiment.organization_id,
-        versions_count=len(db_experiment.versions or []),
-        latest_version=last.version if last else None,
-        created_at=db_experiment.created_at,
-        updated_at=db_experiment.updated_at,
-    )
 
 
 @project_experiments_router.get("", response_model=list[ExperimentRead])
@@ -322,7 +295,7 @@ def list_project_experiments(
         ):
             continue
         visible.append(row)
-    return [_to_read(r) for r in visible]
+    return [to_read(r) for r in visible]
 
 
 @project_experiments_router.post(
@@ -359,7 +332,7 @@ def create_project_experiment(
     db.add(db_experiment)
     db.flush()
     db.refresh(db_experiment)
-    return _to_read(db_experiment)
+    return to_read(db_experiment)
 
 
 __all__ = ["router", "project_experiments_router"]

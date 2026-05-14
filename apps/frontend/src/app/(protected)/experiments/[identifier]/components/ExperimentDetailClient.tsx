@@ -38,6 +38,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import TypedValueEditor from './TypedValueEditor';
 import VersionHistory from './VersionHistory';
 import PromoteLabelDialog from './PromoteLabelDialog';
+import LatestResultsPanel from './LatestResultsPanel';
 
 interface ExperimentDetailClientProps {
   experimentId: string;
@@ -444,6 +445,11 @@ export default function ExperimentDetailClient({
           </Box>
         </Paper>
       </Stack>
+
+      <LatestResultsPanel
+        experimentId={experiment.id}
+        sessionToken={sessionToken}
+      />
 
       {experiment && labels && (
         <PromoteLabelDialog
