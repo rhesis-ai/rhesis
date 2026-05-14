@@ -10,8 +10,7 @@ import {
   CircularProgress,
   Typography,
 } from '@mui/material';
-import type { Theme } from '@mui/material/styles';
-import { alpha } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
