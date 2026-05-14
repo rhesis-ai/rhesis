@@ -40,6 +40,8 @@ import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import type { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
+import type { ExperimentRead } from '@/utils/api-client/interfaces/parameters';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 
 type MetricMode = 'use_test_set' | 'use_behavior' | 'define_custom';
 type ScoringTarget = 'fresh' | 'reuse';
@@ -62,12 +64,18 @@ interface RerunConfig {
   testSetType?: string;
   endpointId: string;
   endpointName: string;
+  projectId?: string;
   projectName: string;
   /** ID of the current test run being viewed (used as reference for output reuse) */
   testRunId: string;
   /** Original test configuration attributes containing metrics if custom were used */
   originalAttributes?: {
     metrics?: OriginalMetric[];
+    parameters_ref?: {
+      experiment_id?: string;
+      version?: string;
+      label?: string;
+    };
     [key: string]: unknown;
   };
 }
@@ -111,6 +119,11 @@ export default function RerunTestRunDrawer({
   const [selectedExecutionModelId, setSelectedExecutionModelId] = useState('');
   const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
     useState('');
+
+  // Experiment state
+  const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
+  const [selectedExperiment, setSelectedExperiment] =
+    useState<ExperimentRead | null>(null);
 
   // Fetch test set metrics and determine original metric source when drawer opens
   useEffect(() => {
@@ -181,6 +194,47 @@ export default function RerunTestRunDrawer({
     rerunConfig.originalAttributes,
   ]);
 
+  // Fetch experiments for the project and pre-fill from original run
+  useEffect(() => {
+    const fetchExperiments = async () => {
+      if (!sessionToken || !open || !rerunConfig.projectId) {
+        setExperiments([]);
+        setSelectedExperiment(null);
+        return;
+      }
+
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const parametersClient = clientFactory.getParametersClient();
+        const exps = await parametersClient.listProjectExperiments(
+          rerunConfig.projectId,
+          { limit: 100 }
+        );
+        const shared = exps.filter(
+          e => e.visibility === 'shared' && e.latest_version
+        );
+        setExperiments(shared);
+
+        // Pre-fill from original run's experiment if present
+        const origExpId =
+          rerunConfig.originalAttributes?.parameters_ref?.experiment_id;
+        if (origExpId) {
+          const match = shared.find(e => e.id === origExpId);
+          setSelectedExperiment(match || null);
+        } else {
+          setSelectedExperiment(null);
+        }
+      } catch {
+        setExperiments([]);
+        setSelectedExperiment(null);
+      }
+    };
+
+    if (open) {
+      fetchExperiments();
+    }
+  }, [sessionToken, open, rerunConfig.projectId, rerunConfig.originalAttributes]);
+
   // Handle adding a metric from the dialog
   const handleAddMetric = async (metricId: UUID) => {
     try {
@@ -235,6 +289,15 @@ export default function RerunTestRunDrawer({
       if (selectedEvaluationModelId) {
         testConfigurationAttributes.evaluation_model_id =
           selectedEvaluationModelId;
+      }
+
+      // Add experiment parameters if an experiment is selected
+      if (selectedExperiment) {
+        testConfigurationAttributes.experiment_id = selectedExperiment.id;
+        if (selectedExperiment.latest_version) {
+          testConfigurationAttributes.experiment_version =
+            selectedExperiment.latest_version;
+        }
       }
 
       // Add reference_test_run_id if reusing outputs from current run
@@ -367,6 +430,52 @@ export default function RerunTestRunDrawer({
               readOnly: true,
             }}
           />
+
+          {experiments.length > 0 && (
+            <FormControl fullWidth>
+              <InputLabel>Experiment</InputLabel>
+              <Select
+                value={selectedExperiment?.id ?? ''}
+                onChange={e => {
+                  const id = e.target.value;
+                  if (!id) {
+                    setSelectedExperiment(null);
+                    return;
+                  }
+                  const exp = experiments.find(ex => ex.id === id) || null;
+                  setSelectedExperiment(exp);
+                }}
+                label="Experiment"
+              >
+                <MenuItem value="">
+                  <Typography variant="body1">None</Typography>
+                </MenuItem>
+                {experiments.map(exp => (
+                  <MenuItem key={exp.id} value={exp.id}>
+                    <Box>
+                      <Typography variant="body1">
+                        {exp.name}
+                        {exp.latest_version && (
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ ml: 0.5 }}
+                          >
+                            ({shortVersion(exp.latest_version)})
+                          </Typography>
+                        )}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {exp.description ||
+                          'Pin parameters from this experiment'}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           <Divider />
 

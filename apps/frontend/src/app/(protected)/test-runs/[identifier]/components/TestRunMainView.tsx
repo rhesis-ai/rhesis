@@ -893,6 +893,7 @@ export default function TestRunMainView({
             testRun.test_configuration?.test_set?.test_set_type?.type_value,
           endpointId: testRun.test_configuration?.endpoint?.id || '',
           endpointName: testRun.test_configuration?.endpoint?.name || 'Unknown',
+          projectId: testRun.test_configuration?.endpoint?.project?.id,
           projectName:
             testRun.test_configuration?.endpoint?.project?.name || 'Unknown',
           testRunId: testRun.id,

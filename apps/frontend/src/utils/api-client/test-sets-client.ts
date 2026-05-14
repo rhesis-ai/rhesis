@@ -367,6 +367,9 @@ export class TestSetsClient extends BaseApiClient {
         reference_test_run_id,
         execution_model_id,
         evaluation_model_id,
+        experiment_id,
+        experiment_version,
+        experiment_label,
         ...executionOptions
       } = testConfigurationAttributes;
 
@@ -388,6 +391,18 @@ export class TestSetsClient extends BaseApiClient {
 
       if (evaluation_model_id) {
         requestBody.evaluation_model_id = evaluation_model_id;
+      }
+
+      if (experiment_id) {
+        requestBody.experiment_id = experiment_id;
+      }
+
+      if (experiment_version) {
+        requestBody.version = experiment_version;
+      }
+
+      if (experiment_label) {
+        requestBody.label = experiment_label;
       }
     }
 

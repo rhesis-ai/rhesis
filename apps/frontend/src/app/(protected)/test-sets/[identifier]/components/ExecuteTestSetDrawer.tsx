@@ -48,6 +48,8 @@ import type {
   TestSetMetric,
   LastTestRunSummary,
 } from '@/utils/api-client/interfaces/test-set';
+import type { ExperimentRead } from '@/utils/api-client/interfaces/parameters';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 
 interface ProjectOption {
   id: UUID;
@@ -112,6 +114,11 @@ export default function ExecuteTestSetDrawer({
   const [selectedExecutionModelId, setSelectedExecutionModelId] = useState('');
   const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
     useState('');
+
+  // Experiment state
+  const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
+  const [selectedExperiment, setSelectedExperiment] =
+    useState<ExperimentRead | null>(null);
 
   // Scoring target state
   const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
@@ -229,6 +236,8 @@ export default function ExecuteTestSetDrawer({
       // Reset selections when drawer opens
       setSelectedProject(null);
       setSelectedEndpoint(null);
+      setSelectedExperiment(null);
+      setExperiments([]);
       setTags([]);
       setSelectedMetrics([]);
       setScoringTarget('fresh');
@@ -255,6 +264,35 @@ export default function ExecuteTestSetDrawer({
     // Reset selected endpoint when project changes
     setSelectedEndpoint(null);
   }, [selectedProject, endpoints]);
+
+  // Fetch experiments when project changes
+  useEffect(() => {
+    const fetchExperiments = async () => {
+      if (!sessionToken || !selectedProject || !open) {
+        setExperiments([]);
+        setSelectedExperiment(null);
+        return;
+      }
+
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const parametersClient = clientFactory.getParametersClient();
+        const exps =
+          await parametersClient.listProjectExperiments(selectedProject, {
+            limit: 100,
+          });
+        // Only show shared experiments
+        setExperiments(
+          exps.filter(e => e.visibility === 'shared' && e.latest_version)
+        );
+      } catch {
+        setExperiments([]);
+      }
+    };
+
+    fetchExperiments();
+    setSelectedExperiment(null);
+  }, [sessionToken, selectedProject, open]);
 
   // Fetch last test run when endpoint changes (for output reuse hint)
   useEffect(() => {
@@ -351,6 +389,15 @@ export default function ExecuteTestSetDrawer({
       if (selectedEvaluationModelId) {
         testConfigurationAttributes.evaluation_model_id =
           selectedEvaluationModelId;
+      }
+
+      // Add experiment parameters if an experiment is selected
+      if (selectedExperiment) {
+        testConfigurationAttributes.experiment_id = selectedExperiment.id;
+        if (selectedExperiment.latest_version) {
+          testConfigurationAttributes.experiment_version =
+            selectedExperiment.latest_version;
+        }
       }
 
       // Add reference_test_run_id if reusing outputs
@@ -568,6 +615,52 @@ export default function ExecuteTestSetDrawer({
               </FormHelperText>
             )}
           </FormControl>
+
+          {experiments.length > 0 && (
+            <FormControl fullWidth>
+              <InputLabel>Experiment</InputLabel>
+              <Select
+                value={selectedExperiment?.id ?? ''}
+                onChange={e => {
+                  const id = e.target.value;
+                  if (!id) {
+                    setSelectedExperiment(null);
+                    return;
+                  }
+                  const exp = experiments.find(ex => ex.id === id) || null;
+                  setSelectedExperiment(exp);
+                }}
+                label="Experiment"
+              >
+                <MenuItem value="">
+                  <Typography variant="body1">None</Typography>
+                </MenuItem>
+                {experiments.map(exp => (
+                  <MenuItem key={exp.id} value={exp.id}>
+                    <Box>
+                      <Typography variant="body1">
+                        {exp.name}
+                        {exp.latest_version && (
+                          <Typography
+                            component="span"
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ ml: 0.5 }}
+                          >
+                            ({shortVersion(exp.latest_version)})
+                          </Typography>
+                        )}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {exp.description ||
+                          'Pin parameters from this experiment'}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           <Divider />
 
