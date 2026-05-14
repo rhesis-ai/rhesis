@@ -11,12 +11,12 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 from urllib.parse import urlencode
 
 import jwt as pyjwt
 
-from rhesis.backend.app.auth.constants import ALGORITHM, AuthProviderType
+from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
 from rhesis.backend.ee.sso.http_client import (
     SSOHttpClient,
@@ -37,6 +37,202 @@ JWKS_TTL = 3600
 JWKS_REFRESH_COOLDOWN_SECONDS = 300  # 5 minutes
 CLOCK_SKEW_SECONDS = 30
 STATE_MAX_AGE_SECONDS = 300  # 5 minutes
+
+#: Asymmetric algorithms accepted on any OIDC token (ID token or access
+#: token) we verify. **Never** include ``"none"`` or any ``"HS*"``
+#: variant: an attacker who knows the JWKS modulus could sign an HS256
+#: JWT using the modulus as the HMAC key, and PyJWT would happily verify
+#: it (algorithm-confusion attack). The allowlist is set by the caller
+#: of :func:`verify_oidc_jwt`, never derived from the token header.
+OIDC_ALLOWED_ALGORITHMS = ("RS256", "RS384", "RS512", "ES256", "ES384")
+
+
+class SubjectTokenError(Exception):
+    """Raised by :func:`verify_oidc_jwt` when a subject token is rejected.
+
+    Carries a stable ``reason_code`` string so callers can map errors to
+    RFC 6749 response codes (``invalid_grant`` vs ``temporarily_unavailable``)
+    and emit it into audit events without leaking validator internals
+    into HTTP response bodies.
+
+    Reason codes are defined in :data:`SUBJECT_TOKEN_REASON_CODES` so the
+    audit-log scrubber can verify the set is bounded.
+    """
+
+    def __init__(self, reason_code: str, message: str = ""):
+        self.reason_code = reason_code
+        super().__init__(message or reason_code)
+
+
+SUBJECT_TOKEN_REASON_CODES = frozenset(
+    {
+        "missing_alg",
+        "alg_not_allowed",
+        "missing_kid",
+        "no_matching_key",
+        "issuer_mismatch",
+        "audience_mismatch",
+        "expired",
+        "invalid_signature",
+        "invalid_token",
+        "jwks_unavailable",
+    }
+)
+
+
+def verify_oidc_jwt(
+    token: str,
+    *,
+    issuer: str,
+    jwks: dict,
+    audience: Optional[Union[str, Iterable[str]]] = None,
+    leeway: int = CLOCK_SKEW_SECONDS,
+) -> dict:
+    """Verify an OIDC JWT (ID token or access token) and return its claims.
+
+    This helper is the only sanctioned entry point for validating an
+    IdP-signed JWT in the codebase. Both the SSO callback (verifying
+    an ID token) and the token-exchange endpoint (verifying a subject
+    access token) go through here, so the security checks are applied
+    in exactly one place.
+
+    Hard requirements (each maps to a security item in the plan):
+
+    - **Algorithm pinning (S13).** ``algorithms`` is fixed to
+      :data:`OIDC_ALLOWED_ALGORITHMS` -- never derived from the token
+      header. ``alg=none`` and any ``HS*`` family are rejected before
+      the signature is even attempted.
+    - **Header preflight.** ``alg`` and ``kid`` are both required.
+      Keycloak always emits ``kid``; absence is treated as suspicious
+      because every validator-confusion exploit starts with a header
+      the validator does not expect.
+    - **Issuer match.** ``iss`` claim must equal *issuer* exactly --
+      never ``startswith``. A trailing-slash difference between the
+      org's ``SSOConfig.issuer_url`` and the IdP's actual ``iss`` is
+      a configuration bug to surface, not a check to weaken.
+    - **Audience.** When *audience* is provided we enforce it; when
+      not, we skip the check. Subject access tokens may not always
+      carry an aud, and forcing one would lock out otherwise correct
+      Keycloak realm configurations. The caller decides.
+    - **Clock skew.** ``leeway`` defaults to
+      :data:`CLOCK_SKEW_SECONDS` (30s) so a slightly fast or slow IdP
+      clock does not cause spurious ``expired`` rejections.
+    - **JWKS rotation.** When the header ``kid`` is not in the
+      supplied *jwks*, this helper raises ``no_matching_key`` and lets
+      the caller (the token-exchange orchestrator) decide whether to
+      force-refresh the JWKS and retry. Doing the retry here would
+      need a callback wired through every call site and would be
+      easier to mis-wire (e.g. forgetting the per-issuer cooldown).
+
+    Failure mode contract: on any rejection a
+    :class:`SubjectTokenError` is raised with one of
+    :data:`SUBJECT_TOKEN_REASON_CODES`. This contract is what lets the
+    token-exchange orchestrator emit a useful audit reason without
+    leaking validator internals into the HTTP response body.
+    """
+
+    try:
+        header = pyjwt.get_unverified_header(token)
+    except pyjwt.InvalidTokenError as exc:
+        raise SubjectTokenError("invalid_token", str(exc)) from exc
+
+    alg = header.get("alg")
+    if not alg:
+        raise SubjectTokenError("missing_alg", "JWT header missing alg")
+    if str(alg).lower() == "none" or alg not in OIDC_ALLOWED_ALGORITHMS:
+        # Reject before fetching keys so an attacker can probe with
+        # ``alg=none`` without triggering an outbound JWKS roundtrip.
+        raise SubjectTokenError("alg_not_allowed", f"alg={alg!r} not in allowlist")
+
+    kid = header.get("kid")
+    if not kid:
+        raise SubjectTokenError("missing_kid", "JWT header missing kid")
+
+    return _decode_with_jwks(
+        token,
+        kid=kid,
+        jwks=jwks,
+        issuer=issuer,
+        audience=audience,
+        leeway=leeway,
+    )
+
+
+def _select_signing_key(jwks: dict, kid: str):
+    """Return the signing key matching *kid* in *jwks*, or ``None``."""
+    from jwt.algorithms import ECAlgorithm, RSAAlgorithm
+
+    for key_data in jwks.get("keys", []):
+        if key_data.get("kid") != kid:
+            continue
+        kty = key_data.get("kty")
+        if kty == "RSA":
+            return RSAAlgorithm.from_jwk(key_data)
+        if kty == "EC":
+            return ECAlgorithm.from_jwk(key_data)
+        # Unknown key type: do not silently fall through to the next
+        # entry. An IdP that mixes a supported and unsupported key
+        # under the same kid is misconfigured -- surface that.
+        raise SubjectTokenError(
+            "no_matching_key",
+            f"unsupported JWK kty={kty!r} for kid={kid!r}",
+        )
+    return None
+
+
+def _decode_with_jwks(
+    token: str,
+    *,
+    kid: str,
+    jwks: dict,
+    issuer: str,
+    audience: Optional[Union[str, Iterable[str]]],
+    leeway: int,
+) -> dict:
+    """Inner helper: pick the key for *kid* in *jwks* and decode.
+
+    On a JWKS cache miss we raise ``no_matching_key`` and let the
+    caller decide whether to force-refresh the JWKS and retry; the
+    retry policy depends on per-issuer cooldown state we deliberately
+    don't reach into from here.
+    """
+
+    signing_key = _select_signing_key(jwks, kid)
+    if signing_key is None:
+        raise SubjectTokenError("no_matching_key", f"no JWK for kid={kid!r}")
+
+    decode_options: Dict[str, Any] = {
+        "verify_exp": True,
+        "verify_iat": True,
+        "verify_iss": True,
+    }
+    if audience is None:
+        decode_options["verify_aud"] = False
+    else:
+        decode_options["verify_aud"] = True
+
+    try:
+        claims = pyjwt.decode(
+            token,
+            signing_key,
+            algorithms=list(OIDC_ALLOWED_ALGORITHMS),
+            options=decode_options,
+            audience=audience,
+            issuer=issuer,
+            leeway=leeway,
+        )
+    except pyjwt.ExpiredSignatureError as exc:
+        raise SubjectTokenError("expired", str(exc)) from exc
+    except pyjwt.InvalidAudienceError as exc:
+        raise SubjectTokenError("audience_mismatch", str(exc)) from exc
+    except pyjwt.InvalidIssuerError as exc:
+        raise SubjectTokenError("issuer_mismatch", str(exc)) from exc
+    except pyjwt.InvalidSignatureError as exc:
+        raise SubjectTokenError("invalid_signature", str(exc)) from exc
+    except pyjwt.InvalidTokenError as exc:
+        raise SubjectTokenError("invalid_token", str(exc)) from exc
+
+    return claims
 
 
 def _get_state_signing_key() -> bytes:
@@ -184,6 +380,19 @@ class OIDCProvider(AuthProvider):
             if cached and (now - cached[1]) < JWKS_TTL:
                 return cached[0]
 
+        # Resolve metadata BEFORE acquiring _CACHE_LOCK. _get_oidc_metadata
+        # acquires the same lock when it has to fetch, so doing it inside
+        # this critical section deadlocks on a cold cache. The metadata
+        # cache check + fetch are themselves serialised by the inner
+        # acquire, so concurrent callers will still coalesce on a single
+        # discovery request. The lock acquired below is only for the JWKS
+        # cache + cooldown invariants.
+        metadata = await self._get_oidc_metadata()
+        jwks_uri = metadata.get("jwks_uri")
+        if not jwks_uri:
+            raise ValueError("OIDC metadata missing jwks_uri")
+        validate_endpoint_origin(jwks_uri, issuer)
+
         async with _CACHE_LOCK:
             # Double-check after acquiring lock
             if not force_refresh:
@@ -204,13 +413,6 @@ class OIDCProvider(AuthProvider):
                     raise ValueError(
                         "No cached JWKS available and refresh is on cooldown"
                     )
-
-            metadata = await self._get_oidc_metadata()
-            jwks_uri = metadata.get("jwks_uri")
-            if not jwks_uri:
-                raise ValueError("OIDC metadata missing jwks_uri")
-
-            validate_endpoint_origin(jwks_uri, issuer)
 
             try:
                 resp = await self._http.get(jwks_uri)
@@ -233,45 +435,33 @@ class OIDCProvider(AuthProvider):
     def _validate_id_token(self, id_token: str, jwks: dict, nonce: str) -> dict:
         """Validate an ID token against the issuer's JWKS.
 
-        Checks: signature, exp, iat (with clock skew), iss, aud, nonce.
+        Routes through :func:`verify_oidc_jwt` so SSO callback validation
+        and token-exchange subject-token validation share exactly the
+        same algorithm allowlist, header preflight, and JWKS lookup.
+        Without that, two parallel implementations would drift and one
+        could silently weaken (e.g. by accepting ``alg=none``).
+
+        Adds the OIDC-specific ``nonce`` check on top -- the shared
+        helper has no opinion about nonces because token-exchange
+        subject tokens don't carry one.
         """
-        from jwt import PyJWKClient
-
-        # Build a PyJWKClient from the cached JWKS data
-        jwk_client = PyJWKClient("")
-        jwk_client.fetch_data = lambda: jwks  # type: ignore[assignment]
-
         try:
-            header = pyjwt.get_unverified_header(id_token)
-            kid = header.get("kid")
-
-            signing_key = None
-            for key_data in jwks.get("keys", []):
-                if key_data.get("kid") == kid or kid is None:
-                    from jwt.algorithms import RSAAlgorithm
-
-                    signing_key = RSAAlgorithm.from_jwk(key_data)
-                    break
-
-            if signing_key is None:
-                raise ValueError("No matching key found in JWKS")
-
-            claims = pyjwt.decode(
+            claims = verify_oidc_jwt(
                 id_token,
-                signing_key,
-                algorithms=["RS256", "RS384", "RS512", "ES256", "ES384"],
-                options={
-                    "verify_exp": True,
-                    "verify_iat": True,
-                    "verify_aud": True,
-                    "verify_iss": True,
-                },
-                audience=self._config.client_id,
                 issuer=self._config.issuer_url,
+                jwks=jwks,
+                audience=self._config.client_id,
                 leeway=CLOCK_SKEW_SECONDS,
             )
-        except pyjwt.InvalidTokenError as e:
-            raise ValueError(f"ID token validation failed: {e}")
+        except SubjectTokenError as exc:
+            # Preserve the existing error type for callers of this
+            # method (the SSO router catches ValueError / SSRFError).
+            # The SubjectTokenError reason_code is logged for forensics.
+            logger.warning(
+                "ID token validation failed: reason=%s",
+                exc.reason_code,
+            )
+            raise ValueError(f"ID token validation failed: {exc.reason_code}") from exc
 
         if nonce and claims.get("nonce") != nonce:
             raise ValueError("ID token nonce mismatch")

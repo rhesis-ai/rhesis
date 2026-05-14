@@ -16,6 +16,15 @@ class RefreshToken(Base):
     ``family_id`` groups tokens created via rotation.  If a revoked
     token from the same family is presented, the entire family is
     revoked (reuse detection).
+
+    Token-exchange-issued tokens additionally carry ``client_id`` and
+    ``scope``. When ``client_id IS NOT NULL``, ``POST /auth/refresh``
+    requires HTTP Basic client credentials matching the AuthClient row
+    (defense in depth: a refresh-token thief without the client secret
+    cannot rotate). ``scope`` is preserved across rotation so a
+    ``scope=read`` token never silently escalates to full-user access
+    on its first refresh. UI/SSO refresh tokens leave both columns
+    NULL and behave exactly as before this column was added.
     """
 
     __tablename__ = "refresh_token"
@@ -44,6 +53,22 @@ class RefreshToken(Base):
         DateTime(timezone=True),
         nullable=True,
         comment="Set when the token is explicitly revoked",
+    )
+    client_id = Column(
+        String(64),
+        nullable=True,
+        index=True,
+        comment=(
+            "AuthClient.client_id when this row was minted via "
+            "/auth/token-exchange. NULL for UI/SSO refresh tokens."
+        ),
+    )
+    scope = Column(
+        String(255),
+        nullable=True,
+        comment=(
+            "Space-separated scope string preserved across rotation; set when client_id is set."
+        ),
     )
 
     # Relationships

@@ -9,6 +9,17 @@ from sqlalchemy import create_engine
 
 from rhesis.backend.app.models import Base
 
+# Eagerly import EE-owned ORM models when the EE package is installed so
+# their tables join Base.metadata before Alembic configures the migration
+# context. Without this, autogenerate would not see EE tables and an
+# offline ``alembic upgrade`` from a fresh DB would leave them missing.
+# The import is wrapped because a Community-only install must keep
+# working unchanged (no rhesis.backend.ee package on sys.path).
+try:
+    import rhesis.backend.ee.api_clients.clients  # noqa: F401
+except ImportError:
+    pass
+
 # load environment variables
 load_dotenv()
 

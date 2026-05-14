@@ -163,6 +163,11 @@ class TestVerifyJwtToken:
                 options={
                     "verify_exp": True,
                     "verify_iat": True,
+                    # Audience is verified manually inside
+                    # ``verify_jwt_token`` only when ``azp`` is
+                    # present, so PyJWT's own audience check is
+                    # disabled to avoid double-enforcing it.
+                    "verify_aud": False,
                     "require": ["exp", "iat"],
                 },
             )
@@ -218,6 +223,63 @@ class TestVerifyJwtToken:
         ):
             with pytest.raises(JWTError):
                 verify_jwt_token(token, secret_key)
+
+    def test_verify_jwt_token_rejects_azp_without_epoch(self):
+        """An azp-bearing token MUST carry epoch.
+
+        Coarse client-level revocation rests entirely on the
+        ``iat >= epoch`` comparison; a token minted with ``azp`` but
+        without ``epoch`` would silently bypass that check and
+        survive any secret rotation. ``verify_jwt_token`` rejects
+        rather than fail-open.
+        """
+        from rhesis.backend.app.auth.token_utils import RHESIS_TOKEN_AUDIENCE
+
+        token = "valid.jwt.token"
+        secret_key = "test-secret"
+        payload = {
+            "sub": "user123",
+            "type": "session",
+            "azp": "brain-prod",
+            "aud": RHESIS_TOKEN_AUDIENCE,
+            "scope": "full",
+            "jti": "some-uuid",
+            "exp": 9999999999,
+            "iat": 1000000000,
+            # Note: NO ``epoch`` -- the rejection under test.
+        }
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.jwt.decode",
+            return_value=payload,
+        ):
+            with pytest.raises(JWTError):
+                verify_jwt_token(token, secret_key)
+
+    def test_verify_jwt_token_accepts_azp_with_epoch(self):
+        """Sanity check: azp + epoch + matching aud is the happy path."""
+        from rhesis.backend.app.auth.token_utils import RHESIS_TOKEN_AUDIENCE
+
+        token = "valid.jwt.token"
+        secret_key = "test-secret"
+        payload = {
+            "sub": "user123",
+            "type": "session",
+            "azp": "brain-prod",
+            "aud": RHESIS_TOKEN_AUDIENCE,
+            "scope": "full",
+            "jti": "some-uuid",
+            "epoch": 1000000000,
+            "exp": 9999999999,
+            "iat": 1000000001,
+            "user": {"email": "u@example.com"},
+        }
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.jwt.decode",
+            return_value=payload,
+        ):
+            assert verify_jwt_token(token, secret_key) == payload
 
 
 class TestValidateToken:

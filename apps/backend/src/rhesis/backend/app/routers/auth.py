@@ -1150,28 +1150,133 @@ async def exchange_code(body: ExchangeCodeRequest):
 # =============================================================================
 
 
+#: Single response detail used for every 401 emitted by /auth/refresh.
+#: We deliberately do not vary the string by failure reason because the
+#: variants ("token not found" / "token expired" / "reuse detected" /
+#: "user inactive" / "wrong client secret") would each be an oracle a
+#: caller with a stolen refresh token could probe to learn whether the
+#: token ever existed, whether they tripped reuse detection, etc.
+#: Distinct reasons are still recorded in structured logs and the audit
+#: trail; only the HTTP body is uniform.
+_REFRESH_INVALID_DETAIL = "Invalid refresh token"
+
+
+def _refresh_invalid() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=_REFRESH_INVALID_DETAIL,
+    )
+
+
 @router.post("/refresh")
 async def refresh_tokens(
     body: RefreshTokenRequest,
+    request: Request,
     db: Session = Depends(get_db_session),
 ):
     """Exchange a valid refresh token for a new access + refresh token pair.
 
     The old refresh token is revoked (rotation).  If a revoked token
     is presented, the entire token family is revoked (reuse detection).
+
+    Token-exchange refresh tokens (rows with a non-null ``client_id``)
+    are subject to additional checks:
+
+    - HTTP Basic ``Authorization`` is **required** -- the same
+      AuthClient that minted the refresh token must re-authenticate
+      to use it. Without this, a stolen refresh token alone would be
+      sufficient to mint new access tokens.
+    - The Basic credential's client_id must match the refresh token
+      row's ``client_id``. Mismatch is an attempted lateral move.
+    - The minted access token preserves the original
+      ``azp`` / ``aud`` / ``scope`` / ``epoch`` so that scope cannot
+      escalate across rotation and revocation via ``token_epoch``
+      keeps applying to refreshed tokens.
+    - The bound user MUST still be active. A disabled user's refresh
+      token is rejected even if everything else is valid -- otherwise
+      ``DELETE /users/{id}`` (or the soft-disable equivalent) would
+      not actually cut access until the access token expired and the
+      user got a fresh one through SSO.
+
+    Every 401 returns the same generic detail string regardless of the
+    underlying reason; differentiating them in the response body would
+    let a caller with a stolen token probe whether the token ever
+    existed, whether they tripped reuse detection, etc. Detailed
+    reasons go to structured logs and the audit stream.
+
+    UI / SSO refresh tokens (``client_id`` IS NULL) keep the legacy
+    behaviour unchanged otherwise: no Basic auth required, plain
+    session JWT minted.
     """
     from rhesis.backend.app import crud
+    from rhesis.backend.app.auth.refresh_client_hook import (
+        get_refresh_client_minter,
+    )
 
-    old_token, new_raw_refresh = verify_and_rotate_refresh_token(db, body.refresh_token)
+    # ``verify_and_rotate_refresh_token`` raises HTTPException with
+    # variant detail strings (kept for backward compatibility with
+    # other call sites). For /auth/refresh we replace the response
+    # body with the uniform "invalid" string while still letting the
+    # function's structured logs capture the precise reason.
+    try:
+        old_token, new_raw_refresh = verify_and_rotate_refresh_token(db, body.refresh_token)
+    except HTTPException as exc:
+        # Keep 503 / 5xx as-is (those aren't oracles); collapse 401s.
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            raise _refresh_invalid() from exc
+        raise
 
     user = crud.get_user(db, str(old_token.user_id))
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+        # User vanished between mint and refresh (unusual; would
+        # require the user to be hard-deleted). Same uniform 401.
+        logger.warning(
+            "Refresh: user %s for token family %s no longer exists",
+            old_token.user_id,
+            old_token.family_id,
         )
+        raise _refresh_invalid()
 
-    access_token = create_session_token(user)
+    # is_active is the operator-facing kill switch. Honouring it on
+    # refresh closes the gap between "admin disabled this user" and
+    # "all of that user's sessions actually stop working".
+    if not getattr(user, "is_active", True):
+        logger.warning(
+            "Refresh: rejected for inactive user %s (family %s)",
+            old_token.user_id,
+            old_token.family_id,
+        )
+        raise _refresh_invalid()
+
+    # Token-exchange-issued tokens carry a client binding that the
+    # refresh request MUST re-prove. The check itself lives in EE
+    # (because AuthClient is an EE concept) and is invoked here via
+    # a hook the EE bootstrap registers. UI / SSO refresh tokens
+    # have NULL client_id and skip the hook entirely.
+    if old_token.client_id is not None:
+        minter = get_refresh_client_minter()
+        if minter is None:
+            # A token-exchange-issued refresh exists in the DB but the
+            # EE module is not loaded -- inconsistent deployment state.
+            # Fail closed with 503; do not silently fall back to the
+            # unbound minter, which would erase the client binding.
+            logger.error(
+                "Refresh token client_id=%s presented but EE refresh hook "
+                "is not registered; rejecting",
+                old_token.client_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Token refresh temporarily unavailable",
+            )
+        try:
+            access_token = minter(db, request, old_token, user)
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+                raise _refresh_invalid() from exc
+            raise
+    else:
+        access_token = create_session_token(user)
     db.commit()
 
     return {

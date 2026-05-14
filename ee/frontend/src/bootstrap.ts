@@ -15,8 +15,10 @@
  * duplicate sections or nav items.
  */
 
+import { registerApiClients } from './api-clients/register';
 import { registerSSO } from './sso/register';
 
 export function bootstrapEE(): void {
   registerSSO();
+  registerApiClients();
 }
