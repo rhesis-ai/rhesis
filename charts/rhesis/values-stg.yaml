@@ -63,10 +63,11 @@ config:
 backend:
   resources:
     requests:
-      memory: "512Mi"
+      memory: "1Gi"
       cpu: "500m"
     limits:
-      memory: "1Gi"
+      # Garak probe cache pre-warm loads probes + wordnet; 1Gi OOMKills the API.
+      memory: "2Gi"
       cpu: "1000m"
   ingress:
     enabled: true
@@ -92,6 +93,10 @@ backend:
 frontend:
   image:
     tag: "latest"
+  # Chart defaults runAsUser 1000; the frontend image uses USER nextjs (1001) until
+  # the Dockerfile UID alignment ships. Disable K8s UID override so entrypoint
+  # sed -i can write under .next/server/chunks. Remove after the next frontend image build.
+  disableSecurityContext: true
   resources:
     requests:
       memory: "256Mi"

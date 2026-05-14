@@ -107,9 +107,10 @@ WORKDIR /app
 ENV FRONTEND_ENV=${FRONTEND_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create a non-root user and switch to it
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
+# Non-root user must match charts/rhesis podSecurityContext (runAsUser/fsGroup 1000)
+# so Helm-enforced securityContext does not block entrypoint sed -i on .next files.
+RUN addgroup --system --gid 1000 nodejs && \
+    adduser --system --uid 1000 -G nodejs nextjs && \
     chown -R nextjs:nodejs /app
 
 # The standalone output mirrors the repo-root structure because
