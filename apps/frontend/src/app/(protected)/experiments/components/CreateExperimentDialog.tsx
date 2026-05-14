@@ -3,11 +3,8 @@
 import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Box,
+  Chip,
   FormControl,
   FormHelperText,
   InputLabel,
@@ -15,7 +12,9 @@ import {
   Select,
   Stack,
   TextField,
+  Typography,
 } from '@mui/material';
+import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentRead,
@@ -24,7 +23,7 @@ import {
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 
-interface CreateExperimentDialogProps {
+interface CreateExperimentDrawerProps {
   open: boolean;
   onClose: () => void;
   sessionToken: string;
@@ -33,14 +32,6 @@ interface CreateExperimentDialogProps {
   onCreated: (experiment: ExperimentRead) => void;
 }
 
-/**
- * Modal for creating a new experiment.
- *
- * Visibility defaults to ``private`` so a freshly created sandbox
- * never accidentally shows up in teammates' lists. Promoting a
- * private experiment to ``shared`` is a separate explicit action on
- * the detail page.
- */
 export default function CreateExperimentDialog({
   open,
   onClose,
@@ -48,7 +39,7 @@ export default function CreateExperimentDialog({
   projects,
   defaultProjectId,
   onCreated,
-}: CreateExperimentDialogProps) {
+}: CreateExperimentDrawerProps) {
   const notifications = useNotifications();
 
   const [projectId, setProjectId] = useState<string>('');
@@ -71,8 +62,7 @@ export default function CreateExperimentDialog({
     [sessionToken]
   );
 
-  const canSubmit =
-    !!projectId && name.trim().length > 0 && !submitting;
+  const canSubmit = !!projectId && name.trim().length > 0 && !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -97,76 +87,75 @@ export default function CreateExperimentDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>New experiment</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Project</InputLabel>
-            <Select
-              label="Project"
-              value={projectId}
-              onChange={e => setProjectId(e.target.value)}
-            >
-              {projects.map(p => (
-                <MenuItem key={String(p.id)} value={String(p.id)}>
-                  {p.name}
-                </MenuItem>
-              ))}
-            </Select>
-            <FormHelperText>
-              Each experiment lives inside one project and uses that
-              project's parameter schema.
-            </FormHelperText>
-          </FormControl>
-          <TextField
-            label="Name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            size="small"
-            fullWidth
-            autoFocus
-          />
-          <TextField
-            label="Description (optional)"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            size="small"
-            fullWidth
-            multiline
-            minRows={2}
-          />
-          <FormControl fullWidth size="small">
-            <InputLabel>Visibility</InputLabel>
-            <Select
-              label="Visibility"
-              value={visibility}
-              onChange={e =>
-                setVisibility(e.target.value as ExperimentVisibility)
-              }
-            >
-              <MenuItem value="private">Private (only me)</MenuItem>
-              <MenuItem value="shared">Shared (whole project)</MenuItem>
-            </Select>
-            <FormHelperText>
-              Only shared experiments can be promoted onto a project
-              environment (default, production, staging).
-            </FormHelperText>
-          </FormControl>
-        </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={!canSubmit}
-        >
-          {submitting ? 'Creating...' : 'Create'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <BaseDrawer
+      open={open}
+      onClose={onClose}
+      title="New Experiment"
+      loading={submitting}
+      onSave={handleSubmit}
+      saveDisabled={!canSubmit}
+      saveButtonText={submitting ? 'Creating...' : 'Create'}
+    >
+      <Stack spacing={2.5}>
+        <FormControl fullWidth size="small">
+          <InputLabel>Project</InputLabel>
+          <Select
+            label="Project"
+            value={projectId}
+            onChange={e => setProjectId(e.target.value)}
+          >
+            {projects.map(p => (
+              <MenuItem key={String(p.id)} value={String(p.id)}>
+                {p.name}
+              </MenuItem>
+            ))}
+          </Select>
+          <FormHelperText>
+            Each experiment lives inside one project and uses that
+            project&apos;s parameter schema.
+          </FormHelperText>
+        </FormControl>
+        <TextField
+          label="Name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          size="small"
+          fullWidth
+          autoFocus
+        />
+        <TextField
+          label="Description (optional)"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          size="small"
+          fullWidth
+          multiline
+          minRows={2}
+        />
+        <Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Visibility
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Chip
+              label="Private (only me)"
+              onClick={() => setVisibility('private')}
+              color={visibility === 'private' ? 'primary' : 'default'}
+              variant={visibility === 'private' ? 'filled' : 'outlined'}
+            />
+            <Chip
+              label="Shared (whole project)"
+              onClick={() => setVisibility('shared')}
+              color={visibility === 'shared' ? 'primary' : 'default'}
+              variant={visibility === 'shared' ? 'filled' : 'outlined'}
+            />
+          </Box>
+          <FormHelperText>
+            Only shared experiments can be promoted onto a project environment
+            (default, production, staging).
+          </FormHelperText>
+        </Box>
+      </Stack>
+    </BaseDrawer>
   );
 }

@@ -191,7 +191,7 @@ function VersionsView({ versions }: { versions: ExperimentResultsVersionItem[] }
         
         let deltaStr = '';
         let isRegression = false;
-        if (currentStat.passRate !== null && prevStat?.passRate !== null) {
+        if (currentStat.passRate !== null && prevStat !== null && prevStat.passRate !== null) {
           const delta = currentStat.passRate - prevStat.passRate;
           if (delta > 0) deltaStr = ` (+${delta}pp)`;
           else if (delta < 0) {

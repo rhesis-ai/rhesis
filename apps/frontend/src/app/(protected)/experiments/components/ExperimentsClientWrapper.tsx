@@ -1,311 +1,349 @@
 'use client';
 
-import * as React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Box,
-  Button,
   Chip,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Typography,
 } from '@mui/material';
+import {
+  GridColDef,
+  GridFilterModel,
+  GridPaginationModel,
+  GridRowSelectionModel,
+} from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { PageContainer } from '@toolpad/core/PageContainer';
+import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentRead,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { AddIcon, BiotechIcon } from '@/components/icons';
+import { AddIcon, DeleteIcon, BiotechIcon } from '@/components/icons';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
 import CreateExperimentDialog from './CreateExperimentDialog';
+import { formatDate } from '@/utils/date';
 
 interface ExperimentsClientWrapperProps {
   sessionToken: string;
 }
 
-interface ExperimentRow extends ExperimentRead {
-  projectName: string;
-}
-
-/**
- * Index page for experiments across all projects the user can see.
- *
- * Lists shared + my-private experiments per project (the backend
- * filter handles visibility — the UI is just a renderer). A Project
- * filter narrows the view, and a "Create" button drops the user
- * straight into the new-experiment dialog with the active project
- * pre-selected so the per-project happy path stays one click.
- */
 export default function ExperimentsClientWrapper({
   sessionToken,
 }: ExperimentsClientWrapperProps) {
+  const isMounted = useRef(false);
   const router = useRouter();
+  const notifications = useNotifications();
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [experiments, setExperiments] = useState<ExperimentRow[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 25,
+  });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
+  });
 
   const apiFactory = useMemo(
     () => new ApiClientFactory(sessionToken),
     [sessionToken]
   );
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const projectsClient = apiFactory.getProjectsClient();
-      const projectsResp = await projectsClient.getAllProjects({
-        sort_by: 'name',
-        sort_order: 'asc',
-      });
-      setProjects(projectsResp);
+  const initialLoadDone = useRef(false);
 
-      const parametersClient = apiFactory.getParametersClient();
-      // Fan-out: one list call per project. Project counts in
-      // practice are small (tens, not thousands) so this stays
-      // cheap; if it ever doesn't, we add a top-level
-      // /experiments list endpoint.
-      const all: ExperimentRow[] = [];
-      await Promise.all(
-        projectsResp.map(async project => {
-          try {
-            const rows = await parametersClient.listProjectExperiments(
-              String(project.id),
-              { limit: 200 }
-            );
-            for (const row of rows) {
-              all.push({ ...row, projectName: project.name });
-            }
-          } catch (e) {
-            // Per-project failures shouldn't bring down the whole list.
-            console.warn(
-              `Failed to load experiments for project ${project.id}`,
-              e
-            );
-          }
-        })
-      );
-      all.sort((a, b) => {
-        const ta = a.created_at ? Date.parse(a.created_at) : 0;
-        const tb = b.created_at ? Date.parse(b.created_at) : 0;
-        return tb - ta;
-      });
-      setExperiments(all);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load experiments');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiFactory]);
+  const fetchExperiments = useCallback(
+    async (skip: number, limit: number) => {
+      if (!sessionToken) return;
+
+      try {
+        // Only show loading overlay on the first load
+        if (!initialLoadDone.current && isMounted.current) {
+          setLoading(true);
+        }
+
+        const parametersClient = apiFactory.getParametersClient();
+        const filterString = combineExperimentFiltersToOData(filterModel);
+
+        const { data, totalCount: count } =
+          await parametersClient.listExperiments({
+            skip,
+            limit,
+            sort_by: 'created_at',
+            sort_order: 'desc',
+            ...(filterString && { filter: filterString }),
+          });
+
+        if (isMounted.current) {
+          setExperiments(data);
+          setTotalCount(count);
+          initialLoadDone.current = true;
+        }
+      } catch {
+        if (isMounted.current) {
+          notifications.show('Failed to load experiments', {
+            severity: 'error',
+          });
+          setExperiments([]);
+        }
+      } finally {
+        if (isMounted.current) setLoading(false);
+      }
+    },
+    [sessionToken, apiFactory, filterModel, notifications]
+  );
+
+  // Load projects for the create drawer
+  useEffect(() => {
+    if (!sessionToken) return;
+    const projectsClient = apiFactory.getProjectsClient();
+    projectsClient
+      .getAllProjects({ sort_by: 'name', sort_order: 'asc' })
+      .then(p => setProjects(p))
+      .catch(() => {});
+  }, [sessionToken, apiFactory]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    isMounted.current = true;
 
-  const visibleExperiments = useMemo(() => {
-    if (selectedProjectId === 'all') return experiments;
-    return experiments.filter(e => e.project_id === selectedProjectId);
-  }, [experiments, selectedProjectId]);
+    const skip = paginationModel.page * paginationModel.pageSize;
+    fetchExperiments(skip, paginationModel.pageSize);
 
-  const handleRowClick = (experimentId: string) => {
-    router.push(`/experiments/${experimentId}`);
+    return () => {
+      isMounted.current = false;
+    };
+  }, [paginationModel, fetchExperiments]);
+
+  const handleFilterModelChange = useCallback(
+    (newFilterModel: GridFilterModel) => {
+      setFilterModel(newFilterModel);
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
+    },
+    []
+  );
+
+  const handleDeleteExperiments = async () => {
+    setDeleting(true);
+    try {
+      const parametersClient = apiFactory.getParametersClient();
+      const ids = selectedRows as string[];
+      await Promise.all(
+        ids.map(id => parametersClient.deleteExperiment(id))
+      );
+      notifications.show(
+        `Deleted ${ids.length} experiment${ids.length > 1 ? 's' : ''}`,
+        { severity: 'success' }
+      );
+      setSelectedRows([]);
+      setDeleteDialogOpen(false);
+      const skip = paginationModel.page * paginationModel.pageSize;
+      fetchExperiments(skip, paginationModel.pageSize);
+    } catch {
+      notifications.show('Failed to delete experiments', {
+        severity: 'error',
+      });
+    } finally {
+      setDeleting(false);
+    }
   };
+
+  const columns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Name',
+        flex: 1.5,
+        minWidth: 200,
+        filterable: true,
+        renderCell: params => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <BiotechIcon fontSize="small" color="action" />
+            <Typography variant="body2">{params.row.name}</Typography>
+          </Box>
+        ),
+      },
+      {
+        field: 'projectName',
+        headerName: 'Project',
+        flex: 1,
+        minWidth: 140,
+        filterable: true,
+        valueGetter: (_value: unknown, row: ExperimentRead) =>
+          row.project_name || '—',
+      },
+      {
+        field: 'visibility',
+        headerName: 'Visibility',
+        flex: 0.6,
+        minWidth: 100,
+        filterable: true,
+        type: 'singleSelect',
+        valueOptions: ['private', 'shared'],
+        renderCell: params => (
+          <Chip
+            size="small"
+            label={params.value}
+            color={params.value === 'shared' ? 'primary' : 'default'}
+            variant="outlined"
+          />
+        ),
+      },
+      {
+        field: 'versions_count',
+        headerName: 'Versions',
+        flex: 0.5,
+        minWidth: 80,
+        align: 'right',
+        headerAlign: 'right',
+        filterable: false,
+      },
+      {
+        field: 'latest_version',
+        headerName: 'Latest',
+        flex: 0.6,
+        minWidth: 100,
+        filterable: false,
+        sortable: false,
+        renderCell: params =>
+          params.value ? (
+            <Chip
+              size="small"
+              label={shortVersion(params.value)}
+              sx={{ fontFamily: 'monospace' }}
+            />
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              (no versions)
+            </Typography>
+          ),
+      },
+      {
+        field: 'created_at',
+        headerName: 'Created',
+        flex: 0.8,
+        minWidth: 120,
+        filterable: false,
+        renderCell: params => (
+          <Typography variant="body2" color="text.secondary">
+            {params.value ? formatDate(params.value) : '—'}
+          </Typography>
+        ),
+      },
+    ],
+    []
+  );
+
+  const actionButtons = useMemo(() => {
+    const buttons: {
+      label: string;
+      icon: React.ReactNode;
+      variant: 'text' | 'outlined' | 'contained';
+      color?:
+        | 'inherit'
+        | 'primary'
+        | 'secondary'
+        | 'success'
+        | 'error'
+        | 'info'
+        | 'warning';
+      onClick: () => void;
+      disabled?: boolean;
+    }[] = [
+      {
+        label: 'New Experiment',
+        icon: <AddIcon />,
+        variant: 'contained',
+        onClick: () => setCreateOpen(true),
+        disabled: projects.length === 0,
+      },
+    ];
+
+    if (selectedRows.length > 0) {
+      buttons.push({
+        label: `Delete (${selectedRows.length})`,
+        icon: <DeleteIcon />,
+        variant: 'outlined',
+        color: 'error',
+        onClick: () => setDeleteDialogOpen(true),
+      });
+    }
+
+    return buttons;
+  }, [projects.length, selectedRows.length]);
 
   return (
     <PageContainer title="Experiments" breadcrumbs={[]}>
-      <Stack spacing={3} sx={{ mt: 1 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 2,
-            flexWrap: 'wrap',
+      <Box sx={{ mb: 3 }}>
+        <Typography color="text.secondary">
+          Experiments are named bundles of parameter values that can be pinned
+          to test runs, ensuring reproducible and comparable executions across
+          your project.
+        </Typography>
+      </Box>
+      <Paper elevation={2} sx={{ p: 2 }}>
+        <BaseDataGrid
+          rows={experiments}
+          columns={columns}
+          loading={loading}
+          density="comfortable"
+          actionButtons={actionButtons}
+          linkPath="/experiments"
+          linkField="id"
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          filterModel={filterModel}
+          onFilterModelChange={handleFilterModelChange}
+          serverSideFiltering={true}
+          serverSidePagination={true}
+          totalRows={totalCount}
+          pageSizeOptions={[10, 25, 50]}
+          checkboxSelection
+          disableRowSelectionOnClick
+          rowSelectionModel={selectedRows}
+          onRowSelectionModelChange={setSelectedRows}
+          disablePaperWrapper
+          persistState
+          initialState={{
+            columns: {
+              columnVisibilityModel: {
+                versions_count: false,
+              },
+            },
           }}
-        >
-          <Typography color="text.secondary">
-            Named bundles of parameter values that test runs and SDK
-            consumers resolve through. Each save mints an immutable
-            version; environments (default, production, staging) point
-            at one (experiment, version) pair.
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-            disabled={projects.length === 0}
-          >
-            New experiment
-          </Button>
-        </Box>
-
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={2}
-            alignItems={{ sm: 'center' }}
-            sx={{ mb: 2 }}
-          >
-            <FormControl size="small" sx={{ minWidth: 240 }}>
-              <InputLabel>Project</InputLabel>
-              <Select
-                label="Project"
-                value={selectedProjectId}
-                onChange={e => setSelectedProjectId(e.target.value)}
-              >
-                <MenuItem value="all">All projects</MenuItem>
-                {projects.map(p => (
-                  <MenuItem key={String(p.id)} value={String(p.id)}>
-                    {p.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Box sx={{ flex: 1 }} />
-            <Typography color="text.secondary" variant="body2">
-              {visibleExperiments.length} experiment
-              {visibleExperiments.length === 1 ? '' : 's'}
-            </Typography>
-          </Stack>
-
-          {loading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', p: 3, gap: 2 }}>
-              <CircularProgress size={20} />
-              <Typography color="text.secondary">
-                Loading experiments...
-              </Typography>
-            </Box>
-          ) : error ? (
-            <Alert severity="error">{error}</Alert>
-          ) : visibleExperiments.length === 0 ? (
-            <Box
-              sx={{
-                py: 6,
-                textAlign: 'center',
-                color: 'text.secondary',
-              }}
-            >
-              <BiotechIcon sx={{ fontSize: 40, mb: 1, opacity: 0.5 }} />
-              <Typography variant="body2">
-                No experiments here yet. Create one to start versioning a
-                project's parameter values.
-              </Typography>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Project</TableCell>
-                    <TableCell>Visibility</TableCell>
-                    <TableCell align="right">Versions</TableCell>
-                    <TableCell>Latest</TableCell>
-                    <TableCell>Created</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {visibleExperiments.map(row => (
-                    <TableRow
-                      key={row.id}
-                      hover
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => handleRowClick(row.id)}
-                    >
-                      <TableCell>
-                        <Stack
-                          direction="row"
-                          alignItems="center"
-                          spacing={1}
-                        >
-                          <BiotechIcon fontSize="small" color="action" />
-                          <Box>
-                            <Typography variant="body2">
-                              {row.name}
-                            </Typography>
-                            {row.description && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {row.description}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>{row.projectName}</TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={row.visibility}
-                          color={
-                            row.visibility === 'shared' ? 'primary' : 'default'
-                          }
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell align="right">{row.versions_count}</TableCell>
-                      <TableCell>
-                        {row.latest_version ? (
-                          <Chip
-                            size="small"
-                            label={shortVersion(row.latest_version)}
-                            sx={{ fontFamily: 'monospace' }}
-                          />
-                        ) : (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                          >
-                            (no versions)
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {row.created_at
-                          ? new Date(row.created_at).toLocaleDateString()
-                          : '—'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Paper>
-      </Stack>
+        />
+      </Paper>
 
       <CreateExperimentDialog
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         sessionToken={sessionToken}
         projects={projects}
-        defaultProjectId={
-          selectedProjectId === 'all' ? undefined : selectedProjectId
-        }
+        defaultProjectId={undefined}
         onCreated={async experiment => {
           setCreateOpen(false);
           router.push(`/experiments/${experiment.id}`);
         }}
+      />
+
+      <DeleteModal
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={handleDeleteExperiments}
+        isLoading={deleting}
+        title={`Delete Experiment${selectedRows.length > 1 ? 's' : ''}`}
+        message={`Are you sure you want to delete ${selectedRows.length} experiment${selectedRows.length > 1 ? 's' : ''}? This action cannot be undone.`}
+        itemType="experiments"
       />
     </PageContainer>
   );

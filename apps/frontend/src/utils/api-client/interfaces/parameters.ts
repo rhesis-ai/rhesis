@@ -113,6 +113,7 @@ export interface ExperimentRead {
   project_id: string;
   owner_user_id: string;
   organization_id?: string | null;
+  project_name?: string | null;
   name: string;
   description?: string | null;
   visibility: ExperimentVisibility;

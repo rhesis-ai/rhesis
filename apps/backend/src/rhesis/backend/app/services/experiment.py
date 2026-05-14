@@ -698,6 +698,12 @@ def connector_execute_extras_from_run_attributes(
 def to_read(db_experiment: Experiment) -> ExperimentRead:
     """Convert a DB experiment row to the compact list/read shape."""
     last = latest_version(db_experiment)
+    project_name: str | None = None
+    try:
+        if db_experiment.project is not None:
+            project_name = db_experiment.project.name
+    except Exception:
+        pass
     return ExperimentRead(
         id=db_experiment.id,
         name=db_experiment.name,
@@ -706,6 +712,7 @@ def to_read(db_experiment: Experiment) -> ExperimentRead:
         project_id=db_experiment.project_id,
         owner_user_id=db_experiment.owner_user_id,
         organization_id=db_experiment.organization_id,
+        project_name=project_name,
         versions_count=len(db_experiment.versions or []),
         latest_version=last.version if last else None,
         created_at=db_experiment.created_at,

@@ -100,7 +100,30 @@ export class ParametersClient extends BaseApiClient {
   }
 
   // ----------------------------------------------------------------- //
-  // Experiments — list / create are project-scoped                    //
+  // Experiments — cross-project list with OData filter                //
+  // ----------------------------------------------------------------- //
+
+  async listExperiments(
+    args: {
+      skip?: number;
+      limit?: number;
+      sort_by?: string;
+      sort_order?: 'asc' | 'desc';
+      filter?: string;
+    } = {}
+  ): Promise<{ data: ExperimentRead[]; totalCount: number }> {
+    const resp = await this.fetchPaginated<ExperimentRead>('/experiments', {
+      skip: args.skip ?? 0,
+      limit: args.limit ?? 50,
+      sort_by: args.sort_by,
+      sort_order: args.sort_order,
+      $filter: args.filter,
+    });
+    return { data: resp.data, totalCount: resp.pagination.totalCount };
+  }
+
+  // ----------------------------------------------------------------- //
+  // Experiments — per-project list / create                           //
   // ----------------------------------------------------------------- //
 
   async listProjectExperiments(

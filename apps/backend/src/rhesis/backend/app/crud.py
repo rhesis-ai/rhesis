@@ -130,6 +130,30 @@ def delete_endpoint(
     )
 
 
+# Experiment CRUD
+def get_experiments(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Experiment]:
+    return get_items_detail(
+        db,
+        models.Experiment,
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        filter,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+
 # UseCase CRUD
 def get_use_case(
     db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None

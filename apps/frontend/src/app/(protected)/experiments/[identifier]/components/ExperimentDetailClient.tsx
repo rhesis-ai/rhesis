@@ -14,9 +14,11 @@ import {
   Stack,
   Tab,
   Tabs,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import { useRouter } from 'next/navigation';
 import { PageContainer, Breadcrumb } from '@toolpad/core/PageContainer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -258,6 +260,72 @@ export default function ExperimentDetailClient({
     [apiFactory, experiment, notifications]
   );
 
+  // Inline editing for name and description
+  const [editingName, setEditingName] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+
+  const handleStartEditName = useCallback(() => {
+    if (!experiment) return;
+    setEditName(experiment.name);
+    setEditingName(true);
+  }, [experiment]);
+
+  const handleStartEditDescription = useCallback(() => {
+    if (!experiment) return;
+    setEditDescription(experiment.description || '');
+    setEditingDescription(true);
+  }, [experiment]);
+
+  const handleSaveName = useCallback(async () => {
+    if (!experiment) return;
+    const trimmed = editName.trim();
+    if (!trimmed || trimmed === experiment.name) {
+      setEditingName(false);
+      return;
+    }
+    try {
+      const client = apiFactory.getParametersClient();
+      const updated = await client.patchExperiment(experiment.id, {
+        name: trimmed,
+      });
+      setExperiment(updated);
+      notifications.show('Name updated', { severity: 'success' });
+    } catch (e) {
+      notifications.show(
+        e instanceof Error ? e.message : 'Failed to update name',
+        { severity: 'error' }
+      );
+    } finally {
+      setEditingName(false);
+    }
+  }, [apiFactory, editName, experiment, notifications]);
+
+  const handleSaveDescription = useCallback(async () => {
+    if (!experiment) return;
+    const trimmed = editDescription.trim();
+    if (trimmed === (experiment.description || '')) {
+      setEditingDescription(false);
+      return;
+    }
+    try {
+      const client = apiFactory.getParametersClient();
+      const updated = await client.patchExperiment(experiment.id, {
+        description: trimmed || null,
+      });
+      setExperiment(updated);
+      notifications.show('Description updated', { severity: 'success' });
+    } catch (e) {
+      notifications.show(
+        e instanceof Error ? e.message : 'Failed to update description',
+        { severity: 'error' }
+      );
+    } finally {
+      setEditingDescription(false);
+    }
+  }, [apiFactory, editDescription, experiment, notifications]);
+
   const breadcrumbs: Breadcrumb[] = useMemo(() => {
     if (!experiment) return [];
     return [
@@ -301,11 +369,78 @@ export default function ExperimentDetailClient({
             justifyContent="space-between"
           >
             <Box>
-              <Typography variant="h6">{experiment.name}</Typography>
-              {experiment.description && (
-                <Typography variant="body2" color="text.secondary">
-                  {experiment.description}
-                </Typography>
+              {editingName ? (
+                <TextField
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  onBlur={handleSaveName}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSaveName();
+                    if (e.key === 'Escape') setEditingName(false);
+                  }}
+                  size="small"
+                  autoFocus
+                  fullWidth
+                  sx={{ mb: 0.5 }}
+                  InputProps={{ sx: { typography: 'h6' } }}
+                />
+              ) : (
+                <Box
+                  onClick={handleStartEditName}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    cursor: 'pointer',
+                    '&:hover .edit-icon': { opacity: 1 },
+                  }}
+                >
+                  <Typography variant="h6">{experiment.name}</Typography>
+                  <EditIcon
+                    className="edit-icon"
+                    sx={{ fontSize: 'body1.fontSize', opacity: 0, color: 'text.secondary' }}
+                  />
+                </Box>
+              )}
+              {editingDescription ? (
+                <TextField
+                  value={editDescription}
+                  onChange={e => setEditDescription(e.target.value)}
+                  onBlur={handleSaveDescription}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) handleSaveDescription();
+                    if (e.key === 'Escape') setEditingDescription(false);
+                  }}
+                  size="small"
+                  autoFocus
+                  fullWidth
+                  multiline
+                  minRows={1}
+                  placeholder="Add a description..."
+                />
+              ) : (
+                <Box
+                  onClick={handleStartEditDescription}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    cursor: 'pointer',
+                    '&:hover .edit-icon': { opacity: 1 },
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ fontStyle: experiment.description ? 'normal' : 'italic' }}
+                  >
+                    {experiment.description || 'Add a description...'}
+                  </Typography>
+                  <EditIcon
+                    className="edit-icon"
+                    sx={{ fontSize: 'caption.fontSize', opacity: 0, color: 'text.secondary' }}
+                  />
+                </Box>
               )}
               <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                 <Chip

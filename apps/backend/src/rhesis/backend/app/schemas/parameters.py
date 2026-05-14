@@ -578,6 +578,7 @@ class ExperimentRead(ExperimentBase):
     project_id: UUID4
     owner_user_id: UUID4
     organization_id: UUID4 | None = None
+    project_name: str | None = None
     versions_count: int = 0
     latest_version: str | None = None
     created_at: datetime | None = None

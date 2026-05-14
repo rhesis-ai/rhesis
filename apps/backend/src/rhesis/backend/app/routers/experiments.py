@@ -43,6 +43,7 @@ from rhesis.backend.app.services.experiment import (
     to_detail,
     to_read,
 )
+from rhesis.backend.app.utils.decorators import with_count_header
 
 router = APIRouter(
     prefix="/experiments",
@@ -50,6 +51,47 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
 )
+
+
+@router.get("", response_model=list[ExperimentRead])
+@with_count_header(model=Experiment)
+def list_experiments(
+    response: Response,
+    skip: int = 0,
+    limit: int = 50,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = Query(
+        None, alias="$filter", description="OData filter expression"
+    ),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> list[ExperimentRead]:
+    """List all experiments visible to the requester across projects.
+
+    Supports OData filtering on ``name``, ``description``,
+    ``visibility``, and ``project/name``.  Private experiments
+    belonging to other users are excluded.
+    """
+    organization_id, user_id = tenant_context
+    rows = crud.get_experiments(
+        db,
+        skip=skip,
+        limit=limit,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        filter=filter,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    visible = [
+        r
+        for r in rows
+        if r.visibility != "private"
+        or (user_id is not None and str(r.owner_user_id) == str(user_id))
+    ]
+    return [to_read(r) for r in visible]
 
 
 
