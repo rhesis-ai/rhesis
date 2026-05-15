@@ -55,6 +55,7 @@ class RedisBackedCache:
                 cache_url,
                 decode_responses=True,
                 encoding="utf-8",
+                max_connections=3,
                 socket_connect_timeout=5,
                 socket_timeout=5,
             )

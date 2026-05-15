@@ -71,6 +71,7 @@ class GarakProbeCache:
                 cache_url,
                 decode_responses=True,
                 encoding="utf-8",
+                max_connections=3,
                 socket_connect_timeout=5,  # Don't hang forever on connect
                 socket_timeout=5,  # Don't hang forever on operations
             )
