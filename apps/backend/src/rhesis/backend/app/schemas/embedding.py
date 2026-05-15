@@ -49,13 +49,14 @@ class Point(Base):
 
 
 class ScatterPoint2D(Point):
-    cluster_id: str
+    cluster_index: int  # HDBSCAN cluster id, or -1 for noise
+    searchable_text: str
     x: float  # 2D UMAP coordinates for visualization
     y: float
 
 
 class Cluster(Base):
-    id: str  # "cluster_1", "cluster_2", etc.
+    cluster_index: int
     label: str  # A descriptive, LLM-generated label
     size: int  # number of entities in the cluster
 
