@@ -1,0 +1,9 @@
+# Configures kube-dns to forward rhesis.ai queries to the environment's BIND9 server.
+# GKE addon manager mode is EnsureExists — it will not overwrite this after creation.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-dns
+  namespace: kube-system
+data:
+  stubDomains: '{"rhesis.ai": ["10.4.1.200"]}'
