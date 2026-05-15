@@ -945,7 +945,8 @@ def get_active_embeddings_for_entities(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.Embedding]:
-    from rhesis.backend.app.models.status import EmbeddingStatus, Status
+    from rhesis.backend.app.models.enums import EmbeddingStatus
+    from rhesis.backend.app.models.status import Status
 
     return (
         QueryBuilder(db, models.Embedding)
