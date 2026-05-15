@@ -72,6 +72,7 @@ class RedisBackedCache:
 
             self._redis_read = self._redis
             if os.getenv("BROKER_READ_URL"):
+                read_client = None
                 try:
                     read_url = self._build_redis_url(read=True)
                     read_client = redis_pkg.Redis.from_url(
@@ -89,6 +90,11 @@ class RedisBackedCache:
                         f"connected (db {self._redis_db})"
                     )
                 except Exception as e:
+                    if read_client is not None:
+                        try:
+                            read_client.close()
+                        except Exception:
+                            pass
                     logger.warning(
                         f"{self._cache_name} cache: read replica not "
                         f"available ({type(e).__name__}: {e}), "
@@ -114,7 +120,7 @@ class RedisBackedCache:
 
     def close(self) -> None:
         """Close the Redis connection(s) if open."""
-        if self._has_separate_read and self._redis_read is not None:
+        if self._redis_read is not None and self._redis_read is not self._redis:
             try:
                 self._redis_read.close()
             except Exception:
@@ -154,6 +160,16 @@ class RedisBackedCache:
             self._memory_timestamps[key] = time.monotonic()
             self._evict_stale()
 
+    def _disable_read_replica(self) -> None:
+        """Disable the read replica, falling back to primary for reads."""
+        if self._has_separate_read and self._redis_read is not None:
+            try:
+                self._redis_read.close()
+            except Exception:
+                pass
+        self._has_separate_read = False
+        self._redis_read = self._redis
+
     def _get(self, key: str) -> Optional[str]:
         """Get a value by key from Redis read replica or in-memory fallback."""
         if self._redis_read is not None:
@@ -161,9 +177,14 @@ class RedisBackedCache:
                 return self._redis_read.get(key)
             except Exception as exc:
                 logger.warning(
-                    f"{self._cache_name}: Redis read failed for _get, "
-                    f"falling back to memory: {exc}"
+                    f"{self._cache_name}: Redis read failed for _get: {exc}"
                 )
+                if self._has_separate_read and self._redis is not None:
+                    self._disable_read_replica()
+                    try:
+                        return self._redis.get(key)
+                    except Exception:
+                        pass
 
         with self._lock:
             self._evict_stale()
@@ -198,9 +219,14 @@ class RedisBackedCache:
                 return self._redis_read.mget(keys)
             except Exception as exc:
                 logger.warning(
-                    f"{self._cache_name}: Redis mget failed, "
-                    f"falling back to memory: {exc}"
+                    f"{self._cache_name}: Redis mget failed: {exc}"
                 )
+                if self._has_separate_read and self._redis is not None:
+                    self._disable_read_replica()
+                    try:
+                        return self._redis.mget(keys)
+                    except Exception:
+                        pass
 
         with self._lock:
             self._evict_stale()

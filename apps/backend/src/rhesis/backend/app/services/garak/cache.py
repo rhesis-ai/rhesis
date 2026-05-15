@@ -87,6 +87,7 @@ class GarakProbeCache:
             cls._redis_read_client = cls._redis_client
             read_url_env = os.getenv("BROKER_READ_URL")
             if read_url_env:
+                read_client = None
                 try:
                     read_parsed = urlparse(read_url_env)
                     read_cache_url = urlunparse(
@@ -109,6 +110,11 @@ class GarakProbeCache:
                         "connected (db 2)"
                     )
                 except Exception as e:
+                    if read_client is not None:
+                        try:
+                            await read_client.close()
+                        except Exception:
+                            pass
                     logger.warning(
                         f"Garak probe cache: read replica not available "
                         f"({type(e).__name__}: {e}), reads will use primary"
@@ -169,12 +175,18 @@ class GarakProbeCache:
     @classmethod
     async def close(cls) -> None:
         """Close Redis connections and reset state for potential reinitialization."""
-        if cls._has_separate_read and cls._redis_read_client:
-            await cls._redis_read_client.close()
+        if cls._redis_read_client is not None and cls._redis_read_client is not cls._redis_client:
+            try:
+                await cls._redis_read_client.close()
+            except Exception:
+                pass
         cls._redis_read_client = None
         cls._has_separate_read = False
         if cls._redis_client:
-            await cls._redis_client.close()
+            try:
+                await cls._redis_client.close()
+            except Exception:
+                pass
             cls._redis_client = None
             logger.info("Garak probe cache: Redis connection closed")
         cls._initialized = False

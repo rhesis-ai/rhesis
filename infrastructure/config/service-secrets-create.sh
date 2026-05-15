@@ -94,6 +94,7 @@ function show_usage() {
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
+  echo "  BROKER_READ_URL               Redis read replica URL (optional, falls back to BROKER_URL)"
   echo "  CELERY_RESULT_BACKEND         Celery result backend URL"
   echo "  CELERY_WORKER_CONCURRENCY     Worker concurrency (number of threads)"
   echo "  CELERY_WORKER_PREFETCH_MULTIPLIER Worker prefetch multiplier"
@@ -294,6 +295,7 @@ SERVICE_VARS=(
 
   # Celery worker variables
   "BROKER_URL"
+  "BROKER_READ_URL"
   "CELERY_RESULT_BACKEND"
   "CELERY_WORKER_CONCURRENCY"
   "CELERY_WORKER_PREFETCH_MULTIPLIER"

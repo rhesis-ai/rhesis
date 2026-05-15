@@ -63,6 +63,10 @@ spec:
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
             - name: BROKER_URL
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            {{- if .Values.redis.readHost }}
+            - name: BROKER_READ_URL
+              value: "redis://:$(REDIS_PASSWORD)@{{ .Values.redis.readHost }}:{{ .Values.redis.readPort | default .Values.redis.port | default "6379" }}/0"
+            {{- end }}
             - name: CELERY_RESULT_BACKEND
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1"
             {{- if .Values.backend.env }}
