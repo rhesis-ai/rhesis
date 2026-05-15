@@ -145,21 +145,29 @@ def _generate_cluster_labels(
     return labels
 
 
+def _scatter_point(
+    embedding: models.Embedding,
+    cluster_index: int,
+    x: float,
+    y: float,
+) -> ScatterPoint2D:
+    return ScatterPoint2D(
+        embedding_id=embedding.id,
+        entity_id=embedding.entity_id,
+        entity_type=embedding.entity_type,
+        cluster_index=cluster_index,
+        searchable_text=embedding.searchable_text or "",
+        x=x,
+        y=y,
+    )
+
+
 def _trivial_single_point_graph(embedding: models.Embedding, now_utc: datetime) -> Scatter2DGraph:
     """One sample: pin at origin, no clusters (noise only). Used when UMAP is ill-defined."""
     return Scatter2DGraph(
         computed_at=now_utc,
         clusters=[],
-        points=[
-            ScatterPoint2D(
-                embedding_id=embedding.id,
-                entity_id=embedding.entity_id,
-                entity_type=embedding.entity_type,
-                cluster_id="-1",
-                x=0.0,
-                y=0.0,
-            )
-        ],
+        points=[_scatter_point(embedding, -1, 0.0, 0.0)],
     )
 
 
@@ -173,22 +181,8 @@ def _trivial_two_point_graph(
         computed_at=now_utc,
         clusters=[],
         points=[
-            ScatterPoint2D(
-                embedding_id=left.id,
-                entity_id=left.entity_id,
-                entity_type=left.entity_type,
-                cluster_id="-1",
-                x=-0.5,
-                y=0.0,
-            ),
-            ScatterPoint2D(
-                embedding_id=right.id,
-                entity_id=right.entity_id,
-                entity_type=right.entity_type,
-                cluster_id="-1",
-                x=0.5,
-                y=0.0,
-            ),
+            _scatter_point(left, -1, -0.5, 0.0),
+            _scatter_point(right, -1, 0.5, 0.0),
         ],
     )
 
@@ -255,13 +249,11 @@ def build_2d_graph(
     points = []
     for embedding, cluster_id, coords_2d in zip(embeddings, cluster_ids, umap_2d):
         points.append(
-            ScatterPoint2D(
-                embedding_id=embedding.id,
-                entity_id=embedding.entity_id,
-                entity_type=embedding.entity_type,
-                cluster_id=str(cluster_id),
-                x=float(coords_2d[0]),
-                y=float(coords_2d[1]),
+            _scatter_point(
+                embedding,
+                int(cluster_id),
+                float(coords_2d[0]),
+                float(coords_2d[1]),
             )
         )
 
@@ -275,7 +267,7 @@ def build_2d_graph(
 
     clusters = [
         Cluster(
-            id=f"cluster_{cluster_id}",
+            cluster_index=cluster_id,
             label=cluster_labels.get(cluster_id, "Unlabeled"),
             size=cluster_counts[cluster_id],
         )
