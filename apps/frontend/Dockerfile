@@ -107,28 +107,27 @@ WORKDIR /app
 ENV FRONTEND_ENV=${FRONTEND_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Non-root user must match charts/rhesis podSecurityContext (runAsUser/fsGroup 1000)
-# so Helm-enforced securityContext does not block entrypoint sed -i on .next files.
-RUN addgroup --system --gid 1000 nodejs && \
-    adduser --system --uid 1000 -G nodejs nextjs && \
-    chown -R nextjs:nodejs /app
+# node:24-alpine ships a built-in 'node' user/group (UID/GID 1000).
+# Reuse it directly — creating nextjs/nodejs would conflict.
+# UID 1000 matches charts/rhesis podSecurityContext runAsUser: 1000.
+RUN chown -R node:node /app
 
 # The standalone output mirrors the repo-root structure because
 # outputFileTracingRoot is set to the repo root in next.config.mjs.
 # standalone/ contains apps/frontend/server.js (and ee/frontend/ if traced).
 #
-# --chown=nextjs:nodejs is required: the entrypoint script (replace-runtime-env.sh)
+# --chown=node:node is required: the entrypoint script (replace-runtime-env.sh)
 # runs as the nextjs user and uses `sed -i` to inject runtime values into
 # .next/server/chunks/*.js. sed -i creates a temp file in the same directory
 # as the target, which fails with "Permission denied" if the standalone tree
 # is root-owned. Same applies to public/, which sed never touches today but
 # Next.js needs to read regardless.
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/frontend/.next/standalone ./
 
 # Static assets and public must sit alongside server.js so Next.js serves them.
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./apps/frontend/.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/scripts/replace-runtime-env.sh ./apps/frontend/scripts/replace-runtime-env.sh
+COPY --from=builder --chown=node:node /app/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=builder --chown=node:node /app/apps/frontend/public ./apps/frontend/public
+COPY --from=builder --chown=node:node /app/apps/frontend/scripts/replace-runtime-env.sh ./apps/frontend/scripts/replace-runtime-env.sh
 RUN chmod +x /app/apps/frontend/scripts/replace-runtime-env.sh
 
 # Do NOT copy src, tsconfig.json, eslint.config.mjs or any .env files to production image
@@ -141,7 +140,7 @@ RUN if [ "$FRONTEND_ENV" = "production" ] || [ "$FRONTEND_ENV" = "staging" ] || 
         npm ci --legacy-peer-deps && npm cache clean --force; \
     fi
 
-USER nextjs
+USER node
 
 # EXPOSE uses the default port, but runtime PORT env var will override this
 EXPOSE 3000

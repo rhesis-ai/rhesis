@@ -1,0 +1,59 @@
+# ArgoCD PreSync hook: idempotently adds the rhesis.ai:53 stub zone to the
+# node-local-dns Corefile so that cluster pods resolve internal rhesis.ai
+# hostnames via BIND9 (internal LB IPs) instead of public DNS.
+#
+# Runs before every ArgoCD sync; exits 0 immediately if already patched.
+# hook-delete-policy: HookSucceeded cleans up the completed Job on next sync.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: patch-node-local-dns
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: cluster-dns-patcher
+      restartPolicy: OnFailure
+      containers:
+        - name: patcher
+          image: bitnami/kubectl:latest
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+
+              BIND9_IP="${BIND9_IP}"
+
+              # Idempotency check — skip if already patched
+              CURRENT=$(kubectl get configmap node-local-dns -n kube-system \
+                -o jsonpath='{.data.Corefile}')
+              if echo "$CURRENT" | grep -q "rhesis.ai:53"; then
+                echo "node-local-dns already has rhesis.ai zone, skipping."
+                exit 0
+              fi
+
+              echo "Adding rhesis.ai:53 stub zone (BIND9: ${BIND9_IP})..."
+
+              # Build the new block and insert it before the catch-all .:53 block
+              STUB=$(printf 'rhesis.ai:53 {\n    errors\n    cache 30\n    bind 169.254.20.10\n    forward . %s\n    prometheus :9253\n    }\n' "$BIND9_IP")
+              NEW_COREFILE=$(echo "$CURRENT" | sed "s|\.\:53 {|${STUB}\n.:53 {|")
+
+              # Patch the ConfigMap
+              kubectl patch configmap node-local-dns -n kube-system \
+                --type merge \
+                --patch "{\"data\":{\"Corefile\":$(printf '%s' "$NEW_COREFILE" | \
+                  python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}}"
+
+              # Restart node-local-dns so pods reload the new Corefile
+              kubectl patch daemonset node-local-dns -n kube-system \
+                -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date -u +%FT%TZ)\"}}}}}"
+
+              echo "Done."
+          env:
+            - name: BIND9_IP
+              value: "10.4.1.200"
