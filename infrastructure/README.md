@@ -101,7 +101,7 @@ This repository includes a GitHub Actions workflow for automated deployments. Se
 ### Variable Management
 
 The deployment process uses a standardized approach to map GitHub secrets to Terraform variables:
-1. GitHub secrets follow the naming convention `TF_VAR_VARIABLE_NAME` (uppercase)
+1. GitHub secrets follow the naming convention `VARIABLE_NAME` (uppercase)
 2. Terraform variables use snake_case in the .tf files
 3. The deployment script automatically converts between these formats
 4. Variables are organized by environment using GitHub Environments feature
