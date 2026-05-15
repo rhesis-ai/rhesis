@@ -11,7 +11,18 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
+import kombu.exceptions
+import redis.exceptions
+
 logger = logging.getLogger(__name__)
+
+BROKER_ERRORS = (
+    redis.exceptions.RedisError,
+    kombu.exceptions.OperationalError,
+    ConnectionError,
+    TimeoutError,
+    OSError,
+)
 
 T = TypeVar("T")  # For return types
 
@@ -135,6 +146,11 @@ class AsyncService(ABC, Generic[T]):
                 task_result = self._enqueue_async(*args, **kwargs)
                 logger.debug(f"Enqueued async task: {task_result}")
                 return True, None
+            except BROKER_ERRORS as e:
+                logger.warning(
+                    f"Broker unavailable ({type(e).__name__}), "
+                    f"falling back to sync: {e}"
+                )
             except Exception as e:
                 logger.warning(f"Async task failed, using sync fallback: {e}")
         else:
