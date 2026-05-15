@@ -1,9 +1,8 @@
-"""Celery task for computing a graph.
-
-This task computes a embedding graph for entities in a background worker.
-"""
+"""Celery tasks for computing embedding graphs (2D scatter + clusters)."""
 
 import logging
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 from rhesis.backend.celery.core import app
@@ -11,41 +10,173 @@ from rhesis.backend.tasks.base import SilentTask
 
 logger = logging.getLogger(__name__)
 
+_GRAPH_KEY = "graph"
+_PAGE_SIZE = 100
 
-@app.task(
-    base=SilentTask,
-    name="rhesis.backend.tasks.embedding.compute_graph",
-    bind=True,
-    display_name="Embedding Graph Computation",
-)
-def compute_graph_task(self, entity_ids: list[str], test_set_id: str, user_id: str):
-    """
-    Compute an embedding graph for the given entity IDs and persist it on the test set.
 
-    The HTTP layer resolves which entities belong to the test set and passes their IDs here.
-    """
+def _collect_test_set_entity_ids(db, test_set_id: UUID) -> list[UUID]:
+    """Paginate through all tests linked to a test set."""
+    from rhesis.backend.app import crud
+
+    entity_ids: list[UUID] = []
+    skip = 0
+    while True:
+        items, _count = crud.get_test_set_tests(
+            db=db,
+            test_set_id=test_set_id,
+            skip=skip,
+            limit=_PAGE_SIZE,
+            sort_by="created_at",
+            sort_order="desc",
+            filter=None,
+        )
+        entity_ids.extend(t.id for t in items)
+        if len(items) < _PAGE_SIZE:
+            break
+        skip += _PAGE_SIZE
+    return entity_ids
+
+
+def _collect_source_chunk_entity_ids(db, source_id: UUID, organization_id: str) -> list[UUID]:
+    """Paginate non-deleted chunk IDs for a source in ``chunk_index`` order."""
+    from rhesis.backend.app import models
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    entity_ids: list[UUID] = []
+    skip = 0
+    while True:
+        chunks = (
+            QueryBuilder(db, models.Chunk)
+            .with_organization_filter(organization_id)
+            .with_visibility_filter()
+            .with_custom_filter(lambda q: q.filter(models.Chunk.source_id == source_id))
+            .with_sorting(sort_by="chunk_index", sort_order="asc")
+            .with_pagination(skip=skip, limit=_PAGE_SIZE)
+            .all()
+        )
+        entity_ids.extend(c.id for c in chunks)
+        if len(chunks) < _PAGE_SIZE:
+            break
+        skip += _PAGE_SIZE
+    return entity_ids
+
+
+def _run_embedding_graph(
+    db,
+    *,
+    user_id: str,
+    resolve_entity_ids: Callable[[Any, Any, Any], list[UUID]],
+    embedded_entity: type,
+    load_parent: Callable[[Any, Any], Any | None],
+    persist_graph: Callable[[Any, Any], None],
+    parent_not_found_log: str,
+    parent_not_found_extra: dict[str, str],
+) -> None:
     from rhesis.backend.app import crud
     from rhesis.backend.app.services.embedding.graph_builder import build_2d_graph
 
-    with self.get_db_session() as db:
-        user = crud.get_user_by_id(db, user_id)
-        if user is None:
-            logger.warning("Skipping graph computation: user not found", extra={"user_id": user_id})
-            return
+    user = crud.get_user_by_id(db, user_id)
+    if user is None:
+        logger.warning("Skipping graph computation: user not found", extra={"user_id": user_id})
+        return
 
-        test_set = crud.get_test_set(db, UUID(test_set_id), str(user.organization_id), str(user.id))
-        if test_set is None:
-            logger.warning(
-                "Skipping graph computation: test set not found",
-                extra={"test_set_id": test_set_id},
-            )
-            return
+    parent = load_parent(db, user)
+    if parent is None:
+        logger.warning(parent_not_found_log, extra=parent_not_found_extra)
+        return
 
-        ids = [UUID(eid) for eid in entity_ids]
-        graph = build_2d_graph(db, ids, user)
+    entity_ids = resolve_entity_ids(db, user, parent)
+    graph = build_2d_graph(db, entity_ids, user, embedded_entity=embedded_entity)
+    persist_graph(parent, graph)
+    db.add(parent)
+    db.commit()
 
+
+def _run_test_set_embedding_graph(db, *, test_set_id: str, user_id: str) -> None:
+    from rhesis.backend.app import crud, models
+
+    test_set_uuid = UUID(test_set_id)
+
+    def load_parent(db_session, user):
+        return crud.get_test_set(
+            db_session,
+            test_set_uuid,
+            str(user.organization_id),
+            str(user.id),
+        )
+
+    def resolve_entity_ids(db_session, _user, _test_set):
+        return _collect_test_set_entity_ids(db_session, test_set_uuid)
+
+    def persist_graph(test_set, graph):
         attrs = dict(test_set.attributes or {})
-        attrs["graph"] = graph.model_dump(mode="json")
+        attrs[_GRAPH_KEY] = graph.model_dump(mode="json")
         test_set.attributes = attrs
-        db.add(test_set)
-        db.commit()
+
+    _run_embedding_graph(
+        db,
+        user_id=user_id,
+        resolve_entity_ids=resolve_entity_ids,
+        embedded_entity=models.Test,
+        load_parent=load_parent,
+        persist_graph=persist_graph,
+        parent_not_found_log="Skipping graph computation: test set not found",
+        parent_not_found_extra={"test_set_id": test_set_id},
+    )
+
+
+def _run_source_embedding_graph(db, *, source_id: str, user_id: str) -> None:
+    from rhesis.backend.app import crud, models
+
+    source_uuid = UUID(source_id)
+
+    def load_parent(db_session, user):
+        return crud.get_source(
+            db_session,
+            source_uuid,
+            str(user.organization_id),
+            str(user.id),
+        )
+
+    def resolve_entity_ids(db_session, user, _db_source):
+        return _collect_source_chunk_entity_ids(db_session, source_uuid, str(user.organization_id))
+
+    def persist_graph(db_source, graph):
+        meta = dict(db_source.source_metadata or {})
+        meta[_GRAPH_KEY] = graph.model_dump(mode="json")
+        db_source.source_metadata = meta
+
+    _run_embedding_graph(
+        db,
+        user_id=user_id,
+        resolve_entity_ids=resolve_entity_ids,
+        embedded_entity=models.Chunk,
+        load_parent=load_parent,
+        persist_graph=persist_graph,
+        parent_not_found_log="Skipping graph computation: source not found",
+        parent_not_found_extra={"source_id": source_id},
+    )
+
+
+@app.task(
+    base=SilentTask,
+    name="rhesis.backend.tasks.embedding.compute_graph_test_set",
+    bind=True,
+    display_name="Embedding Graph Computation (test set)",
+)
+def compute_test_set_graph_task(self, test_set_id: str, user_id: str):
+    """Compute embedding graph for a test set and store on ``attributes`` JSON."""
+    with self.get_db_session() as db:
+        _run_test_set_embedding_graph(db, test_set_id=test_set_id, user_id=user_id)
+
+
+@app.task(
+    base=SilentTask,
+    name="rhesis.backend.tasks.embedding.compute_graph_source",
+    bind=True,
+    display_name="Embedding Graph Computation (source chunks)",
+)
+def compute_source_graph_task(self, source_id: str, user_id: str):
+    """Compute embedding graph for a source and store under ``source_metadata`` JSON."""
+    with self.get_db_session() as db:
+        _run_source_embedding_graph(db, source_id=source_id, user_id=user_id)
