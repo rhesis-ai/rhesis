@@ -68,9 +68,7 @@ class GarakProbeCache:
         try:
             redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
             parsed = urlparse(redis_url)
-            cache_url = urlunparse(
-                parsed._replace(path=f"/{RedisDatabase.GARAK_PROBE_CACHE}")
-            )
+            cache_url = urlunparse(parsed._replace(path=f"/{RedisDatabase.GARAK_PROBE_CACHE}"))
             cls._redis_client = await redis.from_url(
                 cache_url,
                 decode_responses=True,
@@ -80,9 +78,7 @@ class GarakProbeCache:
                 socket_timeout=5,
             )
             await cls._redis_client.ping()
-            logger.info(
-                "Garak probe cache: Redis connection established (db 2)"
-            )
+            logger.info("Garak probe cache: Redis connection established (db 2)")
 
             cls._redis_read_client = cls._redis_client
             read_url_env = os.getenv("BROKER_READ_URL")
@@ -91,9 +87,7 @@ class GarakProbeCache:
                 try:
                     read_parsed = urlparse(read_url_env)
                     read_cache_url = urlunparse(
-                        read_parsed._replace(
-                            path=f"/{RedisDatabase.GARAK_PROBE_CACHE}"
-                        )
+                        read_parsed._replace(path=f"/{RedisDatabase.GARAK_PROBE_CACHE}")
                     )
                     read_client = await redis.from_url(
                         read_cache_url,
@@ -105,10 +99,7 @@ class GarakProbeCache:
                     await read_client.ping()
                     cls._redis_read_client = read_client
                     cls._has_separate_read = True
-                    logger.info(
-                        "Garak probe cache: Redis read replica "
-                        "connected (db 2)"
-                    )
+                    logger.info("Garak probe cache: Redis read replica connected (db 2)")
                 except Exception as e:
                     if read_client is not None:
                         try:
@@ -147,10 +138,7 @@ class GarakProbeCache:
                 pass
             cls._has_separate_read = False
             cls._redis_read_client = cls._redis_client
-            logger.debug(
-                "Garak probe cache: read replica disabled, "
-                "reads falling back to primary"
-            )
+            logger.debug("Garak probe cache: read replica disabled, reads falling back to primary")
 
     @classmethod
     async def _disable_redis(cls) -> None:
@@ -168,9 +156,7 @@ class GarakProbeCache:
             except Exception:
                 pass
             cls._redis_client = None
-            logger.debug(
-                "Garak probe cache: Redis disabled due to connection failure"
-            )
+            logger.debug("Garak probe cache: Redis disabled due to connection failure")
 
     @classmethod
     async def close(cls) -> None:
@@ -227,26 +213,20 @@ class GarakProbeCache:
                     parsed = json.loads(data)
                     if parsed.get("schema_version") == cls.SCHEMA_VERSION:
                         cls._memory_cache[cache_key] = parsed
-                        logger.debug(
-                            f"Garak probe cache HIT (Redis): {cache_key}"
-                        )
+                        logger.debug(f"Garak probe cache HIT (Redis): {cache_key}")
                         return parsed
                     else:
                         # Schema mismatch — delete via primary
                         if cls._redis_client:
                             await cls._redis_client.delete(cache_key)
             except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
-                logger.debug(
-                    f"Garak probe cache: Redis read connection lost ({e})"
-                )
+                logger.debug(f"Garak probe cache: Redis read connection lost ({e})")
                 if cls._has_separate_read:
                     await cls._disable_redis_read()
                 else:
                     await cls._disable_redis()
             except Exception as e:
-                logger.debug(
-                    f"Garak probe cache: Redis read error ({e})"
-                )
+                logger.debug(f"Garak probe cache: Redis read error ({e})")
 
         # Cache miss - caller will log this at INFO level
         return None

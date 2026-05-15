@@ -41,9 +41,7 @@ class RedisBackedCache:
 
     def _build_redis_url(self, *, read: bool = False) -> str:
         env_var = "BROKER_READ_URL" if read else "BROKER_URL"
-        redis_url = os.getenv(env_var) or os.getenv(
-            "BROKER_URL", "redis://localhost:6379/0"
-        )
+        redis_url = os.getenv(env_var) or os.getenv("BROKER_URL", "redis://localhost:6379/0")
         parsed = urlparse(redis_url)
         return urlunparse(parsed._replace(path=f"/{self._redis_db}"))
 
@@ -66,8 +64,7 @@ class RedisBackedCache:
             )
             self._redis.ping()
             logger.info(
-                f"{self._cache_name} cache: Redis connection established "
-                f"(db {self._redis_db})"
+                f"{self._cache_name} cache: Redis connection established (db {self._redis_db})"
             )
 
             self._redis_read = self._redis
@@ -176,9 +173,7 @@ class RedisBackedCache:
             try:
                 return self._redis_read.get(key)
             except Exception as exc:
-                logger.warning(
-                    f"{self._cache_name}: Redis read failed for _get: {exc}"
-                )
+                logger.warning(f"{self._cache_name}: Redis read failed for _get: {exc}")
                 if self._has_separate_read and self._redis is not None:
                     self._disable_read_replica()
                     try:
@@ -218,9 +213,7 @@ class RedisBackedCache:
             try:
                 return self._redis_read.mget(keys)
             except Exception as exc:
-                logger.warning(
-                    f"{self._cache_name}: Redis mget failed: {exc}"
-                )
+                logger.warning(f"{self._cache_name}: Redis mget failed: {exc}")
                 if self._has_separate_read and self._redis is not None:
                     self._disable_read_replica()
                     try:
