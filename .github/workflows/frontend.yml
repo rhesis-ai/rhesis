@@ -131,7 +131,7 @@ jobs:
         id: set_env
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || 'us-central1' }}" >> $GITHUB_ENV
 
           # Get commit SHA (short version for URLs)
           COMMIT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
@@ -259,7 +259,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || 'us-central1' }}" >> $GITHUB_ENV
 
       - name: Setup service environment
         uses: ./.github/actions/setup-service-env

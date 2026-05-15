@@ -116,7 +116,7 @@ if [[ -z "$REGISTRY_EXISTS" ]]; then
   
   # Create empty environment variables for all services
   for SERVICE in "${SERVICES[@]}"; do
-    VAR_NAME="TF_VAR_$(echo "${SERVICE}_IMAGE" | tr '[:lower:]' '[:upper:]')"
+    VAR_NAME="$(echo "${SERVICE}_IMAGE" | tr '[:lower:]' '[:upper:]')"
     echo "$VAR_NAME=" >> $GITHUB_ENV
     echo "ℹ️ Set $VAR_NAME to empty (will use default image)"
   done
@@ -144,7 +144,7 @@ for SERVICE in "${SERVICES[@]}"; do
   echo "📦 Checking service: $SERVICE"
   
   # Get the original image from environment
-  ENV_VAR_NAME="TF_VAR_$(echo "${SERVICE}_IMAGE" | tr '[:lower:]' '[:upper:]')"
+  ENV_VAR_NAME="$(echo "${SERVICE}_IMAGE" | tr '[:lower:]' '[:upper:]')"
   ORIGINAL_IMAGE="${!ENV_VAR_NAME}"
   
   # Skip if not set
