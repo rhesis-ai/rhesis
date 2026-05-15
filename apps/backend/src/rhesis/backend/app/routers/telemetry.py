@@ -26,7 +26,6 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceType,
 )
 from rhesis.backend.app.services.async_service import BROKER_ERRORS
-from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 from rhesis.backend.app.services.trace_review_override import (
     apply_review_override as trace_apply_review_override,
 )
@@ -135,26 +134,15 @@ def ingest_trace(
             unique_trace_ids=unique_trace_ids,
             organization_id=organization_id,
             project_id=str(project_id),
-            test_run_id=(
-                str(first_span.test_run_id) if first_span.test_run_id else None
-            ),
+            test_run_id=(str(first_span.test_run_id) if first_span.test_run_id else None),
             test_id=str(first_span.test_id) if first_span.test_id else None,
-            test_configuration_id=first_span.attributes.get(
-                "rhesis.test.test_configuration_id"
-            ),
+            test_configuration_id=first_span.attributes.get("rhesis.test.test_configuration_id"),
         )
 
         logger.info(
             f"Ingested {stored_count} spans from "
             f"{len(unique_trace_ids)} trace(s) for trace_id={trace_id}"
         )
-
-        _stage = "worker_check"
-        _workers_available = EnrichmentService._worker_cache.get("available")
-        if _workers_available is None:
-            enrichment_service = EnrichmentService(db)
-            _workers_available = enrichment_service._check_workers_available()
-        logger.info(f"Worker availability for trace_id={trace_id}: {_workers_available}")
 
         # Commit and release the DB connection BEFORE dispatching to Celery.
         # If delay() blocks (Redis contention), this prevents holding a
@@ -163,103 +151,30 @@ def ingest_trace(
         db.commit()
         db.close()
 
-        _dispatched_async = False
-        if _workers_available:
-            from rhesis.backend.tasks.telemetry.post_ingest import post_ingest_link
+        # Fire-and-forget: dispatch async post-processing.
+        # Spans are already persisted — enrichment is eventual-consistency.
+        # If the broker is unreachable, we log a warning and return success.
+        from rhesis.backend.tasks.telemetry.post_ingest import post_ingest_link
 
-            _stage = "async_dispatch"
-            try:
-                post_ingest_link.delay(**dispatch_kwargs)
-                _dispatched_async = True
-                logger.info(f"Dispatched post_ingest_link for trace_id={trace_id}")
-            except BROKER_ERRORS as broker_err:
-                logger.warning(
-                    f"Broker unavailable for trace_id={trace_id} | "
-                    f"error_type={type(broker_err).__name__} | "
-                    f"error={broker_err} | "
-                    f"falling back to synchronous processing",
-                )
-            except Exception as broker_err:
-                logger.warning(
-                    f"Failed to dispatch post_ingest_link for trace_id={trace_id} | "
-                    f"error_type={type(broker_err).__name__} | "
-                    f"error={broker_err} | "
-                    f"falling back to synchronous processing",
-                    exc_info=True,
-                )
-
-        if not _dispatched_async:
-            _stage = "sync_fallback"
+        _stage = "async_dispatch"
+        try:
+            post_ingest_link.delay(**dispatch_kwargs)
+            logger.info(f"Dispatched post_ingest_link for trace_id={trace_id}")
+        except BROKER_ERRORS as broker_err:
             logger.warning(
-                f"Running synchronous post-ingestion fallback for trace_id={trace_id} | "
-                f"workers_available={_workers_available}"
+                f"Broker unavailable for trace_id={trace_id}, "
+                f"post-processing deferred | "
+                f"error_type={type(broker_err).__name__} | "
+                f"error={broker_err}"
             )
-
-            # Re-open a DB session for sync fallback work
-            from rhesis.backend.app.database import get_db_with_tenant_variables
-
-            with get_db_with_tenant_variables(
-                organization_id, tenant_context[1]
-            ) as fallback_db:
-                # Re-fetch the stored spans in the new session
-                from rhesis.backend.app.models.trace import Trace
-                from rhesis.backend.app.services.telemetry.conversation_linking import (
-                    apply_pending_conversation_links,
-                    apply_pending_files,
-                )
-                from rhesis.backend.app.services.telemetry.linking_service import (
-                    TraceLinkingService,
-                )
-
-                fallback_spans = (
-                    fallback_db.query(Trace)
-                    .filter(Trace.id.in_(stored_span_ids))
-                    .all()
-                )
-
-                linking_service = TraceLinkingService(fallback_db)
-                try:
-                    linking_service.link_traces_for_incoming_batch(
-                        spans=fallback_spans,
-                        organization_id=organization_id,
-                    )
-                except Exception as link_error:
-                    logger.warning(
-                        f"Failed to link traces for trace_id={trace_id}: {link_error}",
-                        exc_info=True,
-                    )
-
-                try:
-                    apply_pending_conversation_links(fallback_db, fallback_spans)
-                except Exception as conv_error:
-                    logger.warning(
-                        f"Failed to apply conversation links for "
-                        f"trace_id={trace_id}: {conv_error}",
-                        exc_info=True,
-                    )
-
-                try:
-                    apply_pending_files(fallback_db, fallback_spans)
-                except Exception as file_error:
-                    logger.warning(
-                        f"Failed to apply pending files for "
-                        f"trace_id={trace_id}: {file_error}",
-                        exc_info=True,
-                    )
-
-                try:
-                    enrichment_service = EnrichmentService(fallback_db)
-                    enrichment_service.enrich_traces(
-                        set(unique_trace_ids),
-                        str(project_id),
-                        organization_id,
-                        workers_available=_workers_available,
-                    )
-                except Exception as enrich_error:
-                    logger.warning(
-                        f"Failed to enrich traces for trace_id={trace_id}: {enrich_error}",
-                        exc_info=True,
-                    )
+        except Exception as broker_err:
+            logger.warning(
+                f"Failed to dispatch post_ingest_link for "
+                f"trace_id={trace_id}, post-processing deferred | "
+                f"error_type={type(broker_err).__name__} | "
+                f"error={broker_err}",
+                exc_info=True,
+            )
 
         return TraceResponse(
             status="received",

@@ -97,27 +97,10 @@ class EnrichmentService(AsyncService[dict | None]):
         trace_id: str,
         project_id: str,
         organization_id: str,
-        workers_available: bool | None = None,
         root_span_id: str | None = None,
     ) -> bool:
         """
-        Try to enqueue async enrichment. Fall back to sync if workers unavailable.
-
-        This function implements a robust fallback strategy:
-        1. Check if workers are available (or use cached result)
-        2. If yes, try async enrichment (optimal for production)
-        3. If no workers or async fails, fall back to sync (development-friendly)
-
-        Args:
-            trace_id: Trace ID to enrich
-            project_id: Project ID for access control
-            organization_id: Organization ID for multi-tenant security
-            workers_available: Optional cached worker availability check result.
-                             If None, will check on this call.
-            root_span_id: DB primary key of the root span that triggered
-                this enrichment.  Passed through to
-                ``evaluate_turn_trace_metrics`` so it evaluates the
-                correct span in multi-turn conversations.
+        Enqueue enrichment: try async, fall back to sync on broker errors.
 
         Returns:
             True if async task was enqueued, False if sync fallback was used
@@ -127,12 +110,10 @@ class EnrichmentService(AsyncService[dict | None]):
                 trace_id,
                 project_id,
                 organization_id,
-                workers_available=workers_available,
                 root_span_id=root_span_id,
             )
             return was_async
         except Exception as e:
-            # Log but don't fail the ingestion
             logger.error(f"Enrichment failed for trace {trace_id}: {e}", exc_info=True)
             return False
 
@@ -141,21 +122,9 @@ class EnrichmentService(AsyncService[dict | None]):
         trace_ids: Set[str],
         project_id: str,
         organization_id: str,
-        *,
-        workers_available: bool | None = None,
     ) -> tuple[int, int]:
         """
-        Enrich multiple traces using async/sync fallback strategy.
-
-        Resolves worker availability once for the whole batch (TTL-cached).
-        Pass ``workers_available`` to skip a redundant ping when the caller
-        already checked (e.g. the telemetry ingest router).
-
-        Args:
-            trace_ids: Set of trace IDs to enrich
-            project_id: Project ID for access control
-            organization_id: Organization ID for multi-tenant security
-            workers_available: Optional precomputed flag to skip an extra ping.
+        Enrich multiple traces: try async, fall back to sync per-item.
 
         Returns:
             Tuple of (async_count, sync_count)
@@ -167,7 +136,6 @@ class EnrichmentService(AsyncService[dict | None]):
         return self.batch_execute(
             items,
             swallow_exceptions=True,
-            workers_available=workers_available,
         )
 
     def create_and_enrich_spans(
@@ -204,7 +172,6 @@ class EnrichmentService(AsyncService[dict | None]):
             logger.warning("No spans were stored")
             return [], 0, 0
 
-        workers_available = self._check_workers_available()
         async_count = 0
         sync_count = 0
         dispatched_traces: Set[str] = set()
@@ -215,7 +182,6 @@ class EnrichmentService(AsyncService[dict | None]):
                 root_span.trace_id,
                 project_id,
                 organization_id,
-                workers_available=workers_available,
                 root_span_id=str(root_span.id),
             ):
                 async_count += 1
@@ -225,7 +191,7 @@ class EnrichmentService(AsyncService[dict | None]):
 
         child_only_traces = {s.trace_id for s in stored_spans} - dispatched_traces
         for trace_id in child_only_traces:
-            if self.enqueue_enrichment(trace_id, project_id, organization_id, workers_available):
+            if self.enqueue_enrichment(trace_id, project_id, organization_id):
                 async_count += 1
             else:
                 sync_count += 1
