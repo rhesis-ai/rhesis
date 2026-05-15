@@ -28,8 +28,8 @@ def fetch_embeddings(
     db: Session,
     entity_ids: Sequence[UUID],
     embedded_entity: type | str = Test,
-    organization_id: str = None,
-    user_id: str = None,
+    organization_id: str | None = None,
+    user_id: str | None = None,
 ) -> list[models.Embedding]:
     """Load embeddings for one entity type and a set of IDs."""
     if not entity_ids:
@@ -193,7 +193,13 @@ def _trivial_two_point_graph(
     )
 
 
-def build_2d_graph(db: Session, entity_ids: Sequence[UUID], user: User) -> Scatter2DGraph:
+def build_2d_graph(
+    db: Session,
+    entity_ids: Sequence[UUID],
+    user: User,
+    *,
+    embedded_entity: type | str = Test,
+) -> Scatter2DGraph:
     """Build a graph from embeddings for visualization and clustering."""
 
     requested_count = len(entity_ids)
@@ -201,19 +207,25 @@ def build_2d_graph(db: Session, entity_ids: Sequence[UUID], user: User) -> Scatt
     embeddings = fetch_embeddings(
         db,
         entity_ids,
+        embedded_entity=embedded_entity,
         organization_id=user.organization_id,
         user_id=user.id,
     )
 
+    entity_type_key = _embedding_entity_type_key(embedded_entity)
     logger.info(
-        "Building embedding graph: requested_entity_ids=%s active_embeddings_loaded=%s",
+        "Building embedding graph: entity_type=%s requested_entity_ids=%s "
+        "active_embeddings_loaded=%s",
+        entity_type_key,
         requested_count,
         len(embeddings),
     )
 
     if requested_count > 0 and not embeddings:
         logger.warning(
-            "Embedding graph has no active embeddings for requested tests: requested_entity_ids=%s",
+            "Embedding graph has no active embeddings for requested entities: "
+            "entity_type=%s requested_entity_ids=%s",
+            entity_type_key,
             requested_count,
         )
 
