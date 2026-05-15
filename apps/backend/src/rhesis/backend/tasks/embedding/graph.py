@@ -15,7 +15,7 @@ _PAGE_SIZE = 100
 
 
 def _collect_test_set_entity_ids(db, test_set_id: UUID) -> list[UUID]:
-    """Return visible test IDs for a test set (excludes soft-deleted tests)."""
+    """Paginate through all tests linked to a test set."""
     from rhesis.backend.app import crud
 
     entity_ids: list[UUID] = []
@@ -28,8 +28,9 @@ def _collect_test_set_entity_ids(db, test_set_id: UUID) -> list[UUID]:
             limit=_PAGE_SIZE,
             sort_by="created_at",
             sort_order="desc",
+            filter=None,
         )
-        entity_ids.extend(test.id for test in items)
+        entity_ids.extend(t.id for t in items)
         if len(items) < _PAGE_SIZE:
             break
         skip += _PAGE_SIZE
@@ -68,7 +69,8 @@ def _run_embedding_graph(
     embedded_entity: type,
     load_parent: Callable[[Any, Any], Any | None],
     persist_graph: Callable[[Any, Any], None],
-    parent_name: str,
+    parent_not_found_log: str,
+    parent_not_found_extra: dict[str, str],
 ) -> None:
     from rhesis.backend.app import crud
     from rhesis.backend.app.services.embedding.graph_builder import build_2d_graph
@@ -80,7 +82,7 @@ def _run_embedding_graph(
 
     parent = load_parent(db, user)
     if parent is None:
-        logger.warning(f"Skipping graph computation: {parent_name} not found")
+        logger.warning(parent_not_found_log, extra=parent_not_found_extra)
         return
 
     entity_ids = resolve_entity_ids(db, user, parent)
@@ -118,7 +120,8 @@ def _run_test_set_embedding_graph(db, *, test_set_id: str, user_id: str) -> None
         embedded_entity=models.Test,
         load_parent=load_parent,
         persist_graph=persist_graph,
-        parent_name="test set",
+        parent_not_found_log="Skipping graph computation: test set not found",
+        parent_not_found_extra={"test_set_id": test_set_id},
     )
 
 
@@ -150,7 +153,8 @@ def _run_source_embedding_graph(db, *, source_id: str, user_id: str) -> None:
         embedded_entity=models.Chunk,
         load_parent=load_parent,
         persist_graph=persist_graph,
-        parent_name="source",
+        parent_not_found_log="Skipping graph computation: source not found",
+        parent_not_found_extra={"source_id": source_id},
     )
 
 
