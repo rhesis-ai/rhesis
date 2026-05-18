@@ -1,17 +1,23 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dev-cnpg-operator
+  name: prd-cluster-dns
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-5"
 spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
     targetRevision: main
-    path: kubernetes/clusters/dev/cnpg-system
+    path: kubernetes/clusters/prd/cluster-dns
   destination:
     server: https://kubernetes.default.svc
+    namespace: kube-system
   syncPolicy:
     automated:
-      prune: true
+      prune: false
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true

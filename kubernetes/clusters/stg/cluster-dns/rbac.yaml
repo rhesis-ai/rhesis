@@ -1,0 +1,32 @@
+# ServiceAccount + ClusterRole for the node-local-dns patcher Job.
+# The Job needs to read/patch ConfigMaps and restart DaemonSets in kube-system.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cluster-dns-patcher
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-dns-patcher
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-dns-patcher
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-dns-patcher
+subjects:
+  - kind: ServiceAccount
+    name: cluster-dns-patcher
+    namespace: kube-system

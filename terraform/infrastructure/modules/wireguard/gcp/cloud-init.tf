@@ -42,25 +42,39 @@ locals {
     [var.wireguard_peer_cidr]
   )
 
+  # For each allowed hostname (e.g. "stg-api.rhesis.ai"), derive the ExternalDNS TXT
+  # ownership record name that internal-dns-external-dns writes when using
+  # --txt-prefix=internaldns- and --registry=txt.
+  # Pattern: internaldns-a-{first_label}.rhesis.ai  (A-record ownership)
+  # The name grant covers only that exact TXT name — no wildcard, no zone-wide access.
+  bind9_txt_ownership_names = {
+    for env, hostnames in var.bind9_allowed_names : env => [
+      for hostname in hostnames :
+      "internaldns-a-${split(".", hostname)[0]}.rhesis.ai"
+    ]
+  }
+
   # Render BIND9 named.conf
   bind9_named_conf = length(var.bind9_tsig_keys) > 0 ? templatefile(
     "${path.module}/templates/named.conf.tpl", {
-      tsig_keys         = var.bind9_tsig_keys
-      allow_query_cidrs = local.bind9_allow_query_cidrs
+      tsig_keys          = var.bind9_tsig_keys
+      allow_query_cidrs  = local.bind9_allow_query_cidrs
+      allowed_names      = var.bind9_allowed_names
+      txt_ownership_names = local.bind9_txt_ownership_names
     }
   ) : ""
 
-  # Render BIND9 zone file
-  bind9_zone_file = length(var.bind9_tsig_keys) > 0 ? templatefile(
-    "${path.module}/templates/rhesis.internal.zone.tpl", {}
+  # Render BIND9 rhesis.ai split-horizon zone file
+  bind9_rhesis_ai_zone_file = length(var.bind9_tsig_keys) > 0 ? templatefile(
+    "${path.module}/templates/rhesis.ai.zone.tpl", {}
   ) : ""
 
   # Render cloud-init configuration (use base64 for binary/structured files to avoid YAML parsing issues)
   cloud_init = templatefile("${path.module}/templates/cloud-init.yaml.tpl", {
-    wireguard_config_b64   = base64encode(local.wireguard_config)
-    gke_routing_script_b64 = base64encode(local.gke_routing_script)
-    bind9_enabled          = length(var.bind9_tsig_keys) > 0
-    bind9_named_conf_b64   = base64encode(local.bind9_named_conf)
-    bind9_zone_file_b64    = base64encode(local.bind9_zone_file)
+    wireguard_config_b64          = base64encode(local.wireguard_config)
+    gke_routing_script_b64        = base64encode(local.gke_routing_script)
+    bind9_enabled                 = length(var.bind9_tsig_keys) > 0
+    bind9_named_conf_b64          = base64encode(local.bind9_named_conf)
+    bind9_rhesis_ai_zone_file_b64 = base64encode(local.bind9_rhesis_ai_zone_file)
   })
 }

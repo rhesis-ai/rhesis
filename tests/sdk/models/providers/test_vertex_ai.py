@@ -407,8 +407,13 @@ class TestVertexAIGenerate:
             assert call_kwargs["vertex_ai_location"] == "europe-west1"
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
-    def test_generate_restores_credentials_env_var(self, mock_completion):
-        """Test that generate properly restores the original GOOGLE_APPLICATION_CREDENTIALS."""
+    def test_init_sets_credentials_env_var_to_file_path(self, mock_completion):
+        """Test that init sets GOOGLE_APPLICATION_CREDENTIALS to the decoded file path.
+
+        With the new approach, GOOGLE_APPLICATION_CREDENTIALS is permanently set
+        to the decoded credentials file path at startup (in load_model), so that
+        google.auth.default() never falls back to GKE metadata.
+        """
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
@@ -422,8 +427,6 @@ class TestVertexAIGenerate:
         mock_response.choices[0].message.content = "Test response"
         mock_completion.return_value = mock_response
 
-        # Set an original value
-        original_value = "/path/to/original/credentials.json"
         with patch.dict(
             os.environ,
             {
@@ -432,16 +435,17 @@ class TestVertexAIGenerate:
             },
             clear=True,
         ):
-            # Set a different value before calling generate
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
-
             llm = VertexAILLM(credentials=encoded_creds, location="asia-northeast1")
-            prompt = "Test prompt"
 
-            llm.generate(prompt)
+            # After init, GOOGLE_APPLICATION_CREDENTIALS must point to the decoded file,
+            # not the raw base64 string, so google.auth.default() works correctly.
+            env_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+            assert env_creds is not None
+            assert env_creds != encoded_creds
+            assert os.path.isfile(env_creds)
+            assert env_creds == llm.model["credentials_path"]
 
-            # Verify it was restored
-            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
+            llm.generate("Test prompt")
 
 
 class TestVertexAIUtilityMethods:

@@ -68,10 +68,12 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
 
     # If no user found or emails don't match, create new user
     if not user:
-        # Normalize email and verify domain can receive mail
+        # OAuth providers verify email ownership themselves; skip MX deliverability
+        # check to avoid DNS failures in split-horizon environments where the
+        # internal BIND9 zone only carries subdomain A records (no apex MX).
         from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
-        normalized_email = validate_and_normalize_email(email, check_deliverability=True)
+        normalized_email = validate_and_normalize_email(email, check_deliverability=False)
 
         user_data = UserCreate(
             email=normalized_email,
@@ -138,8 +140,10 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         user.is_email_verified = True
         return user
 
-    # Verify domain can receive mail before creating a new account
-    normalized_email = validate_and_normalize_email(auth_user.email, check_deliverability=True)
+    # OAuth providers verify email ownership themselves; skip MX deliverability
+    # check to avoid DNS failures in split-horizon environments where the
+    # internal BIND9 zone only carries subdomain A records (no apex MX).
+    normalized_email = validate_and_normalize_email(auth_user.email, check_deliverability=False)
 
     # Create new user
     logger.info(f"Creating new user: {normalized_email} via {auth_user.provider_type}")

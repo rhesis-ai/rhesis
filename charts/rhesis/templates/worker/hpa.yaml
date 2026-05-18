@@ -1,0 +1,33 @@
+{{- range .Values.workers }}
+{{- if and .enabled .hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker-{{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: worker-{{ .name }}
+    {{- include "rhesis.labels" $ | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-{{ .name }}
+  minReplicas: {{ .hpa.minReplicas }}
+  maxReplicas: {{ .hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .hpa.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .hpa.targetMemoryUtilizationPercentage }}
+{{- end }}
+{{- end }}

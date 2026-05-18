@@ -1,0 +1,216 @@
+# Dev environment overrides for charts/rhesis/values.yaml
+# Merged on top of values.yaml by ArgoCD.
+
+# ---------------------------------------------------------------------------
+# Global — GCP Artifact Registry for dev
+# GCP project: rhesis-dev (Artifact Registry host below).
+# ---------------------------------------------------------------------------
+global:
+  registry: "europe-west4-docker.pkg.dev/rhesis-dev/rhesis"
+  imagePullPolicy: Always
+  imageTag: "latest"
+
+# ---------------------------------------------------------------------------
+# Non-sensitive config overrides for dev
+# ---------------------------------------------------------------------------
+config:
+  environment: "development"
+  logLevel: "DEBUG"
+
+  # Single source of truth for app DB name (ConfigMap SQLALCHEMY_DB_NAME) and Bitnami PostgreSQL.
+  # Anchors reused under postgresql.auth / extraEnvVars below.
+  dbName: &rhesis_db_name "rhesis-dev-db"
+  dbUser: &rhesis_db_user "rhesis-admin"
+
+  # Frontend
+  nextPublicApiBaseUrl: "https://dev-api.rhesis.ai"
+  nextPublicAppUrl: "https://dev-app.rhesis.ai"
+  nextauthUrl: "https://dev-app.rhesis.ai"
+  nextPublicAuth0ClientId: ""
+  nextPublicAuth0Domain: "dev-rhesis.eu.auth0.com"
+
+  # Backend
+  rhesisBaseUrl: "https://dev-api.rhesis.ai"
+  frontendUrl: "https://dev-app.rhesis.ai"
+  backendUrl: "http://backend:8080"
+
+  # GCP
+  vertexAiProject: "playground-437609"
+
+  # AI model — Vertex defaults in dev (GEMINI_API_KEY + GOOGLE_APPLICATION_CREDENTIALS in ESO);
+  # avoids requiring RHESIS_API_KEY for rhesis/rhesis-default
+  geminiModelName: "gemini-2.5-flash-001"
+  defaultGenerationModel: "vertex_ai/gemini-2.5-flash"
+  defaultEvaluationModel: "vertex_ai/gemini-2.5-flash"
+  defaultExecutionModel: "vertex_ai/gemini-2.5-flash"
+  defaultEmbeddingModel: "vertex_ai/text-embedding-005"
+  vertexAiLocation: "europe-west4"
+  azureOpenAiApiVersion: "2024-02-01"
+
+# ---------------------------------------------------------------------------
+# Ingress — all exposed via internal ingress-nginx (accessible over VPN)
+# ---------------------------------------------------------------------------
+backend:
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      # Garak probe cache pre-warm loads probes + wordnet; 1Gi OOMKills the API.
+      memory: "2Gi"
+      cpu: "1000m"
+  ingress:
+    enabled: true
+    host: "dev-api.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  # Dev: slow cold start (e.g. Garak). Helm replaces nested maps — keep full blocks.
+  # Liveness worst-case ≈ 900 + 29*45 = 2205s (~37m) before restart if /health never succeeds.
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 900
+    periodSeconds: 45
+    timeoutSeconds: 15
+    failureThreshold: 30
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 600
+    periodSeconds: 20
+    timeoutSeconds: 15
+    failureThreshold: 90
+
+frontend:
+  ingress:
+    enabled: true
+    host: "dev-app.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+docs:
+  ingress:
+    enabled: true
+    host: "dev-docs.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+chatbot:
+  ingress:
+    enabled: true
+    host: "dev-chatbot.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+# Analytics DB — same Bitnami PostgreSQL subchart, different database name.
+# Mirrors the stg/prd CNPG pattern: database owned by rhesis-analytics-user.
+# ANALYTICS_DB_HOST/PORT rendered by ConfigMap helper (same subchart service).
+# ANALYTICS_DB_USER / ANALYTICS_DB_PASS come from rhesis-app-secrets (ESO):
+#   dev-rhesis-analytics-db-user → rhesis-analytics-user
+#   dev-rhesis-analytics-db-pass → <password>
+externalAnalyticsDatabase:
+  name: "rhesis-analytics-dev-db"
+
+otelCollector:
+  ingress:
+    enabled: true
+    host: "dev-telemetry.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+telemetryProcessor:
+  enabled: true
+
+polyphemus:
+  ingress:
+    enabled: true
+    host: "dev-polyphemus.rhesis.ai"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  livenessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 900
+    periodSeconds: 45
+    timeoutSeconds: 15
+    failureThreshold: 30
+  readinessProbe:
+    httpGet:
+      path: /health
+    initialDelaySeconds: 600
+    periodSeconds: 20
+    timeoutSeconds: 15
+    failureThreshold: 90
+# ---------------------------------------------------------------------------
+# PostgreSQL — Bitnami subchart enabled for dev (no CNPG in this branch)
+# Uses pgvector image (official Postgres entrypoint). That entrypoint reads POSTGRES_DB
+# on first init; the Bitnami chart only sets POSTGRES_DATABASE (Bitnami image). Setting
+# POSTGRES_DB via extraEnvVars ensures the database exists on fresh PVCs.
+# ---------------------------------------------------------------------------
+postgresql:
+  enabled: true
+  image:
+    registry: ""
+    repository: pgvector/pgvector
+    tag: pg16
+    pullPolicy: IfNotPresent
+  auth:
+    database: *rhesis_db_name
+    username: *rhesis_db_user
+    existingSecret: "rhesis-app-secrets"
+    secretKeys:
+      adminPasswordKey: "SQLALCHEMY_DB_PASS"
+      userPasswordKey: "SQLALCHEMY_DB_PASS"
+  primary:
+    extraEnvVars:
+      - name: POSTGRES_DB
+        value: *rhesis_db_name
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "250m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    initdb:
+      scripts:
+        init-extensions.sql: |
+          CREATE EXTENSION IF NOT EXISTS vector;
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        init-analytics-db.sql: |
+          -- Mirrors the stg/prd CNPG postInitSQL pattern.
+          -- Runs as superuser (postgres) during first-time PVC init only.
+          CREATE ROLE "rhesis-analytics-user" LOGIN;
+          CREATE DATABASE "rhesis-analytics-dev-db" OWNER "rhesis-analytics-user";
+          GRANT CONNECT ON DATABASE "rhesis-analytics-dev-db" TO "rhesis-admin";
+    podSecurityContext:
+      enabled: true
+      fsGroup: 999
+    containerSecurityContext:
+      enabled: true
+      runAsUser: 999
+      runAsNonRoot: true
+      readOnlyRootFilesystem: false
+
+# ---------------------------------------------------------------------------
+# Valkey — in-cluster (required)
+# ---------------------------------------------------------------------------
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    existingSecret: "rhesis-app-secrets"
+    existingSecretPasswordKey: "REDIS_PASSWORD"
+  primary:
+    persistence:
+      enabled: true
+      size: 1Gi

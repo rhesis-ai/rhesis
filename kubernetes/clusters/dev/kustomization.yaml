@@ -11,10 +11,13 @@ resources:
   - ingress-nginx-external.yaml
   - ingress-nginx-internal.yaml
   - internal-dns.yaml
-  - cnpg-operator.yaml
   # Monitoring stack (sync-wave on each wrapper defers grafana-resources until CRDs exist)
   - grafana-operator.yaml
   - kube-prometheus-stack.yaml
   - loki.yaml
   - alloy.yaml
   - grafana-resources.yaml
+  # CNPG: not deployed in dev; Rhesis uses Bitnami PostgreSQL (see charts/rhesis/values-dev.yaml). Stg/prd use operator + CNPG.
+  - rhesis/namespace.yaml
+  # rhesis-app-secrets: see clusters/dev/external-secrets/kustomization.yaml (same sync tree as ESO)
+  - rhesis/rhesis-application.yaml

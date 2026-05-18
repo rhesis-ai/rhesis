@@ -80,7 +80,7 @@ main() {
     log "${BLUE}🔄 Starting database migration process...${NC}"
     
     # Get database configuration from environment variables
-    DB_USER=${SQLALCHEMY_DB_USER:-rhesis-user}
+    DB_USER=${SQLALCHEMY_DB_USER:-rhesis-admin}
     DB_PASS=${SQLALCHEMY_DB_PASS:-your-secured-password}
     DB_HOST=${SQLALCHEMY_DB_HOST:-postgres}
     DB_NAME=${SQLALCHEMY_DB_NAME:-rhesis-db}
@@ -101,6 +101,15 @@ main() {
     export SQLALCHEMY_DB_PASS="$DB_PASS"
     export SQLALCHEMY_DB_HOST="$DB_HOST"
     export SQLALCHEMY_DB_NAME="$DB_NAME"
+    # Override DATABASE_URL so alembic env.py uses the migration (admin) user,
+    # not the app user that the deployment injects into SQLALCHEMY_DATABASE_URL.
+    # For Unix socket paths (Cloud SQL via /cloudsql/...), use the ?host= query
+    # parameter form; psycopg2 cannot parse a socket path in the host position.
+    if [[ "$DB_HOST" == /* ]]; then
+        export SQLALCHEMY_DATABASE_URL="${SQLALCHEMY_DB_DRIVER:-postgresql}://${DB_USER}:${DB_PASS}@/${DB_NAME}?host=${DB_HOST}"
+    else
+        export SQLALCHEMY_DATABASE_URL="${SQLALCHEMY_DB_DRIVER:-postgresql}://${DB_USER}:${DB_PASS}@${DB_HOST}:${SQLALCHEMY_DB_PORT:-5432}/${DB_NAME}"
+    fi
     
     # Wait for database to be ready
     wait_for_database

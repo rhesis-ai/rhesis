@@ -18,3 +18,8 @@ resources:
   - loki.yaml
   - alloy.yaml
   - grafana-resources.yaml
+  - rhesis/namespace.yaml
+  # DB cluster: dedicated Application (sync-wave 5) waits for CNPG operator CRDs
+  - cnpg-cluster-application.yaml
+  # rhesis-app-secrets: see clusters/prd/external-secrets/rhesis-app-secrets.yaml
+  - rhesis/rhesis-application.yaml

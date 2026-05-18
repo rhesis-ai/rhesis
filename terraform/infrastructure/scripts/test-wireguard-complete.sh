@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_ID="${PROJECT_ID:-rhesis-dev-sandbox}"
+PROJECT_ID="${PROJECT_ID:-rhesis-dev}"
 REGION="${REGION:-europe-west4}"
 PEER_ID="${PEER_ID:-admin-asad}"
 CONFIG_PATH="${HOME}/wg0.conf"
