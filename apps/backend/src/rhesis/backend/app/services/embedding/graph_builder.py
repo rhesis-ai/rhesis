@@ -134,7 +134,7 @@ def _generate_cluster_labels(
             continue
 
         combined_text = "\n".join(sample_text)
-        prompt = "Summarize these items in 1-2 words: " + combined_text
+        prompt = "Create a very short label for these items (1-2-3 words max): " + combined_text
 
         try:
             label = _model.generate(prompt)
