@@ -20,7 +20,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: patcher
-          image: bitnami/kubectl:latest
+          image: alpine/k8s:1.30.12
           command:
             - sh
             - -c
@@ -46,8 +46,7 @@ spec:
               # Patch the ConfigMap
               kubectl patch configmap node-local-dns -n kube-system \
                 --type merge \
-                --patch "{\"data\":{\"Corefile\":$(printf '%s' "$NEW_COREFILE" | \
-                  python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}}"
+                --patch "{\"data\":{\"Corefile\":$(printf '%s' "$NEW_COREFILE" | jq -Rs .)}}"
 
               # Restart node-local-dns so pods reload the new Corefile
               kubectl patch daemonset node-local-dns -n kube-system \
