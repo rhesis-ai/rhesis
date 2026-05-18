@@ -49,6 +49,8 @@ class GarakProbeCache:
     # Class-level memory cache (shared across instances within a process)
     _memory_cache: ClassVar[Dict[str, Dict]] = {}
     _redis_client: ClassVar[Optional[redis.Redis]] = None
+    _redis_read_client: ClassVar[Optional[redis.Redis]] = None
+    _has_separate_read: ClassVar[bool] = False
     _initialized: ClassVar[bool] = False
 
     @classmethod
@@ -72,31 +74,82 @@ class GarakProbeCache:
                 decode_responses=True,
                 encoding="utf-8",
                 max_connections=3,
-                socket_connect_timeout=5,  # Don't hang forever on connect
-                socket_timeout=5,  # Don't hang forever on operations
+                socket_connect_timeout=5,
+                socket_timeout=5,
             )
-            # Test connection - this will raise if Redis is not available
             await cls._redis_client.ping()
-            cls._initialized = True
             logger.info("Garak probe cache: Redis connection established (db 2)")
+
+            cls._redis_read_client = cls._redis_client
+            read_url_env = os.getenv("BROKER_READ_URL")
+            if read_url_env:
+                read_client = None
+                try:
+                    read_parsed = urlparse(read_url_env)
+                    read_cache_url = urlunparse(
+                        read_parsed._replace(path=f"/{RedisDatabase.GARAK_PROBE_CACHE}")
+                    )
+                    read_client = await redis.from_url(
+                        read_cache_url,
+                        decode_responses=True,
+                        encoding="utf-8",
+                        socket_connect_timeout=5,
+                        socket_timeout=5,
+                    )
+                    await read_client.ping()
+                    cls._redis_read_client = read_client
+                    cls._has_separate_read = True
+                    logger.info("Garak probe cache: Redis read replica connected (db 2)")
+                except Exception as e:
+                    if read_client is not None:
+                        try:
+                            await read_client.close()
+                        except Exception:
+                            pass
+                    logger.warning(
+                        f"Garak probe cache: read replica not available "
+                        f"({type(e).__name__}: {e}), reads will use primary"
+                    )
+
+            cls._initialized = True
         except Exception as e:
-            # Log at debug level to avoid noise when Redis is intentionally not running
             logger.debug(
-                f"Garak probe cache: Redis not available ({type(e).__name__}: {e}). "
+                f"Garak probe cache: Redis not available "
+                f"({type(e).__name__}: {e}). "
                 "Operating in memory-only mode."
             )
-            # Close client if it was created (e.g., from_url succeeded but ping failed)
-            if cls._redis_client:
+            if cls._redis_client is not None:
                 try:
                     await cls._redis_client.close()
                 except Exception:
                     pass
-                cls._redis_client = None
-            cls._initialized = True  # Mark as initialized even without Redis
+            cls._redis_client = None
+            cls._redis_read_client = None
+            cls._has_separate_read = False
+            cls._initialized = True
+
+    @classmethod
+    async def _disable_redis_read(cls) -> None:
+        """Disable the read replica, falling back to primary for reads."""
+        if cls._has_separate_read and cls._redis_read_client:
+            try:
+                await cls._redis_read_client.close()
+            except Exception:
+                pass
+            cls._has_separate_read = False
+            cls._redis_read_client = cls._redis_client
+            logger.debug("Garak probe cache: read replica disabled, reads falling back to primary")
 
     @classmethod
     async def _disable_redis(cls) -> None:
-        """Disable Redis client after a connection failure."""
+        """Disable all Redis clients after a primary connection failure."""
+        if cls._has_separate_read and cls._redis_read_client:
+            try:
+                await cls._redis_read_client.close()
+            except Exception:
+                pass
+        cls._redis_read_client = None
+        cls._has_separate_read = False
         if cls._redis_client:
             try:
                 await cls._redis_client.close()
@@ -107,12 +160,21 @@ class GarakProbeCache:
 
     @classmethod
     async def close(cls) -> None:
-        """Close Redis connection and reset state for potential reinitialization."""
+        """Close Redis connections and reset state for potential reinitialization."""
+        if cls._redis_read_client is not None and cls._redis_read_client is not cls._redis_client:
+            try:
+                await cls._redis_read_client.close()
+            except Exception:
+                pass
+        cls._redis_read_client = None
+        cls._has_separate_read = False
         if cls._redis_client:
-            await cls._redis_client.close()
+            try:
+                await cls._redis_client.close()
+            except Exception:
+                pass
             cls._redis_client = None
             logger.info("Garak probe cache: Redis connection closed")
-        # Always reset _initialized so initialize() can attempt Redis reconnection
         cls._initialized = False
 
     @classmethod
@@ -143,26 +205,40 @@ class GarakProbeCache:
                 # Schema version mismatch - invalidate stale memory cache
                 del cls._memory_cache[cache_key]
 
-        # L2: Check Redis cache
-        if cls._redis_client:
+        # L2: Check Redis cache (via read replica when available)
+        if cls._redis_read_client:
             try:
-                data = await cls._redis_client.get(cache_key)
+                data = await cls._redis_read_client.get(cache_key)
                 if data:
                     parsed = json.loads(data)
                     if parsed.get("schema_version") == cls.SCHEMA_VERSION:
-                        # Populate L1 cache from L2
                         cls._memory_cache[cache_key] = parsed
                         logger.debug(f"Garak probe cache HIT (Redis): {cache_key}")
                         return parsed
                     else:
-                        # Schema version mismatch - delete stale Redis cache
-                        await cls._redis_client.delete(cache_key)
+                        # Schema mismatch — delete via primary
+                        if cls._redis_client:
+                            await cls._redis_client.delete(cache_key)
             except (redis.ConnectionError, redis.TimeoutError, OSError) as e:
-                # Connection lost - disable Redis and continue with memory-only mode
-                logger.debug(f"Garak probe cache: Redis connection lost ({e})")
-                await cls._disable_redis()
+                logger.debug(f"Garak probe cache: Redis read connection lost ({e})")
+                if cls._has_separate_read:
+                    await cls._disable_redis_read()
+                    if cls._redis_client:
+                        try:
+                            data = await cls._redis_client.get(cache_key)
+                            if data:
+                                parsed = json.loads(data)
+                                if parsed.get("schema_version") == cls.SCHEMA_VERSION:
+                                    cls._memory_cache[cache_key] = parsed
+                                    logger.debug(
+                                        f"Garak probe cache HIT (Redis primary retry): {cache_key}"
+                                    )
+                                    return parsed
+                        except Exception:
+                            pass
+                else:
+                    await cls._disable_redis()
             except Exception as e:
-                # Other errors (e.g., JSON decode) - log but don't disable Redis
                 logger.debug(f"Garak probe cache: Redis read error ({e})")
 
         # Cache miss - caller will log this at INFO level
@@ -269,15 +345,15 @@ class GarakProbeCache:
             "schema_version": cls.SCHEMA_VERSION,
         }
 
-        if cls._redis_client:
+        read_client = cls._redis_read_client or cls._redis_client
+        if read_client:
             try:
-                exists = await cls._redis_client.exists(cache_key)
+                exists = await read_client.exists(cache_key)
                 info["in_redis"] = bool(exists)
                 if exists:
-                    ttl = await cls._redis_client.ttl(cache_key)
+                    ttl = await read_client.ttl(cache_key)
                     info["redis_ttl_seconds"] = ttl
             except (redis.ConnectionError, redis.TimeoutError, OSError):
-                # Connection lost - just report as unavailable
                 info["redis_available"] = False
             except Exception:
                 pass

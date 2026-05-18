@@ -19,8 +19,22 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _column_exists(table: str, column: str) -> bool:
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = current_schema() "
+            "AND table_name = :table AND column_name = :column"
+        ),
+        {"table": table, "column": column},
+    )
+    return result.scalar() is not None
+
+
 def upgrade() -> None:
-    op.drop_column("file", "content")
+    if _column_exists("file", "content"):
+        op.drop_column("file", "content")
 
 
 def downgrade() -> None:
