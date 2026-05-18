@@ -59,6 +59,8 @@ def _reduce_dimensions(X: np.ndarray, purpose: str) -> np.ndarray:
         n_neighbors = max(2, min(10, int(0.05 * n_samples)))
         n_neighbors = min(n_neighbors, max_neighbors)
         n_neighbors = max(1, n_neighbors)
+    else:
+        raise ValueError(f"Invalid purpose: {purpose}")
 
     umap = UMAP(n_components=n_components, n_neighbors=n_neighbors, random_state=42)
     return umap.fit_transform(X)
@@ -234,7 +236,10 @@ def build_2d_graph(
     if n_samples == 2:
         return _trivial_two_point_graph(embeddings, now_utc)
 
-    X = np.array([e.embedding for e in embeddings])
+    dims = {len(e.embedding) for e in embeddings}
+    if len(dims) > 1:
+        raise ValueError(f"Mixed embedding dimensions: {sorted(dims)}")
+    X = np.array([e.embedding for e in embeddings], dtype=np.float64)
 
     umap_50d = _reduce_dimensions(X, purpose="clustering")
     umap_2d = _reduce_dimensions(X, purpose="visualization")
