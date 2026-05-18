@@ -277,6 +277,53 @@ class TestRedisBackedCacheReadReplica:
         assert cache._has_separate_read is False
         assert cache._get("k") == "from-primary"
 
+    def test_get_replica_failure_retries_primary(self):
+        write_client = MagicMock()
+        write_client.ping.return_value = True
+        write_client.get.return_value = "from-primary"
+        read_client = MagicMock()
+        read_client.ping.return_value = True
+        read_client.get.side_effect = ConnectionError("replica down")
+
+        clients = iter([write_client, read_client])
+
+        with (
+            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
+            cache.initialize()
+
+        assert cache._has_separate_read is True
+        result = cache._get("k")
+        assert result == "from-primary"
+        assert cache._has_separate_read is False
+        assert cache._redis_read is write_client
+        write_client.get.assert_called_once_with("k")
+
+    def test_mget_replica_failure_retries_primary(self):
+        write_client = MagicMock()
+        write_client.ping.return_value = True
+        write_client.mget.return_value = ["v1", "v2"]
+        read_client = MagicMock()
+        read_client.ping.return_value = True
+        read_client.mget.side_effect = ConnectionError("replica down")
+
+        clients = iter([write_client, read_client])
+
+        with (
+            patch("redis.Redis.from_url", side_effect=lambda *a, **kw: next(clients)),
+            patch.dict("os.environ", {"BROKER_READ_URL": "redis://replica:6379/0"}),
+        ):
+            cache = _ConcreteCache(redis_db=1, cache_name="rr", ttl=60)
+            cache.initialize()
+
+        assert cache._has_separate_read is True
+        result = cache._mget(["a", "b"])
+        assert result == ["v1", "v2"]
+        assert cache._has_separate_read is False
+        write_client.mget.assert_called_once_with(["a", "b"])
+
     def test_close_with_separate_read_client(self):
         write_client = MagicMock()
         write_client.ping.return_value = True

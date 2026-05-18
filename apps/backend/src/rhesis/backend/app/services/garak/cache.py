@@ -223,6 +223,19 @@ class GarakProbeCache:
                 logger.debug(f"Garak probe cache: Redis read connection lost ({e})")
                 if cls._has_separate_read:
                     await cls._disable_redis_read()
+                    if cls._redis_client:
+                        try:
+                            data = await cls._redis_client.get(cache_key)
+                            if data:
+                                parsed = json.loads(data)
+                                if parsed.get("schema_version") == cls.SCHEMA_VERSION:
+                                    cls._memory_cache[cache_key] = parsed
+                                    logger.debug(
+                                        f"Garak probe cache HIT (Redis primary retry): {cache_key}"
+                                    )
+                                    return parsed
+                        except Exception:
+                            pass
                 else:
                     await cls._disable_redis()
             except Exception as e:
