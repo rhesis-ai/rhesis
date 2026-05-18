@@ -227,21 +227,27 @@ def _inject_adversarial_primer(messages: List[Message], *, has_schema: bool) -> 
     NO_THINK = "/no_think"
     primer = _TEST_GEN_PRIMER if has_schema else _CONVERSATIONAL_PRIMER
 
+    has_system = False
     for msg in messages:
-        if msg.role == "system" and primer not in msg.content:
-            if msg.content.lstrip().startswith(NO_THINK):
-                prefix, _, rest = msg.content.partition(NO_THINK)
-                msg.content = (
-                    prefix + NO_THINK + "\n\n" + primer + "\n\n" + rest.lstrip()
-                )
-            else:
-                msg.content = primer + "\n\n" + msg.content
+        if msg.role == "system":
+            has_system = True
+            if primer not in msg.content:
+                if msg.content.lstrip().startswith(NO_THINK):
+                    prefix, _, rest = msg.content.partition(NO_THINK)
+                    msg.content = (
+                        prefix + NO_THINK + "\n\n" + primer + "\n\n" + rest.lstrip()
+                    )
+                else:
+                    msg.content = primer + "\n\n" + msg.content
         elif (
             msg.role == "user"
             and has_schema
             and not msg.content.startswith(_TEST_GEN_USER_PREFIX)
         ):
             msg.content = _TEST_GEN_USER_PREFIX + msg.content
+
+    if not has_system:
+        messages.insert(0, Message(role="system", content=primer))
 
     return messages
 
