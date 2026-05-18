@@ -1,11 +1,166 @@
-name: "[Deploy] Terraform Infrastructure"
-
+name: Terraform Infrastructure [Deploy]
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [dev, stg, prd]
+        default: dev
+      action:
+        description: 'Terraform action'
+        required: true
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+  push:
+    branches: [main]
+    paths: ['terraform/infrastructure/**']
+
+  pull_request:
+    branches: [main]
+    paths: ['terraform/infrastructure/**']
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+env:
+  TF_VERSION: '1.11.4'
 
 jobs:
-  run:
+  plan:
+    name: Plan / ${{ inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
+    outputs:
+      target_env: ${{ steps.ctx.outputs.target_env }}
+
     steps:
-      - run: echo "deploy infrastructure"
+      - uses: actions/checkout@v4
+
+      - name: Resolve context
+        id: ctx
+        env:
+          TF_PROJECT_ID_DEV: ${{ secrets.TF_PROJECT_ID_DEV }}
+          TF_PROJECT_ID_STG: ${{ secrets.TF_PROJECT_ID_STG }}
+          TF_PROJECT_ID_PRD: ${{ secrets.TF_PROJECT_ID_PRD }}
+          TF_SA_DEV: ${{ secrets.TF_SA_DEV }}
+          TF_SA_STG: ${{ secrets.TF_SA_STG }}
+          TF_SA_PRD: ${{ secrets.TF_SA_PRD }}
+        run: |
+          ENV="${{ inputs.environment || 'dev' }}"
+          echo "target_env=$ENV" >> $GITHUB_OUTPUT
+          case "$ENV" in
+            dev) echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
+                 echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
+            stg) echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
+                 echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
+            prd) echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
+                 echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ steps.ctx.outputs.service_account }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Init
+        working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
+        run: terraform init -input=false
+
+      - name: Plan
+        working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
+        run: terraform plan -input=false -out=tfplan -no-color 2>&1 | tee plan.txt
+        env:
+          TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
+          TF_VAR_region: europe-west4
+
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const raw = fs.readFileSync(
+              'terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}/plan.txt',
+              'utf8'
+            );
+            const body = raw.length > 65000 ? raw.slice(0, 65000) + '\n...(truncated)' : raw;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `<details><summary>Terraform Plan — <code>${{ steps.ctx.outputs.target_env }}</code></summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
+            });
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ steps.ctx.outputs.target_env }}
+          path: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}/tfplan
+          retention-days: 1
+
+  apply:
+    name: Apply / ${{ needs.plan.outputs.target_env }}
+    needs: plan
+    runs-on: ubuntu-latest
+    # stg/prd: requires "Required reviewers" on those GitHub Environments in repo settings
+    environment: ${{ needs.plan.outputs.target_env }}
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve context
+        id: ctx
+        env:
+          TF_PROJECT_ID_DEV: ${{ secrets.TF_PROJECT_ID_DEV }}
+          TF_PROJECT_ID_STG: ${{ secrets.TF_PROJECT_ID_STG }}
+          TF_PROJECT_ID_PRD: ${{ secrets.TF_PROJECT_ID_PRD }}
+          TF_SA_DEV: ${{ secrets.TF_SA_DEV }}
+          TF_SA_STG: ${{ secrets.TF_SA_STG }}
+          TF_SA_PRD: ${{ secrets.TF_SA_PRD }}
+        run: |
+          ENV="${{ needs.plan.outputs.target_env }}"
+          case "$ENV" in
+            dev) echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
+                 echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
+            stg) echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
+                 echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
+            prd) echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
+                 echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ steps.ctx.outputs.service_account }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ needs.plan.outputs.target_env }}
+          path: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
+
+      - name: Init
+        working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
+        run: terraform init -input=false
+
+      - name: Apply
+        working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
+        run: terraform apply -input=false tfplan
+        env:
+          TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
+          TF_VAR_region: europe-west4
