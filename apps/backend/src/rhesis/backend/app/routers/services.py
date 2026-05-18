@@ -43,7 +43,7 @@ from rhesis.backend.app.services.generation import (
     generate_tests,
 )
 from rhesis.backend.app.services.github import read_repo_contents
-from rhesis.backend.app.services.mcp_service import (
+from rhesis.backend.app.services.mcp import (
     create_jira_ticket_from_task,
     extract_mcp,
     handle_mcp_exception,
