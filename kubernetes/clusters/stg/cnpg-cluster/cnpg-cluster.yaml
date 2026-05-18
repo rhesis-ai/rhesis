@@ -63,12 +63,11 @@ spec:
       owner: rhesis-admin
       # Runs as superuser in the postgres DB before the application DB exists.
       # Do not GRANT on rhesis-stg-db here — that DB is created after this phase.
-      # spec.managed.roles above is the sole owner of role creation.
-      # CREATE ROLE is intentionally absent here to avoid a race with managed.roles
-      # reconciliation (second CREATE would fail with "role already exists").
+      # Role creation is handled exclusively by spec.managed.roles above to avoid
+      # a race condition (duplicate CREATE ROLE would fail with "role already exists").
       postInitSQL:
-        - CREATE ROLE "rhesis-analytics-user" WITH LOGIN PASSWORD '{{ .Values.analyticsUserPassword }}';
-        - CREATE ROLE "rhesis-user" WITH LOGIN PASSWORD '{{ .Values.userPassword }}';
+        - CREATE ROLE "rhesis-analytics-user" WITH LOGIN;
+        - CREATE ROLE "rhesis-user" WITH LOGIN;
         - CREATE DATABASE "rhesis-analytics-stg-db" OWNER "rhesis-analytics-user";
         - GRANT CONNECT ON DATABASE "rhesis-analytics-stg-db" TO "rhesis-admin";
       # Runs as superuser inside rhesis-stg-db after initdb creates it.
