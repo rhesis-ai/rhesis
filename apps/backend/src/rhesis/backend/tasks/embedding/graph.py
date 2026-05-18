@@ -15,26 +15,15 @@ _PAGE_SIZE = 100
 
 
 def _collect_test_set_entity_ids(db, test_set_id: UUID) -> list[UUID]:
-    """Paginate through all tests linked to a test set."""
-    from rhesis.backend.app import crud
+    """Return all test IDs linked to a test set via the association table."""
+    from rhesis.backend.app.models.test import test_test_set_association
 
-    entity_ids: list[UUID] = []
-    skip = 0
-    while True:
-        items, _count = crud.get_test_set_tests(
-            db=db,
-            test_set_id=test_set_id,
-            skip=skip,
-            limit=_PAGE_SIZE,
-            sort_by="created_at",
-            sort_order="desc",
-            filter=None,
+    rows = db.execute(
+        test_test_set_association.select().where(
+            test_test_set_association.c.test_set_id == test_set_id
         )
-        entity_ids.extend(t.id for t in items)
-        if len(items) < _PAGE_SIZE:
-            break
-        skip += _PAGE_SIZE
-    return entity_ids
+    ).fetchall()
+    return [row.test_id for row in rows]
 
 
 def _collect_source_chunk_entity_ids(db, source_id: UUID, organization_id: str) -> list[UUID]:
