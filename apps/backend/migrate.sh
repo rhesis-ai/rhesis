@@ -103,7 +103,13 @@ main() {
     export SQLALCHEMY_DB_NAME="$DB_NAME"
     # Override DATABASE_URL so alembic env.py uses the migration (admin) user,
     # not the app user that the deployment injects into SQLALCHEMY_DATABASE_URL.
-    export SQLALCHEMY_DATABASE_URL="${SQLALCHEMY_DB_DRIVER:-postgresql}://${DB_USER}:${DB_PASS}@${DB_HOST}:${SQLALCHEMY_DB_PORT:-5432}/${DB_NAME}"
+    # For Unix socket paths (Cloud SQL via /cloudsql/...), use the ?host= query
+    # parameter form; psycopg2 cannot parse a socket path in the host position.
+    if [[ "$DB_HOST" == /* ]]; then
+        export SQLALCHEMY_DATABASE_URL="${SQLALCHEMY_DB_DRIVER:-postgresql}://${DB_USER}:${DB_PASS}@/${DB_NAME}?host=${DB_HOST}"
+    else
+        export SQLALCHEMY_DATABASE_URL="${SQLALCHEMY_DB_DRIVER:-postgresql}://${DB_USER}:${DB_PASS}@${DB_HOST}:${SQLALCHEMY_DB_PORT:-5432}/${DB_NAME}"
+    fi
     
     # Wait for database to be ready
     wait_for_database
