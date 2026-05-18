@@ -228,6 +228,25 @@ def build_2d_graph(
     if not embeddings:
         return Scatter2DGraph(computed_at=datetime.now(timezone.utc), clusters=[], points=[])
 
+    config_hashes = {e.config_hash for e in embeddings}
+    seen_entity_ids: set[UUID] = set()
+    duplicate_entity = False
+    for e in embeddings:
+        if e.entity_id in seen_entity_ids:
+            duplicate_entity = True
+            break
+        seen_entity_ids.add(e.entity_id)
+
+    if len(config_hashes) > 1 or duplicate_entity:
+        logger.warning(
+            "Skipping embedding graph: ambiguous active embeddings "
+            "(entity_type=%s mixed_config=%s duplicate_entity=%s)",
+            entity_type_key,
+            len(config_hashes) > 1,
+            duplicate_entity,
+        )
+        return Scatter2DGraph(computed_at=datetime.now(timezone.utc), clusters=[], points=[])
+
     now_utc = datetime.now(timezone.utc)
     n_samples = len(embeddings)
 
@@ -236,9 +255,6 @@ def build_2d_graph(
     if n_samples == 2:
         return _trivial_two_point_graph(embeddings, now_utc)
 
-    dims = {len(e.embedding) for e in embeddings}
-    if len(dims) > 1:
-        raise ValueError(f"Mixed embedding dimensions: {sorted(dims)}")
     X = np.array([e.embedding for e in embeddings], dtype=np.float64)
 
     umap_50d = _reduce_dimensions(X, purpose="clustering")
