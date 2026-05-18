@@ -69,8 +69,7 @@ def _run_embedding_graph(
     embedded_entity: type,
     load_parent: Callable[[Any, Any], Any | None],
     persist_graph: Callable[[Any, Any], None],
-    parent_not_found_log: str,
-    parent_not_found_extra: dict[str, str],
+    parent_name: str,
 ) -> None:
     from rhesis.backend.app import crud
     from rhesis.backend.app.services.embedding.graph_builder import build_2d_graph
@@ -82,7 +81,7 @@ def _run_embedding_graph(
 
     parent = load_parent(db, user)
     if parent is None:
-        logger.warning(parent_not_found_log, extra=parent_not_found_extra)
+        logger.warning(f"Skipping graph computation: {parent_name} not found")
         return
 
     entity_ids = resolve_entity_ids(db, user, parent)
@@ -120,8 +119,7 @@ def _run_test_set_embedding_graph(db, *, test_set_id: str, user_id: str) -> None
         embedded_entity=models.Test,
         load_parent=load_parent,
         persist_graph=persist_graph,
-        parent_not_found_log="Skipping graph computation: test set not found",
-        parent_not_found_extra={"test_set_id": test_set_id},
+        parent_name="test set",
     )
 
 
@@ -153,8 +151,7 @@ def _run_source_embedding_graph(db, *, source_id: str, user_id: str) -> None:
         embedded_entity=models.Chunk,
         load_parent=load_parent,
         persist_graph=persist_graph,
-        parent_not_found_log="Skipping graph computation: source not found",
-        parent_not_found_extra={"source_id": source_id},
+        parent_name="source",
     )
 
 
