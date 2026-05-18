@@ -1,0 +1,11 @@
+name: "[Deploy] Terraform Infrastructure"
+
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "deploy infrastructure"
