@@ -48,9 +48,7 @@ export default async function sitemap() {
   if (!contentDir) {
     // Minimal fallback when content dir is unavailable (e.g. partial build)
     // eslint-disable-next-line no-console
-    console.warn(
-      'Content directory not found; sitemap will include base URL only'
-    )
+    console.warn('Content directory not found; sitemap will include base URL only')
     addEntry('')
   } else {
     for (const filePath of getMdxFiles(contentDir)) {
