@@ -135,6 +135,12 @@ async def lifespan(app: FastAPI):
     """
     set_logger()
 
+    # Apply fail-fast Celery broker settings for the web process.
+    # Must happen before any Celery task is published from an HTTP handler.
+    from rhesis.backend.celery.core import apply_web_context_overrides
+
+    apply_web_context_overrides()
+
     # Set anyio threadpool size for async-to-thread offloading.
     # Default is 40; 100 is a reasonable production value for 2 vCPU + concurrency 80.
     try:

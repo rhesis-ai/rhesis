@@ -4,7 +4,8 @@ metadata:
   name: cnpg-operator
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "0"
+    # Must run after kube-prometheus-stack (wave 0) so the PodMonitor CRD exists
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   project: cnpg-system
   source:
@@ -27,8 +28,15 @@ spec:
         - /metadata/managedFields
         - /status
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=false
       # CNPG CRDs (especially poolers.postgresql.cnpg.io) exceed client-side apply
       # annotation limits; SSA is required for Argo CD. See cloudnative-pg/charts#544.
       - ServerSideApply=true
+      # PodMonitor CRD (monitoring.coreos.com/v1) is installed by kube-prometheus-stack,
+      # which deploys in parallel. Skip dry-run so the sync is not rejected when that
+      # CRD is not yet available; selfHeal applies the PodMonitor once the CRD exists.
+      - SkipDryRunOnMissingResource=true

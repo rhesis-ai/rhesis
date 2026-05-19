@@ -1,0 +1,34 @@
+{{- if .Values.otelCollector.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: otel-collector
+    tier: otel-collector
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.otelCollector.service.type }}
+  ports:
+    - port: {{ .Values.otelCollector.service.grpcPort }}
+      targetPort: {{ .Values.otelCollector.service.grpcTargetPort }}
+      protocol: TCP
+      name: grpc
+    - port: {{ .Values.otelCollector.service.port }}
+      targetPort: {{ .Values.otelCollector.service.targetPort }}
+      protocol: TCP
+      name: http
+    - port: {{ .Values.otelCollector.service.healthPort }}
+      targetPort: {{ .Values.otelCollector.service.healthPort }}
+      protocol: TCP
+      name: health
+    - port: {{ .Values.otelCollector.service.prometheusPort }}
+      targetPort: {{ .Values.otelCollector.service.prometheusPort }}
+      protocol: TCP
+      name: prometheus
+  selector:
+    app: otel-collector
+    tier: otel-collector
+{{- end }}

@@ -365,6 +365,10 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
             dict: Configuration containing project, location, and credentials_path
         """
         self._vertex_config = self._load_vertex_config()
+        # Ensure GOOGLE_APPLICATION_CREDENTIALS points to the decoded credentials file path,
+        # not the raw base64 string.- prevents google.auth.default from
+        # failling backe to GKE metadata when credentials were only base64 in the env.
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._vertex_config["credentials_path"]
         return self._vertex_config
 
     async def a_generate(
@@ -542,6 +546,7 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
 
         # Load Vertex AI configuration
         self._vertex_config = self._load_vertex_config()
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._vertex_config["credentials_path"]
 
         # Initialize parent LiteLLMEmbedder with vertex_ai prefix
         # Don't pass api_key as Vertex AI uses credentials

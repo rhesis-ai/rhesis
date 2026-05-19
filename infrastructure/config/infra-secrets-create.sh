@@ -166,9 +166,9 @@ function set_repo_secret() {
 
 # Set common secrets at repository level
 echo -e "${BLUE}Setting common repository secrets...${NC}"
-set_repo_secret "TF_VAR_REGION" "$REGION"
-set_repo_secret "TF_VAR_BILLING_ACCOUNT" "$BILLING_ACCOUNT"
-set_repo_secret "TF_VAR_ORG_ID" "$ORG_ID"
+set_repo_secret "REGION" "$REGION"
+set_repo_secret "BILLING_ACCOUNT" "$BILLING_ACCOUNT"
+set_repo_secret "ORG_ID" "$ORG_ID"
 
 # Set GCP service account key as repository secret
 echo -e "${BLUE}Setting GCP service account key...${NC}"
@@ -182,7 +182,7 @@ for env in "${ENV_ARRAY[@]}"; do
   # Database password
   db_password_var="${env_upper}_DATABASE_PASSWORD"
   if [[ -n "${!db_password_var}" ]]; then
-    set_secret "$env" "TF_VAR_DATABASE_PASSWORD" "${!db_password_var}"
+    set_secret "$env" "DATABASE_PASSWORD" "${!db_password_var}"
   else
     echo -e "${YELLOW}Warning:${NC} $db_password_var environment variable is not set"
   fi
@@ -191,7 +191,7 @@ for env in "${ENV_ARRAY[@]}"; do
   for service in BACKEND FRONTEND WORKER POLYPHEMUS CHATBOT; do
     image_var="${env_upper}_${service}_IMAGE"
     if [[ -n "${!image_var}" ]]; then
-      set_secret "$env" "TF_VAR_${service}_IMAGE" "${!image_var}"
+      set_secret "$env" "${service}_IMAGE" "${!image_var}"
     else
       echo -e "${YELLOW}Warning:${NC} $image_var environment variable is not set"
     fi
@@ -200,10 +200,10 @@ for env in "${ENV_ARRAY[@]}"; do
   # Load balancer settings
   lb_var="${env_upper}_ENABLE_LOAD_BALANCERS"
   if [[ -n "${!lb_var}" ]]; then
-    set_secret "$env" "TF_VAR_ENABLE_LOAD_BALANCERS" "${!lb_var}"
+    set_secret "$env" "ENABLE_LOAD_BALANCERS" "${!lb_var}"
   else
     echo -e "${YELLOW}Warning:${NC} $lb_var environment variable is not set, using default: true"
-    set_secret "$env" "TF_VAR_ENABLE_LOAD_BALANCERS" "true"
+    set_secret "$env" "ENABLE_LOAD_BALANCERS" "true"
   fi
   
   # Domain settings
@@ -232,10 +232,10 @@ for env in "${ENV_ARRAY[@]}"; do
     domain_var="${env_upper}_${domain_key}"
     
     if [[ -n "${!domain_var}" ]]; then
-      set_secret "$env" "TF_VAR_${domain_key}" "${!domain_var}"
+      set_secret "$env" "${domain_key}" "${!domain_var}"
     elif [[ -n "$domain_default" ]]; then
       echo -e "${YELLOW}Warning:${NC} $domain_var environment variable is not set, using default: $domain_default"
-      set_secret "$env" "TF_VAR_${domain_key}" "$domain_default"
+      set_secret "$env" "${domain_key}" "$domain_default"
     fi
   done
 done

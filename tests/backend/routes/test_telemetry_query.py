@@ -10,7 +10,6 @@ This module tests the telemetry query endpoints including:
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
 
 import pytest
 from fastapi import status
@@ -1029,24 +1028,19 @@ class TestQueryEdgeCases:
         trace_batch = {"spans": [span_data]}
         authenticated_client.post("/telemetry/traces", json=trace_batch)
 
-        # Mock enrichment to add cost data
-        with patch(
-            "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available",
-            return_value=False,
-        ):
-            # This will trigger sync enrichment
-            response = authenticated_client.get(
-                f"/telemetry/traces?project_id={db_project.id}&limit=1"
-            )
+        # Query traces
+        response = authenticated_client.get(
+            f"/telemetry/traces?project_id={db_project.id}&limit=1"
+        )
 
-            assert response.status_code == status.HTTP_200_OK
-            data = response.json()
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
 
-            if data["traces"]:
-                trace = data["traces"][0]
-                # Cost fields should be present (may be null if no enrichment occurred)
-                assert "total_cost_usd" in trace
-                assert "total_tokens" in trace
+        if data["traces"]:
+            trace = data["traces"][0]
+            # Cost fields should be present (may be null if no enrichment occurred)
+            assert "total_cost_usd" in trace
+            assert "total_tokens" in trace
 
 
 @pytest.mark.unit

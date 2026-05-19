@@ -118,30 +118,30 @@ The repository includes a GitHub Actions workflow file (`infrastructure.yml`) in
 
 2. Add Terraform variables as GitHub secrets with the following naming convention:
    - Common variables for all environments:
-     - `TF_VAR_REGION`: The GCP region (e.g., "europe-west4")
-     - `TF_VAR_BILLING_ACCOUNT`: Your GCP billing account ID
+     - `REGION`: The GCP region (e.g., "europe-west4")
+     - `BILLING_ACCOUNT`: Your GCP billing account ID
 
    - Environment-specific variables (replace ENV with DEV, STG, or PRD):
-     - `TF_VAR_ENV_DATABASE_PASSWORD`: Database password
-     - `TF_VAR_ENV_BACKEND_IMAGE`: Backend container image URL
-     - `TF_VAR_ENV_FRONTEND_IMAGE`: Frontend container image URL
-     - `TF_VAR_ENV_WORKER_IMAGE`: Worker container image URL
-     - `TF_VAR_ENV_POLYPHEMUS_IMAGE`: Polyphemus container image URL
-     - `TF_VAR_ENV_CHATBOT_IMAGE`: Chatbot container image URL
-     - `TF_VAR_ENV_ENABLE_LOAD_BALANCERS`: Whether to enable load balancers (true/false)
+     - `ENV_DATABASE_PASSWORD`: Database password
+     - `ENV_BACKEND_IMAGE`: Backend container image URL
+     - `ENV_FRONTEND_IMAGE`: Frontend container image URL
+     - `ENV_WORKER_IMAGE`: Worker container image URL
+     - `ENV_POLYPHEMUS_IMAGE`: Polyphemus container image URL
+     - `ENV_CHATBOT_IMAGE`: Chatbot container image URL
+     - `ENV_ENABLE_LOAD_BALANCERS`: Whether to enable load balancers (true/false)
      
    - Domain naming follows these conventions:
      - For development and staging: `env-service.rhesis.ai` (e.g., dev-api.rhesis.ai)
      - For production: `service.rhesis.ai` (e.g., api.rhesis.ai)
      
    - Domain variables:
-     - For dev/stg: `TF_VAR_ENV_SERVICE_DOMAIN` (e.g., TF_VAR_DEV_BACKEND_DOMAIN = "dev-api.rhesis.ai")
-     - For production: `TF_VAR_PRD_SERVICE_DOMAIN` (e.g., TF_VAR_PRD_BACKEND_DOMAIN = "api.rhesis.ai")
+     - For dev/stg: `ENV_SERVICE_DOMAIN` (e.g., DEV_BACKEND_DOMAIN = "dev-api.rhesis.ai")
+     - For production: `PRD_SERVICE_DOMAIN` (e.g., PRD_BACKEND_DOMAIN = "api.rhesis.ai")
 
    Example:
-   - `TF_VAR_DEV_DATABASE_PASSWORD`: Password for the development database
-   - `TF_VAR_DEV_FRONTEND_DOMAIN`: "dev-app.rhesis.ai"
-   - `TF_VAR_PRD_FRONTEND_DOMAIN`: "app.rhesis.ai"
+   - `DEV_DATABASE_PASSWORD`: Password for the development database
+   - `DEV_FRONTEND_DOMAIN`: "dev-app.rhesis.ai"
+   - `PRD_FRONTEND_DOMAIN`: "app.rhesis.ai"
 
 ### Container Image Validation
 
@@ -190,14 +190,14 @@ This approach ensures that Cloud Run services can be deployed even without custo
 The deployment process automatically maps GitHub secrets to Terraform variables using a standardized approach:
 
 1. **Naming Convention Alignment**:
-   - GitHub secrets use the `TF_VAR_` prefix followed by the variable name in uppercase
+   - GitHub secrets use the variable name in uppercase
    - Terraform variables use lowercase/snake_case in the .tf files
    - The deployment script automatically converts between these formats
 
 2. **Variable Mapping Process**:
    - The `deploy-terraform.sh` script reads the `terraform.tfvars.example` file to identify required variables
-   - For each variable, it looks for a corresponding GitHub secret with the `TF_VAR_` prefix
-   - The script converts Terraform's snake_case to GitHub's uppercase format (e.g., `database_password` → `TF_VAR_DATABASE_PASSWORD`)
+   - For each variable, it looks for a corresponding GitHub secret
+   - The script converts Terraform's snake_case to GitHub's uppercase format (e.g., `database_password` → `DATABASE_PASSWORD`)
    - When a matching secret is found, its value is written to the generated `terraform.tfvars` file
 
 3. **Example Mapping**:
@@ -209,7 +209,7 @@ The deployment process automatically maps GitHub secrets to Terraform variables 
    }
    
    # Corresponding GitHub secret
-   TF_VAR_DATABASE_PASSWORD = "secure-password-value"
+DATABASE_PASSWORD = "secure-password-value"
    
    # Generated entry in terraform.tfvars
    database_password = "secure-password-value"

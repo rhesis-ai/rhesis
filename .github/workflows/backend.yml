@@ -177,7 +177,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || 'us-central1' }}" >> $GITHUB_ENV
 
       - name: Setup service environment
         id: setup_service_env
@@ -271,7 +271,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "REGION=${{ secrets.REGION || 'us-central1' }}" >> $GITHUB_ENV
 
       - name: Setup service environment
         uses: ./.github/actions/setup-service-env
@@ -364,7 +364,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
+          REGION="${{ secrets.REGION || 'us-central1' }}"
           echo "REGION=$REGION" >> $GITHUB_ENV
 
       - name: Setup service environment
@@ -471,7 +471,7 @@ jobs:
       - name: Set environment variables
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
-          REGION="${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}"
+          REGION="${{ secrets.REGION || 'us-central1' }}"
           echo "REGION=$REGION" >> $GITHUB_ENV
 
       - name: Setup service environment
@@ -594,6 +594,7 @@ jobs:
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
           WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
           BROKER_URL=${{ secrets.BROKER_URL }},
+          BROKER_READ_URL=${{ secrets.BROKER_READ_URL }},
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
@@ -676,6 +677,7 @@ jobs:
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
           WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
           BROKER_URL=${{ secrets.BROKER_URL }},
+          BROKER_READ_URL=${{ secrets.BROKER_READ_URL }},
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
@@ -878,6 +880,7 @@ jobs:
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
           WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
           BROKER_URL=${{ secrets.BROKER_URL }},
+          BROKER_READ_URL=${{ secrets.BROKER_READ_URL }},
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},
@@ -967,6 +970,7 @@ jobs:
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
           WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
           BROKER_URL=${{ secrets.BROKER_URL }},
+          BROKER_READ_URL=${{ secrets.BROKER_READ_URL }},
           CELERY_RESULT_BACKEND=${{ secrets.CELERY_RESULT_BACKEND }},
           STORAGE_SERVICE_URI=${{ secrets.STORAGE_SERVICE_URI }},
           STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }},

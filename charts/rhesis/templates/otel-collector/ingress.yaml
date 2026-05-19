@@ -1,0 +1,33 @@
+{{- if and .Values.otelCollector.enabled .Values.otelCollector.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: otel-collector
+    tier: otel-collector
+    {{- include "rhesis.labels" . | nindent 4 }}
+  {{- with .Values.otelCollector.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.otelCollector.ingress.className }}
+  rules:
+    - host: {{ .Values.otelCollector.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: otel-collector
+                port:
+                  number: {{ .Values.otelCollector.service.port }}
+  tls:
+    - hosts:
+        - {{ .Values.otelCollector.ingress.host | quote }}
+      secretName: {{ .Values.otelCollector.ingress.tlsSecretName }}
+{{- end }}

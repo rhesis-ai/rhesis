@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import pytest
 from faker import Faker
+from rhesis.telemetry.schemas import SpanKind, StatusCode
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
@@ -21,7 +22,6 @@ from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 from rhesis.backend.app.services.telemetry.linking_service import TraceLinkingService
-from rhesis.telemetry.schemas import SpanKind, StatusCode
 
 fake = Faker()
 
@@ -282,10 +282,14 @@ class TestTraceLinkingTiming:
         ]
 
         # Use EnrichmentService (simulates telemetry endpoint flow)
+        # Force sync fallback by making async dispatch fail with a broker error
         enrichment_service = EnrichmentService(test_db)
 
-        # Mock worker check to force sync enrichment
-        with patch.object(enrichment_service, "_check_workers_available", return_value=False):
+        with patch.object(
+            enrichment_service,
+            "_enqueue_async",
+            side_effect=ConnectionError("Broker unavailable"),
+        ):
             stored_spans, async_count, sync_count = enrichment_service.create_and_enrich_spans(
                 spans=spans,
                 organization_id=str(test_organization.id),
@@ -293,7 +297,7 @@ class TestTraceLinkingTiming:
             )
 
         assert len(stored_spans) == 5
-        assert sync_count == 5  # One sync enrichment per root span
+        assert sync_count == 5
 
         # Link traces
         linking_service = TraceLinkingService(test_db)

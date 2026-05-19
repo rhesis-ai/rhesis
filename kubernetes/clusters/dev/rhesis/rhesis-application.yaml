@@ -1,0 +1,34 @@
+# Argo CD Application — deploys the Rhesis Helm chart to the dev cluster.
+# This file is synced by the root dev Application (clusters/dev/base.yaml).
+#
+# sync-wave 10 ensures:
+#   - ESO (wave -1) and ClusterSecretStore (wave 1) are ready
+#   - rhesis-app-secrets ExternalSecret (wave 5) has synced
+#   - Helm chart deploy happens last
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rhesis
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rhesis-ai/rhesis.git
+    targetRevision: main
+    path: charts/rhesis
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-dev.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rhesis
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

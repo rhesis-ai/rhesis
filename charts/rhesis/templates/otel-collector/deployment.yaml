@@ -1,0 +1,69 @@
+{{- if .Values.otelCollector.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: otel-collector
+    tier: otel-collector
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.otelCollector.replicas }}
+  selector:
+    matchLabels:
+      app: otel-collector
+      tier: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+        tier: otel-collector
+    spec:
+      {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.otelCollector) | nindent 6 }}
+      containers:
+        - name: otel-collector
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.otelCollector "global" .Values.global) | quote }}
+          imagePullPolicy: {{ .Values.otelCollector.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.otelCollector) | nindent 10 }}
+          ports:
+            - containerPort: {{ .Values.otelCollector.service.grpcTargetPort }}
+              name: grpc
+            - containerPort: {{ .Values.otelCollector.service.targetPort }}
+              name: http
+            - containerPort: {{ .Values.otelCollector.service.healthPort }}
+              name: health
+            - containerPort: {{ .Values.otelCollector.service.prometheusPort }}
+              name: prometheus
+          envFrom:
+            - configMapRef:
+                name: {{ include "rhesis.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          {{- with .Values.otelCollector.env }}
+          env:
+            {{- range . }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.otelCollector.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.otelCollector.service.healthPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.otelCollector.service.healthPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
+{{- end }}
