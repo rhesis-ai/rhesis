@@ -1,18 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import Paper from '@mui/material/Paper';
+import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
-import ListIcon from '@mui/icons-material/List';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import ClearIcon from '@mui/icons-material/Clear';
+import TuneIcon from '@mui/icons-material/TuneOutlined';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
@@ -20,20 +16,63 @@ import type { UUID } from 'crypto';
 import BehaviorCard from './BehaviorCard';
 import BehaviorDrawer from './BehaviorDrawer';
 import BehaviorMetricsViewer from './BehaviorMetricsViewer';
-import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
 import { generateCopyName } from '@/utils/entity-helpers';
+import { SearchPill } from '@/components/common/SearchPill';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { PsychologyIcon } from '@/components/icons';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab } from '@/components/common/Fab';
+import BehaviorFilterDrawer, {
+  type BehaviorFilters,
+  type MetricFilter,
+  EMPTY_BEHAVIOR_FILTERS,
+} from './BehaviorFilterDrawer';
+import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+
+interface EmptyStateMessageProps {
+  title: string;
+  description: string;
+}
+
+function EmptyStateMessage({ title, description }: EmptyStateMessageProps) {
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 4,
+        textAlign: 'center',
+        borderRadius: BORDER_RADIUS.md,
+        border: theme =>
+          `1px solid ${
+            theme.palette.mode === 'light'
+              ? GREYSCALE.light.border
+              : GREYSCALE.dark.border
+          }`,
+        boxShadow: ELEVATION.xs,
+      }}
+    >
+      <Typography variant="h6" gutterBottom>
+        {title}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {description}
+      </Typography>
+    </Paper>
+  );
+}
 
 interface BehaviorsClientProps {
   sessionToken: string;
   organizationId: UUID;
+  sessionStatus?: 'loading' | 'authenticated' | 'unauthenticated';
 }
 
 export default function BehaviorsClient({
   sessionToken,
   organizationId,
+  sessionStatus,
 }: BehaviorsClientProps) {
   const notifications = useNotifications();
-  const theme = useTheme();
 
   // Data state
   const [behaviors, setBehaviors] = React.useState<BehaviorWithMetrics[]>([]);
@@ -56,31 +95,31 @@ export default function BehaviorsClient({
   const [viewingBehavior, setViewingBehavior] =
     React.useState<BehaviorWithMetrics | null>(null);
 
-  // Search state
+  // Search & filter state
   const [searchQuery, setSearchQuery] = React.useState('');
-
-  // Filter state
-  const [metricCountFilter, setMetricCountFilter] = React.useState<
-    'all' | 'has_metrics' | 'no_metrics'
-  >('all');
+  const [metricCountFilter, setMetricCountFilter] =
+    React.useState<MetricFilter>('all');
+  const [filterDrawerOpen, setFilterDrawerOpen] = React.useState(false);
+  const [drawerFilters, setDrawerFilters] = React.useState<BehaviorFilters>(
+    EMPTY_BEHAVIOR_FILTERS
+  );
 
   // Refresh key for manual refresh
   const [refreshKey, setRefreshKey] = React.useState(0);
 
-  // Use ref to track the actual session token value to prevent unnecessary re-fetches
   const lastSessionTokenRef = React.useRef<string | null>(null);
   const hasFetchedRef = React.useRef(false);
 
-  // Fetch behaviors
   React.useEffect(() => {
     const fetchBehaviors = async () => {
       if (!sessionToken) {
-        setIsLoading(false);
+        // Keep spinner while session is still loading; stop it on auth failure
+        if (sessionStatus !== 'loading') {
+          setIsLoading(false);
+        }
         return;
       }
 
-      // Only skip if this is the initial load and we've already fetched with this token
-      // Always refetch when refreshKey changes
       if (
         refreshKey === 0 &&
         lastSessionTokenRef.current !== null &&
@@ -113,7 +152,7 @@ export default function BehaviorsClient({
     };
 
     fetchBehaviors();
-  }, [sessionToken, refreshKey]);
+  }, [sessionToken, refreshKey, sessionStatus]);
 
   const handleAddNewBehavior = () => {
     setEditingBehavior({ id: null, name: '', description: '' });
@@ -135,14 +174,12 @@ export default function BehaviorsClient({
       const behaviorClient = new BehaviorClient(sessionToken);
 
       if (isNewBehavior) {
-        // Create new behavior
         const created = await behaviorClient.createBehavior({
           name: name.trim(),
           description: description?.trim() || null,
           organization_id: organizationId,
         });
 
-        // Fetch the created behavior with metrics
         const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
           created.id
         );
@@ -154,7 +191,6 @@ export default function BehaviorsClient({
           autoHideDuration: 4000,
         });
       } else if (editingBehavior && editingBehavior.id) {
-        // Update existing behavior
         const updated = await behaviorClient.updateBehavior(
           editingBehavior.id,
           {
@@ -234,7 +270,6 @@ export default function BehaviorsClient({
       try {
         const behaviorClient = new BehaviorClient(sessionToken);
 
-        // Check if behavior has metrics
         const behaviorToDelete = behaviors.find(
           b => b.id === editingBehavior.id
         );
@@ -282,7 +317,6 @@ export default function BehaviorsClient({
 
   const handleMetricsViewerRefresh = (removedMetricId?: string) => {
     if (removedMetricId && viewingBehavior) {
-      // Update the behaviors list dynamically by removing the metric
       setBehaviors(prev =>
         prev.map(behavior => {
           if (behavior.id === viewingBehavior.id) {
@@ -297,7 +331,6 @@ export default function BehaviorsClient({
         })
       );
 
-      // Update the viewing behavior as well
       setViewingBehavior(prev => {
         if (prev) {
           return {
@@ -310,29 +343,22 @@ export default function BehaviorsClient({
         return prev;
       });
     } else {
-      // Fallback to full refresh if no metric ID provided
       setRefreshKey(prev => prev + 1);
     }
   };
 
-  // Filter behaviors based on search and metric count
   const filteredBehaviors = React.useMemo(() => {
     let filtered = behaviors;
 
-    // Apply metric count filter
     if (metricCountFilter !== 'all') {
       filtered = filtered.filter(behavior => {
         const hasMetrics = behavior.metrics && behavior.metrics.length > 0;
-        if (metricCountFilter === 'has_metrics') {
-          return hasMetrics;
-        } else if (metricCountFilter === 'no_metrics') {
-          return !hasMetrics;
-        }
+        if (metricCountFilter === 'has_metrics') return hasMetrics;
+        if (metricCountFilter === 'no_metrics') return !hasMetrics;
         return true;
       });
     }
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(behavior => {
@@ -345,128 +371,175 @@ export default function BehaviorsClient({
             metric.name?.toLowerCase().includes(query) ||
             metric.description?.toLowerCase().includes(query)
         );
-
         return nameMatch || descriptionMatch || metricMatch;
       });
     }
 
     return filtered;
-  }, [behaviors, searchQuery, metricCountFilter]);
-
-  const handleResetFilters = () => {
-    setSearchQuery('');
-    setMetricCountFilter('all');
-  };
+  }, [behaviors, searchQuery, metricCountFilter, drawerFilters]);
 
   const hasActiveFilters =
     searchQuery.trim() !== '' || metricCountFilter !== 'all';
 
+  const metricOptions: { value: MetricFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'has_metrics', label: 'Has Metrics' },
+    { value: 'no_metrics', label: 'No Metrics' },
+  ];
+
+  // Loading state
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          p: 4,
-          minHeight: theme => theme.spacing(25),
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <PageLayout title="Behaviors" breadcrumbs={[]}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            py: 8,
+            gap: 2,
+          }}
+        >
           <CircularProgress size={24} />
           <Typography>Loading behaviors...</Typography>
         </Box>
-      </Box>
+      </PageLayout>
     );
   }
 
-  if (error) {
+  // Auth error state
+  if (!sessionToken) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
+      <PageLayout title="Behaviors" breadcrumbs={[]}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          Session expired. Please refresh the page or log in again.
+        </Alert>
+        <EmptyStateMessage
+          title="Authentication Required"
+          description="Please log in to view and manage your behaviors."
+        />
+      </PageLayout>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Header with explanation */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" color="text.secondary">
-          Behaviors are atomic expectations for your application, measured
-          through one or more metrics to determine if requirements are met.
-        </Typography>
+    <PageLayout
+      title="Behaviors"
+      description="Behaviors are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
+      breadcrumbs={[]}
+      actions={
+        <Fab
+          icon={<AddIcon />}
+          tooltip="Create behavior"
+          aria-label="Create behavior"
+          onClick={handleAddNewBehavior}
+        />
+      }
+    >
+      {/* Figma Toolbar (841:38547) — 3-col grid keeps pills truly centered */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: '1fr auto 1fr',
+          alignItems: 'center',
+          mb: 3,
+          gap: 2,
+        }}
+      >
+        {/* Left: Filter icon + Search pill */}
+        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <IconButton
+            aria-label="Filter"
+            onClick={() => setFilterDrawerOpen(true)}
+            sx={{
+              bgcolor: 'primary.main',
+              color: '#fff',
+              borderRadius: BORDER_RADIUS.sm,
+              p: '9px',
+              '&:hover': { bgcolor: 'primary.dark' },
+              '& .MuiSvgIcon-root': { fontSize: 20 },
+            }}
+          >
+            <TuneIcon />
+          </IconButton>
+
+          <SearchPill
+            value={searchQuery}
+            onChange={v => setSearchQuery(v)}
+            placeholder="Search behaviors…"
+          />
+        </Box>
+
+        {/* Center: Metric filter pill tabs */}
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          {metricOptions.map(({ value, label }, idx) => {
+            const selected = metricCountFilter === value;
+            const isFirst = idx === 0;
+            const isLast = idx === metricOptions.length - 1;
+            return (
+              <Box
+                key={value}
+                component="button"
+                onClick={() => setMetricCountFilter(value)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  px: '16px',
+                  py: '8px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  lineHeight: '22px',
+                  cursor: 'pointer',
+                  border: '1px solid',
+                  borderColor: 'primary.main',
+                  borderLeft: isFirst ? '1px solid' : 'none',
+                  borderRight: isLast ? '1px solid' : 'none',
+                  borderRadius: isFirst
+                    ? '999px 0 0 999px'
+                    : isLast
+                      ? '0 999px 999px 0'
+                      : 0,
+                  bgcolor: selected ? 'primary.main' : 'transparent',
+                  color: selected ? '#fff' : 'primary.main',
+                  transition: 'background-color 0.15s, color 0.15s',
+                  '&:hover': {
+                    bgcolor: selected ? 'primary.dark' : 'rgba(0,128,175,0.06)',
+                  },
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {label}
+              </Box>
+            );
+          })}
+        </Box>
       </Box>
 
-      {/* Search and Filter Bar */}
-      <SearchAndFilterBar
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        onAddNew={handleAddNewBehavior}
-        addNewLabel="New Behavior"
-        searchPlaceholder="Search behaviors..."
-      >
-        {/* Metric Count Filter */}
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => setMetricCountFilter('all')}
-            variant={metricCountFilter === 'all' ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => setMetricCountFilter('has_metrics')}
-            variant={
-              metricCountFilter === 'has_metrics' ? 'contained' : 'outlined'
-            }
-            startIcon={<CheckCircleIcon fontSize="small" />}
-            sx={{
-              ...(metricCountFilter === 'has_metrics' && {
-                backgroundColor: theme.palette.success.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.success.dark,
-                },
-              }),
-            }}
-          >
-            Has Metrics
-          </Button>
-          <Button
-            onClick={() => setMetricCountFilter('no_metrics')}
-            variant={
-              metricCountFilter === 'no_metrics' ? 'contained' : 'outlined'
-            }
-            startIcon={<ErrorOutlineIcon fontSize="small" />}
-            sx={{
-              ...(metricCountFilter === 'no_metrics' && {
-                backgroundColor: theme.palette.warning.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.warning.dark,
-                },
-              }),
-            }}
-          >
-            No Metrics
-          </Button>
-        </ButtonGroup>
+      {/* Error state */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
-        {/* Reset Button - inline with filters */}
-        {hasActiveFilters && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<ClearIcon />}
-            onClick={handleResetFilters}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
-            Reset
-          </Button>
-        )}
-      </SearchAndFilterBar>
-
-      {/* Behaviors grid */}
-      {filteredBehaviors.length > 0 ? (
+      {/* Behaviors grid / empty states */}
+      {filteredBehaviors.length === 0 ? (
+        hasActiveFilters ? (
+          <EmptyStateMessage
+            title="No behaviors match your filters"
+            description="Try adjusting your search or filter to find the behaviors you're looking for."
+          />
+        ) : (
+          <EntityEmptyState
+            icon={PsychologyIcon}
+            title="No behavior yet"
+            description="Create your first behavior to define atomic expectations for your AI applications. Behaviors are measured through metrics to ensure your requirements are met."
+            actionLabel="Create behavior"
+            onAction={handleAddNewBehavior}
+          />
+        )
+      ) : (
         <Box
           sx={{
             display: 'grid',
@@ -504,40 +577,6 @@ export default function BehaviorsClient({
                 sessionToken={sessionToken}
               />
             ))}
-        </Box>
-      ) : behaviors.length > 0 ? (
-        <Box
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            border: theme => `2px dashed ${theme.palette.divider}`,
-            borderRadius: theme.shape.borderRadius / 2,
-          }}
-        >
-          <Typography variant="body1" color="text.secondary">
-            No behaviors match your search criteria.
-          </Typography>
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            border: theme => `2px dashed ${theme.palette.divider}`,
-            borderRadius: theme.shape.borderRadius / 2,
-          }}
-        >
-          <Typography variant="body1" color="text.secondary" gutterBottom>
-            No behaviors found. Create your first behavior to get started.
-          </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<AddIcon />}
-            onClick={handleAddNewBehavior}
-            sx={{ mt: 2 }}
-          >
-            Add New Behavior
-          </Button>
         </Box>
       )}
 
@@ -581,6 +620,16 @@ export default function BehaviorsClient({
         sessionToken={sessionToken}
         onRefresh={handleMetricsViewerRefresh}
       />
-    </Box>
+
+      <BehaviorFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={f => {
+          setDrawerFilters(f);
+          setMetricCountFilter(f.metricCount);
+        }}
+      />
+    </PageLayout>
   );
 }

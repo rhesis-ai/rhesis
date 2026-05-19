@@ -58,6 +58,19 @@ import {
 import { formatDate } from '@/utils/date';
 import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
 
+const badgeChipSx = {
+  bgcolor: (theme: { palette: { mode: string } }) =>
+    theme.palette.mode === 'light'
+      ? GREYSCALE.light.surface2
+      : GREYSCALE.dark.surface1,
+  color: (theme: { palette: { mode: string } }) =>
+    theme.palette.mode === 'light' ? GREYSCALE.light.body : GREYSCALE.dark.body,
+  border: 'none',
+  borderRadius: BORDER_RADIUS.pill,
+  fontSize: '12px',
+  lineHeight: '18px',
+};
+
 interface TestsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
@@ -439,7 +452,7 @@ export default function TestsTable({
           const behaviorName = params.row.behavior?.name;
           if (!behaviorName) return null;
 
-          return <Chip label={behaviorName} size="small" variant="outlined" />;
+          return <Chip label={behaviorName} size="small" sx={badgeChipSx} />;
         },
       },
       {
@@ -452,7 +465,7 @@ export default function TestsTable({
           const topicName = params.row.topic?.name;
           if (!topicName) return null;
 
-          return <Chip label={topicName} size="small" variant="outlined" />;
+          return <Chip label={topicName} size="small" sx={badgeChipSx} />;
         },
       },
       {
@@ -465,7 +478,7 @@ export default function TestsTable({
           const categoryName = params.row.category?.name;
           if (!categoryName) return null;
 
-          return <Chip label={categoryName} size="small" variant="outlined" />;
+          return <Chip label={categoryName} size="small" sx={badgeChipSx} />;
         },
       },
       {
@@ -478,7 +491,7 @@ export default function TestsTable({
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
-          return <Chip label={testType} size="small" variant="outlined" />;
+          return <Chip label={testType} size="small" sx={badgeChipSx} />;
         },
       },
       {

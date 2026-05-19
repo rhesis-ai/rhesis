@@ -16,7 +16,7 @@ export interface FabProps extends Omit<MuiFabProps, 'children'> {
  * Figma-aligned FAB component.
  *
  * Wraps MUI `Fab` with Rhesis styling:
- *   - Teal/primary.dark fill, white icon, 56px circular (default size)
+ *   - Teal/primary.main fill, white icon, 56px circular (default size)
  *   - Accepts an optional `tooltip` for accessibility
  */
 export function Fab({ icon, tooltip, size = 'large', sx, ...props }: FabProps) {
@@ -25,10 +25,10 @@ export function Fab({ icon, tooltip, size = 'large', sx, ...props }: FabProps) {
       size={size}
       color="primary"
       sx={{
-        bgcolor: 'primary.dark',
+        bgcolor: 'primary.main',
         color: '#fff',
         '&:hover': {
-          bgcolor: 'primary.main',
+          bgcolor: 'primary.dark',
         },
         boxShadow: theme => theme.elevation?.xs ?? ELEVATION.xs,
         ...sx,

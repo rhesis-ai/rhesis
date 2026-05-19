@@ -17,7 +17,7 @@ import {
   DialogActions,
 } from '@mui/material';
 import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS } from '@/styles/theme';
 import ProjectCard from './ProjectCard';
 import ProjectCreateDrawer from './ProjectCreateDrawer';
 import ProjectFilterDrawer, {
@@ -27,8 +27,11 @@ import ProjectFilterDrawer, {
 import AddIcon from '@mui/icons-material/Add';
 import FolderIcon from '@mui/icons-material/Folder';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { Fab } from '@/components/common/Fab';
 import TuneIcon from '@mui/icons-material/TuneOutlined';
 import { SearchPill } from '@/components/common/SearchPill';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { AppsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -214,16 +217,6 @@ export default function ProjectsClientWrapper({
     );
   }
 
-  const fabSx = {
-    bgcolor: 'primary.main',
-    color: '#fff',
-    borderRadius: BORDER_RADIUS.pill,
-    p: '12px',
-    boxShadow: ELEVATION.xs,
-    '&:hover': { bgcolor: 'primary.dark' },
-    '& .MuiSvgIcon-root': { fontSize: 28 },
-  } as const;
-
   const statusOptions: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: 'All' },
     { value: 'active', label: 'Active' },
@@ -233,17 +226,17 @@ export default function ProjectsClientWrapper({
   return (
     <PageLayout
       title="Projects"
+      description="Organize your AI applications by grouping endpoints, tests, and results into projects."
       breadcrumbs={[]}
       actions={
-        <IconButton
-          sx={fabSx}
+        <Fab
+          icon={<AddIcon />}
+          tooltip="Create project"
           aria-label="Create project"
           data-tour="create-project-button"
           disabled={isProjectButtonDisabled}
           onClick={() => setCreateDrawerOpen(true)}
-        >
-          <AddIcon />
-        </IconButton>
+        />
       }
     >
       {/* Figma Toolbar (841:38547) — 3-col grid keeps pills truly centered */}
@@ -366,9 +359,13 @@ export default function ProjectsClientWrapper({
                 description="Try adjusting your search or status filter to find the projects you're looking for."
               />
             ) : (
-              <EmptyStateMessage
-                title="No projects found"
-                description="Create your first project to start building and testing your AI applications. Projects help you organize your work and collaborate with your team."
+              <EntityEmptyState
+                icon={AppsIcon}
+                title="No project yet"
+                description="Create your first project to start organizing your AI applications. Projects help you group endpoints, tests, and results so you can collaborate with your team."
+                actionLabel="Create project"
+                onAction={() => setCreateDrawerOpen(true)}
+                actionDisabled={isProjectButtonDisabled}
               />
             )
           ) : (

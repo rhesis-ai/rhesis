@@ -10,8 +10,9 @@ import AddIcon from '@mui/icons-material/Add';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab } from '@/components/common/Fab';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { ScienceIcon } from '@/components/icons';
 import TestsGrid from './components/TestsGrid';
-import TestsEmptyState from './components/TestsEmptyState';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -197,6 +198,7 @@ export default function TestsPage() {
     <>
       <PageLayout
         title="Tests"
+        description="Individual test cases that evaluate your AI endpoints for quality, safety, and reliability."
         breadcrumbs={[]}
         actions={
           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -215,32 +217,36 @@ export default function TestsPage() {
         }
       >
         {/* Table Section */}
-        <Paper
-          sx={{
-            width: '100%',
-            mb: 2,
-            mt: 2,
-            borderRadius: BORDER_RADIUS.md,
-            boxShadow: ELEVATION.xs,
-            border: theme =>
-              `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
-            overflow: 'hidden',
-          }}
-        >
+        <Box sx={{ mt: 2, mb: 2 }}>
           {testCount === 0 ? (
-            <TestsEmptyState
-              onCreateTest={handleOpenModal}
-              disabled={shouldDisableAddButton}
+            <EntityEmptyState
+              icon={ScienceIcon}
+              title="No test yet"
+              description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
+              actionLabel="Create test"
+              onAction={handleOpenModal}
+              actionDisabled={shouldDisableAddButton}
             />
           ) : (
-            <TestsGrid
-              sessionToken={session.session_token}
-              onRefresh={handleRefresh}
-              onNewTest={handleOpenModal}
-              disableAddButton={shouldDisableAddButton}
-            />
+            <Paper
+              sx={{
+                width: '100%',
+                borderRadius: BORDER_RADIUS.md,
+                boxShadow: ELEVATION.xs,
+                border: theme =>
+                  `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+                overflow: 'hidden',
+              }}
+            >
+              <TestsGrid
+                sessionToken={session.session_token}
+                onRefresh={handleRefresh}
+                onNewTest={handleOpenModal}
+                disableAddButton={shouldDisableAddButton}
+              />
+            </Paper>
           )}
-        </Paper>
+        </Box>
       </PageLayout>
 
       {/* Test Creation Modals - Step 1: Test Type Selection */}

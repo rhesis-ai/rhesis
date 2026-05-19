@@ -53,7 +53,7 @@ export function PageLayout({
     <Box sx={{ width: '100%' }}>
       {/* Page header */}
       {(hasBreadcrumbs || title || description || actions) && (
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 5 }}>
           {/* Row 0: Breadcrumbs (only when present) */}
           {hasBreadcrumbs && (
             <Breadcrumbs
@@ -69,7 +69,7 @@ export function PageLayout({
                 />
               }
               aria-label="breadcrumb"
-              sx={{ mb: 1 }}
+              sx={{ mb: 2.5 }}
             >
               {breadcrumbs.map((crumb, idx) => {
                 const isLast = idx === breadcrumbs.length - 1;
@@ -126,7 +126,7 @@ export function PageLayout({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 2,
-                mb: description ? 0.75 : 0,
+                mb: 0,
               }}
             >
               {title && (
