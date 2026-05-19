@@ -24,6 +24,8 @@ export interface PageLayoutProps {
   breadcrumbs?: BreadcrumbItem[];
   /** Actions rendered top-right (e.g. FAB cluster) */
   actions?: React.ReactNode;
+  /** Optional metadata strip rendered below the title row (e.g. "created by / created on") */
+  metadata?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -42,6 +44,7 @@ export function PageLayout({
   description,
   breadcrumbs,
   actions,
+  metadata,
   children,
 }: PageLayoutProps) {
   const hasBreadcrumbs =
@@ -158,7 +161,10 @@ export function PageLayout({
             </Box>
           )}
 
-          {/* Row 2: Description */}
+          {/* Row 2: Metadata strip */}
+          {metadata && <Box sx={{ mt: 1 }}>{metadata}</Box>}
+
+          {/* Row 3: Description */}
           {description && (
             <Typography
               variant="bodyLReg"

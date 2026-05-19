@@ -649,6 +649,60 @@ def resolve_test_set(
         return None
 
 
+def get_test_sets_for_test(
+    db: Session,
+    test_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    organization_id: str = None,
+    user_id: str = None,
+) -> tuple[List[models.TestSet], int]:
+    """
+    Get test sets that contain a given test with pagination and sorting.
+
+    Args:
+        db: Database session
+        test_id: ID of the test to find test sets for
+        skip: Number of items to skip
+        limit: Maximum number of items to return
+        sort_by: Field to sort by
+        sort_order: Sort order (asc/desc)
+        organization_id: Organization ID for tenant scoping
+        user_id: User ID for tenant scoping
+
+    Returns:
+        Tuple containing:
+        - List of test sets with their related objects loaded
+        - Total count before pagination
+    """
+    query_builder = (
+        QueryBuilder(db, models.TestSet)
+        .with_joined(
+            "status",
+            "license_type",
+            "test_set_type",
+            "user",
+            "owner",
+            "assignee",
+            "organization",
+        )
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .with_custom_filter(
+            lambda q: q.join(models.test.test_test_set_association).filter(
+                models.test.test_test_set_association.c.test_id == test_id
+            )
+        )
+    )
+
+    total_count = query_builder.count()
+    items = query_builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
+
+    return items, total_count
+
+
 def get_test_set_tests(
     db: Session,
     test_set_id: uuid.UUID,

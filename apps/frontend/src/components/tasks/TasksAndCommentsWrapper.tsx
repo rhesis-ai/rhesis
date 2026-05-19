@@ -2,7 +2,7 @@
 
 import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Paper, Divider } from '@mui/material';
+import { Paper } from '@mui/material';
 import { EntityType } from '@/types/tasks';
 import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
@@ -117,35 +117,38 @@ export function TasksAndCommentsWrapper({
   }, [router, entityType, entityId, additionalMetadata]);
 
   return (
-    <Paper elevation={elevation} sx={{ p: 3 }} suppressHydrationWarning>
-      {/* Tasks Section */}
-      <TasksSection
-        entityType={entityType}
-        entityId={entityId}
-        sessionToken={sessionToken}
-        onCreateTask={handleCreateTask}
-        onEditTask={handleEditTask}
-        onDeleteTask={handleDeleteTask}
-        onNavigateToCreate={handleCreateTaskFromEntity}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-      />
+    <>
+      <Paper
+        elevation={elevation}
+        sx={{ p: 3, mb: 3 }}
+        suppressHydrationWarning
+      >
+        <TasksSection
+          entityType={entityType}
+          entityId={entityId}
+          sessionToken={sessionToken}
+          onCreateTask={handleCreateTask}
+          onEditTask={handleEditTask}
+          onDeleteTask={handleDeleteTask}
+          onNavigateToCreate={handleCreateTaskFromEntity}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+        />
+      </Paper>
 
-      {/* Divider between Tasks and Comments */}
-      <Divider sx={{ my: 3 }} />
-
-      {/* Comments Section with Task Creation Integration */}
-      <CommentsWrapper
-        entityType={entityType}
-        entityId={entityId}
-        sessionToken={sessionToken}
-        currentUserId={currentUserId}
-        currentUserName={currentUserName}
-        currentUserPicture={currentUserPicture}
-        onCreateTask={handleCreateTaskFromComment}
-        onCreateTaskFromEntity={handleCreateTaskFromEntity}
-        onCountsChange={onCountsChange}
-      />
-    </Paper>
+      <Paper elevation={elevation} sx={{ p: 3 }} suppressHydrationWarning>
+        <CommentsWrapper
+          entityType={entityType}
+          entityId={entityId}
+          sessionToken={sessionToken}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          currentUserPicture={currentUserPicture}
+          onCreateTask={handleCreateTaskFromComment}
+          onCreateTaskFromEntity={handleCreateTaskFromEntity}
+          onCountsChange={onCountsChange}
+        />
+      </Paper>
+    </>
   );
 }

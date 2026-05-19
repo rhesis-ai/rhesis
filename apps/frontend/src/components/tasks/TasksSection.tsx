@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, Avatar } from '@mui/material';
 import { AddIcon } from '@/components/icons';
+import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
@@ -285,14 +286,39 @@ export function TasksSection({
             {error}
           </Typography>
         ) : !loading && tasks.length === 0 ? (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ textAlign: 'center', py: 3 }}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              py: 5,
+              gap: 2,
+              textAlign: 'center',
+            }}
           >
-            No tasks yet. Create the first task for this{' '}
-            {getEntityDisplayName(entityType).toLowerCase()}.
-          </Typography>
+            <RouteOutlinedIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, color: 'primary.main' }}
+            >
+              No task created yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Create a task to track follow-ups for this{' '}
+              {getEntityDisplayName(entityType).toLowerCase()}.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateTask}
+              sx={{
+                color: 'white',
+                '& .MuiButton-startIcon': { color: 'white' },
+              }}
+            >
+              Create task
+            </Button>
+          </Box>
         ) : (
           <BaseDataGrid
             rows={tasks}
