@@ -15,6 +15,11 @@ on:
         type: choice
         options: [plan, apply]
         default: plan
+      wireguard_envs:
+        description: 'Wireguard only: enabled environments (JSON array, e.g. ["dev"] or ["dev","stg"])'
+        required: false
+        type: string
+        default: '["dev"]'
 
   push:
     branches: [main, 'v*']
@@ -87,6 +92,8 @@ jobs:
         env:
           TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
           TF_VAR_region: europe-west4
+          TF_VAR_enabled_environments: ${{ inputs.environment == 'wireguard' && inputs.wireguard_envs || '' }}
+          TF_VAR_wireguard_peers: ${{ inputs.environment == 'wireguard' && secrets.TF_WG_PEERS || '' }}
 
       - name: Post plan to PR
         if: github.event_name == 'pull_request'
@@ -173,3 +180,5 @@ jobs:
         env:
           TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
           TF_VAR_region: europe-west4
+          TF_VAR_enabled_environments: ${{ needs.plan.outputs.target_env == 'wireguard' && inputs.wireguard_envs || '' }}
+          TF_VAR_wireguard_peers: ${{ needs.plan.outputs.target_env == 'wireguard' && secrets.TF_WG_PEERS || '' }}
