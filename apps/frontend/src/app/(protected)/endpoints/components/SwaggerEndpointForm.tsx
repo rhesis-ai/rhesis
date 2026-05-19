@@ -21,7 +21,7 @@ import {
   ListItemText,
   FormHelperText,
 } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
+import { Button } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { createEndpoint } from '@/actions/endpoints';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -244,7 +244,7 @@ export default function SwaggerEndpointForm() {
             >
               Cancel
             </Button>
-            <LoadingButton
+            <Button
               type="submit"
               variant="contained"
               color="primary"
@@ -252,7 +252,7 @@ export default function SwaggerEndpointForm() {
               disabled={projects.length === 0 && !loadingProjects}
             >
               Create Endpoint
-            </LoadingButton>
+            </Button>
           </Box>
         </Box>
 
@@ -311,7 +311,7 @@ export default function SwaggerEndpointForm() {
                       onChange={e => setSwaggerUrl(e.target.value)}
                       placeholder="https://api.example.com/swagger.json"
                     />
-                    <LoadingButton
+                    <Button
                       variant="outlined"
                       onClick={handleImportSpecification}
                       loading={isLoading}
@@ -320,7 +320,7 @@ export default function SwaggerEndpointForm() {
                       sx={{ minWidth: '200px' }}
                     >
                       Import
-                    </LoadingButton>
+                    </Button>
                   </Box>
                 </Grid>
               </Grid>
@@ -391,7 +391,7 @@ export default function SwaggerEndpointForm() {
                         }}
                       >
                         {loadingProjects ? (
-                          <MenuItem disabled>
+                          <MenuItem disabled value={formData.project_id || ''}>
                             <CircularProgress size={20} sx={{ mr: 1 }} />
                             Loading projects...
                           </MenuItem>

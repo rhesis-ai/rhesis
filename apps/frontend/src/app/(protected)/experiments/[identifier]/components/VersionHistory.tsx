@@ -155,6 +155,7 @@ export default function VersionHistory({
                 >
                   <span>
                     <Button
+                      component="span"
                       size="small"
                       startIcon={<ArrowOutwardIcon />}
                       disabled={!canPromote}

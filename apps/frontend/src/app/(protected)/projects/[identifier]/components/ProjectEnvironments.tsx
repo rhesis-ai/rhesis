@@ -418,14 +418,18 @@ function PromoteFromProjectDialog({
             <InputLabel>Version</InputLabel>
             <Select
               label="Version"
-              value={version}
+              value={versions.length === 0 ? '' : version}
               onChange={e => setVersion(e.target.value)}
             >
-              {[...versions].reverse().map(v => (
-                <MenuItem key={v.version} value={v.version}>
-                  {shortVersion(v.version)}
-                </MenuItem>
-              ))}
+              {versions.length === 0 ? (
+                <MenuItem value="" disabled>Loading versions...</MenuItem>
+              ) : (
+                [...versions].reverse().map(v => (
+                  <MenuItem key={v.version} value={v.version}>
+                    {shortVersion(v.version)}
+                  </MenuItem>
+                ))
+              )}
             </Select>
           </FormControl>
         </Stack>

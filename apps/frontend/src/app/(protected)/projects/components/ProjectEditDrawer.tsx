@@ -242,7 +242,7 @@ export default function ProjectEditDrawer({
       <FormControl fullWidth>
         <InputLabel>Owner</InputLabel>
         <Select
-          value={formData.owner_id}
+          value={users.length > 0 ? formData.owner_id || '' : ''}
           label="Owner"
           onChange={handleSelectChange('owner_id')}
           renderValue={selected => {
@@ -260,9 +260,14 @@ export default function ProjectEditDrawer({
                   {selectedUser.name || selectedUser.email}
                 </Typography>
               </Box>
-            ) : null;
+            ) : <Typography color="text.secondary">None</Typography>;
           }}
         >
+          {users.length === 0 ? (
+            <MenuItem value="" disabled>Loading users...</MenuItem>
+          ) : (
+            <MenuItem value=""><em>None</em></MenuItem>
+          )}
           {users.map(user => (
             <MenuItem key={user.id} value={user.id}>
               <ListItemAvatar>

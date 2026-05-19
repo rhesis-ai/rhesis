@@ -62,7 +62,6 @@ import {
   LockIcon,
   ContentCopyIcon,
 } from '@/components/icons';
-import { LoadingButton } from '@mui/lab';
 import {
   updateEndpoint,
   invokeEndpoint,
@@ -476,7 +475,7 @@ export default function EndpointDetail({
               >
                 Playground
               </Button>
-              <LoadingButton
+              <Button
                 startIcon={<ContentCopyIcon />}
                 variant="outlined"
                 onClick={handleDuplicate}
@@ -484,7 +483,7 @@ export default function EndpointDetail({
                 loadingPosition="start"
               >
                 Duplicate
-              </LoadingButton>
+              </Button>
               <Button
                 startIcon={<EditIcon />}
                 variant="outlined"
@@ -760,7 +759,7 @@ export default function EndpointDetail({
                           <em>None</em>
                         </MenuItem>
                         {loadingProjects ? (
-                          <MenuItem disabled>
+                          <MenuItem disabled value={editedValues.project_id || ''}>
                             <CircularProgress size={20} />
                             <Box component="span" sx={{ ml: 1 }}>
                               Loading projects...
@@ -1451,7 +1450,7 @@ export default function EndpointDetail({
             </Grid>
 
             <Grid sx={{ mt: 2 }} size={12}>
-              <LoadingButton
+              <Button
                 variant="contained"
                 color="primary"
                 onClick={async () => {
@@ -1490,7 +1489,7 @@ export default function EndpointDetail({
                 startIcon={<PlayArrowIcon />}
               >
                 Test Endpoint
-              </LoadingButton>
+              </Button>
             </Grid>
 
             {testResponse && (
