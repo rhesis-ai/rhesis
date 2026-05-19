@@ -19,8 +19,10 @@ export interface UseEmbeddingGraphResult {
 
 export function useEmbeddingGraph(
   testSetId: string,
-  sessionToken: string
+  sessionToken: string,
+  options?: { enabled?: boolean }
 ): UseEmbeddingGraphResult {
+  const enabled = options?.enabled ?? true;
   const [graph, setGraph] = useState<Scatter2DGraph | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isComputing, setIsComputing] = useState(false);
@@ -130,6 +132,11 @@ export function useEmbeddingGraph(
   }, [graph?.computed_at, pollUntilReady, sessionToken, testSetId]);
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const load = async () => {
@@ -159,7 +166,7 @@ export function useEmbeddingGraph(
       cancelled = true;
       clearPoll();
     };
-  }, [clearPoll, fetchGraph]);
+  }, [clearPoll, enabled, fetchGraph]);
 
   return {
     graph,

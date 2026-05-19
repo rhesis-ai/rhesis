@@ -26,14 +26,15 @@ interface TestSetTestsGridProps {
   sessionToken: string;
   testSetId: string;
   testSetType?: string;
-  onRefresh?: () => void;
+  /** Hide the section title when rendered inside a parent panel */
+  embedded?: boolean;
 }
 
 export default function TestSetTestsGrid({
   sessionToken,
   testSetId,
   testSetType,
-  onRefresh,
+  embedded = false,
 }: TestSetTestsGridProps) {
   const isMounted = useRef(true);
   const router = useRouter();
@@ -240,13 +241,6 @@ export default function TestSetTestsGrid({
     []
   );
 
-  const _handleTestSaved = useCallback(() => {
-    if (sessionToken) {
-      fetchTests();
-      onRefresh?.();
-    }
-  }, [sessionToken, fetchTests, onRefresh]);
-
   // Handle removing tests from test set
   const handleRemoveTests = useCallback(async () => {
     if (!sessionToken || !testSetId || selectedRows.length === 0) return;
@@ -266,23 +260,14 @@ export default function TestSetTestsGrid({
         }
       );
 
-      // Refresh the data
       fetchTests();
-      onRefresh?.();
     } catch (_error) {
       notifications.show('Failed to remove tests from test set', {
         severity: 'error',
         autoHideDuration: 6000,
       });
     }
-  }, [
-    sessionToken,
-    testSetId,
-    selectedRows,
-    fetchTests,
-    onRefresh,
-    notifications,
-  ]);
+  }, [sessionToken, testSetId, selectedRows, fetchTests, notifications]);
 
   // Dynamic action buttons based on selection
   const getActionButtons = useCallback(() => {
@@ -303,9 +288,11 @@ export default function TestSetTestsGrid({
 
   return (
     <>
-      <Typography variant="h6" sx={{ mb: 1 }}>
-        Tests
-      </Typography>
+      {!embedded && (
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Tests
+        </Typography>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 1 }}>
