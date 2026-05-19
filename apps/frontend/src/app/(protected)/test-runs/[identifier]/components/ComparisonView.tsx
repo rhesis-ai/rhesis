@@ -37,6 +37,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchIcon from '@mui/icons-material/Search';
 import RemoveIcon from '@mui/icons-material/Remove';
 import ListIcon from '@mui/icons-material/List';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { MetricStatusChip } from '@/components/common/StatusChip';
 import ConversationHistory from '@/components/common/ConversationHistory';
@@ -591,30 +593,46 @@ export default function ComparisonView({
                     )}
                     {baselineRun.experiment_id &&
                       baselineRun.parameter_version && (
-                        <Box
-                          sx={{
-                            mt: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.75,
-                          }}
+                        <Link
+                          href={`/experiments/${baselineRun.experiment_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ textDecoration: 'none' }}
                         >
-                          <BiotechIcon
-                            sx={{ fontSize: 16, color: 'text.secondary' }}
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            Experiment:
-                          </Typography>
-                          <Chip
-                            label={baselineRun.parameter_version.slice(0, 8)}
-                            size="small"
-                            variant="outlined"
+                          <Box
                             sx={{
-                              height: 20,
-                              '& .MuiChip-label': { px: 0.75 },
+                              mt: 1,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.75,
+                              '&:hover .experiment-label': {
+                                color: 'primary.main',
+                                textDecoration: 'underline',
+                              },
                             }}
-                          />
-                        </Box>
+                          >
+                            <BiotechIcon
+                              fontSize="small"
+                              sx={{ color: 'text.secondary' }}
+                            />
+                            <Typography
+                              variant="caption"
+                              className="experiment-label"
+                              color="text.secondary"
+                            >
+                              Experiment:
+                            </Typography>
+                            <Chip
+                              label={baselineRun.parameter_version.slice(0, 8)}
+                              size="small"
+                              variant="outlined"
+                            />
+                            <OpenInNewIcon
+                              fontSize="inherit"
+                              sx={{ color: 'text.disabled' }}
+                            />
+                          </Box>
+                        </Link>
                       )}
                   </>
                 )}
@@ -684,30 +702,46 @@ export default function ComparisonView({
                 </Box>
                 {currentTestRun.experiment_id &&
                   currentTestRun.parameter_version && (
-                    <Box
-                      sx={{
-                        mt: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.75,
-                      }}
+                    <Link
+                      href={`/experiments/${currentTestRun.experiment_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'none' }}
                     >
-                      <BiotechIcon
-                        sx={{ fontSize: 16, color: 'text.secondary' }}
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        Experiment:
-                      </Typography>
-                      <Chip
-                        label={currentTestRun.parameter_version.slice(0, 8)}
-                        size="small"
-                        variant="outlined"
+                      <Box
                         sx={{
-                          height: 20,
-                          '& .MuiChip-label': { px: 0.75 },
+                          mt: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.75,
+                          '&:hover .experiment-label': {
+                            color: 'primary.main',
+                            textDecoration: 'underline',
+                          },
                         }}
-                      />
-                    </Box>
+                      >
+                        <BiotechIcon
+                          fontSize="small"
+                          sx={{ color: 'text.secondary' }}
+                        />
+                        <Typography
+                          variant="caption"
+                          className="experiment-label"
+                          color="text.secondary"
+                        >
+                          Experiment:
+                        </Typography>
+                        <Chip
+                          label={currentTestRun.parameter_version.slice(0, 8)}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <OpenInNewIcon
+                          fontSize="inherit"
+                          sx={{ color: 'text.disabled' }}
+                        />
+                      </Box>
+                    </Link>
                   )}
               </CardContent>
             </Card>
