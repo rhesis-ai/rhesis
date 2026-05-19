@@ -61,16 +61,23 @@ describe('graphToEmbeddingViewData', () => {
   it('maps coordinates and categories', () => {
     const result = graphToEmbeddingViewData(sampleGraph);
     expect(result).not.toBeNull();
-    expect(result!.x.length).toBe(4);
-    expect(result!.y[0]).toBe(0);
-    expect(result!.entityIds[2]).toBe('t3');
-    expect(result!.texts[0]).toBe('prompt one');
+    if (!result) {
+      return;
+    }
+    expect(result.x.length).toBe(4);
+    expect(result.y[0]).toBe(0);
+    expect(result.entityIds[2]).toBe('t3');
+    expect(result.texts[0]).toBe('prompt one');
   });
 
   it('builds cluster labels at centroids', () => {
     const result = graphToEmbeddingViewData(sampleGraph);
-    expect(result!.labels).toHaveLength(2);
-    const safety = result!.labels.find(l => l.text === 'Safety');
+    expect(result).not.toBeNull();
+    if (!result) {
+      return;
+    }
+    expect(result.labels).toHaveLength(2);
+    const safety = result.labels.find(l => l.text === 'Safety');
     expect(safety).toEqual({ x: 0.5, y: 0, text: 'Safety' });
   });
 });

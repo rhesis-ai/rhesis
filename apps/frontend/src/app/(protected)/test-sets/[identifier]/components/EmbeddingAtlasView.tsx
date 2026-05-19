@@ -17,10 +17,14 @@ const VIEW_HEIGHT = 560;
 const HOVER_PIXEL_RADIUS = 8;
 const HIGHLIGHT_RING_SIZE = 14;
 
-type OverlayProps = {
-  proxy: OverlayProxy;
+/** Props we pass to customOverlay; embedding-atlas merges in `proxy` at runtime. */
+type HighlightOverlayStaticProps = {
   highlightedEntityId: string | null;
   viewData: EmbeddingViewData;
+};
+
+type HighlightOverlayProps = HighlightOverlayStaticProps & {
+  proxy: OverlayProxy;
 };
 
 function updateHighlightRing(
@@ -89,7 +93,7 @@ export default function EmbeddingAtlasView({
       class: class HighlightOverlay {
         private ring: HTMLDivElement;
 
-        constructor(node: HTMLDivElement, props: OverlayProps) {
+        constructor(node: HTMLDivElement, props: HighlightOverlayProps) {
           proxyRef.current = props.proxy;
           node.style.position = 'absolute';
           node.style.inset = '0';
@@ -117,7 +121,7 @@ export default function EmbeddingAtlasView({
           );
         }
 
-        update(props: OverlayProps) {
+        update(props: HighlightOverlayProps) {
           proxyRef.current = props.proxy;
           updateHighlightRing(
             this.ring,
@@ -134,7 +138,7 @@ export default function EmbeddingAtlasView({
       props: {
         highlightedEntityId,
         viewData,
-      } satisfies OverlayProps,
+      } satisfies HighlightOverlayStaticProps,
     };
   }, [highlightedEntityId, viewData, highlightRingShadow]);
 
