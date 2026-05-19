@@ -89,8 +89,33 @@ module "wireguard_server" {
 
   machine_type = local.stg_enabled || local.prd_enabled ? "e2-standard-2" : "e2-medium"
 
-  # No env_nics — single-NIC VM; routing via VPC peering below.
-  env_nics = []
+  # Shared VPC NIC in each enabled env's nodes subnet.
+  # Gives the WireGuard server a direct layer-3 path to the GKE master —
+  # bypassing the non-transitive VPC peering limitation (wireguard → dev → GKE master).
+  # Traffic from VPN clients is MASQUERADE'd to the NIC IP before leaving the VM,
+  # so GKE master sees source = wireguard_nic_ip (in extra_authorized_cidrs).
+  env_nics = concat(
+    local.dev_enabled ? [{
+      subnet_self_link = data.terraform_remote_state.dev[0].outputs.nodes_subnet_self_link
+      network_ip       = local.cidrs.dev.wireguard_nic_ip
+      master_cidr      = local.cidrs.dev.master
+      environment      = "dev"
+      pod_cidr         = local.cidrs.dev.pods
+      service_cidr     = local.cidrs.dev.services
+      node_cidr        = local.cidrs.dev.nodes
+      vpc_name         = data.terraform_remote_state.dev[0].outputs.vpc_name
+    }] : [],
+    local.stg_enabled ? [{
+      subnet_self_link = data.terraform_remote_state.stg[0].outputs.nodes_subnet_self_link
+      network_ip       = local.cidrs.stg.wireguard_nic_ip
+      master_cidr      = local.cidrs.stg.master
+      environment      = "stg"
+      pod_cidr         = local.cidrs.stg.pods
+      service_cidr     = local.cidrs.stg.services
+      node_cidr        = local.cidrs.stg.nodes
+      vpc_name         = data.terraform_remote_state.stg[0].outputs.vpc_name
+    }] : []
+  )
 
   subnet_cidrs = {
     for env, cidr in local.cidrs : env => cidr.network
