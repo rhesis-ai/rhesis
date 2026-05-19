@@ -17,11 +17,11 @@ on:
         default: plan
 
   push:
-    branches: [main]
+    branches: [main, 'v*']
     paths: ['terraform/infrastructure/**']
 
   pull_request:
-    branches: [main]
+    branches: [main, 'v*']
     paths: ['terraform/infrastructure/**']
 
 permissions:
@@ -31,6 +31,7 @@ permissions:
 
 env:
   TF_VERSION: '1.11.4'
+  TF_STATE_BUCKET: 'rhesis-platform-admin-tfstate'
 
 jobs:
   plan:
@@ -74,7 +75,7 @@ jobs:
 
       - name: Init
         working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
-        run: terraform init -input=false
+        run: terraform init -input=false -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
 
       - name: Plan
         working-directory: terraform/infrastructure/envs/${{ steps.ctx.outputs.target_env }}
@@ -156,7 +157,7 @@ jobs:
 
       - name: Init
         working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
-        run: terraform init -input=false
+        run: terraform init -input=false -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
 
       - name: Apply
         working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
