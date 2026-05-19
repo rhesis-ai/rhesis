@@ -1,6 +1,7 @@
 """Build graph structures from stored embeddings (UMAP, clustering, etc.)."""
 
 import logging
+import re
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from uuid import UUID
@@ -18,6 +19,31 @@ from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
+
+_CLUSTER_LABEL_SYSTEM_PROMPT = (
+    "You name clusters on a scatter plot. Reply with exactly 1 or 2 short, "
+    "lowercase English words only. No punctuation, quotes, numbering, or explanation."
+)
+_MAX_CLUSTER_LABEL_WORDS = 2
+_MAX_CLUSTER_LABEL_CHARS = 20
+
+
+def _normalize_cluster_label(raw: str) -> str:
+    """Enforce a compact label suitable for chart legends."""
+    text = raw.strip().strip("\"'").splitlines()[0].strip()
+    for prefix in ("label:", "topic:", "summary:", "cluster:"):
+        if text.lower().startswith(prefix):
+            text = text[len(prefix) :].strip()
+    text = re.sub(r"[^\w\s-]", "", text, flags=re.UNICODE)
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    if not text:
+        return "other"
+    words = text.split()[:_MAX_CLUSTER_LABEL_WORDS]
+    label = " ".join(words)
+    if len(label) > _MAX_CLUSTER_LABEL_CHARS:
+        trimmed = label[:_MAX_CLUSTER_LABEL_CHARS].rsplit(" ", 1)[0]
+        label = trimmed or label[:_MAX_CLUSTER_LABEL_CHARS]
+    return label
 
 
 def _embedding_entity_type_key(model_or_name: type | str) -> str:
@@ -134,11 +160,15 @@ def _generate_cluster_labels(
             continue
 
         combined_text = "\n".join(sample_text)
-        prompt = "Summarize these items in 1-2 words: " + combined_text
+        prompt = f"Shared topic:\n{combined_text}"
 
         try:
-            label = _model.generate(prompt)
-            labels[cluster_id] = label.strip()
+            label = _model.generate(
+                prompt,
+                system_prompt=_CLUSTER_LABEL_SYSTEM_PROMPT,
+                max_tokens=12,
+            )
+            labels[cluster_id] = _normalize_cluster_label(label)
         except Exception as e:
             logger.error(f"Error generating cluster label: {e}", exc_info=True)
             labels[cluster_id] = "Unlabeled"

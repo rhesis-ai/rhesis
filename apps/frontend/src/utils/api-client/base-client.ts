@@ -1,4 +1,5 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
+import { getBaseUrl } from '../url-resolver';
 import { PaginationParams, PaginatedResponse } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 import { clearAllSessionData } from '../session';
@@ -43,7 +44,8 @@ export class BaseApiClient {
   protected retryConfig: RetryConfig;
 
   constructor(sessionToken?: string, retryConfig: Partial<RetryConfig> = {}) {
-    this.baseUrl = API_CONFIG.baseUrl;
+    // Resolve at instantiation so client bundles never keep a server-side URL.
+    this.baseUrl = getBaseUrl();
     this.sessionToken = sessionToken;
     this.retryConfig = { ...DEFAULT_RETRY_CONFIG, ...retryConfig };
   }

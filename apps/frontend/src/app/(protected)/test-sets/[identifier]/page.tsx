@@ -1,4 +1,5 @@
 import TestSetDetailCharts from './components/TestSetDetailCharts';
+import EmbeddingTestsPanel from './components/EmbeddingTestsPanel';
 import TestSetTestsGrid from './components/TestSetTestsGrid';
 import TestSetDetailsSection from './components/TestSetDetailsSection';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
@@ -110,6 +111,11 @@ export default async function TestSetPage({
             sessionToken={session.session_token}
           />
         </Box>
+
+        <EmbeddingTestsPanel
+          testSetId={identifier}
+          sessionToken={session.session_token}
+        />
 
         <Grid container spacing={3}>
           {/* Main Content Column */}
