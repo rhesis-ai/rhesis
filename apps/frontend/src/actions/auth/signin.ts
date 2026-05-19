@@ -1,8 +1,13 @@
 'use server';
 
 import { AuthError } from 'next-auth';
-import type { AuthProvider } from '@toolpad/core';
 import { redirect } from 'next/navigation';
+
+/** Minimal auth provider descriptor — replaces @toolpad/core AuthProvider */
+interface AuthProvider {
+  id: string;
+  name: string;
+}
 
 export interface SignInResult {
   error?: string;

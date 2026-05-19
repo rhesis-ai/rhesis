@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { Box, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import { BetaBadge } from '../components/common/BetaBadge';
 import '../styles/fonts.css';
@@ -16,8 +15,6 @@ import {
   ScienceIcon,
   AppsIcon,
   VpnKeyIcon,
-  BusinessIcon,
-  GroupIcon,
   PlayArrowIcon,
   AssessmentIcon,
   CategoryIcon,
@@ -26,13 +23,11 @@ import {
   ApiIcon,
   TerminalIcon,
   AssignmentIcon,
-  SettingsIcon,
   MenuBookIcon,
   BoltIcon,
   PsychologyIcon,
-  GitHubIcon,
-  DescriptionIcon,
-  CodeIcon,
+  StarIcon,
+  ForumIcon,
   TimelineIcon,
   ChatIcon,
   AccountTreeIcon,
@@ -56,11 +51,11 @@ export const dynamic = 'force-dynamic';
 // This function will be used to get navigation items with dynamic data
 async function getNavigationItems(
   session: Session | null
-): Promise<NavigationItem[]> {
+): Promise<{ items: NavigationItem[]; organizationName: string }> {
   'use server';
 
   // Default organization name if no org found
-  let organizationName = 'Organization';
+  let organizationName = 'Rhesis AI';
 
   // Fetch organization name if user has an organization_id
   if (session?.user?.organization_id && session?.session_token) {
@@ -83,55 +78,72 @@ async function getNavigationItems(
     }
   }
 
-  return [
-    // Organization Section
-    {
-      kind: 'page',
-      segment: 'organizations',
-      title: (
-        <Tooltip
-          placement="top"
-          // sidebar is 240px, px to rem conversion => 240/16=15, so from 16 characters we display ellipsis+tooltip
-          title={organizationName.length < 15 ? '' : organizationName}
-        >
-          <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {organizationName}
-          </Box>
-        </Tooltip>
-      ),
-      icon: <BusinessIcon key="org-icon" />,
-      children: [
-        {
-          kind: 'page',
-          segment: 'settings',
-          title: 'Settings',
-          icon: <SettingsIcon key="settings-icon" />,
-        },
-        {
-          kind: 'page',
-          segment: 'team',
-          title: 'Team',
-          icon: <GroupIcon key="team-icon" />,
-        },
-      ],
-    },
-    // Dashboard
+  const navItems = [
+    // Dashboard — standalone, no section header
     {
       kind: 'page',
       segment: 'dashboard',
       title: 'Dashboard',
       icon: <DashboardIcon key="dashboard-icon" />,
     },
-    // Requirements Section
+    // DEFINE section — core definition/build items
     {
       kind: 'header',
-      title: 'Requirements',
+      title: 'Define',
     },
     {
       kind: 'page',
       segment: 'projects',
       title: 'Projects',
       icon: <AppsIcon key="projects-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'tests',
+      title: 'Tests',
+      icon: <ScienceIcon key="tests-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'test-runs',
+      title: 'Test Runs',
+      icon: <PlayArrowIcon key="test-runs-icon" />,
+    },
+    // EVALUATE section — analysis and results
+    {
+      kind: 'header',
+      title: 'Evaluate',
+    },
+    {
+      kind: 'page',
+      segment: 'test-results',
+      title: 'Overview',
+      icon: <AssessmentIcon key="test-results-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'tasks',
+      title: 'Tasks',
+      icon: <AssignmentIcon key="tasks-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'traces',
+      title: 'Traces',
+      icon: <TimelineIcon key="traces-icon" />,
+    },
+    // DEVELOP section — tools and infrastructure (collapsible, collapsed by default)
+    {
+      kind: 'header',
+      title: 'Develop',
+      collapsible: true,
+      defaultCollapsed: true,
+    },
+    {
+      kind: 'page',
+      segment: 'endpoints',
+      title: 'Endpoints',
+      icon: <ApiIcon key="endpoints-icon" />,
     },
     {
       kind: 'page',
@@ -152,10 +164,11 @@ async function getNavigationItems(
       icon: <AutoGraphIcon key="metrics-icon" />,
       requireSuperuser: true,
     },
-    // Testing Section
     {
-      kind: 'header',
-      title: 'Testing',
+      kind: 'page',
+      segment: 'test-sets',
+      title: 'Test Sets',
+      icon: <CategoryIcon key="test-sets-icon" />,
     },
     {
       kind: 'page',
@@ -185,58 +198,6 @@ async function getNavigationItems(
     },
     {
       kind: 'page',
-      segment: 'tests',
-      title: 'Tests',
-      icon: <ScienceIcon key="tests-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'test-sets',
-      title: 'Test Sets',
-      icon: <CategoryIcon key="test-sets-icon" />,
-    },
-    // Results Section
-    {
-      kind: 'header',
-      title: 'Results',
-    },
-    {
-      kind: 'page',
-      segment: 'test-results',
-      title: 'Overview',
-      icon: <AssessmentIcon key="test-results-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'test-runs',
-      title: 'Test Runs',
-      icon: <PlayArrowIcon key="test-runs-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'traces',
-      title: 'Traces',
-      icon: <TimelineIcon key="traces-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'tasks',
-      title: 'Tasks',
-      icon: <AssignmentIcon key="tasks-icon" />,
-    },
-    // Development Section
-    {
-      kind: 'header',
-      title: 'Development',
-    },
-    {
-      kind: 'page',
-      segment: 'endpoints',
-      title: 'Endpoints',
-      icon: <ApiIcon key="endpoints-icon" />,
-    },
-    {
-      kind: 'page',
       segment: 'models',
       title: 'Models',
       icon: <SmartToyIcon key="models-icon" />,
@@ -255,33 +216,28 @@ async function getNavigationItems(
       title: 'API Tokens',
       icon: <VpnKeyIcon key="tokens-icon" />,
     },
-    // Divider before external links
+    // Divider before footer links
     {
       kind: 'divider',
     },
-    // External Links
+    // Footer external links (rendered as a white card in the sidebar)
     {
       kind: 'link',
-      title: '⭐ Star Rhesis',
+      title: 'Star Rhesis',
       href: 'https://github.com/rhesis-ai/rhesis',
-      icon: <GitHubIcon key="star-icon" className="star-rhesis-icon" />,
+      icon: <StarIcon key="star-icon" />,
       external: true,
     },
     {
       kind: 'link',
-      title: 'Documentation',
-      href: 'https://docs.rhesis.ai',
-      icon: <DescriptionIcon key="docs-icon" />,
+      title: 'Support',
+      href: 'https://github.com/rhesis-ai/rhesis/discussions',
+      icon: <ForumIcon key="support-icon" />,
       external: true,
     },
-    {
-      kind: 'link',
-      title: 'SDK Reference',
-      href: 'https://rtd.rhesis.ai',
-      icon: <CodeIcon key="sdk-icon" />,
-      external: true,
-    },
-  ] as NavigationItem[];
+  ];
+
+  return { items: navItems as NavigationItem[], organizationName };
 }
 
 export const metadata: Metadata = {
@@ -295,12 +251,6 @@ export const metadata: Metadata = {
   },
 };
 
-const BRANDING: BrandingProps = {
-  title: '',
-  logo: <ThemeAwareLogo />,
-  homeUrl: '/dashboard',
-};
-
 const AUTHENTICATION: AuthenticationProps = {
   signIn: handleSignIn,
   signOut: handleSignOut,
@@ -310,7 +260,14 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   const session = await auth().catch(() => null);
 
   // Get navigation with dynamic organization name
-  const navigation = await getNavigationItems(session);
+  const { items: navigation, organizationName } =
+    await getNavigationItems(session);
+
+  const branding: BrandingProps = {
+    title: organizationName,
+    logo: <ThemeAwareLogo />,
+    homeUrl: '/dashboard',
+  };
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -343,7 +300,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
           <LayoutContent
             session={session}
             navigation={navigation}
-            branding={BRANDING}
+            branding={branding}
             authentication={AUTHENTICATION}
           >
             {props.children}
