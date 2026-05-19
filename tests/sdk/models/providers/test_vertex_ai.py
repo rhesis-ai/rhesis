@@ -644,8 +644,8 @@ class TestVertexAIGenerateStream:
             assert call_kwargs["stream"] is True
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
-    def test_generate_stream_restores_credentials_env_var(self, mock_acompletion):
-        """Test that generate_stream restores GOOGLE_APPLICATION_CREDENTIALS."""
+    def test_generate_stream_preserves_credentials_env_var(self, mock_acompletion):
+        """Test that generate_stream does not alter GOOGLE_APPLICATION_CREDENTIALS."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
@@ -658,14 +658,17 @@ class TestVertexAIGenerateStream:
 
         mock_acompletion.return_value = mock_stream()
 
-        original_value = "/path/to/original/credentials.json"
         with patch.dict(
             os.environ,
             {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
             clear=True,
         ):
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
             llm = VertexAILLM(credentials=encoded_creds, location="europe-west3")
+            # load_model() already overwrote the env var with the decoded
+            # temp file path; set a known external value so we can verify
+            # generate_stream leaves it untouched.
+            original_value = "/path/to/original/credentials.json"
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
 
             async def run():
                 async for _ in llm.generate_stream("Test"):
