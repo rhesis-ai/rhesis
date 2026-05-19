@@ -664,8 +664,9 @@ class TestVertexAIGenerateStream:
             clear=True,
         ):
             llm = VertexAILLM(credentials=encoded_creds, location="europe-west3")
-            # load_model() sets the env var to the decoded temp file path;
-            # capture that value, then overwrite with an external path.
+            # load_model() already overwrote the env var with the decoded
+            # temp file path; set a known external value so we can verify
+            # generate_stream leaves it untouched.
             original_value = "/path/to/original/credentials.json"
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
 
