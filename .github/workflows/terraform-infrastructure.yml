@@ -7,7 +7,7 @@ on:
         description: 'Target environment'
         required: true
         type: choice
-        options: [dev, stg, prd]
+        options: [dev, stg, prd, wireguard]
         default: dev
       action:
         description: 'Terraform action'
@@ -49,19 +49,23 @@ jobs:
           TF_PROJECT_ID_DEV: ${{ secrets.TF_PROJECT_ID_DEV }}
           TF_PROJECT_ID_STG: ${{ secrets.TF_PROJECT_ID_STG }}
           TF_PROJECT_ID_PRD: ${{ secrets.TF_PROJECT_ID_PRD }}
+          TF_PROJECT_ID_WIREGUARD: ${{ secrets.TF_PROJECT_ID_WIREGUARD }}
           TF_SA_DEV: ${{ secrets.TF_SA_DEV }}
           TF_SA_STG: ${{ secrets.TF_SA_STG }}
           TF_SA_PRD: ${{ secrets.TF_SA_PRD }}
+          TF_SA_WIREGUARD: ${{ secrets.TF_SA_WIREGUARD }}
         run: |
           ENV="${{ inputs.environment || 'dev' }}"
           echo "target_env=$ENV" >> $GITHUB_OUTPUT
           case "$ENV" in
-            dev) echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
-                 echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
-            stg) echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
-                 echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
-            prd) echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
-                 echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
+            dev)       echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
+            stg)       echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
+            prd)       echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
+            wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_WIREGUARD" >> $GITHUB_OUTPUT ;;
           esac
 
       - uses: google-github-actions/auth@v2
@@ -127,18 +131,22 @@ jobs:
           TF_PROJECT_ID_DEV: ${{ secrets.TF_PROJECT_ID_DEV }}
           TF_PROJECT_ID_STG: ${{ secrets.TF_PROJECT_ID_STG }}
           TF_PROJECT_ID_PRD: ${{ secrets.TF_PROJECT_ID_PRD }}
+          TF_PROJECT_ID_WIREGUARD: ${{ secrets.TF_PROJECT_ID_WIREGUARD }}
           TF_SA_DEV: ${{ secrets.TF_SA_DEV }}
           TF_SA_STG: ${{ secrets.TF_SA_STG }}
           TF_SA_PRD: ${{ secrets.TF_SA_PRD }}
+          TF_SA_WIREGUARD: ${{ secrets.TF_SA_WIREGUARD }}
         run: |
           ENV="${{ needs.plan.outputs.target_env }}"
           case "$ENV" in
-            dev) echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
-                 echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
-            stg) echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
-                 echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
-            prd) echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
-                 echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
+            dev)       echo "project_id=$TF_PROJECT_ID_DEV" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_DEV" >> $GITHUB_OUTPUT ;;
+            stg)       echo "project_id=$TF_PROJECT_ID_STG" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_STG" >> $GITHUB_OUTPUT ;;
+            prd)       echo "project_id=$TF_PROJECT_ID_PRD" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_PRD" >> $GITHUB_OUTPUT ;;
+            wireguard) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> $GITHUB_OUTPUT
+                       echo "service_account=$TF_SA_WIREGUARD" >> $GITHUB_OUTPUT ;;
           esac
 
       - uses: google-github-actions/auth@v2
