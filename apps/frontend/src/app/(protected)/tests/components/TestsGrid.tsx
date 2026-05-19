@@ -67,7 +67,8 @@ const badgeChipSx = {
     theme.palette.mode === 'light' ? GREYSCALE.light.body : GREYSCALE.dark.body,
   border: 'none',
   borderRadius: BORDER_RADIUS.pill,
-  fontSize: '0.75rem',
+  fontSize: (theme: { typography: { caption: { fontSize: string } } }) =>
+    theme.typography.caption.fontSize,
   lineHeight: '18px',
 };
 

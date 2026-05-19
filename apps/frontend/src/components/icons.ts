@@ -64,7 +64,16 @@ export { default as PersonIcon } from '@mui/icons-material/PersonOutlined';
 export { default as DownloadIcon } from '@mui/icons-material/DownloadOutlined';
 export { default as ContentCopyIcon } from '@mui/icons-material/ContentCopyOutlined';
 export { default as ArrowBackIcon } from '@mui/icons-material/ArrowBackOutlined';
+export { default as ArrowForwardIcon } from '@mui/icons-material/ArrowForwardOutlined';
 export { default as ArrowOutwardIcon } from '@mui/icons-material/ArrowOutwardOutlined';
+export { default as ArrowRightAltIcon } from '@mui/icons-material/ArrowRightAltOutlined';
+export { default as WestIcon } from '@mui/icons-material/WestOutlined';
+export { default as ArrowBackIosIcon } from '@mui/icons-material/ArrowBackIosOutlined';
+export { default as ArrowForwardIosIcon } from '@mui/icons-material/ArrowForwardIosOutlined';
+export { default as ChevronLeftIcon } from '@mui/icons-material/ChevronLeftOutlined';
+export { default as ChevronRightIcon } from '@mui/icons-material/ChevronRightOutlined';
+export { default as KeyboardArrowDownIcon } from '@mui/icons-material/KeyboardArrowDownOutlined';
+export { default as KeyboardArrowUpIcon } from '@mui/icons-material/KeyboardArrowUpOutlined';
 export { default as ClearIcon } from '@mui/icons-material/ClearOutlined';
 export { default as RefreshIcon } from '@mui/icons-material/RefreshOutlined';
 export { default as SendIcon } from '@mui/icons-material/SendOutlined';
@@ -72,6 +81,21 @@ export { default as EmojiIcon } from '@mui/icons-material/EmojiEmotionsOutlined'
 export { default as VisibilityIcon } from '@mui/icons-material/VisibilityOutlined';
 export { default as VisibilityOffIcon } from '@mui/icons-material/VisibilityOffOutlined';
 export { default as LockIcon } from '@mui/icons-material/LockOutlined';
+export { default as SwapVertIcon } from '@mui/icons-material/SwapVertOutlined';
+export { default as MenuIcon } from '@mui/icons-material/MenuOutlined';
+export { default as MoreHorizIcon } from '@mui/icons-material/MoreHorizOutlined';
+export { default as FilterAltIcon } from '@mui/icons-material/FilterAltOutlined';
+export { default as PersonAddIcon } from '@mui/icons-material/PersonAddOutlined';
+export { default as AddCircleOutlineIcon } from '@mui/icons-material/AddCircleOutlineOutlined';
+export { default as FirstPageIcon } from '@mui/icons-material/FirstPageOutlined';
+export { default as LastPageIcon } from '@mui/icons-material/LastPageOutlined';
+export { default as ViewSidebarIcon } from '@mui/icons-material/ViewSidebarOutlined';
+
+// Status & feedback icons
+export { default as ErrorIcon } from '@mui/icons-material/ErrorOutlined';
+export { default as WarningIcon } from '@mui/icons-material/WarningOutlined';
+export { default as CalendarMonthIcon } from '@mui/icons-material/CalendarMonthOutlined';
+export { default as CircleIcon } from '@mui/icons-material/CircleOutlined';
 
 // Architect icon
 export { default as EngineeringIcon } from '@mui/icons-material/EngineeringOutlined';
@@ -81,6 +105,7 @@ export { default as ForumIcon } from '@mui/icons-material/ForumOutlined';
 // Metric specific icons
 export { default as PrecisionManufacturingIcon } from '@mui/icons-material/PrecisionManufacturingOutlined';
 export { default as VerifiedUserIcon } from '@mui/icons-material/VerifiedUserOutlined';
+export { default as SecurityIcon } from '@mui/icons-material/SecurityOutlined';
 export { default as FactCheckIcon } from '@mui/icons-material/FactCheckOutlined';
 export { default as NumbersIcon } from '@mui/icons-material/NumbersOutlined';
 export { default as ToggleOnIcon } from '@mui/icons-material/ToggleOnOutlined';
@@ -90,3 +115,20 @@ export { default as FileUploadIcon } from '@mui/icons-material/FileUploadOutline
 export { default as AnimationIcon } from '@mui/icons-material/AnimationOutlined';
 export { default as DarkModeIcon } from '@mui/icons-material/DarkModeOutlined';
 export { default as ExitToAppIcon } from '@mui/icons-material/ExitToAppOutlined';
+export { default as Brightness4Icon } from '@mui/icons-material/Brightness4Outlined';
+export { default as Brightness7Icon } from '@mui/icons-material/Brightness7Outlined';
+export { default as BlockIcon } from '@mui/icons-material/BlockOutlined';
+export { default as DoneOutlineIcon } from '@mui/icons-material/DoneOutlineOutlined';
+export { default as ChecklistRtlIcon } from '@mui/icons-material/ChecklistRtlOutlined';
+export { default as FingerprintIcon } from '@mui/icons-material/FingerprintOutlined';
+export { default as SlideshowIcon } from '@mui/icons-material/SlideshowOutlined';
+export { default as InsertChartIcon } from '@mui/icons-material/InsertChartOutlined';
+export { default as BarChartIcon } from '@mui/icons-material/BarChartOutlined';
+export { default as AutoStoriesIcon } from '@mui/icons-material/AutoStoriesOutlined';
+export { default as RouteIcon } from '@mui/icons-material/RouteOutlined';
+export { default as NoteAltIcon } from '@mui/icons-material/NoteAltOutlined';
+export { default as NewspaperIcon } from '@mui/icons-material/NewspaperOutlined';
+export { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalanceOutlined';
+export { default as ShowChartIcon } from '@mui/icons-material/ShowChartOutlined';
+export { default as SportsFootballIcon } from '@mui/icons-material/SportsFootballOutlined';
+export { default as StarBorderIcon } from '@mui/icons-material/StarBorderOutlined';
