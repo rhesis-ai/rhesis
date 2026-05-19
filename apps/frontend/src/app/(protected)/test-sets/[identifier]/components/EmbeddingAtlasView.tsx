@@ -7,10 +7,41 @@ import {
   type OverlayProxy,
 } from 'embedding-atlas/react';
 import type { Scatter2DGraph } from '@/utils/api-client/interfaces/embedding';
-import { graphToEmbeddingViewData } from '@/utils/embedding/graphToEmbeddingViewData';
+import {
+  graphToEmbeddingViewData,
+  type EmbeddingViewData,
+} from '@/utils/embedding/graphToEmbeddingViewData';
 
 const VIEW_HEIGHT = 560;
 const HOVER_PIXEL_RADIUS = 8;
+const HIGHLIGHT_RING_SIZE = 14;
+
+type OverlayProps = {
+  proxy: OverlayProxy;
+  highlightedEntityId: string | null;
+  viewData: EmbeddingViewData;
+};
+
+function updateHighlightRing(
+  ring: HTMLDivElement,
+  proxy: OverlayProxy | null,
+  highlightedEntityId: string | null,
+  viewData: EmbeddingViewData
+) {
+  if (!proxy || !highlightedEntityId) {
+    ring.style.display = 'none';
+    return;
+  }
+  const index = viewData.entityIds.indexOf(highlightedEntityId);
+  if (index < 0) {
+    ring.style.display = 'none';
+    return;
+  }
+  const screen = proxy.location(viewData.x[index], viewData.y[index]);
+  ring.style.display = 'block';
+  ring.style.left = `${screen.x}px`;
+  ring.style.top = `${screen.y}px`;
+}
 
 // Suppress the component's built-in tooltip — we have no tooltip of our own either.
 class EmptyTooltip {
@@ -21,12 +52,14 @@ class EmptyTooltip {
 
 interface EmbeddingAtlasViewProps {
   graph: Scatter2DGraph;
+  highlightedEntityId?: string | null;
   onPointSelect?: (entityId: string) => void;
   onPointHover?: (entityId: string | null) => void;
 }
 
 export default function EmbeddingAtlasView({
   graph,
+  highlightedEntityId = null,
   onPointSelect,
   onPointHover,
 }: EmbeddingAtlasViewProps) {
@@ -34,19 +67,73 @@ export default function EmbeddingAtlasView({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const proxyRef = useRef<OverlayProxy | null>(null);
 
-  const OverlayCapture = useMemo(() => {
-    return class {
-      constructor(_node: HTMLDivElement, props: { proxy: OverlayProxy }) {
-        proxyRef.current = props.proxy;
-      }
-      update(props: { proxy: OverlayProxy }) {
-        proxyRef.current = props.proxy;
-      }
-      destroy() {
-        proxyRef.current = null;
-      }
+  const highlightedPoint = useMemo((): DataPoint | null => {
+    if (!highlightedEntityId || !viewData) return null;
+    const index = viewData.entityIds.indexOf(highlightedEntityId);
+    if (index < 0) return null;
+    return {
+      x: viewData.x[index],
+      y: viewData.y[index],
+      category: viewData.category[index],
+      text: viewData.texts[index],
+      identifier: highlightedEntityId,
     };
-  }, []);
+  }, [highlightedEntityId, viewData]);
+
+  const customOverlay = useMemo(() => {
+    if (!viewData) return undefined;
+    return {
+      class: class HighlightOverlay {
+        private ring: HTMLDivElement;
+
+        constructor(node: HTMLDivElement, props: OverlayProps) {
+          proxyRef.current = props.proxy;
+          node.style.position = 'absolute';
+          node.style.inset = '0';
+          node.style.pointerEvents = 'none';
+          node.style.overflow = 'hidden';
+
+          this.ring = document.createElement('div');
+          this.ring.style.position = 'absolute';
+          this.ring.style.width = `${HIGHLIGHT_RING_SIZE}px`;
+          this.ring.style.height = `${HIGHLIGHT_RING_SIZE}px`;
+          this.ring.style.marginLeft = `-${HIGHLIGHT_RING_SIZE / 2}px`;
+          this.ring.style.marginTop = `-${HIGHLIGHT_RING_SIZE / 2}px`;
+          this.ring.style.borderRadius = '50%';
+          this.ring.style.border =
+            '2px solid var(--mui-palette-primary-main, #1976d2)';
+          this.ring.style.boxShadow = '0 0 0 2px rgba(25, 118, 210, 0.25)';
+          this.ring.style.display = 'none';
+          node.appendChild(this.ring);
+
+          updateHighlightRing(
+            this.ring,
+            props.proxy,
+            props.highlightedEntityId,
+            props.viewData
+          );
+        }
+
+        update(props: OverlayProps) {
+          proxyRef.current = props.proxy;
+          updateHighlightRing(
+            this.ring,
+            props.proxy,
+            props.highlightedEntityId,
+            props.viewData
+          );
+        }
+
+        destroy() {
+          proxyRef.current = null;
+        }
+      },
+      props: {
+        highlightedEntityId,
+        viewData,
+      } satisfies OverlayProps,
+    };
+  }, [highlightedEntityId, viewData]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -134,8 +221,9 @@ export default function EmbeddingAtlasView({
           mode: 'density',
           colorScheme: 'light',
         }}
+        tooltip={highlightedPoint}
         customTooltip={EmptyTooltip}
-        customOverlay={OverlayCapture}
+        customOverlay={customOverlay}
         querySelection={querySelection}
         onSelection={handleSelection}
       />

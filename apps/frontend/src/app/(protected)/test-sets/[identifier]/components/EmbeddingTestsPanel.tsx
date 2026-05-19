@@ -11,12 +11,12 @@ import {
   CardContent,
   Chip,
   CircularProgress,
-  Divider,
   Stack,
   Typography,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import { formatDistanceToNow } from 'date-fns';
 import { BetaBadge } from '@/components/common/BetaBadge';
 import { useEmbeddingGraph } from '@/hooks/useEmbeddingGraph';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -39,6 +39,7 @@ const EmbeddingAtlasView = dynamic(() => import('./EmbeddingAtlasView'), {
 });
 
 const PANEL_HEIGHT = 560;
+const LIST_WIDTH = '38%';
 
 interface EmbeddingTestsPanelProps {
   testSetId: string;
@@ -55,12 +56,22 @@ export default function EmbeddingTestsPanel({
   const [tests, setTests] = useState<TestDetail[]>([]);
   const [testsLoading, setTestsLoading] = useState(true);
   const [testsError, setTestsError] = useState<string | null>(null);
-  const [hoveredEntityId, setHoveredEntityId] = useState<string | null>(null);
+  const [chartHoveredId, setChartHoveredId] = useState<string | null>(null);
+  const [listHoveredId, setListHoveredId] = useState<string | null>(null);
+  const [listVisible, setListVisible] = useState(false);
+  const hoveredEntityId = listHoveredId ?? chartHoveredId;
   const itemRefs = useRef<Map<string, HTMLElement>>(new Map());
   const listRef = useRef<HTMLDivElement>(null);
 
   const hasPoints = (graph?.points.length ?? 0) > 0;
   const showChart = hasPoints && !isComputing;
+
+  // Hide the list again when clusters are recomputed.
+  useEffect(() => {
+    setListVisible(false);
+    setChartHoveredId(null);
+    setListHoveredId(null);
+  }, [graph?.computed_at]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,9 +137,9 @@ export default function EmbeddingTestsPanel({
     });
   }, [tests, graph]);
 
-  // Only scroll the list when the highlighted item is outside the visible area.
+  // Scroll the list when a chart point is hovered and the item is outside view.
   useEffect(() => {
-    if (!hoveredEntityId || !listRef.current) return;
+    if (!listVisible || !hoveredEntityId || !listRef.current) return;
     const el = itemRefs.current.get(hoveredEntityId);
     if (!el) return;
     const container = listRef.current;
@@ -139,7 +150,7 @@ export default function EmbeddingTestsPanel({
     if (elTop < visible || elBottom > visibleBottom) {
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [hoveredEntityId]);
+  }, [hoveredEntityId, listVisible]);
 
   const setItemRef = useCallback((id: string, el: HTMLElement | null) => {
     if (el) itemRefs.current.set(id, el);
@@ -147,7 +158,8 @@ export default function EmbeddingTestsPanel({
   }, []);
 
   const handlePointHover = useCallback((entityId: string | null) => {
-    setHoveredEntityId(entityId);
+    setChartHoveredId(entityId);
+    if (entityId) setListVisible(true);
   }, []);
 
   const handlePointSelect = useCallback(
@@ -167,24 +179,34 @@ export default function EmbeddingTestsPanel({
           sx={{ mb: 2 }}
         >
           <Stack direction="row" alignItems="center" spacing={1}>
-            <Typography variant="h6">Embedding map</Typography>
+            <Typography variant="h6">Test Clusters</Typography>
             <BetaBadge />
           </Stack>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={
-              isComputing ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <AutoAwesomeOutlinedIcon />
-              )
-            }
-            onClick={() => void computeGraph()}
-            disabled={isLoading || isComputing}
-          >
-            {graph && hasPoints ? 'Recompute' : 'Compute map'}
-          </Button>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            {graph?.computed_at && (
+              <Typography variant="caption" color="text.secondary">
+                Last computed,{' '}
+                {formatDistanceToNow(new Date(graph.computed_at), {
+                  addSuffix: true,
+                })}
+              </Typography>
+            )}
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={
+                isComputing ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <AutoAwesomeOutlinedIcon />
+                )
+              }
+              onClick={() => void computeGraph()}
+              disabled={isLoading || isComputing}
+            >
+              {graph && hasPoints ? 'Recompute' : 'Compute'}
+            </Button>
+          </Stack>
         </Stack>
 
         {error && (
@@ -193,11 +215,19 @@ export default function EmbeddingTestsPanel({
           </Alert>
         )}
 
-        {/* Two-column layout — always present so the tests list is always visible */}
-        <Stack direction="row" sx={{ height: PANEL_HEIGHT }} spacing={0}>
-          {/* Left: embedding canvas */}
+        <Box sx={{ height: PANEL_HEIGHT, position: 'relative' }}>
+          {/* Embedding canvas */}
           <Box
-            sx={{ flex: '0 0 62%', overflow: 'hidden', position: 'relative' }}
+            sx={{
+              height: '100%',
+              overflow: 'hidden',
+              position: 'relative',
+              pr: listVisible ? LIST_WIDTH : 0,
+              transition: theme =>
+                theme.transitions.create('padding-right', {
+                  duration: theme.transitions.duration.short,
+                }),
+            }}
           >
             {isLoading && (
               <Box
@@ -241,7 +271,7 @@ export default function EmbeddingTestsPanel({
               >
                 <Alert severity="info" icon={<RefreshIcon />}>
                   No embeddings available yet. Add tests with embeddings, then
-                  compute the map.
+                  compute clusters.
                 </Alert>
               </Box>
             )}
@@ -257,8 +287,8 @@ export default function EmbeddingTestsPanel({
               >
                 <Alert severity="info">
                   Visualize how tests cluster in embedding space. Click
-                  &quot;Compute map&quot; to generate a 2D projection with
-                  automatic cluster labels.
+                  &quot;Compute&quot; to generate a 2D projection with automatic
+                  cluster labels.
                 </Alert>
               </Box>
             )}
@@ -266,120 +296,135 @@ export default function EmbeddingTestsPanel({
             {showChart && graph && (
               <EmbeddingAtlasView
                 graph={graph}
+                highlightedEntityId={hoveredEntityId}
                 onPointSelect={handlePointSelect}
                 onPointHover={handlePointHover}
               />
             )}
           </Box>
 
-          <Divider orientation="vertical" flexItem />
-
-          {/* Right: scrollable tests list */}
+          {/* Tests list — slides in when hovering chart points */}
           <Box
+            onMouseLeave={() => setListHoveredId(null)}
             sx={{
-              flex: 1,
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: listVisible ? LIST_WIDTH : 0,
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
-              pl: 2,
+              borderLeft: listVisible ? 1 : 0,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              zIndex: 1,
+              pointerEvents: listVisible ? 'auto' : 'none',
+              transition: theme =>
+                theme.transitions.create('width', {
+                  duration: theme.transitions.duration.short,
+                }),
             }}
           >
-            <Typography
-              variant="subtitle2"
-              color="text.secondary"
-              sx={{ mb: 1, flexShrink: 0 }}
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+                height: '100%',
+                minWidth: LIST_WIDTH,
+                pl: 2,
+                pr: 1,
+              }}
             >
-              Tests{tests.length > 0 ? ` · ${tests.length}` : ''}
-            </Typography>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{ py: 1, flexShrink: 0 }}
+              >
+                Tests{tests.length > 0 ? ` · ${tests.length}` : ''}
+              </Typography>
 
-            {testsLoading && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}>
-                <CircularProgress size={24} />
-              </Box>
-            )}
+              {testsLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', pt: 4 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              )}
 
-            {testsError && (
-              <Alert severity="error" sx={{ mx: 0 }}>
-                {testsError}
-              </Alert>
-            )}
+              {testsError && (
+                <Alert severity="error" sx={{ mx: 0 }}>
+                  {testsError}
+                </Alert>
+              )}
 
-            <Box ref={listRef} sx={{ overflow: 'auto', flex: 1 }}>
-              {sortedTests.map(test => {
-                const isHighlighted = hoveredEntityId === test.id;
-                const content = test.prompt?.content ?? '';
-                return (
-                  <Box
-                    key={test.id}
-                    ref={el => setItemRef(test.id, el as HTMLElement | null)}
-                    onClick={() => router.push(`/tests/${test.id}`)}
-                    sx={{
-                      p: '8px 10px',
-                      mb: '3px',
-                      borderRadius: theme => theme.shape.borderRadius,
-                      cursor: 'pointer',
-                      border: '1px solid',
-                      borderColor: isHighlighted
-                        ? 'primary.main'
-                        : 'transparent',
-                      bgcolor: isHighlighted
-                        ? 'action.selected'
-                        : 'transparent',
-                      transition: 'background-color 0.1s, border-color 0.1s',
-                      '&:hover': {
+              <Box ref={listRef} sx={{ overflow: 'auto', flex: 1 }}>
+                {sortedTests.map(test => {
+                  const isHighlighted = hoveredEntityId === test.id;
+                  const content = test.prompt?.content ?? '';
+                  return (
+                    <Box
+                      key={test.id}
+                      ref={el => setItemRef(test.id, el as HTMLElement | null)}
+                      onMouseEnter={() => setListHoveredId(test.id)}
+                      onClick={() => router.push(`/tests/${test.id}`)}
+                      sx={{
+                        p: '8px 10px',
+                        mb: '3px',
+                        borderRadius: theme => theme.shape.borderRadius,
+                        cursor: 'pointer',
+                        border: '1px solid',
+                        borderColor: isHighlighted
+                          ? 'primary.main'
+                          : 'transparent',
                         bgcolor: isHighlighted
                           ? 'action.selected'
-                          : 'action.hover',
-                      },
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        fontSize: 12,
-                        lineHeight: 1.4,
-                        mb: 0.5,
-                        color: 'text.primary',
+                          : 'transparent',
+                        transition: 'background-color 0.1s, border-color 0.1s',
+                        '&:hover': {
+                          bgcolor: isHighlighted
+                            ? 'action.selected'
+                            : 'action.hover',
+                        },
                       }}
                     >
-                      {content.length > 120
-                        ? `${content.slice(0, 120)}…`
-                        : content}
-                    </Typography>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                      {test.behavior?.name && (
-                        <Chip
-                          label={test.behavior.name}
-                          size="small"
-                          variant="outlined"
-                          sx={{ height: 18, fontSize: 10 }}
-                        />
-                      )}
-                      {test.topic?.name && (
-                        <Chip
-                          label={test.topic.name}
-                          size="small"
-                          variant="outlined"
-                          sx={{ height: 18, fontSize: 10 }}
-                        />
-                      )}
-                    </Stack>
-                  </Box>
-                );
-              })}
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontSize: 12,
+                          lineHeight: 1.4,
+                          mb: 0.5,
+                          color: 'text.primary',
+                        }}
+                      >
+                        {content.length > 120
+                          ? `${content.slice(0, 120)}…`
+                          : content}
+                      </Typography>
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                        {test.behavior?.name && (
+                          <Chip
+                            label={test.behavior.name}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 18, fontSize: 10 }}
+                          />
+                        )}
+                        {test.topic?.name && (
+                          <Chip
+                            label={test.topic.name}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 18, fontSize: 10 }}
+                          />
+                        )}
+                      </Stack>
+                    </Box>
+                  );
+                })}
+              </Box>
             </Box>
           </Box>
-        </Stack>
-
-        {graph?.computed_at && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ mt: 1, display: 'block' }}
-          >
-            Last computed: {new Date(graph.computed_at).toLocaleString()}
-          </Typography>
-        )}
+        </Box>
       </CardContent>
     </Card>
   );
