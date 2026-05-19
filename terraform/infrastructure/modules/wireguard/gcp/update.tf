@@ -69,10 +69,23 @@ resource "terraform_data" "wireguard_config_update" {
         --tunnel-through-iap \
         --command="sudo rm -f /tmp/wg0.b64" 2>/dev/null || true
 
-      # Copy base64-encoded config to server
-      gcloud_retry gcloud compute scp "$tmpfile" wireguard-server:/tmp/wg0.b64 \
-        --zone="$ZONE" --project="$PROJECT" \
-        --tunnel-through-iap
+      # Copy base64-encoded config to server via SSH stdin pipe.
+      # gcloud compute scp crashes on some gcloud/Python versions with
+      # TypeError: quote_from_bytes() expected bytes — use ssh+stdin instead.
+      for scp_attempt in $(seq 1 10); do
+        if cat "$tmpfile" | gcloud compute ssh wireguard-server \
+          --zone="$ZONE" --project="$PROJECT" \
+          --tunnel-through-iap \
+          --command="cat > /tmp/wg0.b64"; then
+          break
+        fi
+        if [ "$scp_attempt" = "10" ]; then
+          echo "ERROR: config upload failed after 10 attempts"
+          exit 1
+        fi
+        echo "SSH upload failed (attempt $scp_attempt/10), retrying in 10s..."
+        sleep 10
+      done
 
       # Decode config, set permissions, reload WireGuard
       gcloud_retry gcloud compute ssh wireguard-server \
