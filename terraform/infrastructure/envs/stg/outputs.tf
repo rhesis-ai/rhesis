@@ -33,3 +33,18 @@ output "external_dns_secret_id" {
 output "internal_dns_tsig_key_secret_id" {
   value = module.internal_dns_stg.tsig_key_secret_id
 }
+
+output "nodes_subnet_self_link" {
+  value = module.stg.subnet_self_links["nodes"]
+}
+
+output "internal_dns_tsig_keyname" {
+  description = "TSIG key name consumed by envs/wireguard remote state"
+  value       = module.internal_dns_stg.tsig_keyname
+}
+
+output "internal_dns_tsig_secret" {
+  description = "TSIG key secret consumed by envs/wireguard remote state"
+  value       = module.internal_dns_stg.tsig_secret
+  sensitive   = true
+}

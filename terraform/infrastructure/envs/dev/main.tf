@@ -103,6 +103,23 @@ module "ingress_dev" {
 # GCS buckets: managed by terraform/infrastructure (root) with the same state as GKE — not duplicated here.
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
 
+# ── Return-side peering: dev VPC → wireguard VPC (cross-project) ────
+# The wireguard-to-dev peering is created in envs/wireguard/main.tf.
+# Both sides must exist for the peering to become ACTIVE.
+# wireguard VPC self-link is deterministic: vpc-wireguard in rhesis-platform-admin.
+resource "google_compute_network_peering" "dev_to_wireguard" {
+  name         = "peering-dev-to-wireguard"
+  network      = module.dev.vpc_self_link
+  peer_network = "https://www.googleapis.com/compute/v1/projects/rhesis-platform-admin/global/networks/vpc-wireguard"
+
+  import_subnet_routes_with_public_ip = true
+  export_subnet_routes_with_public_ip = true
+
+  timeouts { create = "15m" }
+
+  depends_on = [module.dev]
+}
+
 # Generate cluster.env for ingress-nginx-internal (single source of truth)
 resource "local_file" "cluster_env_dev" {
   content              = <<-EOT

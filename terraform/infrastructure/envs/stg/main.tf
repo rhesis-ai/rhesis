@@ -103,6 +103,20 @@ module "ingress_stg" {
 # GCS buckets: managed by terraform/infrastructure (root) — not duplicated here.
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
 
+# ── Return-side peering: stg VPC → wireguard VPC (cross-project) ────
+resource "google_compute_network_peering" "stg_to_wireguard" {
+  name         = "peering-stg-to-wireguard"
+  network      = module.stg.vpc_self_link
+  peer_network = "https://www.googleapis.com/compute/v1/projects/rhesis-platform-admin/global/networks/vpc-wireguard"
+
+  import_subnet_routes_with_public_ip = true
+  export_subnet_routes_with_public_ip = true
+
+  timeouts { create = "15m" }
+
+  depends_on = [module.stg]
+}
+
 # Generate cluster.env for ingress-nginx-internal (single source of truth)
 resource "local_file" "cluster_env_stg" {
   content              = <<-EOT
