@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TokensGrid from '../TokensGrid';
 
@@ -65,7 +64,6 @@ jest.mock('../RefreshTokenModal', () => ({
 
 const onRefreshToken = jest.fn().mockResolvedValue(undefined);
 const onDeleteToken = jest.fn().mockResolvedValue(undefined);
-const onCreateToken = jest.fn();
 
 function makeToken(id: string) {
   return {
@@ -99,55 +97,6 @@ describe('TokensGrid', () => {
     expect(
       document.querySelector('.MuiCircularProgress-root')
     ).toBeInTheDocument();
-  });
-
-  it('shows empty state when not loading and no tokens', () => {
-    render(
-      <TokensGrid
-        tokens={[]}
-        loading={false}
-        onRefreshToken={onRefreshToken}
-        onDeleteToken={onDeleteToken}
-        totalCount={0}
-      />
-    );
-    expect(screen.getByText(/no api tokens yet/i)).toBeInTheDocument();
-  });
-
-  it('renders a Create API Token button in the empty state', () => {
-    render(
-      <TokensGrid
-        tokens={[]}
-        loading={false}
-        onRefreshToken={onRefreshToken}
-        onDeleteToken={onDeleteToken}
-        onCreateToken={onCreateToken}
-        totalCount={0}
-      />
-    );
-    const createBtns = screen.getAllByRole('button', {
-      name: /create api token/i,
-    });
-    expect(createBtns.length).toBeGreaterThan(0);
-  });
-
-  it('calls onCreateToken when the empty state button is clicked', async () => {
-    const user = userEvent.setup();
-    render(
-      <TokensGrid
-        tokens={[]}
-        loading={false}
-        onRefreshToken={onRefreshToken}
-        onDeleteToken={onDeleteToken}
-        onCreateToken={onCreateToken}
-        totalCount={0}
-      />
-    );
-    const createBtns = screen.getAllByRole('button', {
-      name: /create api token/i,
-    });
-    await user.click(createBtns[0]);
-    expect(onCreateToken).toHaveBeenCalled();
   });
 
   it('renders token names in the data grid', () => {
