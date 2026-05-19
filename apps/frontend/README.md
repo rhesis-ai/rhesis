@@ -10,7 +10,6 @@ The UI was migrated to a Figma-aligned design system in `feat/frontend-ui-revamp
 - **Layout shell** — Toolpad `DashboardLayout` replaced by `AppShell` + `Sidebar` (CSS-grid, 240px collapsible sidebar, `NavigationItemsContext`). No more `@toolpad/core` dependency.
 - **Shared components** — `Fab`, `Toolbar`, `PageLayout` are new. `BaseTable`, `BaseDataGrid`, `BaseDrawer`, `SearchAndFilterBar`, `StatusChip` updated for Figma spec.
 - **Pages** — All 45 protected pages migrated from `PageContainer` to `PageLayout`. Typography tokens applied throughout.
-- **Figma audit** — `docs/ui-revamp/figma-audit.md` documents all foundation tokens, component mappings, and screen references.
 
 ## Setup
 
