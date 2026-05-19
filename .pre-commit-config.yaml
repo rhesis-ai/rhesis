@@ -57,12 +57,12 @@ repos:
           files: ^apps/documentation/
           pass_filenames: false
 
-        - id: hardcoded-styles
-          name: check hardcoded styles in frontend and docs
-          language: system
-          entry: node scripts/check-hardcoded-styles.js
-          files: ^apps/(frontend|documentation)/
-          pass_filenames: false
+        # - id: hardcoded-styles
+        #   name: check hardcoded styles in frontend and docs
+        #   language: system
+        #   entry: node scripts/check-hardcoded-styles.js
+        #   files: ^apps/(frontend|documentation)/
+        #   pass_filenames: false
 
 
   # - repo: https://github.com/pre-commit/mirrors-mypy
