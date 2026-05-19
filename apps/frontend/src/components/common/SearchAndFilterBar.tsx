@@ -8,6 +8,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import AddIcon from '@mui/icons-material/Add';
+import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
 
 interface SearchAndFilterBarProps {
   searchValue: string;
@@ -64,11 +65,20 @@ export default function SearchAndFilterBar({
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
+                <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               </InputAdornment>
             ),
           }}
-          sx={{ minWidth: { xs: '100%', sm: 250 } }}
+          sx={{
+            minWidth: { xs: '100%', sm: 250 },
+            '& .MuiOutlinedInput-root': {
+              borderRadius: BORDER_RADIUS.sm,
+              '& fieldset': {
+                borderColor: theme =>
+                  theme.palette.greyscale?.border ?? GREYSCALE.light.border,
+              },
+            },
+          }}
         />
         {children && (
           <Box

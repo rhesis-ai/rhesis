@@ -5,6 +5,7 @@ import { Chip, ChipProps } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 export type TestResultStatus = 'Pass' | 'Fail' | 'Error';
 
@@ -95,7 +96,11 @@ export default function StatusChip({
       size={size}
       color={getColor()}
       variant={variant}
-      sx={sx}
+      sx={{
+        borderRadius: BORDER_RADIUS.pill,
+        fontSize: '0.75rem', // Intentional: caption size for status badges
+        ...sx,
+      }}
       {...chipProps}
     />
   );

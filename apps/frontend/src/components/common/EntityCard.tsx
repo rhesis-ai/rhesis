@@ -1,188 +1,307 @@
+'use client';
+
 import React from 'react';
-import { useTheme, type Theme } from '@mui/material/styles';
-import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { Box, Typography, Avatar, IconButton } from '@mui/material';
+import { DeleteIcon } from '@/components/icons';
+import { GREYSCALE, BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 export interface ChipData {
   key: string;
-  icon?: React.ReactNode;
   label: string;
+  icon?: React.ReactNode;
   variant?: 'filled' | 'outlined';
-  maxWidth?: string | number | ((theme: Theme) => string | number);
+  maxWidth?: string | number;
   tooltip?: string;
 }
 
 export interface ChipSection {
+  label?: string;
   chips: ChipData[];
+  emptyText?: string;
 }
 
-interface EntityCardProps {
+export interface EntityCardProps {
   icon: React.ReactNode;
   title: string;
-  description: string;
+  description?: string;
+  onClick?: () => void;
+  onDelete?: () => void;
+  userAvatar?: string;
+  userName?: string;
+  status?: 'active' | 'inactive' | string;
+  chipSections?: ChipSection[];
   topRightActions?: React.ReactNode;
   captionText?: string;
-  chipSections: ChipSection[];
+}
+
+// Status dot / badge colours — intentional semantic values, defined once here
+const STATUS_COLORS: Record<string, string> = {
+  active: '#38ad87', // Intentional: semantic green
+  inactive: '#ef4444', // Intentional: semantic red
+};
+
+function getStatusColor(status: string): string {
+  return STATUS_COLORS[status.toLowerCase()] ?? GREYSCALE.light.subtitle;
 }
 
 export default function EntityCard({
   icon,
   title,
   description,
+  onClick,
+  onDelete,
+  userAvatar,
+  userName,
+  status,
+  chipSections,
   topRightActions,
   captionText,
-  chipSections,
 }: EntityCardProps) {
   const theme = useTheme();
 
-  const chipStyles = {
-    '& .MuiChip-icon': {
-      color: 'text.secondary',
-      marginLeft: theme.spacing(0.5),
-    },
-  };
+  const firstName = userName
+    ? userName.split(' ')[0]
+    : (captionText ?? undefined);
+  const hasTopRightContent = !!topRightActions || !!onDelete;
+
+  const statusColor = status ? getStatusColor(status) : null;
+  const statusLabel = status
+    ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
+    : null;
+
+  const hasChipContent = !!(chipSections && chipSections.length > 0);
+  const hasFurtherInfo = !!status || hasChipContent;
+
+  const isDark = theme.palette.mode === 'dark';
+  const borderColor = isDark ? theme.palette.divider : GREYSCALE.light.border;
+  const chipBg = isDark ? GREYSCALE.dark.surface2 : GREYSCALE.light.surface2;
 
   return (
-    <Card
+    <Box
+      onClick={onClick}
       sx={{
-        height: '100%',
+        bgcolor: 'background.paper',
+        border: `1px solid ${borderColor}`,
+        borderRadius: BORDER_RADIUS.md,
+        p: '30px',
+        boxShadow: ELEVATION.xs,
+        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative',
+        gap: '20px',
+        cursor: onClick ? 'pointer' : 'default',
+        height: '100%',
+        boxSizing: 'border-box',
+        transition: 'box-shadow 0.2s ease',
+        '&:hover': onClick
+          ? { boxShadow: '0px 6px 16px rgba(0,0,0,0.14)' }
+          : {},
       }}
     >
-      {topRightActions && (
+      {/* Top-right actions */}
+      {hasTopRightContent && (
         <Box
           sx={{
             position: 'absolute',
-            top: 8,
-            right: 8,
+            top: '14px',
+            right: '14px',
             display: 'flex',
-            gap: 1,
+            alignItems: 'center',
+            gap: '2px',
             zIndex: 1,
           }}
+          onClick={e => e.stopPropagation()}
         >
           {topRightActions}
+          {onDelete && (
+            <IconButton
+              size="small"
+              onClick={e => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              sx={{
+                color: 'primary.dark',
+                padding: '2px',
+                '& .MuiSvgIcon-root': { fontSize: 20 },
+              }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          )}
         </Box>
       )}
-      <CardContent
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          pb: 2,
-          pt: 3,
-        }}
-      >
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-            <Box
-              sx={{
-                mr: 1.5,
-                color: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              {icon}
-            </Box>
-            <Typography
-              variant="subtitle1"
-              component="div"
-              sx={{
-                fontWeight: 500,
-                lineHeight: 1.2,
-                maxWidth: '30ch',
-                wordWrap: 'break-word',
-                overflowWrap: 'break-word',
-                flex: 1,
-              }}
-            >
-              {title}
-            </Typography>
-          </Box>
 
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 'auto', minHeight: '2.5em' }}
+      {/* Header section */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {/* Icon + Title row */}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <Box
+            sx={{
+              width: 24,
+              height: 24,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'primary.dark',
+              flexShrink: 0,
+              '& .MuiSvgIcon-root': { fontSize: 20 },
+            }}
           >
-            {description}
+            {icon}
+          </Box>
+          <Typography
+            sx={{
+              fontSize: 18,
+              fontWeight: 700,
+              lineHeight: '25px',
+              color: 'text.primary',
+              wordBreak: 'break-word',
+              flex: 1,
+              pr: hasTopRightContent ? '36px' : 0,
+            }}
+          >
+            {title}
           </Typography>
         </Box>
 
-        <Box sx={{ mt: 2 }}>
-          {captionText && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                display: 'block',
-                mb: 1,
-                minHeight: '1.5em',
-              }}
-            >
-              {captionText}
-            </Typography>
-          )}
+        {/* Description — clamped to 3 lines so cards share equal height */}
+        {description && (
+          <Typography
+            sx={{
+              fontSize: 14,
+              fontWeight: 400,
+              lineHeight: '22px',
+              color: 'text.secondary',
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {description}
+          </Typography>
+        )}
+      </Box>
 
-          {chipSections.map((section, sectionIndex) => {
-            // Generate a stable key for the section based on its chips
-            const sectionKey =
-              section.chips.map(c => c.key).join('-') ||
-              `section-${sectionIndex}`;
-            return (
-              <React.Fragment key={sectionKey}>
-                {sectionIndex > 0 && (
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: '1px',
-                      bgcolor: 'divider',
-                      my: 1,
-                    }}
-                  />
-                )}
+      {/* User row */}
+      {firstName && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <Avatar src={userAvatar} sx={{ width: 24, height: 24, fontSize: 11 }}>
+            {!userAvatar && firstName ? firstName[0].toUpperCase() : undefined}
+          </Avatar>
+          <Typography
+            sx={{ fontSize: 12, fontWeight: 400, color: 'text.secondary' }}
+          >
+            {firstName}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Further info section */}
+      {hasFurtherInfo && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* Status badge */}
+          {statusColor && statusLabel && (
+            <Box sx={{ display: 'flex' }}>
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  border: `1px solid ${statusColor}`,
+                  borderRadius: BORDER_RADIUS.pill,
+                  px: '10px',
+                  py: '2px',
+                }}
+              >
                 <Box
                   sx={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 0.5,
-                    mb: sectionIndex < chipSections.length - 1 ? 1 : 0,
-                    '& .MuiChip-root': {
-                      height: theme.spacing(3),
-                      fontSize: theme.typography.caption.fontSize,
-                      ...chipStyles,
-                    },
+                    width: 6,
+                    height: 6,
+                    borderRadius: BORDER_RADIUS.pill,
+                    bgcolor: statusColor,
+                    flexShrink: 0,
                   }}
+                />
+                <Typography
+                  sx={{ fontSize: 12, color: statusColor, lineHeight: 1.5 }}
                 >
-                  {section.chips.map(chip => (
-                    <Chip
-                      key={chip.key}
-                      {...(chip.icon && {
-                        icon: chip.icon as React.ReactElement,
-                      })}
-                      label={chip.label}
-                      size="small"
-                      variant={chip.variant || 'outlined'}
-                      sx={{
-                        ...(chip.maxWidth && {
-                          maxWidth: chip.maxWidth,
-                          '& .MuiChip-label': {
+                  {statusLabel}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
+          {/* Divider — only when both status and chip sections are present */}
+          {statusColor && statusLabel && hasChipContent && (
+            <Box sx={{ height: '1px', bgcolor: borderColor, width: '100%' }} />
+          )}
+
+          {/* Chip sections */}
+          {hasChipContent &&
+            chipSections?.map((section, idx) => (
+              <Box
+                key={section.label ?? `section-${idx}`}
+                sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+              >
+                {section.label && (
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      color: GREYSCALE.light.subtitle,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      lineHeight: '18px',
+                      fontWeight: 400,
+                    }}
+                  >
+                    {section.label}
+                  </Typography>
+                )}
+
+                {section.chips.length > 0 ? (
+                  <Box sx={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {section.chips.map(chip => (
+                      <Box
+                        key={chip.key}
+                        sx={{
+                          bgcolor: chipBg,
+                          borderRadius: '4px',
+                          px: '10px',
+                          pt: '1px',
+                          pb: '2px',
+                          fontSize: 12,
+                          color: 'text.secondary',
+                          lineHeight: '18px',
+                          ...(chip.maxWidth && {
+                            maxWidth: chip.maxWidth,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                          },
-                        }),
-                      }}
-                    />
-                  ))}
-                </Box>
-              </React.Fragment>
-            );
-          })}
+                          }),
+                        }}
+                      >
+                        {chip.label}
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: 400,
+                      color: 'text.secondary',
+                    }}
+                  >
+                    {section.emptyText ?? 'No entity assigned yet'}
+                  </Typography>
+                )}
+              </Box>
+            ))}
         </Box>
-      </CardContent>
-    </Card>
+      )}
+    </Box>
   );
 }
