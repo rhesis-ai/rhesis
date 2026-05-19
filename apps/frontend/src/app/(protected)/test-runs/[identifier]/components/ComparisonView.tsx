@@ -40,20 +40,28 @@ import ListIcon from '@mui/icons-material/List';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { MetricStatusChip } from '@/components/common/StatusChip';
 import ConversationHistory from '@/components/common/ConversationHistory';
+import { BiotechIcon } from '@/components/icons';
+
+interface RunExperimentInfo {
+  experiment_id?: string;
+  parameter_version?: string;
+}
 
 interface ComparisonViewProps {
   currentTestRun: {
     id: string;
     name?: string;
     created_at: string;
-  };
+  } & RunExperimentInfo;
   currentTestResults: TestResultDetail[];
-  availableTestRuns: Array<{
-    id: string;
-    name?: string;
-    created_at: string;
-    pass_rate?: number;
-  }>;
+  availableTestRuns: Array<
+    {
+      id: string;
+      name?: string;
+      created_at: string;
+      pass_rate?: number;
+    } & RunExperimentInfo
+  >;
   onClose: () => void;
   onLoadBaseline: (testRunId: string) => Promise<TestResultDetail[]>;
   prompts: Record<string, { content: string; name?: string }>;
@@ -581,6 +589,33 @@ export default function ComparisonView({
                         />
                       </Box>
                     )}
+                    {baselineRun.experiment_id &&
+                      baselineRun.parameter_version && (
+                        <Box
+                          sx={{
+                            mt: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.75,
+                          }}
+                        >
+                          <BiotechIcon
+                            sx={{ fontSize: 16, color: 'text.secondary' }}
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            Experiment:
+                          </Typography>
+                          <Chip
+                            label={baselineRun.parameter_version.slice(0, 8)}
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              height: 20,
+                              '& .MuiChip-label': { px: 0.75 },
+                            }}
+                          />
+                        </Box>
+                      )}
                   </>
                 )}
               </CardContent>
@@ -647,6 +682,33 @@ export default function ComparisonView({
                     </Typography>
                   )}
                 </Box>
+                {currentTestRun.experiment_id &&
+                  currentTestRun.parameter_version && (
+                    <Box
+                      sx={{
+                        mt: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                      }}
+                    >
+                      <BiotechIcon
+                        sx={{ fontSize: 16, color: 'text.secondary' }}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        Experiment:
+                      </Typography>
+                      <Chip
+                        label={currentTestRun.parameter_version.slice(0, 8)}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          height: 20,
+                          '& .MuiChip-label': { px: 0.75 },
+                        }}
+                      />
+                    </Box>
+                  )}
               </CardContent>
             </Card>
           </Grid>

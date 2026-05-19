@@ -36,11 +36,14 @@ from .metric import (
 from .model import Model, ModelBase, ModelCreate, ModelRead, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .parameters import (
-    WELL_KNOWN_ENVIRONMENTS,
+    ENVIRONMENT_NAME_MAX_LENGTH,
+    ENVIRONMENT_NAME_PATTERN,
     BooleanValue,
+    BuiltInEnvironment,
     EnumValue,
     EnvironmentBindRequest,
     EnvironmentPointer,
+    EnvironmentRegisterRequest,
     ExperimentBase,
     ExperimentCreate,
     ExperimentDetail,
@@ -64,6 +67,7 @@ from .parameters import (
     canonical_hash,
     canonical_schema_fingerprint,
     canonical_version,
+    validate_environment_name,
     validate_values_against_schema,
 )
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
@@ -350,14 +354,18 @@ __all__ = [
     "ExperimentUpdate",
     "ExperimentVersion",
     "ExperimentVersionCreate",
+    "BuiltInEnvironment",
+    "ENVIRONMENT_NAME_MAX_LENGTH",
+    "ENVIRONMENT_NAME_PATTERN",
     "EnvironmentBindRequest",
     "EnvironmentPointer",
+    "EnvironmentRegisterRequest",
     "ProjectEnvironments",
     "ResolveResponse",
-    "WELL_KNOWN_ENVIRONMENTS",
     "canonical_hash",
     "canonical_schema_fingerprint",
     "canonical_version",
+    "validate_environment_name",
     "validate_values_against_schema",
     "Test",
     "TestBase",

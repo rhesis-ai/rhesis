@@ -25,7 +25,7 @@ import {
   ProjectEnvironments,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
-import { ArrowOutwardIcon } from '@/components/icons';
+import { PromoteIcon } from '@/components/icons';
 import { renderValuePreview } from './TypedValueEditor';
 
 interface VersionHistoryProps {
@@ -84,7 +84,7 @@ export default function VersionHistory({
     const map = new Map<string, string[]>();
     if (!projectEnvironments) return map;
     for (const [name, ptr] of Object.entries(projectEnvironments.environments)) {
-      if (ptr.experiment_id !== experimentId) continue;
+      if (ptr === null || ptr.experiment_id !== experimentId) continue;
       const arr = map.get(ptr.version) ?? [];
       arr.push(name);
       map.set(ptr.version, arr);
@@ -131,7 +131,12 @@ export default function VersionHistory({
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="body2">
                     {version.message || (
-                      <em style={{ color: 'gray' }}>(no message)</em>
+                      <Box
+                        component="em"
+                        sx={{ color: 'text.disabled' }}
+                      >
+                        (no message)
+                      </Box>
                     )}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -157,7 +162,7 @@ export default function VersionHistory({
                     <Button
                       component="span"
                       size="small"
-                      startIcon={<ArrowOutwardIcon />}
+                      startIcon={<PromoteIcon />}
                       disabled={!canPromote}
                       onClick={e => {
                         e.stopPropagation();
@@ -187,8 +192,8 @@ export default function VersionHistory({
                             <TableCell
                               sx={{
                                 fontFamily: 'monospace',
-                                width: 200,
                                 color: 'text.secondary',
+                                whiteSpace: 'nowrap',
                               }}
                             >
                               {name}

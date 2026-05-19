@@ -11,6 +11,7 @@ import {
   IconButton,
   Tooltip,
   Button,
+  Paper,
 } from '@mui/material';
 import {
   GridColDef,
@@ -433,7 +434,7 @@ export default function ProjectTraceMetrics({
           </Box>
         </Box>
       ) : (
-        <Box sx={{ height: 400, width: '100%' }}>
+        <Paper elevation={2} sx={{ p: 2 }}>
           <BaseDataGrid
             rows={metrics}
             columns={columns}
@@ -444,8 +445,9 @@ export default function ProjectTraceMetrics({
             onRowSelectionModelChange={handleRowSelectionModelChange}
             customToolbarContent={customToolbar}
             hideFooter
+            disablePaperWrapper
           />
-        </Box>
+        </Paper>
       )}
 
       <SelectMetricsDialog

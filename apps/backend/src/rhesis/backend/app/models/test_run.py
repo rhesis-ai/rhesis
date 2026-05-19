@@ -31,6 +31,16 @@ class TestRun(
     test_configuration_id = Column(
         GUID(), ForeignKey("test_configuration.id"), nullable=False, index=True
     )
+    # Optional FK to the experiment that resolved the parameters for this run.
+    # ``ondelete='SET NULL'`` keeps run history intact when an experiment is
+    # deleted -- the snapshot in ``attributes`` is still the source of truth
+    # for what was actually executed.
+    experiment_id = Column(
+        GUID(),
+        ForeignKey("experiment.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     name = Column(String)
     attributes = Column(JSONB)
     owner_id = Column(GUID(), ForeignKey("user.id"))
@@ -48,6 +58,9 @@ class TestRun(
     test_configuration = relationship("TestConfiguration", back_populates="test_runs")
     test_results = relationship("TestResult", back_populates="test_run")
     organization = relationship("Organization", back_populates="test_runs")
+    experiment = relationship(
+        "Experiment", foreign_keys=[experiment_id], back_populates="test_runs"
+    )
 
     # Comment relationship (polymorphic)
     comments = relationship(

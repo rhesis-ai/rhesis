@@ -19,9 +19,9 @@ import {
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  BuiltInEnvironment,
   ExperimentVersion,
   ProjectEnvironments,
-  WELL_KNOWN_ENVIRONMENTS,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -46,7 +46,7 @@ interface PromoteEnvironmentDialogProps {
  * Promote is the deployment primitive — moving an environment flips what
  * SDK consumers and queue-time test runs resolve. The dialog shows
  * the current binding (if any) for the selected environment so the user
- * sees what they're about to overwrite, and offers the well-known
+ * sees what they're about to overwrite, and offers the built-in
  * names plus any already-bound custom names as autocomplete options
  * (custom names are still freely typeable).
  */
@@ -72,7 +72,7 @@ export default function PromoteEnvironmentDialog({
   useEffect(() => {
     if (!open) return;
     setVersion(defaultVersion ?? versions[versions.length - 1]?.version ?? '');
-    setEnvironment(defaultEnvironment ?? 'default');
+    setEnvironment(defaultEnvironment ?? BuiltInEnvironment.DEFAULT);
   }, [open, defaultVersion, defaultEnvironment, versions]);
 
   const apiFactory = useMemo(
@@ -81,7 +81,7 @@ export default function PromoteEnvironmentDialog({
   );
 
   const environmentOptions = useMemo(() => {
-    const set = new Set<string>([...WELL_KNOWN_ENVIRONMENTS]);
+    const set = new Set<string>([...BuiltInEnvironment.ALL]);
     for (const name of Object.keys(currentEnvironments.environments)) {
       set.add(name);
     }
@@ -150,7 +150,7 @@ export default function PromoteEnvironmentDialog({
                 {...params}
                 label="Environment"
                 size="small"
-                helperText="Pick a well-known name (default, production, staging) or type a custom one."
+                helperText={`Pick a built-in name (${BuiltInEnvironment.ALL.join(', ')}) or type a custom one.`}
               />
             )}
           />
@@ -161,7 +161,7 @@ export default function PromoteEnvironmentDialog({
               version. Promoting will move it.
             </Alert>
           )}
-          {environment === 'production' && (
+          {environment === BuiltInEnvironment.PRODUCTION && (
             <Alert severity="info">
               Promoting <strong>production</strong> is a deploy. Test
               runs and SDK consumers asking for this environment will pick up

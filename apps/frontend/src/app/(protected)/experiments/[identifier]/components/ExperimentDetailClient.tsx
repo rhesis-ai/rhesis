@@ -30,8 +30,8 @@ import {
   ProjectEnvironments,
 } from '@/utils/api-client/interfaces/parameters';
 import {
-  AddIcon,
   DeleteIcon,
+  PromoteIcon,
   PublicIcon,
   PublicOffIcon,
   SaveIcon,
@@ -45,6 +45,25 @@ import LatestResultsPanel from './LatestResultsPanel';
 interface ExperimentDetailClientProps {
   experimentId: string;
   sessionToken: string;
+}
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel({ children, value, index }: TabPanelProps) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`experiment-tabpanel-${index}`}
+      aria-labelledby={`experiment-tab-${index}`}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
 }
 
 function defaultsForSchema(
@@ -144,7 +163,7 @@ export default function ExperimentDetailClient({
   const environmentsForExperiment = useMemo(() => {
     if (!environments || !experiment) return [] as string[];
     return Object.entries(environments.environments)
-      .filter(([, ptr]) => ptr.experiment_id === experiment.id)
+      .filter(([, ptr]) => ptr !== null && ptr.experiment_id === experiment.id)
       .map(([name]) => name);
   }, [environments, experiment]);
 
@@ -491,7 +510,7 @@ export default function ExperimentDetailClient({
               >
                 <span>
                   <Button
-                    startIcon={<AddIcon />}
+                    startIcon={<PromoteIcon />}
                     onClick={() => handlePromote()}
                     variant="contained"
                     disabled={!isShared || experiment.versions.length === 0}
@@ -510,76 +529,79 @@ export default function ExperimentDetailClient({
         </Paper>
 
         <Paper variant="outlined">
-          <Tabs
-            value={tab}
-            onChange={(_, v) => setTab(v)}
-            sx={{ borderBottom: 1, borderColor: 'divider' }}
-          >
-            <Tab label="Edit values" />
-            <Tab
-              label={`Version history (${experiment.versions.length})`}
-            />
-          </Tabs>
-          <Box sx={{ p: 2 }}>
-            {tab === 0 ? (
-              <Stack spacing={2}>
-                {schema.fields.length === 0 ? (
-                  <Alert severity="info">
-                    This project has no parameter schema yet. Define one
-                    on the project page before saving experiment values.
-                  </Alert>
-                ) : (
-                  <>
-                    <Stack spacing={2}>
-                      {schema.fields.map(field => (
-                        <TypedValueEditor
-                          key={field.name}
-                          field={field}
-                          value={draft[field.name] ?? null}
-                          onChange={value =>
-                            updateDraft(field.name, value)
-                          }
-                        />
-                      ))}
-                    </Stack>
-                    <Divider />
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        gap: 2,
-                        alignItems: 'flex-end',
-                      }}
-                    >
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Saving with identical values is a no-op (the
-                          server returns the existing version). Use the
-                          message field to label what changed.
-                        </Typography>
-                      </Box>
-                      <Button
-                        variant="contained"
-                        startIcon={<SaveIcon />}
-                        onClick={handleSaveVersion}
-                        disabled={saving || schema.fields.length === 0}
-                      >
-                        {saving ? 'Saving...' : 'Save as new version'}
-                      </Button>
-                    </Box>
-                  </>
-                )}
-              </Stack>
-            ) : (
-              <VersionHistory
-                versions={experiment.versions}
-                schema={schema}
-                projectEnvironments={environments}
-                experimentId={experiment.id}
-                canPromote={isShared}
-                onPromoteVersion={version => handlePromote(version)}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs
+              value={tab}
+              onChange={(_, v) => setTab(v)}
+              aria-label="experiment sections"
+            >
+              <Tab label="Edit values" />
+              <Tab
+                label={`Version history (${experiment.versions.length})`}
               />
-            )}
+            </Tabs>
           </Box>
+
+          <TabPanel value={tab} index={0}>
+            <Stack spacing={2}>
+              {schema.fields.length === 0 ? (
+                <Alert severity="info">
+                  This project has no parameter schema yet. Define one
+                  on the project page before saving experiment values.
+                </Alert>
+              ) : (
+                <>
+                  <Stack spacing={2}>
+                    {schema.fields.map(field => (
+                      <TypedValueEditor
+                        key={field.name}
+                        field={field}
+                        value={draft[field.name] ?? null}
+                        onChange={value =>
+                          updateDraft(field.name, value)
+                        }
+                      />
+                    ))}
+                  </Stack>
+                  <Divider />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 2,
+                      alignItems: 'flex-end',
+                    }}
+                  >
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Saving with identical values is a no-op (the
+                        server returns the existing version). Use the
+                        message field to label what changed.
+                      </Typography>
+                    </Box>
+                    <Button
+                      variant="contained"
+                      startIcon={<SaveIcon />}
+                      onClick={handleSaveVersion}
+                      disabled={saving || schema.fields.length === 0}
+                    >
+                      {saving ? 'Saving...' : 'Save as new version'}
+                    </Button>
+                  </Box>
+                </>
+              )}
+            </Stack>
+          </TabPanel>
+
+          <TabPanel value={tab} index={1}>
+            <VersionHistory
+              versions={experiment.versions}
+              schema={schema}
+              projectEnvironments={environments}
+              experimentId={experiment.id}
+              canPromote={isShared}
+              onPromoteVersion={version => handlePromote(version)}
+            />
+          </TabPanel>
         </Paper>
       </Stack>
 

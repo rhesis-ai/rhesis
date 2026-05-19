@@ -32,8 +32,17 @@ class Parameters:
 
     All methods are class methods — no instantiation needed::
 
-        params = Parameters.get(project="chatbot-demo", environment="default")
+        from rhesis.sdk.models.parameters import BuiltInEnvironment
+
+        params = Parameters.get(
+            project="chatbot-demo",
+            environment=BuiltInEnvironment.DEFAULT,
+        )
         print(params["temperature"])
+
+    Plain strings work too (``environment="default"``);
+    :class:`BuiltInEnvironment` is purely a tidy namespace for callers
+    who prefer not to hand-write the built-in names.
     """
 
     @classmethod

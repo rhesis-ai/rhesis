@@ -97,6 +97,8 @@ export default function TestRunMainView({
       name?: string;
       created_at: string;
       pass_rate?: number;
+      experiment_id?: string;
+      parameter_version?: string;
     }>
   >([]);
 
@@ -491,6 +493,11 @@ export default function TestRunMainView({
             (typeof run.created_at === 'string' ? run.created_at : '') ||
             '',
           pass_rate: undefined, // Will be calculated from test results if needed
+          experiment_id: run.experiment_id ?? undefined,
+          parameter_version:
+            typeof run.attributes?.parameter_version === 'string'
+              ? (run.attributes.parameter_version as string)
+              : undefined,
         }));
 
       setAvailableTestRuns(runs);
@@ -867,7 +874,14 @@ export default function TestRunMainView({
         </>
       ) : (
         <ComparisonView
-          currentTestRun={testRunData}
+          currentTestRun={{
+            ...testRunData,
+            experiment_id: testRun.experiment_id ?? undefined,
+            parameter_version:
+              typeof testRun.attributes?.parameter_version === 'string'
+                ? (testRun.attributes.parameter_version as string)
+                : undefined,
+          }}
           currentTestResults={testResults}
           availableTestRuns={availableTestRuns}
           onClose={() => setIsComparisonMode(false)}

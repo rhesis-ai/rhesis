@@ -152,13 +152,26 @@ export interface EnvironmentPointer {
   version: string;
 }
 
+/**
+ * Project-scoped map of environment name → pointer.
+ *
+ * A ``null`` value means the user registered a custom environment name
+ * via ``POST /environments`` but hasn't promoted an experiment onto it
+ * yet. The UI renders those rows the same way built-in unbound names
+ * render: name visible, "Unbound" pointer cell, Promote button enabled.
+ */
 export interface ProjectEnvironments {
-  environments: Record<string, EnvironmentPointer>;
+  environments: Record<string, EnvironmentPointer | null>;
 }
 
 export interface EnvironmentBindRequest {
   experiment_id: string;
   version: string;
+}
+
+/** Body for ``POST /projects/{id}/parameters/environments``. */
+export interface EnvironmentRegisterRequest {
+  name: string;
 }
 
 export interface ResolveResponse {
@@ -171,18 +184,70 @@ export interface ResolveResponse {
 }
 
 /**
- * Well-known environment names rendered in every project's environments block,
- * even when unbound. Custom names are still freely user-creatable;
- * this list is the closed set of names the frontend overlays for
- * first-class display. Mirrors
- * ``WELL_KNOWN_ENVIRONMENTS`` in
- * ``apps/backend/src/rhesis/backend/app/schemas/parameters.py``.
+ * Namespace for the environment names the platform always recognises.
+ *
+ * Mirrors :class:`BuiltInEnvironment` in
+ * ``apps/backend/src/rhesis/backend/app/schemas/parameters.py``. Keep
+ * in lockstep.
+ *
+ * Environment names themselves remain free-form strings — any value
+ * matching ``ENVIRONMENT_NAME_PATTERN`` is creatable through
+ * ``POST /environments``. This object is *not* a type, just a tidy
+ * set of literals so call sites don't repeat the names inline.
+ *
+ * Two members carry extra meaning beyond "always rendered":
+ *
+ * - ``DEFAULT`` is the resolver's implicit fallback.
+ * - ``PRODUCTION`` triggers the UI's deployment-impact warning at
+ *   promote time.
+ *
+ * Use ``BuiltInEnvironment.ALL`` to iterate the full set.
  */
-export const WELL_KNOWN_ENVIRONMENTS: ReadonlyArray<string> = [
-  'default',
-  'production',
-  'staging',
-];
+export const BuiltInEnvironment = {
+  DEFAULT: 'default',
+  DEVELOPMENT: 'development',
+  STAGING: 'staging',
+  PRODUCTION: 'production',
+  /** Ordered list of every built-in name; iterate when you need the full set. */
+  ALL: ['default', 'development', 'staging', 'production'] as ReadonlyArray<string>,
+} as const;
+
+/**
+ * Hard upper bound on environment-name length. Mirror of
+ * ``ENVIRONMENT_NAME_MAX_LENGTH`` in the backend
+ * ``schemas/parameters.py``. Keep in lockstep.
+ */
+export const ENVIRONMENT_NAME_MAX_LENGTH = 63;
+
+/**
+ * Allowed shape for environment names. Lowercase alphanumeric plus
+ * ``.``, ``_``, ``-`` as inner punctuation, must start with an
+ * alphanumeric. Mirror of ``ENVIRONMENT_NAME_PATTERN`` in the backend
+ * ``schemas/parameters.py``; keep in lockstep.
+ */
+export const ENVIRONMENT_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,62}$/;
+
+/**
+ * Validate ``name`` against the same rule the backend enforces on
+ * ``PUT /environments/{name}``. Returns ``null`` if valid, otherwise a
+ * short, user-facing error message suitable for an MUI ``helperText``
+ * or ``error`` slot.
+ */
+export function validateEnvironmentName(name: string): string | null {
+  if (!name) {
+    return 'Name is required';
+  }
+  if (name.length > ENVIRONMENT_NAME_MAX_LENGTH) {
+    return `Name must be at most ${ENVIRONMENT_NAME_MAX_LENGTH} characters`;
+  }
+  if (!ENVIRONMENT_NAME_PATTERN.test(name)) {
+    return (
+      'Use lowercase letters, digits, ".", "_" or "-". Must start with a ' +
+      'letter or digit.'
+    );
+  }
+  return null;
+}
 
 /** A short, display-friendly hash chip (e.g. ``v_a3f9b8``). */
 export function shortVersion(version: string | null | undefined): string {

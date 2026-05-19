@@ -2179,14 +2179,22 @@ def get_test_runs(
     filter: str | None = None,
     experiment_id: str | None = None,
     parameter_version: str | None = None,
+    has_experiment: bool | None = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
     def experiment_filter(q):
         if experiment_id:
-            q = q.filter(models.TestRun.attributes['parameter_experiment_id'].astext == str(experiment_id))
+            q = q.filter(models.TestRun.experiment_id == experiment_id)
         if parameter_version:
-            q = q.filter(models.TestRun.attributes['parameter_version'].astext == str(parameter_version))
+            q = q.filter(
+                models.TestRun.attributes['parameter_version'].astext
+                == str(parameter_version)
+            )
+        if has_experiment is True:
+            q = q.filter(models.TestRun.experiment_id.isnot(None))
+        elif has_experiment is False:
+            q = q.filter(models.TestRun.experiment_id.is_(None))
         return q
 
     return (

@@ -62,7 +62,7 @@ def create_test_run(
 
     from rhesis.backend.app.services.experiment import apply_parameter_snapshot_to_run_attributes
 
-    attributes = apply_parameter_snapshot_to_run_attributes(
+    snapshot = apply_parameter_snapshot_to_run_attributes(
         session,
         test_config=test_config,
         attributes=attributes,
@@ -75,7 +75,8 @@ def create_test_run(
         "user_id": executor_user_id,
         "organization_id": test_config.organization_id,
         "status_id": status.id,
-        "attributes": attributes,
+        "attributes": snapshot.attributes,
+        "experiment_id": snapshot.experiment_id,
     }
 
     test_run = crud.create_test_run(

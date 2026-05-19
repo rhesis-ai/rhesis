@@ -17,6 +17,7 @@ import {
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  BuiltInEnvironment,
   ExperimentRead,
   ExperimentVisibility,
 } from '@/utils/api-client/interfaces/parameters';
@@ -152,7 +153,7 @@ export default function CreateExperimentDialog({
           </Box>
           <FormHelperText>
             Only shared experiments can be promoted onto a project environment
-            (default, production, staging).
+            ({BuiltInEnvironment.ALL.join(', ')}).
           </FormHelperText>
         </Box>
       </Stack>

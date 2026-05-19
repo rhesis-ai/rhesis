@@ -1,6 +1,7 @@
 import { BaseApiClient } from './base-client';
 import {
   EnvironmentBindRequest,
+  EnvironmentRegisterRequest,
   ExperimentCreate,
   ExperimentDetail,
   ExperimentRead,
@@ -54,6 +55,19 @@ export class ParametersClient extends BaseApiClient {
   async getEnvironments(projectId: string): Promise<ProjectEnvironments> {
     return this.fetch<ProjectEnvironments>(
       `/projects/${projectId}/parameters/environments`
+    );
+  }
+
+  async registerEnvironment(
+    projectId: string,
+    payload: EnvironmentRegisterRequest
+  ): Promise<ProjectEnvironments> {
+    return this.fetch<ProjectEnvironments>(
+      `/projects/${projectId}/parameters/environments`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
     );
   }
 

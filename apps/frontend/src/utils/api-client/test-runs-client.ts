@@ -17,6 +17,7 @@ import { joinUrl } from '@/utils/url';
 type TestRunsQueryParams = Partial<PaginationParams> & {
   test_configuration_id?: string;
   filter?: string;
+  has_experiment?: boolean;
 };
 
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -30,7 +31,7 @@ export class TestRunsClient extends BaseApiClient {
   async getTestRuns(
     params: TestRunsQueryParams = {}
   ): Promise<PaginatedResponse<TestRunDetail>> {
-    const { test_configuration_id, filter, ...paginationParams } = params;
+    const { test_configuration_id, filter, has_experiment, ...paginationParams } = params;
 
     // Build the OData filter
     let finalFilter = filter;
@@ -40,7 +41,10 @@ export class TestRunsClient extends BaseApiClient {
     }
 
     // Prepare parameters for fetchPaginated
-    const fetchParams: PaginationParams & { $filter?: string } = {
+    const fetchParams: PaginationParams & {
+      $filter?: string;
+      has_experiment?: boolean;
+    } = {
       ...DEFAULT_PAGINATION,
       ...paginationParams,
     };
@@ -49,12 +53,13 @@ export class TestRunsClient extends BaseApiClient {
       fetchParams.$filter = finalFilter;
     }
 
+    if (has_experiment !== undefined) {
+      fetchParams.has_experiment = has_experiment;
+    }
+
     return this.fetchPaginated<TestRunDetail>(
       API_ENDPOINTS.testRuns,
-      fetchParams as PaginationParams & { $filter?: string } & Record<
-          string,
-          unknown
-        >,
+      fetchParams as PaginationParams & Record<string, unknown>,
       { cache: 'no-store' }
     );
   }

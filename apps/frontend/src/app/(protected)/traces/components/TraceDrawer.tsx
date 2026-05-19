@@ -299,15 +299,15 @@ export default function TraceDrawer({
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
         const testRun = await testRunsClient.getTestRun(trace.test_run.id);
-        const attrs = testRun?.attributes as Record<string, unknown> | undefined;
-        if (
-          attrs &&
-          typeof attrs.parameter_experiment_id === 'string'
-        ) {
+        if (testRun?.experiment_id) {
+          const attrs = testRun.attributes as
+            | Record<string, unknown>
+            | undefined;
           setExperimentInfo({
-            id: attrs.parameter_experiment_id,
-            name: (attrs.parameter_experiment_name as string) || 'Unknown',
-            version: (attrs.parameter_version as string) || '',
+            id: testRun.experiment_id,
+            name:
+              (attrs?.parameter_experiment_name as string) || 'Unknown',
+            version: (attrs?.parameter_version as string) || '',
           });
         } else {
           setExperimentInfo(null);

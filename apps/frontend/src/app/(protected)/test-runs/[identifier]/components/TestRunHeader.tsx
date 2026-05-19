@@ -29,6 +29,7 @@ import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import { BiotechIcon } from '@/components/icons';
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
@@ -395,10 +396,9 @@ export default function TestRunHeader({
                     : `${stats.passed} passed, ${stats.failed} failed`}
               </Typography>
 
-              {typeof testRun.attributes?.parameter_experiment_id ===
-                'string' && (
+              {testRun.experiment_id && (
                 <Link
-                  href={`/experiments/${testRun.attributes.parameter_experiment_id}`}
+                  href={`/experiments/${testRun.experiment_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: 'none' }}
@@ -417,6 +417,9 @@ export default function TestRunHeader({
                       },
                     }}
                   >
+                    <BiotechIcon
+                      sx={{ fontSize: 16, color: 'text.secondary' }}
+                    />
                     <Typography
                       variant="body2"
                       className="experiment-name"
@@ -426,8 +429,7 @@ export default function TestRunHeader({
                         fontWeight: 200,
                       }}
                     >
-                      {(testRun.attributes
-                        .parameter_experiment_name as string) || 'Unknown'}
+                      Experiment:
                     </Typography>
                     {typeof testRun.attributes.parameter_version ===
                       'string' && (

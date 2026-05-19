@@ -114,10 +114,26 @@ interface BaseDataGridProps {
   disableRowSelectionOnClick?: boolean;
   onRowSelectionModelChange?: (selectionModel: GridRowSelectionModel) => void;
   rowSelectionModel?: GridRowSelectionModel;
+  /**
+   * Per-row predicate that gates checkbox selection. Useful when some
+   * rows in a grid aren't deletable (e.g. always-on overlay rows or
+   * inline draft rows) and shouldn't appear "selectable" in a bulk
+   * delete workflow. When omitted, every row is selectable — the MUI
+   * default.
+   */
+  isRowSelectable?: (params: GridRowParams) => boolean;
   // Filter related props
   filters?: FilterConfig[];
   filterHandler?: (filteredRows: GridRowModel[]) => void;
   customToolbarContent?: ReactNode;
+  /**
+   * Extra content rendered inside the DataGrid's built-in toolbar, immediately
+   * to the right of the standard Columns / Filters / Density / Export buttons
+   * (and to the left of the search input). Use this for filter toggles that
+   * conceptually belong next to the grid's existing filter UI rather than
+   * alongside the page-level action buttons.
+   */
+  gridToolbarExtra?: ReactNode;
   // Server-side filtering props
   serverSideFiltering?: boolean;
   filterModel?: GridFilterModel;
@@ -204,9 +220,11 @@ export default function BaseDataGrid({
   disableRowSelectionOnClick,
   onRowSelectionModelChange,
   rowSelectionModel,
+  isRowSelectable,
   filters,
   filterHandler,
   customToolbarContent,
+  gridToolbarExtra,
   serverSideFiltering = false,
   filterModel,
   onFilterModelChange,
@@ -581,9 +599,15 @@ export default function BaseDataGrid({
    * Created once and stored in ref to prevent remounting and focus loss.
    * The input manages its own value via DOM, avoiding React state/re-render complexity.
    */
-  const CustomToolbarWithFiltersRef = useRef<React.ComponentType | null>(null);
+  const CustomToolbarWithFiltersRef = useRef<React.ComponentType<{
+    extra?: ReactNode;
+  }> | null>(null);
   if (!CustomToolbarWithFiltersRef.current) {
-    CustomToolbarWithFiltersRef.current = function CustomToolbar() {
+    CustomToolbarWithFiltersRef.current = function CustomToolbar({
+      extra,
+    }: {
+      extra?: ReactNode;
+    }) {
       return (
         <Box
           sx={{
@@ -594,7 +618,10 @@ export default function BaseDataGrid({
             gap: 2,
           }}
         >
-          <GridToolbar />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <GridToolbar />
+            {extra}
+          </Box>
           <TextField
             inputRef={quickFilterInputRef}
             size="small"
@@ -836,6 +863,7 @@ export default function BaseDataGrid({
             filterModel,
             onFilterModelChange,
             slots: { toolbar: CustomToolbarWithFilters },
+            slotProps: { toolbar: { extra: gridToolbarExtra } },
           })}
           {...(sortingMode === 'server' && {
             sortingMode: 'server',
@@ -858,6 +886,7 @@ export default function BaseDataGrid({
           {...(rowSelectionModel !== undefined && {
             rowSelectionModel,
           })}
+          {...(isRowSelectable && { isRowSelectable })}
           {...(disableRowSelectionOnClick && {
             disableRowSelectionOnClick,
           })}
@@ -902,6 +931,7 @@ export default function BaseDataGrid({
               filterModel,
               onFilterModelChange,
               slots: { toolbar: CustomToolbarWithFilters },
+              slotProps: { toolbar: { extra: gridToolbarExtra } },
             })}
             {...(sortingMode === 'server' && {
               sortingMode: 'server',
@@ -924,6 +954,7 @@ export default function BaseDataGrid({
             {...(rowSelectionModel !== undefined && {
               rowSelectionModel,
             })}
+            {...(isRowSelectable && { isRowSelectable })}
             {...(disableRowSelectionOnClick && {
               disableRowSelectionOnClick,
             })}

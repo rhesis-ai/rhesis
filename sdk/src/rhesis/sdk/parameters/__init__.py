@@ -8,14 +8,18 @@ experiment-id lookups use a TTL.
 Usage::
 
     from rhesis.sdk import Parameters
+    from rhesis.sdk.models.parameters import BuiltInEnvironment
 
-    params = Parameters.get(project="my-project", environment="default")
+    params = Parameters.get(
+        project="my-project",
+        environment=BuiltInEnvironment.DEFAULT,
+    )
     print(params["temperature"])       # native Python value
     print(params.get_string("model"))  # typed accessor
 
 Resolution order: ``version`` (immutable pin) > ``experiment_id``
 (latest version) > ``environment`` (movable pointer) > implicit
-``environment='default'``.
+:attr:`~rhesis.sdk.models.parameters.BuiltInEnvironment.DEFAULT`.
 """
 
 from rhesis.sdk.parameters._facade import Parameters

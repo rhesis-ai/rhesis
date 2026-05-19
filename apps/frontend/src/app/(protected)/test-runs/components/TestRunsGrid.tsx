@@ -10,6 +10,7 @@ import React, {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
+import ListIcon from '@mui/icons-material/List';
 import {
   getTestRunStatusColor,
   getTestRunStatusIcon,
@@ -22,8 +23,21 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
-import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import {
+  Typography,
+  Box,
+  Alert,
+  Avatar,
+  Chip,
+  Button,
+  ButtonGroup,
+} from '@mui/material';
+import {
+  ChatIcon,
+  DescriptionIcon,
+  ScienceIcon,
+  BiotechIcon,
+} from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -32,6 +46,8 @@ import { Tag } from '@/utils/api-client/interfaces/tag';
 import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
+
+type RunKindFilter = 'all' | 'tests' | 'experiments';
 
 interface TestRunsTableProps {
   sessionToken: string;
@@ -57,6 +73,7 @@ function TestRunsTable({
   const [isDeleting, setIsDeleting] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 50,
@@ -80,12 +97,14 @@ function TestRunsTable({
         // Convert filter model to OData filter string (handles both column filters and quick search)
         const filterString = combineTestRunFiltersToOData(filterModel);
 
-        const apiParams = {
+        const apiParams: Parameters<typeof testRunsClient.getTestRuns>[0] = {
           skip,
           limit,
           sort_by: 'created_at',
           sort_order: 'desc' as const,
           ...(filterString && { filter: filterString }),
+          ...(runKindFilter === 'experiments' && { has_experiment: true }),
+          ...(runKindFilter === 'tests' && { has_experiment: false }),
         };
 
         const response = await testRunsClient.getTestRuns(apiParams);
@@ -107,7 +126,7 @@ function TestRunsTable({
         }
       }
     },
-    [sessionToken, filterModel, onTotalCountChange]
+    [sessionToken, filterModel, runKindFilter, onTotalCountChange]
   );
 
   useEffect(() => {
@@ -201,6 +220,35 @@ function TestRunsTable({
               color={color}
               icon={icon}
               sx={{ fontWeight: 500 }}
+            />
+          );
+        },
+      },
+      {
+        field: 'experiment',
+        headerName: 'Experiment',
+        flex: 1,
+        sortable: false,
+        filterable: false,
+        valueGetter: (_, row) => {
+          if (!row.experiment_id) return '';
+          return (row.attributes?.parameter_version as string) || '';
+        },
+        renderCell: params => {
+          if (!params.row.experiment_id) return null;
+          const version = params.row.attributes?.parameter_version as
+            | string
+            | undefined;
+          const shortVer = version ? version.slice(0, 8) : null;
+
+          if (!shortVer) return null;
+
+          return (
+            <Chip
+              label={shortVer}
+              size="small"
+              variant="outlined"
+              sx={{ height: 20, '& .MuiChip-label': { px: 0.75 } }}
             />
           );
         },
@@ -482,11 +530,15 @@ function TestRunsTable({
   const handleFilterModelChange = useCallback(
     (newFilterModel: GridFilterModel) => {
       setFilterModel(newFilterModel);
-      // Reset to first page when filter changes
       setPaginationModel(prev => ({ ...prev, page: 0 }));
     },
     []
   );
+
+  const handleRunKindFilterChange = useCallback((value: RunKindFilter) => {
+    setRunKindFilter(value);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
 
   // Memoized action buttons based on selection
   const actionButtons = useMemo(() => {
@@ -528,6 +580,35 @@ function TestRunsTable({
     handleCancelSelected,
     handleDeleteSelected,
   ]);
+
+  const runKindToolbar = useMemo(
+    () => (
+      <ButtonGroup size="small" variant="outlined">
+        <Button
+          onClick={() => handleRunKindFilterChange('all')}
+          variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
+          startIcon={<ListIcon fontSize="small" />}
+        >
+          All
+        </Button>
+        <Button
+          onClick={() => handleRunKindFilterChange('tests')}
+          variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
+          startIcon={<ScienceIcon fontSize="small" />}
+        >
+          Tests
+        </Button>
+        <Button
+          onClick={() => handleRunKindFilterChange('experiments')}
+          variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
+          startIcon={<BiotechIcon fontSize="small" />}
+        >
+          Experiments
+        </Button>
+      </ButtonGroup>
+    ),
+    [runKindFilter, handleRunKindFilterChange]
+  );
 
   return (
     <>
@@ -571,6 +652,7 @@ function TestRunsTable({
         checkboxSelection
         disableRowSelectionOnClick
         actionButtons={actionButtons}
+        gridToolbarExtra={runKindToolbar}
         disablePaperWrapper={true}
         persistState
       />

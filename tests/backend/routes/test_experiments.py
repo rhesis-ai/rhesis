@@ -22,6 +22,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.schemas.parameters import BuiltInEnvironment
+
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                     #
@@ -456,6 +458,317 @@ class TestProjectEnvironments:
         response = authenticated_client.put(
             _environment_url(db_project.id, "default"),
             json={"experiment_id": exp["id"], "version": "v_nope"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# --------------------------------------------------------------------------- #
+# Environment name validation                                                 #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.integration
+class TestEnvironmentNameRules:
+    """``PUT /environments/{name}`` rejects names outside the allowed shape.
+
+    ``DELETE /environments/{name}`` stays permissive on purpose so legacy
+    data written before the rule existed can still be cleaned up; that
+    behavior is locked in here too.
+    """
+
+    def _shared_pointer(
+        self, client: TestClient, project_id
+    ) -> dict:
+        """Create a shared experiment + version usable as a bind target."""
+        _seed_schema(client, project_id)
+        exp = _create_experiment(
+            client, project_id, name="bindable", visibility="shared"
+        )
+        committed, _ = _commit_version(
+            client, exp["id"], values={"temperature": 0.7}
+        )
+        return {"experiment_id": exp["id"], "version": committed["version"]}
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "default",
+            "production",
+            "staging",
+            "qa",
+            "qa-1",
+            "eu-west",
+            "eu.west.staging",
+            "feature_branch",
+            "0",
+            "a" * 63,
+        ],
+    )
+    def test_valid_names_are_accepted(
+        self,
+        authenticated_client: TestClient,
+        db_project,
+        name: str,
+    ) -> None:
+        pointer = self._shared_pointer(authenticated_client, db_project.id)
+        response = authenticated_client.put(
+            _environment_url(db_project.id, name), json=pointer
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert name in response.json()["environments"]
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            # Uppercase.
+            "Default",
+            "PROD",
+            # Whitespace / control characters.
+            " staging",
+            "stag ing",
+            # Leading punctuation.
+            "-qa",
+            ".env",
+            "_internal",
+            # Disallowed punctuation.
+            "qa/west",
+            "qa+1",
+            "qa@1",
+            "qa:1",
+            # Over the length cap.
+            "a" * 64,
+        ],
+    )
+    def test_invalid_names_are_rejected(
+        self,
+        authenticated_client: TestClient,
+        db_project,
+        name: str,
+    ) -> None:
+        pointer = self._shared_pointer(authenticated_client, db_project.id)
+        response = authenticated_client.put(
+            _environment_url(db_project.id, name), json=pointer
+        )
+        # Some shapes (e.g. ``"qa/west"``) are rejected by the router
+        # before the pattern check because the slash changes the URL
+        # shape; FastAPI returns 404 then. Anything that does reach the
+        # validator should fail with 422. Either is acceptable; both
+        # confirm the name never reaches the persistence layer.
+        assert response.status_code in {
+            status.HTTP_404_NOT_FOUND,
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+        }, response.text
+        # And the binding must NOT have been written.
+        listing = authenticated_client.get(_environments_url(db_project.id))
+        assert listing.status_code == status.HTTP_200_OK
+        assert name not in listing.json()["environments"]
+
+    def test_delete_unknown_name_is_idempotent(
+        self,
+        authenticated_client: TestClient,
+        db_project,
+    ) -> None:
+        # A name that nothing was ever bound to. DELETE returns the
+        # current (unchanged) state with 200 — not 404 — because the
+        # operation is idempotent.
+        response = authenticated_client.delete(
+            _environment_url(db_project.id, "never-bound")
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "never-bound" not in response.json()["environments"]
+
+
+# --------------------------------------------------------------------------- #
+# Register: unbound custom environment names                                  #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.integration
+class TestRegisterEnvironment:
+    """``POST /environments`` declares a name without binding an experiment.
+
+    The resulting entry has a ``null`` pointer; the UI renders it as an
+    "Unbound" row that the user later promotes onto. The endpoint is
+    deliberately conservative: it refuses well-known names (already a
+    frontend overlay), duplicates (use ``PUT`` to rebind), and any name
+    that doesn't match the standard environment-name shape.
+    """
+
+    def test_register_returns_201_with_null_pointer(
+        self, authenticated_client: TestClient, db_project
+    ) -> None:
+        response = authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": "qa"},
+        )
+        assert response.status_code == status.HTTP_201_CREATED, response.text
+        body = response.json()
+        assert "qa" in body["environments"]
+        assert body["environments"]["qa"] is None
+
+    def test_register_then_get_lists_unbound_name(
+        self, authenticated_client: TestClient, db_project
+    ) -> None:
+        # The new name surfaces from a fresh GET — i.e. it really was
+        # persisted, not just echoed back from the POST handler.
+        authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": "qa"},
+        )
+        response = authenticated_client.get(_environments_url(db_project.id))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["environments"] == {"qa": None}
+
+    def test_register_then_bind_replaces_null_with_pointer(
+        self, authenticated_client: TestClient, db_project
+    ) -> None:
+        # Promoting after registering is the canonical happy path. The
+        # name should keep its identity across the transition; only its
+        # pointer flips from ``None`` to the real ``(experiment, version)``.
+        _seed_schema(authenticated_client, db_project.id)
+        exp = _create_experiment(
+            authenticated_client,
+            db_project.id,
+            name="bindable",
+            visibility="shared",
+        )
+        committed, _ = _commit_version(
+            authenticated_client,
+            exp["id"],
+            values={"temperature": 0.7},
+        )
+        register = authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": "qa"},
+        )
+        assert register.status_code == status.HTTP_201_CREATED
+        bind = authenticated_client.put(
+            _environment_url(db_project.id, "qa"),
+            json={"experiment_id": exp["id"], "version": committed["version"]},
+        )
+        assert bind.status_code == status.HTTP_200_OK
+        body = bind.json()
+        assert body["environments"]["qa"] == {
+            "experiment_id": exp["id"],
+            "version": committed["version"],
+        }
+
+    def test_register_duplicate_is_409(
+        self, authenticated_client: TestClient, db_project
+    ) -> None:
+        first = authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": "qa"},
+        )
+        assert first.status_code == status.HTTP_201_CREATED
+        again = authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": "qa"},
+        )
+        assert again.status_code == status.HTTP_409_CONFLICT
+
+    def test_register_already_bound_name_is_409(
+        self, authenticated_client: TestClient, db_project
+    ) -> None:
+        # Once a name has a pointer, re-registering it as "unbound" is
+        # nonsensical — the user wants ``PUT`` to move the binding,
+        # not ``POST`` to clear it.
+        _seed_schema(authenticated_client, db_project.id)
+        exp = _create_experiment(
+            authenticated_client,
+            db_project.id,
+            name="bound-already",
+            visibility="shared",
+        )
+        committed, _ = _commit_version(
+            authenticated_client,
+            exp["id"],
+            values={"temperature": 0.7},
+        )
+        authenticated_client.put(
+            _environment_url(db_project.id, "qa"),
+            json={"experiment_id": exp["id"], "version": committed["version"]},
+        )
+        response = authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": "qa"},
+        )
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+    @pytest.mark.parametrize("well_known", BuiltInEnvironment.ALL)
+    def test_register_well_known_name_is_409(
+        self,
+        authenticated_client: TestClient,
+        db_project,
+        well_known: str,
+    ) -> None:
+        # The frontend already overlays the well-known names on every
+        # project; registering them as null entries would just clutter
+        # the stored state.
+        response = authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": well_known},
+        )
+        assert response.status_code == status.HTTP_409_CONFLICT
+        # GET should still not list the well-known name in the stored map.
+        listing = authenticated_client.get(_environments_url(db_project.id))
+        assert listing.status_code == status.HTTP_200_OK
+        assert well_known not in listing.json()["environments"]
+
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            "",
+            "Default",
+            " staging",
+            "-qa",
+            ".env",
+            "qa@1",
+            "a" * 64,
+        ],
+    )
+    def test_register_invalid_name_is_422(
+        self,
+        authenticated_client: TestClient,
+        db_project,
+        bad_name: str,
+    ) -> None:
+        response = authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": bad_name},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        listing = authenticated_client.get(_environments_url(db_project.id))
+        assert listing.status_code == status.HTTP_200_OK
+        assert bad_name not in listing.json()["environments"]
+
+    def test_register_then_delete_removes_entry(
+        self, authenticated_client: TestClient, db_project
+    ) -> None:
+        # Custom unbound names should be deletable — that's the only
+        # way the user can take one back once registered.
+        authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": "qa"},
+        )
+        delete = authenticated_client.delete(
+            _environment_url(db_project.id, "qa")
+        )
+        assert delete.status_code == status.HTTP_200_OK
+        assert "qa" not in delete.json()["environments"]
+
+    def test_resolve_against_unbound_registered_name_is_404(
+        self, authenticated_client: TestClient, db_project
+    ) -> None:
+        # Resolving an environment whose pointer is ``None`` behaves
+        # the same way as resolving a never-bound well-known name: 404.
+        authenticated_client.post(
+            _environments_url(db_project.id),
+            json={"name": "qa"},
+        )
+        response = authenticated_client.get(
+            _resolve_url(db_project.id),
+            params={"environment": "qa"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
 

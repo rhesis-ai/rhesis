@@ -23,7 +23,7 @@ import hashlib
 import json
 import re
 from datetime import datetime
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, ClassVar, Literal, Union
 from uuid import UUID
 
 from pydantic import (
@@ -37,13 +37,86 @@ from pydantic import (
 )
 
 # --------------------------------------------------------------------------- #
-# Well-known environments                                                    #
+# Built-in environments                                                      #
 # --------------------------------------------------------------------------- #
 
-#: Environments rendered in the project UI even when unbound. Custom
-#: environment names are still freely user-creatable; this tuple is the
-#: closed set of names the frontend overlays for first-class display.
-WELL_KNOWN_ENVIRONMENTS: tuple[str, ...] = ("default", "production", "staging")
+
+class BuiltInEnvironment:
+    """Namespace for the environment names the platform always recognises.
+
+    Environment names are otherwise free-form strings: any value matching
+    :data:`ENVIRONMENT_NAME_PATTERN` is creatable through
+    ``POST /environments``. This class is *not* a type — it's a
+    centrally defined set of literal strings that the platform treats as
+    built-in, so call sites don't have to repeat the names inline.
+
+    Member order matches a typical promotion path
+    (``DEFAULT`` → ``DEVELOPMENT`` → ``STAGING`` → ``PRODUCTION``) and is
+    preserved by :attr:`ALL`, which the API and UI iterate when
+    rendering the overlay rows on every project.
+
+    Two members carry extra meaning beyond "always rendered":
+
+    * :attr:`DEFAULT` is the resolver's implicit fallback —
+      ``GET /resolve`` without filters resolves against it.
+    * :attr:`PRODUCTION` triggers the UI's deployment-impact warning at
+      promote time.
+    """
+
+    DEFAULT: ClassVar[str] = "default"
+    DEVELOPMENT: ClassVar[str] = "development"
+    STAGING: ClassVar[str] = "staging"
+    PRODUCTION: ClassVar[str] = "production"
+
+    #: Ordered tuple of every built-in environment name. Iterate when
+    #: you need the full set (UI overlay, conflict checks, parametrized
+    #: tests); compare against individual members otherwise.
+    ALL: ClassVar[tuple[str, ...]] = (
+        DEFAULT,
+        DEVELOPMENT,
+        STAGING,
+        PRODUCTION,
+    )
+
+#: Hard upper bound on environment-name length. Keeps URLs and column
+#: widths predictable; well below any HTTP path-segment limit.
+ENVIRONMENT_NAME_MAX_LENGTH: int = 63
+
+#: Allowed shape for environment names. Lowercase alphanumerics plus
+#: ``.`` ``_`` ``-`` as inner punctuation, must start with an
+#: alphanumeric so leading dots/dashes can't be confused with hidden
+#: files or CLI flags by downstream tools. Width is bounded by
+#: :data:`ENVIRONMENT_NAME_MAX_LENGTH`. The pattern is mirrored verbatim
+#: in ``apps/frontend/src/utils/api-client/interfaces/parameters.ts``;
+#: keep them in lockstep.
+ENVIRONMENT_NAME_PATTERN: str = r"^[a-z0-9][a-z0-9._-]{0,62}$"
+
+_ENVIRONMENT_NAME_RE = re.compile(ENVIRONMENT_NAME_PATTERN)
+
+
+def validate_environment_name(name: str) -> str:
+    """Return ``name`` if it matches :data:`ENVIRONMENT_NAME_PATTERN`.
+
+    Raises :class:`ValueError` otherwise. Used by the service layer as
+    a defense-in-depth check; the HTTP route enforces the same rule
+    via FastAPI's ``Path(pattern=..., min_length=..., max_length=...)``
+    so requests fail fast at the boundary, and this helper guards any
+    non-HTTP callers (scripts, tests, future RPC).
+    """
+    if not isinstance(name, str) or not _ENVIRONMENT_NAME_RE.fullmatch(name):
+        raise ValueError(
+            "Environment name must match "
+            f"{ENVIRONMENT_NAME_PATTERN!r} (lowercase alphanumeric plus "
+            f"'.', '_', '-'; start with alphanumeric; "
+            f"max {ENVIRONMENT_NAME_MAX_LENGTH} chars)."
+        )
+    return name
+
+
+# Lock the built-in list to the same rule so the UI overlay never
+# surfaces a name the API would refuse to create.
+for _builtin in BuiltInEnvironment.ALL:
+    validate_environment_name(_builtin)
 
 
 # --------------------------------------------------------------------------- #
@@ -269,9 +342,16 @@ class EnvironmentPointer(BaseModel):
 class ProjectEnvironments(BaseModel):
     """Project-scoped, mutable map of environment name -> :class:`EnvironmentPointer`.
 
-    Only *bound* environments appear in this map. Well-known environments that have
-    not yet been promoted are not stored; the frontend overlays them
-    client-side from a shared constants file.
+    Values are nullable: ``None`` means the user has *registered* a custom
+    environment name but hasn't promoted an experiment onto it yet. Such
+    names render in the UI as "Unbound" rows with a Promote button, the
+    same way well-known names (``default`` / ``development`` / ``staging``
+    / ``production``) do when no binding exists. Promoting the
+    registered name overwrites ``None`` with a real pointer in-place.
+
+    Well-known environments that have not been bound *and* haven't been
+    explicitly registered still aren't stored; the frontend overlays
+    them client-side from a shared constants file.
 
     Legacy rows may still use the ``{"labels": {...}}`` JSON shape; the
     ``mode="before"`` validator lifts that onto ``environments`` on read.
@@ -279,7 +359,9 @@ class ProjectEnvironments(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    environments: dict[str, EnvironmentPointer] = Field(default_factory=dict)
+    environments: dict[str, EnvironmentPointer | None] = Field(
+        default_factory=dict
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -623,6 +705,25 @@ class EnvironmentBindRequest(BaseModel):
     version: str
 
 
+class EnvironmentRegisterRequest(BaseModel):
+    """Request body for ``POST /projects/{id}/parameters/environments``.
+
+    Registers a new custom environment name without binding it to an
+    experiment yet. The resulting entry has a ``None`` pointer and shows
+    up in the UI as an "Unbound" row alongside well-known names. The
+    user later promotes an experiment onto it via the standard ``PUT``
+    bind endpoint.
+
+    The name must match :data:`ENVIRONMENT_NAME_PATTERN` (the same rule
+    enforced on bind) and must not already exist in the project's
+    environments map.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+
+
 class ExperimentSummary(BaseModel):
     """Compact experiment shape returned inline on a TestRun.
 
@@ -643,9 +744,13 @@ class ExperimentSummary(BaseModel):
 
 __all__ = [
     "BooleanValue",
+    "BuiltInEnvironment",
+    "ENVIRONMENT_NAME_MAX_LENGTH",
+    "ENVIRONMENT_NAME_PATTERN",
     "EnumValue",
     "EnvironmentBindRequest",
     "EnvironmentPointer",
+    "EnvironmentRegisterRequest",
     "ExperimentBase",
     "ExperimentCreate",
     "ExperimentDetail",
@@ -666,10 +771,10 @@ __all__ = [
     "SecretRefValue",
     "StringValue",
     "TextValue",
-    "WELL_KNOWN_ENVIRONMENTS",
     "canonical_hash",
     "canonical_schema_fingerprint",
     "canonical_version",
     "unwrap_parameter_values_for_wire",
+    "validate_environment_name",
     "validate_values_against_schema",
 ]

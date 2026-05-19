@@ -76,12 +76,12 @@ The mechanics are simple: pick a `shared` experiment, select a version, and clic
   **Deployment Impact:** Moving an environment immediately impacts all consumers resolving against that environment (after their short TTL cache expires). Promoting the `production` environment is a true deployment and should be treated as a deliberate action.
 </Callout>
 
-## Default vs production vs staging
+## Well-known environments
 
-Rhesis provides three well-known environment names out of the box: `default`, `production`, and `staging`.
+Rhesis provides four well-known environment names out of the box: `default`, `development`, `staging`, and `production`.
 
 - `default` is the implicit pointer. It's what the SDK returns when no environment is explicitly requested.
-- `production` and `staging` enable deployment-style fan-out without needing to copy experiments between projects.
+- `development`, `staging`, and `production` mirror a typical promotion path so you can fan out deployments without copying experiments between projects.
 
 You can also create custom environment names at will for your own workflows.
 

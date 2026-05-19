@@ -23,8 +23,9 @@ routes stay thin.
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
@@ -36,8 +37,11 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.experiment import Experiment as ExperimentModel
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.parameters import (
+    ENVIRONMENT_NAME_MAX_LENGTH,
+    ENVIRONMENT_NAME_PATTERN,
     EnvironmentBindRequest,
     EnvironmentPointer,
+    EnvironmentRegisterRequest,
     ExperimentCreate,
     ExperimentRead,
     ParameterSchema,
@@ -157,28 +161,77 @@ def get_project_environments(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> ProjectEnvironments:
-    """Return only the *bound* environments.
+    """Return every environment the project knows about.
 
-    Well-known environments that haven't been promoted yet aren't in the
+    Bound entries carry an :class:`EnvironmentPointer`; registered-but-
+    unbound entries (created via ``POST``) carry ``null``. Built-in
+    names that have neither been bound nor registered are not in the
     response — the frontend overlays them client-side from
-    ``WELL_KNOWN_ENVIRONMENTS`` so the UI keeps rendering ``default`` /
-    ``production`` / ``staging`` rows even before any binding exists.
+    :attr:`BuiltInEnvironment.ALL` so the UI keeps rendering
+    ``default`` / ``development`` / ``staging`` / ``production`` rows
+    even before any binding exists.
     """
     organization_id, user_id = tenant_context
     project = _load_project(project_id, db, organization_id, user_id)
     return coerce_environments(project)
 
 
+@router.post(
+    "/environments",
+    response_model=ProjectEnvironments,
+    status_code=status.HTTP_201_CREATED,
+)
+def register_project_environment(
+    project_id: uuid.UUID,
+    payload: EnvironmentRegisterRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+) -> ProjectEnvironments:
+    """Register a new custom environment name without binding an experiment.
+
+    The new entry has a ``null`` pointer until the user promotes an
+    experiment onto it via ``PUT /environments/{name}``. Refused with
+    **409** when the name is already present (bound or unbound) or is
+    one of the always-available well-known names; refused with **422**
+    when the name shape doesn't match the route pattern.
+    """
+    organization_id, user_id = tenant_context
+    project = _load_project(project_id, db, organization_id, user_id)
+    return experiment_service.register_environment(
+        db,
+        project=project,
+        environment_name=payload.name,
+    )
+
+
 @router.put("/environments/{environment_name}", response_model=ProjectEnvironments)
 def put_project_environment(
     project_id: uuid.UUID,
-    environment_name: str,
+    environment_name: Annotated[
+        str,
+        Path(
+            pattern=ENVIRONMENT_NAME_PATTERN,
+            min_length=1,
+            max_length=ENVIRONMENT_NAME_MAX_LENGTH,
+            description=(
+                "Project-unique environment name. Lowercase alphanumeric "
+                "plus '.', '_', '-' (must start with an alphanumeric), "
+                f"up to {ENVIRONMENT_NAME_MAX_LENGTH} chars."
+            ),
+        ),
+    ],
     payload: EnvironmentBindRequest,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> ProjectEnvironments:
     """Bind or move ``environment_name`` to ``(experiment_id, version)``.
+
+    The name itself is validated by FastAPI from the route's
+    ``Path(pattern=..., min_length=..., max_length=...)`` constraint so
+    bad shapes (uppercase, leading punctuation, whitespace, empty,
+    over-long) fail fast with 422 before reaching the service layer.
 
     Refused with 409 when the experiment isn't ``shared`` — the
     "environments point only at shared experiments" invariant is enforced
@@ -209,7 +262,13 @@ def delete_project_environment(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> ProjectEnvironments:
-    """Unbind ``environment_name`` (idempotent — unknown names succeed)."""
+    """Unbind ``environment_name`` (idempotent — unknown names succeed).
+
+    Intentionally not pattern-constrained: any value that has been
+    successfully written by older revisions of this API (before the
+    name-shape rule existed) must remain deletable so operators can
+    clean up bad data without a manual SQL surgery.
+    """
     organization_id, user_id = tenant_context
     project = _load_project(project_id, db, organization_id, user_id)
     return experiment_service.unbind_environment(

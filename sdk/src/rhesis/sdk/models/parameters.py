@@ -28,7 +28,7 @@ import json
 import re
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Iterator, Literal, Union
+from typing import Annotated, Any, ClassVar, Iterator, Literal, Union
 from uuid import UUID
 
 from pydantic import (
@@ -42,10 +42,42 @@ from pydantic import (
 )
 
 # --------------------------------------------------------------------------- #
-# Well-known environments                                                    #
+# Built-in environments                                                      #
 # --------------------------------------------------------------------------- #
 
-WELL_KNOWN_ENVIRONMENTS: tuple[str, ...] = ("default", "production", "staging")
+
+class BuiltInEnvironment:
+    """Namespace for the environment names the platform always recognises.
+
+    SDK-side vendor of
+    :class:`rhesis.backend.app.schemas.parameters.BuiltInEnvironment`.
+    The JSON-schema parity test keeps the value list in lockstep with
+    the backend; this class just lets SDK callers refer to the members
+    symbolically rather than typing string literals.
+
+    Environment names themselves remain free-form strings — any value
+    matching the backend's ``ENVIRONMENT_NAME_PATTERN`` is creatable.
+    This class is *not* a type, just a centrally defined set of literals.
+
+    :attr:`DEFAULT` is the resolver's implicit fallback — calling
+    :meth:`Parameters.get` without ``environment``, ``experiment_id``,
+    or ``version`` resolves against it.
+    """
+
+    DEFAULT: ClassVar[str] = "default"
+    DEVELOPMENT: ClassVar[str] = "development"
+    STAGING: ClassVar[str] = "staging"
+    PRODUCTION: ClassVar[str] = "production"
+
+    #: Ordered tuple of every built-in environment name. Iterate when
+    #: you need the full set; compare against individual members
+    #: otherwise.
+    ALL: ClassVar[tuple[str, ...]] = (
+        DEFAULT,
+        DEVELOPMENT,
+        STAGING,
+        PRODUCTION,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -256,9 +288,19 @@ class EnvironmentPointer(BaseModel):
 
 
 class ProjectEnvironments(BaseModel):
+    """Mirror of the backend ``ProjectEnvironments`` schema.
+
+    Values are nullable: ``None`` means the user has registered a custom
+    environment name without binding an experiment onto it yet. Callers
+    that only care about resolvable environments should filter ``None``
+    out before use.
+    """
+
     model_config = ConfigDict(extra="ignore")
 
-    environments: dict[str, EnvironmentPointer] = Field(default_factory=dict)
+    environments: dict[str, EnvironmentPointer | None] = Field(
+        default_factory=dict
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -634,6 +676,7 @@ class ResolvedParameters(Mapping[str, Any]):
 
 __all__ = [
     "BooleanValue",
+    "BuiltInEnvironment",
     "EnumValue",
     "EnvironmentPointer",
     "ExperimentVersion",
@@ -651,7 +694,6 @@ __all__ = [
     "SecretRefValue",
     "StringValue",
     "TextValue",
-    "WELL_KNOWN_ENVIRONMENTS",
     "canonical_hash",
     "canonical_schema_fingerprint",
     "canonical_version",

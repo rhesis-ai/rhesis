@@ -34,6 +34,7 @@ from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.experiment import Experiment
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.schemas.parameters import (
+    BuiltInEnvironment,
     EnvironmentPointer,
     ExperimentDetail,
     ExperimentRead,
@@ -45,6 +46,7 @@ from rhesis.backend.app.schemas.parameters import (
     canonical_hash,
     canonical_schema_fingerprint,
     unwrap_parameter_values_for_wire,
+    validate_environment_name,
     validate_values_against_schema,
 )
 
@@ -270,12 +272,16 @@ def environments_pointing_at_experiment(
     project: Project,
     experiment_id: uuid.UUID,
 ) -> list[str]:
-    """Names of project environments currently pointing at ``experiment_id``."""
+    """Names of project environments currently pointing at ``experiment_id``.
+
+    Skips entries with a ``None`` pointer (registered-but-unbound names);
+    those by definition aren't keeping any experiment alive.
+    """
     environments = _coerce_environments(project)
     return sorted(
         name
         for name, ptr in environments.environments.items()
-        if str(ptr.experiment_id) == str(experiment_id)
+        if ptr is not None and str(ptr.experiment_id) == str(experiment_id)
     )
 
 
@@ -290,9 +296,20 @@ def bind_environment(
 ) -> ProjectEnvironments:
     """Set ``project.parameter_environments[environment_name] = pointer``.
 
-    Validates the referenced experiment is shared and the version
-    exists. The environment name itself is unrestricted in v1 (any string).
+    Validates the name shape (lowercase alphanumerics plus ``.``/``_``/``-``,
+    starting with an alphanumeric, up to 63 chars), that the referenced
+    experiment is shared, and that the version exists. The HTTP route
+    re-validates the name via FastAPI ``Path(pattern=...)`` so most
+    callers fail fast at the boundary; the explicit call here guards
+    any non-HTTP entry point (background tasks, future RPC, tests).
     """
+    try:
+        validate_environment_name(environment_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     db_experiment = get_visible_experiment_in_project(
         db,
         project_id=project.id,
@@ -319,6 +336,61 @@ def bind_environment(
     current = _coerce_environments(project)
     new_map = dict(current.environments)
     new_map[environment_name] = pointer
+    project.parameter_environments = ProjectEnvironments(environments=new_map)
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return _coerce_environments(project)
+
+
+def register_environment(
+    db: Session,
+    *,
+    project: Project,
+    environment_name: str,
+) -> ProjectEnvironments:
+    """Add ``environment_name`` to the project with a ``None`` pointer.
+
+    Used to declare a custom environment name upfront so it shows in the
+    project UI as an "Unbound" row that the user can later Promote onto.
+    Refuses with **409** if the name already exists (either bound or
+    already registered), and with **422** if the name shape is wrong.
+
+    Built-in names (see :attr:`BuiltInEnvironment.ALL`) cannot be
+    "registered" — they're always present as a frontend overlay — so
+    the route returns 409 if asked to register one. This keeps the
+    server's stored state minimal and avoids spurious null entries that
+    add noise to ``GET`` responses.
+    """
+    try:
+        validate_environment_name(environment_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+    if environment_name in BuiltInEnvironment.ALL:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Environment {environment_name!r} is a built-in name "
+                "and is always available; you don't need to register it."
+            ),
+        )
+
+    current = _coerce_environments(project)
+    if environment_name in current.environments:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Environment {environment_name!r} already exists. Use "
+                "PUT /environments/{name} to bind a different experiment."
+            ),
+        )
+
+    new_map: dict[str, Any] = dict(current.environments)
+    new_map[environment_name] = None
     project.parameter_environments = ProjectEnvironments(environments=new_map)
     db.add(project)
     db.commit()
@@ -390,7 +462,8 @@ def resolve_parameters(
 
     Precedence: ``version`` (immutable) > ``experiment_id`` (latest
     version of that experiment) > ``environment`` (lookup in
-    :class:`ProjectEnvironments`) > implicit ``environment='default'``. The handler
+    :class:`ProjectEnvironments`) > implicit
+    :attr:`BuiltInEnvironment.DEFAULT`. The handler
     walks the precedence top-down and returns as soon as one of them
     resolves; it never silently falls back to ``default`` after a
     user-supplied filter fails — that would mask a typo as an environment
@@ -457,7 +530,7 @@ def resolve_parameters(
             source_environment=None,
         )
 
-    environment_name = environment or "default"
+    environment_name = environment or BuiltInEnvironment.DEFAULT
     environments = _coerce_environments(project)
     pointer = environments.environments.get(environment_name)
     if pointer is None:
@@ -582,6 +655,20 @@ def experiment_summary_dict_from_run_attributes(
     }
 
 
+@dataclass(frozen=True)
+class ParameterSnapshot:
+    """Output of :func:`apply_parameter_snapshot_to_run_attributes`.
+
+    ``attributes`` is the merged JSONB blob to persist on
+    :class:`~rhesis.backend.app.models.test_run.TestRun.attributes`.
+    ``experiment_id`` is the UUID to set on the relational column, or
+    ``None`` when the run is not associated with an experiment.
+    """
+
+    attributes: dict[str, Any]
+    experiment_id: uuid.UUID | None
+
+
 def apply_parameter_snapshot_to_run_attributes(
     db: Session,
     *,
@@ -589,12 +676,18 @@ def apply_parameter_snapshot_to_run_attributes(
     attributes: dict[str, Any],
     organization_id: str,
     user_id: str,
-) -> dict[str, Any]:
+) -> ParameterSnapshot:
     """Resolve ``parameters_ref`` on the configuration and merge into run attrs.
 
     Called exactly once when a :class:`~rhesis.backend.app.models.test_run.TestRun`
-    is created so the worker and connector read only the snapshot — never
+    is created so the worker and connector read only the snapshot -- never
     re-resolve at execution time.
+
+    Returns a :class:`ParameterSnapshot` carrying both the merged attribute
+    dict (immutable record of what was resolved) and the experiment UUID
+    that should be stamped onto the run's relational ``experiment_id``
+    column. When no ``parameters_ref`` is configured, the original
+    attributes are returned unchanged and ``experiment_id`` is ``None``.
 
     Raises:
         ValueError: On resolver failures (missing project, bad ref, HTTP-style
@@ -603,7 +696,7 @@ def apply_parameter_snapshot_to_run_attributes(
     cfg_attrs = test_config.attributes or {}
     ref = cfg_attrs.get("parameters_ref")
     if not ref or not isinstance(ref, dict):
-        return attributes
+        return ParameterSnapshot(attributes=attributes, experiment_id=None)
 
     from rhesis.backend.app.models.endpoint import Endpoint
 
@@ -653,6 +746,9 @@ def apply_parameter_snapshot_to_run_attributes(
     merged = {**attributes}
     merged["parameters"] = unwrap_parameter_values_for_wire(resolved.values)
     merged["parameter_version"] = resolved.version
+    # ``parameter_experiment_id`` stays in attributes as part of the
+    # immutable resolution record. The relational ``experiment_id`` column
+    # carries the same value but is the queryable / joinable surface.
     merged["parameter_experiment_id"] = str(resolved.experiment_id)
     merged["parameter_source"] = resolved.source
     if resolved.source_environment is not None:
@@ -660,7 +756,9 @@ def apply_parameter_snapshot_to_run_attributes(
     merged["parameter_schema"] = resolved.schema_.model_dump(mode="json")
     merged["parameter_experiment_name"] = exp_name
     merged["parameter_experiment_visibility"] = exp_vis
-    return merged
+    return ParameterSnapshot(
+        attributes=merged, experiment_id=resolved.experiment_id
+    )
 
 
 def connector_execute_extras_from_run_attributes(
