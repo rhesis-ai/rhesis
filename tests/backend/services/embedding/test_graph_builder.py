@@ -9,9 +9,11 @@ import pytest
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.services.embedding import graph_builder
 from rhesis.backend.app.services.embedding.graph_builder import (
+    _generate_cluster_labels,
     _reduce_dimensions,
     build_2d_graph,
 )
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 
 
 def _mock_user(org_id: str, user_id: str) -> MagicMock:
@@ -39,6 +41,38 @@ def _mock_embedding(
 
 
 @pytest.mark.unit
+class TestGenerateClusterLabels:
+    @patch.object(graph_builder, "get_model")
+    @patch.object(graph_builder, "get_user_generation_model")
+    def test_empty_centroids_skips_model_resolution(
+        self, mock_get_user_model, mock_get_model, test_db
+    ):
+        user = MagicMock()
+        embeddings = [_mock_embedding(), _mock_embedding()]
+        cluster_ids = np.array([-1, -1])
+        umap_50d = np.array([[0.0, 0.0], [1.0, 1.0]], dtype=np.float64)
+
+        result = _generate_cluster_labels(embeddings, cluster_ids, umap_50d, {}, test_db, user)
+
+        assert result == {}
+        mock_get_user_model.assert_not_called()
+        mock_get_model.assert_not_called()
+
+    @patch.object(graph_builder, "get_user_generation_model")
+    def test_model_resolution_failure_returns_empty(self, mock_get_user_model, test_db):
+        mock_get_user_model.side_effect = ModelConfigurationError("misconfigured")
+        user = MagicMock()
+        emb = _mock_embedding(searchable_text="hello")
+        cluster_ids = np.array([0])
+        umap_50d = np.array([[0.0, 0.0]], dtype=np.float64)
+        centroids = {0: np.array([0.0, 0.0])}
+
+        result = _generate_cluster_labels([emb], cluster_ids, umap_50d, centroids, test_db, user)
+
+        assert result == {}
+
+
+@pytest.mark.unit
 class TestReduceDimensions:
     def test_invalid_purpose_raises(self):
         X = np.array([[0.0, 1.0], [1.0, 0.0], [0.5, 0.5]])
@@ -48,7 +82,9 @@ class TestReduceDimensions:
 
 @pytest.mark.unit
 class TestBuild2DGraph:
-    def test_empty_entity_list_returns_empty_graph(self, test_db, test_org_id, authenticated_user_id):
+    def test_empty_entity_list_returns_empty_graph(
+        self, test_db, test_org_id, authenticated_user_id
+    ):
         user = _mock_user(test_org_id, authenticated_user_id)
         graph = build_2d_graph(test_db, [], user)
         assert graph.points == []
@@ -154,4 +190,40 @@ class TestBuild2DGraph:
         assert len(graph.clusters) == 1
         assert graph.clusters[0].cluster_index == 0
         assert graph.clusters[0].label == "Alpha"
+        assert graph.clusters[0].size == 2
+
+    @patch.object(graph_builder, "get_user_generation_model")
+    @patch.object(graph_builder, "_cluster_with_hdbscan")
+    @patch.object(graph_builder, "_reduce_dimensions")
+    def test_graph_uses_unlabeled_when_label_model_unavailable(
+        self,
+        mock_reduce,
+        mock_cluster,
+        mock_get_user_model,
+        test_db,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        mock_get_user_model.side_effect = ModelConfigurationError("misconfigured")
+        user = _mock_user(test_org_id, authenticated_user_id)
+        uids = [uuid.uuid4() for _ in range(3)]
+        embs = [
+            _mock_embedding(entity_id=uids[0], vector=[0.0] * 8),
+            _mock_embedding(entity_id=uids[1], vector=[1.0] * 8),
+            _mock_embedding(entity_id=uids[2], vector=[0.5] * 8),
+        ]
+        umap_50 = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 1.0]], dtype=np.float64)
+        umap_2 = np.array([[0.0, 0.0], [2.0, 0.0], [1.0, 3.0]], dtype=np.float64)
+        mock_reduce.side_effect = [umap_50, umap_2]
+        mock_cluster.return_value = (
+            np.array([0, 0, -1]),
+            {0: np.array([0.33, 0.33])},
+        )
+
+        with patch.object(graph_builder, "fetch_embeddings", return_value=embs):
+            graph = build_2d_graph(test_db, uids, user)
+
+        assert len(graph.points) == 3
+        assert len(graph.clusters) == 1
+        assert graph.clusters[0].label == "Unlabeled"
         assert graph.clusters[0].size == 2

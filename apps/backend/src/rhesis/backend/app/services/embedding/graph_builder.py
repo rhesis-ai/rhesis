@@ -105,9 +105,20 @@ def _generate_cluster_labels(
     db: Session,
     user: User,
 ) -> dict[int, str]:
-    _model = get_user_generation_model(db, user)
-    if isinstance(_model, str):
-        _model = get_model(_model)
+    if not centroids:
+        return {}
+
+    try:
+        _model = get_user_generation_model(db, user)
+        if isinstance(_model, str):
+            _model = get_model(_model)
+    except Exception as e:
+        logger.warning(
+            "Skipping cluster labels: generation model unavailable (%s)",
+            e,
+            exc_info=True,
+        )
+        return {}
 
     labels = {}
     for cluster_id, centroid in centroids.items():
