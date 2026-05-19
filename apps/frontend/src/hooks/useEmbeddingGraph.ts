@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Scatter2DGraph } from '@/utils/api-client/interfaces/embedding';
+import { isEmbeddingGraphNewerThanBaseline } from '@/utils/embedding/embeddingGraphPolling';
 
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 120;
@@ -26,8 +27,10 @@ export function useEmbeddingGraph(
   const [error, setError] = useState<string | null>(null);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollAttemptsRef = useRef(0);
+  /** Set when compute/recompute starts; poll until graph computed_at is newer. */
+  const computeBaselineRef = useRef<string | null>(null);
 
-  const clearPoll = useCallback(() => {
+  const resetPollTimer = useCallback(() => {
     if (pollTimeoutRef.current !== null) {
       clearTimeout(pollTimeoutRef.current);
       pollTimeoutRef.current = null;
@@ -35,24 +38,43 @@ export function useEmbeddingGraph(
     pollAttemptsRef.current = 0;
   }, []);
 
-  const fetchGraph = useCallback(async (): Promise<'ready' | 'pending'> => {
-    const client = new ApiClientFactory(sessionToken).getTestSetsClient();
-    const response = await client.getEmbeddingGraph(testSetId);
-    if (response.status === 'ready') {
-      setGraph(response.graph);
-      return 'ready';
-    }
-    return 'pending';
-  }, [sessionToken, testSetId]);
+  const clearPoll = useCallback(() => {
+    resetPollTimer();
+    computeBaselineRef.current = null;
+  }, [resetPollTimer]);
+
+  const fetchGraph = useCallback(
+    async (options?: {
+      waitForNewerThanBaseline: boolean;
+    }): Promise<'ready' | 'pending'> => {
+      const client = new ApiClientFactory(sessionToken).getTestSetsClient();
+      const response = await client.getEmbeddingGraph(testSetId);
+      if (response.status === 'ready') {
+        if (
+          options?.waitForNewerThanBaseline &&
+          !isEmbeddingGraphNewerThanBaseline(
+            response.graph.computed_at,
+            computeBaselineRef.current
+          )
+        ) {
+          return 'pending';
+        }
+        setGraph(response.graph);
+        return 'ready';
+      }
+      return 'pending';
+    },
+    [sessionToken, testSetId]
+  );
 
   const pollUntilReady = useCallback(() => {
-    clearPoll();
+    resetPollTimer();
     setIsComputing(true);
 
     const poll = async () => {
       pollAttemptsRef.current += 1;
       try {
-        const status = await fetchGraph();
+        const status = await fetchGraph({ waitForNewerThanBaseline: true });
         if (status === 'ready') {
           setIsComputing(false);
           clearPoll();
@@ -75,7 +97,7 @@ export function useEmbeddingGraph(
     };
 
     void poll();
-  }, [clearPoll, fetchGraph]);
+  }, [clearPoll, fetchGraph, resetPollTimer]);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -90,6 +112,7 @@ export function useEmbeddingGraph(
 
   const computeGraph = useCallback(async () => {
     setError(null);
+    computeBaselineRef.current = graph?.computed_at ?? null;
     setIsComputing(true);
     try {
       const client = new ApiClientFactory(sessionToken).getTestSetsClient();
@@ -102,8 +125,9 @@ export function useEmbeddingGraph(
           : 'Failed to start embedding map computation';
       setError(message);
       setIsComputing(false);
+      computeBaselineRef.current = null;
     }
-  }, [pollUntilReady, sessionToken, testSetId]);
+  }, [graph?.computed_at, pollUntilReady, sessionToken, testSetId]);
 
   useEffect(() => {
     let cancelled = false;
