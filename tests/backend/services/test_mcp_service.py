@@ -1,5 +1,5 @@
 """
-Tests for MCP service functionality in rhesis.backend.app.services.mcp_service
+Tests for MCP service functionality in rhesis.backend.app.services.mcp
 
 This module tests the MCP service including:
 - Exception handling and HTTP exception mapping
@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.services.mcp_service import (
+from rhesis.backend.app.services.mcp import (
     _get_mcp_client_from_params,
     _get_mcp_tool_config,
     create_jira_ticket_from_task,
@@ -125,7 +125,7 @@ class TestHandleMCPException:
         assert result.status_code == 500
         assert "unexpected error occurred" in result.detail.lower()
 
-    @patch("rhesis.backend.app.services.mcp_service.logger")
+    @patch("rhesis.backend.app.services.mcp.exceptions.logger")
     def test_logs_error_for_5xx_status(self, mock_logger):
         """Test that 5xx errors are logged as errors"""
         error = MCPApplicationError(status_code=500, detail="Server error")
@@ -134,7 +134,7 @@ class TestHandleMCPException:
         mock_logger.error.assert_called_once()
         assert "500" in str(mock_logger.error.call_args)
 
-    @patch("rhesis.backend.app.services.mcp_service.logger")
+    @patch("rhesis.backend.app.services.mcp.exceptions.logger")
     def test_logs_warning_for_4xx_status(self, mock_logger):
         """Test that 4xx errors are logged as warnings"""
         error = MCPApplicationError(status_code=404, detail="Not found")
@@ -159,8 +159,8 @@ class TestHandleMCPException:
 class TestGetMCPClientByToolId:
     """Test client creation from tool ID"""
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPClientFactory")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.MCPClientFactory")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_create_client_standard_provider(self, mock_crud, mock_factory):
         """Test successfully create client for standard provider"""
         # Setup mocks
@@ -197,8 +197,8 @@ class TestGetMCPClientByToolId:
         )
         mock_factory_instance.create_client.assert_called_once_with("notion")
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPClientFactory")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.MCPClientFactory")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_create_client_custom_provider(self, mock_crud, mock_factory):
         """Test successfully create client for custom provider"""
         tool_id = str(uuid.uuid4())
@@ -229,7 +229,7 @@ class TestGetMCPClientByToolId:
             credentials={"TOKEN": "test_token"},
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_raises_when_tool_not_found(self, mock_crud):
         """Test raises MCPConfigurationError when tool not found"""
         tool_id = str(uuid.uuid4())
@@ -242,7 +242,7 @@ class TestGetMCPClientByToolId:
 
         assert "not found" in str(exc_info.value).lower()
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_raises_when_tool_not_mcp_type(self, mock_crud):
         """Test raises MCPConfigurationError when tool is not MCP type"""
         tool_id = str(uuid.uuid4())
@@ -259,7 +259,7 @@ class TestGetMCPClientByToolId:
 
         assert "not an MCP integration" in str(exc_info.value)
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_raises_when_credentials_invalid_json(self, mock_crud):
         """Test raises MCPConfigurationError when credentials JSON is invalid"""
         tool_id = str(uuid.uuid4())
@@ -277,7 +277,7 @@ class TestGetMCPClientByToolId:
 
         assert "Invalid credentials format" in str(exc_info.value)
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_raises_when_custom_provider_missing_metadata(self, mock_crud):
         """Test raises MCPConfigurationError when custom provider missing tool_metadata"""
         tool_id = str(uuid.uuid4())
@@ -302,8 +302,8 @@ class TestGetMCPClientByToolId:
 class TestGetMCPClientFromParams:
     """Test client creation from parameters"""
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPClientFactory")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.MCPClientFactory")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_create_client_standard_provider(self, mock_crud, mock_factory):
         """Test successfully create client for standard provider"""
         provider_type_id = uuid.uuid4()
@@ -337,8 +337,8 @@ class TestGetMCPClientFromParams:
             provider="notion", credentials=credentials
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPClientFactory")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.MCPClientFactory")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_create_client_custom_provider(self, mock_crud, mock_factory):
         """Test successfully create client for custom provider with tool_metadata"""
         provider_type_id = uuid.uuid4()
@@ -366,7 +366,7 @@ class TestGetMCPClientFromParams:
             tool_config=tool_metadata, credentials=credentials
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_raises_when_provider_type_not_found(self, mock_crud):
         """Test raises ValueError when provider type not found"""
         provider_type_id = uuid.uuid4()
@@ -379,7 +379,7 @@ class TestGetMCPClientFromParams:
 
         assert "not found" in str(exc_info.value).lower()
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
     def test_raises_when_custom_provider_missing_metadata(self, mock_crud):
         """Test raises ValueError when custom provider missing tool_metadata"""
         provider_type_id = uuid.uuid4()
@@ -401,10 +401,10 @@ class TestGetMCPClientFromParams:
 class TestSearchMCP:
     """Test search_mcp function"""
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_agent_class")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
     async def test_search_success(
         self, mock_jinja_env, mock_get_client, mock_get_agent_class, mock_crud
     ):
@@ -452,10 +452,10 @@ class TestSearchMCP:
         )
         mock_agent.run_async.assert_called_once_with(query)
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_agent_class")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
     async def test_search_invalid_json(
         self, mock_jinja_env, mock_get_client, mock_agent_class, mock_crud
     ):
@@ -485,10 +485,10 @@ class TestSearchMCP:
 
         assert "invalid json" in str(exc_info.value).lower()
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_agent_class")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
     async def test_search_non_list_format(
         self, mock_jinja_env, mock_get_client, mock_agent_class, mock_crud
     ):
@@ -525,10 +525,10 @@ class TestSearchMCP:
 class TestExtractMCP:
     """Test extract_mcp function"""
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_agent_class")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
     async def test_extract_success_with_url(
         self, mock_jinja_env, mock_get_tool_config, mock_agent_class, mock_crud
     ):
@@ -578,10 +578,10 @@ class TestExtractMCP:
         )
         mock_agent.run_async.assert_called_once_with(f"Extract content from item {item_url}")
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_agent_class")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
     async def test_extract_success_with_id(
         self, mock_jinja_env, mock_get_tool_config, mock_agent_class, mock_crud
     ):
@@ -650,10 +650,10 @@ class TestExtractMCP:
 class TestQueryMCP:
     """Test query_mcp function"""
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_agent_class")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
     async def test_query_with_default_prompt(
         self, mock_jinja_env, mock_get_client, mock_agent_class, mock_crud
     ):
@@ -700,9 +700,9 @@ class TestQueryMCP:
             verbose=False,
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_agent_class")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
     async def test_query_with_custom_prompt(
         self, mock_get_client, mock_agent_class, mock_crud
     ):
@@ -738,10 +738,10 @@ class TestQueryMCP:
             verbose=False,
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.config.crud")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_agent_class")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
     async def test_query_with_custom_max_iterations(
         self, mock_jinja_env, mock_get_client, mock_agent_class, mock_crud
     ):
@@ -787,9 +787,9 @@ class TestQueryMCP:
 class TestTestMCPAuthentication:
     """Test run_mcp_authentication_test function"""
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.workflows.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.workflows.jinja_env")
     async def test_authentication_with_tool_id(
         self, mock_jinja_env, mock_get_client, mock_agent_class
     ):
@@ -830,10 +830,10 @@ class TestTestMCPAuthentication:
             verbose=False,
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_client_from_params")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.workflows.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_client_from_params")
+    @patch("rhesis.backend.app.services.mcp.workflows.crud")
+    @patch("rhesis.backend.app.services.mcp.workflows.jinja_env")
     async def test_authentication_with_params(
         self,
         mock_jinja_env,
@@ -889,9 +889,9 @@ class TestTestMCPAuthentication:
             user_id=None,
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.workflows.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.workflows.jinja_env")
     async def test_authentication_failure(
         self, mock_jinja_env, mock_get_client, mock_agent_class
     ):
@@ -919,9 +919,9 @@ class TestTestMCPAuthentication:
 
         assert "Authentication test failed" in str(exc_info.value)
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.workflows.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.workflows.jinja_env")
     async def test_authentication_with_additional_metadata(
         self, mock_jinja_env, mock_get_client, mock_agent_class
     ):
@@ -964,10 +964,10 @@ class TestTestMCPAuthentication:
 class TestCreateJiraTicketFromTask:
     """Test create_jira_ticket_from_task function"""
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.workflows.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.workflows.crud")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.workflows.jinja_env")
     async def test_create_jira_ticket_success(
         self, mock_jinja_env, mock_get_client, mock_crud, mock_agent_class
     ):
@@ -1020,7 +1020,7 @@ class TestCreateJiraTicketFromTask:
         assert mock_task.task_metadata["jira_issue"]["issue_key"] == "PROJ-123"
         assert mock_task.task_metadata["jira_issue"]["tool_id"] == tool_id
 
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.workflows.crud")
     async def test_create_jira_ticket_task_not_found(self, mock_crud):
         """Test raises ValueError when task not found"""
         task_id = uuid.uuid4()
@@ -1036,8 +1036,8 @@ class TestCreateJiraTicketFromTask:
 
         assert "not found" in str(exc_info.value).lower()
 
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.workflows.crud")
     async def test_create_jira_ticket_wrong_provider(self, mock_crud, mock_get_client):
         """Test raises ValueError when tool is not Jira"""
         task_id = uuid.uuid4()
@@ -1058,8 +1058,8 @@ class TestCreateJiraTicketFromTask:
         assert "must be a Jira integration" in str(exc_info.value)
         assert "github" in str(exc_info.value)
 
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.workflows.crud")
     async def test_create_jira_ticket_missing_space_key(self, mock_crud, mock_get_client):
         """Test raises ValueError when tool metadata lacks space_key"""
         task_id = uuid.uuid4()
@@ -1084,8 +1084,8 @@ class TestCreateJiraTicketFromTask:
 
         assert "not configured with a space_key" in str(exc_info.value)
 
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.workflows.crud")
     async def test_create_jira_ticket_null_metadata(self, mock_crud, mock_get_client):
         """Test raises ValueError when tool metadata is None"""
         task_id = uuid.uuid4()
@@ -1110,10 +1110,10 @@ class TestCreateJiraTicketFromTask:
 
         assert "not configured with a space_key" in str(exc_info.value)
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.workflows.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.workflows.crud")
+    @patch("rhesis.backend.app.services.mcp.workflows._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.workflows.jinja_env")
     async def test_create_jira_ticket_agent_failure(
         self, mock_jinja_env, mock_get_client, mock_crud, mock_agent_class
     ):
