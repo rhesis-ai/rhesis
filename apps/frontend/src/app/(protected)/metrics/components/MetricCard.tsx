@@ -45,6 +45,7 @@ interface MetricCardProps {
   metricScope?: string[];
   usedIn?: string[];
   showUsage?: boolean;
+  onDelete?: () => void;
 }
 
 const _getMetricIcon = (_type: string) => {
@@ -132,6 +133,7 @@ export default function MetricCard({
   type: _type,
   usedIn,
   showUsage = false,
+  onDelete,
 }: MetricCardProps) {
   // Safely handle capitalization with fallbacks for empty/undefined values
   const capitalizedScoreType = scoreType
@@ -209,6 +211,7 @@ export default function MetricCard({
       title={title}
       description={description}
       chipSections={chipSections}
+      onDelete={onDelete}
     />
   );
 }

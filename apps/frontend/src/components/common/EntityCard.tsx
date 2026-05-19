@@ -234,8 +234,8 @@ export default function EntityCard({
             </Box>
           )}
 
-          {/* Divider — only when both status and chip sections are present */}
-          {statusColor && statusLabel && hasChipContent && (
+          {/* Divider — separates status/user info from chip sections */}
+          {hasChipContent && (
             <Box sx={{ height: '1px', bgcolor: borderColor, width: '100%' }} />
           )}
 
