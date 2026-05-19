@@ -1,650 +1,396 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Box,
-  Grid,
-  TextField,
-  Typography,
-  Button,
-  Slider,
-} from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import CancelIcon from '@mui/icons-material/Cancel';
-import CheckIcon from '@mui/icons-material/Check';
+import { Box, Button, Slider, TextField, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
+import ViewField from '@/components/common/ViewField';
 import {
   MultiTurnTestConfig,
   createEmptyMultiTurnConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { useNotifications } from '@/components/common/NotificationContext';
-import { UUID } from 'crypto';
+
+export type MultiTurnDraft = MultiTurnTestConfig;
 
 interface MultiTurnConfigFieldsProps {
-  sessionToken: string;
-  testId: UUID;
-  initialConfig?: MultiTurnTestConfig | null;
-  onUpdate?: () => void;
+  draft: MultiTurnDraft;
+  setDraft: (
+    next: MultiTurnDraft | ((p: MultiTurnDraft) => MultiTurnDraft)
+  ) => void;
+  isEditing: boolean;
 }
 
-interface EditableFieldProps {
+interface OptionalFieldConfig {
+  key: 'instructions' | 'restrictions' | 'scenario';
   label: string;
-  value: string | number;
-  onSave: (value: string | number) => Promise<void>;
-  multiline?: boolean;
-  rows?: number;
-  type?: 'text' | 'number';
-  placeholder?: string;
-  helperText?: string;
-  onRemove?: () => void;
-  maxLength?: number;
+  helperText: string;
+  placeholder: string;
+  maxLength: number;
 }
 
-function EditableField({
+const OPTIONAL_TEXT_FIELDS: OptionalFieldConfig[] = [
+  {
+    key: 'instructions',
+    label: 'Instructions',
+    helperText:
+      'How to conduct the test — if not provided, the agent plans its own approach',
+    placeholder: 'How to conduct the test',
+    maxLength: 10000,
+  },
+  {
+    key: 'restrictions',
+    label: 'Restrictions',
+    helperText:
+      'What the target must not do — forbidden behaviors or boundaries',
+    placeholder: 'What must not happen',
+    maxLength: 10000,
+  },
+  {
+    key: 'scenario',
+    label: 'Scenario',
+    helperText:
+      'Context and persona for the test — narrative setup or user role',
+    placeholder: 'Context and persona for the test',
+    maxLength: 5000,
+  },
+];
+
+const TURN_CONFIG_HELPER =
+  'Set the minimum and maximum number of conversation turns';
+
+interface EditableTextFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onRemove?: () => void;
+  helperText: string;
+  placeholder?: string;
+  maxLength?: number;
+  rows?: number;
+  required?: boolean;
+}
+
+function EditableTextField({
   label,
   value,
-  onSave,
-  multiline = true,
-  rows = 3,
-  type = 'text',
-  placeholder = '',
-  helperText = '',
+  onChange,
   onRemove,
+  helperText,
+  placeholder,
   maxLength,
-}: EditableFieldProps) {
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [editedValue, setEditedValue] = React.useState(value);
-  const [isUpdating, setIsUpdating] = React.useState(false);
+  rows = 4,
+  required = false,
+}: EditableTextFieldProps) {
+  const charCount = value.length;
+  const isOverLimit = maxLength ? charCount > maxLength : false;
+  const isNearLimit = maxLength ? charCount > maxLength * 0.8 : false;
+  const isEmptyRequired = required && value.trim().length === 0;
 
-  // Update local state when prop value changes, but only if not currently editing
-  React.useEffect(() => {
-    if (!isEditing) {
-      setEditedValue(value);
+  const helperLine = (() => {
+    if (isEmptyRequired) return `${label} cannot be empty`;
+    if (maxLength) {
+      return `${helperText} · ${charCount} / ${maxLength}`;
     }
-  }, [value, isEditing]);
-
-  const displayRows = rows;
-
-  // Calculate character count for text fields
-  const charCount = type === 'text' ? String(editedValue || '').length : 0;
-  const isNearLimit = Boolean(maxLength && charCount > maxLength * 0.8);
-  const isOverLimit = Boolean(maxLength && charCount > maxLength);
-
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditedValue(value);
-  };
-
-  const handleConfirmEdit = async () => {
-    setIsUpdating(true);
-    try {
-      await onSave(editedValue);
-      setIsEditing(false);
-    } catch (_error) {
-      // Error notification is shown by parent
-      // Revert to original value and exit edit mode
-      setEditedValue(value);
-      setIsEditing(false);
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  const displayValue =
-    type === 'number' ? value : !value || value === '' ? ' ' : String(value);
+    return helperText;
+  })();
 
   return (
-    <Grid size={12}>
-      <Box sx={{ mb: 1 }}>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+    <Box sx={{ width: '100%', position: 'relative' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: '6px',
+          px: '14px',
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: 14,
+            lineHeight: '22px',
+            color: theme => theme.palette.greyscale.subtitle,
+          }}
+        >
           {label}
+          {required ? ' *' : ''}
         </Typography>
-        {helperText && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', fontStyle: 'italic' }}
+        {onRemove && (
+          <Button
+            size="small"
+            startIcon={<CloseIcon />}
+            onClick={onRemove}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
           >
-            {helperText}
-          </Typography>
+            Remove
+          </Button>
         )}
       </Box>
-      <Box sx={{ position: 'relative' }}>
-        {isEditing ? (
-          <>
-            <TextField
-              fullWidth
-              multiline={multiline}
-              rows={multiline ? displayRows : undefined}
-              type={type}
-              value={editedValue}
-              onChange={e =>
-                setEditedValue(
-                  type === 'number'
-                    ? parseInt(e.target.value) || 10
-                    : e.target.value
-                )
-              }
-              placeholder={placeholder}
-              inputProps={
-                type === 'number'
-                  ? { min: 1, max: 50 }
-                  : maxLength
-                    ? { maxLength }
-                    : undefined
-              }
-              error={isOverLimit}
-              sx={{ mb: 1 }}
-              autoFocus
-            />
-            {type === 'text' && maxLength && (
-              <Typography
-                variant="caption"
-                color={
-                  isOverLimit
-                    ? 'error'
-                    : isNearLimit
-                      ? 'warning.main'
-                      : 'text.secondary'
-                }
-                sx={{ display: 'block', mb: 1 }}
-              >
-                {charCount} / {maxLength} characters
-                {isOverLimit && ' (exceeds maximum)'}
-              </Typography>
-            )}
-          </>
-        ) : (
-          <Typography
-            component="pre"
-            variant="body2"
-            sx={theme => ({
-              whiteSpace: 'pre-wrap',
-              fontFamily: 'monospace',
-              bgcolor: 'action.hover',
-              borderRadius: theme.shape.borderRadius * 0.25,
-              p: 1,
-              minHeight: multiline
-                ? `calc(${displayRows} * 1.4375em + ${theme.spacing(2)})`
-                : theme.spacing(6.75),
-              pr: multiline
-                ? onRemove
-                  ? theme.spacing(21)
-                  : theme.spacing(10)
-                : onRemove
-                  ? theme.spacing(24)
-                  : theme.spacing(14),
-              wordBreak: 'break-word',
-              display: multiline ? 'block' : 'flex',
-              alignItems: multiline ? undefined : 'center',
-            })}
-          >
-            {displayValue}
-          </Typography>
-        )}
-
-        {!isEditing ? (
-          <Box
-            sx={theme => ({
-              position: 'absolute',
-              top: theme.spacing(1),
-              right: theme.spacing(1),
-              zIndex: 1,
-              display: 'flex',
-              gap: 1,
-            })}
-          >
-            {onRemove && (
-              <Button
-                startIcon={<CloseIcon />}
-                onClick={onRemove}
-                sx={theme => ({
-                  backgroundColor:
-                    theme.palette.mode === 'dark'
-                      ? theme.palette.action.hover
-                      : theme.palette.background.paper,
-                  '&:hover': {
-                    backgroundColor:
-                      theme.palette.mode === 'dark'
-                        ? theme.palette.action.selected
-                        : theme.palette.action.hover,
-                  },
-                })}
-              >
-                Remove
-              </Button>
-            )}
-            <Button
-              startIcon={<EditIcon />}
-              onClick={handleEdit}
-              sx={theme => ({
-                backgroundColor:
-                  theme.palette.mode === 'dark'
-                    ? theme.palette.action.hover
-                    : theme.palette.background.paper,
-                '&:hover': {
-                  backgroundColor:
-                    theme.palette.mode === 'dark'
-                      ? theme.palette.action.selected
-                      : theme.palette.action.hover,
-                },
-              })}
-            >
-              Edit
-            </Button>
-          </Box>
-        ) : (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<CancelIcon />}
-              onClick={handleCancelEdit}
-              disabled={isUpdating}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<CheckIcon />}
-              onClick={handleConfirmEdit}
-              disabled={isUpdating}
-            >
-              Confirm
-            </Button>
-          </Box>
-        )}
-      </Box>
-    </Grid>
+      <TextField
+        fullWidth
+        multiline
+        minRows={rows}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        inputProps={maxLength ? { maxLength } : undefined}
+        error={isOverLimit || isEmptyRequired}
+        helperText={helperLine}
+        FormHelperTextProps={{
+          sx: {
+            fontSize: 12,
+            lineHeight: '18px',
+            mx: '14px',
+            mt: '3px',
+            color: theme =>
+              isOverLimit || isEmptyRequired
+                ? theme.palette.error.main
+                : isNearLimit
+                  ? theme.palette.warning.main
+                  : theme.palette.greyscale.subtitle,
+          },
+        }}
+      />
+    </Box>
   );
 }
 
 export default function MultiTurnConfigFields({
-  sessionToken,
-  testId,
-  initialConfig,
-  onUpdate,
+  draft,
+  setDraft,
+  isEditing,
 }: MultiTurnConfigFieldsProps) {
-  const [config, setConfig] = React.useState<MultiTurnTestConfig>(
-    initialConfig || createEmptyMultiTurnConfig()
-  );
-  const [showInstructions, setShowInstructions] = React.useState(
-    !!initialConfig?.instructions
-  );
-  const [showRestrictions, setShowRestrictions] = React.useState(
-    !!initialConfig?.restrictions
-  );
-  const [showScenario, setShowScenario] = React.useState(
-    !!initialConfig?.scenario
-  );
-  const [showTurnConfig, setShowTurnConfig] = React.useState(
-    (!!initialConfig?.max_turns && initialConfig.max_turns !== 10) ||
-      !!initialConfig?.min_turns
-  );
-  const notifications = useNotifications();
-
-  // Update config when initialConfig changes
-  React.useEffect(() => {
-    if (initialConfig) {
-      setConfig(initialConfig);
-      setShowInstructions(!!initialConfig.instructions);
-      setShowRestrictions(!!initialConfig.restrictions);
-      setShowScenario(!!initialConfig.scenario);
-      setShowTurnConfig(
-        (!!initialConfig.max_turns && initialConfig.max_turns !== 10) ||
-          !!initialConfig.min_turns
+  const visibleOptional = React.useMemo(() => {
+    if (isEditing) {
+      // In edit mode, show every optional field that the user has either
+      // populated or explicitly added during this edit session.
+      return new Set(
+        OPTIONAL_TEXT_FIELDS.filter(f => draft[f.key] !== undefined).map(
+          f => f.key
+        )
       );
     }
-  }, [initialConfig]);
+    // In view mode, only show optional fields that actually have content.
+    return new Set(
+      OPTIONAL_TEXT_FIELDS.filter(f => {
+        const value = draft[f.key];
+        return typeof value === 'string' && value.trim().length > 0;
+      }).map(f => f.key)
+    );
+  }, [draft, isEditing]);
 
-  const updateField = async (
+  const hiddenOptional = OPTIONAL_TEXT_FIELDS.filter(
+    f => !visibleOptional.has(f.key)
+  );
+
+  const updateField = (
     field: keyof MultiTurnTestConfig,
-    value: string | number
+    value: string | number | undefined
   ) => {
-    // Validate that goal is not empty before saving
-    if (field === 'goal' && (!value || String(value).trim().length === 0)) {
-      notifications.show('Goal cannot be empty', {
-        severity: 'error',
-        autoHideDuration: 3000,
-      });
-      throw new Error('Goal cannot be empty');
-    }
-
-    try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const testsClient = apiFactory.getTestsClient();
-
-      const updatedConfig = {
-        ...config,
-        [field]: value || undefined,
-      };
-
-      await testsClient.updateTest(testId, {
-        test_configuration: updatedConfig as unknown as Record<string, unknown>,
-      });
-
-      setConfig(updatedConfig);
-
-      notifications.show(
-        `Successfully updated ${String(field).replace('_', ' ')}`,
-        {
-          severity: 'success',
-          autoHideDuration: 3000,
-        }
-      );
-
-      if (onUpdate) {
-        onUpdate();
-      }
-    } catch (error: unknown) {
-      notifications.show(
-        `Failed to update ${String(field).replace('_', ' ')}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        {
-          severity: 'error',
-          autoHideDuration: 6000,
-        }
-      );
-      throw error;
-    }
+    setDraft(prev => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
-  const updateTurnConfig = async (minTurns: number, maxTurns: number) => {
-    try {
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const testsClient = apiFactory.getTestsClient();
-
-      const updatedConfig = {
-        ...config,
-        min_turns: minTurns,
-        max_turns: maxTurns,
-      };
-
-      await testsClient.updateTest(testId, {
-        test_configuration: updatedConfig as unknown as Record<string, unknown>,
-      });
-
-      setConfig(updatedConfig);
-
-      notifications.show('Successfully updated turn configuration', {
-        severity: 'success',
-        autoHideDuration: 3000,
-      });
-
-      if (onUpdate) {
-        onUpdate();
-      }
-    } catch (error: unknown) {
-      notifications.show(
-        `Failed to update turn configuration: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        {
-          severity: 'error',
-          autoHideDuration: 6000,
-        }
-      );
-    }
+  const addOptional = (key: OptionalFieldConfig['key']) => {
+    setDraft(prev => ({ ...prev, [key]: '' }));
   };
 
-  const removeField = async (
-    field: keyof MultiTurnTestConfig | 'turn_config',
-    setShowFunction: (show: boolean) => void
-  ) => {
-    try {
-      if (field === 'turn_config') {
-        // Reset both min_turns and max_turns
-        const apiFactory = new ApiClientFactory(sessionToken);
-        const testsClient = apiFactory.getTestsClient();
-
-        const updatedConfig = {
-          ...config,
-          min_turns: undefined,
-          max_turns: 10,
-        };
-
-        await testsClient.updateTest(testId, {
-          test_configuration: updatedConfig as unknown as Record<
-            string,
-            unknown
-          >,
-        });
-
-        setConfig(updatedConfig);
-
-        notifications.show('Successfully reset turn configuration', {
-          severity: 'success',
-          autoHideDuration: 3000,
-        });
-
-        if (onUpdate) {
-          onUpdate();
-        }
-
-        setShowFunction(false);
-        return;
-      }
-
-      // Determine default value based on field
-      let defaultValue: string | number;
-      if (field === 'max_turns') {
-        defaultValue = 10;
-      } else {
-        defaultValue = '';
-      }
-
-      // Update the field to its default value
-      await updateField(field, defaultValue);
-
-      // Hide the field after successful update
-      setShowFunction(false);
-    } catch (_error) {
-      // Error is already handled in updateField
-    }
+  const removeOptional = (key: OptionalFieldConfig['key']) => {
+    setDraft(prev => ({ ...prev, [key]: undefined }));
   };
-
-  const optionalFields = [
-    {
-      key: 'instructions',
-      show: showInstructions,
-      setShow: setShowInstructions,
-      label: 'Instructions',
-    },
-    {
-      key: 'restrictions',
-      show: showRestrictions,
-      setShow: setShowRestrictions,
-      label: 'Restrictions',
-    },
-    {
-      key: 'scenario',
-      show: showScenario,
-      setShow: setShowScenario,
-      label: 'Scenario',
-    },
-    {
-      key: 'turn_config',
-      show: showTurnConfig,
-      setShow: setShowTurnConfig,
-      label: 'Turn Configuration',
-    },
-  ];
-
-  const hiddenFields = optionalFields.filter(field => !field.show);
 
   return (
-    <Grid container spacing={2}>
-      <EditableField
-        label="Goal"
-        value={config.goal || ''}
-        onSave={value => updateField('goal', value)}
-        rows={3}
-        placeholder="What should be verified in this test"
-        helperText="What the target should do - the success criteria for this test"
-        maxLength={5000}
-      />
-      {showInstructions && (
-        <EditableField
-          label="Instructions (Optional)"
-          value={config.instructions || ''}
-          onSave={value => updateField('instructions', value)}
-          rows={3}
-          placeholder="How to conduct the test"
-          helperText="How to conduct the test - if not provided, the agent plans its own approach"
-          onRemove={() => removeField('instructions', setShowInstructions)}
-          maxLength={10000}
-        />
-      )}
-      {showRestrictions && (
-        <EditableField
-          label="Restrictions (Optional)"
-          value={config.restrictions || ''}
-          onSave={value => updateField('restrictions', value)}
-          rows={3}
-          placeholder="What must not happen"
-          helperText="What the target must not do - forbidden behaviors or boundaries"
-          onRemove={() => removeField('restrictions', setShowRestrictions)}
-          maxLength={10000}
-        />
-      )}
-      {showScenario && (
-        <EditableField
-          label="Scenario (Optional)"
-          value={config.scenario || ''}
-          onSave={value => updateField('scenario', value)}
-          rows={3}
-          placeholder="Context and persona for the test"
-          helperText="Context and persona for the test - narrative setup or user role"
-          onRemove={() => removeField('scenario', setShowScenario)}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Goal — required, always visible */}
+      {isEditing ? (
+        <EditableTextField
+          label="Goal"
+          value={draft.goal ?? ''}
+          onChange={v => updateField('goal', v)}
+          helperText="What the target should do — the success criteria for this test"
+          placeholder="What should be verified in this test"
           maxLength={5000}
+          rows={4}
+          required
+        />
+      ) : (
+        <ViewField
+          label="Goal"
+          value={draft.goal}
+          helperText="What the target should do — the success criteria for this test"
+          multiline
         />
       )}
-      {showTurnConfig && (
-        <Grid size={12}>
-          <Box sx={{ mb: 1 }}>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Turn Configuration
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', fontStyle: 'italic' }}
+
+      {/* Optional text fields */}
+      {OPTIONAL_TEXT_FIELDS.map(field => {
+        if (!visibleOptional.has(field.key)) return null;
+        const value = (draft[field.key] as string | undefined) ?? '';
+
+        return isEditing ? (
+          <EditableTextField
+            key={field.key}
+            label={field.label}
+            value={value}
+            onChange={v => updateField(field.key, v)}
+            onRemove={() => removeOptional(field.key)}
+            helperText={field.helperText}
+            placeholder={field.placeholder}
+            maxLength={field.maxLength}
+            rows={4}
+          />
+        ) : (
+          <ViewField
+            key={field.key}
+            label={field.label}
+            value={value}
+            helperText={field.helperText}
+            multiline
+          />
+        );
+      })}
+
+      {/* Turn configuration — always visible, blends with the other fields */}
+      <TurnConfigEditor
+        draft={draft}
+        setDraft={setDraft}
+        disabled={!isEditing}
+      />
+
+      {/* Add optional field buttons — only in edit mode */}
+      {isEditing && hiddenOptional.length > 0 && (
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+          {hiddenOptional.map(field => (
+            <Button
+              key={field.key}
+              variant="outlined"
+              size="small"
+              startIcon={<AddIcon />}
+              onClick={() => addOptional(field.key)}
+              sx={{ textTransform: 'none' }}
             >
-              Set the minimum and maximum number of conversation turns
-            </Typography>
-          </Box>
-          <Box
-            sx={theme => ({
-              position: 'relative',
-              bgcolor: 'action.hover',
-              borderRadius: theme.shape.borderRadius * 0.25,
-              p: theme.spacing(2),
-              pr: theme.spacing(14),
-            })}
-          >
-            <Box
-              sx={theme => ({
-                display: 'flex',
-                alignItems: 'center',
-                gap: theme.spacing(2),
-                mb: theme.spacing(1),
-              })}
-            >
-              <Typography
-                variant="body2"
-                sx={theme => ({ minWidth: theme.spacing(9) })}
-              >
-                Min:{' '}
-                {config.min_turns ?? Math.ceil((config.max_turns || 10) * 0.8)}
-              </Typography>
-              <Slider
-                value={[
-                  config.min_turns ?? Math.ceil((config.max_turns || 10) * 0.8),
-                  config.max_turns || 10,
-                ]}
-                onChange={(_, newValue) => {
-                  const [newMin, newMax] = newValue as number[];
-                  setConfig(prev => ({
-                    ...prev,
-                    min_turns: newMin,
-                    max_turns: newMax,
-                  }));
-                }}
-                onChangeCommitted={(_, newValue) => {
-                  const [newMin, newMax] = newValue as number[];
-                  updateTurnConfig(newMin, newMax);
-                }}
-                min={1}
-                max={50}
-                step={1}
-                marks={[
-                  { value: 1, label: '1' },
-                  { value: 10, label: '10' },
-                  { value: 25, label: '25' },
-                  { value: 50, label: '50' },
-                ]}
-                valueLabelDisplay="auto"
-                disableSwap
-              />
-              <Typography
-                variant="body2"
-                sx={theme => ({ minWidth: theme.spacing(9) })}
-              >
-                Max: {config.max_turns || 10}
-              </Typography>
-            </Box>
-            <Box
-              sx={theme => ({
-                position: 'absolute',
-                top: theme.spacing(1),
-                right: theme.spacing(1),
-                zIndex: 1,
-              })}
-            >
-              <Button
-                startIcon={<CloseIcon />}
-                onClick={() => removeField('turn_config', setShowTurnConfig)}
-                sx={theme => ({
-                  backgroundColor:
-                    theme.palette.mode === 'dark'
-                      ? theme.palette.action.hover
-                      : theme.palette.background.paper,
-                  '&:hover': {
-                    backgroundColor:
-                      theme.palette.mode === 'dark'
-                        ? theme.palette.action.selected
-                        : theme.palette.action.hover,
-                  },
-                })}
-              >
-                Remove
-              </Button>
-            </Box>
-          </Box>
-        </Grid>
+              {field.label}
+            </Button>
+          ))}
+        </Box>
       )}
-      {hiddenFields.length > 0 && (
-        <Grid size={12}>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {hiddenFields.map(field => (
-              <Button
-                key={field.key}
-                variant="outlined"
-                size="small"
-                startIcon={<AddIcon />}
-                onClick={() => field.setShow(true)}
-                sx={{ textTransform: 'none' }}
-              >
-                {field.label}
-              </Button>
-            ))}
-          </Box>
-        </Grid>
-      )}
-    </Grid>
+    </Box>
   );
+}
+
+interface TurnConfigEditorProps {
+  draft: MultiTurnDraft;
+  setDraft: (
+    next: MultiTurnDraft | ((p: MultiTurnDraft) => MultiTurnDraft)
+  ) => void;
+  disabled?: boolean;
+}
+
+function TurnConfigEditor({
+  draft,
+  setDraft,
+  disabled = false,
+}: TurnConfigEditorProps) {
+  const max = draft.max_turns ?? 10;
+  const min = draft.min_turns ?? Math.ceil(max * 0.8);
+
+  return (
+    <Box sx={{ width: '100%' }}>
+      {/* Label — matches ViewField */}
+      <Typography
+        sx={{
+          fontSize: 14,
+          lineHeight: '22px',
+          color: theme => theme.palette.greyscale.subtitle,
+          px: '14px',
+          mb: '6px',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        Turn Configuration
+      </Typography>
+
+      {/* Value box — matches ViewField */}
+      <Box
+        sx={{
+          bgcolor: '#f9f9fa',
+          borderRadius: '4px',
+          pl: '16px',
+          pr: '16px',
+          py: '16px',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography
+            sx={{
+              fontSize: 14,
+              lineHeight: '22px',
+              minWidth: 64,
+              color: theme => theme.palette.greyscale.body,
+            }}
+          >
+            Min: {min}
+          </Typography>
+          <Slider
+            value={[min, max]}
+            onChange={(_, newValue) => {
+              const [newMin, newMax] = newValue as number[];
+              setDraft(prev => ({
+                ...prev,
+                min_turns: newMin,
+                max_turns: newMax,
+              }));
+            }}
+            min={1}
+            max={50}
+            step={1}
+            marks={[
+              { value: 1, label: '1' },
+              { value: 10, label: '10' },
+              { value: 25, label: '25' },
+              { value: 50, label: '50' },
+            ]}
+            valueLabelDisplay="auto"
+            disableSwap
+            disabled={disabled}
+          />
+          <Typography
+            sx={{
+              fontSize: 14,
+              lineHeight: '22px',
+              minWidth: 64,
+              textAlign: 'right',
+              color: theme => theme.palette.greyscale.body,
+            }}
+          >
+            Max: {max}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Helper text below — matches ViewField */}
+      <Typography
+        sx={{
+          fontSize: 12,
+          lineHeight: '18px',
+          color: theme => theme.palette.greyscale.subtitle,
+          px: '14px',
+          pt: '3px',
+        }}
+      >
+        {TURN_CONFIG_HELPER}
+      </Typography>
+    </Box>
+  );
+}
+
+export function createMultiTurnDraft(
+  config: MultiTurnTestConfig | null | undefined
+): MultiTurnDraft {
+  return {
+    ...createEmptyMultiTurnConfig(),
+    ...(config ?? {}),
+  };
 }

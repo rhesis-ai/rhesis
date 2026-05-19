@@ -13,7 +13,10 @@ import {
   MultiTurnTestConfig,
   isMultiTurnConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
-import MultiTurnConfigFields from './MultiTurnConfigFields';
+import MultiTurnConfigFields, {
+  MultiTurnDraft,
+  createMultiTurnDraft,
+} from './MultiTurnConfigFields';
 import FilePreview from '@/components/common/FilePreview';
 import { useRouter } from 'next/navigation';
 
@@ -73,26 +76,58 @@ export default function TestTechnicalCard({
   };
 
   if (isMultiTurn) {
+    const initialConfig: MultiTurnTestConfig | null = isMultiTurnConfig(
+      test.test_configuration
+    )
+      ? (test.test_configuration as MultiTurnTestConfig)
+      : null;
+    const initialMultiTurnDraft: MultiTurnDraft =
+      createMultiTurnDraft(initialConfig);
+
+    const handleMultiTurnSave = async (draft: MultiTurnDraft) => {
+      if (!draft.goal || draft.goal.trim().length === 0) {
+        notifications.show('Goal cannot be empty', {
+          severity: 'error',
+          autoHideDuration: 4000,
+        });
+        throw new Error('Goal cannot be empty');
+      }
+
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const testsClient = apiFactory.getTestsClient();
+
+      const payload: MultiTurnTestConfig = {
+        goal: draft.goal.trim(),
+        instructions: draft.instructions?.trim() || undefined,
+        restrictions: draft.restrictions?.trim() || undefined,
+        scenario: draft.scenario?.trim() || undefined,
+        max_turns: draft.max_turns ?? 10,
+        min_turns: draft.min_turns,
+      };
+
+      await testsClient.updateTest(test.id, {
+        test_configuration: payload as unknown as Record<string, unknown>,
+      });
+
+      notifications.show('Multi-turn configuration updated', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+      onUpdate?.();
+      router.refresh();
+    };
+
     return (
       <EditableSection
         title="Prompts"
-        initialValue={{}}
-        onSave={async () => {
-          onUpdate?.();
-          router.refresh();
-        }}
-        isDirty={() => false}
+        initialValue={initialMultiTurnDraft}
+        onSave={handleMultiTurnSave}
       >
-        {() => (
+        {({ draft, setDraft, isEditing }) => (
           <MultiTurnConfigFields
-            sessionToken={sessionToken}
-            testId={test.id}
-            initialConfig={
-              isMultiTurnConfig(test.test_configuration)
-                ? (test.test_configuration as MultiTurnTestConfig)
-                : null
-            }
-            onUpdate={onUpdate}
+            draft={draft}
+            setDraft={setDraft}
+            isEditing={isEditing}
           />
         )}
       </EditableSection>
