@@ -15,7 +15,7 @@ import {
   ScienceIcon,
   AppsIcon,
   VpnKeyIcon,
-  PlayArrowIcon,
+  AnimationIcon,
   AssessmentIcon,
   CategoryIcon,
   AutoGraphIcon,
@@ -107,7 +107,7 @@ async function getNavigationItems(
       kind: 'page',
       segment: 'test-runs',
       title: 'Test Runs',
-      icon: <PlayArrowIcon key="test-runs-icon" />,
+      icon: <AnimationIcon key="test-runs-icon" />,
     },
     // EVALUATE section — analysis and results
     {

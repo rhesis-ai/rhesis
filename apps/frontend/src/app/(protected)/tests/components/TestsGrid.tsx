@@ -3,25 +3,39 @@
 import React, {
   useEffect,
   useState,
+  useContext,
   useCallback,
   useRef,
   useMemo,
 } from 'react';
-import AddIcon from '@mui/icons-material/Add';
-import ListIcon from '@mui/icons-material/List';
-import DeleteIcon from '@mui/icons-material/Delete';
+import ListIcon from '@mui/icons-material/ListOutlined';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import {
   GridColDef,
   GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import { Typography, Box, Alert, Chip } from '@mui/material';
+import {
+  Typography,
+  Box,
+  Alert,
+  Chip,
+  Button,
+  ButtonGroup,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import { SearchPill } from '@/components/common/SearchPill';
 import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -32,17 +46,166 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import TestFilterDrawer, {
+  type TestFilters,
+  EMPTY_TEST_FILTERS,
+  hasActiveTestFilters,
+} from './TestFilterDrawer';
 import {
   getTestContentValue,
   renderTestContentCell,
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
+import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
 
 interface TestsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
   onNewTest?: () => void;
   disableAddButton?: boolean;
+}
+
+// ─── Toolbar context (passes search/filter state into the DataGrid slot) ──────
+
+interface TestsToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  typeFilter: string;
+  setTypeFilter: (v: string) => void;
+  openFilterDrawer: () => void;
+}
+
+const TestsToolbarContext = React.createContext<TestsToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  typeFilter: 'all',
+  setTypeFilter: () => {},
+  openFilterDrawer: () => {},
+});
+
+const PILL_TABS = [
+  { label: 'All', value: 'all' },
+  { label: 'Single Turn', value: 'single_turn' },
+  { label: 'Multi Turn', value: 'multi_turn' },
+];
+
+function TestsUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    typeFilter,
+    setTypeFilter,
+    openFilterDrawer,
+  } = useContext(TestsToolbarContext);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        px: 2,
+        py: 1,
+        borderBottom: theme =>
+          `1px solid ${
+            theme.palette.mode === 'light'
+              ? GREYSCALE.light.border
+              : GREYSCALE.dark.border
+          }`,
+        minHeight: 52,
+      }}
+    >
+      {/* Left: filter button + search */}
+      <Tooltip title="Filters">
+        <IconButton
+          size="small"
+          onClick={openFilterDrawer}
+          sx={{
+            bgcolor: 'primary.main',
+            color: '#fff',
+            borderRadius: BORDER_RADIUS.sm,
+            width: 36,
+            height: 36,
+            flexShrink: 0,
+            '&:hover': { bgcolor: 'primary.dark' },
+          }}
+        >
+          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
+        </IconButton>
+      </Tooltip>
+
+      <SearchPill
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search tests…"
+        width={240}
+      />
+
+      {/* Center: tab pills */}
+      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+        <ButtonGroup
+          variant="outlined"
+          size="small"
+          sx={{
+            '& .MuiButtonGroup-grouped': {
+              borderRadius: 0,
+              '&:first-of-type': {
+                borderTopLeftRadius: BORDER_RADIUS.pill,
+                borderBottomLeftRadius: BORDER_RADIUS.pill,
+              },
+              '&:last-of-type': {
+                borderTopRightRadius: BORDER_RADIUS.pill,
+                borderBottomRightRadius: BORDER_RADIUS.pill,
+              },
+              borderColor: theme =>
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : GREYSCALE.dark.border,
+            },
+          }}
+        >
+          {PILL_TABS.map(tab => (
+            <Button
+              key={tab.value}
+              onClick={() => setTypeFilter(tab.value)}
+              sx={{
+                px: 2,
+                py: 0.5,
+                fontWeight: typeFilter === tab.value ? 600 : 400,
+                bgcolor:
+                  typeFilter === tab.value ? 'primary.dark' : 'transparent',
+                color:
+                  typeFilter === tab.value
+                    ? '#fff'
+                    : theme =>
+                        theme.palette.mode === 'light'
+                          ? GREYSCALE.light.body
+                          : GREYSCALE.dark.body,
+                '&:hover': {
+                  bgcolor:
+                    typeFilter === tab.value
+                      ? 'primary.dark'
+                      : theme =>
+                          theme.palette.mode === 'light'
+                            ? GREYSCALE.light.surface1
+                            : GREYSCALE.dark.surface1,
+                },
+              }}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </Box>
+
+      {/* Right: DataGrid toolbar buttons */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <GridToolbarColumnsButton />
+        <GridToolbarDensitySelector />
+        <GridToolbarExport />
+      </Box>
+    </Box>
+  );
 }
 
 export default function TestsTable({
@@ -54,6 +217,10 @@ export default function TestsTable({
   const router = useRouter();
   const notifications = useNotifications();
   const isMounted = useRef(true);
+
+  // Search + tab filter — managed here, shared to toolbar via context
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   // Component state
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
@@ -70,6 +237,9 @@ export default function TestsTable({
   });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestDetail | undefined>();
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] =
+    useState<TestFilters>(EMPTY_TEST_FILTERS);
   const [testSetDialogOpen, setTestSetDialogOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -154,6 +324,99 @@ export default function TestsTable({
     // Reset to first page when filters change
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
+
+  // Sync external searchQuery prop into filterModel
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'quickFilter'
+      );
+      const items = searchQuery
+        ? [
+            ...otherItems,
+            { field: 'quickFilter', operator: 'contains', value: searchQuery },
+          ]
+        : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  // Sync external typeFilter prop into filterModel
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'test_type.type_value'
+      );
+      const items =
+        typeFilter && typeFilter !== 'all'
+          ? [
+              ...otherItems,
+              {
+                field: 'test_type.type_value',
+                operator: 'equals',
+                value: typeFilter,
+              },
+            ]
+          : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [typeFilter]);
+
+  // Sync drawer filters into filterModel
+  useEffect(() => {
+    setFilterModel(prev => {
+      const DRAWER_FIELDS = [
+        'test_type.type_value',
+        'status.name',
+        'behavior.name',
+        'category.name',
+        'topic.name',
+      ];
+      const otherItems = prev.items.filter(
+        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      );
+      const drawerItems: typeof prev.items = [];
+      if (drawerFilters.testType) {
+        drawerItems.push({
+          field: 'test_type.type_value',
+          operator: 'equals',
+          value: drawerFilters.testType,
+        });
+      }
+      if (drawerFilters.status) {
+        drawerItems.push({
+          field: 'status.name',
+          operator: 'contains',
+          value: drawerFilters.status,
+        });
+      }
+      if (drawerFilters.behavior) {
+        drawerItems.push({
+          field: 'behavior.name',
+          operator: 'contains',
+          value: drawerFilters.behavior,
+        });
+      }
+      if (drawerFilters.category) {
+        drawerItems.push({
+          field: 'category.name',
+          operator: 'contains',
+          value: drawerFilters.category,
+        });
+      }
+      if (drawerFilters.topic) {
+        drawerItems.push({
+          field: 'topic.name',
+          operator: 'contains',
+          value: drawerFilters.topic,
+        });
+      }
+      return { ...prev, items: [...otherItems, ...drawerItems] };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [drawerFilters]);
 
   // Column definitions
   const columns: GridColDef[] = React.useMemo(
@@ -465,10 +728,6 @@ export default function TestsTable({
     setDrawerOpen(true);
   }, []);
 
-  const generateNewTests = useCallback(() => {
-    router.push('/tests/new-generated');
-  }, [router]);
-
   const handleDrawerClose = useCallback(() => {
     setDrawerOpen(false);
     setSelectedTest(undefined);
@@ -526,57 +785,43 @@ export default function TestsTable({
     }
   }, [sessionToken, onRefresh, fetchTests, paginationModel.page]);
 
-  const handleGenerateTests = useCallback(() => {
-    if (onNewTest) {
-      onNewTest();
-    } else {
-      generateNewTests();
-    }
-  }, [onNewTest, generateNewTests]);
-
-  // Get action buttons based on selection
+  // Get action buttons based on selection (Add Tests removed — FAB in page header handles it)
   const getActionButtons = useCallback(() => {
-    const buttons = [];
+    if (selectedRows.length === 0) return [];
 
-    buttons.push({
-      label: 'Add Tests',
-      icon: <AddIcon />,
-      variant: 'contained' as const,
-      onClick: handleGenerateTests,
-      dataTour: 'create-test-button',
-      disabled: disableAddButton,
-    });
-
-    if (selectedRows.length > 0) {
-      buttons.push({
+    return [
+      {
         label: 'Assign to Test Set',
         icon: <ListIcon />,
         variant: 'contained' as const,
         onClick: handleCreateTestSet,
         disabled: selectedTestTypes.isMixed,
-      });
-
-      buttons.push({
+      },
+      {
         label: 'Delete Tests',
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
         onClick: handleDeleteTests,
-      });
-    }
-
-    return buttons;
+      },
+    ];
   }, [
     selectedRows.length,
     handleCreateTestSet,
     handleDeleteTests,
-    handleGenerateTests,
-    disableAddButton,
     selectedTestTypes.isMixed,
   ]);
 
   return (
-    <>
+    <TestsToolbarContext.Provider
+      value={{
+        searchQuery,
+        setSearchQuery,
+        typeFilter,
+        setTypeFilter,
+        openFilterDrawer: () => setFilterDrawerOpen(true),
+      }}
+    >
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -586,17 +831,24 @@ export default function TestsTable({
       {selectedRows.length > 0 && (
         <Box
           sx={{
-            mb: 2,
+            px: 2,
+            py: 1,
             display: 'flex',
             alignItems: 'center',
             gap: 2,
+            borderBottom: theme =>
+              `1px solid ${
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : GREYSCALE.dark.border
+              }`,
           }}
         >
           <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} tests selected
+            {selectedRows.length} selected
           </Typography>
           {selectedTestTypes.isMixed && (
-            <Alert severity="warning">
+            <Alert severity="warning" sx={{ py: 0 }}>
               Select tests with the same test type
             </Alert>
           )}
@@ -611,7 +863,6 @@ export default function TestsTable({
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         actionButtons={getActionButtons()}
-        checkboxSelection
         disableRowSelectionOnClick
         onRowSelectionModelChange={handleSelectionChange}
         rowSelectionModel={selectedRows}
@@ -622,6 +873,7 @@ export default function TestsTable({
         serverSideFiltering={true}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        toolbarSlot={TestsUnifiedToolbar}
         showToolbar={true}
         disablePaperWrapper={true}
         persistState
@@ -661,6 +913,35 @@ export default function TestsTable({
           />
         </>
       )}
-    </>
+
+      {/* Filter drawer */}
+      <TestFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={f => {
+          setDrawerFilters(f);
+          // If drawer sets a test type, sync the pill tab too
+          if (f.testType) setTypeFilter(f.testType);
+          else if (!drawerFilters.testType) setTypeFilter('all');
+        }}
+      />
+
+      {/* Active filter badge */}
+      {hasActiveTestFilters(drawerFilters) && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            bgcolor: 'primary.main',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+    </TestsToolbarContext.Provider>
   );
 }

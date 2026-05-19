@@ -87,3 +87,6 @@ export { default as ToggleOnIcon } from '@mui/icons-material/ToggleOnOutlined';
 export { default as GradingIcon } from '@mui/icons-material/GradingOutlined';
 export { default as TuneIcon } from '@mui/icons-material/TuneOutlined';
 export { default as FileUploadIcon } from '@mui/icons-material/FileUploadOutlined';
+export { default as AnimationIcon } from '@mui/icons-material/AnimationOutlined';
+export { default as DarkModeIcon } from '@mui/icons-material/DarkModeOutlined';
+export { default as ExitToAppIcon } from '@mui/icons-material/ExitToAppOutlined';

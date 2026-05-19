@@ -9,7 +9,6 @@ import {
   Paper,
   CircularProgress,
   IconButton,
-  InputBase,
   TablePagination,
   Dialog,
   DialogTitle,
@@ -28,8 +27,8 @@ import ProjectFilterDrawer, {
 import AddIcon from '@mui/icons-material/Add';
 import FolderIcon from '@mui/icons-material/Folder';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import SearchIcon from '@mui/icons-material/Search';
 import TuneIcon from '@mui/icons-material/TuneOutlined';
+import { SearchPill } from '@/components/common/SearchPill';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -275,55 +274,14 @@ export default function ProjectsClientWrapper({
           </IconButton>
 
           {/* Search pill */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              bgcolor: theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.surface2
-                  : theme.palette.action.hover,
-              borderRadius: '30px', // Intentional: elongated search pill shape
-              height: 38,
-              pl: '16px',
-              pr: '4px',
-              width: 288,
+          <SearchPill
+            value={search}
+            onChange={v => {
+              setSearch(v);
+              setPage(0);
             }}
-          >
-            <InputBase
-              placeholder="Search projects…"
-              value={search}
-              onChange={e => {
-                setSearch(e.target.value);
-                setPage(0);
-              }}
-              sx={{
-                flex: 1,
-                fontSize: 14,
-                '& input::placeholder': {
-                  color: GREYSCALE.light.border,
-                  opacity: 1,
-                },
-              }}
-            />
-            <IconButton
-              aria-label="Search"
-              onClick={() => {}}
-              sx={{
-                bgcolor: 'primary.main',
-                color: '#fff',
-                borderRadius: BORDER_RADIUS.pill,
-                p: '9px',
-                width: 30,
-                height: 30,
-                '&:hover': { bgcolor: 'primary.dark' },
-                '& .MuiSvgIcon-root': { fontSize: 18 },
-              }}
-            >
-              <SearchIcon />
-            </IconButton>
-          </Box>
+            placeholder="Search projects…"
+          />
         </Box>
 
         {/* Center: Status pill tabs — display:flex + margin:auto keeps them centered in the grid cell */}

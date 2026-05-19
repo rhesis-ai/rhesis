@@ -7,12 +7,12 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
 import AddIcon from '@mui/icons-material/Add';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab } from '@/components/common/Fab';
-import { Toolbar } from '@/components/layout/Toolbar';
 import TestsGrid from './components/TestsGrid';
-import TestCharts from './components/TestCharts';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestTypeSelectionScreen from './new-generated/components/TestTypeSelectionScreen';
@@ -29,10 +29,8 @@ export default function TestsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [_testCount, setTestCount] = React.useState(0);
   const [showTestTypeModal, setShowTestTypeModal] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedTestType, setSelectedTestType] =
     React.useState<TestType | null>(null);
-  const [chartsLoaded, setChartsLoaded] = React.useState(false);
   const {
     markStepComplete: _markStepComplete,
     progress: _progress,
@@ -54,16 +52,15 @@ export default function TestsPage() {
   // Disable "Add Tests" button ONLY when user is actively on a tour OTHER than testCases
   const shouldDisableAddButton = activeTour !== null && !isOnTestCasesTour;
 
-  // Start tour only after charts are loaded
+  // Start tour after a short delay to ensure the page is rendered
   React.useEffect(() => {
-    if (tourParam === 'testCases' && chartsLoaded) {
-      // Small additional delay to ensure button is positioned correctly
+    if (tourParam === 'testCases') {
       const timeout = setTimeout(() => {
         startTour('testCases');
       }, 300);
       return () => clearTimeout(timeout);
     }
-  }, [tourParam, chartsLoaded, startTour]);
+  }, [tourParam, startTour]);
 
   // No auto-close logic needed - tour handles modal closing
 
@@ -102,10 +99,6 @@ export default function TestsPage() {
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
-  }, []);
-
-  const handleChartsLoaded = React.useCallback(() => {
-    setChartsLoaded(true);
   }, []);
 
   const handleOpenModal = React.useCallback(() => {
@@ -205,38 +198,40 @@ export default function TestsPage() {
         title="Tests"
         breadcrumbs={[]}
         actions={
-          <Fab
-            icon={<AddIcon />}
-            tooltip="New Test"
-            onClick={handleOpenModal}
-            disabled={shouldDisableAddButton}
-          />
-        }
-      >
-        {/* Charts Section */}
-        <TestCharts
-          sessionToken={session.session_token}
-          key={`charts-${refreshKey}`}
-          onLoadComplete={handleChartsLoaded}
-        />
-
-        {/* Table Section */}
-        <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
-          <Toolbar
-            searchProps={{
-              value: searchQuery,
-              onChange: setSearchQuery,
-              placeholder: 'Search tests…',
-            }}
-          />
-          <Box sx={{ p: 2 }}>
-            <TestsGrid
-              sessionToken={session.session_token}
-              onRefresh={handleRefresh}
-              onNewTest={handleOpenModal}
-              disableAddButton={shouldDisableAddButton}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Fab
+              icon={<DownloadOutlinedIcon />}
+              tooltip="Import tests"
+              onClick={() => {}}
+            />
+            <Fab
+              icon={<AddIcon />}
+              tooltip="New Test"
+              onClick={handleOpenModal}
+              disabled={shouldDisableAddButton}
             />
           </Box>
+        }
+      >
+        {/* Table Section */}
+        <Paper
+          sx={{
+            width: '100%',
+            mb: 2,
+            mt: 2,
+            borderRadius: BORDER_RADIUS.md,
+            boxShadow: ELEVATION.xs,
+            border: theme =>
+              `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+            overflow: 'hidden',
+          }}
+        >
+          <TestsGrid
+            sessionToken={session.session_token}
+            onRefresh={handleRefresh}
+            onNewTest={handleOpenModal}
+            disableAddButton={shouldDisableAddButton}
+          />
         </Paper>
       </PageLayout>
 

@@ -61,9 +61,9 @@ const getDesignTokens = (mode: PaletteMode) => {
         ? {
             // Light mode - Rhesis AI colors
             primary: {
-              main: '#50B9E0', // Primary Blue
-              light: '#97D5EE', // Primary Light Blue
-              dark: '#2AA1CE', // Primary CTA Blue
+              main: '#0080AF', // Figma primary blue
+              light: '#33A6CB', // lighter tint
+              dark: '#005F82', // darker shade
               contrastText: '#FFFFFF',
             },
             secondary: {
@@ -78,7 +78,7 @@ const getDesignTokens = (mode: PaletteMode) => {
               light1: '#F2F9FD',
               light2: '#E4F2FA',
               light3: '#C2E5F5',
-              light4: '#97D5EE',
+              light4: '#33A6CB',
             },
             text: {
               primary: '#3D3D3D',
@@ -100,9 +100,9 @@ const getDesignTokens = (mode: PaletteMode) => {
         : {
             // Dark mode
             primary: {
-              main: '#2AA1CE',
-              light: '#3BC4F2',
-              dark: '#2AA1CE',
+              main: '#33A6CB', // slightly lighter for dark bg readability
+              light: '#66C2DC',
+              dark: '#0080AF',
               contrastText: '#FFFFFF',
             },
             secondary: {
@@ -315,7 +315,7 @@ const getDesignTokens = (mode: PaletteMode) => {
       MuiAppBar: {
         styleOverrides: {
           root: {
-            backgroundColor: mode === 'light' ? '#2AA1CE' : '#161B22',
+            backgroundColor: mode === 'light' ? '#0080AF' : '#161B22',
             '& .MuiSvgIcon-root': {
               color: '#FFFFFF',
             },
@@ -334,7 +334,7 @@ const getDesignTokens = (mode: PaletteMode) => {
               color: mode === 'light' ? gs.body : '#FFFFFF',
             },
             '& .MuiListItemButton-root.Mui-selected': {
-              backgroundColor: mode === 'light' ? '#2AA1CE' : '#2AA1CE',
+              backgroundColor: '#0080AF',
               '& .MuiSvgIcon-root': { color: '#FFFFFF' },
               '& .MuiTypography-root': { color: '#FFFFFF' },
             },
@@ -371,9 +371,9 @@ const getDesignTokens = (mode: PaletteMode) => {
             fontWeight: 600,
             borderRadius: 8,
             '&.MuiButton-containedPrimary': {
-              backgroundColor: '#2AA1CE',
+              backgroundColor: '#0080AF',
               color: '#FFFFFF',
-              '&:hover': { backgroundColor: '#50B9E0' },
+              '&:hover': { backgroundColor: '#005F82' },
               '&.Mui-disabled': { backgroundColor: 'unset', color: 'unset' },
             },
             '&.MuiButton-containedSecondary': {
@@ -382,13 +382,13 @@ const getDesignTokens = (mode: PaletteMode) => {
               '&:hover': { backgroundColor: '#FDD803', color: '#1A1A1A' },
             },
             '&.MuiButton-outlinedPrimary': {
-              color: '#2AA1CE',
-              borderColor: '#2AA1CE',
+              color: '#0080AF',
+              borderColor: '#0080AF',
               backgroundColor: 'transparent',
               '&:hover': {
-                backgroundColor: '#2AA1CE',
+                backgroundColor: '#0080AF',
                 color: '#FFFFFF',
-                borderColor: '#2AA1CE',
+                borderColor: '#0080AF',
               },
             },
             '&.MuiButton-outlinedSecondary': {
@@ -402,10 +402,10 @@ const getDesignTokens = (mode: PaletteMode) => {
               },
             },
             '&.MuiButton-textPrimary': {
-              color: mode === 'light' ? '#50B9E0' : '#3BC4F2',
+              color: mode === 'light' ? '#0080AF' : '#33A6CB',
               '&:hover': {
                 backgroundColor:
-                  mode === 'light' ? 'rgba(80, 185, 224, 0.04)' : '#1F242B',
+                  mode === 'light' ? 'rgba(0, 128, 175, 0.04)' : '#1F242B',
               },
             },
           },
@@ -427,9 +427,9 @@ const getDesignTokens = (mode: PaletteMode) => {
                 mode === 'light' ? GREYSCALE.light.body : GREYSCALE.dark.body,
               backgroundColor: 'transparent',
               '&.active, &[aria-pressed="true"]': {
-                backgroundColor: mode === 'light' ? '#2AA1CE' : '#2AA1CE',
+                backgroundColor: '#0080AF',
                 color: '#FFFFFF',
-                borderColor: '#2AA1CE',
+                borderColor: '#0080AF',
               },
               '&:hover': {
                 backgroundColor:
@@ -554,7 +554,7 @@ const getDesignTokens = (mode: PaletteMode) => {
                     : GREYSCALE.dark.border,
               },
               '&:hover fieldset': {
-                borderColor: '#2AA1CE',
+                borderColor: '#0080AF',
               },
             },
           },
@@ -573,8 +573,8 @@ const getDesignTokens = (mode: PaletteMode) => {
       },
     },
     chartPalettes: {
-      line: ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803'],
-      pie: ['#97D5EE', '#50B9E0', '#2AA1CE'],
+      line: ['#0080AF', '#FD6E12', '#33A6CB', '#FDD803'],
+      pie: ['#33A6CB', '#0080AF', '#005F82'],
       status: ['#2E7D32', '#F57C00', '#C62828'],
     },
     elevation: {
