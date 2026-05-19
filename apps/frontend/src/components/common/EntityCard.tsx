@@ -33,6 +33,10 @@ export interface EntityCardProps {
   chipSections?: ChipSection[];
   topRightActions?: React.ReactNode;
   captionText?: string;
+  /** Overrides the default card border color (e.g. 'warning.main' for validation errors) */
+  borderColor?: string;
+  /** Optional content rendered inside the card after chip sections */
+  footer?: React.ReactNode;
 }
 
 // Status dot / badge colours — intentional semantic values, defined once here
@@ -57,6 +61,8 @@ export default function EntityCard({
   chipSections,
   topRightActions,
   captionText,
+  borderColor: borderColorProp,
+  footer,
 }: EntityCardProps) {
   const theme = useTheme();
 
@@ -74,7 +80,10 @@ export default function EntityCard({
   const hasFurtherInfo = !!status || hasChipContent;
 
   const isDark = theme.palette.mode === 'dark';
-  const borderColor = isDark ? theme.palette.divider : GREYSCALE.light.border;
+  const defaultBorderColor = isDark
+    ? theme.palette.divider
+    : GREYSCALE.light.border;
+  const resolvedBorderColor = borderColorProp ?? defaultBorderColor;
   const chipBg = isDark ? GREYSCALE.dark.surface2 : GREYSCALE.light.surface2;
 
   return (
@@ -82,7 +91,7 @@ export default function EntityCard({
       onClick={onClick}
       sx={{
         bgcolor: 'background.paper',
-        border: `1px solid ${borderColor}`,
+        border: `1px solid ${resolvedBorderColor}`,
         borderRadius: BORDER_RADIUS.md,
         p: '30px',
         boxShadow: ELEVATION.xs,
@@ -236,7 +245,13 @@ export default function EntityCard({
 
           {/* Divider — separates status/user info from chip sections */}
           {hasChipContent && (
-            <Box sx={{ height: '1px', bgcolor: borderColor, width: '100%' }} />
+            <Box
+              sx={{
+                height: '1px',
+                bgcolor: resolvedBorderColor,
+                width: '100%',
+              }}
+            />
           )}
 
           {/* Chip sections */}
@@ -302,6 +317,9 @@ export default function EntityCard({
             ))}
         </Box>
       )}
+
+      {/* Footer slot — model-specific content (status chip, action buttons) */}
+      {footer && <Box>{footer}</Box>}
     </Box>
   );
 }

@@ -1,8 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Alert, CircularProgress } from '@mui/material';
+import { Box, Alert, CircularProgress, Typography } from '@mui/material';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import AddIcon from '@mui/icons-material/Add';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab } from '@/components/common/Fab';
+import { SearchPill } from '@/components/common/SearchPill';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
@@ -14,12 +19,14 @@ import {
   ProviderSelectionDialog,
   ConnectionDialog,
   ConnectedModelCard,
-  AddModelCard,
 } from './components';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
+import { BORDER_RADIUS } from '@/styles/theme';
 import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
+
+type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
 export default function ModelsPage() {
   const { data: session } = useSession();
@@ -45,6 +52,15 @@ export default function ModelsPage() {
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
   const [organization, setOrganization] = useState<any>(null);
 
+  // Toolbar state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [modelTypeFilter, setModelTypeFilter] =
+    useState<ModelTypeFilter>('all');
+
+  // FAB menu anchor
+  const [fabAnchorEl, setFabAnchorEl] = useState<null | HTMLElement>(null);
+  const fabMenuOpen = Boolean(fabAnchorEl);
+
   useEffect(() => {
     async function loadData() {
       if (!session?.session_token) {
@@ -59,22 +75,19 @@ export default function ModelsPage() {
         const typeLookupClient = apiFactory.getTypeLookupClient();
         const usersClient = apiFactory.getUsersClient();
 
-        // Load provider types first
         const types = await typeLookupClient.getTypeLookups({
           $filter: "type_name eq 'ProviderType'",
-          limit: 100, // Fetch all providers (default is 10)
+          limit: 100,
         });
         setProviderTypes(types);
 
-        // Load user settings (now includes is_verified)
         try {
           const settings = await usersClient.getUserSettings();
           setUserSettings(settings);
         } catch {
-          // Failed to load user settings - continue without them
+          // continue without user settings
         }
 
-        // Load organization details if user belongs to one
         if (session.user?.organization_id) {
           try {
             const organizationsClient = apiFactory.getOrganizationsClient();
@@ -83,16 +96,15 @@ export default function ModelsPage() {
             );
             setOrganization(org);
           } catch {
-            // Failed to load organization - continue without it
+            // continue without organization
           }
         }
 
-        // Then load connected models
         try {
           const modelsResponse = await modelsClient.getModels();
           setConnectedModels(modelsResponse.data);
         } catch {
-          // Failed to load models - will show empty state
+          // show empty state
         }
       } catch (err) {
         setError(
@@ -106,12 +118,22 @@ export default function ModelsPage() {
     loadData();
   }, [session]);
 
-  const handleAddLLM = () => {
+  const handleFabClick = (event: React.MouseEvent<HTMLElement>) => {
+    setFabAnchorEl(event.currentTarget);
+  };
+
+  const handleFabMenuClose = () => {
+    setFabAnchorEl(null);
+  };
+
+  const handleAddLanguageModel = () => {
+    handleFabMenuClose();
     setSelectedModelType('language');
     setProviderSelectionOpen(true);
   };
 
-  const handleAddEmbedding = () => {
+  const handleAddEmbeddingModel = () => {
+    handleFabMenuClose();
     setSelectedModelType('embedding');
     setProviderSelectionOpen(true);
   };
@@ -124,7 +146,6 @@ export default function ModelsPage() {
 
   const refreshUserSettings = async () => {
     if (!session?.session_token) return;
-
     try {
       const apiFactory = new ApiClientFactory(session.session_token);
       const usersClient = apiFactory.getUsersClient();
@@ -138,10 +159,7 @@ export default function ModelsPage() {
       if (!session?.session_token) return;
 
       setModelValidationStatus(prev =>
-        new Map(prev).set(modelId, {
-          isValid: false,
-          isValidating: true,
-        })
+        new Map(prev).set(modelId, { isValid: false, isValidating: true })
       );
 
       try {
@@ -159,8 +177,6 @@ export default function ModelsPage() {
         );
       } catch (error) {
         console.error('[MODEL_VALIDATION] Error:', error);
-
-        // Extract the actual error message from the API response
         const errorMessage =
           error instanceof Error
             ? error.message
@@ -177,20 +193,15 @@ export default function ModelsPage() {
     [session?.session_token]
   );
 
-  // Validate any models set as defaults (generation, evaluation, or embedding)
-  // This ensures users are warned if their default models are misconfigured
-  // and clears warnings for models that are no longer defaults
+  // Validate default models whenever they change
   useEffect(() => {
-    if (!session?.session_token || connectedModels.length === 0) {
-      return;
-    }
+    if (!session?.session_token || connectedModels.length === 0) return;
 
     const defaultGenerationId = userSettings?.models?.generation?.model_id;
     const defaultEvaluationId = userSettings?.models?.evaluation?.model_id;
     const defaultExecutionId = userSettings?.models?.execution?.model_id;
     const defaultEmbeddingId = userSettings?.models?.embedding?.model_id;
 
-    // Clear validation status for models that are NOT currently defaults
     setModelValidationStatus(prev => {
       const newStatus = new Map(prev);
       connectedModels.forEach(model => {
@@ -200,64 +211,34 @@ export default function ModelsPage() {
           model.id === defaultExecutionId ||
           model.id === defaultEmbeddingId;
         if (!isDefault && newStatus.has(model.id)) {
-          // Remove validation status for non-default models
           newStatus.delete(model.id);
         }
       });
       return newStatus;
     });
 
-    // Validate default generation model
     if (defaultGenerationId) {
-      const defaultGenerationModel = connectedModels.find(
-        m => m.id === defaultGenerationId
-      );
-      if (defaultGenerationModel) {
-        validateModel(defaultGenerationModel.id);
-      }
+      const m = connectedModels.find(m => m.id === defaultGenerationId);
+      if (m) validateModel(m.id);
     }
-
-    // Validate default evaluation model
     if (defaultEvaluationId) {
-      const defaultEvaluationModel = connectedModels.find(
-        m => m.id === defaultEvaluationId
-      );
-      // Only validate if it's different from generation model
-      if (
-        defaultEvaluationModel &&
-        defaultEvaluationModel.id !== defaultGenerationId
-      ) {
-        validateModel(defaultEvaluationModel.id);
-      }
+      const m = connectedModels.find(m => m.id === defaultEvaluationId);
+      if (m && m.id !== defaultGenerationId) validateModel(m.id);
     }
-
-    // Validate default execution model
     if (defaultExecutionId) {
-      const defaultExecutionModel = connectedModels.find(
-        m => m.id === defaultExecutionId
-      );
-      if (
-        defaultExecutionModel &&
-        defaultExecutionModel.id !== defaultGenerationId &&
-        defaultExecutionModel.id !== defaultEvaluationId
-      ) {
-        validateModel(defaultExecutionModel.id);
-      }
+      const m = connectedModels.find(m => m.id === defaultExecutionId);
+      if (m && m.id !== defaultGenerationId && m.id !== defaultEvaluationId)
+        validateModel(m.id);
     }
-
-    // Validate default embedding model
     if (defaultEmbeddingId) {
-      const defaultEmbeddingModel = connectedModels.find(
-        m => m.id === defaultEmbeddingId
-      );
+      const m = connectedModels.find(m => m.id === defaultEmbeddingId);
       if (
-        defaultEmbeddingModel &&
-        defaultEmbeddingModel.id !== defaultGenerationId &&
-        defaultEmbeddingModel.id !== defaultEvaluationId &&
-        defaultEmbeddingModel.id !== defaultExecutionId
-      ) {
-        validateModel(defaultEmbeddingModel.id);
-      }
+        m &&
+        m.id !== defaultGenerationId &&
+        m.id !== defaultEvaluationId &&
+        m.id !== defaultExecutionId
+      )
+        validateModel(m.id);
     }
   }, [
     connectedModels,
@@ -270,23 +251,15 @@ export default function ModelsPage() {
   ]);
 
   const handleConnect = async (
-    providerId: string,
+    _providerId: string,
     modelData: ModelCreate
   ): Promise<Model> => {
-    if (!session?.session_token) {
-      throw new Error('No session token');
-    }
-
-    try {
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const modelsClient = apiFactory.getModelsClient();
-
-      const model = await modelsClient.createModel(modelData);
-      setConnectedModels(prev => [...prev, model]);
-      return model;
-    } catch (err) {
-      throw err;
-    }
+    if (!session?.session_token) throw new Error('No session token');
+    const apiFactory = new ApiClientFactory(session.session_token);
+    const modelsClient = apiFactory.getModelsClient();
+    const model = await modelsClient.createModel(modelData);
+    setConnectedModels(prev => [...prev, model]);
+    return model;
   };
 
   const handleEditClick = (model: Model, event: React.MouseEvent) => {
@@ -299,42 +272,32 @@ export default function ModelsPage() {
 
   const handleUpdate = async (modelId: UUID, updates: Partial<ModelCreate>) => {
     if (!session?.session_token) return;
-
-    try {
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const modelsClient = apiFactory.getModelsClient();
-
-      const updatedModel = await modelsClient.updateModel(modelId, updates);
-      setConnectedModels(prev =>
-        prev.map(model => (model.id === modelId ? updatedModel : model))
-      );
-
-      if (
-        userSettings?.models?.generation?.model_id === modelId ||
-        userSettings?.models?.evaluation?.model_id === modelId ||
-        userSettings?.models?.execution?.model_id === modelId ||
-        userSettings?.models?.embedding?.model_id === modelId
-      ) {
-        validateModel(modelId);
-      }
-    } catch (err) {
-      throw err;
+    const apiFactory = new ApiClientFactory(session.session_token);
+    const modelsClient = apiFactory.getModelsClient();
+    const updatedModel = await modelsClient.updateModel(modelId, updates);
+    setConnectedModels(prev =>
+      prev.map(model => (model.id === modelId ? updatedModel : model))
+    );
+    if (
+      userSettings?.models?.generation?.model_id === modelId ||
+      userSettings?.models?.evaluation?.model_id === modelId ||
+      userSettings?.models?.execution?.model_id === modelId ||
+      userSettings?.models?.embedding?.model_id === modelId
+    ) {
+      validateModel(modelId);
     }
   };
 
-  const handleDeleteClick = (model: Model, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleDeleteClick = (model: Model) => {
     setModelToDelete(model);
     setDeleteDialogOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
     if (!session?.session_token || !modelToDelete) return;
-
     try {
       const apiFactory = new ApiClientFactory(session.session_token);
       const modelsClient = apiFactory.getModelsClient();
-
       await modelsClient.deleteModel(modelToDelete.id);
       setConnectedModels(prev =>
         prev.filter(model => model.id !== modelToDelete.id)
@@ -346,120 +309,176 @@ export default function ModelsPage() {
     }
   };
 
-  const handleRequestPolyphemusAccess = (model: Model) => {
+  const handleRequestPolyphemusAccess = (_model: Model) => {
     setPolyphemusModalOpen(true);
   };
 
   const handlePolyphemusAccessSuccess = async () => {
-    // Refresh user settings after successful request
     await refreshUserSettings();
   };
 
-  // Separate models by type
-  const languageModels = connectedModels.filter(
-    model => !model.model_type || model.model_type === 'language'
-  );
-  const embeddingModels = connectedModels.filter(
-    model => model.model_type === 'embedding'
-  );
+  // Filter models by type and search query
+  const typeFilterOptions: { value: ModelTypeFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'language', label: 'Language' },
+    { value: 'embedding', label: 'Embedding' },
+  ];
+
+  const filteredModels = connectedModels.filter(model => {
+    const typeMatch =
+      modelTypeFilter === 'all' ||
+      (modelTypeFilter === 'language'
+        ? !model.model_type || model.model_type === 'language'
+        : model.model_type === modelTypeFilter);
+
+    const q = searchQuery.toLowerCase();
+    const searchMatch =
+      !q ||
+      model.name?.toLowerCase().includes(q) ||
+      model.description?.toLowerCase().includes(q) ||
+      model.model_name?.toLowerCase().includes(q);
+
+    return typeMatch && searchMatch;
+  });
 
   return (
-    <PageLayout title="Models" breadcrumbs={[]}>
-      <Box sx={{ mb: 3 }}>
-        <Typography color="text.secondary">
-          Connect language models for test generation and
-          language-model-as-judge evaluation, and embedding models for platform
-          use (including semantic search where applicable). Set your defaults
-          for generation, evaluation, and execution; the embedding default is
-          not user-configurable.
-        </Typography>
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
+    <PageLayout
+      title="Models"
+      description="Connect language models for test generation and language-model-as-judge evaluation, and embedding models for platform use. Set your defaults for generation, evaluation, and execution."
+      breadcrumbs={[]}
+      actions={
+        <>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="Add model"
+            aria-label="Add model"
+            onClick={handleFabClick}
+          />
+          <Menu
+            anchorEl={fabAnchorEl}
+            open={fabMenuOpen}
+            onClose={handleFabMenuClose}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem onClick={handleAddLanguageModel}>Language model</MenuItem>
+            <MenuItem onClick={handleAddEmbeddingModel}>
+              Embedding model
+            </MenuItem>
+          </Menu>
+        </>
+      }
+    >
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Toolbar — 3-col grid mirroring metrics/behaviors */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: '1fr auto 1fr',
+          alignItems: 'center',
+          mb: 3,
+          gap: 2,
+        }}
+      >
+        {/* Left: Search pill */}
+        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <SearchPill
+            value={searchQuery}
+            onChange={v => setSearchQuery(v)}
+            placeholder="Search models..."
+          />
+        </Box>
+
+        {/* Center: Type filter pill tabs */}
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          {typeFilterOptions.map(({ value, label }, idx, arr) => {
+            const isSelected = modelTypeFilter === value;
+            const isFirst = idx === 0;
+            const isLast = idx === arr.length - 1;
+            return (
+              <Box
+                key={value}
+                component="button"
+                onClick={() => setModelTypeFilter(value)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  px: '16px',
+                  py: '8px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  lineHeight: '22px',
+                  cursor: 'pointer',
+                  border: '1px solid',
+                  borderColor: 'primary.main',
+                  borderLeft: isFirst ? '1px solid' : 'none',
+                  borderRight: isLast ? '1px solid' : 'none',
+                  borderRadius: isFirst
+                    ? `${BORDER_RADIUS.pill} 0 0 ${BORDER_RADIUS.pill}`
+                    : isLast
+                      ? `0 ${BORDER_RADIUS.pill} ${BORDER_RADIUS.pill} 0`
+                      : 0,
+                  bgcolor: isSelected ? 'primary.main' : 'transparent',
+                  color: isSelected ? '#fff' : 'primary.main',
+                  transition: 'background-color 0.15s, color 0.15s',
+                  '&:hover': {
+                    bgcolor: isSelected
+                      ? 'primary.dark'
+                      : theme => `${theme.palette.primary.main}0f`,
+                  },
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {label}
+              </Box>
+            );
+          })}
+        </Box>
       </Box>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
+      ) : filteredModels.length === 0 ? (
+        <Box sx={{ py: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            {connectedModels.length === 0
+              ? 'No models connected yet. Use the + button to add one.'
+              : 'No models match your search.'}
+          </Typography>
+        </Box>
       ) : (
-        <>
-          {/* Language Models Section */}
-          <Box sx={{ mb: 6 }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-              Language Models
-            </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: 'repeat(2, 1fr)',
-                  md: 'repeat(3, 1fr)',
-                },
-                gap: 3,
-                width: '100%',
-                px: 0,
-              }}
-            >
-              {/* Connected Language Model Cards */}
-              {languageModels.map(model => (
-                <ConnectedModelCard
-                  key={model.id}
-                  model={model}
-                  userSettings={userSettings}
-                  isVerified={userSettings?.is_verified}
-                  validationStatus={modelValidationStatus.get(model.id)}
-                  onEdit={handleEditClick}
-                  onDelete={handleDeleteClick}
-                  onRequestAccess={handleRequestPolyphemusAccess}
-                />
-              ))}
-
-              {/* Add Language Model Card */}
-              <AddModelCard onClick={handleAddLLM} />
-            </Box>
-          </Box>
-
-          {/* Embedding Models Section */}
-          <Box>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-              Embedding Models
-            </Typography>
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: 'repeat(2, 1fr)',
-                  md: 'repeat(3, 1fr)',
-                },
-                gap: 3,
-                width: '100%',
-                px: 0,
-              }}
-            >
-              {/* Connected Embedding Model Cards */}
-              {embeddingModels.map(model => (
-                <ConnectedModelCard
-                  key={model.id}
-                  model={model}
-                  userSettings={userSettings}
-                  isVerified={userSettings?.is_verified}
-                  validationStatus={modelValidationStatus.get(model.id)}
-                  onEdit={handleEditClick}
-                  onDelete={handleDeleteClick}
-                  onRequestAccess={handleRequestPolyphemusAccess}
-                />
-              ))}
-
-              {/* Add Embedding Model Card */}
-              <AddModelCard onClick={handleAddEmbedding} />
-            </Box>
-          </Box>
-        </>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: 'repeat(2, 1fr)',
+              md: 'repeat(3, 1fr)',
+            },
+            gap: '24px',
+          }}
+        >
+          {filteredModels.map(model => (
+            <ConnectedModelCard
+              key={model.id}
+              model={model}
+              userSettings={userSettings}
+              isVerified={userSettings?.is_verified}
+              validationStatus={modelValidationStatus.get(model.id)}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+              onRequestAccess={handleRequestPolyphemusAccess}
+            />
+          ))}
+        </Box>
       )}
 
       <ProviderSelectionDialog
@@ -479,7 +498,6 @@ export default function ModelsPage() {
         userSettings={userSettings}
         onClose={() => {
           setConnectionDialogOpen(false);
-          // Delay clearing state to prevent button text flicker during closing animation
           setTimeout(() => {
             setSelectedProvider(null);
             setModelToEdit(null);

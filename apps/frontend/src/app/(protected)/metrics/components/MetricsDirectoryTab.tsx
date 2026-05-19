@@ -31,7 +31,7 @@ import type {
   BehaviorWithMetrics,
 } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
-interface FilterState {
+export interface FilterState {
   search: string;
   backend: string[];
   type: string[];
@@ -585,7 +585,7 @@ export default function MetricsDirectoryTab({
                   '&:hover': {
                     bgcolor: isSelected
                       ? 'primary.dark'
-                      : 'rgba(0,128,175,0.06)',
+                      : theme => `${theme.palette.primary.main}0f`,
                   },
                   whiteSpace: 'nowrap',
                 }}
