@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from './sidebar-constants';
+import { GREYSCALE } from '@/styles/theme';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -60,10 +61,14 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
             position: 'sticky',
             top: 0,
             height: '100vh',
-            overflowY: 'auto',
-            overflowX: 'hidden',
+            overflow: 'hidden',
             transition: 'width 0.2s ease',
             zIndex: theme => theme.zIndex.drawer,
+            // Match the sidebar surface so no white bleeds around the edges
+            bgcolor: theme =>
+              theme.palette.mode === 'light'
+                ? GREYSCALE.light.surface1
+                : GREYSCALE.dark.surface1,
           }}
         >
           {sidebar}

@@ -59,7 +59,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useGridStateStorage } from '@/hooks/useGridStateStorage';
-import { GREYSCALE } from '@/styles/theme';
+import { GREYSCALE, BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface FilterOption {
   value: string;
@@ -176,13 +176,14 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   '& .MuiDataGrid-columnSeparator': {
     display: 'none',
   },
-  // Row dividers — match Figma's #cdd2da border-top on each row
   '& .MuiDataGrid-cell': {
     display: 'flex',
     alignItems: 'center',
     overflow: 'hidden',
     borderColor:
-      theme.palette.mode === 'light' ? '#cdd2da' : theme.palette.divider,
+      theme.palette.mode === 'light'
+        ? GREYSCALE.light.border
+        : theme.palette.divider,
   },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
@@ -236,13 +237,13 @@ function FigmaPaginationFooter() {
 
   const navBtnSx = (active: boolean): SxProps<Theme> => ({
     border: '2px solid',
-    borderColor: active ? '#0080AF' : GREYSCALE.light.border,
-    borderRadius: '8px',
+    borderColor: active ? 'primary.main' : GREYSCALE.light.border,
+    borderRadius: BORDER_RADIUS.sm,
     p: '9px',
     width: 38,
     height: 38,
     flexShrink: 0,
-    color: active ? '#0080AF' : GREYSCALE.light.border,
+    color: active ? 'primary.main' : GREYSCALE.light.border,
     '&.Mui-disabled': {
       borderColor: GREYSCALE.light.border,
       color: GREYSCALE.light.border,
@@ -1030,10 +1031,10 @@ export default function BaseDataGrid({
           elevation={0}
           sx={{
             width: '100%',
-            borderRadius: '12px',
+            borderRadius: BORDER_RADIUS.md,
             border: theme =>
-              `1px solid ${theme.palette.mode === 'light' ? '#cdd2da' : theme.palette.divider}`,
-            boxShadow: '0px 2px 4px rgba(84, 90, 101, 0.25)',
+              `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : theme.palette.divider}`,
+            boxShadow: ELEVATION.xs,
             overflow: 'hidden',
           }}
         >

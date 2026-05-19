@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import NextLink from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -10,14 +10,18 @@ import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 import Collapse from '@mui/material/Collapse';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import Popover from '@mui/material/Popover';
+import SvgIcon from '@mui/material/SvgIcon';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import { UserAvatar } from '@/components/common/UserAvatar';
+import { ColorModeContext } from '@/components/providers/ThemeProvider';
+import { handleSignOut } from '@/actions/auth';
 import {
   SIDEBAR_WIDTH,
   SIDEBAR_COLLAPSED_WIDTH,
@@ -28,7 +32,36 @@ import {
   type NavigationLinkItem,
   type NavigationHeaderItem,
 } from '@/types/navigation';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+import { GREYSCALE, BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+
+// ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
+// Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
+// The path uses winding-rule cutouts: the outer rect is filled, the inner
+// left-strip and the arrow triangle are counter-clockwise holes so they appear
+// as transparent/light against the surrounding dark fill.
+
+const LEFT_PANEL_PATH =
+  'M16.048 15.5865V8.4135L12.452 12L16.048 15.5865Z' +
+  'M5.30775 20.5C4.80908 20.5 4.38308 20.3234 4.02975 19.9703C3.67658 19.6169 3.5 19.1909 3.5 18.6923V5.30775C3.5 4.80908 3.67658 4.38308 4.02975 4.02975C4.38308 3.67658 4.80908 3.5 5.30775 3.5H18.6923C19.1909 3.5 19.6169 3.67658 19.9703 4.02975C20.3234 4.38308 20.5 4.80908 20.5 5.30775V18.6923C20.5 19.1909 20.3234 19.6169 19.9703 19.9703C19.6169 20.3234 19.1909 20.5 18.6923 20.5H5.30775Z' +
+  'M8 19V5H5.30775C5.23075 5 5.16025 5.03208 5.09625 5.09625C5.03208 5.16025 5 5.23075 5 5.30775V18.6923C5 18.7692 5.03208 18.8398 5.09625 18.9038C5.16025 18.9679 5.23075 19 5.30775 19H8Z' +
+  'M9.5 19H18.6923C18.7692 19 18.8398 18.9679 18.9038 18.9038C18.9679 18.8398 19 18.7692 19 18.6923V5.30775C19 5.23075 18.9679 5.16025 18.9038 5.09625C18.8398 5.03208 18.7692 5 18.6923 5H9.5V19Z';
+
+function LeftPanelCloseIcon() {
+  return (
+    <SvgIcon viewBox="0 0 24 24">
+      <path d={LEFT_PANEL_PATH} fill="currentColor" />
+    </SvgIcon>
+  );
+}
+
+function LeftPanelOpenIcon() {
+  // Mirror horizontally: arrow now points right, indicating "open left panel"
+  return (
+    <SvgIcon viewBox="0 0 24 24" sx={{ transform: 'scaleX(-1)' }}>
+      <path d={LEFT_PANEL_PATH} fill="currentColor" />
+    </SvgIcon>
+  );
+}
 
 // Figma design tokens (resolved from theme constants — no raw hex in this file)
 const NAV_BG_LIGHT = GREYSCALE.light.surface1;
@@ -390,6 +423,11 @@ export function Sidebar() {
   const { collapsed, toggle } = useSidebarCollapse();
   const { data: session } = useSession();
   const user = session?.user as ExtendedUser | undefined;
+  const { toggleColorMode, mode } = useContext(ColorModeContext);
+
+  // User menu popover
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const menuOpen = Boolean(menuAnchor);
 
   const orgName = branding?.title ?? 'Rhesis AI';
   const isSuperuser = user?.is_superuser === true;
@@ -418,51 +456,11 @@ export function Sidebar() {
           theme.palette.mode === 'light' ? NAV_BG_LIGHT : NAV_BG_DARK,
         px: collapsed ? '12px' : '26px',
         py: '30px',
-        position: 'relative',
         transition: 'width 0.2s ease, padding 0.2s ease',
-        overflow: 'visible',
+        overflowX: 'hidden',
         boxSizing: 'border-box',
       }}
     >
-      {/* Collapse toggle — absolute-positioned just outside the sidebar right edge */}
-      <Tooltip
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        placement="right"
-      >
-        <IconButton
-          onClick={toggle}
-          size="small"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          sx={{
-            position: 'absolute',
-            top: 0,
-            right: -16,
-            zIndex: 10,
-            width: 28,
-            height: 48,
-            borderTopRightRadius: BORDER_RADIUS.sm,
-            borderBottomRightRadius: BORDER_RADIUS.sm,
-            bgcolor: theme =>
-              theme.palette.mode === 'light' ? NAV_BG_LIGHT : NAV_BG_DARK,
-            border: theme =>
-              `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
-            borderLeft: 'none',
-            '&:hover': {
-              bgcolor: theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.surface1
-                  : GREYSCALE.dark.surface1,
-            },
-          }}
-        >
-          {collapsed ? (
-            <ChevronRightIcon sx={{ fontSize: 16 }} />
-          ) : (
-            <ChevronLeftIcon sx={{ fontSize: 16 }} />
-          )}
-        </IconButton>
-      </Tooltip>
-
       {/* ── Top section: brand block + main nav ── */}
       <Box
         sx={{
@@ -472,44 +470,114 @@ export function Sidebar() {
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          // hide scrollbar visually
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
         }}
       >
-        {/* Brand block: logo icon + org name + caret */}
-        <Box
-          component={NextLink}
-          href="/organizations"
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            textDecoration: 'none',
-            flexShrink: 0,
-            '&:hover': { opacity: 0.85 },
-          }}
-        >
+        {/*
+         * Brand + toggle area.
+         * Collapsed: toggle button on top (centered), logo below.
+         * Expanded:  [logo → name → caret] link fills the row, toggle at the right end.
+         */}
+        {collapsed ? (
           <Box
             sx={{
-              width: 40,
-              height: 40,
-              flexShrink: 0,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '8px',
+              flexShrink: 0,
             }}
           >
-            <Image
-              src="/logos/rhesis-logo-favicon.svg"
-              alt="Rhesis logo"
-              width={40}
-              height={40}
-              priority
-            />
+            <Tooltip title="Expand sidebar" placement="right">
+              <IconButton
+                onClick={toggle}
+                size="small"
+                aria-label="Expand sidebar"
+                sx={{
+                  p: '6px',
+                  borderRadius: BORDER_RADIUS.md,
+                  color: theme =>
+                    theme.palette.mode === 'light'
+                      ? GREYSCALE.light.label
+                      : GREYSCALE.dark.label,
+                  '&:hover': {
+                    bgcolor: theme =>
+                      theme.palette.mode === 'light'
+                        ? GREYSCALE.light.surface2
+                        : GREYSCALE.dark.surface1,
+                  },
+                }}
+              >
+                <LeftPanelOpenIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={orgName} placement="right">
+              <Box
+                component={NextLink}
+                href="/organizations"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 40,
+                  height: 40,
+                  textDecoration: 'none',
+                  flexShrink: 0,
+                  '&:hover': { opacity: 0.85 },
+                }}
+              >
+                <Image
+                  src="/logos/rhesis-logo-favicon.svg"
+                  alt="Rhesis logo"
+                  width={40}
+                  height={40}
+                  priority
+                />
+              </Box>
+            </Tooltip>
           </Box>
-          {!collapsed && (
-            <>
+        ) : (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexShrink: 0,
+            }}
+          >
+            {/* Brand link: logo + name + caret */}
+            <Box
+              component={NextLink}
+              href="/organizations"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                textDecoration: 'none',
+                flex: 1,
+                minWidth: 0,
+                '&:hover': { opacity: 0.85 },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Image
+                  src="/logos/rhesis-logo-favicon.svg"
+                  alt="Rhesis logo"
+                  width={40}
+                  height={40}
+                  priority
+                />
+              </Box>
               <Typography
                 sx={{
                   fontSize: 18,
@@ -529,9 +597,34 @@ export function Sidebar() {
               <KeyboardArrowDownIcon
                 sx={{ fontSize: 20, color: SUBTITLE_COLOR, flexShrink: 0 }}
               />
-            </>
-          )}
-        </Box>
+            </Box>
+            {/* Collapse toggle — inline, right of brand row */}
+            <Tooltip title="Collapse sidebar" placement="right">
+              <IconButton
+                onClick={toggle}
+                size="small"
+                aria-label="Collapse sidebar"
+                sx={{
+                  flexShrink: 0,
+                  p: '6px',
+                  borderRadius: BORDER_RADIUS.md,
+                  color: theme =>
+                    theme.palette.mode === 'light'
+                      ? GREYSCALE.light.label
+                      : GREYSCALE.dark.label,
+                  '&:hover': {
+                    bgcolor: theme =>
+                      theme.palette.mode === 'light'
+                        ? GREYSCALE.light.surface2
+                        : GREYSCALE.dark.surface1,
+                  },
+                }}
+              >
+                <LeftPanelCloseIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        )}
 
         {/* Main nav groups */}
         {mainGroups.map(group => {
@@ -587,8 +680,9 @@ export function Sidebar() {
           </Box>
         )}
 
-        {/* User avatar block */}
+        {/* User avatar block — clickable, opens user menu */}
         <Box
+          onClick={e => setMenuAnchor(e.currentTarget)}
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -597,6 +691,14 @@ export function Sidebar() {
             py: '10px',
             borderRadius: BORDER_RADIUS.pill,
             overflow: 'hidden',
+            cursor: 'pointer',
+            '&:hover': {
+              bgcolor: theme =>
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.surface2
+                  : GREYSCALE.dark.surface2,
+            },
+            transition: 'background-color 0.15s ease',
           }}
         >
           <UserAvatar
@@ -614,7 +716,7 @@ export function Sidebar() {
                   fontWeight: 400,
                   lineHeight: '22px',
                   color: theme =>
-                    theme.palette.mode === 'light' ? TITLE_COLOR : '#ffffff',
+                    theme.palette.mode === 'light' ? TITLE_COLOR : '#fff',
                   textDecoration: 'underline',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -640,6 +742,99 @@ export function Sidebar() {
             </Box>
           )}
         </Box>
+
+        {/* ── User menu popover (Figma 860:40824) ── */}
+        <Popover
+          open={menuOpen}
+          anchorEl={menuAnchor}
+          onClose={() => setMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          slotProps={{
+            paper: {
+              sx: {
+                bgcolor: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.surface2
+                    : GREYSCALE.dark.surface2,
+                borderRadius: BORDER_RADIUS.lg,
+                boxShadow: ELEVATION.xs,
+                minWidth: 188,
+                py: '10px',
+                overflow: 'hidden',
+              },
+            },
+          }}
+        >
+          {/* Dark Mode */}
+          <Box
+            onClick={() => {
+              toggleColorMode();
+              setMenuAnchor(null);
+            }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              px: '14px',
+              py: '8px',
+              cursor: 'pointer',
+              '&:hover': {
+                bgcolor: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.border
+                    : GREYSCALE.dark.border,
+              },
+            }}
+          >
+            <DarkModeOutlinedIcon
+              sx={{ fontSize: 24, color: GREYSCALE.light.body }}
+            />
+            <Typography
+              sx={{
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: '22px',
+                color: GREYSCALE.light.body,
+              }}
+            >
+              {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </Typography>
+          </Box>
+
+          {/* Sign Out */}
+          <Box
+            onClick={() => handleSignOut()}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              px: '14px',
+              py: '8px',
+              cursor: 'pointer',
+              '&:hover': {
+                bgcolor: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.border
+                    : GREYSCALE.dark.border,
+              },
+            }}
+          >
+            <ExitToAppOutlinedIcon
+              sx={{ fontSize: 24, color: GREYSCALE.light.body }}
+            />
+            <Typography
+              sx={{
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: '22px',
+                color: GREYSCALE.light.body,
+              }}
+            >
+              Sign Out
+            </Typography>
+          </Box>
+        </Popover>
       </Box>
     </Box>
   );

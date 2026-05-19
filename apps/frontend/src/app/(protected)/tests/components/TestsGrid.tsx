@@ -148,7 +148,7 @@ function TestsUnifiedToolbar() {
           size="small"
           sx={{
             '& .MuiButtonGroup-grouped': {
-              borderRadius: 0,
+              borderRadius: 0, // reset intermediate button corners intentionally
               '&:first-of-type': {
                 borderTopLeftRadius: BORDER_RADIUS.pill,
                 borderBottomLeftRadius: BORDER_RADIUS.pill,
@@ -936,7 +936,7 @@ export default function TestsTable({
             left: 8,
             width: 8,
             height: 8,
-            borderRadius: '50%',
+            borderRadius: '50%', // circular badge dot — not a theme token
             bgcolor: 'primary.main',
             pointerEvents: 'none',
           }}

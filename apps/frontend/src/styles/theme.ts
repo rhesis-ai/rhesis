@@ -37,8 +37,8 @@ export const BORDER_RADIUS = {
 export const BACKDROP_COLORS = {
   /** Teal overlay — used for create/edit entity drawers */
   create: 'rgba(0, 101, 140, 0.8)',
-  /** Gray overlay — used for filter drawers */
-  filter: 'rgba(127, 138, 155, 0.8)',
+  /** Teal overlay — used for filter drawers (matches create) */
+  filter: 'rgba(0, 101, 140, 0.8)',
 } as const;
 
 // Figma elevation shadows

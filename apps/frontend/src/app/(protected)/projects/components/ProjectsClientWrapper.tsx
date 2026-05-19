@@ -17,7 +17,7 @@ import {
   DialogActions,
 } from '@mui/material';
 import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
-import { GREYSCALE, BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import ProjectCard from './ProjectCard';
 import ProjectCreateDrawer from './ProjectCreateDrawer';
 import ProjectFilterDrawer, {
