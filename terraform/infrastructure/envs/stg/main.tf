@@ -101,17 +101,7 @@ module "ingress_stg" {
 }
 
 # GCS buckets: managed by terraform/infrastructure (root) — not duplicated here.
-module "argocd_stg" {
-  source = "../../modules/argocd"
-
-  project_id   = var.project_id
-  region       = var.region
-  cluster_name = module.gke_stg.cluster_name
-  environment  = "stg"
-  repo_root    = abspath("${path.module}/../../../..")
-
-  depends_on = [module.gke_stg]
-}
+# ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
 
 # Generate cluster.env for ingress-nginx-internal (single source of truth)
 resource "local_file" "cluster_env_stg" {
