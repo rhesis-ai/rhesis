@@ -6,6 +6,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import { ScienceIcon } from '@/components/icons';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 interface TestsEmptyStateProps {
   onCreateTest: () => void;
@@ -63,10 +64,10 @@ export default function TestsEmptyState({
         disabled={disabled}
         sx={{
           borderWidth: 2,
-          borderRadius: '12px',
+          borderRadius: BORDER_RADIUS.md,
           px: 2.5, // 20px
           py: 1.5, // 12px
-          fontSize: '1.125rem', // 18px
+          fontSize: theme => theme.typography.h6.fontSize,
           fontWeight: 700,
           lineHeight: '25px',
           '&:hover': { borderWidth: 2 },

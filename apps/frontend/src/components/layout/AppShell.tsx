@@ -64,7 +64,6 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
             overflow: 'hidden',
             transition: 'width 0.2s ease',
             zIndex: theme => theme.zIndex.drawer,
-            // Match the sidebar surface so no white bleeds around the edges
             bgcolor: theme =>
               theme.palette.mode === 'light'
                 ? GREYSCALE.light.surface1
