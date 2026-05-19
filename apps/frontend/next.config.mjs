@@ -108,6 +108,16 @@ const nextConfig = {
   // no aliases needed.
   transpilePackages: ['@rhesis/ee-frontend'],
 
+  // embedding-atlas pulls in Mosaic/DuckDB WASM; keep it off the server bundle.
+  // Do not also list these in transpilePackages — Turbopack rejects that conflict.
+  serverExternalPackages: [
+    'embedding-atlas',
+    '@uwdata/mosaic-core',
+    '@uwdata/mosaic-spec',
+    '@uwdata/mosaic-sql',
+    '@uwdata/vgplot',
+  ],
+
   // Turbopack configuration (development only — prod build uses webpack via
   // the --webpack flag in the build script).
   // root must be the repo root so Turbopack watches and resolves files inside
