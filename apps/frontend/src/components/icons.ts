@@ -76,6 +76,8 @@ export { default as LockIcon } from '@mui/icons-material/LockOutlined';
 // Architect icon
 export { default as EngineeringIcon } from '@mui/icons-material/EngineeringOutlined';
 
+export { default as ForumIcon } from '@mui/icons-material/ForumOutlined';
+
 // Metric specific icons
 export { default as PrecisionManufacturingIcon } from '@mui/icons-material/PrecisionManufacturingOutlined';
 export { default as VerifiedUserIcon } from '@mui/icons-material/VerifiedUserOutlined';
@@ -83,3 +85,5 @@ export { default as FactCheckIcon } from '@mui/icons-material/FactCheckOutlined'
 export { default as NumbersIcon } from '@mui/icons-material/NumbersOutlined';
 export { default as ToggleOnIcon } from '@mui/icons-material/ToggleOnOutlined';
 export { default as GradingIcon } from '@mui/icons-material/GradingOutlined';
+export { default as TuneIcon } from '@mui/icons-material/TuneOutlined';
+export { default as FileUploadIcon } from '@mui/icons-material/FileUploadOutlined';
