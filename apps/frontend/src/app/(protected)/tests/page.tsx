@@ -11,6 +11,7 @@ import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab } from '@/components/common/Fab';
 import TestsGrid from './components/TestsGrid';
+import TestsEmptyState from './components/TestsEmptyState';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -27,7 +28,7 @@ export default function TestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
-  const [_testCount, setTestCount] = React.useState(0);
+  const [testCount, setTestCount] = React.useState<number | null>(null);
   const [showTestTypeModal, setShowTestTypeModal] = React.useState(false);
   const [selectedTestType, setSelectedTestType] =
     React.useState<TestType | null>(null);
@@ -226,12 +227,19 @@ export default function TestsPage() {
             overflow: 'hidden',
           }}
         >
-          <TestsGrid
-            sessionToken={session.session_token}
-            onRefresh={handleRefresh}
-            onNewTest={handleOpenModal}
-            disableAddButton={shouldDisableAddButton}
-          />
+          {testCount === 0 ? (
+            <TestsEmptyState
+              onCreateTest={handleOpenModal}
+              disabled={shouldDisableAddButton}
+            />
+          ) : (
+            <TestsGrid
+              sessionToken={session.session_token}
+              onRefresh={handleRefresh}
+              onNewTest={handleOpenModal}
+              disableAddButton={shouldDisableAddButton}
+            />
+          )}
         </Paper>
       </PageLayout>
 
