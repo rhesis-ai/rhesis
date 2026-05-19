@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef } from 'react';
+import { alpha, useTheme } from '@mui/material/styles';
 import {
   EmbeddingView,
   type DataPoint,
@@ -63,6 +64,8 @@ export default function EmbeddingAtlasView({
   onPointSelect,
   onPointHover,
 }: EmbeddingAtlasViewProps) {
+  const theme = useTheme();
+  const highlightRingShadow = alpha(theme.palette.primary.main, 0.25);
   const viewData = useMemo(() => graphToEmbeddingViewData(graph), [graph]);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const proxyRef = useRef<OverlayProxy | null>(null);
@@ -102,7 +105,7 @@ export default function EmbeddingAtlasView({
           this.ring.style.borderRadius = '50%';
           this.ring.style.border =
             '2px solid var(--mui-palette-primary-main, #1976d2)';
-          this.ring.style.boxShadow = '0 0 0 2px rgba(25, 118, 210, 0.25)';
+          this.ring.style.boxShadow = `0 0 0 2px ${highlightRingShadow}`;
           this.ring.style.display = 'none';
           node.appendChild(this.ring);
 
@@ -133,7 +136,7 @@ export default function EmbeddingAtlasView({
         viewData,
       } satisfies OverlayProps,
     };
-  }, [highlightedEntityId, viewData]);
+  }, [highlightedEntityId, viewData, highlightRingShadow]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

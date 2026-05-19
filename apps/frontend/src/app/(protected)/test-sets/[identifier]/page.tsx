@@ -1,6 +1,5 @@
 import TestSetDetailCharts from './components/TestSetDetailCharts';
 import EmbeddingTestsPanel from './components/EmbeddingTestsPanel';
-import TestSetTestsGrid from './components/TestSetTestsGrid';
 import TestSetDetailsSection from './components/TestSetDetailsSection';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { auth } from '@/auth';
@@ -112,11 +111,6 @@ export default async function TestSetPage({
           />
         </Box>
 
-        <EmbeddingTestsPanel
-          testSetId={identifier}
-          sessionToken={session.session_token}
-        />
-
         <Grid container spacing={3}>
           {/* Main Content Column */}
           <Grid size={12}>
@@ -128,14 +122,11 @@ export default async function TestSetPage({
               />
             </Paper>
 
-            {/* Tests Grid Paper */}
-            <Paper elevation={2} sx={{ p: 2, mb: 4 }}>
-              <TestSetTestsGrid
-                testSetId={identifier}
-                sessionToken={session.session_token}
-                testSetType={serializedTestSet.test_set_type?.type_value}
-              />
-            </Paper>
+            <EmbeddingTestsPanel
+              testSetId={identifier}
+              sessionToken={session.session_token}
+              testSetType={serializedTestSet.test_set_type?.type_value}
+            />
 
             {/* Tasks and Comments Section */}
             <TasksAndCommentsWrapper
