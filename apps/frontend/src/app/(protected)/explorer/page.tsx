@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import ExplorerGrid from './components/ExplorerGrid';
 
 export default async function ExplorerPage() {
@@ -22,7 +22,7 @@ export default async function ExplorerPage() {
     const testSets = await explorerClient.getExplorerTestSets();
 
     return (
-      <PageContainer title="Test explorer" breadcrumbs={[]}>
+      <PageLayout title="Test explorer" breadcrumbs={[]}>
         <Box sx={{ mb: 2 }}>
           <Typography variant="body1" color="text.secondary">
             Explorer sessions
@@ -38,7 +38,7 @@ export default async function ExplorerPage() {
             />
           </Box>
         </Paper>
-      </PageContainer>
+      </PageLayout>
     );
   } catch (error) {
     const errorMessage = (error as Error).message;

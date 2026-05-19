@@ -6,7 +6,7 @@ import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Grid, Paper } from '@mui/material';
 import { Metadata } from 'next';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
 
 interface TestSetsQueryParams extends Partial<PaginationParams> {
@@ -101,7 +101,7 @@ export default async function TestSetPage({
   ];
 
   return (
-    <PageContainer title={title} breadcrumbs={breadcrumbs}>
+    <PageLayout title={title} breadcrumbs={breadcrumbs}>
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         {/* Charts Section */}
         <Box sx={{ mb: 4 }}>
@@ -143,6 +143,6 @@ export default async function TestSetPage({
           </Grid>
         </Grid>
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

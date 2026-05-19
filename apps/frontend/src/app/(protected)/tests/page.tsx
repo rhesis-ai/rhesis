@@ -6,7 +6,10 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import AddIcon from '@mui/icons-material/Add';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab } from '@/components/common/Fab';
+import { Toolbar } from '@/components/layout/Toolbar';
 import TestsGrid from './components/TestsGrid';
 import TestCharts from './components/TestCharts';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -26,6 +29,7 @@ export default function TestsPage() {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [_testCount, setTestCount] = React.useState(0);
   const [showTestTypeModal, setShowTestTypeModal] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedTestType, setSelectedTestType] =
     React.useState<TestType | null>(null);
   const [chartsLoaded, setChartsLoaded] = React.useState(false);
@@ -176,28 +180,39 @@ export default function TestsPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Tests" breadcrumbs={[]}>
+      <PageLayout title="Tests" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   // Handle no session state
   if (!session?.session_token) {
     return (
-      <PageContainer title="Tests" breadcrumbs={[]}>
+      <PageLayout title="Tests" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">No session token available</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
     <>
-      <PageContainer title="Tests" breadcrumbs={[]}>
+      <PageLayout
+        title="Tests"
+        breadcrumbs={[]}
+        actions={
+          <Fab
+            icon={<AddIcon />}
+            tooltip="New Test"
+            onClick={handleOpenModal}
+            disabled={shouldDisableAddButton}
+          />
+        }
+      >
         {/* Charts Section */}
         <TestCharts
           sessionToken={session.session_token}
@@ -207,6 +222,13 @@ export default function TestsPage() {
 
         {/* Table Section */}
         <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
+          <Toolbar
+            searchProps={{
+              value: searchQuery,
+              onChange: setSearchQuery,
+              placeholder: 'Search tests…',
+            }}
+          />
           <Box sx={{ p: 2 }}>
             <TestsGrid
               sessionToken={session.session_token}
@@ -216,7 +238,7 @@ export default function TestsPage() {
             />
           </Box>
         </Paper>
-      </PageContainer>
+      </PageLayout>
 
       {/* Test Creation Modals - Step 1: Test Type Selection */}
       {!selectedTestType && (

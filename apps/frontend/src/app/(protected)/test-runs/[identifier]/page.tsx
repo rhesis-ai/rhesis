@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { Metadata } from 'next';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -177,7 +177,7 @@ export default async function TestRunPage({
 
   // All errors (404 not found, 410 deleted, etc.) are caught by the global error.tsx
   return (
-    <PageContainer title="" breadcrumbs={breadcrumbs}>
+    <PageLayout title="" breadcrumbs={breadcrumbs}>
       <Box sx={{ flexGrow: 1 }}>
         {/* Main Split View */}
         <TestRunMainView
@@ -207,6 +207,6 @@ export default async function TestRunPage({
           }
         />
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

@@ -19,7 +19,7 @@ import {
   Avatar,
   useTheme,
 } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useTasks } from '@/hooks/useTasks';
 import { TaskCreate, EntityType } from '@/types/tasks';
 import { getStatuses, getPriorities } from '@/utils/task-lookup';
@@ -207,7 +207,7 @@ export default function CreateTaskPage() {
 
   if (isLoading) {
     return (
-      <PageContainer
+      <PageLayout
         title="Create Task"
         breadcrumbs={[
           { title: 'Tasks', path: '/tasks' },
@@ -224,12 +224,12 @@ export default function CreateTaskPage() {
         >
           <CircularProgress />
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer
+    <PageLayout
       title="Create Task"
       breadcrumbs={[
         { title: 'Tasks', path: '/tasks' },
@@ -483,6 +483,6 @@ export default function CreateTaskPage() {
           </Grid>
         </Grid>
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

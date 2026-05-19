@@ -3,20 +3,26 @@
 import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import { Box } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import EndpointsGrid from './components/EndpointsGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab } from '@/components/common/Fab';
+import { Toolbar } from '@/components/layout/Toolbar';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useState, useCallback } from 'react';
 import { GridPaginationModel } from '@mui/x-data-grid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 
 export default function EndpointsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 10,
@@ -71,13 +77,30 @@ export default function EndpointsPage() {
   }
 
   return (
-    <PageContainer title="Endpoints" breadcrumbs={[]}>
+    <PageLayout
+      title="Endpoints"
+      breadcrumbs={[]}
+      actions={
+        <Fab
+          icon={<AddIcon />}
+          tooltip="New Endpoint"
+          onClick={() => router.push('/endpoints/new')}
+        />
+      }
+    >
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect the Rhesis platform to your application under test via
           endpoints to enable comprehensive testing and evaluation workflows.
         </Typography>
       </Box>
+      <Toolbar
+        searchProps={{
+          value: searchQuery,
+          onChange: setSearchQuery,
+          placeholder: 'Search endpoints…',
+        }}
+      />
       <EndpointsGrid
         endpoints={endpoints}
         loading={loading}
@@ -86,6 +109,6 @@ export default function EndpointsPage() {
         onPaginationModelChange={handlePaginationModelChange}
         onEndpointDeleted={handleEndpointDeleted}
       />
-    </PageContainer>
+    </PageLayout>
   );
 }

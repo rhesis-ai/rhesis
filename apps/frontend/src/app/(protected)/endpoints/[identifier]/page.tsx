@@ -3,7 +3,7 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import EndpointDetail from '../components/EndpointDetail';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { PageContainer } from '@toolpad/core';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useEffect, useState } from 'react';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useSession } from 'next-auth/react';
@@ -131,10 +131,10 @@ export default function EndpointPage({ params }: PageProps) {
       : [{ title: 'Endpoints', path: '/endpoints' }, { title: endpoint.name }];
 
   return (
-    <PageContainer title={endpoint.name} breadcrumbs={breadcrumbs}>
+    <PageLayout title={endpoint.name} breadcrumbs={breadcrumbs}>
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         <EndpointDetail endpoint={endpoint} />
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

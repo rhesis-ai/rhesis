@@ -23,7 +23,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { ArrowOutwardIcon, EditIcon } from '@/components/icons';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskUpdate } from '@/types/tasks';
 import { getStatusesForTask, getPrioritiesForTask } from '@/utils/task-lookup';
@@ -186,7 +186,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   // Show loading state while loading or if we haven't loaded yet
   if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
     return (
-      <PageContainer
+      <PageLayout
         title={loadingTimeout ? 'Taking longer than expected...' : 'Loading...'}
         breadcrumbs={[
           { title: 'Tasks', path: '/tasks' },
@@ -244,13 +244,13 @@ export default function TaskDetailPage({ params }: PageProps) {
             </Box>
           )}
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (error && !editedTask) {
     return (
-      <PageContainer
+      <PageLayout
         title="Error"
         breadcrumbs={[
           { title: 'Tasks', path: '/tasks' },
@@ -321,13 +321,13 @@ export default function TaskDetailPage({ params }: PageProps) {
             </Button>
           </Box>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (!editedTask) {
     return (
-      <PageContainer
+      <PageLayout
         title="Task Not Found"
         breadcrumbs={[
           { title: 'Tasks', path: '/tasks' },
@@ -367,7 +367,7 @@ export default function TaskDetailPage({ params }: PageProps) {
             </Button>
           </Box>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
@@ -485,7 +485,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   };
 
   return (
-    <PageContainer
+    <PageLayout
       breadcrumbs={[
         { title: 'Tasks', path: '/tasks' },
         { title: editedTask?.title || task.title, path: `/tasks/${taskId}` },
@@ -1075,6 +1075,6 @@ export default function TaskDetailPage({ params }: PageProps) {
           </Grid>
         </Grid>
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

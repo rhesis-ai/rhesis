@@ -181,6 +181,7 @@ export default function TestSetDrawer({
               }}
               required
               fullWidth
+              variant="outlined"
               disabled={loading}
               error={!!nameError}
               helperText={
@@ -217,6 +218,7 @@ export default function TestSetDrawer({
               value={shortDescription}
               onChange={e => setShortDescription(e.target.value)}
               fullWidth
+              variant="outlined"
               disabled={loading}
             />
 
@@ -227,6 +229,7 @@ export default function TestSetDrawer({
               multiline
               rows={4}
               fullWidth
+              variant="outlined"
               disabled={loading}
             />
           </Stack>

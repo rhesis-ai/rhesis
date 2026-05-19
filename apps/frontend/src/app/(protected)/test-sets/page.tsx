@@ -7,7 +7,8 @@ import TestSetsGrid from './components/TestSetsGrid';
 import TestSetsCharts from './components/TestSetsCharts';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { TestSetsNewAction } from './TestSetsNewAction';
 
 export const metadata: Metadata = {
   title: 'Test Sets',
@@ -67,7 +68,11 @@ export default async function TestSetsPage() {
     );
 
     return (
-      <PageContainer title="Test Sets" breadcrumbs={[]}>
+      <PageLayout
+        title="Test Sets"
+        breadcrumbs={[]}
+        actions={<TestSetsNewAction />}
+      >
         {/* Charts Section - Client Component */}
         <TestSetsCharts />
 
@@ -82,7 +87,7 @@ export default async function TestSetsPage() {
             />
           </Box>
         </Paper>
-      </PageContainer>
+      </PageLayout>
     );
   } catch (error) {
     const errorMessage = (error as Error).message;

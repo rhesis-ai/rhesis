@@ -8,7 +8,7 @@ import DashboardKPIs from './components/DashboardKPIs';
 import TestRunPerformance from './components/TestRunPerformance';
 import ActivityTimeline from './components/ActivityTimeline';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function DashboardPage() {
@@ -44,7 +44,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <PageContainer breadcrumbs={[]}>
+    <PageLayout title="Dashboard">
       {!allLoaded && (
         <Box
           sx={{
@@ -85,6 +85,6 @@ export default function DashboardPage() {
           </Grid>
         </Grid>
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

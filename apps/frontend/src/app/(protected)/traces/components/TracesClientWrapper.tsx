@@ -4,7 +4,7 @@ import React from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Box, Typography, Alert, Paper } from '@mui/material';
 import TimelineIcon from '@mui/icons-material/Timeline';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import TracesClient from './TracesClient';
 
 /** Props for the EmptyStateMessage component */
@@ -92,7 +92,7 @@ export default function TracesClientWrapper({
   // Show error state if no session token
   if (!sessionToken) {
     return (
-      <PageContainer title="Traces" breadcrumbs={[]}>
+      <PageLayout title="Traces" breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
@@ -100,12 +100,12 @@ export default function TracesClientWrapper({
           title="Authentication Required"
           description="Please log in to view and analyze OpenTelemetry traces."
         />
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Traces" breadcrumbs={[]}>
+    <PageLayout title="Traces" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           View and analyze OpenTelemetry traces from test executions and
@@ -125,6 +125,6 @@ export default function TracesClientWrapper({
           />
         </Box>
       </Paper>
-    </PageContainer>
+    </PageLayout>
   );
 }

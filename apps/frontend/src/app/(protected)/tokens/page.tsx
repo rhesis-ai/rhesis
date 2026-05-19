@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Box, Typography } from '@mui/material';
 import { auth } from '@/auth';
 import TokensPageClient from './components/TokensPageClient';
@@ -15,7 +15,7 @@ export default async function TokensPage() {
   }
 
   return (
-    <PageContainer title="API Tokens" breadcrumbs={[]}>
+    <PageLayout title="API Tokens" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Create API tokens to authenticate with the Rhesis SDK and
@@ -23,6 +23,6 @@ export default async function TokensPage() {
         </Typography>
       </Box>
       <TokensPageClient sessionToken={session.session_token} />
-    </PageContainer>
+    </PageLayout>
   );
 }

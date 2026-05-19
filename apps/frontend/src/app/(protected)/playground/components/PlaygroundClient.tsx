@@ -16,7 +16,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import AddIcon from '@mui/icons-material/Add';
@@ -277,7 +277,7 @@ export default function PlaygroundClient() {
   };
 
   return (
-    <PageContainer title="Playground" breadcrumbs={[]}>
+    <PageLayout title="Playground" breadcrumbs={[]}>
       {/* Description with connection status */}
       <Box
         sx={{
@@ -415,6 +415,6 @@ export default function PlaygroundClient() {
             <ChatPlaceholder label="Chat 2" onClose={() => setIsSplit(false)} />
           ))}
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

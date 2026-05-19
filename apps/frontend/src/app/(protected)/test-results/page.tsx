@@ -3,7 +3,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import { auth } from '@/auth';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import TestResultsDashboard from './components/TestResultsDashboard';
 
 export default async function TestResultsPage() {
@@ -15,7 +15,7 @@ export default async function TestResultsPage() {
     }
 
     return (
-      <PageContainer title="Test Results" breadcrumbs={[]}>
+      <PageLayout title="Test Results" breadcrumbs={[]}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" color="text.secondary">
             Track and analyze test performance over time. Filter by time range,
@@ -23,19 +23,19 @@ export default async function TestResultsPage() {
           </Typography>
         </Box>
         <TestResultsDashboard sessionToken={session.session_token} />
-      </PageContainer>
+      </PageLayout>
     );
   } catch (error) {
     const errorMessage = (error as Error).message;
     return (
-      <PageContainer title="Test Results" breadcrumbs={[]}>
+      <PageLayout title="Test Results" breadcrumbs={[]}>
         <Paper elevation={2} sx={{ p: 3 }}>
           <Typography color="error" variant="h6" gutterBottom>
             Error Loading Test Results
           </Typography>
           <Typography color="text.secondary">{errorMessage}</Typography>
         </Paper>
-      </PageContainer>
+      </PageLayout>
     );
   }
 }

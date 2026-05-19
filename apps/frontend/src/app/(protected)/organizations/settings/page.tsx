@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { alpha, type Theme } from '@mui/material/styles';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -136,36 +136,36 @@ export default function OrganizationSettingsPage() {
 
   if (initialLoading) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout title="Overview" breadcrumbs={breadcrumbs}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (error) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout title="Overview" breadcrumbs={breadcrumbs}>
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (!organization) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout title="Overview" breadcrumbs={breadcrumbs}>
         <Alert severity="warning" sx={{ mb: 3 }}>
           No organization found. Please contact support.
         </Alert>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+    <PageLayout title="Overview" breadcrumbs={breadcrumbs}>
       <SettingsSection title="Basic Information" defaultExpanded>
         <OrganizationDetailsForm
           organization={organization}
@@ -214,6 +214,6 @@ export default function OrganizationSettingsPage() {
           sessionToken={session?.session_token || ''}
         />
       </SettingsSection>
-    </PageContainer>
+    </PageLayout>
   );
 }

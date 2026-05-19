@@ -2,7 +2,7 @@
 
 import React from 'react';
 import SwaggerEndpointForm from '../components/SwaggerEndpointForm';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 export default function SwaggerEndpointPage() {
   const breadcrumbs = [
@@ -11,8 +11,8 @@ export default function SwaggerEndpointPage() {
   ];
 
   return (
-    <PageContainer title="Import Swagger Endpoint" breadcrumbs={breadcrumbs}>
+    <PageLayout title="Import Swagger Endpoint" breadcrumbs={breadcrumbs}>
       <SwaggerEndpointForm />
-    </PageContainer>
+    </PageLayout>
   );
 }

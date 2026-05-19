@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import TasksGrid from './components/TasksGrid';
 import TasksCharts from './components/TasksCharts';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -24,27 +24,27 @@ export default function TasksPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Tasks" breadcrumbs={[]}>
+      <PageLayout title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   // Handle no session state
   if (!session?.session_token) {
     return (
-      <PageContainer title="Tasks" breadcrumbs={[]}>
+      <PageLayout title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">No session token available</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Tasks" breadcrumbs={[]}>
+    <PageLayout title="Tasks" breadcrumbs={[]}>
       {/* Charts Section */}
       <TasksCharts
         sessionToken={session.session_token}
@@ -58,6 +58,6 @@ export default function TasksPage() {
           onRefresh={handleRefresh}
         />
       </Paper>
-    </PageContainer>
+    </PageLayout>
   );
 }

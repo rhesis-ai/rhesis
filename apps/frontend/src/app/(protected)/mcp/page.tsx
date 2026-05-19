@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Alert, CircularProgress } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -191,7 +191,7 @@ export default function MCPSPage() {
   };
 
   return (
-    <PageContainer title="MCP" breadcrumbs={[]}>
+    <PageLayout title="MCP" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect to Model Context Protocol (MCP) providers to import knowledge
@@ -273,6 +273,6 @@ export default function MCPSPage() {
         itemName={toolToDelete?.name}
         title="Delete MCP Connection"
       />
-    </PageContainer>
+    </PageLayout>
   );
 }

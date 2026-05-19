@@ -5,7 +5,7 @@ import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import Link from 'next/link';
 
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 import TestDetailCharts from './components/TestDetailCharts';
 import TestDetailData from './components/TestDetailData';
@@ -85,7 +85,7 @@ export default async function TestDetailPage({ params }: PageProps) {
 
   // All errors (404, 410, etc.) are caught by the global error.tsx
   return (
-    <PageContainer title={title} breadcrumbs={breadcrumbs}>
+    <PageLayout title={title} breadcrumbs={breadcrumbs}>
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         {/* Charts Section */}
         <Box sx={{ mb: 4 }}>
@@ -150,6 +150,6 @@ export default async function TestDetailPage({ params }: PageProps) {
           </Grid>
         </Grid>
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

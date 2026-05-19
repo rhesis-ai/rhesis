@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Paper } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import TeamInviteForm from './components/TeamInviteForm';
@@ -55,7 +55,7 @@ export default function TeamPage() {
   };
 
   return (
-    <PageContainer>
+    <PageLayout>
       {/* Invitation Section */}
       <Paper sx={{ p: 3, mb: 4 }}>
         <TeamInviteForm
@@ -68,6 +68,6 @@ export default function TeamPage() {
       <Paper sx={{ p: 3 }}>
         <TeamMembersGrid refreshTrigger={refreshTrigger} />
       </Paper>
-    </PageContainer>
+    </PageLayout>
   );
 }
