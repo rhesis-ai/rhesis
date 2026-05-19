@@ -1,11 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Box, Alert, CircularProgress, Typography } from '@mui/material';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Box,
+  Alert,
+  CircularProgress,
+  Typography,
+  IconButton,
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import TuneIcon from '@mui/icons-material/TuneOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab } from '@/components/common/Fab';
 import { SearchPill } from '@/components/common/SearchPill';
+import { BORDER_RADIUS } from '@/styles/theme';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -20,7 +28,10 @@ import {
   ConnectedToolCard,
   MCPProviderSelectionDialog,
   MCPConnectionDialog,
+  MCPFilterDrawer,
+  MCPFilters,
 } from './components';
+import { EMPTY_MCP_FILTERS } from './components/MCPFilterDrawer';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 export default function MCPSPage() {
@@ -36,12 +47,13 @@ export default function MCPSPage() {
   );
   const [providerSelectionOpen, setProviderSelectionOpen] = useState(false);
   const [connectionDialogOpen, setConnectionDialogOpen] = useState(false);
-  const [toolToEdit, setToolToEdit] = useState<Tool | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toolToDelete, setToolToDelete] = useState<Tool | null>(null);
 
   // Toolbar state
   const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<MCPFilters>(EMPTY_MCP_FILTERS);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -117,16 +129,6 @@ export default function MCPSPage() {
     return tool;
   };
 
-  const handleEditClick = (tool: Tool, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setToolToEdit(tool);
-    const provider = providerTypes.find(
-      p => p.id === tool.tool_provider_type_id
-    );
-    setSelectedProvider(provider || null);
-    setConnectionDialogOpen(true);
-  };
-
   const handleUpdate = async (toolId: UUID, updates: Partial<ToolUpdate>) => {
     if (!session?.session_token) return;
     const apiFactory = new ApiClientFactory(session.session_token);
@@ -167,15 +169,38 @@ export default function MCPSPage() {
     }
   };
 
-  const filteredTools = tools.filter(tool => {
+  // Derive available providers from loaded tools for the filter drawer
+  const availableProviders = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          tools
+            .map(t => t.tool_provider_type?.type_value)
+            .filter((v): v is string => Boolean(v))
+        )
+      ).sort(),
+    [tools]
+  );
+
+  const activeFilterCount = filters.providers.length;
+
+  const filteredTools = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    return (
-      !q ||
-      tool.name?.toLowerCase().includes(q) ||
-      tool.description?.toLowerCase().includes(q) ||
-      tool.tool_provider_type?.type_value?.toLowerCase().includes(q)
-    );
-  });
+    return tools.filter(tool => {
+      const searchMatch =
+        !q ||
+        tool.name?.toLowerCase().includes(q) ||
+        tool.description?.toLowerCase().includes(q) ||
+        tool.tool_provider_type?.type_value?.toLowerCase().includes(q);
+
+      const providerMatch =
+        filters.providers.length === 0 ||
+        (tool.tool_provider_type?.type_value &&
+          filters.providers.includes(tool.tool_provider_type.type_value));
+
+      return searchMatch && providerMatch;
+    });
+  }, [tools, searchQuery, filters]);
 
   return (
     <PageLayout
@@ -197,13 +222,38 @@ export default function MCPSPage() {
         </Alert>
       )}
 
-      {/* Toolbar */}
-      <Box sx={{ mb: 3 }}>
-        <SearchPill
-          value={searchQuery}
-          onChange={v => setSearchQuery(v)}
-          placeholder="Search MCP connections..."
-        />
+      {/* Toolbar — matches metrics/behaviors 3-col grid pattern */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: '1fr auto 1fr',
+          alignItems: 'center',
+          mb: 3,
+          gap: 2,
+        }}
+      >
+        {/* Left: Filter icon + Search pill */}
+        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <IconButton
+            aria-label="Filter"
+            onClick={() => setFilterDrawerOpen(true)}
+            sx={{
+              bgcolor: activeFilterCount > 0 ? 'primary.dark' : 'primary.main',
+              color: '#fff',
+              borderRadius: BORDER_RADIUS.sm,
+              p: '9px',
+              '&:hover': { bgcolor: 'primary.dark' },
+              '& .MuiSvgIcon-root': { fontSize: 20 },
+            }}
+          >
+            <TuneIcon />
+          </IconButton>
+          <SearchPill
+            value={searchQuery}
+            onChange={v => setSearchQuery(v)}
+            placeholder="Search MCP connections..."
+          />
+        </Box>
       </Box>
 
       {loading ? (
@@ -215,7 +265,7 @@ export default function MCPSPage() {
           <Typography color="text.secondary">
             {tools.length === 0
               ? 'No MCP connections yet. Use the + button to add one.'
-              : 'No connections match your search.'}
+              : 'No connections match your search or filters.'}
           </Typography>
         </Box>
       ) : (
@@ -234,12 +284,22 @@ export default function MCPSPage() {
             <ConnectedToolCard
               key={tool.id}
               tool={tool}
-              onEdit={handleEditClick}
               onDelete={handleDeleteClick}
             />
           ))}
         </Box>
       )}
+
+      {/* Filter drawer */}
+      <MCPFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={filters}
+        availableProviders={availableProviders}
+        onApply={f => {
+          setFilters(f);
+        }}
+      />
 
       <MCPProviderSelectionDialog
         open={providerSelectionOpen}
@@ -252,14 +312,11 @@ export default function MCPSPage() {
         open={connectionDialogOpen}
         provider={selectedProvider}
         mcpToolType={mcpToolType}
-        tool={toolToEdit}
-        mode={toolToEdit ? 'edit' : 'create'}
+        tool={null}
+        mode="create"
         onClose={() => {
           setConnectionDialogOpen(false);
-          setTimeout(() => {
-            setSelectedProvider(null);
-            setToolToEdit(null);
-          }, 200);
+          setTimeout(() => setSelectedProvider(null), 200);
         }}
         onConnect={handleConnect}
         onUpdate={handleUpdate}
