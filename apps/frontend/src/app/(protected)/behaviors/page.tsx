@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import BehaviorsClient from './components/BehaviorsClient';
 import type { UUID } from 'crypto';
 
@@ -25,7 +25,7 @@ export default function BehaviorsPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Behaviors" breadcrumbs={[]}>
+      <PageLayout title="Behaviors" breadcrumbs={[]}>
         <Box
           sx={{
             p: 3,
@@ -40,29 +40,29 @@ export default function BehaviorsPage() {
             <Typography>Loading behaviors...</Typography>
           </Box>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   // Handle no session state
   if (!sessionToken) {
     return (
-      <PageContainer title="Behaviors" breadcrumbs={[]}>
+      <PageLayout title="Behaviors" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">
             Authentication required. Please log in.
           </Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Behaviors" breadcrumbs={[]}>
+    <PageLayout title="Behaviors" breadcrumbs={[]}>
       <BehaviorsClient
         sessionToken={sessionToken}
         organizationId={organizationId}
       />
-    </PageContainer>
+    </PageLayout>
   );
 }

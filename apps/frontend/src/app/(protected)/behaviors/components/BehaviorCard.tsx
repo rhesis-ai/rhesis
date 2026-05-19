@@ -8,7 +8,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { PsychologyIcon, AutoGraphIcon } from '@/components/icons';
+import { PsychologyIcon } from '@/components/icons';
 import { useTheme } from '@mui/material/styles';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
@@ -104,10 +104,10 @@ export default function BehaviorCard({
   // Prepare chip sections
   const chipSections: ChipSection[] = [
     {
+      label: 'Metrics',
       chips: [
         ...(behavior.metrics || []).slice(0, 3).map(metric => ({
           key: metric.id,
-          icon: <AutoGraphIcon fontSize="small" />,
           label: metric.name,
           maxWidth: '150px',
         })),
@@ -120,6 +120,7 @@ export default function BehaviorCard({
             ]
           : []),
       ],
+      emptyText: 'No metrics assigned',
     },
   ];
 
@@ -226,11 +227,8 @@ export default function BehaviorCard({
         title={behavior.name}
         description={behavior.description || 'No description provided'}
         topRightActions={topRightActions}
-        captionText={
-          metricsCount > 0
-            ? `${metricsCount} ${metricsCount === 1 ? 'Metric' : 'Metrics'}`
-            : 'No metrics assigned'
-        }
+        status={behavior.status?.name}
+        userName={behavior.user?.name}
         chipSections={chipSections}
       />
 

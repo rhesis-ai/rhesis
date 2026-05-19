@@ -472,10 +472,10 @@ export default function BehaviorsClient({
             display: 'grid',
             gridTemplateColumns: {
               xs: '1fr',
-              md: 'repeat(2, 1fr)',
-              lg: 'repeat(3, 1fr)',
+              sm: '1fr 1fr',
+              md: 'repeat(3, 1fr)',
             },
-            gap: 3,
+            gap: '24px',
             mb: 4,
           }}
         >
