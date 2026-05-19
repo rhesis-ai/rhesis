@@ -214,7 +214,11 @@ def execute_test_configuration_endpoint(
                 parameters_ref["environment"] = str(execution_request.environment)
 
             if parameters_ref:
-                attrs = dict(db_test_configuration.attributes) if db_test_configuration.attributes else {}
+                attrs = (
+                    dict(db_test_configuration.attributes)
+                    if db_test_configuration.attributes
+                    else {}
+                )
                 attrs["parameters_ref"] = parameters_ref
                 db_test_configuration.attributes = attrs
                 db.commit()

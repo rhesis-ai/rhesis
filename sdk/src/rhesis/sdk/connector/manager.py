@@ -295,11 +295,19 @@ class ConnectorManager:
             from rhesis.sdk.decorators._state import _parameters_context
             token = _parameters_context.set(resolved_params)
             try:
-                # If the endpoint declared parameters=True (or a list of
-                # names), merge resolved parameter values into inputs.
-                # Per plan: parameter wins on collision with request-mapping.
+                # Legacy path: merge resolved parameter values into inputs
+                # when the endpoint declares parameters=True or a list.
+                # Deprecated: use {{ params.* }} in request_mapping instead.
                 expects_params = metadata.get("parameters", False)
                 if expects_params and resolved_params:
+                    import warnings
+                    warnings.warn(
+                        f"@endpoint(parameters=...) on '{function_name}' is "
+                        f"deprecated. Use '{{{{ params.<name> }}}}' in "
+                        f"request_mapping instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
                     native = resolved_params.as_native()
                     if isinstance(expects_params, list):
                         native = {

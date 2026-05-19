@@ -30,6 +30,30 @@ from rhesis.backend.tasks.execution.executors.results import (
 logger = logging.getLogger(__name__)
 
 
+def _load_run_params(
+    db, test_execution_context: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Load resolved parameter snapshot from the TestRun attributes.
+
+    Returns an empty dict when no parameters are available, so callers
+    can always do ``if params: input_data["params"] = params``.
+    """
+    if not test_execution_context:
+        return {}
+    test_run_id = test_execution_context.get("test_run_id")
+    if not test_run_id:
+        return {}
+    try:
+        from rhesis.backend.app.models.test_run import TestRun
+
+        run = db.query(TestRun).filter(TestRun.id == UUID(test_run_id)).first()
+        if run and run.attributes:
+            return run.attributes.get("parameters") or {}
+    except Exception as e:
+        logger.warning("Failed to load run parameters for %s: %s", test_run_id, e)
+    return {}
+
+
 @dataclass
 class TestOutput:
     """Output from a test, regardless of how it was obtained."""
@@ -77,11 +101,19 @@ class SingleTurnOutput(OutputProvider):
         user_id,
         test_execution_context=None,
         test_id=None,
+        params=None,
         **kwargs,
     ) -> TestOutput:
         start_time = datetime.now(timezone.utc)
 
         input_data = {"input": prompt_content}
+
+        # Inject resolved experiment parameters so REST request mappings
+        # can reference {{ params.model }}, {{ params.temperature }}, etc.
+        if params is None:
+            params = _load_run_params(db, test_execution_context)
+        if params:
+            input_data["params"] = params
 
         # Inject file data if the test has attached files
         if test_id:
@@ -174,6 +206,7 @@ class MultiTurnOutput(OutputProvider):
         organization_id,
         user_id,
         test_execution_context=None,
+        params=None,
         **kwargs,
     ) -> TestOutput:
         start_time = datetime.now(timezone.utc)
@@ -191,6 +224,9 @@ class MultiTurnOutput(OutputProvider):
         # Load files attached to the test (reuse SingleTurnOutput's static method)
         input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
 
+        if params is None:
+            params = _load_run_params(db, test_execution_context)
+
         from rhesis.backend.tasks.execution.penelope_target import (
             BackendEndpointTarget,
         )
@@ -204,6 +240,7 @@ class MultiTurnOutput(OutputProvider):
             organization_id=organization_id,
             user_id=user_id,
             test_execution_context=test_execution_context,
+            params=params,
         )
 
         penelope_result = agent.execute_test(

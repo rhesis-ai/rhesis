@@ -98,8 +98,24 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return use_rpc, context_type
 
+    # Platform-internal keys that must not leak as function kwargs in
+    # passthrough mode (no request_mapping).  When a request_mapping IS
+    # present these keys are still available in the Jinja template context
+    # (e.g. ``{{ params.model }}``, ``{{ test_id }}``).
+    _PLATFORM_CONTEXT_KEYS: set = {
+        "organization_id",
+        "user_id",
+        "params",
+        "files_metadata",
+    }
+
     def _prepare_function_kwargs(self, function_name: str) -> Dict[str, Any]:
         """Prepare function kwargs from input data using request mapping.
+
+        Experiment parameters are available in the Jinja template context
+        as ``params``, so request mappings can reference individual values
+        with ``{{ params.model }}``, ``{{ params.temperature }}``, etc. --
+        the same syntax used for REST endpoints.
 
         Args:
             function_name: Name of the function (for logging)
@@ -112,18 +128,19 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         # Prepare conversation context
         template_context, _ = self._prepare_conversation_context(endpoint, input_data)
 
-        # Filter out system fields
-        system_fields = {"organization_id", "user_id"}
-        filtered_context = {k: v for k, v in template_context.items() if k not in system_fields}
-
         # Transform using request_mapping
         request_mapping = endpoint.request_mapping or {}
 
         if not request_mapping:
             logger.warning(f"No request_mapping configured for {function_name}, using passthrough")
-            return filtered_context
+            return {
+                k: v
+                for k, v in template_context.items()
+                if k not in self._PLATFORM_CONTEXT_KEYS
+            }
 
-        rendered = self.template_renderer.render(request_mapping, filtered_context)
+        # Full context (including params) available for Jinja rendering
+        rendered = self.template_renderer.render(request_mapping, template_context)
 
         # Strip reserved meta keys (e.g. system_prompt) from the wire body
         self._strip_meta_keys(rendered)

@@ -237,26 +237,36 @@ if summary:
 
 ## Connector injection
 
-When the platform runs tests against your `@endpoint`-decorated function, resolved parameters are injected automatically.
+When the platform runs tests against your `@endpoint`-decorated function, resolved parameters are available in the `request_mapping` as `\{\{ params.<name> \}\}` -- the same syntax used for REST endpoints.
 
-### Kwarg merging
+### Request mapping (recommended)
 
-<CodeBlock filename="kwarg_injection.py" language="python">
+<CodeBlock filename="params_request_mapping.py" language="python">
 {`from rhesis.sdk import endpoint
 
-@endpoint(name="chat", parameters=["model", "temperature"])
+@endpoint(
+    name="chat",
+    request_mapping={
+        "query": "{{ input }}",
+        "model": "{{ params.model | default('gpt-4o') }}",
+        "temperature": "{{ params.temperature | default(0.7) }}",
+    },
+    response_mapping={"output": "{{ response }}"},
+)
 def chat(query: str, *, model: str = "gpt-4o", temperature: float = 0.7):
-    return llm.invoke(model=model, temperature=temperature, prompt=query)`}
+    return {"response": llm.invoke(model=model, temperature=temperature, prompt=query)}`}
 </CodeBlock>
 
-The connector merges parameter values into your function's kwargs. Parameters win on collision with request-mapped fields.
+Parameters are rendered through the same Jinja2 template engine as `input`, `test_id`, and other platform variables. During a test run with an experiment, `params.model` resolves to the experiment's value. Without an experiment, the `default()` filter provides the fallback.
 
 ### Context-resolved fetch
+
+For production code that calls `Parameters.get()` internally, the platform also sets a context variable so the same call returns the experiment snapshot during test runs -- no network request, no branching:
 
 <CodeBlock filename="context_injection.py" language="python">
 {`from rhesis.sdk import endpoint, Parameters
 
-@endpoint(name="chat")
+@endpoint(name="chat", request_mapping={"query": "{{ input }}"})
 def chat(query: str):
     params = Parameters.get("my-project")
     return llm.invoke(
@@ -265,8 +275,6 @@ def chat(query: str):
         prompt=query,
     )`}
 </CodeBlock>
-
-During a test run, `Parameters.get()` returns the injected snapshot instead of hitting the network. The same code works in production and in tests without branching.
 
 ---
 

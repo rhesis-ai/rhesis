@@ -444,13 +444,16 @@ def extract_file_content(file_input: FileInput) -> dict:
 @endpoint(
     name="chat",
     description="Process a chat message and return structured response",
-    parameters=["system_prompt", "model", "temperature", "max_tokens",
-                "output_mode", "context_strategy", "use_case"],
     request_mapping={
         "message": "{{ input }}",
         "session_id": "{{ session_id | default(none) }}",
-        "use_case": "{{ use_case | default('travel') }}",
-        "output_mode": "{{ output_mode | default(mode | default('text')) }}",
+        "system_prompt": "{{ params.system_prompt | default(none) }}",
+        "model": "{{ params.model | default(none) }}",
+        "temperature": "{{ params.temperature | default(0.7) }}",
+        "max_tokens": "{{ params.max_tokens | default(1024) }}",
+        "output_mode": "{{ params.output_mode | default(mode | default('text')) }}",
+        "context_strategy": "{{ params.context_strategy | default('heuristic') }}",
+        "use_case": "{{ params.use_case | default('travel') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
         "files": "{{ files }}",
         "rhesis": {

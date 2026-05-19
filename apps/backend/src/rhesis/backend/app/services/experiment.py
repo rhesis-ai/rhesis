@@ -34,11 +34,11 @@ from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.experiment import Experiment
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.schemas.parameters import (
+    EnvironmentPointer,
     ExperimentDetail,
     ExperimentRead,
     ExperimentSummary,
     ExperimentVersion,
-    EnvironmentPointer,
     ParameterSchema,
     ProjectEnvironments,
     ResolveResponse,
@@ -197,12 +197,7 @@ def append_version(
     fingerprint = canonical_schema_fingerprint(project_schema)
     new_version_id = canonical_hash(fingerprint, typed_values)
 
-    locked = (
-        db.query(Experiment)
-        .filter(Experiment.id == db_experiment.id)
-        .with_for_update()
-        .one()
-    )
+    locked = db.query(Experiment).filter(Experiment.id == db_experiment.id).with_for_update().one()
     versions: list[ExperimentVersion] = [
         v if isinstance(v, ExperimentVersion) else ExperimentVersion.model_validate(v)
         for v in (locked.versions or [])
@@ -514,11 +509,7 @@ def _find_experiment_holding_version(
         ):
             continue
         for entry in cand.versions or []:
-            v = (
-                entry.version
-                if isinstance(entry, ExperimentVersion)
-                else entry.get("version")
-            )
+            v = entry.version if isinstance(entry, ExperimentVersion) else entry.get("version")
             if v == version:
                 return cand
     raise HTTPException(
@@ -723,8 +714,7 @@ def to_read(db_experiment: Experiment) -> ExperimentRead:
 def to_detail(db_experiment: Experiment) -> ExperimentDetail:
     """Convert a DB experiment row to the detail shape (with versions)."""
     versions: list[ExperimentVersion] = [
-        v if isinstance(v, ExperimentVersion)
-        else ExperimentVersion.model_validate(v)
+        v if isinstance(v, ExperimentVersion) else ExperimentVersion.model_validate(v)
         for v in (db_experiment.versions or [])
     ]
     last = versions[-1] if versions else None
