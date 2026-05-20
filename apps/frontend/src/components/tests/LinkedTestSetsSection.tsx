@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Box, Button, Chip, Paper, Typography } from '@mui/material';
+import { Box, Button, Paper, Typography } from '@mui/material';
+import BadgeChip from '@/components/common/BadgeChip';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
@@ -136,7 +137,7 @@ export default function LinkedTestSetsSection({
       headerName: 'Visibility',
       width: 120,
       renderCell: params => (
-        <Chip label={params.value ?? 'organization'} size="small" />
+        <BadgeChip label={params.value ?? 'organization'} />
       ),
     },
     {

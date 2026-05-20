@@ -36,6 +36,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { SearchPill } from '@/components/common/SearchPill';
+import BadgeChip from '@/components/common/BadgeChip';
 import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -57,20 +58,6 @@ import {
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
 import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
-
-const badgeChipSx = {
-  bgcolor: (theme: { palette: { mode: string } }) =>
-    theme.palette.mode === 'light'
-      ? GREYSCALE.light.surface2
-      : GREYSCALE.dark.surface1,
-  color: (theme: { palette: { mode: string } }) =>
-    theme.palette.mode === 'light' ? GREYSCALE.light.body : GREYSCALE.dark.body,
-  border: 'none',
-  borderRadius: BORDER_RADIUS.pill,
-  fontSize: (theme: { typography: { caption: { fontSize: string } } }) =>
-    theme.typography.caption.fontSize,
-  lineHeight: '18px',
-};
 
 interface TestsTableProps {
   sessionToken: string;
@@ -453,7 +440,7 @@ export default function TestsTable({
           const behaviorName = params.row.behavior?.name;
           if (!behaviorName) return null;
 
-          return <Chip label={behaviorName} size="small" sx={badgeChipSx} />;
+          return <BadgeChip label={behaviorName} />;
         },
       },
       {
@@ -466,7 +453,7 @@ export default function TestsTable({
           const topicName = params.row.topic?.name;
           if (!topicName) return null;
 
-          return <Chip label={topicName} size="small" sx={badgeChipSx} />;
+          return <BadgeChip label={topicName} />;
         },
       },
       {
@@ -479,7 +466,7 @@ export default function TestsTable({
           const categoryName = params.row.category?.name;
           if (!categoryName) return null;
 
-          return <Chip label={categoryName} size="small" sx={badgeChipSx} />;
+          return <BadgeChip label={categoryName} />;
         },
       },
       {
@@ -492,7 +479,7 @@ export default function TestsTable({
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
-          return <Chip label={testType} size="small" sx={badgeChipSx} />;
+          return <BadgeChip label={testType} />;
         },
       },
       {

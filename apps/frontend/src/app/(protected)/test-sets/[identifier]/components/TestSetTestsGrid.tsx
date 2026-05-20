@@ -9,6 +9,7 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Typography, Box, Alert, Chip } from '@mui/material';
+import BadgeChip from '@/components/common/BadgeChip';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
@@ -116,14 +117,7 @@ export default function TestSetTestsGrid({
           const behaviorName = params.row.behavior?.name;
           if (!behaviorName) return null;
 
-          return (
-            <Chip
-              label={behaviorName}
-              variant="outlined"
-              size="small"
-              color="default"
-            />
-          );
+          return <BadgeChip label={behaviorName} />;
         },
       },
       {
@@ -134,14 +128,7 @@ export default function TestSetTestsGrid({
           const topicName = params.row.topic?.name;
           if (!topicName) return null;
 
-          return (
-            <Chip
-              label={topicName}
-              variant="outlined"
-              size="small"
-              color="default"
-            />
-          );
+          return <BadgeChip label={topicName} />;
         },
       },
       {
@@ -152,14 +139,7 @@ export default function TestSetTestsGrid({
           const categoryName = params.row.category?.name;
           if (!categoryName) return null;
 
-          return (
-            <Chip
-              label={categoryName}
-              variant="outlined"
-              size="small"
-              color="default"
-            />
-          );
+          return <BadgeChip label={categoryName} />;
         },
       },
       {
@@ -171,7 +151,7 @@ export default function TestSetTestsGrid({
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
-          return <Chip label={testType} size="small" variant="outlined" />;
+          return <BadgeChip label={testType} />;
         },
       },
       {

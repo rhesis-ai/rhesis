@@ -53,6 +53,7 @@ import TestSetFilterDrawer, {
   hasActiveTestSetFilters,
 } from './TestSetFilterDrawer';
 import { TEST_TYPES } from '@/constants/test-types';
+import BadgeChip from '@/components/common/BadgeChip';
 
 interface TestSetsGridProps {
   sessionToken?: string;
@@ -223,7 +224,7 @@ const ChipContainer = ({ items }: { items: string[] }) => {
       }}
     >
       {visibleItems.map((item: string) => (
-        <Chip key={item} label={item} size="small" variant="outlined" />
+        <BadgeChip key={item} label={item} />
       ))}
       {remainingCount > 0 && (
         <Tooltip title={items.slice(maxVisible).join(', ')} arrow>
@@ -542,9 +543,8 @@ export default function TestSetsGrid({
         flex: 0.75,
         filterable: true,
         valueGetter: (_, row) => row.testSetType || '',
-        renderCell: params => (
-          <Chip label={params.value} size="small" variant="outlined" />
-        ),
+        renderCell: params =>
+          params.value ? <BadgeChip label={params.value} /> : null,
       },
       {
         field: 'created_at',
@@ -690,7 +690,8 @@ export default function TestSetsGrid({
                     key={tag.id}
                     label={tag.name}
                     size="small"
-                    variant="outlined"
+                    variant="filled"
+                    color="primary"
                   />
                 ))}
               {testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name)
