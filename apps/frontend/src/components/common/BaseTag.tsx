@@ -377,10 +377,11 @@ export default function BaseTag({
   const _isTagInputDisabled =
     disabled || (maxTags !== undefined && localTags.length >= maxTags);
 
-  // Combine default and custom InputLabelProps
+  // Label always floats to the top border — the field contains chips and a
+  // text cursor, so the label must never overlap the content area.
   const inputLabelProps: InputLabelProps = {
     ...customInputLabelProps,
-    shrink: focused || !!inputValue || localTags.length > 0,
+    shrink: true,
   };
 
   return (
