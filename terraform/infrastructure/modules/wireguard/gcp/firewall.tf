@@ -40,7 +40,7 @@ resource "google_compute_firewall" "dns_from_gke" {
 
   name     = "wireguard-allow-dns-${each.key}"
   network  = each.value.vpc_name
-  project  = var.project_id
+  project  = each.value.project
   priority = 900
 
   allow {
