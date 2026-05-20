@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 class OWASPCategory:
     """One OWASP LLM Top 10 risk category with its generation config."""
 
-    id: str          # e.g. "llm01"
-    name: str        # e.g. "Prompt Injection"
-    description: str # what this risk is, shown to the generator LLM
+    id: str  # e.g. "llm01"
+    name: str  # e.g. "Prompt Injection"
+    description: str  # what this risk is, shown to the generator LLM
     attack_instructions: str  # how to craft attacks for this category
-    behavior: str    # Rhesis behavior tag
-    topic: str       # Rhesis topic tag
+    behavior: str  # Rhesis behavior tag
+    topic: str  # Rhesis topic tag
     examples: List[str] = field(default_factory=list)  # few-shot examples
 
 
@@ -429,9 +429,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
     # Core generation: loop over selected categories
     # ------------------------------------------------------------------
 
-    def _generate_without_sources(
-        self, num_tests: int = 10, **kwargs: Any
-    ) -> List[Dict[str, Any]]:
+    def _generate_without_sources(self, num_tests: int = 10, **kwargs: Any) -> List[Dict[str, Any]]:
         """Distribute num_tests across selected OWASP categories and generate."""
         counts = self._distribute(num_tests, len(self._selected))
         all_tests: List[Dict[str, Any]] = []
@@ -465,9 +463,7 @@ class OWASPSynthesizer(TestSetSynthesizer):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _build_category_context(
-        self, category: OWASPCategory, **extra: Any
-    ) -> Dict[str, Any]:
+    def _build_category_context(self, category: OWASPCategory, **extra: Any) -> Dict[str, Any]:
         """Build the Jinja template context for one OWASP category."""
         return {
             "purpose": self.purpose,

@@ -160,6 +160,7 @@ packages = [
 include = [
     "src/rhesis/py.typed",
     "src/rhesis/sdk/metrics/providers/garak/detectors.yaml",
+    "src/rhesis/sdk/synthesizers/assets/*.jinja",
 ]
 
 [tool.hatch.metadata]
