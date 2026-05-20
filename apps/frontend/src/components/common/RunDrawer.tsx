@@ -48,9 +48,8 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import type {
   TestSetMetric,
   LastTestRunSummary,
+  TestSet,
 } from '@/utils/api-client/interfaces/test-set';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import {
   ExperimentDetail,
   shortVersion,
@@ -332,8 +331,8 @@ export default function RunDrawer(props: RunDrawerProps) {
     if (cfg.projectEditable) {
       setSelectedProject(null);
       setSelectedEndpoint(null);
-    } else if (mode === 'runExperiment') {
-      setSelectedProject(experimentData!.experiment.project_id as UUID);
+    } else if (experimentData) {
+      setSelectedProject(experimentData.experiment.project_id as UUID);
       setSelectedEndpoint(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -402,9 +401,9 @@ export default function RunDrawer(props: RunDrawerProps) {
 
         setEndpoints(allEndpoints);
 
-        if (mode === 'runExperiment') {
+        if (experimentData) {
           const filtered = allEndpoints.filter(
-            e => e.project_id === experimentData!.experiment.project_id
+            e => e.project_id === experimentData.experiment.project_id
           );
           setFilteredEndpoints(filtered);
         }
@@ -573,7 +572,12 @@ export default function RunDrawer(props: RunDrawerProps) {
   // -----------------------------------------------------------------------
 
   useEffect(() => {
-    if (mode !== 'executeTestSet' || !selectedEndpoint || !open) {
+    if (
+      mode !== 'executeTestSet' ||
+      !executeTestSetId ||
+      !selectedEndpoint ||
+      !open
+    ) {
       if (mode === 'executeTestSet') {
         setLastTestRun(null);
         setScoringTarget('fresh');
@@ -585,7 +589,7 @@ export default function RunDrawer(props: RunDrawerProps) {
       try {
         const result = await apiFactory
           .getTestSetsClient()
-          .getLastTestRun(executeTestSetId!, selectedEndpoint);
+          .getLastTestRun(executeTestSetId, selectedEndpoint);
         if (mounted) {
           setLastTestRun(result);
           setScoringTarget('fresh');
@@ -862,7 +866,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         return (
           <TextField
             label="Project"
-            value={rerunConfig!.projectName}
+            value={rerunConfig?.projectName ?? ''}
             disabled
             fullWidth
           />
@@ -931,7 +935,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         return (
           <TextField
             label="Endpoint"
-            value={rerunConfig!.endpointName}
+            value={rerunConfig?.endpointName ?? ''}
             disabled
             fullWidth
           />
@@ -1010,7 +1014,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         return (
           <TextField
             label="Test Set"
-            value={rerunConfig!.testSetName}
+            value={rerunConfig?.testSetName ?? ''}
             disabled
             fullWidth
           />

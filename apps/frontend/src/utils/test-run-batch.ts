@@ -24,8 +24,7 @@ import type { UUID } from 'crypto';
 import type { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import type { TestRunsClient } from '@/utils/api-client/test-runs-client';
 import { TagsClient } from '@/utils/api-client/tags-client';
-import { EntityType } from '@/utils/api-client/interfaces/tag';
-import type { TagCreate } from '@/utils/api-client/interfaces/tag';
+import { EntityType, type TagCreate } from '@/utils/api-client/interfaces/tag';
 import { pollForTestRun } from '@/utils/test-run-utils';
 
 export interface SelectedExperiment {

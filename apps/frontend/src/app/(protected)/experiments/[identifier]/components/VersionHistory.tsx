@@ -125,6 +125,17 @@ export default function VersionHistory({
     return map;
   }, [projectEnvironments, experimentId]);
 
+  const uniqueVersions = React.useMemo(() => {
+    const seen = new Set<string>();
+    return versions.filter(version => {
+      if (seen.has(version.version)) {
+        return false;
+      }
+      seen.add(version.version);
+      return true;
+    });
+  }, [versions]);
+
   if (versions.length === 0) {
     return (
       <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
@@ -146,17 +157,6 @@ export default function VersionHistory({
     }
     onSelectionChange(next);
   };
-
-  const uniqueVersions = React.useMemo(() => {
-    const seen = new Set<string>();
-    return versions.filter(version => {
-      if (seen.has(version.version)) {
-        return false;
-      }
-      seen.add(version.version);
-      return true;
-    });
-  }, [versions]);
 
   // Render newest first so the most relevant entry sits at the top.
   const ordered = [...uniqueVersions].reverse();

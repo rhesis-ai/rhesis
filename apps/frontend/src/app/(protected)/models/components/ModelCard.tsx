@@ -71,9 +71,6 @@ export function ConnectedModelCard({
   // Determine Polyphemus access state
   const polyphemusAccess = userSettings?.polyphemus_access;
 
-  // is_verified is the source of truth - set by the grant_polyphemus_access stored procedure
-  const hasAccess = isPolyphemus ? isVerified : true;
-
   // Show restricted state for Polyphemus if not verified
   const showPolyphemusRestricted = isPolyphemus && !isVerified;
 
