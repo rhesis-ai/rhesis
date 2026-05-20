@@ -239,7 +239,7 @@ class ConnectorManager:
             ResolvedParameters,
             validate_values_against_schema,
         )
-        
+
         try:
             test_msg = ExecuteTestMessage(**message)
             function_name = test_msg.function_name
@@ -247,7 +247,7 @@ class ConnectorManager:
             inputs = test_msg.inputs
 
             logger.info(f"Executing test for function: {function_name}")
-            
+
             resolved_params = None
             if test_msg.parameter_experiment_id and test_msg.parameter_schema:
                 try:
@@ -293,6 +293,7 @@ class ConnectorManager:
                 return
 
             from rhesis.sdk.decorators._state import _parameters_context
+
             token = _parameters_context.set(resolved_params)
             try:
                 # Legacy path: merge resolved parameter values into inputs
@@ -301,6 +302,7 @@ class ConnectorManager:
                 expects_params = metadata.get("parameters", False)
                 if expects_params and resolved_params:
                     import warnings
+
                     warnings.warn(
                         f"@endpoint(parameters=...) on '{function_name}' is "
                         f"deprecated. Use '{{{{ params.<name> }}}}' in "
@@ -310,15 +312,14 @@ class ConnectorManager:
                     )
                     native = resolved_params.as_native()
                     if isinstance(expects_params, list):
-                        native = {
-                            k: v for k, v in native.items()
-                            if k in expects_params
-                        }
+                        native = {k: v for k, v in native.items() if k in expects_params}
                     for k, v in native.items():
                         if k in inputs and inputs[k] != v:
                             logger.warning(
                                 "Parameter %r overrides input (param=%r, input=%r)",
-                                k, v, inputs[k],
+                                k,
+                                v,
+                                inputs[k],
                             )
                         inputs[k] = v
 

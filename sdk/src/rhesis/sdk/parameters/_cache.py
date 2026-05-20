@@ -91,6 +91,4 @@ class ParameterCache:
                 self._store.clear()
             else:
                 prefix = f"{project}|"
-                self._store = {
-                    k: v for k, v in self._store.items() if not k.startswith(prefix)
-                }
+                self._store = {k: v for k, v in self._store.items() if not k.startswith(prefix)}

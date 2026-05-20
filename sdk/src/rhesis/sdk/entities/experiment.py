@@ -161,9 +161,7 @@ class Experiment(BaseEntity):
         client = APIClient()
         import requests as _requests
 
-        url = client.get_url(
-            f"projects/{self.project_id}/parameters/environments/{environment}"
-        )
+        url = client.get_url(f"projects/{self.project_id}/parameters/environments/{environment}")
         resp = _requests.put(
             url,
             headers=client.headers,

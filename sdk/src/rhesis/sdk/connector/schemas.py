@@ -69,10 +69,7 @@ class ExecuteTestMessage(BaseModel):
     def _legacy_parameter_provenance(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
-        if (
-            "parameter_source_environment" not in data
-            and "parameter_source_label" in data
-        ):
+        if "parameter_source_environment" not in data and "parameter_source_label" in data:
             data = {
                 **data,
                 "parameter_source_environment": data.get("parameter_source_label"),

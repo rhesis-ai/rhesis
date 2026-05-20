@@ -58,9 +58,7 @@ class TestRun(BaseEntity):
             "version": self.attributes.get("parameter_version"),
             "source": src,
             "source_environment": src_env,
-            "experiment_name": self.attributes.get(
-                "parameter_experiment_name"
-            ),
+            "experiment_name": self.attributes.get("parameter_experiment_name"),
             "parameters": self.attributes.get("parameters", {}),
         }
 

@@ -9,9 +9,10 @@ if TYPE_CHECKING:
 
 # Module-level default client (managed transparently)
 _default_client: Optional["Client"] = None
-_parameters_context: contextvars.ContextVar[
-    Optional["ResolvedParameters"]
-] = contextvars.ContextVar("rhesis_parameters", default=None)
+_parameters_context: contextvars.ContextVar[Optional["ResolvedParameters"]] = (
+    contextvars.ContextVar("rhesis_parameters", default=None)
+)
+
 
 def get_parameters() -> Optional["ResolvedParameters"]:
     """Get the currently resolved parameters (populated during remote test execution)."""

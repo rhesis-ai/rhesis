@@ -218,8 +218,7 @@ class ParameterSchema(BaseModel):
         for f in self.fields:
             if not _NAME_RE.match(f.name):
                 raise ValueError(
-                    f"Parameter name {f.name!r} is not snake_case"
-                    " (must match [a-z][a-z0-9_]*)"
+                    f"Parameter name {f.name!r} is not snake_case (must match [a-z][a-z0-9_]*)"
                 )
             if f.name in seen:
                 raise ValueError(f"Duplicate parameter name: {f.name!r}")
@@ -227,9 +226,7 @@ class ParameterSchema(BaseModel):
 
             if f.type == "enum":
                 if not f.options:
-                    raise ValueError(
-                        f"Enum parameter {f.name!r} must have options"
-                    )
+                    raise ValueError(f"Enum parameter {f.name!r} must have options")
                 if f.default is not None:
                     if f.default.type != "enum":
                         raise ValueError(
@@ -238,14 +235,11 @@ class ParameterSchema(BaseModel):
                         )
                     if f.default.value not in f.options:
                         raise ValueError(
-                            f"Default value {f.default.value!r} not in options"
-                            f" for enum {f.name!r}"
+                            f"Default value {f.default.value!r} not in options for enum {f.name!r}"
                         )
             else:
                 if f.options is not None:
-                    raise ValueError(
-                        f"Parameter {f.name!r} of type {f.type!r} cannot have options"
-                    )
+                    raise ValueError(f"Parameter {f.name!r} of type {f.type!r} cannot have options")
                 if f.default is not None and f.default.type != f.type:
                     raise ValueError(
                         f"Default for {f.name!r} does not match parameter type"
@@ -298,9 +292,7 @@ class ProjectEnvironments(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    environments: dict[str, EnvironmentPointer | None] = Field(
-        default_factory=dict
-    )
+    environments: dict[str, EnvironmentPointer | None] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -410,10 +402,7 @@ def _coerce_value(
             ) from exc
 
     if typed.type != field.type:
-        raise ValueError(
-            f"Type mismatch for {name!r}: expected {field.type!r},"
-            f" got {typed.type!r}"
-        )
+        raise ValueError(f"Type mismatch for {name!r}: expected {field.type!r}, got {typed.type!r}")
 
     if field.type == "enum" and field.options is not None:
         if typed.value not in field.options:
@@ -459,10 +448,7 @@ def canonical_hash(
     schema_fingerprint: str,
     values: dict[str, ParameterValue],
 ) -> str:
-    serialized = {
-        name: _dump_for_hash(value)
-        for name, value in values.items()
-    }
+    serialized = {name: _dump_for_hash(value) for name, value in values.items()}
     payload = {
         "schema_fingerprint": schema_fingerprint,
         "values": serialized,
@@ -555,9 +541,7 @@ class ResolvedParameters(Mapping[str, Any]):
         try:
             return self[name]
         except KeyError:
-            raise AttributeError(
-                f"No parameter named {name!r}"
-            ) from None
+            raise AttributeError(f"No parameter named {name!r}") from None
 
     def __repr__(self) -> str:
         # Mask secret refs in repr so logs don't leak credentials by sight.
@@ -591,49 +575,33 @@ class ResolvedParameters(Mapping[str, Any]):
 
     # --- Convenience typed getters --------------------------------------- #
 
-    def _get_of_type(
-        self, key: str, expected: str, default: Any = None
-    ) -> Any:
+    def _get_of_type(self, key: str, expected: str, default: Any = None) -> Any:
         pv = self._typed.get(key)
         if pv is None:
             return default
         if pv.type != expected:
-            raise TypeError(
-                f"Parameter {key!r} is {pv.type!r}, not {expected!r}"
-            )
+            raise TypeError(f"Parameter {key!r} is {pv.type!r}, not {expected!r}")
         return pv.value
 
     def get_text(self, key: str, default: str | None = None) -> str | None:
         return self._get_of_type(key, "text", default)
 
-    def get_string(
-        self, key: str, default: str | None = None
-    ) -> str | None:
+    def get_string(self, key: str, default: str | None = None) -> str | None:
         return self._get_of_type(key, "string", default)
 
-    def get_integer(
-        self, key: str, default: int | None = None
-    ) -> int | None:
+    def get_integer(self, key: str, default: int | None = None) -> int | None:
         return self._get_of_type(key, "integer", default)
 
-    def get_number(
-        self, key: str, default: float | None = None
-    ) -> float | None:
+    def get_number(self, key: str, default: float | None = None) -> float | None:
         return self._get_of_type(key, "number", default)
 
-    def get_boolean(
-        self, key: str, default: bool | None = None
-    ) -> bool | None:
+    def get_boolean(self, key: str, default: bool | None = None) -> bool | None:
         return self._get_of_type(key, "boolean", default)
 
-    def get_enum(
-        self, key: str, default: str | None = None
-    ) -> str | None:
+    def get_enum(self, key: str, default: str | None = None) -> str | None:
         return self._get_of_type(key, "enum", default)
 
-    def get_str(
-        self, key: str, default: str | None = None
-    ) -> str | None:
+    def get_str(self, key: str, default: str | None = None) -> str | None:
         """Return a string value regardless of whether the type is ``text`` or ``string``.
 
         Raises :class:`TypeError` if the parameter exists but is neither
@@ -643,20 +611,13 @@ class ResolvedParameters(Mapping[str, Any]):
         if pv is None:
             return default
         if pv.type not in ("text", "string"):
-            raise TypeError(
-                f"Parameter {key!r} is {pv.type!r},"
-                f" not 'text' or 'string'"
-            )
+            raise TypeError(f"Parameter {key!r} is {pv.type!r}, not 'text' or 'string'")
         return pv.value
 
-    def get_model_ref(
-        self, key: str, default: UUID | None = None
-    ) -> UUID | None:
+    def get_model_ref(self, key: str, default: UUID | None = None) -> UUID | None:
         return self._get_of_type(key, "model_ref", default)
 
-    def get_secret_ref(
-        self, key: str, default: UUID | None = None
-    ) -> UUID | None:
+    def get_secret_ref(self, key: str, default: UUID | None = None) -> UUID | None:
         return self._get_of_type(key, "secret_ref", default)
 
     # --- Constructors ---------------------------------------------------- #

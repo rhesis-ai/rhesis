@@ -45,6 +45,7 @@ import {
   GridInitialState,
   GridRowParams,
   GridCellParams,
+  type GridToolbarProps,
 } from '@mui/x-data-grid';
 import type { SxProps, Theme } from '@mui/material/styles';
 import Link from 'next/link';
@@ -506,11 +507,13 @@ export default function BaseDataGrid({
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const onFilterModelChangeRef = useRef(onFilterModelChange);
   const filterModelRef = useRef(filterModel);
+  const gridToolbarExtraRef = useRef(gridToolbarExtra);
 
   // Keep callback refs up to date without causing re-renders
   useEffect(() => {
     onFilterModelChangeRef.current = onFilterModelChange;
     filterModelRef.current = filterModel;
+    gridToolbarExtraRef.current = gridToolbarExtra;
   });
 
   // Sync input value with external filterModel changes (e.g., "Clear All Filters")
@@ -599,15 +602,10 @@ export default function BaseDataGrid({
    * Created once and stored in ref to prevent remounting and focus loss.
    * The input manages its own value via DOM, avoiding React state/re-render complexity.
    */
-  const CustomToolbarWithFiltersRef = useRef<React.ComponentType<{
-    extra?: ReactNode;
-  }> | null>(null);
+  const CustomToolbarWithFiltersRef =
+    useRef<React.JSXElementConstructor<GridToolbarProps> | null>(null);
   if (!CustomToolbarWithFiltersRef.current) {
-    CustomToolbarWithFiltersRef.current = function CustomToolbar({
-      extra,
-    }: {
-      extra?: ReactNode;
-    }) {
+    CustomToolbarWithFiltersRef.current = function CustomToolbar() {
       return (
         <Box
           sx={{
@@ -620,7 +618,7 @@ export default function BaseDataGrid({
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <GridToolbar />
-            {extra}
+            {gridToolbarExtraRef.current}
           </Box>
           <TextField
             inputRef={quickFilterInputRef}
@@ -863,7 +861,6 @@ export default function BaseDataGrid({
             filterModel,
             onFilterModelChange,
             slots: { toolbar: CustomToolbarWithFilters },
-            slotProps: { toolbar: { extra: gridToolbarExtra } },
           })}
           {...(sortingMode === 'server' && {
             sortingMode: 'server',
@@ -931,7 +928,6 @@ export default function BaseDataGrid({
               filterModel,
               onFilterModelChange,
               slots: { toolbar: CustomToolbarWithFilters },
-              slotProps: { toolbar: { extra: gridToolbarExtra } },
             })}
             {...(sortingMode === 'server' && {
               sortingMode: 'server',

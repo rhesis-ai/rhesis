@@ -21,7 +21,6 @@ import {
   ListItemText,
   FormHelperText,
 } from '@mui/material';
-import { Button } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { createEndpoint } from '@/actions/endpoints';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';

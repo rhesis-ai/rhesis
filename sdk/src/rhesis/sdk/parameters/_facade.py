@@ -35,9 +35,7 @@ def _resolve_project_id(
 ) -> str:
     """Return a project UUID string, resolving by name if needed."""
     if project and project_id:
-        raise ValueError(
-            "Pass 'project' (name or id) or 'project_id', not both"
-        )
+        raise ValueError("Pass 'project' (name or id) or 'project_id', not both")
     if project_id:
         return str(project_id)
     if project:
@@ -50,9 +48,7 @@ def _resolve_project_id(
 
         proj = Projects.pull(name=project)
         return proj.id
-    raise ValueError(
-        "Either 'project' (name or id) or 'project_id' must be provided"
-    )
+    raise ValueError("Either 'project' (name or id) or 'project_id' must be provided")
 
 
 class Parameters:
@@ -99,11 +95,7 @@ class Parameters:
         (default 60 s). Call :meth:`invalidate` to force a re-fetch.
         """
         pid = _resolve_project_id(project, project_id=project_id)
-        if (
-            environment is None
-            and experiment_id is None
-            and version is None
-        ):
+        if environment is None and experiment_id is None and version is None:
             pinned = os.getenv("RHESIS_PARAMETERS_ENVIRONMENT") or os.getenv(
                 "RHESIS_PARAMETERS_LABEL"
             )
@@ -147,9 +139,7 @@ class Parameters:
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
         url = f"{base}/projects/{pid}/parameters/schema"
-        resp = requests.get(
-            url, headers={"Authorization": f"Bearer {api_key}"}
-        )
+        resp = requests.get(url, headers={"Authorization": f"Bearer {api_key}"})
         resp.raise_for_status()
         return ParameterSchema.model_validate(resp.json())
 
@@ -165,9 +155,7 @@ class Parameters:
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
         url = f"{base}/projects/{pid}/parameters/environments"
-        resp = requests.get(
-            url, headers={"Authorization": f"Bearer {api_key}"}
-        )
+        resp = requests.get(url, headers={"Authorization": f"Bearer {api_key}"})
         resp.raise_for_status()
         return ProjectEnvironments.model_validate(resp.json())
 
@@ -212,10 +200,7 @@ class Parameters:
             raise ValueError("environment is required")
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
-        url = (
-            f"{base}/projects/{pid}"
-            f"/parameters/environments/{environment}"
-        )
+        url = f"{base}/projects/{pid}/parameters/environments/{environment}"
         resp = requests.put(
             url,
             headers={"Authorization": f"Bearer {api_key}"},
