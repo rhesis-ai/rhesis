@@ -15,7 +15,7 @@ locals {
       master              = "10.2.4.0/28"
       pods                = "10.3.0.0/17"
       services            = "10.3.128.0/17"
-      wireguard_nic_ip    = "10.2.0.5" # WireGuard server static IP in dev nodes subnet (Shared VPC NIC)
+      wireguard_nic_ip    = "10.2.1.254" # WireGuard server static IP in dev nodes subnet (Shared VPC NIC, high-end to avoid GKE node assignment)
     }
     stg = {
       network             = "10.4.0.0/15"
