@@ -533,6 +533,18 @@ const getDesignTokens = (mode: PaletteMode) => {
           },
         },
       },
+      MuiAutocomplete: {
+        styleOverrides: {
+          // MUI Autocomplete default uses padding:9px on inputRoot, making the
+          // field ~44px tall. TextField/Select are ~56px. The InputLabel
+          // transform (translate(14px,16.5px)) is calibrated for ~56px, so in
+          // the shorter Autocomplete box the label sits below visual centre.
+          // Setting minHeight to match ensures the label is properly centred.
+          inputRoot: {
+            minHeight: '56px',
+          },
+        },
+      },
     },
     chartPalettes: {
       line: ['#0080AF', '#FD6E12', '#33A6CB', '#FDD803'],
