@@ -590,9 +590,9 @@ export default function ExecuteTestSetDrawer({
           {selectedProject && (
             <Box>
               <Alert severity="info" sx={{ mb: 2 }}>
-                Each selected experiment triggers its own test run with
-                that experiment&apos;s parameters pinned. Leave empty to
-                run without an experiment.
+                Each selected experiment triggers its own test run with that
+                experiment&apos;s parameters pinned. Leave empty to run without
+                an experiment.
               </Alert>
 
               {selectedExperiments.length > 0 && (
@@ -623,10 +623,7 @@ export default function ExecuteTestSetDrawer({
                           <Typography variant="body2" noWrap>
                             {exp.experiment_name}
                           </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                          >
+                          <Typography variant="caption" color="text.secondary">
                             Version {shortVersion(exp.version)}
                           </Typography>
                         </Box>
@@ -669,7 +666,6 @@ export default function ExecuteTestSetDrawer({
             title="Experiments for this run"
             subtitle="Selecting multiple experiments queues one run per experiment. You can edit values inline and save a new version on the spot."
           />
-
 
           <Divider />
 

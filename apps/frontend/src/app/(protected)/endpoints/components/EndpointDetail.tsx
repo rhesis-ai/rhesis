@@ -759,7 +759,10 @@ export default function EndpointDetail({
                           <em>None</em>
                         </MenuItem>
                         {loadingProjects ? (
-                          <MenuItem disabled value={editedValues.project_id || ''}>
+                          <MenuItem
+                            disabled
+                            value={editedValues.project_id || ''}
+                          >
                             <CircularProgress size={20} />
                             <Box component="span" sx={{ ml: 1 }}>
                               Loading projects...

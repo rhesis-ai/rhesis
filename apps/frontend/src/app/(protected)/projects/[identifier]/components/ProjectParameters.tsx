@@ -108,7 +108,10 @@ export default function ProjectParameters({
     <Paper elevation={2} sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         {title && (
-          <Typography variant="subtitle1" sx={{ fontWeight: 'medium', flex: 1 }}>
+          <Typography
+            variant="subtitle1"
+            sx={{ fontWeight: 'medium', flex: 1 }}
+          >
             {title}
           </Typography>
         )}
@@ -268,11 +271,16 @@ export default function ProjectParameters({
                     return (
                       <Icon
                         fontSize="small"
-                        color={meta.color === 'default' ? 'inherit' : meta.color}
+                        color={
+                          meta.color === 'default' ? 'inherit' : meta.color
+                        }
                       />
                     );
                   })()}
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'medium', flex: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ fontWeight: 'medium', flex: 1 }}
+                  >
                     Parameter details
                   </Typography>
                   <Tooltip title="Remove field">

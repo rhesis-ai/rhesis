@@ -31,7 +31,12 @@ export class TestRunsClient extends BaseApiClient {
   async getTestRuns(
     params: TestRunsQueryParams = {}
   ): Promise<PaginatedResponse<TestRunDetail>> {
-    const { test_configuration_id, filter, has_experiment, ...paginationParams } = params;
+    const {
+      test_configuration_id,
+      filter,
+      has_experiment,
+      ...paginationParams
+    } = params;
 
     // Build the OData filter
     let finalFilter = filter;

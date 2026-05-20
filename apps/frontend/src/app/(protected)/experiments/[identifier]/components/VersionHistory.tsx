@@ -96,7 +96,9 @@ export default function VersionHistory({
   const environmentsByVersion = React.useMemo(() => {
     const map = new Map<string, string[]>();
     if (!projectEnvironments) return map;
-    for (const [name, ptr] of Object.entries(projectEnvironments.environments)) {
+    for (const [name, ptr] of Object.entries(
+      projectEnvironments.environments
+    )) {
       if (ptr === null || ptr.experiment_id !== experimentId) continue;
       const arr = map.get(ptr.version) ?? [];
       arr.push(name);
@@ -109,8 +111,8 @@ export default function VersionHistory({
     return (
       <Box sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
         <Typography variant="body2">
-          No versions yet. Save values from the Edit tab to mint the
-          first immutable version.
+          No versions yet. Save values from the Edit tab to mint the first
+          immutable version.
         </Typography>
       </Box>
     );
@@ -160,10 +162,7 @@ export default function VersionHistory({
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="body2">
                     {version.message || (
-                      <Box
-                        component="em"
-                        sx={{ color: 'text.disabled' }}
-                      >
+                      <Box component="em" sx={{ color: 'text.disabled' }}>
                         (no message)
                       </Box>
                     )}
@@ -173,12 +172,7 @@ export default function VersionHistory({
                   </Typography>
                 </Box>
                 {envNames.map(name => (
-                  <Chip
-                    key={name}
-                    size="small"
-                    color="success"
-                    label={name}
-                  />
+                  <Chip key={name} size="small" color="success" label={name} />
                 ))}
                 {outcome && (
                   <Box
@@ -250,10 +244,7 @@ export default function VersionHistory({
             <AccordionDetails>
               <Stack spacing={2}>
                 <Box>
-                  <Typography
-                    variant="overline"
-                    color="text.secondary"
-                  >
+                  <Typography variant="overline" color="text.secondary">
                     Values
                   </Typography>
                   <TableContainer>
@@ -281,10 +272,7 @@ export default function VersionHistory({
                 </Box>
                 {previous && diff.length > 0 && (
                   <Box>
-                    <Typography
-                      variant="overline"
-                      color="text.secondary"
-                    >
+                    <Typography variant="overline" color="text.secondary">
                       Diff vs {shortVersion(previous.version)}
                     </Typography>
                     <TableContainer>
@@ -325,9 +313,8 @@ export default function VersionHistory({
                 )}
                 {previous && diff.length === 0 && (
                   <Typography variant="caption" color="text.secondary">
-                    Only metadata changed (message / parent pointer);
-                    no slot values differ from{' '}
-                    {shortVersion(previous.version)}.
+                    Only metadata changed (message / parent pointer); no slot
+                    values differ from {shortVersion(previous.version)}.
                   </Typography>
                 )}
               </Stack>

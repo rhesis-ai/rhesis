@@ -216,7 +216,12 @@ export const BuiltInEnvironment = {
   STAGING: 'staging',
   PRODUCTION: 'production',
   /** Ordered list of every built-in name; iterate when you need the full set. */
-  ALL: ['default', 'development', 'staging', 'production'] as ReadonlyArray<string>,
+  ALL: [
+    'default',
+    'development',
+    'staging',
+    'production',
+  ] as ReadonlyArray<string>,
 } as const;
 
 /**

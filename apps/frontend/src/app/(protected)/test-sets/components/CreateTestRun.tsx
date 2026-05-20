@@ -429,9 +429,9 @@ export default function CreateTestRun({
           {selectedProject && (
             <Box>
               <Alert severity="info" sx={{ mb: 2 }}>
-                Each selected experiment runs against every selected
-                test set, producing one run per combination. Leave empty
-                to run each test set once with no pinned parameters.
+                Each selected experiment runs against every selected test set,
+                producing one run per combination. Leave empty to run each test
+                set once with no pinned parameters.
               </Alert>
 
               {selectedExperiments.length > 0 && (
@@ -462,10 +462,7 @@ export default function CreateTestRun({
                           <Typography variant="body2" noWrap>
                             {exp.experiment_name}
                           </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                          >
+                          <Typography variant="caption" color="text.secondary">
                             Version {shortVersion(exp.version)}
                           </Typography>
                         </Box>

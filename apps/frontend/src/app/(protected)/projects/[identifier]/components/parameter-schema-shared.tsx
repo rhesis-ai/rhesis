@@ -214,7 +214,9 @@ export function useParameterSchema(projectId: string, sessionToken: string) {
 
   const updateField = useCallback(
     (key: string, patch: Partial<FieldRowState>) => {
-      setDraft(prev => prev.map(row => (row._key === key ? { ...row, ...patch } : row)));
+      setDraft(prev =>
+        prev.map(row => (row._key === key ? { ...row, ...patch } : row))
+      );
     },
     []
   );
@@ -238,10 +240,7 @@ export function useParameterSchema(projectId: string, sessionToken: string) {
       ...blankField(0),
       _key: stableKey('f'),
     };
-    setDraft(prev => [
-      ...prev,
-      { ...created, display_order: prev.length },
-    ]);
+    setDraft(prev => [...prev, { ...created, display_order: prev.length }]);
     return created._key;
   }, []);
 
@@ -273,9 +272,7 @@ export function useParameterSchema(projectId: string, sessionToken: string) {
       const client = apiFactory.getParametersClient();
       const saved = await client.putSchema(projectId, payload);
       setServerSchema(saved);
-      setDraft(
-        saved.fields.map(field => ({ ...field, _key: stableKey('f') }))
-      );
+      setDraft(saved.fields.map(field => ({ ...field, _key: stableKey('f') })));
       notifications.show('Parameter schema saved', { severity: 'success' });
     } catch (err) {
       const message =
@@ -379,8 +376,8 @@ export function ParametersEmptyState({ onAdd }: EmptyStateProps) {
         }}
       />
       <Typography color="text.secondary" variant="body2" sx={{ mb: 2 }}>
-        No parameter slots yet. Add a field to start defining the
-        project&apos;s parameter schema.
+        No parameter slots yet. Add a field to start defining the project&apos;s
+        parameter schema.
       </Typography>
       <Button variant="outlined" startIcon={<AddIcon />} onClick={onAdd}>
         Add field

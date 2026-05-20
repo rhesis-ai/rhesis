@@ -435,8 +435,7 @@ export default function TestRunHeader({
                       'string' && (
                       <Chip
                         label={shortVersion(
-                          testRun.attributes
-                            ?.parameter_version as string
+                          testRun.attributes?.parameter_version as string
                         )}
                         size="small"
                         variant="outlined"
@@ -643,7 +642,6 @@ export default function TestRunHeader({
                     'development'}
                 </Typography>
               )}
-
             </CardContent>
           </Card>
         </Grid>

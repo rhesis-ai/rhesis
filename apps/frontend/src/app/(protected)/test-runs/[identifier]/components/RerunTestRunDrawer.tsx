@@ -221,8 +221,7 @@ export default function RerunTestRunDrawer({
         const parametersClient = clientFactory.getParametersClient();
         const exp = await parametersClient.getExperiment(origExpId);
         if (cancelled) return;
-        const version =
-          origRef?.version || exp.latest_version || undefined;
+        const version = origRef?.version || exp.latest_version || undefined;
         if (!version) {
           setSelectedExperiments([]);
           return;
@@ -426,9 +425,9 @@ export default function RerunTestRunDrawer({
           {rerunConfig.projectId && (
             <Box>
               <Alert severity="info" sx={{ mb: 2 }}>
-                Each selected experiment triggers its own re-run with
-                that experiment&apos;s parameters pinned. Leave empty to
-                re-run without an experiment.
+                Each selected experiment triggers its own re-run with that
+                experiment&apos;s parameters pinned. Leave empty to re-run
+                without an experiment.
               </Alert>
 
               {selectedExperiments.length > 0 && (
@@ -459,10 +458,7 @@ export default function RerunTestRunDrawer({
                           <Typography variant="body2" noWrap>
                             {exp.experiment_name}
                           </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                          >
+                          <Typography variant="caption" color="text.secondary">
                             Version {shortVersion(exp.version)}
                           </Typography>
                         </Box>
@@ -505,7 +501,6 @@ export default function RerunTestRunDrawer({
             title="Experiments for this re-run"
             subtitle="Selecting multiple experiments queues one re-run per experiment. Edit values inline to save a new version on the spot."
           />
-
 
           <Divider />
 

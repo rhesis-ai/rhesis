@@ -29,12 +29,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CheckIcon from '@mui/icons-material/Check';
-import {
-  AddIcon,
-  BiotechIcon,
-  EditIcon,
-  SaveIcon,
-} from '@/components/icons';
+import { AddIcon, BiotechIcon, EditIcon, SaveIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentDetail,
@@ -248,8 +243,7 @@ export default function SelectExperimentsDialog({
     return detailVersions.at(-1)?.version ?? null;
   }, [detail, detailVersions]);
 
-  const effectiveViewedVersion =
-    viewedVersionHash ?? latestVersionHash ?? null;
+  const effectiveViewedVersion = viewedVersionHash ?? latestVersionHash ?? null;
 
   const focusedSelectedVersions = React.useMemo(
     () =>
@@ -286,8 +280,7 @@ export default function SelectExperimentsDialog({
       setSelectedRows(prev => {
         if (
           prev.some(
-            row =>
-              row.experiment_id === experimentId && row.version === version
+            row => row.experiment_id === experimentId && row.version === version
           )
         ) {
           return prev;
@@ -317,14 +310,11 @@ export default function SelectExperimentsDialog({
     []
   );
 
-  const removeAllVersions = React.useCallback(
-    (experimentId: string) => {
-      setSelectedRows(prev =>
-        prev.filter(row => row.experiment_id !== experimentId)
-      );
-    },
-    []
-  );
+  const removeAllVersions = React.useCallback((experimentId: string) => {
+    setSelectedRows(prev =>
+      prev.filter(row => row.experiment_id !== experimentId)
+    );
+  }, []);
 
   const startEditing = React.useCallback(() => {
     if (!schema) return;
@@ -367,13 +357,8 @@ export default function SelectExperimentsDialog({
       setEditMode(false);
       setDraftValues({});
       setDraftMessage('');
-      const versionToSelect =
-        refreshed.latest_version ?? newVersion.version;
-      addVersionToSelection(
-        detail.id,
-        refreshed.name,
-        versionToSelect
-      );
+      const versionToSelect = refreshed.latest_version ?? newVersion.version;
+      addVersionToSelection(detail.id, refreshed.name, versionToSelect);
       setViewedVersionHash(versionToSelect);
       setExperiments(prev =>
         prev.map(exp =>
@@ -431,8 +416,8 @@ export default function SelectExperimentsDialog({
           }}
         >
           <Typography color="text.secondary" variant="body2">
-            Pick an experiment on the left to view its details, edit
-            values, and add versions to the run.
+            Pick an experiment on the left to view its details, edit values, and
+            add versions to the run.
           </Typography>
         </Box>
       );
@@ -558,8 +543,7 @@ export default function SelectExperimentsDialog({
                     <Typography variant="body2">
                       {shortVersion(ver.version)}
                     </Typography>
-                    {latestVersionHash &&
-                      ver.version === latestVersionHash && (
+                    {latestVersionHash && ver.version === latestVersionHash && (
                       <Chip
                         size="small"
                         label="latest"
@@ -571,12 +555,7 @@ export default function SelectExperimentsDialog({
                       row =>
                         row.experiment_id === detail.id &&
                         row.version === ver.version
-                    ) && (
-                      <CheckIcon
-                        fontSize="small"
-                        color="success"
-                      />
-                    )}
+                    ) && <CheckIcon fontSize="small" color="success" />}
                     {ver.message && (
                       <Typography
                         variant="caption"
@@ -670,9 +649,7 @@ export default function SelectExperimentsDialog({
                   color="default"
                   label={shortVersion(row.version)}
                   onClick={() => setViewedVersionHash(row.version)}
-                  onDelete={() =>
-                    removeVersion(row.experiment_id, row.version)
-                  }
+                  onDelete={() => removeVersion(row.experiment_id, row.version)}
                   deleteIcon={<CloseIcon />}
                 />
               ))}
@@ -692,8 +669,8 @@ export default function SelectExperimentsDialog({
 
         {schema.fields.length === 0 ? (
           <Alert severity="info">
-            This project has no parameter schema yet. Define one on the
-            project page before editing values here.
+            This project has no parameter schema yet. Define one on the project
+            page before editing values here.
           </Alert>
         ) : !editMode ? (
           <Stack spacing={1}>
@@ -748,9 +725,8 @@ export default function SelectExperimentsDialog({
         ) : (
           <Stack spacing={2}>
             <Alert severity="info">
-              Saving writes a new version on this experiment and adds
-              it to the selection. Identical values are a no-op on the
-              server.
+              Saving writes a new version on this experiment and adds it to the
+              selection. Identical values are a no-op on the server.
             </Alert>
             {schema.fields.map(field => (
               <TypedValueEditor

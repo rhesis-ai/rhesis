@@ -95,11 +95,15 @@ export default function ProjectEnvironments({
 }: ProjectEnvironmentsProps) {
   const notifications = useNotifications();
 
-  const [bindings, setBindings] = useState<ProjectEnvironmentsShape | null>(null);
+  const [bindings, setBindings] = useState<ProjectEnvironmentsShape | null>(
+    null
+  );
   const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pickerEnvironmentName, setPickerEnvironmentName] = useState<string | null>(null);
+  const [pickerEnvironmentName, setPickerEnvironmentName] = useState<
+    string | null
+  >(null);
   const [picker, setPicker] = useState<{
     experimentId?: string;
     version?: string;
@@ -200,10 +204,7 @@ export default function ProjectEnvironments({
     return true;
   }, []);
 
-  const selectedNames = useMemo(
-    () => selectedRows.map(String),
-    [selectedRows]
-  );
+  const selectedNames = useMemo(() => selectedRows.map(String), [selectedRows]);
 
   const handleBulkRemove = useCallback(async () => {
     if (selectedNames.length === 0) return;
@@ -588,8 +589,8 @@ export default function ProjectEnvironments({
     <Box>
       {sharedExperiments.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No shared experiments yet. Create an experiment, save a version,
-          and share it before promoting it onto an environment.
+          No shared experiments yet. Create an experiment, save a version, and
+          share it before promoting it onto an environment.
         </Alert>
       )}
 
@@ -637,11 +638,7 @@ export default function ProjectEnvironments({
                 ? `Remove "${selectedNames[0]}"?`
                 : `Remove ${selectedNames.length} environments?`}
             </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mb: 1 }}
-            >
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               Only the pointer
               {selectedNames.length > 1 ? 's are' : ' is'} cleared — the
               experiment{selectedNames.length > 1 ? 's' : ''} and{' '}
@@ -653,8 +650,8 @@ export default function ProjectEnvironments({
               their snapshotted values.
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Built-in names ({BuiltInEnvironment.ALL.join(', ')}) stay
-              visible as Unbound; custom names disappear from the list.
+              Built-in names ({BuiltInEnvironment.ALL.join(', ')}) stay visible
+              as Unbound; custom names disappear from the list.
             </Typography>
           </>
         }
@@ -735,9 +732,7 @@ function PromoteFromProjectDialog({
         const detail = await client.getExperiment(experimentId);
         if (cancelled) return;
         setVersions(detail.versions);
-        setVersion(
-          detail.versions[detail.versions.length - 1]?.version ?? ''
-        );
+        setVersion(detail.versions[detail.versions.length - 1]?.version ?? '');
       } catch (_e) {
         // Best-effort; the dropdown just stays empty.
       }
@@ -800,7 +795,9 @@ function PromoteFromProjectDialog({
               onChange={e => setVersion(e.target.value)}
             >
               {versions.length === 0 ? (
-                <MenuItem value="" disabled>Loading versions...</MenuItem>
+                <MenuItem value="" disabled>
+                  Loading versions...
+                </MenuItem>
               ) : (
                 [...versions].reverse().map(v => (
                   <MenuItem key={v.version} value={v.version}>

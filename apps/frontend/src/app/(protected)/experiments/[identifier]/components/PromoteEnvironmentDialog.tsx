@@ -163,9 +163,9 @@ export default function PromoteEnvironmentDialog({
           )}
           {environment === BuiltInEnvironment.PRODUCTION && (
             <Alert severity="info">
-              Promoting <strong>production</strong> is a deploy. Test
-              runs and SDK consumers asking for this environment will pick up
-              the new values on their next TTL window.
+              Promoting <strong>production</strong> is a deploy. Test runs and
+              SDK consumers asking for this environment will pick up the new
+              values on their next TTL window.
             </Alert>
           )}
         </Stack>

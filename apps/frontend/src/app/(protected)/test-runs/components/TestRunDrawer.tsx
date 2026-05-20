@@ -371,9 +371,9 @@ export default function TestRunDrawer({
             {project && (
               <Box>
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  Each selected experiment triggers its own test run
-                  with that experiment&apos;s parameters pinned. Leave
-                  empty to run without an experiment.
+                  Each selected experiment triggers its own test run with that
+                  experiment&apos;s parameters pinned. Leave empty to run
+                  without an experiment.
                 </Alert>
 
                 {selectedExperiments.length > 0 && (
@@ -417,8 +417,7 @@ export default function TestRunDrawer({
                           onClick={() =>
                             setSelectedExperiments(prev =>
                               prev.filter(
-                                row =>
-                                  row.experiment_id !== exp.experiment_id
+                                row => row.experiment_id !== exp.experiment_id
                               )
                             )
                           }

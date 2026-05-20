@@ -41,8 +41,7 @@ export default function TypedValueEditor({
 
   switch (field.type) {
     case 'text': {
-      const current =
-        value && value.type === 'text' ? value.value : '';
+      const current = value && value.type === 'text' ? value.value : '';
       return (
         <Box>
           <TextField
@@ -59,8 +58,7 @@ export default function TypedValueEditor({
       );
     }
     case 'string': {
-      const current =
-        value && value.type === 'string' ? value.value : '';
+      const current = value && value.type === 'string' ? value.value : '';
       return (
         <TextField
           label={label}
@@ -73,8 +71,7 @@ export default function TypedValueEditor({
       );
     }
     case 'integer': {
-      const current =
-        value && value.type === 'integer' ? value.value : '';
+      const current = value && value.type === 'integer' ? value.value : '';
       return (
         <TextField
           label={label}
@@ -93,8 +90,7 @@ export default function TypedValueEditor({
       );
     }
     case 'number': {
-      const current =
-        value && value.type === 'number' ? value.value : '';
+      const current = value && value.type === 'number' ? value.value : '';
       return (
         <TextField
           label={label}
@@ -113,8 +109,7 @@ export default function TypedValueEditor({
       );
     }
     case 'boolean': {
-      const current =
-        value && value.type === 'boolean' ? value.value : false;
+      const current = value && value.type === 'boolean' ? value.value : false;
       // Mirrors the toggle pattern used by ``DefaultValueEditor`` so the
       // boolean affordance is consistent across schema defaults and
       // experiment value editing.

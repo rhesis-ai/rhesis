@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Box,
-  Chip,
-  Paper,
-  Typography,
-} from '@mui/material';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Box, Chip, Paper, Typography } from '@mui/material';
 import {
   GridColDef,
   GridFilterModel,
@@ -138,9 +139,7 @@ export default function ExperimentsClientWrapper({
     try {
       const parametersClient = apiFactory.getParametersClient();
       const ids = selectedRows as string[];
-      await Promise.all(
-        ids.map(id => parametersClient.deleteExperiment(id))
-      );
+      await Promise.all(ids.map(id => parametersClient.deleteExperiment(id)));
       notifications.show(
         `Deleted ${ids.length} experiment${ids.length > 1 ? 's' : ''}`,
         { severity: 'success' }

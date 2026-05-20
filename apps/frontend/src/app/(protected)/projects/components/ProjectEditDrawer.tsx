@@ -260,13 +260,19 @@ export default function ProjectEditDrawer({
                   {selectedUser.name || selectedUser.email}
                 </Typography>
               </Box>
-            ) : <Typography color="text.secondary">None</Typography>;
+            ) : (
+              <Typography color="text.secondary">None</Typography>
+            );
           }}
         >
           {users.length === 0 ? (
-            <MenuItem value="" disabled>Loading users...</MenuItem>
+            <MenuItem value="" disabled>
+              Loading users...
+            </MenuItem>
           ) : (
-            <MenuItem value=""><em>None</em></MenuItem>
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
           )}
           {users.map(user => (
             <MenuItem key={user.id} value={user.id}>

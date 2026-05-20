@@ -10,10 +10,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import {
-  GridColDef,
-  GridRenderCellParams,
-} from '@mui/x-data-grid';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import Link from 'next/link';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -187,7 +184,9 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
         field: 'name',
         headerName: 'Run',
         flex: 1.2,
-        renderCell: (params: GridRenderCellParams<ExperimentResultsRunItem>) => (
+        renderCell: (
+          params: GridRenderCellParams<ExperimentResultsRunItem>
+        ) => (
           <Box
             sx={{
               display: 'flex',
@@ -215,10 +214,10 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
         field: 'created_at',
         headerName: 'Created',
         flex: 1.2,
-        renderCell: (params: GridRenderCellParams<ExperimentResultsRunItem>) => (
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', height: '100%' }}
-          >
+        renderCell: (
+          params: GridRenderCellParams<ExperimentResultsRunItem>
+        ) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             <Typography variant="body2" color="text.secondary">
               {params.row.created_at
                 ? new Date(params.row.created_at).toLocaleString()
@@ -234,7 +233,9 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
         sortable: false,
         valueGetter: (_, row: ExperimentResultsRunItem) =>
           row.test_configuration?.test_set?.name ?? '',
-        renderCell: (params: GridRenderCellParams<ExperimentResultsRunItem>) => {
+        renderCell: (
+          params: GridRenderCellParams<ExperimentResultsRunItem>
+        ) => {
           const testSet = params.row.test_configuration?.test_set;
           if (!testSet?.name) {
             return (
@@ -248,9 +249,7 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
             );
           }
           return (
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', height: '100%' }}
-            >
+            <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
               {testSet.id ? (
                 <Link
                   href={`/test-sets/${testSet.id}`}
@@ -280,10 +279,10 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
         headerName: 'Version',
         flex: 0.8,
         sortable: false,
-        renderCell: (params: GridRenderCellParams<ExperimentResultsRunItem>) => (
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', height: '100%' }}
-          >
+        renderCell: (
+          params: GridRenderCellParams<ExperimentResultsRunItem>
+        ) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
               {shortVersion(params.row.attributes?.parameter_version)}
             </Typography>
@@ -297,12 +296,15 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
         type: 'number',
         align: 'left',
         headerAlign: 'left',
-        valueGetter: (_, row: ExperimentResultsRunItem) => row.stats?.total ?? 0,
-        renderCell: (params: GridRenderCellParams<ExperimentResultsRunItem>) => (
-          <Box
-            sx={{ display: 'flex', alignItems: 'center', height: '100%' }}
-          >
-            <Typography variant="body2">{params.row.stats?.total ?? 0}</Typography>
+        valueGetter: (_, row: ExperimentResultsRunItem) =>
+          row.stats?.total ?? 0,
+        renderCell: (
+          params: GridRenderCellParams<ExperimentResultsRunItem>
+        ) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <Typography variant="body2">
+              {params.row.stats?.total ?? 0}
+            </Typography>
           </Box>
         ),
       },
@@ -313,13 +315,14 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
         type: 'number',
         align: 'left',
         headerAlign: 'left',
-        valueGetter: (_, row: ExperimentResultsRunItem) => row.stats?.passed ?? 0,
-        renderCell: (params: GridRenderCellParams<ExperimentResultsRunItem>) => {
+        valueGetter: (_, row: ExperimentResultsRunItem) =>
+          row.stats?.passed ?? 0,
+        renderCell: (
+          params: GridRenderCellParams<ExperimentResultsRunItem>
+        ) => {
           const passed = params.row.stats?.passed ?? 0;
           return (
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', height: '100%' }}
-            >
+            <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
               <Typography
                 variant="body2"
                 sx={{ color: passed > 0 ? 'success.main' : 'inherit' }}
@@ -337,13 +340,14 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
         type: 'number',
         align: 'left',
         headerAlign: 'left',
-        valueGetter: (_, row: ExperimentResultsRunItem) => row.stats?.failed ?? 0,
-        renderCell: (params: GridRenderCellParams<ExperimentResultsRunItem>) => {
+        valueGetter: (_, row: ExperimentResultsRunItem) =>
+          row.stats?.failed ?? 0,
+        renderCell: (
+          params: GridRenderCellParams<ExperimentResultsRunItem>
+        ) => {
           const failed = params.row.stats?.failed ?? 0;
           return (
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', height: '100%' }}
-            >
+            <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
               <Typography
                 variant="body2"
                 sx={{ color: failed > 0 ? 'error.main' : 'inherit' }}

@@ -305,8 +305,7 @@ export default function TraceDrawer({
             | undefined;
           setExperimentInfo({
             id: testRun.experiment_id,
-            name:
-              (attrs?.parameter_experiment_name as string) || 'Unknown',
+            name: (attrs?.parameter_experiment_name as string) || 'Unknown',
             version: (attrs?.parameter_version as string) || '',
           });
         } else {

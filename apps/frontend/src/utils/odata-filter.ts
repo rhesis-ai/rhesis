@@ -1114,7 +1114,6 @@ export function combineExperimentFiltersToOData(
   if (allExpressions.length === 1) {
     return allExpressions[0];
   }
-  const logicOp =
-    filterModel.logicOperator === 'or' ? ' or ' : ' and ';
+  const logicOp = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
   return `(${allExpressions.join(logicOp)})`;
 }

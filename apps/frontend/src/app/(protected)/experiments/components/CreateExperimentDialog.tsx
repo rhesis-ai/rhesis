@@ -48,8 +48,7 @@ export default function CreateExperimentDialog({
   const [projectId, setProjectId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-  const [visibility, setVisibility] =
-    useState<ExperimentVisibility>('private');
+  const [visibility, setVisibility] = useState<ExperimentVisibility>('private');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -176,8 +175,8 @@ export default function CreateExperimentDialog({
             </ToggleButton>
           </ToggleButtonGroup>
           <FormHelperText>
-            Only shared experiments can be promoted onto a project environment
-            ({BuiltInEnvironment.ALL.join(', ')}).
+            Only shared experiments can be promoted onto a project environment (
+            {BuiltInEnvironment.ALL.join(', ')}).
           </FormHelperText>
         </Box>
       </Stack>
