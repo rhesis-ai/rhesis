@@ -165,7 +165,7 @@ def update_experiment(
     for key, value in data.items():
         setattr(db_experiment, key, value)
     db.add(db_experiment)
-    db.flush()
+    db.commit()
     db.refresh(db_experiment)
     return to_detail(db_experiment)
 

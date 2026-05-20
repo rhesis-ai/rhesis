@@ -29,6 +29,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.models.experiment import Experiment
@@ -224,7 +225,7 @@ def append_version(
         values=typed_values,
         parent_version=parent_version or (versions[-1].version if versions else None),
         message=message,
-        created_at=_dt.datetime.utcnow(),
+        created_at=_dt.datetime.now(_dt.timezone.utc),
         created_by_user_id=created_by_user_id,
     )
     # Reassign with a fresh list so SQLAlchemy's identity-based dirty
@@ -797,7 +798,7 @@ def to_read(db_experiment: Experiment) -> ExperimentRead:
                 name=db_experiment.project.name,
             )
             project_name = db_experiment.project.name
-    except Exception:
+    except DetachedInstanceError:
         pass
     return ExperimentRead(
         id=db_experiment.id,
@@ -832,7 +833,7 @@ def to_detail(db_experiment: Experiment) -> ExperimentDetail:
                 name=db_experiment.project.name,
             )
             project_name = db_experiment.project.name
-    except Exception:
+    except DetachedInstanceError:
         pass
     return ExperimentDetail(
         id=db_experiment.id,
