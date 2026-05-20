@@ -116,7 +116,6 @@ variable "env_nics" {
     service_cidr     = string
     node_cidr        = string
     vpc_name         = string
-    project          = string
   }))
   default = []
 }

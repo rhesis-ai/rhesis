@@ -104,7 +104,6 @@ module "wireguard_server" {
       service_cidr     = local.cidrs.dev.services
       node_cidr        = local.cidrs.dev.nodes
       vpc_name         = data.terraform_remote_state.dev[0].outputs.vpc_name
-      project          = data.terraform_remote_state.dev[0].outputs.project_id
     }] : [],
     local.stg_enabled ? [{
       subnet_self_link = data.terraform_remote_state.stg[0].outputs.nodes_subnet_self_link
@@ -115,7 +114,6 @@ module "wireguard_server" {
       service_cidr     = local.cidrs.stg.services
       node_cidr        = local.cidrs.stg.nodes
       vpc_name         = data.terraform_remote_state.stg[0].outputs.vpc_name
-      project          = data.terraform_remote_state.stg[0].outputs.project_id
     }] : []
   )
 

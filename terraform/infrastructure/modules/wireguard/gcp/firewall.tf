@@ -33,33 +33,6 @@ resource "google_compute_firewall" "wireguard_vpn" {
   target_tags   = ["wireguard-server"]
 }
 
-# Allow DNS traffic (port 53) from GKE pods/nodes to BIND9 on the WireGuard server.
-# Created in each env VPC so pods can reach the internal DNS resolver.
-resource "google_compute_firewall" "dns_from_gke" {
-  for_each = { for nic in var.env_nics : nic.environment => nic }
-
-  name     = "wireguard-allow-dns-${each.key}"
-  network  = each.value.vpc_name
-  project  = each.value.project
-  priority = 900
-
-  allow {
-    protocol = "tcp"
-    ports    = ["53"]
-  }
-
-  allow {
-    protocol = "udp"
-    ports    = ["53"]
-  }
-
-  allow {
-    protocol = "icmp"
-  }
-
-  source_ranges = [each.value.node_cidr, each.value.pod_cidr]
-  target_tags   = ["wireguard-server"]
-}
 
 # Allow egress to GKE masters
 resource "google_compute_firewall" "wireguard_to_masters" {
