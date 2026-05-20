@@ -33,6 +33,7 @@ class Experiment(BaseEntity):
 
     endpoint: ClassVar[Endpoints] = ENDPOINT
 
+    id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
     project_id: Optional[str] = None
@@ -41,6 +42,24 @@ class Experiment(BaseEntity):
     versions_count: Optional[int] = 0
     latest_version: Optional[str] = None
     versions: Optional[list[dict[str, Any]]] = None
+
+    # ------------------------------------------------------------------ #
+    # Project-scoped creation                                              #
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def _create(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Create via ``POST /projects/{project_id}/experiments``."""
+        project_id = data.get("project_id")
+        if not project_id:
+            raise ValueError("project_id is required to create an experiment")
+        client = APIClient()
+        import requests as _requests
+
+        url = client.get_url(f"projects/{project_id}/experiments")
+        resp = _requests.post(url, headers=client.headers, json=data)
+        resp.raise_for_status()
+        return resp.json()
 
     # ------------------------------------------------------------------ #
     # Versions                                                             #
