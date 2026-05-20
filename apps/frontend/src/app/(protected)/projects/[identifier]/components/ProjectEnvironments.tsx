@@ -8,6 +8,10 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   IconButton,
   InputLabel,
@@ -104,10 +108,6 @@ export default function ProjectEnvironments({
   const [pickerEnvironmentName, setPickerEnvironmentName] = useState<
     string | null
   >(null);
-  const [picker, setPicker] = useState<{
-    experimentId?: string;
-    version?: string;
-  }>({});
 
   // Inline "add new environment" state. Kept ``null`` when the user is
   // not adding, populated when the toolbar button is clicked. The
@@ -503,7 +503,6 @@ export default function ProjectEnvironments({
                     onClick={e => {
                       e.stopPropagation();
                       setPickerEnvironmentName(params.row.name);
-                      setPicker({});
                     }}
                   >
                     Promote
@@ -686,13 +685,6 @@ interface PromoteFromProjectDialogProps {
   onClose: () => void;
   onPromoted: () => void;
 }
-
-import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-} from '@mui/material';
 
 function PromoteFromProjectDialog({
   open,
