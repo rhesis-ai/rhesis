@@ -699,7 +699,10 @@ export default function SelectExperimentsDialog({
           <Stack spacing={1}>
             {schema.fields.map(field => {
               const value = focusedVersion?.values[field.name] ?? null;
-              const TypeIcon = TYPE_META[field.type].icon;
+              const typeMeta = TYPE_META[field.type];
+              const TypeIcon = typeMeta.icon;
+              const typeIconColor =
+                typeMeta.color === 'default' ? 'action' : typeMeta.color;
               return (
                 <Box
                   key={field.name}
@@ -707,7 +710,7 @@ export default function SelectExperimentsDialog({
                     p: 1.5,
                     border: '1px solid',
                     borderColor: 'divider',
-                    borderRadius: 1,
+                    borderRadius: theme => theme.shape.borderRadius,
                   }}
                 >
                   <Stack
@@ -719,11 +722,8 @@ export default function SelectExperimentsDialog({
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {field.name}
                     </Typography>
-                    <Tooltip title={TYPE_META[field.type].label}>
-                      <TypeIcon
-                        fontSize="small"
-                        color={TYPE_META[field.type].color}
-                      />
+                    <Tooltip title={typeMeta.label}>
+                      <TypeIcon fontSize="small" color={typeIconColor} />
                     </Tooltip>
                     {field.required && (
                       <Chip
