@@ -82,7 +82,6 @@ export function useEmbeddingGraph(
         ) {
           return { status: 'pending' };
         }
-        setGraph(response.graph);
         return { status: 'ready', graph: response.graph };
       }
       return { status: 'pending' };
@@ -114,6 +113,7 @@ export function useEmbeddingGraph(
           return;
         }
         if (result.status === 'ready') {
+          setGraph(result.graph);
           clearPoll();
           return;
         }
@@ -143,7 +143,10 @@ export function useEmbeddingGraph(
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      await fetchGraph();
+      const result = await fetchGraph();
+      if (result.status === 'ready') {
+        setGraph(result.graph);
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to load embedding map';
@@ -191,9 +194,10 @@ export function useEmbeddingGraph(
 
         if (result.status === 'pending') {
           setGraph(null);
-          pollUntilReady();
           return;
         }
+
+        setGraph(result.graph);
 
         const baseline = computeBaselineRef.current;
         if (

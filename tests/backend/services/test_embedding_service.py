@@ -230,7 +230,7 @@ class TestEmbeddingService:
         """Test resolving model ID when explicitly provided."""
         service = EmbeddingService(test_db)
 
-        result = service._resolve_model_id(authenticated_user_id, str(embedding_model.id))
+        result = service.resolve_model_id(authenticated_user_id, str(embedding_model.id))
 
         assert result == str(embedding_model.id)
 
@@ -240,7 +240,7 @@ class TestEmbeddingService:
         """Test resolving model ID from user settings."""
         service = EmbeddingService(test_db)
 
-        result = service._resolve_model_id(str(user_with_embedding_model.id), None)
+        result = service.resolve_model_id(str(user_with_embedding_model.id), None)
 
         assert result == str(embedding_model.id)
 
@@ -249,14 +249,14 @@ class TestEmbeddingService:
         service = EmbeddingService(test_db)
 
         with pytest.raises(ValueError, match="No embedding model found"):
-            service._resolve_model_id(str(db_user.id), None)
+            service.resolve_model_id(str(db_user.id), None)
 
     def test_resolve_model_id_user_not_found(self, test_db):
         """Test error when user is not found."""
         service = EmbeddingService(test_db)
 
         with pytest.raises(ValueError, match="No embedding model found"):
-            service._resolve_model_id("00000000-0000-0000-0000-000000000000", None)
+            service.resolve_model_id("00000000-0000-0000-0000-000000000000", None)
 
     @patch.object(EmbeddingService, "_execute_sync")
     @patch.object(EmbeddingService, "_enqueue_async")
@@ -354,7 +354,7 @@ class TestEmbeddingService:
         mock_enqueue.assert_called_once()
         mock_execute.assert_called_once()
 
-    @patch.object(EmbeddingService, "_resolve_model_id")
+    @patch.object(EmbeddingService, "resolve_model_id")
     def test_enqueue_embedding_handles_exception(
         self,
         mock_resolve,

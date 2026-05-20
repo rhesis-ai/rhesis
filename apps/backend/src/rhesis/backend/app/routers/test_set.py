@@ -851,7 +851,9 @@ def compute_test_set_embedding_graph(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Compute a embedding graph for a test set.
+    Queue embedding graph computation for a test set.
+
+    The worker generates missing test embeddings, then builds and stores the graph.
     """
     db_test_set = resolve_test_set_or_raise(
         test_set_identifier, db, str(current_user.organization_id)

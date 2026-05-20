@@ -131,10 +131,44 @@ describe('useEmbeddingGraph', () => {
     });
   });
 
-  it('does not schedule further polls after enabled becomes false', async () => {
+  it('does not poll when graph has never been computed', async () => {
+    mockTestSetsClient.getEmbeddingGraph.mockResolvedValue({
+      status: 'pending',
+    });
+
+    const { result } = renderHook(() =>
+      useEmbeddingGraph('test-set-1', 'token', { enabled: true })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.isComputing).toBe(false);
+    expect(result.current.graph).toBeNull();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(30_000);
+    });
+
+    expect(mockTestSetsClient.getEmbeddingGraph).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores stale poll responses after enabled becomes false', async () => {
+    let resolveSecondFetch: (value: {
+      status: 'ready';
+      graph: Scatter2DGraph;
+    }) => void = () => undefined;
+    const secondFetch = new Promise<{ status: 'ready'; graph: Scatter2DGraph }>(
+      resolve => {
+        resolveSecondFetch = resolve;
+      }
+    );
+
     mockTestSetsClient.getEmbeddingGraph
       .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
-      .mockResolvedValue({ status: 'ready', graph: oldGraph });
+      .mockReturnValueOnce(secondFetch)
+      .mockResolvedValue({ status: 'ready', graph: newGraph });
     mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
       status: 'pending',
       task_id: 'task-1',
@@ -155,13 +189,8 @@ describe('useEmbeddingGraph', () => {
     });
 
     await waitFor(() => {
-      expect(
-        mockTestSetsClient.getEmbeddingGraph.mock.calls.length
-      ).toBeGreaterThan(1);
+      expect(mockTestSetsClient.getEmbeddingGraph.mock.calls.length).toBe(2);
     });
-
-    const callsBeforeDisable =
-      mockTestSetsClient.getEmbeddingGraph.mock.calls.length;
 
     rerender({ enabled: false });
 
@@ -170,12 +199,11 @@ describe('useEmbeddingGraph', () => {
     });
 
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(30_000);
+      resolveSecondFetch({ status: 'ready', graph: newGraph });
+      await Promise.resolve();
     });
 
-    expect(mockTestSetsClient.getEmbeddingGraph.mock.calls.length).toBe(
-      callsBeforeDisable
-    );
+    expect(result.current.graph).toEqual(oldGraph);
   });
 
   it('resumes polling when enabled returns during recompute', async () => {
