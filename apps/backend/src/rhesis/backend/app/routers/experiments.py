@@ -319,7 +319,7 @@ def read_experiment_version(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> ExperimentVersion:
-    """Return one version by content hash; 404 if it doesn't exist."""
+    """Return one version by version label or content hash; 404 if it doesn't exist."""
     organization_id, user_id = tenant_context
     db_experiment = get_visible_experiment(
         db,

@@ -257,6 +257,7 @@ class ExperimentVersion(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     version: str
+    content_hash: str
     schema_fingerprint: str
     values: dict[str, ParameterValue] = Field(default_factory=dict)
     parent_version: str | None = None
@@ -268,6 +269,7 @@ class ExperimentVersion(BaseModel):
     @classmethod
     def _backfill_optionals(cls, data: Any) -> Any:
         if isinstance(data, dict):
+            data.setdefault("content_hash", data.get("version", ""))
             data.setdefault("parent_version", None)
             data.setdefault("message", None)
             data.setdefault("values", {})
@@ -454,14 +456,14 @@ def canonical_hash(
         "values": serialized,
     }
     canon = _canonical_json(payload)
-    return "v_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
 def canonical_version(
     values: dict[str, ParameterValue] | dict[str, Any],
     schema: ParameterSchema,
 ) -> str:
-    """Return the canonical version identifier for ``(values, schema)``.
+    """Return the content hash for ``(values, schema)``.
 
     Accepts both raw and typed values for ergonomic SDK use. Raw values
     are coerced through :func:`validate_values_against_schema` first so

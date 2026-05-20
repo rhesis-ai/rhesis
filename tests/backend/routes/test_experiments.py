@@ -172,7 +172,8 @@ class TestExperimentHeaderCRUD:
         body = response.json()
         assert body["versions_count"] == 1
         assert len(body["versions"]) == 1
-        assert body["versions"][0]["version"].startswith("v_")
+        assert body["versions"][0]["version"] == "v1"
+        assert body["versions"][0]["content_hash"]
 
     def test_patch_updates_name_and_description(
         self, authenticated_client: TestClient, db_project
@@ -229,7 +230,8 @@ class TestExperimentVersions:
             values={"temperature": 0.9, "model": "gpt-4o"},
         )
         assert code == status.HTTP_201_CREATED
-        assert body["version"].startswith("v_")
+        assert body["version"] == "v1"
+        assert body["content_hash"]
         assert body["values"]["temperature"] == {"type": "number", "value": 0.9}
         assert body["values"]["model"] == {"type": "string", "value": "gpt-4o"}
 
@@ -276,9 +278,8 @@ class TestExperimentVersions:
             values={"temperature": 1.4},
         )
         assert code == status.HTTP_201_CREATED
-        assert second["version"] != first["version"]
-        # The new version's parent_version points at the previous one
-        # so the chain is reconstructable from the array alone.
+        assert first["version"] == "v1"
+        assert second["version"] == "v2"
         assert second["parent_version"] == first["version"]
 
         listing = authenticated_client.get(_versions_url(created["id"]))

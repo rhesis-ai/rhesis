@@ -86,7 +86,7 @@ class Parameters:
 
         Resolution order (first non-``None`` wins):
 
-        1. ``version`` — immutable content-hash pin
+        1. ``version`` — immutable version pin (e.g. ``"v3"``)
         2. ``experiment_id`` — latest version of that experiment
         3. ``environment`` — movable pointer (``"default"`` when omitted)
 

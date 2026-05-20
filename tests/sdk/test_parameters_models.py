@@ -191,7 +191,7 @@ def test_hash_determinism():
     h1 = canonical_version(values_1, schema)
     h2 = canonical_version(values_2, schema)
     assert h1 == h2
-    assert h1.startswith("v_")
+    assert len(h1) == 64  # SHA-256 hex digest
 
 
 def test_hash_changes_on_value_change():

@@ -6,11 +6,8 @@ from endpoint import stream_assistant_response_sync
 
 
 def short_version(v: str) -> str:
-    if not v:
-        return ""
-    if v.startswith("v_"):
-        return f"v_{v[2:8]}"
-    return v[:8]
+    return v if v else ""
+
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="Insurance Assistant", page_icon="👩‍💼", layout="centered")
@@ -19,15 +16,14 @@ st.set_page_config(page_title="Insurance Assistant", page_icon="👩‍💼", la
 def display_experiment_pill(container):
     """Display the active experiment/version pill if resolved from Parameters.get()"""
     from rhesis.sdk import Parameters
+
     CHATBOT_PROJECT = os.getenv("RHESIS_CHATBOT_PROJECT", "chatbot-demo")
     parameters_environment = os.getenv(
         "RHESIS_PARAMETERS_ENVIRONMENT",
         os.getenv("RHESIS_PARAMETERS_LABEL", "default"),
     )
     try:
-        params = Parameters.get(
-            project=CHATBOT_PROJECT, environment=parameters_environment
-        )
+        params = Parameters.get(project=CHATBOT_PROJECT, environment=parameters_environment)
         version_chip = short_version(params.version)
         source_env = params.source_environment or params.source
         container.info(f"🧪 **Live Configuration:** {version_chip} via `{source_env}`")
@@ -133,13 +129,13 @@ def main():
             with st.spinner("Thinking..."):
                 # Resolve parameters so they affect the stream
                 params = _resolve_chatbot_params()
-                
+
                 # Get first chunk to ensure connection is established
                 try:
                     # Pass conversation history (excluding the current user message we just added)
                     conversation_history = st.session_state.messages[:-1]
                     stream = stream_assistant_response_sync(
-                        prompt, 
+                        prompt,
                         use_case=params.get("use_case", "insurance"),
                         conversation_history=conversation_history,
                         mode=params.get("output_mode", "text"),

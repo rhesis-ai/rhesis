@@ -95,8 +95,8 @@ def test_experiment_crud(docker_compose_test_env):
         {"model": "gpt-4o", "temperature": 0.9},
         message="first commit",
     )
-    assert "version" in version_data
-    assert version_data["version"].startswith("v_")
+    assert version_data["version"] == "v1"
+    assert "content_hash" in version_data
     assert exp.latest_version == version_data["version"]
 
     # Read back

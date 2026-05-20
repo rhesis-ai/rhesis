@@ -116,7 +116,7 @@ class Experiment(BaseEntity):
 
     @handle_http_errors
     def get_version(self, version: str) -> dict[str, Any]:
-        """Fetch a single version by content hash."""
+        """Fetch a single version by version label or content hash."""
         client = APIClient()
         return client.send_request(
             endpoint=self.endpoint,

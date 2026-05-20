@@ -38,8 +38,8 @@ from rhesis.backend.app.schemas.parameters import (
     BuiltInEnvironment,
     EnvironmentPointer,
     ExperimentDetail,
-    ExperimentRead,
     ExperimentProject,
+    ExperimentRead,
     ExperimentSummary,
     ExperimentVersion,
     ParameterSchema,
@@ -47,6 +47,7 @@ from rhesis.backend.app.schemas.parameters import (
     ResolveResponse,
     canonical_hash,
     canonical_schema_fingerprint,
+    next_sequential_version,
     unwrap_parameter_values_for_wire,
     validate_environment_name,
     validate_values_against_schema,
@@ -144,14 +145,14 @@ def latest_version(db_experiment: Experiment) -> ExperimentVersion | None:
 
 
 def find_version(db_experiment: Experiment, version: str) -> ExperimentVersion:
-    """Look up a single version by content hash; 404 if absent."""
+    """Look up a single version by version label or content hash; 404 if absent."""
     for entry in db_experiment.versions or []:
         candidate = (
             entry
             if isinstance(entry, ExperimentVersion)
             else ExperimentVersion.model_validate(entry)
         )
-        if candidate.version == version:
+        if candidate.version == version or candidate.content_hash == version:
             return candidate
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -199,7 +200,7 @@ def append_version(
     """
     typed_values = validate_values_against_schema(raw_values, project_schema)
     fingerprint = canonical_schema_fingerprint(project_schema)
-    new_version_id = canonical_hash(fingerprint, typed_values)
+    new_content_hash = canonical_hash(fingerprint, typed_values)
 
     locked = db.query(Experiment).filter(Experiment.id == db_experiment.id).with_for_update().one()
     versions: list[ExperimentVersion] = [
@@ -207,10 +208,9 @@ def append_version(
         for v in (locked.versions or [])
     ]
 
-    if versions and versions[-1].version == new_version_id:
+    if versions and versions[-1].content_hash == new_content_hash:
         return AppendResult(version=versions[-1], created=False)
 
-    # Validate explicit parent_version exists in the versions array
     if parent_version is not None and versions:
         known = {v.version for v in versions}
         if parent_version not in known:
@@ -220,7 +220,8 @@ def append_version(
             )
 
     new_entry = ExperimentVersion(
-        version=new_version_id,
+        version=next_sequential_version(versions),
+        content_hash=new_content_hash,
         schema_fingerprint=fingerprint,
         values=typed_values,
         parent_version=parent_version or (versions[-1].version if versions else None),
@@ -483,9 +484,8 @@ def resolve_parameters(
     if version is not None and experiment_id is None:
         # Resolving a version requires knowing which experiment it
         # belongs to. We walk shared+owned experiments in this project
-        # and pick the unique match — versions are content hashes so
-        # collisions across experiments are vanishingly rare, and
-        # plan-locked invariants don't promise uniqueness anyway.
+        # and pick the unique match — sequential versions (v1, v2, ...)
+        # may collide across experiments, so we check all candidates.
         match = _find_experiment_holding_version(
             db,
             project_id=project.id,
@@ -585,7 +585,12 @@ def _find_experiment_holding_version(
             continue
         for entry in cand.versions or []:
             v = entry.version if isinstance(entry, ExperimentVersion) else entry.get("version")
-            if v == version:
+            ch = (
+                entry.content_hash
+                if isinstance(entry, ExperimentVersion)
+                else entry.get("content_hash")
+            )
+            if v == version or ch == version:
                 return cand
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,

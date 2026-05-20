@@ -290,16 +290,16 @@ class ParameterSchema(BaseModel):
 class ExperimentVersion(BaseModel):
     """An immutable snapshot of an experiment's values at a moment in time.
 
-    The ``version`` is a content hash; saving identical values is
-    idempotent (the server returns the existing version rather than
-    appending a duplicate). ``schema_fingerprint`` records the exact
-    schema shape at commit time so the version can still be interpreted
-    after the project schema has evolved.
+    The ``version`` is a sequential identifier (``v1``, ``v2``, …)
+    assigned by the server on each unique commit.  ``content_hash``
+    is the SHA-256 digest of the typed values + schema fingerprint,
+    used for idempotency: saving identical values is a no-op.
     """
 
     model_config = ConfigDict(extra="ignore")
 
     version: str
+    content_hash: str
     schema_fingerprint: str
     values: dict[str, ParameterValue] = Field(default_factory=dict)
     parent_version: str | None = None
@@ -310,15 +310,8 @@ class ExperimentVersion(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _backfill_optionals(cls, data: Any) -> Any:
-        """Lift older rows that pre-date optional fields onto the current shape.
-
-        Adding a new optional field to ExperimentVersion must remain a
-        code-only change: existing JSONB rows are not rewritten, they
-        adapt on read. This validator centralizes the defaulting so each
-        new field added below picks up sensible defaults without callers
-        seeing ``KeyError`` from the underlying dict.
-        """
         if isinstance(data, dict):
+            data.setdefault("content_hash", data.get("version", ""))
             data.setdefault("parent_version", None)
             data.setdefault("message", None)
             data.setdefault("values", {})
@@ -559,13 +552,12 @@ def canonical_hash(
     schema_fingerprint: str,
     values: dict[str, ParameterValue],
 ) -> str:
-    """Return the canonical version identifier for ``(values, schema)``.
+    """Return the content hash for ``(values, schema)``.
 
-    The result is ``"v_" + sha256_hex`` so it's directly usable as the
-    public-facing ``version`` string (the UI shortens it to ``v_<6 chars>``
-    for chips). Computed off the schema fingerprint plus the typed value
-    dump so two value sets that hash identically were produced under the
-    same schema interpretation.
+    Used for idempotency: two commits with identical typed values under
+    the same schema produce the same hash.  The hash is stored in
+    ``ExperimentVersion.content_hash``; the public-facing ``version``
+    is a sequential identifier assigned by :func:`next_sequential_version`.
     """
     serialized = {name: _dump_for_hash(value) for name, value in values.items()}
     payload = {
@@ -573,21 +565,20 @@ def canonical_hash(
         "values": serialized,
     }
     canon = _canonical_json(payload)
-    return "v_" + hashlib.sha256(canon.encode("utf-8")).hexdigest()
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
 def canonical_version(
     values: dict[str, ParameterValue],
     schema: ParameterSchema,
 ) -> str:
-    """Convenience wrapper: fingerprint the schema then hash the values.
-
-    Mirrors the SDK's ``canonical_version`` so the algorithm has one
-    callable name when read end-to-end. The two-step form
-    (:func:`canonical_schema_fingerprint` + :func:`canonical_hash`) stays
-    available for callers that already have the fingerprint cached.
-    """
+    """Convenience wrapper: fingerprint the schema then hash the values."""
     return canonical_hash(canonical_schema_fingerprint(schema), values)
+
+
+def next_sequential_version(versions: list[ExperimentVersion]) -> str:
+    """Return the next sequential version label (``v1``, ``v2``, …)."""
+    return f"v{len(versions) + 1}"
 
 
 # --------------------------------------------------------------------------- #
