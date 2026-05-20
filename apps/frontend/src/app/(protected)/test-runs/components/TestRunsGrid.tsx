@@ -4,12 +4,13 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useContext,
   useRef,
   useMemo,
 } from 'react';
-import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import {
   getTestRunStatusColor,
   getTestRunStatusIcon,
@@ -19,40 +20,217 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
+import {
+  Typography,
+  Box,
+  Alert,
+  Avatar,
+  Chip,
+  Button,
+  ButtonGroup,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import { SearchPill } from '@/components/common/SearchPill';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
+import TestRunFilterDrawer, {
+  type TestRunFilters,
+  EMPTY_TEST_RUN_FILTERS,
+  hasActiveTestRunFilters,
+} from './TestRunFilterDrawer';
+import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
 
-interface TestRunsTableProps {
+// ── Status pill tabs ─────────────────────────────────────────────────────────
+
+const STATUS_TABS = [
+  { label: 'All', value: 'all' },
+  { label: 'Queued', value: 'Queued' },
+  { label: 'In Progress', value: 'Progress' },
+  { label: 'Completed', value: 'Completed' },
+  { label: 'Partial', value: 'Partial' },
+  { label: 'Failed', value: 'Failed' },
+  { label: 'Cancelled', value: 'Cancelled' },
+];
+
+// ── Toolbar context ──────────────────────────────────────────────────────────
+
+interface TestRunsToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  statusFilter: string;
+  setStatusFilter: (v: string) => void;
+  openFilterDrawer: () => void;
+}
+
+const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  statusFilter: 'all',
+  setStatusFilter: () => {},
+  openFilterDrawer: () => {},
+});
+
+function TestRunsUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    statusFilter,
+    setStatusFilter,
+    openFilterDrawer,
+  } = useContext(TestRunsToolbarContext);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        px: 2,
+        py: 1,
+        borderBottom: theme =>
+          `1px solid ${
+            theme.palette.mode === 'light'
+              ? GREYSCALE.light.border
+              : GREYSCALE.dark.border
+          }`,
+        minHeight: 52,
+      }}
+    >
+      {/* Left: filter button + search */}
+      <Tooltip title="Filters">
+        <IconButton
+          size="small"
+          onClick={openFilterDrawer}
+          sx={{
+            bgcolor: 'primary.main',
+            color: '#fff',
+            borderRadius: BORDER_RADIUS.sm,
+            width: 36,
+            height: 36,
+            flexShrink: 0,
+            '&:hover': { bgcolor: 'primary.dark' },
+          }}
+        >
+          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
+        </IconButton>
+      </Tooltip>
+
+      <SearchPill
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search test runs…"
+        width={240}
+      />
+
+      {/* Center: status pill tabs */}
+      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+        <ButtonGroup
+          variant="outlined"
+          size="small"
+          sx={{
+            '& .MuiButtonGroup-grouped': {
+              borderRadius: 0,
+              '&:first-of-type': {
+                borderTopLeftRadius: BORDER_RADIUS.pill,
+                borderBottomLeftRadius: BORDER_RADIUS.pill,
+              },
+              '&:last-of-type': {
+                borderTopRightRadius: BORDER_RADIUS.pill,
+                borderBottomRightRadius: BORDER_RADIUS.pill,
+              },
+              borderColor: theme =>
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : GREYSCALE.dark.border,
+            },
+          }}
+        >
+          {STATUS_TABS.map(tab => (
+            <Button
+              key={tab.value}
+              onClick={() => setStatusFilter(tab.value)}
+              sx={{
+                px: 2,
+                py: 0.5,
+                fontWeight: statusFilter === tab.value ? 600 : 400,
+                bgcolor:
+                  statusFilter === tab.value ? 'primary.dark' : 'transparent',
+                color:
+                  statusFilter === tab.value
+                    ? '#fff'
+                    : theme =>
+                        theme.palette.mode === 'light'
+                          ? GREYSCALE.light.body
+                          : GREYSCALE.dark.body,
+                '&:hover': {
+                  bgcolor:
+                    statusFilter === tab.value
+                      ? 'primary.dark'
+                      : theme =>
+                          theme.palette.mode === 'light'
+                            ? GREYSCALE.light.surface1
+                            : GREYSCALE.dark.surface1,
+                },
+              }}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </Box>
+
+      {/* Right: DataGrid toolbar buttons */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <GridToolbarColumnsButton />
+        <GridToolbarDensitySelector />
+        <GridToolbarExport />
+      </Box>
+    </Box>
+  );
+}
+
+// ── Grid component ────────────────────────────────────────────────────────────
+
+interface TestRunsGridProps {
   sessionToken: string;
   onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
+  refreshKey?: number;
 }
 
-function TestRunsTable({
+function TestRunsGrid({
   sessionToken,
   onRefresh,
   onTotalCountChange,
-}: TestRunsTableProps) {
+  refreshKey,
+}: TestRunsGridProps) {
   const isMounted = useRef(false);
   const router = useRouter();
   const notifications = useNotifications();
+
+  // ── Search + status filter ─────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // ── Core grid state ────────────────────────────────────────────────────────
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [testRuns, setTestRuns] = useState<TestRunDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -64,6 +242,14 @@ function TestRunsTable({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
+
+  // ── Filter drawer state ────────────────────────────────────────────────────
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] = useState<TestRunFilters>(
+    EMPTY_TEST_RUN_FILTERS
+  );
+
+  // ── Data fetching ─────────────────────────────────────────────────────────
 
   const fetchTestRuns = useCallback(
     async (skip: number, limit: number) => {
@@ -77,7 +263,6 @@ function TestRunsTable({
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
 
-        // Convert filter model to OData filter string (handles both column filters and quick search)
         const filterString = combineTestRunFiltersToOData(filterModel);
 
         const apiParams = {
@@ -112,20 +297,104 @@ function TestRunsTable({
 
   useEffect(() => {
     isMounted.current = true;
-
-    const loadData = async () => {
-      if (!sessionToken) return;
-
-      const skip = paginationModel.page * paginationModel.pageSize;
-      await fetchTestRuns(skip, paginationModel.pageSize);
-    };
-
-    loadData();
-
+    const skip = paginationModel.page * paginationModel.pageSize;
+    fetchTestRuns(skip, paginationModel.pageSize);
     return () => {
       isMounted.current = false;
     };
-  }, [sessionToken, paginationModel, fetchTestRuns]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionToken, paginationModel, filterModel]);
+
+  // Refetch when parent signals a refresh
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      const skip = paginationModel.page * paginationModel.pageSize;
+      fetchTestRuns(skip, paginationModel.pageSize);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  // ── Sync searchQuery into filterModel ────────────────────────────────────
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'quickFilter'
+      );
+      const items = searchQuery
+        ? [
+            ...otherItems,
+            { field: 'quickFilter', operator: 'contains', value: searchQuery },
+          ]
+        : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  // ── Sync statusFilter pill tab into filterModel ───────────────────────────
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'status.name'
+      );
+      const items =
+        statusFilter && statusFilter !== 'all'
+          ? [
+              ...otherItems,
+              {
+                field: 'status.name',
+                operator: 'equals',
+                value: statusFilter,
+              },
+            ]
+          : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [statusFilter]);
+
+  // ── Sync drawer filters into filterModel ─────────────────────────────────
+
+  useEffect(() => {
+    const DRAWER_FIELDS = [
+      'test_configuration.test_set.name',
+      'user.name',
+      'tags',
+    ];
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      );
+      const drawerItems: typeof prev.items = [];
+      if (drawerFilters.testSet) {
+        drawerItems.push({
+          field: 'test_configuration.test_set.name',
+          operator: 'contains',
+          value: drawerFilters.testSet,
+        });
+      }
+      if (drawerFilters.executor) {
+        drawerItems.push({
+          field: 'user.name',
+          operator: 'contains',
+          value: drawerFilters.executor,
+        });
+      }
+      if (drawerFilters.tag) {
+        drawerItems.push({
+          field: 'tags',
+          operator: 'contains',
+          value: drawerFilters.tag,
+        });
+      }
+      return { ...prev, items: [...otherItems, ...drawerItems] };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [drawerFilters]);
+
+  // ── Column definitions ────────────────────────────────────────────────────
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -283,7 +552,6 @@ function TestRunsTable({
           if (!row.tags || !Array.isArray(row.tags)) {
             return '';
           }
-          // Return comma-separated tag names for filtering
           return row.tags
             .filter((tag: Tag) => tag && tag.name)
             .map((tag: Tag) => tag.name)
@@ -331,16 +599,15 @@ function TestRunsTable({
     []
   );
 
-  // Handle row click to navigate to test run details
+  // ── Row handlers ──────────────────────────────────────────────────────────
+
   const handleRowClick = useCallback(
     (params: { id: string | number }) => {
-      const testRunId = params.id;
-      router.push(`/test-runs/${testRunId}`);
+      router.push(`/test-runs/${params.id}`);
     },
     [router]
   );
 
-  // Handle row selection change
   const handleSelectionChange = useCallback(
     (newSelection: GridRowSelectionModel) => {
       setSelectedRows(newSelection);
@@ -348,22 +615,6 @@ function TestRunsTable({
     []
   );
 
-  // Handle new test run
-  const handleCreateTestRun = useCallback(() => {
-    setIsDrawerOpen(true);
-  }, []);
-
-  const handleDrawerClose = useCallback(() => {
-    setIsDrawerOpen(false);
-  }, []);
-
-  const handleDrawerSuccess = useCallback(() => {
-    const skip = paginationModel.page * paginationModel.pageSize;
-    fetchTestRuns(skip, paginationModel.pageSize);
-    onRefresh?.();
-  }, [fetchTestRuns, onRefresh, paginationModel]);
-
-  // Stable pagination handler
   const handlePaginationModelChange = useCallback(
     (model: GridPaginationModel) => {
       setPaginationModel(model);
@@ -373,14 +624,22 @@ function TestRunsTable({
     [fetchTestRuns]
   );
 
-  // Handle delete selected test runs - opens confirmation modal
+  const handleFilterModelChange = useCallback(
+    (newFilterModel: GridFilterModel) => {
+      setFilterModel(newFilterModel);
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
+    },
+    []
+  );
+
+  // ── Delete handlers ───────────────────────────────────────────────────────
+
   const handleDeleteSelected = useCallback(() => {
     const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
     if (validSelectedRows.length === 0) return;
     setDeleteModalOpen(true);
   }, [selectedRows]);
 
-  // Confirm deletion and perform the actual delete
   const handleDeleteConfirm = useCallback(async () => {
     const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
     if (validSelectedRows.length === 0) return;
@@ -399,11 +658,8 @@ function TestRunsTable({
         { severity: 'success' }
       );
 
-      // Refresh the data
       const skip = paginationModel.page * paginationModel.pageSize;
       await fetchTestRuns(skip, paginationModel.pageSize);
-
-      // Clear selection
       setSelectedRows([]);
     } catch (_error) {
       notifications.show('Failed to delete test runs', { severity: 'error' });
@@ -419,12 +675,12 @@ function TestRunsTable({
     fetchTestRuns,
   ]);
 
-  // Cancel deletion
   const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
   }, []);
 
-  // Must be declared before the callbacks that reference it
+  // ── Cancel handlers ───────────────────────────────────────────────────────
+
   const cancellableSelectedRuns = useMemo(() => {
     const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
     return testRuns.filter(run => {
@@ -460,6 +716,7 @@ function TestRunsTable({
       const skip = paginationModel.page * paginationModel.pageSize;
       await fetchTestRuns(skip, paginationModel.pageSize);
       setSelectedRows([]);
+      onRefresh?.();
     } catch (_error) {
       notifications.show('Failed to cancel test runs', { severity: 'error' });
     } finally {
@@ -472,33 +729,18 @@ function TestRunsTable({
     notifications,
     paginationModel,
     fetchTestRuns,
+    onRefresh,
   ]);
 
   const handleCancelClose = useCallback(() => {
     setCancelModalOpen(false);
   }, []);
 
-  // Filter change handler
-  const handleFilterModelChange = useCallback(
-    (newFilterModel: GridFilterModel) => {
-      setFilterModel(newFilterModel);
-      // Reset to first page when filter changes
-      setPaginationModel(prev => ({ ...prev, page: 0 }));
-    },
-    []
-  );
+  // ── Action buttons (selection-only) ──────────────────────────────────────
 
-  // Memoized action buttons based on selection
   const actionButtons = useMemo(() => {
     const buttons = [];
     const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
-
-    buttons.push({
-      label: 'New Test Run',
-      icon: <AddIcon />,
-      variant: 'contained' as const,
-      onClick: handleCreateTestRun,
-    });
 
     if (cancellableSelectedRuns.length > 0) {
       buttons.push({
@@ -524,13 +766,22 @@ function TestRunsTable({
   }, [
     selectedRows,
     cancellableSelectedRuns,
-    handleCreateTestRun,
     handleCancelSelected,
     handleDeleteSelected,
   ]);
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <>
+    <TestRunsToolbarContext.Provider
+      value={{
+        searchQuery,
+        setSearchQuery,
+        statusFilter,
+        setStatusFilter,
+        openFilterDrawer: () => setFilterDrawerOpen(true),
+      }}
+    >
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -540,14 +791,21 @@ function TestRunsTable({
       {Array.isArray(selectedRows) && selectedRows.length > 0 && (
         <Box
           sx={{
-            mb: 2,
+            px: 2,
+            py: 1,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            gap: 2,
+            borderBottom: theme =>
+              `1px solid ${
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : GREYSCALE.dark.border
+              }`,
           }}
         >
           <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} test runs selected
+            {selectedRows.length} selected
           </Typography>
         </Box>
       )}
@@ -572,15 +830,26 @@ function TestRunsTable({
         disableRowSelectionOnClick
         actionButtons={actionButtons}
         disablePaperWrapper={true}
+        showToolbar={true}
+        toolbarSlot={TestRunsUnifiedToolbar}
         persistState
       />
 
-      <TestRunDrawer
-        open={isDrawerOpen}
-        onClose={handleDrawerClose}
-        sessionToken={sessionToken}
-        onSuccess={handleDrawerSuccess}
-      />
+      {/* Active filter badge */}
+      {hasActiveTestRunFilters(drawerFilters) && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            bgcolor: 'primary.main',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
 
       <DeleteModal
         open={deleteModalOpen}
@@ -603,9 +872,18 @@ function TestRunsTable({
         confirmButtonText={isCancelling ? 'Cancelling...' : 'Cancel Run'}
         cancelButtonText="Keep Running"
       />
-    </>
+
+      {/* Filter drawer */}
+      <TestRunFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={f => {
+          setDrawerFilters(f);
+        }}
+      />
+    </TestRunsToolbarContext.Provider>
   );
 }
 
-// Export memoized component to prevent unnecessary re-renders
-export default React.memo(TestRunsTable);
+export default React.memo(TestRunsGrid);
