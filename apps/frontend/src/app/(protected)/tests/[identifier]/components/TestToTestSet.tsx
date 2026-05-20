@@ -1,22 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Button,
-  Tooltip,
-  CircularProgress,
-} from '@mui/material';
+import { Box, Tooltip, CircularProgress } from '@mui/material';
 import Fab from '@mui/material/Fab';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import TrialDrawer from '../../components/TrialDrawer';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
@@ -158,40 +149,14 @@ export default function TestToTestSet({
       />
 
       {/* Delete confirmation dialog */}
-      <Dialog
+      <DeleteModal
         open={deleteDialogOpen}
         onClose={() => !isDeleting && setDeleteDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Delete test?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            This action cannot be undone. The test will be permanently removed.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            disabled={isDeleting}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleDeleteConfirm}
-            disabled={isDeleting}
-            startIcon={
-              isDeleting ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : undefined
-            }
-          >
-            {isDeleting ? 'Deleting…' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        title="Delete test?"
+        message="This action cannot be undone. The test will be permanently removed."
+      />
     </>
   );
 }

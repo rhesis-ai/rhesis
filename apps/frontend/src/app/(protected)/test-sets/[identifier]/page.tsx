@@ -1,26 +1,21 @@
-import TestSetDetailCharts from './components/TestSetDetailCharts';
-import TestSetTestsGrid from './components/TestSetTestsGrid';
-import TestSetDetailsSection from './components/TestSetDetailsSection';
-import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
+import * as React from 'react';
+import { Box, CircularProgress, Typography } from '@mui/material';
+import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Box, Grid, Paper } from '@mui/material';
-import { Metadata } from 'next';
+import { format } from 'date-fns';
+
 import { PageLayout } from '@/components/layout/PageLayout';
-import { PaginationParams } from '@/utils/api-client/interfaces/pagination';
+import { GREYSCALE } from '@/styles/theme-constants';
 
-interface TestSetsQueryParams extends Partial<PaginationParams> {
-  $filter?: string;
-}
+import TestSetHeaderActions from './components/TestSetHeaderActions';
+import TestSetDetailTabs from './components/TestSetDetailTabs';
 
-interface _PageProps {
+interface PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-// Generate metadata for the page
-// Note: We use minimal metadata here to avoid duplicate API calls
-// The error boundary will handle 404/410 errors from the main page component
 export async function generateMetadata({
   params,
 }: {
@@ -28,120 +23,147 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const resolvedParams = await params;
   const identifier = resolvedParams.identifier;
-
-  // Return basic metadata - the page component will fetch data and handle errors
   return {
     title: 'Test Set Details',
     description: `Details for Test Set ${identifier}`,
   };
 }
 
-export default async function TestSetPage({
-  params,
-}: {
-  params: Promise<{ identifier: string }>;
-}) {
-  // Ensure params is properly awaited
-  const resolvedParams = await Promise.resolve(params);
-  const identifier = resolvedParams.identifier;
-
+export default async function TestSetPage({ params }: PageProps) {
   const session = await auth();
 
-  // If no session (like during warmup), redirect to login
   if (!session?.session_token) {
     throw new Error('Authentication required');
   }
 
+  const { identifier } = await params;
   const apiFactory = new ApiClientFactory(session.session_token);
   const testSetsClient = apiFactory.getTestSetsClient();
+
   const response = await testSetsClient.getTestSets({
     limit: 1,
     $filter: `id eq ${identifier}`,
-  } as TestSetsQueryParams);
+  } as {
+    limit: number;
+    $filter: string;
+  });
+
   let testSet = response.data[0];
   if (!testSet) {
     throw new Error('Test set not found');
   }
 
-  // Fetch test set type details if test_set_type_id exists
   if (testSet.test_set_type_id) {
     try {
       const typeLookupClient = apiFactory.getTypeLookupClient();
       const testSetType = await typeLookupClient.getTypeLookup(
         testSet.test_set_type_id as string
       );
-      testSet = {
-        ...testSet,
-        test_set_type: testSetType,
-      };
-    } catch (_error) {
-      // Keep original testSet if test set type fetch fails
+      testSet = { ...testSet, test_set_type: testSetType };
+    } catch {
+      // keep original if fetch fails
     }
   }
 
-  // Fetch actual test count from the tests endpoint
   let testCount = testSet.attributes?.metadata?.total_tests ?? 0;
   try {
     const testsResponse = await testSetsClient.getTestSetTests(identifier, {
       limit: 1,
     });
     testCount = testsResponse.pagination.totalCount;
-  } catch (_error) {
-    // Fall back to cached metadata count if fetch fails
+  } catch {
+    // fall back to cached count
   }
 
-  // Serialize the testSet data to ensure consistent rendering
   const serializedTestSet = JSON.parse(JSON.stringify(testSet));
 
-  // Define title and breadcrumbs for PageContainer
   const title = testSet.name || `Test Set ${identifier}`;
   const breadcrumbs = [
     { title: 'Test Sets', path: '/test-sets' },
     { title, path: `/test-sets/${identifier}` },
   ];
 
+  const isGarakTestSet =
+    typeof testSet.attributes?.source === 'string' &&
+    testSet.attributes.source === 'garak';
+
+  const metadataStrip = (
+    <Box sx={{ display: 'flex', gap: '30px' }}>
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
+        >
+          created by:
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: GREYSCALE.light.subtitle,
+          }}
+        >
+          {testSet.user?.name || '—'}
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
+        >
+          created on:
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: GREYSCALE.light.subtitle,
+          }}
+        >
+          {testSet.created_at
+            ? format(new Date(testSet.created_at), 'dd/MM/yyyy')
+            : '—'}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  const pageActions = (
+    <TestSetHeaderActions
+      sessionToken={session.session_token}
+      testSetId={identifier}
+      testSetName={testSet.name}
+      testCount={testCount}
+      isGarakTestSet={isGarakTestSet}
+    />
+  );
+
   return (
-    <PageLayout title={title} breadcrumbs={breadcrumbs}>
-      <Box sx={{ flexGrow: 1, pt: 3 }}>
-        {/* Charts Section */}
-        <Box sx={{ mb: 4 }}>
-          <TestSetDetailCharts
-            testSetId={identifier}
+    <PageLayout
+      title={title}
+      breadcrumbs={breadcrumbs}
+      actions={pageActions}
+      metadata={metadataStrip}
+    >
+      <Box sx={{ flexGrow: 1 }}>
+        <React.Suspense
+          fallback={
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          }
+        >
+          <TestSetDetailTabs
+            testSet={serializedTestSet}
+            testCount={testCount}
             sessionToken={session.session_token}
+            currentUserId={session.user?.id || ''}
+            currentUserName={session.user?.name || ''}
+            currentUserPicture={session.user?.picture || undefined}
           />
-        </Box>
-
-        <Grid container spacing={3}>
-          {/* Main Content Column */}
-          <Grid size={12}>
-            <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
-              <TestSetDetailsSection
-                testSet={serializedTestSet}
-                sessionToken={session.session_token}
-                testCount={testCount}
-              />
-            </Paper>
-
-            {/* Tests Grid Paper */}
-            <Paper elevation={2} sx={{ p: 2, mb: 4 }}>
-              <TestSetTestsGrid
-                testSetId={identifier}
-                sessionToken={session.session_token}
-                testSetType={serializedTestSet.test_set_type?.type_value}
-              />
-            </Paper>
-
-            {/* Tasks and Comments Section */}
-            <TasksAndCommentsWrapper
-              entityType="TestSet"
-              entityId={testSet.id}
-              sessionToken={session.session_token}
-              currentUserId={session.user?.id || ''}
-              currentUserName={session.user?.name || ''}
-              currentUserPicture={session.user?.picture || undefined}
-            />
-          </Grid>
-        </Grid>
+        </React.Suspense>
       </Box>
     </PageLayout>
   );

@@ -10,12 +10,8 @@ import {
   CircularProgress,
   IconButton,
   TablePagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
 } from '@mui/material';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
 import { BORDER_RADIUS } from '@/styles/theme';
 import ProjectCard from './ProjectCard';
@@ -430,28 +426,18 @@ export default function ProjectsClientWrapper({
       />
 
       {/* Delete confirmation dialog */}
-      <Dialog
+      <DeleteModal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>Delete project?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
+        onConfirm={confirmDelete}
+        title="Delete project?"
+        message={
+          <>
             Are you sure you want to delete{' '}
             <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button variant="outlined" onClick={() => setDeleteTarget(null)}>
-            Cancel
-          </Button>
-          <Button variant="contained" color="error" onClick={confirmDelete}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </>
+        }
+      />
     </PageLayout>
   );
 }

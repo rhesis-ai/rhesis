@@ -6,17 +6,34 @@ import { TYPE_NAMES, TEST_TYPES } from '@/constants/test-types';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import {
   TextField,
-  Typography,
   Stack,
   FormControl,
   FormHelperText,
-  InputLabel,
   Select,
   MenuItem,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UUID } from 'crypto';
+import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+
+// Shared sx applied to every outlined input so they match the Figma design:
+//   – 4px border radius
+//   – default (non-focused) border uses the greyscale border token
+//   – no floating label / notch
+const fieldSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: BORDER_RADIUS.xs,
+    '& .MuiOutlinedInput-notchedOutline': {
+      borderColor: GREYSCALE.light.border,
+    },
+  },
+  '& .MuiFormHelperText-root': {
+    marginLeft: 0,
+    fontSize: 12,
+    color: GREYSCALE.light.subtitle,
+  },
+};
 
 interface TestSetDrawerProps {
   open: boolean;
@@ -85,14 +102,12 @@ export default function TestSetDrawer({
           const singleTurnType = types.find(
             t => t.type_value === TEST_TYPES.SINGLE_TURN
           );
-          if (singleTurnType) {
-            setSelectedTestSetTypeId(singleTurnType.id);
-          } else {
-            setSelectedTestSetTypeId(types[0].id);
-          }
+          setSelectedTestSetTypeId(
+            singleTurnType ? singleTurnType.id : types[0].id
+          );
         }
-      } catch (err) {
-        console.error('Failed to fetch test set types:', err);
+      } catch (_err) {
+        // Silently fail — user can still select a type manually
       }
     };
 
@@ -134,8 +149,7 @@ export default function TestSetDrawer({
         name: trimmedName,
         description: description.trim(),
         short_description: shortDescription.trim(),
-        priority: 1, // Default to Medium priority
-        visibility: 'organization' as const,
+        priority: 1,
         is_published: false,
         attributes: {},
         test_set_type_id: selectedTestSetTypeId as UUID | undefined,
@@ -156,6 +170,10 @@ export default function TestSetDrawer({
     }
   };
 
+  const selectedTypeName = testSetTypes.find(
+    t => t.id === selectedTestSetTypeId
+  )?.type_value;
+
   return (
     <BaseDrawer
       open={open}
@@ -165,75 +183,84 @@ export default function TestSetDrawer({
       error={error}
       onSave={handleSave}
     >
-      <Stack spacing={3}>
-        <Stack spacing={2}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Test Set Details
-          </Typography>
+      <Stack spacing={5}>
+        {/* Name */}
+        <TextField
+          placeholder="Name *"
+          value={name}
+          onChange={e => {
+            setName(e.target.value);
+            if (nameError) setNameError('');
+          }}
+          fullWidth
+          variant="outlined"
+          disabled={loading}
+          error={!!nameError}
+          helperText={
+            nameError || 'A clear, descriptive name for this test set'
+          }
+          sx={fieldSx}
+        />
 
-          <Stack spacing={2}>
-            <TextField
-              label="Name"
-              value={name}
-              onChange={e => {
-                setName(e.target.value);
-                if (nameError) setNameError('');
-              }}
-              required
-              fullWidth
-              variant="outlined"
-              disabled={loading}
-              error={!!nameError}
-              helperText={
-                nameError || 'A clear, descriptive name for this test set'
-              }
-            />
+        {/* Test Set Type */}
+        <FormControl fullWidth disabled={loading} error={!!typeError}>
+          <Select
+            value={selectedTestSetTypeId || ''}
+            onChange={e => {
+              setSelectedTestSetTypeId(e.target.value);
+              if (typeError) setTypeError('');
+            }}
+            displayEmpty
+            renderValue={() =>
+              selectedTypeName || (
+                <span style={{ color: GREYSCALE.light.label }}>
+                  Test Set Type *
+                </span>
+              )
+            }
+            sx={{
+              borderRadius: BORDER_RADIUS.xs,
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: GREYSCALE.light.border,
+              },
+            }}
+          >
+            {testSetTypes.map(type => (
+              <MenuItem key={type.id} value={type.id}>
+                {type.type_value}
+              </MenuItem>
+            ))}
+          </Select>
+          {typeError && (
+            <FormHelperText sx={{ ml: 0, fontSize: 12 }}>
+              {typeError}
+            </FormHelperText>
+          )}
+        </FormControl>
 
-            <FormControl
-              fullWidth
-              disabled={loading}
-              required
-              error={!!typeError}
-            >
-              <InputLabel>Test Set Type</InputLabel>
-              <Select
-                value={selectedTestSetTypeId || ''}
-                onChange={e => {
-                  setSelectedTestSetTypeId(e.target.value);
-                  if (typeError) setTypeError('');
-                }}
-                label="Test Set Type"
-              >
-                {testSetTypes.map(type => (
-                  <MenuItem key={type.id} value={type.id}>
-                    {type.type_value}
-                  </MenuItem>
-                ))}
-              </Select>
-              {typeError && <FormHelperText>{typeError}</FormHelperText>}
-            </FormControl>
+        {/* Short Description */}
+        <TextField
+          placeholder="Short Description"
+          value={shortDescription}
+          onChange={e => setShortDescription(e.target.value)}
+          fullWidth
+          variant="outlined"
+          disabled={loading}
+          sx={fieldSx}
+        />
 
-            <TextField
-              label="Short Description"
-              value={shortDescription}
-              onChange={e => setShortDescription(e.target.value)}
-              fullWidth
-              variant="outlined"
-              disabled={loading}
-            />
-
-            <TextField
-              label="Description"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              multiline
-              rows={4}
-              fullWidth
-              variant="outlined"
-              disabled={loading}
-            />
-          </Stack>
-        </Stack>
+        {/* Description */}
+        <TextField
+          placeholder="Description"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          multiline
+          rows={4}
+          fullWidth
+          variant="outlined"
+          disabled={loading}
+          sx={fieldSx}
+        />
       </Stack>
     </BaseDrawer>
   );

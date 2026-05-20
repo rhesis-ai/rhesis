@@ -118,28 +118,23 @@ jest.mock('@/components/common/BaseDataGrid', () => {
 
 // ---- Sub-component stubs ----
 
-jest.mock('../TestSetDrawer', () => ({
-  __esModule: true,
-  default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="test-set-drawer" /> : null,
-}));
-
 jest.mock('../TestRunDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
     open ? <div data-testid="test-run-drawer" /> : null,
 }));
 
-jest.mock('../GarakImportDialog', () => ({
+jest.mock('../TestSetFilterDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="garak-import-dialog" /> : null,
-}));
-
-jest.mock('../FileImportDialog', () => ({
-  __esModule: true,
-  default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="file-import-dialog" /> : null,
+    open ? <div data-testid="test-set-filter-drawer" /> : null,
+  EMPTY_TEST_SET_FILTERS: {
+    testSetType: '',
+    status: '',
+    creator: '',
+    tag: '',
+  },
+  hasActiveTestSetFilters: () => false,
 }));
 
 jest.mock('@/components/common/DeleteModal', () => ({
@@ -209,7 +204,7 @@ describe('TestSetsGrid', () => {
 
   it('shows loading state while fetching', () => {
     mockGetTestSets.mockReturnValue(new Promise(() => {}));
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+    render(<TestSetsGrid sessionToken="tok" />);
     expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
   });
 
@@ -220,7 +215,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000002' as UUID),
       ])
     );
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+    render(<TestSetsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
@@ -231,26 +226,13 @@ describe('TestSetsGrid', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders "New Test Set" action button after loading', async () => {
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
-    await waitForGrid();
-    expect(screen.getByTestId('action-New Test Set')).toBeInTheDocument();
-  });
-
-  it('renders import action buttons after loading', async () => {
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
-    await waitForGrid();
-    expect(screen.getByTestId('action-Import from File')).toBeInTheDocument();
-    expect(screen.getByTestId('action-Import from Garak')).toBeInTheDocument();
-  });
-
   it('navigates to test-set detail on row click', async () => {
     mockGetTestSets.mockResolvedValue(
       makePaginatedResponse([
         makeTestSet('00000000-0000-0000-0000-000000000099' as UUID),
       ])
     );
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+    render(<TestSetsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000099')
@@ -270,7 +252,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
       ])
     );
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+    render(<TestSetsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
@@ -286,10 +268,22 @@ describe('TestSetsGrid', () => {
   });
 
   it('hides delete button when no rows are selected', async () => {
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+    render(<TestSetsGrid sessionToken="tok" />);
     await waitForGrid();
     expect(
       screen.queryByTestId('action-Delete Test Sets')
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show "New Test Set" or import buttons in the grid (moved to page header)', async () => {
+    render(<TestSetsGrid sessionToken="tok" />);
+    await waitForGrid();
+    expect(screen.queryByTestId('action-New Test Set')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('action-Import from File')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('action-Import from Garak')
     ).not.toBeInTheDocument();
   });
 
@@ -299,7 +293,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
       ])
     );
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+    render(<TestSetsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
@@ -323,7 +317,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
       ])
     );
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+    render(<TestSetsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
@@ -360,7 +354,7 @@ describe('TestSetsGrid', () => {
         makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
       ])
     );
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+    render(<TestSetsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(
         screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
@@ -378,10 +372,14 @@ describe('TestSetsGrid', () => {
     expect(mockDeleteTestSet).not.toHaveBeenCalled();
   });
 
-  it('opens TestSetDrawer when "New Test Set" is clicked', async () => {
-    render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
+  it('refetches when refreshKey changes', async () => {
+    const { rerender } = render(
+      <TestSetsGrid sessionToken="tok" refreshKey={0} />
+    );
     await waitForGrid();
-    await userEvent.click(screen.getByTestId('action-New Test Set'));
-    expect(screen.getByTestId('test-set-drawer')).toBeInTheDocument();
+    expect(mockGetTestSets).toHaveBeenCalledTimes(1);
+
+    rerender(<TestSetsGrid sessionToken="tok" refreshKey={1} />);
+    await waitFor(() => expect(mockGetTestSets).toHaveBeenCalledTimes(2));
   });
 });
