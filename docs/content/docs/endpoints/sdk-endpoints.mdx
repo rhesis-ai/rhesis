@@ -161,6 +161,22 @@ def query_data(db, config, input: str) -> dict:
 For full details on binding patterns, see
 [Parameter Binding](/sdk/connector/binding).
 
+## Parameter-aware Endpoints
+
+When your project uses **[Parameters & Experiments](/docs/experiments/parameter-schema)**, the SDK connector automatically merges the resolved parameter snapshot into your function's keyword arguments if you specify the `parameters` list in the decorator:
+
+```python
+@endpoint(
+    name="chat",
+    parameters=["model", "temperature", "system_prompt"]
+)
+def chat(input: str, *, model: str, temperature: float, system_prompt: str) -> dict:
+    """The platform injects model, temperature, and system_prompt directly."""
+    return {"output": "..."}
+```
+
+For more details on both kwarg-injection and context-resolved injection, see [Connector Injection](/docs/experiments/connector-injection).
+
 ## SDK vs. REST Endpoints
 
 | Aspect | SDK Endpoints | REST Endpoints |

@@ -1,0 +1,193 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Experiments
+
+An experiment is a named bundle of parameter values for a project. Each save creates an immutable version identified by a content hash.
+
+## Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `name` | `str` | Display name |
+| `description` | `str` | Optional description |
+| `project_id` | `str` | Parent project ID |
+| `visibility` | `str` | `"private"` (default) or `"shared"` |
+| `versions_count` | `int` | Number of committed versions |
+| `latest_version` | `str` | Content hash of the most recent version |
+
+## Creating experiments
+
+<CodeBlock filename="create.py" language="python">
+{`from rhesis.sdk.entities import Experiment
+
+exp = Experiment(
+    name="tuning-v1",
+    project_id="my-project",
+    description="Initial tuning run",
+)
+exp.push()
+print(f"Created: {exp.id}")`}
+</CodeBlock>
+
+## Committing values
+
+Each commit creates an immutable version. Pass bare Python values -- the SDK wraps them using the project schema:
+
+<CodeBlock filename="commit.py" language="python">
+{`version = exp.commit(
+    {"model": "gpt-4o", "temperature": 0.9},
+    message="bump temp",
+)
+print(f"Version: {version['version']}")  # v_a3f9b8...`}
+</CodeBlock>
+
+Chain versions using `parent_version`:
+
+<CodeBlock filename="commit_chain.py" language="python">
+{`v1 = exp.commit({"temperature": 0.3}, message="cold")
+v2 = exp.commit(
+    {"temperature": 0.9},
+    message="hot",
+    parent_version=v1["version"],
+)`}
+</CodeBlock>
+
+## Sharing and promoting
+
+<CodeBlock filename="share_promote.py" language="python">
+{`# Make visible to the team
+exp.share()
+
+# Bind the latest version to an environment
+exp.promote(environment="default")
+
+# Revert to private
+exp.unshare()`}
+</CodeBlock>
+
+Only shared experiments can be promoted to an environment.
+
+## One-liner publish
+
+`publish()` does create, commit, share, and promote in a single call:
+
+<CodeBlock filename="publish.py" language="python">
+{`exp = Experiment.publish(
+    name="tuning-v2",
+    project_id="my-project",
+    values={"model": "claude-sonnet", "temperature": 0.5},
+    message="switch to Claude",
+    environment="default",
+)
+print(f"Live at version {exp.latest_version}")`}
+</CodeBlock>
+
+## Version history
+
+<CodeBlock filename="versions.py" language="python">
+{`# All versions (oldest to newest)
+for v in exp.list_versions():
+    print(f"{v['version']}: {v['message']}")
+
+# Latest version only
+latest = exp.latest_version_data()
+print(f"{latest['version']}: {latest['message']}")
+
+# Specific version by content hash
+v = exp.get_version("v_abc123")
+print(v["values"])`}
+</CodeBlock>
+
+## Running experiments
+
+Execute a test set with this experiment's parameters using `run()`:
+
+<CodeBlock filename="run.py" language="python">
+{`from rhesis.sdk.entities import TestSets, Endpoints
+
+test_set = TestSets.pull(name="Safety Tests")
+endpoint = Endpoints.pull(name="GPT-4o")
+
+# Run with the experiment's latest version
+result = exp.run(test_set, endpoint)
+
+# Inline parameters — commits automatically, then executes
+result = exp.run(test_set, endpoint, parameters={"temperature": 0.9})`}
+</CodeBlock>
+
+This is equivalent to `test_set.execute(endpoint, experiment=exp)`. See [Test Execution](/sdk/execution) for the full execution API.
+
+## Results
+
+Retrieve aggregated test-run statistics for an experiment. Results can be grouped by individual run or by parameter version:
+
+<CodeBlock filename="results_by_run.py" language="python">
+{`# Per-run breakdown
+data = exp.results(group_by="run")
+for run in data["items"]:
+    stats = run.get("stats", {})
+    print(f"{run['name']}: {stats['passed']}/{stats['total']} passed")`}
+</CodeBlock>
+
+<CodeBlock filename="results_by_version.py" language="python">
+{`# Grouped by parameter version, with diffs against parent
+data = exp.results(group_by="version", limit=50)
+for group in data["items"]:
+    print(f"Version {group['version']}: {group['total_tests']} tests")
+    for key, change in group["diff"].items():
+        print(f"  {key}: {change['before']} → {change['after']}")`}
+</CodeBlock>
+
+Each run includes a `stats` object with `total`, `passed`, `failed`, and `errors` counts.
+
+## Fetching experiments
+
+<CodeBlock filename="fetch.py" language="python">
+{`from rhesis.sdk.entities import Experiments
+
+# List all
+for exp in Experiments.all():
+    print(f"{exp.name} ({exp.visibility})")
+
+# By name
+exp = Experiments.pull(name="tuning-v1")
+
+# By ID
+exp = Experiments.pull(id="exp-uuid")`}
+</CodeBlock>
+
+## Deleting experiments
+
+Deleting an experiment automatically unbinds any environments that point to it:
+
+<CodeBlock filename="delete.py" language="python">
+{`exp.delete()`}
+</CodeBlock>
+
+## Method reference
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `push()` | `dict` | Create or update the experiment header |
+| `pull()` | `Experiment` | Refresh from the server |
+| `delete()` | `bool` | Delete (auto-unbinds environments) |
+| `commit(values, *, message, parent_version)` | `dict` | Append an immutable version |
+| `list_versions()` | `list[dict]` | All versions, oldest to newest |
+| `latest_version_data()` | `dict \| None` | Most recent version entry |
+| `get_version(version)` | `dict` | Single version by content hash |
+| `share()` | `None` | Set visibility to shared |
+| `unshare()` | `None` | Set visibility to private |
+| `promote(environment)` | `None` | Bind latest version to environment |
+| `run(test_set, endpoint, *, parameters, ...)` | `dict \| None` | Execute a test set with this experiment's parameters |
+| `results(*, group_by, limit)` | `dict` | Aggregated test-run statistics |
+| `publish(*, name, project_id, values, ...)` | `Experiment` | Class method: create, commit, share, promote |
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - [Parameters & Experiments SDK guide](/sdk/parameters) for the full workflow
+  - [Parameters schema](/docs/experiments/parameter-schema) for defining typed slots
+  - [Experiments concepts](/docs/experiments) for the mental model
+</Callout>

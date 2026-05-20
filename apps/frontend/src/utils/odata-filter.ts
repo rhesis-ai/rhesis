@@ -1008,3 +1008,112 @@ export function combineTestSetFiltersToOData(
   const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
   return `(${allExpressions.join(logicOperator)})`;
 }
+
+/**
+ * Converts quick-filter values to OData for experiments.
+ * Searches across name, description, visibility, and project/name.
+ */
+function convertExperimentQuickFilterToOData(
+  quickFilterValues: unknown[]
+): string {
+  if (!quickFilterValues || quickFilterValues.length === 0) {
+    return '';
+  }
+
+  const searchFields = ['name', 'description', 'visibility', 'project/name'];
+
+  const quickFilterExpressions = quickFilterValues
+    .map(value => {
+      if (!value || value === '') return '';
+
+      const fieldConditions = searchFields.map(
+        field =>
+          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
+      );
+
+      return `(${fieldConditions.join(' or ')})`;
+    })
+    .filter(expr => expr !== '');
+
+  if (quickFilterExpressions.length === 0) {
+    return '';
+  }
+  if (quickFilterExpressions.length === 1) {
+    return quickFilterExpressions[0];
+  }
+  return `(${quickFilterExpressions.join(' and ')})`;
+}
+
+/**
+ * Maps experiment grid column fields to backend OData paths.
+ */
+function convertExperimentFilterItemToOData(item: GridFilterItem): string {
+  const { field, operator, value } = item;
+
+  if (
+    !field ||
+    !operator ||
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
+    return '';
+  }
+
+  let odataField: string;
+  switch (field) {
+    case 'projectName':
+      odataField = 'project/name';
+      break;
+    default:
+      odataField = field;
+  }
+
+  return convertFilterItemToOData({ ...item, field: odataField });
+}
+
+/**
+ * Combines regular filters and quick filters into a single OData
+ * expression for experiments.
+ */
+export function combineExperimentFiltersToOData(
+  filterModel: GridFilterModel
+): string {
+  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
+    return '';
+  }
+
+  const regularFilters: GridFilterItem[] = [];
+  const quickFilterValues: unknown[] = [];
+
+  filterModel.items.forEach(item => {
+    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
+      quickFilterValues.push(item.value);
+    } else {
+      regularFilters.push(item);
+    }
+  });
+
+  const regularFilterExpressions = regularFilters
+    .map(item => convertExperimentFilterItemToOData(item))
+    .filter(expr => expr !== '');
+
+  const quickFilterExpression =
+    quickFilterValues.length > 0
+      ? convertExperimentQuickFilterToOData(quickFilterValues)
+      : '';
+
+  const allExpressions = [...regularFilterExpressions];
+  if (quickFilterExpression) {
+    allExpressions.push(quickFilterExpression);
+  }
+
+  if (allExpressions.length === 0) {
+    return '';
+  }
+  if (allExpressions.length === 1) {
+    return allExpressions[0];
+  }
+  const logicOp = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
+  return `(${allExpressions.join(logicOp)})`;
+}

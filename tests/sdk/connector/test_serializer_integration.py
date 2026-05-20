@@ -307,6 +307,21 @@ class TestTypeSerializerPrepareInputs:
         assert prepared == {"message": "hello"}
         assert "optional" not in prepared
 
+    def test_prepare_inputs_skips_none_when_default_exists(self):
+        """None does not override a function parameter default."""
+        executor = TestExecutor()
+        serializer = TypeSerializer()
+
+        def func(message: str, model: str | None = "rhesis/rhesis-default"):
+            pass
+
+        inputs = {"message": "hello", "model": None}
+
+        prepared = executor._prepare_inputs(func, inputs, serializer)
+
+        assert prepared == {"message": "hello"}
+        assert "model" not in prepared
+
 
 class TestEndToEndScenarios:
     """Test realistic end-to-end scenarios."""

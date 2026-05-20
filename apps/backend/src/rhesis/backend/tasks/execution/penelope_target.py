@@ -72,6 +72,7 @@ class BackendEndpointTarget(Target):
         invoke_max_attempts: int = 4,
         invoke_retry_min_wait: float = 1.0,
         invoke_retry_max_wait: float = 30.0,
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize the backend endpoint target.
@@ -86,6 +87,7 @@ class BackendEndpointTarget(Target):
             invoke_max_attempts: Max invocation attempts (including initial).
             invoke_retry_min_wait: Minimum backoff wait in seconds.
             invoke_retry_max_wait: Maximum backoff wait in seconds.
+            params: Optional resolved parameters from the test run snapshot.
 
         Raises:
             ValueError: If endpoint is not found or configuration is invalid
@@ -99,6 +101,7 @@ class BackendEndpointTarget(Target):
         self._invoke_max_attempts = invoke_max_attempts
         self._invoke_retry_min_wait = invoke_retry_min_wait
         self._invoke_retry_max_wait = invoke_retry_max_wait
+        self.params = params or {}
 
         self._endpoint = endpoint
         self._deferred_traces: list = []
@@ -249,6 +252,8 @@ class BackendEndpointTarget(Target):
                 input_data["conversation_id"] = conversation_id
             if files:
                 input_data["files"] = files
+            if self.params:
+                input_data["params"] = self.params
 
             logger.debug(
                 "BackendEndpointTarget invoking %s, message_len=%d",
@@ -363,6 +368,8 @@ class BackendEndpointTarget(Target):
                 input_data["conversation_id"] = conversation_id
             if files:
                 input_data["files"] = files
+            if self.params:
+                input_data["params"] = self.params
 
             logger.debug(
                 "BackendEndpointTarget (async) invoking %s, message_len=%d",

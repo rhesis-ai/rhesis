@@ -1,0 +1,328 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Parameters & Experiments
+
+Manage typed configuration for your AI application. Define a schema once, create experiments with different values, and resolve the active configuration at runtime.
+
+<Callout type="default">
+  For the conceptual overview (schemas, versions, environments, visibility), see [Parameters](/docs/experiments/parameter-schema) and [Experiments](/docs/experiments). This page covers the SDK API.
+</Callout>
+
+## Quick start
+
+<CodeBlock filename="quickstart.py" language="python">
+{`from rhesis.sdk import Parameters
+from rhesis.sdk.entities import Experiment
+from rhesis.sdk.models.parameters import ParameterField, ParameterSchema
+
+# 1. Define a schema (accepts project name or UUID)
+schema = ParameterSchema(fields=[
+    ParameterField(name="model", type="string", default="gpt-4o"),
+    ParameterField(name="temperature", type="number", default=0.7),
+    ParameterField(name="mode", type="enum", default="text", options=["text", "json"]),
+])
+Parameters.put_schema("My Project", schema)
+
+# 2. Publish an experiment (create → commit → share → promote)
+Experiment.publish(
+    name="tuning-v1",
+    project_id="<project-uuid>",
+    values={"model": "claude-sonnet", "temperature": 0.5},
+    environment="default",
+)
+
+# 3. Resolve at runtime
+params = Parameters.get("My Project")
+print(params.model)         # "claude-sonnet"
+print(params.temperature)   # 0.5`}
+</CodeBlock>
+
+## Defining schemas
+
+A schema declares the typed slots your project supports. Each field has a name, a type, and an optional default.
+
+You can pass bare Python values as defaults — the SDK wraps them automatically:
+
+<CodeBlock filename="schema.py" language="python">
+{`from rhesis.sdk.models.parameters import ParameterField, ParameterSchema
+
+schema = ParameterSchema(fields=[
+    ParameterField(name="system_prompt", type="text"),
+    ParameterField(name="model", type="string", default="gpt-4o"),
+    ParameterField(name="temperature", type="number", default=0.7),
+    ParameterField(name="max_tokens", type="integer", default=1024),
+    ParameterField(name="streaming", type="boolean", default=True),
+    ParameterField(name="mode", type="enum", default="text", options=["text", "json"]),
+])`}
+</CodeBlock>
+
+Push the schema with `Parameters.put_schema()`:
+
+<CodeBlock filename="push_schema.py" language="python">
+{`from rhesis.sdk import Parameters
+
+Parameters.put_schema("My Project", schema)`}
+</CodeBlock>
+
+Read it back:
+
+<CodeBlock filename="read_schema.py" language="python">
+{`schema = Parameters.schema("My Project")
+for field in schema.fields:
+    print(f"{field.name}: {field.type}")`}
+</CodeBlock>
+
+## Supported types
+
+| Type | Python type | Example default |
+|------|-------------|-----------------|
+| `text` | `str` | Multi-line prompt text |
+| `string` | `str` | `"gpt-4o"` |
+| `number` | `float` | `0.7` |
+| `integer` | `int` | `1024` |
+| `boolean` | `bool` | `True` |
+| `enum` | `str` | `"text"` (requires `options`) |
+| `model_ref` | `UUID` | Reference to a Rhesis model |
+| `secret_ref` | `UUID` | Reference to a stored secret |
+
+## Resolving parameters
+
+`Parameters.get()` accepts a project name or UUID and returns a `ResolvedParameters` mapping:
+
+<CodeBlock filename="resolve.py" language="python">
+{`from rhesis.sdk import Parameters
+
+# By project name (resolved to UUID automatically)
+params = Parameters.get("My Project", environment="production")
+
+# By project UUID (no lookup needed)
+params = Parameters.get(project_id="550e8400-...", version="v_abc123")
+
+# From a Project entity
+from rhesis.sdk.entities import Projects
+project = Projects.pull(name="My Project")
+params = project.parameters(experiment_id="exp-uuid")`}
+</CodeBlock>
+
+### Accessing values
+
+Values are unwrapped to native Python types automatically based on the schema. Use dot access, dictionary access, or `.get()` with a fallback:
+
+<CodeBlock filename="accessors.py" language="python">
+{`# Dot access (recommended)
+params.model          # "gpt-4o"
+params.temperature    # 0.7
+params.system_prompt  # "You are a helpful assistant..."
+
+# Dictionary access
+params["model"]
+params.get("temperature", 0.7)`}
+</CodeBlock>
+
+### Explicit typed accessors
+
+For runtime type validation, typed accessors are also available. These raise `TypeError` on a type mismatch and return `None` (or your default) for missing keys:
+
+<CodeBlock filename="typed_accessors.py" language="python">
+{`params.get_text("system_prompt")       # str | None
+params.get_string("model")             # str | None
+params.get_str("model")                # str | None — works for both text and string
+params.get_number("temperature")       # float | None
+params.get_integer("max_tokens")       # int | None
+params.get_boolean("streaming")        # bool | None
+params.get_enum("mode")                # str | None
+
+# Provide a fallback
+params.get_number("temperature", 0.7)`}
+</CodeBlock>
+
+`get_str()` accepts both `text` and `string` types, useful when you don't care about the distinction.
+
+### Provenance
+
+Every `ResolvedParameters` carries metadata about where the values came from:
+
+<CodeBlock filename="provenance.py" language="python">
+{`params.experiment_id   # UUID of the source experiment
+params.version         # content hash, e.g. "v_a3f9b8..."
+params.source          # "environment", "experiment_id", or "version"
+params.source_environment    # "default", "production", etc. (if resolved via environment)`}
+</CodeBlock>
+
+### Caching
+
+- **Version lookups** are cached forever (versions are immutable).
+- **Environment and experiment lookups** are cached with a 60-second TTL.
+
+Force a re-fetch:
+
+<CodeBlock filename="invalidate.py" language="python">
+{`Parameters.invalidate("My Project")   # one project
+Parameters.invalidate()                # all projects`}
+</CodeBlock>
+
+## Managing environments
+
+<CodeBlock filename="environments.py" language="python">
+{`# Read current environment bindings
+envs = Parameters.environments("My Project")
+for name, pointer in envs.environments.items():
+    print(f"{name} → experiment={pointer.experiment_id}, version={pointer.version}")
+
+# Move an environment
+Parameters.put_environment(
+    "My Project", "staging",
+    experiment_id="exp-uuid",
+    version="v_abc123",
+)`}
+</CodeBlock>
+
+## Experiments
+
+See [Experiments entity](/sdk/entities/experiments) for the full CRUD reference. The most common workflows:
+
+### Step-by-step
+
+<CodeBlock filename="experiment_steps.py" language="python">
+{`from rhesis.sdk.entities import Experiment
+
+# Create
+exp = Experiment(name="tuning-v2", project_id="My Project")
+exp.push()
+
+# Commit values (bare Python values are accepted)
+exp.commit({"model": "gpt-4o", "temperature": 0.9}, message="bump temp")
+
+# Make visible to the team
+exp.share()
+
+# Promote to an environment
+exp.promote(environment="default")`}
+</CodeBlock>
+
+### One-liner with publish()
+
+<CodeBlock filename="experiment_publish.py" language="python">
+{`exp = Experiment.publish(
+    name="tuning-v3",
+    project_id="My Project",
+    values={"model": "gpt-4o", "temperature": 0.9},
+    message="bump temp",
+    environment="default",
+)`}
+</CodeBlock>
+
+`publish()` does create, commit, share, and promote in a single call.
+
+### Viewing results
+
+Retrieve aggregated test-run statistics for an experiment:
+
+<CodeBlock filename="experiment_results.py" language="python">
+{`data = exp.results(group_by="run")
+for run in data["items"]:
+    stats = run.get("stats", {})
+    print(f"{run['name']}: {stats['passed']}/{stats['total']} passed")
+
+# Group by parameter version to see diffs
+data = exp.results(group_by="version")
+for group in data["items"]:
+    print(f"Version {group['version']}: {group['total_tests']} tests")`}
+</CodeBlock>
+
+## Running tests with parameters
+
+Pass an `Experiment` object, or raw `experiment_id` / `version` / `environment` strings, to `TestSet.execute()` to pin a test run to a specific configuration:
+
+<CodeBlock filename="execute_with_params.py" language="python">
+{`from rhesis.sdk.entities import Experiment, TestSets, Endpoints
+
+test_set = TestSets.pull(name="Safety Tests")
+endpoint = Endpoints.pull(name="GPT-4o")
+
+# Pass an Experiment object directly
+exp = Experiment.publish(name="v3", project_id=pid, values={...})
+result = test_set.execute(endpoint, experiment=exp)
+
+# Inline parameters — commits a new version, then executes with it
+result = test_set.execute(
+    endpoint, experiment=exp, parameters={"temperature": 0.9}
+)
+
+# Or from the experiment side
+result = exp.run(test_set, endpoint)
+result = exp.run(test_set, endpoint, parameters={"temperature": 0.9})
+
+# Raw experiment_id still works (resolves to latest version)
+result = test_set.execute(endpoint, experiment_id="exp-uuid")`}
+</CodeBlock>
+
+<Callout type="default">
+  When you pass only `experiment_id` without a `version`, the backend automatically resolves to the experiment's latest version. You don't need to look up the version hash yourself.
+</Callout>
+
+The resolved values are snapshotted at queue time. Moving an environment after the run is queued does not affect it.
+
+### Reading parameters from a test run
+
+<CodeBlock filename="run_params.py" language="python">
+{`from rhesis.sdk.entities import TestRuns
+
+run = TestRuns.pull(id="run-uuid")
+summary = run.experiment_summary
+if summary:
+    print(f"Experiment: {summary['experiment_name']} ({summary['experiment_id']})")
+    print(f"Version: {summary['version']}")
+    print(f"Source: {summary['source']} / {summary['source_environment']}")
+    print(f"Resolved values: {summary['parameters']}")`}
+</CodeBlock>
+
+## Connector injection
+
+When the platform runs tests against your `@endpoint`-decorated function, resolved parameters are available in the `request_mapping` as `\{\{ params.<name> \}\}` -- the same syntax used for REST endpoints.
+
+### Request mapping (recommended)
+
+<CodeBlock filename="params_request_mapping.py" language="python">
+{`from rhesis.sdk import endpoint
+
+@endpoint(
+    name="chat",
+    request_mapping={
+        "query": "{{ input }}",
+        "model": "{{ params.model | default('gpt-4o') }}",
+        "temperature": "{{ params.temperature | default(0.7) }}",
+    },
+    response_mapping={"output": "{{ response }}"},
+)
+def chat(query: str, *, model: str = "gpt-4o", temperature: float = 0.7):
+    return {"response": llm.invoke(model=model, temperature=temperature, prompt=query)}`}
+</CodeBlock>
+
+Parameters are rendered through the same Jinja2 template engine as `input`, `test_id`, and other platform variables. During a test run with an experiment, `params.model` resolves to the experiment's value. Without an experiment, the `default()` filter provides the fallback.
+
+### Context-resolved fetch
+
+For production code that calls `Parameters.get()` internally, the platform also sets a context variable so the same call returns the experiment snapshot during test runs -- no network request, no branching:
+
+<CodeBlock filename="context_injection.py" language="python">
+{`from rhesis.sdk import endpoint, Parameters
+
+@endpoint(name="chat", request_mapping={"query": "{{ input }}"})
+def chat(query: str):
+    params = Parameters.get("My Project")
+    return llm.invoke(
+        model=params.model,
+        temperature=params.temperature,
+        prompt=query,
+    )`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - [Experiments entity reference](/sdk/entities/experiments) for the full CRUD API
+  - [Connector Injection](/docs/experiments/connector-injection) for protocol details
+  - [Experiments concepts](/docs/experiments) for the mental model (versions, environments, visibility)
+</Callout>

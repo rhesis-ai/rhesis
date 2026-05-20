@@ -616,6 +616,9 @@ def execute_test_set_on_endpoint(
     reference_test_run_id: uuid.UUID = None,
     execution_model_id: uuid.UUID = None,
     evaluation_model_id: uuid.UUID = None,
+    experiment_id: uuid.UUID | None = None,
+    experiment_version: str | None = None,
+    experiment_environment: str | None = None,
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration
@@ -700,6 +703,17 @@ def execute_test_set_on_endpoint(
         metrics_source = MetricsSource.BEHAVIOR.value
         logger.debug("Metrics source: behavior (fallback to test behaviors)")
 
+    parameters_ref: Dict[str, Any] | None = None
+    has_version = bool(experiment_version and str(experiment_version).strip())
+    if experiment_id is not None or has_version or experiment_environment is not None:
+        parameters_ref = {}
+        if experiment_id is not None:
+            parameters_ref["experiment_id"] = str(experiment_id)
+        if experiment_version:
+            parameters_ref["version"] = experiment_version
+        if experiment_environment is not None:
+            parameters_ref["environment"] = experiment_environment
+
     test_config_id = _create_test_configuration(
         db,
         endpoint_id,
@@ -713,6 +727,7 @@ def execute_test_set_on_endpoint(
         reference_test_run_id=reference_test_run_id,
         execution_model_id=execution_model_id,
         evaluation_model_id=evaluation_model_id,
+        parameters_ref=parameters_ref,
     )
 
     # Submit for execution (creates test run with Queued status)
@@ -808,6 +823,7 @@ def _create_test_configuration(
     reference_test_run_id: uuid.UUID = None,
     execution_model_id: uuid.UUID = None,
     evaluation_model_id: uuid.UUID = None,
+    parameters_ref: Dict[str, Any] | None = None,
 ) -> str:
     """Create test configuration and return its ID as string.
 
@@ -867,6 +883,11 @@ def _create_test_configuration(
     if evaluation_model_id:
         attributes["evaluation_model_id"] = str(evaluation_model_id)
         logger.debug(f"Evaluation model override: {evaluation_model_id}")
+
+    # Store experiment / label / version intent for queue-time resolution
+    if parameters_ref:
+        attributes["parameters_ref"] = parameters_ref
+        logger.debug("Stored parameters_ref on test configuration for run snapshot")
 
     test_config = schemas.TestConfigurationCreate(
         endpoint_id=endpoint_id,

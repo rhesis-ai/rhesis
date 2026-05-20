@@ -4,9 +4,9 @@
 # Keep in sync - these define the WebSocket wire protocol.
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TestStatus(str, Enum):
@@ -57,6 +57,26 @@ class ExecuteTestMessage(BaseModel):
     test_run_id: str
     function_name: str
     inputs: Dict[str, Any]
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    parameter_version: Optional[str] = None
+    parameter_experiment_id: Optional[str] = None
+    parameter_source: Optional[Literal["environment", "experiment_id", "version"]] = None
+    parameter_source_environment: Optional[str] = None
+    parameter_schema: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_parameter_provenance(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "parameter_source_environment" not in data and "parameter_source_label" in data:
+            data = {
+                **data,
+                "parameter_source_environment": data.get("parameter_source_label"),
+            }
+        if data.get("parameter_source") == "label":
+            data = {**data, "parameter_source": "environment"}
+        return data
 
 
 class TestResultMessage(BaseModel):

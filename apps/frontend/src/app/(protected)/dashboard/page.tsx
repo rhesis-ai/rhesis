@@ -9,11 +9,9 @@ import TestRunPerformance from './components/TestRunPerformance';
 import ActivityTimeline from './components/ActivityTimeline';
 import { useSession } from 'next-auth/react';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const { forceSyncToDatabase } = useOnboarding();
   const [loadingStates, setLoadingStates] = React.useState({
     kpis: true,
     testRuns: true,

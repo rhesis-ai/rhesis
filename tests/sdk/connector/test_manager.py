@@ -347,3 +347,151 @@ async def test_send_test_result_no_connection(manager):
     """Test sending test result when no connection."""
     # Should not raise exception
     await manager._send_test_result("test-123", "success", "result")
+
+
+# ============================================================================
+# Parameter injection tests
+# ============================================================================
+
+
+def _param_schema(*fields):
+    """Build a valid ParameterSchema dict for tests."""
+    return {"fields": [{"name": n, "type": t} for n, t in fields]}
+
+
+@pytest.mark.asyncio
+async def test_handle_test_request_sets_parameters_context(manager):
+    """_handle_test_request sets _parameters_context from execute message."""
+    import uuid
+
+    from rhesis.sdk.decorators._state import _parameters_context
+
+    captured_ctx = None
+
+    def capturing_func(x: int = 1) -> int:
+        nonlocal captured_ctx
+        captured_ctx = _parameters_context.get(None)
+        return x
+
+    manager._registry.register("cap_func", capturing_func, {})
+    manager._connection = AsyncMock()
+
+    exp_id = str(uuid.uuid4())
+    message = {
+        "type": MessageType.EXECUTE_TEST,
+        "test_run_id": "run-1",
+        "function_name": "cap_func",
+        "inputs": {"x": 42},
+        "parameter_experiment_id": exp_id,
+        "parameter_version": "v_abc",
+        "parameter_source": "environment",
+        "parameter_source_environment": "default",
+        "parameters": {"model": "gpt-4o", "temperature": 0.9},
+        "parameter_schema": _param_schema(("model", "string"), ("temperature", "number")),
+    }
+
+    await manager._handle_test_request(message)
+
+    assert captured_ctx is not None
+    assert captured_ctx.version == "v_abc"
+    assert captured_ctx.source == "environment"
+    assert captured_ctx.source_environment == "default"
+
+    call_args = manager._connection.send.call_args[0][0]
+    assert call_args["status"] == "success"
+    assert call_args["output"] == 42
+
+
+@pytest.mark.asyncio
+async def test_handle_test_request_context_reset_after_execution(manager):
+    """_parameters_context is reset after function execution completes."""
+    import uuid
+
+    from rhesis.sdk.decorators._state import _parameters_context
+
+    def simple_func(x: int = 1) -> int:
+        return x
+
+    manager._registry.register("simple", simple_func, {})
+    manager._connection = AsyncMock()
+
+    message = {
+        "type": MessageType.EXECUTE_TEST,
+        "test_run_id": "run-2",
+        "function_name": "simple",
+        "inputs": {"x": 1},
+        "parameter_experiment_id": str(uuid.uuid4()),
+        "parameter_version": "v_1",
+        "parameter_source": "version",
+        "parameters": {"model": "gpt-4"},
+        "parameter_schema": _param_schema(("model", "string")),
+    }
+
+    await manager._handle_test_request(message)
+
+    assert _parameters_context.get(None) is None
+
+
+@pytest.mark.asyncio
+async def test_handle_test_request_legacy_parameters_kwarg_warns(manager):
+    """Using parameters=True in metadata triggers DeprecationWarning."""
+    import uuid
+    import warnings
+
+    def param_func(x: int = 1, model: str = "default") -> dict:
+        return {"x": x, "model": model}
+
+    manager._registry.register("param_func", param_func, {"parameters": True})
+    manager._connection = AsyncMock()
+
+    message = {
+        "type": MessageType.EXECUTE_TEST,
+        "test_run_id": "run-3",
+        "function_name": "param_func",
+        "inputs": {"x": 10},
+        "parameter_experiment_id": str(uuid.uuid4()),
+        "parameter_version": "v_1",
+        "parameter_source": "environment",
+        "parameter_source_environment": "default",
+        "parameters": {"model": "gpt-4o"},
+        "parameter_schema": _param_schema(("model", "string")),
+    }
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        await manager._handle_test_request(message)
+
+    deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(deprecation_warnings) >= 1
+    assert "deprecated" in str(deprecation_warnings[0].message).lower()
+
+    call_args = manager._connection.send.call_args[0][0]
+    assert call_args["status"] == "success"
+    assert call_args["output"]["model"] == "gpt-4o"
+
+
+@pytest.mark.asyncio
+async def test_handle_test_request_no_params_no_warning(manager, sample_function):
+    """No DeprecationWarning when no parameters metadata is set."""
+    import warnings
+
+    manager._registry.register("sample_func", sample_function, {})
+    manager._connection = AsyncMock()
+
+    message = {
+        "type": MessageType.EXECUTE_TEST,
+        "test_run_id": "run-4",
+        "function_name": "sample_func",
+        "inputs": {"x": 5, "y": 10},
+    }
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        await manager._handle_test_request(message)
+
+    deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(deprecation_warnings) == 0
+
+    call_args = manager._connection.send.call_args[0][0]
+    assert call_args["status"] == "success"
+    assert call_args["output"] == 15

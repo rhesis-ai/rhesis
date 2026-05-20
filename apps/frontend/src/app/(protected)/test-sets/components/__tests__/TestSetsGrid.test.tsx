@@ -124,7 +124,7 @@ jest.mock('../TestSetDrawer', () => ({
     open ? <div data-testid="test-set-drawer" /> : null,
 }));
 
-jest.mock('../TestRunDrawer', () => ({
+jest.mock('@/components/common/RunDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
     open ? <div data-testid="test-run-drawer" /> : null,

@@ -323,7 +323,8 @@ def _store_trace_files(
     For legacy inline-base64 dicts (playground path): uploads to storage and
     creates the File row (backward compat).
     """
-    from rhesis.backend.app import crud as _crud, schemas
+    from rhesis.backend.app import crud as _crud
+    from rhesis.backend.app import schemas
 
     for idx, file_data in enumerate(files):
         if not isinstance(file_data, dict):

@@ -130,6 +130,30 @@ def delete_endpoint(
     )
 
 
+# Experiment CRUD
+def get_experiments(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Experiment]:
+    return get_items_detail(
+        db,
+        models.Experiment,
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        filter,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+
 # UseCase CRUD
 def get_use_case(
     db: Session, use_case_id: uuid.UUID, organization_id: str = None, user_id: str = None
@@ -2177,9 +2201,25 @@ def get_test_runs(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    experiment_id: str | None = None,
+    parameter_version: str | None = None,
+    has_experiment: bool | None = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
+    def experiment_filter(q):
+        if experiment_id:
+            q = q.filter(models.TestRun.experiment_id == experiment_id)
+        if parameter_version:
+            q = q.filter(
+                models.TestRun.attributes["parameter_version"].astext == str(parameter_version)
+            )
+        if has_experiment is True:
+            q = q.filter(models.TestRun.experiment_id.isnot(None))
+        elif has_experiment is False:
+            q = q.filter(models.TestRun.experiment_id.is_(None))
+        return q
+
     return (
         QueryBuilder(db, models.TestRun)
         .with_optimized_loads(
@@ -2188,6 +2228,7 @@ def get_test_runs(
             nested_relationships=_TEST_RUN_NESTED_RELS,
         )
         .with_custom_filter(_defer_endpoint_last_token)
+        .with_custom_filter(experiment_filter)
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_odata_filter(filter)

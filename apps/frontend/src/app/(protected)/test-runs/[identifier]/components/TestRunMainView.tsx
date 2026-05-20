@@ -31,7 +31,7 @@ import TestsTableView from './TestsTableView';
 import ComparisonView from './ComparisonView';
 import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
-import RerunTestRunDrawer from './RerunTestRunDrawer';
+import RunDrawer, { type RerunConfig } from '@/components/common/RunDrawer';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -97,6 +97,8 @@ export default function TestRunMainView({
       name?: string;
       created_at: string;
       pass_rate?: number;
+      experiment_id?: string;
+      parameter_version?: string;
     }>
   >([]);
 
@@ -491,6 +493,15 @@ export default function TestRunMainView({
             (typeof run.created_at === 'string' ? run.created_at : '') ||
             '',
           pass_rate: undefined, // Will be calculated from test results if needed
+          experiment_id: run.experiment_id ?? undefined,
+          parameter_version:
+            typeof run.attributes?.parameter_version === 'string'
+              ? (run.attributes.parameter_version as string)
+              : undefined,
+          experiment_name:
+            typeof run.attributes?.parameter_experiment_name === 'string'
+              ? (run.attributes.parameter_experiment_name as string)
+              : undefined,
         }));
 
       setAvailableTestRuns(runs);
@@ -867,7 +878,18 @@ export default function TestRunMainView({
         </>
       ) : (
         <ComparisonView
-          currentTestRun={testRunData}
+          currentTestRun={{
+            ...testRunData,
+            experiment_id: testRun.experiment_id ?? undefined,
+            parameter_version:
+              typeof testRun.attributes?.parameter_version === 'string'
+                ? (testRun.attributes.parameter_version as string)
+                : undefined,
+            experiment_name:
+              typeof testRun.attributes?.parameter_experiment_name === 'string'
+                ? (testRun.attributes.parameter_experiment_name as string)
+                : undefined,
+          }}
           currentTestResults={testResults}
           availableTestRuns={availableTestRuns}
           onClose={() => setIsComparisonMode(false)}
@@ -883,16 +905,18 @@ export default function TestRunMainView({
       )}
 
       {/* Re-run Test Run Drawer */}
-      <RerunTestRunDrawer
+      <RunDrawer
+        mode="rerunTestRun"
         open={isRerunDrawerOpen}
         onClose={() => setIsRerunDrawerOpen(false)}
-        rerunConfig={{
+        data={{
           testSetId: testRun.test_configuration?.test_set?.id || '',
           testSetName: testRun.test_configuration?.test_set?.name || 'Unknown',
           testSetType:
             testRun.test_configuration?.test_set?.test_set_type?.type_value,
           endpointId: testRun.test_configuration?.endpoint?.id || '',
           endpointName: testRun.test_configuration?.endpoint?.name || 'Unknown',
+          projectId: testRun.test_configuration?.endpoint?.project?.id,
           projectName:
             testRun.test_configuration?.endpoint?.project?.name || 'Unknown',
           testRunId: testRun.id,

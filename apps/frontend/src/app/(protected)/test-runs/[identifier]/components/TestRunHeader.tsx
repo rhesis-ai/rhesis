@@ -28,6 +28,9 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import { experimentHref } from '@/utils/experiment-links';
+import { BiotechIcon } from '@/components/icons';
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
@@ -338,31 +341,125 @@ export default function TestRunHeader({
             md: 3,
           }}
         >
-          <SummaryCard
-            title="Tests Executed"
-            value={
-              totalExpected ? `${stats.total}/${totalExpected}` : stats.total
-            }
-            subtitle={
-              isMultiTurn
-                ? `Avg ${stats.avgTurnDepth} turns`
-                : stats.executionErrors > 0
-                  ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
-                  : `${stats.passed} passed, ${stats.failed} failed`
-            }
-            icon={
-              isInProgress && onRefresh ? (
-                <Tooltip title="Refresh">
-                  <IconButton size="small" onClick={onRefresh}>
-                    <RefreshIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              ) : (
-                <PlayCircleOutlineIcon />
-              )
-            }
-            color="primary"
-          />
+          <Card
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <CardContent sx={{ flexGrow: 1, p: 3 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  mb: 2,
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  fontWeight={500}
+                >
+                  Tests Executed
+                </Typography>
+                <Box
+                  sx={{
+                    color: theme.palette.primary.main,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  {isInProgress && onRefresh ? (
+                    <Tooltip title="Refresh">
+                      <IconButton size="small" onClick={onRefresh}>
+                        <RefreshIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <PlayCircleOutlineIcon />
+                  )}
+                </Box>
+              </Box>
+
+              <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
+                {totalExpected
+                  ? `${stats.total}/${totalExpected}`
+                  : stats.total}
+              </Typography>
+
+              <Typography variant="body2" color="text.secondary">
+                {isMultiTurn
+                  ? `Avg ${stats.avgTurnDepth} turns`
+                  : stats.executionErrors > 0
+                    ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
+                    : `${stats.passed} passed, ${stats.failed} failed`}
+              </Typography>
+
+              {testRun.experiment_id && (
+                <Link
+                  href={experimentHref(
+                    testRun.experiment_id,
+                    typeof testRun.attributes?.parameter_version === 'string'
+                      ? testRun.attributes.parameter_version
+                      : undefined
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mt: 1,
+                      '&:hover': {
+                        '& .experiment-name': {
+                          color: theme.palette.primary.main,
+                          textDecoration: 'underline',
+                        },
+                      },
+                    }}
+                  >
+                    <BiotechIcon
+                      sx={{ fontSize: 16, color: 'text.secondary' }}
+                    />
+                    <Typography
+                      variant="body2"
+                      className="experiment-name"
+                      sx={{
+                        transition: 'color 0.2s',
+                        color: 'text.secondary',
+                        fontWeight: 200,
+                      }}
+                    >
+                      {(testRun.attributes
+                        ?.parameter_experiment_name as string) || 'Experiment'}
+                    </Typography>
+                    {typeof testRun.attributes?.parameter_version ===
+                      'string' && (
+                      <Chip
+                        label={shortVersion(
+                          testRun.attributes?.parameter_version as string
+                        )}
+                        size="small"
+                        variant="outlined"
+                        sx={{ ml: 0.5 }}
+                      />
+                    )}
+                    <OpenInNewIcon
+                      sx={{
+                        fontSize: 12,
+                        color: 'text.disabled',
+                      }}
+                    />
+                  </Box>
+                </Link>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
 
         {/* Duration Card */}

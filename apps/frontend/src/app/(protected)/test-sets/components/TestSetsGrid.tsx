@@ -25,7 +25,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import SecurityIcon from '@mui/icons-material/Security';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import TestSetDrawer from './TestSetDrawer';
-import TestRunDrawer from './TestRunDrawer';
+import RunDrawer from '@/components/common/RunDrawer';
 import GarakImportDialog from './GarakImportDialog';
 import FileImportDialog from './FileImportDialog';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -577,11 +577,12 @@ export default function TestSetsGrid({
             sessionToken={sessionToken || session?.session_token || ''}
             onSuccess={handleTestSetSaved}
           />
-          <TestRunDrawer
+          <RunDrawer
+            mode="createFromGrid"
             open={testRunDrawerOpen}
             onClose={() => setTestRunDrawerOpen(false)}
             sessionToken={sessionToken || session?.session_token || ''}
-            selectedTestSetIds={selectedRows as string[]}
+            data={{ selectedTestSetIds: selectedRows as string[] }}
             onSuccess={handleTestRunSuccess}
           />
           <FileImportDialog

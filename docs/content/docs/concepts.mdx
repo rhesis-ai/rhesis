@@ -82,6 +82,12 @@ Each metric uses an LLM as a judge to evaluate test responses. It returns pass o
 
 Metrics organize into behaviors like "Accuracy", "Safety", or "Compliance". When you run a test, all metrics within that test's behavior automatically evaluate the response. For example, an "Accuracy" behavior might include metrics for factual correctness, numerical accuracy, and citation validity. This grouping ensures comprehensive evaluation without manual configuration for each test.
 
+## Parameter Management
+
+The configuration of your AI system often involves more than just prompts—it includes model selection, temperature, retrieval strategies, and other variables. 
+
+Rhesis manages these through a **[Parameter Schema](/docs/experiments/parameter-schema)**, which defines the typed configuration "knobs" your project supports. You can then author **[Experiments](/docs/experiments)** that bundle specific values for these parameters into immutable *versions*. By using movable *environments* (like `default` or `production`), your application code and test runs can fetch the right configuration automatically without hardcoding version identifiers.
+
 ## Test Sets
 
 **[Test Sets](/docs/test-sets)** collect tests that execute together, functioning like test suites in traditional software development. Running tests one at a time doesn't scale when you have hundreds of scenarios. Test sets let you execute bulk testing with one click, create regression suites that catch breaking changes, build pre-deployment validation pipelines, and organize tests by feature or scenario.

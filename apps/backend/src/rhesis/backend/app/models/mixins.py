@@ -1,9 +1,8 @@
 import functools
 import logging
-import uuid
 from typing import Any
 
-from sqlalchemy import Column, ForeignKey, and_, event, text
+from sqlalchemy import Column, ForeignKey, and_, event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError

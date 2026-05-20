@@ -40,6 +40,7 @@ class Endpoints(Enum):
     TYPE_LOOKUPS = "type_lookups"
     USERS = "users"
     FILES = "files"
+    EXPERIMENTS = "experiments"
 
 
 class Methods(Enum):

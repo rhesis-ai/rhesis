@@ -38,7 +38,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
 
 // ---- Sub-component stubs ----
 
-jest.mock('../ExecuteTestSetDrawer', () => ({
+jest.mock('@/components/common/RunDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
     open ? <div data-testid="execute-drawer" /> : null,

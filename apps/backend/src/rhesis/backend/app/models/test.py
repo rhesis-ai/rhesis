@@ -118,6 +118,7 @@ class Test(
         """
         from rhesis.backend.app.constants import TestType
         from rhesis.backend.tasks.execution.modes import get_test_type
+
         from .behavior import Behavior
         from .category import Category
         from .prompt import Prompt

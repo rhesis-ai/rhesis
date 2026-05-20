@@ -1,0 +1,153 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Parameter Injection
+
+<Callout type="default">
+  Experiment parameters flow through `request_mapping` for both REST and SDK connector endpoints. The same `\{\{ params.model \}\}` syntax works everywhere.
+</Callout>
+
+## How it works
+
+When a test run is associated with an experiment, the platform resolves the experiment's parameter values **once** at queue time and stores an immutable snapshot on the test run. During execution, the snapshot is injected into the Jinja2 template context as `params`.
+
+Your request mapping references individual values with dot notation:
+
+<CodeBlock filename="request_mapping.json" language="json">
+{`{
+  "model": "{{ params.model }}",
+  "temperature": {{ params.temperature }},
+  "messages": [{"role": "user", "content": "{{ input }}"}]
+}`}
+</CodeBlock>
+
+This works identically whether the endpoint is REST (HTTP) or SDK connector (WebSocket). The template is rendered before the request is dispatched, so your API or function receives the final resolved values.
+
+## REST endpoints
+
+For REST endpoints, the rendered request body is sent as the HTTP payload. See [Using Experiment Parameters](/docs/endpoints#using-experiment-parameters) for full details, including how to use Jinja2 defaults for graceful fallback when no experiment is attached.
+
+## SDK connector endpoints
+
+For SDK connector endpoints, the rendered request mapping becomes the function's keyword arguments. The function signature simply declares the parameters it expects:
+
+<CodeBlock filename="sdk_connector.py" language="python">
+{`from rhesis.sdk import endpoint
+
+@endpoint(
+    name="rag",
+    request_mapping={
+        "query": "{{ input }}",
+        "model": "{{ params.model | default('gpt-4') }}",
+        "temperature": "{{ params.temperature | default(0.7) }}",
+        "system_prompt": "{{ params.system_prompt | default(none) }}",
+    },
+    response_mapping={
+        "output": "{{ response }}",
+    },
+)
+def rag(query: str, *, model: str, temperature: float, system_prompt: str = None):
+    return {"response": llm.chat(
+        model=model,
+        temperature=temperature,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query},
+        ],
+    )}`}
+</CodeBlock>
+
+During a test run with an experiment, `params.model` resolves to the experiment's value (e.g., `"gpt-4o"`). Without an experiment, the Jinja2 `default()` filter provides the fallback.
+
+There is no distinction between "test data" and "configuration" at the request mapping level -- both are template variables rendered the same way. This keeps the mental model simple: `input` is the test prompt, `params.*` are the experiment knobs, and any other platform variables (`test_id`, `session_id`, etc.) work as documented in [Platform-Managed Variables](/docs/endpoints#platform-managed-variables).
+
+## `Parameters.get()` in production code
+
+The `params` template variable handles test-time parameter injection. For **production traffic** (live requests that don't go through the test runner), your application reads parameters using the `Parameters.get()` facade:
+
+<CodeBlock filename="production_resolve.py" language="python">
+{`from rhesis.sdk import Parameters
+
+params = Parameters.get("Customer Support", environment="default")
+model = params.model
+temperature = params.get("temperature", 0.7)`}
+</CodeBlock>
+
+During a test run, the platform also sets an internal context variable so that `Parameters.get()` calls inside your function return the experiment's values without hitting the network. This means production code that calls `Parameters.get()` will automatically pick up the experiment snapshot during tests -- no special branching needed.
+
+See [SDK Usage](/docs/experiments/sdk-usage) for the full `Parameters.get()` API.
+
+## The Wire Protocol
+
+For those debugging at the protocol level, the `ExecuteTestMessage` payload sent by the Rhesis platform over the connector includes the full parameter snapshot:
+
+- `parameters`: The resolved `Dict[str, Any]` of values.
+- `parameter_version`: The sequential version identifier (e.g. `v3`) of the version being executed.
+- `parameter_experiment_id`: The UUID of the experiment.
+- `parameter_source`: The resolution method used (`"environment"`, `"experiment_id"`, or `"version"`). Older snapshots may still show `"label"`; treat it as `"environment"`.
+- `parameter_source_environment`: The environment name when resolution went through an environment (for example `"default"`). Legacy snapshots may use `parameter_source_label` instead.
+- `parameter_schema`: The full schema, allowing the SDK to validate the payload locally.
+
+Because the backend dispatcher copies `parameter_source` and `parameter_source_environment` from the run snapshot, the `ResolvedParameters.source_environment` inside your application reflects the environment (for example "via `default`") that was targeted at run-queue time.
+
+## Worked Example: The Chatbot
+
+The Rhesis chatbot demo application is the canonical reference for parameter management.
+
+The core `chat()` function is decorated as an `@endpoint`. Parameters come through the request mapping alongside test data:
+
+<CodeBlock filename="chatbot_endpoint.py" language="python">
+{`@endpoint(
+    name="chat",
+    request_mapping={
+        "message": "{{ input }}",
+        "model": "{{ params.model | default(none) }}",
+        "temperature": "{{ params.temperature | default(0.7) }}",
+        "system_prompt": "{{ params.system_prompt | default(none) }}",
+        "use_case": "{{ params.use_case | default('travel') }}",
+    },
+    response_mapping={
+        "output": "{{ message }}",
+        "session_id": "{{ session_id }}",
+        "context": "{{ context }}",
+    },
+)
+async def chat(
+    message: str,
+    *,
+    model: Optional[str] = None,
+    temperature: float = 0.7,
+    system_prompt: Optional[str] = None,
+    use_case: str = "travel",
+) -> ChatResponse:
+    # model, temperature, system_prompt come from the experiment
+    # during test runs, or from defaults otherwise
+    ...`}
+</CodeBlock>
+
+The FastAPI route serves production traffic and resolves parameters through the `Parameters.get()` facade, then calls the same function:
+
+<CodeBlock filename="chatbot_route.py" language="python">
+{`def _resolve_chatbot_params() -> dict:
+    try:
+        params = Parameters.get("Chatbot Demo", environment="default")
+        return {
+            "model": params.model,
+            "temperature": params.get("temperature", 0.7),
+        }
+    except Exception:
+        return {"model": os.getenv("DEFAULT_GENERATION_MODEL"), "temperature": 0.7}
+
+@app.post("/chat")
+async def chat_endpoint(request: Request, chat_request: ChatRequest):
+    params = _resolve_chatbot_params()
+    result = await chat(
+        message=chat_request.message,
+        model=params.get("model"),
+        temperature=params.get("temperature"),
+    )
+    return result`}
+</CodeBlock>
+
+<Callout type="warning">
+  **Deprecated:** The `parameters` keyword argument on `@endpoint` (e.g., `parameters=["model", "temperature"]`) is deprecated. Use `\{\{ params.model \}\}` in `request_mapping` instead. The old kwarg-merging path still works but will be removed in a future release.
+</Callout>

@@ -30,6 +30,7 @@ import { GarakClient } from './garak-client';
 import { ImportClient } from './import-client';
 import { FilesClient } from './files-client';
 import { FeaturesClient } from './features-client';
+import { ParametersClient } from './parameters-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
@@ -48,6 +49,7 @@ export class ApiClientFactory {
   private filesClient: FilesClient | null = null;
   private featuresClient: FeaturesClient | null = null;
   private architectClient: ArchitectClient | null = null;
+  private parametersClient: ParametersClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
@@ -224,5 +226,12 @@ export class ApiClientFactory {
       this.architectClient = new ArchitectClient(this.sessionToken);
     }
     return this.architectClient;
+  }
+
+  getParametersClient(): ParametersClient {
+    if (!this.parametersClient) {
+      this.parametersClient = new ParametersClient(this.sessionToken);
+    }
+    return this.parametersClient;
   }
 }

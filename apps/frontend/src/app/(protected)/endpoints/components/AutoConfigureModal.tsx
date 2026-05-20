@@ -19,7 +19,6 @@ import {
   Step,
   StepLabel,
 } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import { AutoFixHighIcon, CloseIcon, RefreshIcon } from '@/components/icons';
@@ -481,14 +480,14 @@ export default function AutoConfigureModal({
         {activeStep === 0 && (
           <>
             {loading ? (
-              <LoadingButton
+              <Button
                 variant="contained"
                 loading
                 loadingPosition="start"
                 startIcon={<AutoFixHighIcon />}
               >
                 Analyzing…
-              </LoadingButton>
+              </Button>
             ) : error ? (
               <Button
                 variant="contained"
