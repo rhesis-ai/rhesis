@@ -53,6 +53,7 @@ class TestSetSynthesizer(ABC):
         model: Optional[Union[str, BaseLLM]] = None,
         sources: Optional[List[SourceSpecification]] = None,
         chunking_strategy: Optional[ChunkingStrategy] = None,
+        harmful: bool = False,
     ):
         """
         Initialize the base synthesizer.
@@ -68,6 +69,7 @@ class TestSetSynthesizer(ABC):
         if batch_size < _MIN_BATCH_SIZE:
             raise ValueError(f"batch_size must be >= {_MIN_BATCH_SIZE}, got {batch_size}")
         self.batch_size = batch_size
+        self.harmful = harmful
         self.prompt_template = load_prompt_template(self.prompt_template_file)
         self.sources = sources
         # Default RecursiveChunker is applied in _generate_with_sources (lazy import).
@@ -284,6 +286,7 @@ class TestSetSynthesizer(ABC):
             raise TypeError("num_tests must be an integer")
 
         template_context = self._get_template_context(**kwargs)
+        template_context.setdefault("harmful", self.harmful)
 
         all_test_cases: List[Dict[str, Any]] = []
         generation_start = time.time()
