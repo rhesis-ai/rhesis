@@ -8,6 +8,7 @@ import {
   type OverlayProxy,
 } from 'embedding-atlas/react';
 import type { Scatter2DGraph } from '@/utils/api-client/interfaces/embedding';
+import type { EmbeddingChartColorConfig } from '@/utils/embedding/embeddingColorBy';
 import {
   graphToEmbeddingViewData,
   type EmbeddingViewData,
@@ -57,6 +58,7 @@ class EmptyTooltip {
 
 interface EmbeddingAtlasViewProps {
   graph: Scatter2DGraph;
+  colorConfig: EmbeddingChartColorConfig;
   highlightedEntityId?: string | null;
   onPointSelect?: (entityId: string) => void;
   onPointHover?: (entityId: string | null) => void;
@@ -64,6 +66,7 @@ interface EmbeddingAtlasViewProps {
 
 export default function EmbeddingAtlasView({
   graph,
+  colorConfig,
   highlightedEntityId = null,
   onPointSelect,
   onPointHover,
@@ -81,11 +84,11 @@ export default function EmbeddingAtlasView({
     return {
       x: viewData.x[index],
       y: viewData.y[index],
-      category: viewData.category[index],
+      category: colorConfig.category[index],
       text: viewData.texts[index],
       identifier: highlightedEntityId,
     };
-  }, [highlightedEntityId, viewData]);
+  }, [highlightedEntityId, viewData, colorConfig.category]);
 
   const customOverlay = useMemo(() => {
     if (!viewData) return undefined;
@@ -167,7 +170,6 @@ export default function EmbeddingAtlasView({
     [viewData, onPointHover]
   );
 
-  // Kept for click-to-navigate.
   const querySelection = useCallback(
     async (
       x: number,
@@ -189,12 +191,12 @@ export default function EmbeddingAtlasView({
       return {
         x: viewData.x[bestIndex],
         y: viewData.y[bestIndex],
-        category: viewData.category[bestIndex],
+        category: colorConfig.category[bestIndex],
         text: viewData.texts[bestIndex],
         identifier: viewData.entityIds[bestIndex],
       };
     },
-    [viewData]
+    [viewData, colorConfig.category]
   );
 
   const handleSelection = useCallback(
@@ -218,14 +220,15 @@ export default function EmbeddingAtlasView({
         data={{
           x: viewData.x as Float32Array<ArrayBuffer>,
           y: viewData.y as Float32Array<ArrayBuffer>,
-          category: viewData.category as Uint8Array<ArrayBuffer>,
+          category: colorConfig.category as Uint8Array<ArrayBuffer>,
         }}
-        labels={viewData.labels}
+        categoryColors={colorConfig.categoryColors}
+        labels={colorConfig.labels ?? undefined}
         width={null}
         height={VIEW_HEIGHT}
         config={{
           autoLabelEnabled: false,
-          mode: 'density',
+          mode: colorConfig.viewMode,
           colorScheme: 'light',
         }}
         tooltip={highlightedPoint}

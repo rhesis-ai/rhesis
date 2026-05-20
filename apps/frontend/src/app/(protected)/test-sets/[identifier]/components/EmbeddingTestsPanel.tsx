@@ -11,11 +11,16 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   Tab,
   Tabs,
   Typography,
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import ViewListIcon from '@mui/icons-material/ViewList';
@@ -26,7 +31,13 @@ import { useEmbeddingGraph } from '@/hooks/useEmbeddingGraph';
 import { getTestDisplayContent } from '@/app/(protected)/tests/components/test-grid-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
+import {
+  buildEmbeddingChartColorConfig,
+  EMBEDDING_COLOR_BY_OPTIONS,
+  type EmbeddingColorBy,
+} from '@/utils/embedding/embeddingColorBy';
 import TestSetTestsGrid from './TestSetTestsGrid';
+import EmbeddingColorLegend from './EmbeddingColorLegend';
 
 const EmbeddingAtlasView = dynamic(() => import('./EmbeddingAtlasView'), {
   ssr: false,
@@ -74,6 +85,7 @@ export default function EmbeddingTestsPanel({
   const [chartHoveredId, setChartHoveredId] = useState<string | null>(null);
   const [listHoveredId, setListHoveredId] = useState<string | null>(null);
   const [listVisible, setListVisible] = useState(false);
+  const [colorBy, setColorBy] = useState<EmbeddingColorBy>('cluster');
   const hoveredEntityId = listHoveredId ?? chartHoveredId;
   const itemRefs = useRef<Map<string, HTMLElement>>(new Map());
   const listRef = useRef<HTMLDivElement>(null);
@@ -134,20 +146,48 @@ export default function EmbeddingTestsPanel({
     };
   }, [clustersActive, sessionToken, testSetId]);
 
+  const colorConfig = useMemo(() => {
+    if (!graph || graph.points.length === 0) return null;
+    return buildEmbeddingChartColorConfig(graph, tests, colorBy);
+  }, [graph, tests, colorBy]);
+
   const sortedTests = useMemo(() => {
     if (!graph || graph.points.length === 0) return tests;
     const pointMap = new Map(graph.points.map(p => [p.entity_id, p]));
+
+    const metadataKey = (test: TestDetail): string => {
+      switch (colorBy) {
+        case 'behavior':
+          return test.behavior?.name ?? '';
+        case 'category':
+          return test.category?.name ?? '';
+        case 'topic':
+          return test.topic?.name ?? '';
+        default:
+          return '';
+      }
+    };
+
     return [...tests].sort((a, b) => {
       const pa = pointMap.get(a.id);
       const pb = pointMap.get(b.id);
       if (!pa && !pb) return 0;
       if (!pa) return 1;
       if (!pb) return -1;
-      if (pa.cluster_index !== pb.cluster_index)
+
+      if (colorBy !== 'cluster') {
+        const keyCmp = metadataKey(a).localeCompare(metadataKey(b));
+        if (keyCmp !== 0) return keyCmp;
+      } else if (pa.cluster_index !== pb.cluster_index) {
         return pa.cluster_index - pb.cluster_index;
+      }
       return pa.x - pb.x;
     });
-  }, [tests, graph]);
+  }, [tests, graph, colorBy]);
+
+  const handleColorByChange = useCallback((event: SelectChangeEvent) => {
+    setColorBy(event.target.value as EmbeddingColorBy);
+  }, []);
 
   useEffect(() => {
     if (!listVisible || !hoveredEntityId || !listRef.current) return;
@@ -243,15 +283,42 @@ export default function EmbeddingTestsPanel({
               flexWrap="wrap"
               useFlexGap
             >
-              <Stack direction="row" alignItems="center" spacing={1}>
-                <BetaBadge />
-                {graph?.computed_at && (
-                  <Typography variant="body2" color="text.secondary">
-                    Last computed{' '}
-                    {formatDistanceToNow(new Date(graph.computed_at), {
-                      addSuffix: true,
-                    })}
-                  </Typography>
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={2}
+                flexWrap="wrap"
+                useFlexGap
+              >
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <BetaBadge />
+                  {graph?.computed_at && (
+                    <Typography variant="body2" color="text.secondary">
+                      Last computed{' '}
+                      {formatDistanceToNow(new Date(graph.computed_at), {
+                        addSuffix: true,
+                      })}
+                    </Typography>
+                  )}
+                </Stack>
+                {showChart && (
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <InputLabel id="embedding-color-by-label">
+                      Color by
+                    </InputLabel>
+                    <Select
+                      labelId="embedding-color-by-label"
+                      label="Color by"
+                      value={colorBy}
+                      onChange={handleColorByChange}
+                    >
+                      {EMBEDDING_COLOR_BY_OPTIONS.map(opt => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 )}
               </Stack>
               <Button
@@ -365,13 +432,17 @@ export default function EmbeddingTestsPanel({
                   </Box>
                 )}
 
-                {showChart && graph && (
-                  <EmbeddingAtlasView
-                    graph={graph}
-                    highlightedEntityId={hoveredEntityId}
-                    onPointSelect={handlePointSelect}
-                    onPointHover={handlePointHover}
-                  />
+                {showChart && graph && colorConfig && (
+                  <>
+                    <EmbeddingAtlasView
+                      graph={graph}
+                      colorConfig={colorConfig}
+                      highlightedEntityId={hoveredEntityId}
+                      onPointSelect={handlePointSelect}
+                      onPointHover={handlePointHover}
+                    />
+                    <EmbeddingColorLegend entries={colorConfig.legend} />
+                  </>
                 )}
               </Box>
 
