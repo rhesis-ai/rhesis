@@ -1,0 +1,90 @@
+# CloudNativePG: primary PostgreSQL for staging.
+# Operator Application: kubernetes/clusters/stg/cnpg-operator.yaml
+# Argo CD Application: kubernetes/clusters/stg/cnpg-cluster-application.yaml (sync-wave 5)
+#
+# Auth: Workload Identity (gkeEnvironment: true). No JSON key — CNPG pods impersonate
+# GSA rhesis-cnpg-bk-stg@rhesis-stg.iam.gserviceaccount.com via the KSA annotation below.
+# Terraform module cnpg_barman_stg creates the WI IAM binding.
+#
+# Roles: rhesis-admin (BYPASSRLS, owner), rhesis-user (DML only), rhesis-analytics-user.
+# GRANTs in postInitApplicationSQL are for rhesis-user (DML on tables owned by rhesis-admin).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: rhesis-stg
+  namespace: rhesis
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  description: "Rhesis staging PostgreSQL (CloudNativePG)"
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.4-1
+  storage:
+    size: 20Gi
+  # Annotate the CNPG-managed KSA so GKE Workload Identity links it to the GSA.
+  serviceAccountTemplate:
+    metadata:
+      annotations:
+        iam.gke.io/gcp-service-account: rhesis-cnpg-bk-stg@rhesis-stg-494712.iam.gserviceaccount.com
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 2Gi
+      # cpu limit intentionally omitted: databases benefit from absorbing CPU bursts.
+  postgresql:
+    parameters:
+      max_connections: "200"
+  managed:
+    roles:
+      - name: rhesis-admin
+        ensure: present
+        login: true
+        bypassrls: true
+        passwordSecret:
+          name: rhesis-admin-credentials
+      - name: rhesis-user
+        ensure: present
+        login: true
+        bypassrls: false
+        passwordSecret:
+          name: rhesis-user-credentials
+      - name: rhesis-analytics-user
+        ensure: present
+        login: true
+        bypassrls: false
+        passwordSecret:
+          name: rhesis-analytics-user-credentials
+  bootstrap:
+    initdb:
+      database: rhesis-stg-db
+      owner: rhesis-admin
+      # Runs as superuser in the postgres DB before the application DB exists.
+      # Do not GRANT on rhesis-stg-db here — that DB is created after this phase.
+      # Role creation is handled exclusively by spec.managed.roles above to avoid
+      # a race condition (duplicate CREATE ROLE would fail with "role already exists").
+      postInitSQL:
+        - CREATE ROLE "rhesis-analytics-user" WITH LOGIN;
+        - CREATE ROLE "rhesis-user" WITH LOGIN;
+        - CREATE DATABASE "rhesis-analytics-stg-db" OWNER "rhesis-analytics-user";
+        - GRANT CONNECT ON DATABASE "rhesis-analytics-stg-db" TO "rhesis-admin";
+      # Runs as superuser inside rhesis-stg-db after initdb creates it.
+      postInitApplicationSQL:
+        - GRANT ALL ON SCHEMA public TO "rhesis-admin";
+        - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+        - CREATE EXTENSION IF NOT EXISTS vector;
+        - GRANT CONNECT ON DATABASE "rhesis-stg-db" TO "rhesis-user";
+        - GRANT USAGE ON SCHEMA public TO "rhesis-user";
+        - GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
+        - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON TABLES TO "rhesis-user";
+        - ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
+  backup:
+    retentionPolicy: 7d
+    barmanObjectStore:
+      destinationPath: gs://cnpg-backup-rhesis-stg
+      serverName: rhesis-stg
+      googleCredentials:
+        gkeEnvironment: true

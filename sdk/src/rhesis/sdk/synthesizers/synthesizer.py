@@ -27,6 +27,7 @@ class Synthesizer(TestSetSynthesizer):
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
         chunking_strategy: Optional[ChunkingStrategy] = None,
+        harmful: bool = False,
     ):
         """
         Initialize the synthesizer.
@@ -39,6 +40,7 @@ class Synthesizer(TestSetSynthesizer):
             batch_size: Maximum number of tests to generate in a single LLM call
             model: The model to use for generation
             chunking_strategy: Strategy for chunking source content
+            harmful: If True, generate adversarial/harmful test cases
         """
 
         super().__init__(
@@ -46,6 +48,7 @@ class Synthesizer(TestSetSynthesizer):
             model=model,
             sources=sources,
             chunking_strategy=chunking_strategy,
+            harmful=harmful,
         )
         self.prompt = prompt
         self.behaviors = behaviors

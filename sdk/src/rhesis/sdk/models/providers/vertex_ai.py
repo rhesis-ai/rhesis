@@ -13,15 +13,11 @@ Regional availability:
 For detailed usage and configuration options, see VertexAILLM class documentation.
 """
 
-import atexit
 import base64
-import hashlib
 import json
 import logging
 import os
-import tempfile
-from pathlib import Path
-from typing import List, Optional, Set, Type, Union
+from typing import List, Optional, Type, Union
 
 from pydantic import BaseModel
 
@@ -35,29 +31,9 @@ from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
 
 logger = logging.getLogger(__name__)
 
-# Track temp files created by this process for cleanup
-_temp_credential_files: Set[str] = set()
-
 DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["vertex_ai"]
 DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_EMBEDDING_MODEL = model_name_from_id(DEFAULT_EMBEDDING_MODELS["vertex_ai"])
-
-
-def _cleanup_temp_credentials():
-    """
-    Clean up temporary credential files created by this process.
-    Called automatically at process exit via atexit.
-    """
-    for temp_file in _temp_credential_files:
-        try:
-            if os.path.exists(temp_file):
-                os.unlink(temp_file)
-        except Exception:
-            pass  # Ignore cleanup errors
-
-
-# Register cleanup function to run at process exit
-atexit.register(_cleanup_temp_credentials)
 
 
 class VertexAICredentialsMixin:
@@ -93,17 +69,16 @@ class VertexAICredentialsMixin:
 
     def _load_credentials_from_base64(self, credentials: str) -> dict:
         """
-        Attempt to load credentials from base64-encoded string.
+        Decode base64-encoded service account credentials and return as
+        a JSON string suitable for LiteLLM's ``vertex_credentials`` parameter.
 
-        Uses a deterministic temp file path based on credentials hash to ensure
-        multiple instances can share the same file without race conditions.
-        Files are tracked and cleaned up at process exit.
+        No temporary files are created; the credentials stay in memory.
 
         Args:
             credentials: Base64-encoded service account JSON
 
         Returns:
-            dict: Config with credentials_path and project
+            dict: Config with vertex_credentials (JSON string) and project
 
         Raises:
             Exception: If not valid base64 or JSON
@@ -111,43 +86,23 @@ class VertexAICredentialsMixin:
         decoded_credentials = base64.b64decode(credentials, validate=True)
         credentials_json = json.loads(decoded_credentials)
 
-        # Create a deterministic temp file path based on credentials hash
-        # This ensures all instances with the same credentials use the same file
-        creds_hash = hashlib.sha256(credentials.encode()).hexdigest()[:16]
-        temp_dir = Path(tempfile.gettempdir())
-        temp_file_path = temp_dir / f"vertex_ai_creds_{creds_hash}.json"
-
-        # Write credentials to the persistent temp file with restricted permissions
-        # (0o600 = owner read/write only). Use os.open so the mode is set atomically
-        # at creation time rather than relying on a post-creation chmod.
-        try:
-            fd = os.open(
-                str(temp_file_path),
-                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
-                0o600,
-            )
-            with os.fdopen(fd, "w") as f:
-                json.dump(credentials_json, f)
-
-            # Track this file for cleanup at process exit
-            _temp_credential_files.add(str(temp_file_path))
-        except (OSError, PermissionError) as e:
-            raise ValueError(f"Failed to create temporary credentials file: {e}")
-
         return {
-            "credentials_path": str(temp_file_path),
+            "vertex_credentials": json.dumps(credentials_json),
+            "credentials_source": "base64",
             "project": credentials_json.get("project_id"),
         }
 
     def _load_credentials_from_file(self, credentials: str) -> dict:
         """
-        Load credentials from file path.
+        Load credentials from a file path.  LiteLLM accepts file paths
+        directly via ``vertex_credentials``, so we just validate and
+        extract the project_id without writing anything.
 
         Args:
             credentials: Path to service account JSON file
 
         Returns:
-            dict: Config with credentials_path and project
+            dict: Config with vertex_credentials (file path) and project
 
         Raises:
             ValueError: If file doesn't exist or can't be read
@@ -162,7 +117,8 @@ class VertexAICredentialsMixin:
             raise ValueError(f"Failed to read credentials file {credentials}: {e}")
 
         return {
-            "credentials_path": credentials,
+            "vertex_credentials": credentials,
+            "credentials_source": "file",
             "project": credentials_json.get("project_id"),
         }
 
@@ -200,7 +156,7 @@ class VertexAICredentialsMixin:
             credentials: Either base64-encoded JSON or file path
 
         Returns:
-            dict: Config with credentials_path and project
+            dict: Config with vertex_credentials and project
 
         Raises:
             ValueError: If all methods fail
@@ -235,12 +191,11 @@ class VertexAICredentialsMixin:
         Automatically detects if credentials are base64-encoded or a file path.
 
         Returns:
-            dict: Configuration containing project, location, and credentials_path
+            dict: Configuration containing project, location, and vertex_credentials
 
         Raises:
             ValueError: If configuration is incomplete or invalid
         """
-        # Step 1: Get credentials from the value captured at initialization
         google_credentials = self._original_credentials_env
         if not google_credentials:
             raise ValueError(
@@ -250,19 +205,15 @@ class VertexAICredentialsMixin:
                 "Value can be base64-encoded JSON or file path to service account JSON"
             )
 
-        # Step 2: Load credentials (auto-detect format and normalize to file path)
         config = self._load_credentials(google_credentials)
 
-        # Step 3: Get location (init parameter takes priority)
         config["location"] = self._get_location()
 
-        # Step 4: Set project with priority order
         if self._init_project:
             config["project"] = self._init_project
         elif os.getenv("VERTEX_AI_PROJECT"):
             config["project"] = os.getenv("VERTEX_AI_PROJECT")
 
-        # Verify we have a project from at least one source
         if not config.get("project"):
             raise ValueError(
                 "Could not determine VERTEX_AI_PROJECT. Provide either:\n"
@@ -272,28 +223,6 @@ class VertexAICredentialsMixin:
             )
 
         return config
-
-    def _ensure_credentials_file(self) -> str:
-        """Ensure credentials file exists, recreating if necessary.
-
-        Returns:
-            str: Path to the credentials file
-
-        Raises:
-            ValueError: If credentials file cannot be found or recreated
-        """
-        credentials_path = self._vertex_config["credentials_path"]
-        if not os.path.exists(credentials_path):
-            if hasattr(self, "_original_credentials_env") and self._original_credentials_env:
-                try:
-                    config = self._load_credentials(self._original_credentials_env)
-                    credentials_path = config["credentials_path"]
-                    self._vertex_config["credentials_path"] = credentials_path
-                except Exception as e:
-                    raise ValueError(f"Credentials file missing and could not be recreated: {e}")
-            else:
-                raise ValueError(f"Credentials file not found: {credentials_path}")
-        return credentials_path
 
 
 class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
@@ -362,7 +291,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         The returned config is stored in self.model and used throughout the provider.
 
         Returns:
-            dict: Configuration containing project, location, and credentials_path
+            dict: Configuration containing project, location, and vertex_credentials
         """
         self._vertex_config = self._load_vertex_config()
         return self._vertex_config
@@ -394,7 +323,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         """
         kwargs["vertex_ai_project"] = self.model["project"]
         kwargs["vertex_ai_location"] = self.model["location"]
-        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+        kwargs["vertex_credentials"] = self.model["vertex_credentials"]
 
         return await super().a_generate(
             prompt=prompt,
@@ -429,10 +358,9 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         Returns:
             List of generated text or dicts (if schema provided)
         """
-        # Inject Vertex AI-specific parameters
         kwargs["vertex_ai_project"] = self.model["project"]
         kwargs["vertex_ai_location"] = self.model["location"]
-        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+        kwargs["vertex_credentials"] = self.model["vertex_credentials"]
 
         return super().generate_batch(
             prompts=prompts,
@@ -458,26 +386,15 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         try:
             from litellm.main import vertex_chat_completion
 
-            credentials_path = self._ensure_credentials_file()
             project = (self.model or {}).get("project")
             await vertex_chat_completion._ensure_access_token_async(
-                credentials=credentials_path,
+                credentials=self.model["vertex_credentials"],
                 project_id=project,
                 custom_llm_provider="vertex_ai",
             )
             logger.debug("VertexAI credentials pre-warmed (LiteLLM cache populated)")
         except Exception as e:
             logger.warning(f"VertexAI credential pre-warm failed (non-fatal, proceeding): {e}")
-
-    def __del__(self):
-        """
-        Cleanup method - does NOT delete temp credentials file here.
-
-        Temp files are shared across instances and cleaned up at process exit
-        via atexit handler. This prevents race conditions when multiple model
-        instances are created rapidly.
-        """
-        pass
 
     def get_config_info(self) -> dict:
         """
@@ -491,10 +408,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
             "model": self.model_name,
             "project": self.model["project"],
             "location": self.model["location"],
-            "credentials_source": "base64"
-            if self._original_credentials_env and not os.path.isfile(self._original_credentials_env)
-            else "file",
-            "credentials_path": self.model["credentials_path"],
+            "credentials_source": self.model.get("credentials_source", "unknown"),
         }
 
 
@@ -537,10 +451,7 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
         project: Optional[str] = None,
         dimensions: Optional[int] = None,
     ):
-        # Initialize credential handling from mixin
         self._init_vertex_credentials(credentials, location, project)
-
-        # Load Vertex AI configuration
         self._vertex_config = self._load_vertex_config()
 
         # Initialize parent LiteLLMEmbedder with vertex_ai prefix
@@ -552,7 +463,7 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
         )
 
     def _with_vertex_credentials(self, func, *args, **kwargs):
-        """Execute a function with Vertex AI credentials set in environment.
+        """Execute a function with Vertex AI credentials injected.
 
         Args:
             func: Function to execute
@@ -562,10 +473,9 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
         Returns:
             Result from the function
         """
-        # Inject Vertex AI-specific parameters
         kwargs["vertex_project"] = self._vertex_config["project"]
         kwargs["vertex_location"] = self._vertex_config["location"]
-        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+        kwargs["vertex_credentials"] = self._vertex_config["vertex_credentials"]
 
         return func(*args, **kwargs)
 
@@ -588,7 +498,7 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
         """Async embedding for a single text using Vertex AI."""
         kwargs["vertex_project"] = self._vertex_config["project"]
         kwargs["vertex_location"] = self._vertex_config["location"]
-        kwargs["vertex_credentials"] = self._ensure_credentials_file()
+        kwargs["vertex_credentials"] = self._vertex_config["vertex_credentials"]
         return await super().a_generate(text, **kwargs)
 
     def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:
@@ -618,8 +528,5 @@ class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
             "model": self.model_name,
             "project": self._vertex_config["project"],
             "location": self._vertex_config["location"],
-            "credentials_source": "base64"
-            if self._original_credentials_env and not os.path.isfile(self._original_credentials_env)
-            else "file",
-            "credentials_path": self._vertex_config["credentials_path"],
+            "credentials_source": self._vertex_config.get("credentials_source", "unknown"),
         }

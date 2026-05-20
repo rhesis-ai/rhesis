@@ -20,19 +20,36 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def upgrade() -> None:
-    op.add_column("file", sa.Column("storage_path", sa.String(length=512), nullable=True))
-    op.add_column("file", sa.Column("content_hash", sa.String(length=64), nullable=True))
-    op.add_column("file", sa.Column("extracted_text", sa.Text(), nullable=True))
-    op.add_column(
-        "file",
-        sa.Column(
-            "extraction_status",
-            sa.String(length=16),
-            server_default="pending",
-            nullable=False,
+def _column_exists(table: str, column: str) -> bool:
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = current_schema() "
+            "AND table_name = :table AND column_name = :column"
         ),
+        {"table": table, "column": column},
     )
+    return result.scalar() is not None
+
+
+def upgrade() -> None:
+    if not _column_exists("file", "storage_path"):
+        op.add_column("file", sa.Column("storage_path", sa.String(length=512), nullable=True))
+    if not _column_exists("file", "content_hash"):
+        op.add_column("file", sa.Column("content_hash", sa.String(length=64), nullable=True))
+    if not _column_exists("file", "extracted_text"):
+        op.add_column("file", sa.Column("extracted_text", sa.Text(), nullable=True))
+    if not _column_exists("file", "extraction_status"):
+        op.add_column(
+            "file",
+            sa.Column(
+                "extraction_status",
+                sa.String(length=16),
+                server_default="pending",
+                nullable=False,
+            ),
+        )
 
 
 def downgrade() -> None:

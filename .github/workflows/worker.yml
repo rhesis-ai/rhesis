@@ -277,6 +277,7 @@ jobs:
           kubectl create secret generic rhesis-worker-secrets \
             --namespace="${{ env.NAMESPACE }}" \
             --from-literal=BROKER_URL="${{ secrets.BROKER_URL }}" \
+            --from-literal=BROKER_READ_URL="${{ secrets.BROKER_READ_URL }}" \
             --from-literal=CELERY_RESULT_BACKEND="${{ secrets.CELERY_RESULT_BACKEND }}" \
             --from-literal=SQLALCHEMY_DATABASE_URL="${{ secrets.SQLALCHEMY_DATABASE_URL }}" \
             --from-literal=SQLALCHEMY_DB_MODE="${{ secrets.SQLALCHEMY_DB_MODE }}" \

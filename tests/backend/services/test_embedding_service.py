@@ -143,15 +143,9 @@ def test_entity(
 
 
 @pytest.fixture
-def user_with_embedding_model(
-    test_db: Session, db_user, embedding_model
-):
+def user_with_embedding_model(test_db: Session, db_user, embedding_model):
     """Create a user with embedding model configured in settings."""
-    db_user.settings.update({
-        "models": {
-            "embedding": {"model_id": str(embedding_model.id)}
-        }
-    })
+    db_user.settings.update({"models": {"embedding": {"model_id": str(embedding_model.id)}}})
     test_db.commit()
     test_db.refresh(db_user)
     return db_user
@@ -236,7 +230,7 @@ class TestEmbeddingService:
         """Test resolving model ID when explicitly provided."""
         service = EmbeddingService(test_db)
 
-        result = service._resolve_model_id(authenticated_user_id, str(embedding_model.id))
+        result = service.resolve_model_id(authenticated_user_id, str(embedding_model.id))
 
         assert result == str(embedding_model.id)
 
@@ -246,7 +240,7 @@ class TestEmbeddingService:
         """Test resolving model ID from user settings."""
         service = EmbeddingService(test_db)
 
-        result = service._resolve_model_id(str(user_with_embedding_model.id), None)
+        result = service.resolve_model_id(str(user_with_embedding_model.id), None)
 
         assert result == str(embedding_model.id)
 
@@ -255,35 +249,32 @@ class TestEmbeddingService:
         service = EmbeddingService(test_db)
 
         with pytest.raises(ValueError, match="No embedding model found"):
-            service._resolve_model_id(str(db_user.id), None)
+            service.resolve_model_id(str(db_user.id), None)
 
     def test_resolve_model_id_user_not_found(self, test_db):
         """Test error when user is not found."""
         service = EmbeddingService(test_db)
 
         with pytest.raises(ValueError, match="No embedding model found"):
-            service._resolve_model_id("00000000-0000-0000-0000-000000000000", None)
+            service.resolve_model_id("00000000-0000-0000-0000-000000000000", None)
 
-    @patch.object(EmbeddingService, "_check_workers_available")
     @patch.object(EmbeddingService, "_execute_sync")
     @patch.object(EmbeddingService, "_enqueue_async")
     def test_enqueue_embedding_sync_fallback(
         self,
         mock_enqueue,
         mock_execute,
-        mock_workers,
         test_db,
         test_entity,
         user_with_embedding_model,
     ):
-        """Test enqueue_embedding with sync fallback when no workers available."""
-        mock_workers.return_value = False
+        """Test enqueue_embedding with sync fallback when broker is unreachable."""
+        mock_enqueue.side_effect = ConnectionError("Broker unavailable")
         mock_execute.return_value = {"status": "success"}
 
         test_entity.user_id = user_with_embedding_model.id
         test_db.commit()
 
-        # Commit triggers EmbeddableMixin listeners; reset mocks to assert only this direct call:
         mock_execute.reset_mock()
         mock_enqueue.reset_mock()
 
@@ -298,23 +289,19 @@ class TestEmbeddingService:
 
         assert result is False
         mock_execute.assert_called_once()
-        mock_enqueue.assert_not_called()
+        mock_enqueue.assert_called_once()
 
-    @patch.object(EmbeddingService, "_check_workers_available")
     @patch.object(EmbeddingService, "_execute_sync")
     @patch.object(EmbeddingService, "_enqueue_async")
     def test_enqueue_embedding_async_success(
         self,
         mock_enqueue,
         mock_execute,
-        mock_workers,
         test_db,
         test_entity,
         user_with_embedding_model,
     ):
-        """Test enqueue_embedding with async execution when workers available."""
-        mock_workers.return_value = True
-
+        """Test enqueue_embedding with async execution (default path)."""
         test_entity.user_id = user_with_embedding_model.id
         test_db.commit()
 
@@ -334,20 +321,17 @@ class TestEmbeddingService:
         mock_enqueue.assert_called_once()
         mock_execute.assert_not_called()
 
-    @patch.object(EmbeddingService, "_check_workers_available")
     @patch.object(EmbeddingService, "_execute_sync")
     @patch.object(EmbeddingService, "_enqueue_async")
     def test_enqueue_embedding_async_fallback_to_sync(
         self,
         mock_enqueue,
         mock_execute,
-        mock_workers,
         test_db,
         test_entity,
         user_with_embedding_model,
     ):
         """Test enqueue_embedding falls back to sync when async fails."""
-        mock_workers.return_value = True
         mock_enqueue.side_effect = Exception("Celery error")
         mock_execute.return_value = {"status": "success"}
 
@@ -370,11 +354,9 @@ class TestEmbeddingService:
         mock_enqueue.assert_called_once()
         mock_execute.assert_called_once()
 
-    @patch.object(EmbeddingService, "_resolve_model_id")
-    @patch.object(EmbeddingService, "_check_workers_available")
+    @patch.object(EmbeddingService, "resolve_model_id")
     def test_enqueue_embedding_handles_exception(
         self,
-        mock_workers,
         mock_resolve,
         test_db,
         test_entity,
@@ -382,7 +364,6 @@ class TestEmbeddingService:
     ):
         """Test enqueue_embedding handles exceptions gracefully."""
         mock_resolve.side_effect = ValueError("No model found")
-        mock_workers.return_value = False
 
         service = EmbeddingService(test_db)
         result = service.enqueue_embedding(
@@ -395,20 +376,18 @@ class TestEmbeddingService:
 
         assert result is False
 
-    @patch.object(EmbeddingService, "_check_workers_available")
     @patch.object(EmbeddingService, "_execute_sync")
     @patch.object(EmbeddingService, "_enqueue_async")
     def test_enqueue_embedding_after_test_entity_has_user_id(
         self,
         mock_enqueue,
         mock_execute,
-        mock_workers,
         test_db,
         test_entity,
         user_with_embedding_model,
     ):
         """enqueue_embedding works when Test row has user_id set (listeners reset mocks)."""
-        mock_workers.return_value = False
+        mock_enqueue.side_effect = ConnectionError("Broker unavailable")
         mock_execute.return_value = {"status": "success"}
 
         test_entity.user_id = user_with_embedding_model.id
@@ -432,84 +411,21 @@ class TestEmbeddingService:
 
 @pytest.mark.unit
 @pytest.mark.service
-class TestEmbeddingServiceWorkerDetection:
-    """Test worker detection functionality in EmbeddingService."""
-
-    @patch("rhesis.backend.app.services.embedding.services.EmbeddingService._worker_cache_ttl", 0)
-    @patch("rhesis.backend.worker.app")
-    def test_check_workers_available_with_workers(self, mock_celery_app, test_db):
-        """Test worker detection when workers are available."""
-        mock_inspect = Mock()
-        mock_inspect.ping.return_value = {"worker1": {"ok": "pong"}}
-        mock_celery_app.control.inspect.return_value = mock_inspect
-
-        service = EmbeddingService(test_db)
-        result = service._check_workers_available()
-
-        assert result is True
-
-    @patch("rhesis.backend.app.services.embedding.services.EmbeddingService._worker_cache_ttl", 0)
-    @patch("rhesis.backend.worker.app")
-    def test_check_workers_available_no_workers(self, mock_celery_app, test_db):
-        """Test worker detection when no workers are available."""
-        mock_inspect = Mock()
-        mock_inspect.ping.return_value = None
-        mock_celery_app.control.inspect.return_value = mock_inspect
-
-        service = EmbeddingService(test_db)
-        result = service._check_workers_available()
-
-        assert result is False
-
-    @patch("rhesis.backend.app.services.embedding.services.EmbeddingService._worker_cache_ttl", 0)
-    @patch("rhesis.backend.worker.app")
-    def test_check_workers_available_exception(self, mock_celery_app, test_db):
-        """Test worker detection handles exceptions gracefully."""
-        mock_celery_app.control.inspect.side_effect = Exception("Connection error")
-
-        service = EmbeddingService(test_db)
-        result = service._check_workers_available()
-
-        assert result is False
-
-    @patch("rhesis.backend.worker.app")
-    def test_check_workers_available_caching(self, mock_celery_app, test_db):
-        """Test that worker availability is cached."""
-        mock_inspect = Mock()
-        mock_inspect.ping.return_value = {"worker1": {"ok": "pong"}}
-        mock_celery_app.control.inspect.return_value = mock_inspect
-
-        service = EmbeddingService(test_db)
-        # Clear cache before testing caching functionality
-        if "checked_at" in EmbeddingService._worker_cache:
-            EmbeddingService._worker_cache["checked_at"] = 0
-            EmbeddingService._worker_cache["available"] = None
-
-        result1 = service._check_workers_available()
-        result2 = service._check_workers_available()
-
-        assert result1 is True
-        assert result2 is True
-        assert mock_celery_app.control.inspect.call_count == 1
-
-
-@pytest.mark.unit
-@pytest.mark.service
 class TestEmbeddingServiceIntegration:
     """Integration tests for EmbeddingService with real generator."""
 
     @patch("rhesis.backend.app.utils.user_model_utils.get_model")
-    @patch.object(EmbeddingService, "_check_workers_available")
+    @patch.object(EmbeddingService, "_enqueue_async")
     def test_full_sync_flow(
         self,
-        mock_workers,
+        mock_enqueue,
         mock_get_model,
         test_db,
         test_entity,
         user_with_embedding_model,
     ):
         """Test complete sync flow with real generator."""
-        mock_workers.return_value = False
+        mock_enqueue.side_effect = ConnectionError("Broker unavailable")
 
         mock_embedder = Mock()
         mock_embedder.generate.return_value = [0.1] * 768

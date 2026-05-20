@@ -2,7 +2,6 @@ import asyncio
 import base64
 import json
 import os
-import stat
 import tempfile
 from unittest.mock import Mock, patch
 
@@ -110,7 +109,7 @@ class TestVertexAIConfigLoading:
     """Test credential and configuration loading methods."""
 
     def test_load_config_base64_credentials(self):
-        """Test base64-encoded credentials with location."""
+        """Test base64-encoded credentials are kept in memory as JSON."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project-123",
@@ -129,9 +128,9 @@ class TestVertexAIConfigLoading:
 
             assert llm.model["project"] == "test-project-123"
             assert llm.model["location"] == "europe-west3"
-            assert llm.model["credentials_path"] is not None
-            # Verify temp file was created and exists
-            assert os.path.exists(llm.model["credentials_path"])
+            assert llm.model["credentials_source"] == "base64"
+            creds_roundtrip = json.loads(llm.model["vertex_credentials"])
+            assert creds_roundtrip["project_id"] == "test-project-123"
 
     def test_load_config_file_credentials(self):
         """Test file path credentials with location."""
@@ -155,8 +154,8 @@ class TestVertexAIConfigLoading:
 
                 assert llm.model["project"] == "test-project-456"
                 assert llm.model["location"] == "us-central1"
-                # When using file path, credentials_path should match the provided path
-                assert llm.model["credentials_path"] == temp_path
+                assert llm.model["credentials_source"] == "file"
+                assert llm.model["vertex_credentials"] == temp_path
         finally:
             os.unlink(temp_path)
 
@@ -185,12 +184,8 @@ class TestVertexAIConfigLoading:
 
                 assert llm.model["project"] == "test-project-789"
                 assert llm.model["location"] == "asia-northeast1"
-                assert llm.model["credentials_path"] == temp_path
-                # Verify file path credentials don't create a temp file
-                assert (
-                    not llm.model["credentials_path"].startswith("/var/folders")
-                    or llm.model["credentials_path"] == temp_path
-                )
+                assert llm.model["vertex_credentials"] == temp_path
+                assert llm.model["credentials_source"] == "file"
         finally:
             os.unlink(temp_path)
 
@@ -407,8 +402,12 @@ class TestVertexAIGenerate:
             assert call_kwargs["vertex_ai_location"] == "europe-west1"
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
-    def test_generate_restores_credentials_env_var(self, mock_completion):
-        """Test that generate properly restores the original GOOGLE_APPLICATION_CREDENTIALS."""
+    def test_init_does_not_modify_credentials_env_var(self, mock_completion):
+        """Test that init does not modify GOOGLE_APPLICATION_CREDENTIALS.
+
+        Credentials are passed in-memory via vertex_credentials, so
+        the env var should remain untouched.
+        """
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
@@ -422,8 +421,6 @@ class TestVertexAIGenerate:
         mock_response.choices[0].message.content = "Test response"
         mock_completion.return_value = mock_response
 
-        # Set an original value
-        original_value = "/path/to/original/credentials.json"
         with patch.dict(
             os.environ,
             {
@@ -432,16 +429,15 @@ class TestVertexAIGenerate:
             },
             clear=True,
         ):
-            # Set a different value before calling generate
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
-
             llm = VertexAILLM(credentials=encoded_creds, location="asia-northeast1")
-            prompt = "Test prompt"
 
-            llm.generate(prompt)
+            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == encoded_creds
 
-            # Verify it was restored
-            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
+            llm.generate("Test prompt")
+
+            call_kwargs = mock_completion.call_args[1]
+            creds_sent = json.loads(call_kwargs["vertex_credentials"])
+            assert creds_sent["project_id"] == "test-project"
 
 
 class TestVertexAIUtilityMethods:
@@ -470,7 +466,6 @@ class TestVertexAIUtilityMethods:
             assert config["project"] == "test-project"
             assert config["location"] == "europe-west3"
             assert config["credentials_source"] == "base64"
-            assert config["credentials_path"] is not None
 
     def test_get_config_info_file_credentials(self):
         """Test get_config_info returns correct information for file credentials."""
@@ -494,7 +489,6 @@ class TestVertexAIUtilityMethods:
                 config = llm.get_config_info()
 
                 assert config["credentials_source"] == "file"
-                assert config["credentials_path"] == temp_path
         finally:
             os.unlink(temp_path)
 
@@ -534,10 +528,10 @@ class TestVertexAIRegionalLocations:
 
 
 class TestVertexAICredentialSecurity:
-    """Test credential security: file permissions, error message masking."""
+    """Test credential security: error message masking, no disk writes."""
 
-    def test_temp_file_has_restricted_permissions(self):
-        """Test that temp credentials files are created with 0600 permissions."""
+    def test_base64_credentials_not_written_to_disk(self):
+        """Test that base64 credentials stay in memory (no temp files)."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
@@ -552,9 +546,9 @@ class TestVertexAICredentialSecurity:
             clear=True,
         ):
             llm = VertexAILLM()
-            credentials_path = llm.model["credentials_path"]
-            file_mode = stat.S_IMODE(os.stat(credentials_path).st_mode)
-            assert file_mode == 0o600, f"Expected 0600, got {oct(file_mode)}"
+            vertex_creds = llm.model["vertex_credentials"]
+            assert json.loads(vertex_creds)["project_id"] == "test-project"
+            assert llm.model["credentials_source"] == "base64"
 
     def test_error_message_does_not_leak_base64_credentials(self):
         """Test that base64 credential values are never included in error messages."""
@@ -640,8 +634,8 @@ class TestVertexAIGenerateStream:
             assert call_kwargs["stream"] is True
 
     @patch("rhesis.sdk.models.providers.litellm.acompletion")
-    def test_generate_stream_restores_credentials_env_var(self, mock_acompletion):
-        """Test that generate_stream restores GOOGLE_APPLICATION_CREDENTIALS."""
+    def test_generate_stream_preserves_credentials_env_var(self, mock_acompletion):
+        """Test that generate_stream does not alter GOOGLE_APPLICATION_CREDENTIALS."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
@@ -654,31 +648,31 @@ class TestVertexAIGenerateStream:
 
         mock_acompletion.return_value = mock_stream()
 
-        original_value = "/path/to/original/credentials.json"
         with patch.dict(
             os.environ,
             {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
             clear=True,
         ):
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
             llm = VertexAILLM(credentials=encoded_creds, location="europe-west3")
+            env_before = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
             async def run():
                 async for _ in llm.generate_stream("Test"):
                     pass
 
             asyncio.run(run())
-            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
+            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == env_before
 
 
-class TestVertexAICleanup:
-    """Test cleanup of temporary files."""
+class TestVertexAIInMemoryCredentials:
+    """Test that base64 credentials are handled entirely in memory."""
 
-    def test_temp_file_cleanup_on_delete(self):
-        """Test that temporary credentials file is tracked and exists."""
+    def test_credentials_json_roundtrip(self):
+        """Test that decoded credentials faithfully reproduce the original JSON."""
         mock_creds = {
             "type": "service_account",
             "project_id": "test-project",
+            "private_key": "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----\n",
             "client_email": "test@test.iam.gserviceaccount.com",
         }
 
@@ -690,19 +684,23 @@ class TestVertexAICleanup:
             clear=True,
         ):
             llm = VertexAILLM()
-            credentials_path = llm.model.get("credentials_path")
+            roundtrip = json.loads(llm.model["vertex_credentials"])
+            assert roundtrip == mock_creds
 
-            # Credentials path should be set
-            assert credentials_path is not None
-            # Temp file should exist
-            assert os.path.exists(credentials_path)
+    def test_multiple_instances_share_same_json(self):
+        """Test that two instances with the same credentials get identical JSON."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
 
-            # Verify it's a temp file (deterministic path based on credentials hash)
-            assert "vertex_ai_creds_" in credentials_path
-
-            # Delete the instance - temp file will be cleaned up at process exit via atexit
-            del llm
-
-            # Temp file persists until process exit (cleaned up via atexit)
-            # This is intentional to allow multiple instances to share the same file
-            assert os.path.exists(credentials_path)
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            llm1 = VertexAILLM()
+            llm2 = VertexAILLM()
+            assert llm1.model["vertex_credentials"] == llm2.model["vertex_credentials"]

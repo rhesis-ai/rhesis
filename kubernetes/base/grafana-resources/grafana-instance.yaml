@@ -8,6 +8,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
+  disableDefaultAdminSecret: true
   deployment:
     spec:
       replicas: 1
@@ -23,6 +24,8 @@ spec:
                   cpu: 500m
                   memory: 512Mi
               env:
+                - name: GF_SECURITY_ADMIN_USER
+                  value: "admin"
                 - name: GF_SECURITY_ADMIN_PASSWORD
                   valueFrom:
                     secretKeyRef:

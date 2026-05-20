@@ -283,9 +283,9 @@ else
   echo "# Auto-generated terraform.tfvars from environment variables" > "terraform.tfvars"
 
   # Look for common variables in GitHub Actions environment
-  REGION=${TF_VAR_REGION:-}
-  BILLING_ACCOUNT=${TF_VAR_BILLING_ACCOUNT:-}
-  ORG_ID=${TF_VAR_ORG_ID:-}
+  REGION=${REGION:-}
+  BILLING_ACCOUNT=${BILLING_ACCOUNT:-}
+  ORG_ID=${ORG_ID:-}
 
   # Add common settings if they exist in environment variables
   if [[ -n "$REGION" ]]; then
@@ -331,7 +331,7 @@ else
     fi
     
     # Convert variable name to environment variable format
-    ENV_VAR_NAME="TF_VAR_$(echo "$VAR" | tr '[:lower:]' '[:upper:]')"
+    ENV_VAR_NAME="$(echo "$VAR" | tr '[:lower:]' '[:upper:]')"
     
     # Special logging for image variables
     if [[ "$VAR" == *"_image" ]]; then

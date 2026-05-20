@@ -1,0 +1,33 @@
+{{- if and .Values.polyphemus.enabled .Values.polyphemus.ingress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: polyphemus
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: polyphemus
+    tier: polyphemus
+    {{- include "rhesis.labels" . | nindent 4 }}
+  {{- with .Values.polyphemus.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.polyphemus.ingress.className }}
+  rules:
+    - host: {{ .Values.polyphemus.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: polyphemus
+                port:
+                  number: {{ .Values.polyphemus.service.port }}
+  tls:
+    - hosts:
+        - {{ .Values.polyphemus.ingress.host | quote }}
+      secretName: {{ .Values.polyphemus.ingress.tlsSecretName }}
+{{- end }}

@@ -39,6 +39,7 @@ function show_usage() {
   echo "  SQLALCHEMY_DB_HOST            Database host"
   echo "  SQLALCHEMY_DB_NAME            Database name"
   echo "  LOG_LEVEL                     Logging level"
+  echo "  AUDIT_HASH_KEY                HMAC key for API client audit log email hashing (EE)"
   echo "  JWT_SECRET_KEY                JWT secret key"
   echo "  SESSION_SECRET_KEY            Session secret key"
   echo "  JWT_ALGORITHM                 JWT algorithm"
@@ -94,6 +95,7 @@ function show_usage() {
   echo ""
   echo "  # Celery worker variables"
   echo "  BROKER_URL                    Celery broker URL"
+  echo "  BROKER_READ_URL               Redis read replica URL (optional, falls back to BROKER_URL)"
   echo "  CELERY_RESULT_BACKEND         Celery result backend URL"
   echo "  CELERY_WORKER_CONCURRENCY     Worker concurrency (number of threads)"
   echo "  CELERY_WORKER_PREFETCH_MULTIPLIER Worker prefetch multiplier"
@@ -236,6 +238,7 @@ SERVICE_VARS=(
   "SQLALCHEMY_DB_NAME"
   "DB_ENCRYPTION_KEY"
   "SSO_ENCRYPTION_KEY"
+  "AUDIT_HASH_KEY"
   "LOG_LEVEL"
   "JWT_SECRET_KEY"
   "SESSION_SECRET_KEY"
@@ -294,6 +297,7 @@ SERVICE_VARS=(
 
   # Celery worker variables
   "BROKER_URL"
+  "BROKER_READ_URL"
   "CELERY_RESULT_BACKEND"
   "CELERY_WORKER_CONCURRENCY"
   "CELERY_WORKER_PREFETCH_MULTIPLIER"

@@ -1,9 +1,0 @@
-# Pin the operator chart per environment; bump here (e.g. stg first, then prd) as needed.
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: cnpg-operator
-  namespace: argocd
-spec:
-  source:
-    targetRevision: 0.27.1

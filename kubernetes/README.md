@@ -69,11 +69,11 @@ kubernetes/
         ├── cert-manager/          # TLS certificates
         ├── external-dns/          # DNS automation
         ├── external-secrets/      # Kustomize overlay (env-specific values)
-        ├── cnpg-operator.yaml     # Argo CD Application for CNPG stack (path + Git ref per env)
         ├── grafana-resources/     # Grafana CR, ingress, Prometheus/Loki datasources (after CRDs)
         ├── kube-prometheus-stack/ # Prometheus Operator stack (Grafana disabled)
         ├── loki/                  # Loki singleBinary
         ├── alloy/                 # Grafana Alloy (logs to Loki)
+        ├── cnpg-operator.yaml     # (stg/prd) Argo CD Application for CNPG stack — omitted in dev
         └── rhesis/                # Application manifests
 ```
 
@@ -81,7 +81,7 @@ Any YAML added under `clusters/<env>/` and pushed to `main` is automatically dep
 
 ### CloudNativePG operator (`cnpg-system`)
 
-- **Dev** (`kubernetes/clusters/dev/cnpg-operator.yaml`): Git ref `main`; the parent Application uses automated sync. The nested `cnpg-operator` Application auto-syncs the Helm chart (see `clusters/dev/cnpg-system/cnpg-operator-automated-sync.yaml`).
+- **Dev:** CNPG is **not** installed. Rhesis in dev uses the Bitnami PostgreSQL subchart (`charts/rhesis/values-dev.yaml`); the operator is unnecessary and was removed from the dev root kustomization to avoid a failing sync and extra operators on the cluster.
 - **Stg and prd** (`kubernetes/clusters/stg/cnpg-operator.yaml` and `kubernetes/clusters/prd/cnpg-operator.yaml`): `spec.source.targetRevision` points at a **release branch** (for example `release/v1.2.3`). Create that branch from the commit you intend to ship before syncing. **Automated sync is disabled** on the nested `cnpg-operator` Application: use **manual Sync** in Argo CD after the Git ref is updated. **Promotion:** validate on stg, then bump `targetRevision` on prd to the same ref and sync prd.
 - **Chart version per environment:** edit `kubernetes/clusters/<env>/cnpg-system/cnpg-operator-helm-chart.yaml` (e.g. upgrade stg first, then prd).
 - **AppProject:** `cnpg-system` restricts sources and destinations for the CNPG Helm Application (`kubernetes/base/cnpg-system/argocd-project.yaml`).
@@ -114,9 +114,9 @@ Ensure `kubectl` is pointed at the dev cluster (`kubectl config current-context`
 kubectl kustomize kubernetes/clusters/dev/external-secrets/
 ```
 
-Need to change: need to change the dev, stg, prd project_id and service_account based on the environment.
+For staging or production, run `kubectl kustomize` against `kubernetes/clusters/stg/external-secrets/` or `kubernetes/clusters/prd/external-secrets/` instead; each overlay sets the GCP project ID and ESO service account for that environment.
 
-This should output the Namespace, ClusterSecretStore, Application, and a local ConfigMap — all with the correct `rhesis-dev-sandbox` project ID.
+This should output the Namespace, ClusterSecretStore, Application, and a local ConfigMap — all with the correct `rhesis-dev` project ID for this example.
 
 **Step 2b — Apply Namespace and ESO Application first:**
 
@@ -184,7 +184,7 @@ kubectl -n external-secrets get sa external-secrets -o yaml | grep gcp-service-a
 Create a secret in GCP Secret Manager (if you don’t have one):
 
 ```bash
-echo -n "my-secret-value" | gcloud secrets create test-secret --data-file=- --project=rhesis-dev-sandbox
+echo -n "my-secret-value" | gcloud secrets create test-secret --data-file=- --project=rhesis-dev
 ```
 
 Create a test ExternalSecret (replace the `remoteRef.key` if you use another secret name):
@@ -232,5 +232,5 @@ If you created a test ExternalSecret and GCP secret, delete them as needed:
 ```bash
 kubectl delete externalsecret test-secret -n default
 kubectl delete secret test-secret -n default
-gcloud secrets delete test-secret --project=rhesis-dev-sandbox --quiet
+gcloud secrets delete test-secret --project=rhesis-dev --quiet
 ```

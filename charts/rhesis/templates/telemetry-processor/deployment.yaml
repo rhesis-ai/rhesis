@@ -1,0 +1,61 @@
+{{- if .Values.telemetryProcessor.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telemetry-processor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: telemetry-processor
+    tier: telemetry-processor
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.telemetryProcessor.replicas }}
+  selector:
+    matchLabels:
+      app: telemetry-processor
+      tier: telemetry-processor
+  template:
+    metadata:
+      labels:
+        app: telemetry-processor
+        tier: telemetry-processor
+    spec:
+      {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.telemetryProcessor) | nindent 6 }}
+      containers:
+        - name: telemetry-processor
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.telemetryProcessor "global" .Values.global) | quote }}
+          imagePullPolicy: {{ .Values.telemetryProcessor.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.telemetryProcessor) | nindent 10 }}
+          ports:
+            - containerPort: {{ .Values.telemetryProcessor.service.targetPort }}
+              name: grpc
+          envFrom:
+            - configMapRef:
+                name: {{ include "rhesis.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          {{- with .Values.telemetryProcessor.env }}
+          env:
+            {{- range . }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.telemetryProcessor.resources | nindent 12 }}
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
+{{- end }}

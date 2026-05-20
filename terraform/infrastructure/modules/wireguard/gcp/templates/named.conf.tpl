@@ -1,4 +1,4 @@
-// BIND9 configuration for rhesis.internal dynamic DNS
+// BIND9 configuration — split-horizon DNS for rhesis.ai
 // Managed by Terraform — do not edit manually
 
 options {
@@ -43,13 +43,27 @@ key "${key.keyname}" {
 
 %{ endfor ~}
 
-// rhesis.internal zone — accepts dynamic updates from all env TSIG keys
-zone "rhesis.internal" {
+// rhesis.ai zone — split-horizon: dev-*/stg-* → internal LB IPs (BIND9 only, VPN),
+// prod records → rhesis.ai apex (written by prd ExternalDNS / cert-manager).
+//
+// update-policy: each key restricted to its own hostname subtrees via subdomain grants.
+// A subdomain grant on "dev-api.rhesis.ai." covers the A/AAAA record AND its sub-names
+// (_external-dns.dev-api.rhesis.ai., _acme-challenge.dev-api.rhesis.ai., etc.).
+// A compromised dev or stg key cannot overwrite api.rhesis.ai or app.rhesis.ai.
+//
+// Adding a new service requires updating bind9_allowed_names in terraform/infrastructure/main.tf
+// and re-applying before ExternalDNS can create records for the new hostname.
+zone "rhesis.ai" {
     type master;
-    file "/var/lib/bind/rhesis.internal.zone";
-    allow-update {
+    file "/var/lib/bind/rhesis.ai.zone";
+    update-policy {
 %{ for env, key in tsig_keys ~}
-        key "${key.keyname}";
+%{ for hostname in lookup(allowed_names, env, []) ~}
+        grant "${key.keyname}" subdomain "${hostname}." ANY;
+%{ endfor ~}
+%{ for txt_name in lookup(txt_ownership_names, env, []) ~}
+        grant "${key.keyname}" name "${txt_name}." TXT;
+%{ endfor ~}
 %{ endfor ~}
     };
 };
