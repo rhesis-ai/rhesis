@@ -29,7 +29,7 @@ flowchart LR
 
 1. **Schema:** The project's [Parameter Schema](/docs/experiments/parameter-schema) defines the typed slots available to configure.
 2. **Author:** You create a new experiment. By default, it is private to you, providing a safe sandbox.
-3. **Commit:** You fill in values for the parameter slots and save. Every save mints a new, immutable *Version* with a content hash.
+3. **Commit:** You fill in values for the parameter slots and save. Every save mints a new, immutable *Version* with a sequential identifier (v1, v2, v3, ...).
 4. **Share:** Once the experiment is ready, you flip its visibility to shared, making it visible to your team.
 5. **Promote:** You promote a specific version of your shared experiment to an *Environment* (like `default` or `production`).
 6. **Resolve:** Application code and test runs request parameters by environment, automatically receiving the newly promoted configuration.
@@ -41,7 +41,7 @@ Before diving into mechanics, it's helpful to establish precise definitions:
 - **Parameter Schema** — A project-scoped, typed *contract*. Declares what knobs exist (slot name + type + default).
 - **Parameter** (or *slot*) — One named entry in the schema.
 - **Experiment** — A named, owned attempt at a configuration. Holds values for the schema's slots.
-- **Version** — An immutable snapshot of an experiment's values at a moment in time, identified by a content hash.
+- **Version** — An immutable snapshot of an experiment's values at a moment in time, identified by a sequential label (v1, v2, ...).
 - **Environment** — A movable, project-scoped pointer at a specific `(experiment, version)` pair.
 - **Visibility** — A per-experiment flag (`private` vs `shared`).
 - **Promoting** — Moving an environment to point at a different version.
@@ -52,11 +52,11 @@ Before diving into mechanics, it's helpful to establish precise definitions:
 
 Versions are immutable so a test run can be re-run six months from now and produce bit-identical inputs.
 
-If versions were mutable, changing a parameter would silently invalidate historical test results. Because Rhesis uses a content-hash identifier for versions, the audit trail is exact: "this run used `v_a3f9b8`".
+If versions were mutable, changing a parameter would silently invalidate historical test results. Because each version is immutable and sequentially numbered, the audit trail is exact: "this run used `v3`".
 
 ## Why movable environments?
 
-Production code shouldn't hardcode version hashes — it asks for `environment="production"`.
+Production code shouldn't hardcode version identifiers — it asks for `environment="production"`.
 
 Environments separate *what's running* from *what was running*. Promoting an environment is the deployment step. Tying environments to versions (not to experiments) means you can promote the same experiment to multiple environments (for example staging a change before rolling it out to production).
 
@@ -91,7 +91,7 @@ When a test run is queued, Rhesis *snapshots* the resolved parameter values.
 
 This means that if an environment is moved *after* a run is queued, the test run is not perturbed. The worker only reads from the snapshot. This guarantees that test runs remain reproducible even as your environments point to newer configurations over time.
 
-For the most reproducible production deployments, you can *pin* a version in the SDK (`version="v_abc"`) to bypass environment resolution entirely.
+For the most reproducible production deployments, you can *pin* a version in the SDK (`version="v3"`) to bypass environment resolution entirely.
 
 ## UI Walkthrough
 
@@ -128,6 +128,6 @@ To help anchor the mental model, here is how Rhesis parameter management compare
 
 | Rhesis | Git | Feature Flags | MLflow |
 | --- | --- | --- | --- |
-| Version | Commit (immutable hash) | Rule Snapshot | Run |
+| Version | Commit (immutable) | Rule Snapshot | Run |
 | Environment | Branch Tip / Tag | Environment | Tag |
 | Experiment | Branch | Flag | Experiment |

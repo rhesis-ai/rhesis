@@ -50,7 +50,7 @@ params = Parameters.get("Customer Support", environment="production")`}
 
 <CodeBlock filename="by_version.py" language="python">
 {`# Fetches an exact, immutable snapshot. Useful for deploy-time pinning.
-params = Parameters.get("Customer Support", version="v_abc123")`}
+params = Parameters.get("Customer Support", version="v3")`}
 </CodeBlock>
 
 **By Experiment ID (Latest draft):**
@@ -117,7 +117,7 @@ You can manually invalidate the cache during testing using `Parameters.invalidat
 
 The SDK respects environment variables as a deployment primitive. 
 
-- `RHESIS_PARAMETERS_PIN=v_abc123` pins the application to an immutable version regardless of environment movement. This acts as a production safety net or staged rollout mechanism.
+- `RHESIS_PARAMETERS_PIN=v3` pins the application to an immutable version regardless of environment movement. This acts as a production safety net or staged rollout mechanism.
 - `RHESIS_PARAMETERS_ENVIRONMENT=production` switches the application to a non-default environment without requiring code changes.
 
 This gives operators a code-free escape hatch to manage configuration rollouts.
@@ -207,5 +207,5 @@ result = test_set.execute(endpoint, experiment_id="<uuid>")`}
 </CodeBlock>
 
 <Callout type="default">
-  When you pass only ``experiment_id`` without a ``version``, the backend automatically resolves to the experiment's latest version. You don't need to look up the version hash yourself.
+  When you pass only ``experiment_id`` without a ``version``, the backend automatically resolves to the experiment's latest version. You don't need to look up the version identifier yourself.
 </Callout>

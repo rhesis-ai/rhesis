@@ -81,7 +81,7 @@ See [SDK Usage](/docs/experiments/sdk-usage) for the full `Parameters.get()` API
 For those debugging at the protocol level, the `ExecuteTestMessage` payload sent by the Rhesis platform over the connector includes the full parameter snapshot:
 
 - `parameters`: The resolved `Dict[str, Any]` of values.
-- `parameter_version`: The content hash of the version being executed.
+- `parameter_version`: The sequential version identifier (e.g. `v3`) of the version being executed.
 - `parameter_experiment_id`: The UUID of the experiment.
 - `parameter_source`: The resolution method used (`"environment"`, `"experiment_id"`, or `"version"`). Older snapshots may still show `"label"`; treat it as `"environment"`.
 - `parameter_source_environment`: The environment name when resolution went through an environment (for example `"default"`). Legacy snapshots may use `parameter_source_label` instead.

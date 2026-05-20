@@ -86,7 +86,7 @@ Metrics organize into behaviors like "Accuracy", "Safety", or "Compliance". When
 
 The configuration of your AI system often involves more than just prompts—it includes model selection, temperature, retrieval strategies, and other variables. 
 
-Rhesis manages these through a **[Parameter Schema](/docs/experiments/parameter-schema)**, which defines the typed configuration "knobs" your project supports. You can then author **[Experiments](/docs/experiments)** that bundle specific values for these parameters into immutable *versions*. By using movable *labels* (like `default` or `production`), your application code and test runs can fetch the right configuration automatically without hardcoding version hashes.
+Rhesis manages these through a **[Parameter Schema](/docs/experiments/parameter-schema)**, which defines the typed configuration "knobs" your project supports. You can then author **[Experiments](/docs/experiments)** that bundle specific values for these parameters into immutable *versions*. By using movable *environments* (like `default` or `production`), your application code and test runs can fetch the right configuration automatically without hardcoding version identifiers.
 
 ## Test Sets
 
