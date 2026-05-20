@@ -89,7 +89,7 @@ const EXPERIMENT_TABS = [
       'Configure the parameter schema for this project. Changes apply to all experiments.',
   },
   {
-    label: 'Overview',
+    label: 'Experiment',
     description:
       'Review and update the experiment metadata, visibility, and promoted environments.',
   },
