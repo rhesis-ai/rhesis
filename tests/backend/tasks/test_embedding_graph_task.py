@@ -40,7 +40,7 @@ class TestEnsureEmbeddingsForEntities:
         user = MagicMock(organization_id=uuid.uuid4(), id=uuid.uuid4())
 
         mock_fetch.return_value = [MagicMock(entity_id=existing_id)]
-        mock_service_cls.return_value._resolve_model_id.return_value = "model-1"
+        mock_service_cls.return_value.resolve_model_id.return_value = "model-1"
 
         mock_generator = mock_generator_cls.return_value
         mock_generator.generate.return_value = {
@@ -72,7 +72,7 @@ class TestEnsureEmbeddingsForEntities:
         user = MagicMock(organization_id=uuid.uuid4(), id=uuid.uuid4())
 
         mock_fetch.return_value = []
-        mock_service_cls.return_value._resolve_model_id.side_effect = ValueError(
+        mock_service_cls.return_value.resolve_model_id.side_effect = ValueError(
             "No embedding model"
         )
 

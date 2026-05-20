@@ -55,7 +55,7 @@ def _ensure_embeddings_for_entities(
         return
 
     try:
-        model_id = EmbeddingService(db)._resolve_model_id(user_id)
+        model_id = EmbeddingService(db).resolve_model_id(user_id)
     except ValueError as exc:
         logger.warning(
             "Embedding backfill skipped for %s entities: no embedding model (%s)",
