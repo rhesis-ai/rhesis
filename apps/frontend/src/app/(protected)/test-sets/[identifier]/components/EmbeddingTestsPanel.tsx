@@ -23,6 +23,7 @@ import BubbleChartOutlinedIcon from '@mui/icons-material/BubbleChartOutlined';
 import { formatDistanceToNow } from 'date-fns';
 import { BetaBadge } from '@/components/common/BetaBadge';
 import { useEmbeddingGraph } from '@/hooks/useEmbeddingGraph';
+import { getTestDisplayContent } from '@/app/(protected)/tests/components/test-grid-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import TestSetTestsGrid from './TestSetTestsGrid';
@@ -433,7 +434,7 @@ export default function EmbeddingTestsPanel({
                   <Box ref={listRef} sx={{ overflow: 'auto', flex: 1 }}>
                     {sortedTests.map(test => {
                       const isHighlighted = hoveredEntityId === test.id;
-                      const content = test.prompt?.content ?? '';
+                      const content = getTestDisplayContent(test);
                       return (
                         <Box
                           key={test.id}
@@ -480,6 +481,14 @@ export default function EmbeddingTestsPanel({
                             {test.behavior?.name && (
                               <Chip
                                 label={test.behavior.name}
+                                size="small"
+                                variant="outlined"
+                                sx={{ height: 18, fontSize: 10 }}
+                              />
+                            )}
+                            {test.category?.name && (
+                              <Chip
+                                label={test.category.name}
                                 size="small"
                                 variant="outlined"
                                 sx={{ height: 18, fontSize: 10 }}
