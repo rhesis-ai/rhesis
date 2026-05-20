@@ -126,6 +126,9 @@ export default function TestRunFilterDrawer({
       borderRadius: BORDER_RADIUS.sm,
       fontSize: 14,
     },
+    '& .MuiOutlinedInput-input': {
+      padding: '20px 14px',
+    },
   };
 
   return (
@@ -194,7 +197,6 @@ export default function TestRunFilterDrawer({
         <FilterSection title="Test Set">
           <TextField
             fullWidth
-            size="small"
             placeholder="Filter by test set name…"
             value={draft.testSet}
             onChange={e =>
@@ -208,7 +210,6 @@ export default function TestRunFilterDrawer({
         <FilterSection title="Executor">
           <TextField
             fullWidth
-            size="small"
             placeholder="Filter by executor name…"
             value={draft.executor}
             onChange={e =>
@@ -222,7 +223,6 @@ export default function TestRunFilterDrawer({
         <FilterSection title="Tags">
           <TextField
             fullWidth
-            size="small"
             placeholder="Filter by tag name…"
             value={draft.tag}
             onChange={e => setDraft(prev => ({ ...prev, tag: e.target.value }))}

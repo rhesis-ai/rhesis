@@ -1,9 +1,18 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Button, Drawer, IconButton, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Collapse,
+  Drawer,
+  IconButton,
+  Typography,
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { BACKDROP_COLORS, GREYSCALE } from '@/styles/theme';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import { BACKDROP_COLORS, BORDER_RADIUS, GREYSCALE } from '@/styles/theme';
 
 // ── FilterDrawerShell ──────────────────────────────────────────────────────────
 
@@ -18,7 +27,7 @@ interface FilterDrawerShellProps {
 
 /**
  * Shell for filter side-drawers.
- * Provides a consistent header ("Filters" + close icon),
+ * Provides a consistent header ("Filter" + close icon),
  * a scrollable content area, and a sticky footer with Reset/Apply buttons.
  */
 export function FilterDrawerShell({
@@ -26,24 +35,29 @@ export function FilterDrawerShell({
   onClose,
   onReset,
   onApply,
-  title = 'Filters',
+  title = 'Filter',
   children,
 }: FilterDrawerShellProps) {
   return (
     <Drawer
-      anchor="right"
+      anchor="left"
       open={open}
       onClose={onClose}
-      slotProps={{
-        backdrop: {
-          sx: { bgcolor: BACKDROP_COLORS.filter },
-        },
-      }}
+      variant="temporary"
+      ModalProps={{ keepMounted: true }}
       PaperProps={{
         sx: {
-          width: 320,
+          width: 430,
           display: 'flex',
           flexDirection: 'column',
+          p: '30px',
+          gap: '30px',
+          boxSizing: 'border-box',
+        },
+      }}
+      sx={{
+        '& .MuiBackdrop-root': {
+          backgroundColor: BACKDROP_COLORS.filter,
         },
       }}
     >
@@ -53,41 +67,64 @@ export function FilterDrawerShell({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          px: 3,
-          py: 2,
-          borderBottom: `1px solid ${GREYSCALE.light.border}`,
           flexShrink: 0,
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+        <Typography
+          sx={{
+            fontSize: 22,
+            fontWeight: 700,
+            color: GREYSCALE.light.title,
+            lineHeight: 1.1,
+          }}
+        >
           {title}
         </Typography>
-        <IconButton size="small" onClick={onClose} aria-label="close">
-          <CloseIcon />
+        <IconButton
+          size="small"
+          onClick={onClose}
+          aria-label="close"
+          sx={{ color: GREYSCALE.light.label }}
+        >
+          <CloseIcon fontSize="small" />
         </IconButton>
       </Box>
 
       {/* Content */}
-      <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2 }}>{children}</Box>
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '30px',
+          pt: '4px',
+        }}
+      >
+        {children}
+      </Box>
 
       {/* Footer */}
       <Box
         sx={{
           display: 'flex',
-          gap: 2,
-          px: 3,
-          py: 2,
-          borderTop: `1px solid ${GREYSCALE.light.border}`,
+          justifyContent: 'flex-end',
+          gap: '10px',
           flexShrink: 0,
         }}
       >
         <Button
           variant="outlined"
-          fullWidth
           onClick={onReset}
           sx={{
-            fontWeight: 700,
             borderWidth: 2,
+            borderColor: 'primary.main',
+            color: 'primary.main',
+            fontWeight: 700,
+            fontSize: 14,
+            borderRadius: BORDER_RADIUS.sm,
+            px: '16px',
+            py: '8px',
             '&:hover': { borderWidth: 2 },
           }}
         >
@@ -95,9 +132,14 @@ export function FilterDrawerShell({
         </Button>
         <Button
           variant="contained"
-          fullWidth
           onClick={onApply}
-          sx={{ fontWeight: 700 }}
+          sx={{
+            fontWeight: 700,
+            fontSize: 14,
+            borderRadius: BORDER_RADIUS.sm,
+            px: '16px',
+            py: '8px',
+          }}
         >
           Apply
         </Button>
@@ -111,28 +153,61 @@ export function FilterDrawerShell({
 interface FilterSectionProps {
   title: string;
   children: React.ReactNode;
+  defaultOpen?: boolean;
 }
 
 /**
- * Labeled section within a FilterDrawerShell.
+ * Labeled collapsible section within a FilterDrawerShell.
  */
-export function FilterSection({ title, children }: FilterSectionProps) {
+export function FilterSection({
+  title,
+  children,
+  defaultOpen = true,
+}: FilterSectionProps) {
+  const [open, setOpen] = React.useState(defaultOpen);
   return (
-    <Box sx={{ mb: 3 }}>
-      <Typography
+    <Box
+      sx={{
+        borderTop: `1px solid ${GREYSCALE.light.border}`,
+        pt: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+      }}
+    >
+      <Box
         sx={{
-          fontSize: 12,
-          fontWeight: 700,
-          lineHeight: '18px',
-          color: GREYSCALE.light.subtitle,
-          textTransform: 'uppercase',
-          letterSpacing: '0.5px',
-          mb: 1.5,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          userSelect: 'none',
         }}
+        onClick={() => setOpen(o => !o)}
       >
-        {title}
-      </Typography>
-      {children}
+        <Typography
+          sx={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: GREYSCALE.light.title,
+            lineHeight: '25px',
+          }}
+        >
+          {title}
+        </Typography>
+        {open ? (
+          <KeyboardArrowUpIcon
+            sx={{ fontSize: 20, color: GREYSCALE.light.label }}
+          />
+        ) : (
+          <KeyboardArrowDownIcon
+            sx={{ fontSize: 20, color: GREYSCALE.light.label }}
+          />
+        )}
+      </Box>
+      <Collapse in={open}>
+        <Box sx={{ pb: '4px' }}>{children}</Box>
+      </Collapse>
     </Box>
   );
 }

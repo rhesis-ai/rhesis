@@ -170,6 +170,9 @@ export default function MetricFilterDrawer({
       borderRadius: BORDER_RADIUS.sm,
       fontSize: 14,
     },
+    '& .MuiOutlinedInput-input': {
+      padding: '20px 14px',
+    },
   };
 
   const toggleMulti = (
@@ -307,7 +310,6 @@ export default function MetricFilterDrawer({
         <FilterSection title="Behavior">
           <TextField
             fullWidth
-            size="small"
             placeholder="Filter by behavior name…"
             value={draft.behavior}
             onChange={e =>

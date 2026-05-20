@@ -46,6 +46,9 @@ const textFieldSx = {
     borderRadius: BORDER_RADIUS.sm,
     fontSize: 14,
   },
+  '& .MuiOutlinedInput-input': {
+    padding: '20px 14px',
+  },
 };
 
 // ── Main component ──────────────────────────────────────────────────────────────
@@ -109,7 +112,6 @@ export default function TestSetFilterDrawer({
       <FilterSection title="Status">
         <TextField
           fullWidth
-          size="small"
           placeholder="e.g. Active, Draft…"
           value={draft.status}
           onChange={e =>
@@ -123,7 +125,6 @@ export default function TestSetFilterDrawer({
       <FilterSection title="Creator">
         <TextField
           fullWidth
-          size="small"
           placeholder="Filter by creator name…"
           value={draft.creator}
           onChange={e =>
@@ -137,7 +138,6 @@ export default function TestSetFilterDrawer({
       <FilterSection title="Tag">
         <TextField
           fullWidth
-          size="small"
           placeholder="Filter by tag name…"
           value={draft.tag}
           onChange={e => setDraft(prev => ({ ...prev, tag: e.target.value }))}

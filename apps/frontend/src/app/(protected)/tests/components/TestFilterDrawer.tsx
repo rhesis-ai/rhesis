@@ -159,6 +159,9 @@ export default function TestFilterDrawer({
       borderRadius: BORDER_RADIUS.sm,
       fontSize: 14,
     },
+    '& .MuiOutlinedInput-input': {
+      padding: '20px 14px',
+    },
   };
 
   return (
@@ -248,7 +251,6 @@ export default function TestFilterDrawer({
         <FilterSection title="Status">
           <TextField
             fullWidth
-            size="small"
             placeholder="e.g. Active, Draft…"
             value={draft.status}
             onChange={e =>
@@ -262,7 +264,6 @@ export default function TestFilterDrawer({
         <FilterSection title="Behavior">
           <TextField
             fullWidth
-            size="small"
             placeholder="Filter by behavior name…"
             value={draft.behavior}
             onChange={e =>
@@ -276,7 +277,6 @@ export default function TestFilterDrawer({
         <FilterSection title="Category">
           <TextField
             fullWidth
-            size="small"
             placeholder="Filter by category name…"
             value={draft.category}
             onChange={e =>
@@ -290,7 +290,6 @@ export default function TestFilterDrawer({
         <FilterSection title="Topic">
           <TextField
             fullWidth
-            size="small"
             placeholder="Filter by topic name…"
             value={draft.topic}
             onChange={e =>
