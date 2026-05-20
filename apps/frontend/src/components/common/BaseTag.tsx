@@ -415,7 +415,6 @@ export default function BaseTag({
               key={option}
               label={option}
               color={chipColor}
-              variant="outlined"
               disabled={disabled}
               className={chipClassName || styles.baseTag}
               onDelete={
