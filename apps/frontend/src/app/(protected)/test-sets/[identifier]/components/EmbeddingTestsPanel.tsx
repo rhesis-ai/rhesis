@@ -303,17 +303,7 @@ export default function EmbeddingTestsPanel({
                 flexWrap="wrap"
                 useFlexGap
               >
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <BetaBadge />
-                  {graph?.computed_at && (
-                    <Typography variant="body2" color="text.secondary">
-                      Last computed{' '}
-                      {formatDistanceToNow(new Date(graph.computed_at), {
-                        addSuffix: true,
-                      })}
-                    </Typography>
-                  )}
-                </Stack>
+                <BetaBadge />
                 {showChart && (
                   <FormControl size="small" sx={{ minWidth: 140 }}>
                     <InputLabel id="embedding-color-by-label">
@@ -334,20 +324,38 @@ export default function EmbeddingTestsPanel({
                   </FormControl>
                 )}
               </Stack>
-              <Button
-                variant="contained"
-                startIcon={
-                  isComputing ? (
-                    <CircularProgress size={18} color="inherit" />
-                  ) : (
-                    <AutoAwesomeOutlinedIcon />
-                  )
-                }
-                onClick={() => void computeGraph()}
-                disabled={isLoading || isComputing}
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={2}
+                flexWrap="wrap"
+                useFlexGap
               >
-                {graph && hasPoints ? 'Recompute clusters' : 'Compute clusters'}
-              </Button>
+                {graph?.computed_at && (
+                  <Typography variant="body2" color="text.secondary">
+                    Last computed{' '}
+                    {formatDistanceToNow(new Date(graph.computed_at), {
+                      addSuffix: true,
+                    })}
+                  </Typography>
+                )}
+                <Button
+                  variant="contained"
+                  startIcon={
+                    isComputing ? (
+                      <CircularProgress size={18} color="inherit" />
+                    ) : (
+                      <AutoAwesomeOutlinedIcon />
+                    )
+                  }
+                  onClick={() => void computeGraph()}
+                  disabled={isLoading || isComputing}
+                >
+                  {graph && hasPoints
+                    ? 'Recompute clusters'
+                    : 'Compute clusters'}
+                </Button>
+              </Stack>
             </Stack>
 
             {error && (
