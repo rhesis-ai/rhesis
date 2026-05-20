@@ -1,8 +1,9 @@
 /* Tag chip styling */
 .baseTag {
-  height: 26px;
+  height: 26px !important;
   max-width: 200px;
   border-radius: 4px !important;
+  padding: 0 !important;
 }
 
 .baseTag :global(.MuiChip-label) {
@@ -12,10 +13,10 @@
 }
 
 .baseTag :global(.MuiChip-deleteIcon) {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
-  margin: 0 4px 0 0;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 4px 0 2px !important;
 }
 
 /* Field container styling */
@@ -65,12 +66,13 @@
 }
 
 .modalTag {
-  height: 26px;
+  height: 26px !important;
   max-width: 200px;
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
   border-radius: 4px !important;
+  padding: 0 !important;
 }
 
 .modalTag :global(.MuiChip-label) {
@@ -83,8 +85,8 @@
 }
 
 .modalTag :global(.MuiChip-deleteIcon) {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
-  margin: 0 4px 0 0;
+  font-size: 16px !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 4px 0 2px !important;
 }

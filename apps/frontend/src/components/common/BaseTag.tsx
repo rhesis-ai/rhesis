@@ -23,6 +23,7 @@ import {
   StandardTextFieldProps,
   InputLabelProps,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -417,6 +418,7 @@ export default function BaseTag({
               color={chipColor}
               disabled={disabled}
               className={chipClassName || styles.baseTag}
+              deleteIcon={<CloseIcon />}
               onDelete={
                 !disabled && !disableEdition
                   ? () => handleDeleteTag(option)
