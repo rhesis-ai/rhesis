@@ -84,6 +84,52 @@ interface ComparisonTest {
   current: TestResultDetail;
 }
 
+function ExperimentRunLink({
+  experimentId,
+  parameterVersion,
+}: {
+  experimentId?: string;
+  parameterVersion?: string;
+}) {
+  if (!experimentId || !parameterVersion) return null;
+
+  return (
+    <Link
+      href={`/experiments/${experimentId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ textDecoration: 'none' }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          '&:hover .experiment-label': {
+            color: 'primary.main',
+            textDecoration: 'underline',
+          },
+        }}
+      >
+        <BiotechIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+        <Typography
+          variant="caption"
+          className="experiment-label"
+          color="text.secondary"
+        >
+          Experiment:
+        </Typography>
+        <Chip
+          label={parameterVersion.slice(0, 8)}
+          size="small"
+          variant="outlined"
+        />
+        <OpenInNewIcon fontSize="inherit" sx={{ color: 'text.disabled' }} />
+      </Box>
+    </Link>
+  );
+}
+
 export default function ComparisonView({
   currentTestRun,
   currentTestResults,
@@ -1140,6 +1186,10 @@ export default function ComparisonView({
                         ) : (
                           <Chip label="No data" size="small" color="default" />
                         )}
+                        <ExperimentRunLink
+                          experimentId={baselineRun?.experiment_id}
+                          parameterVersion={baselineRun?.parameter_version}
+                        />
                       </Box>
                       {selectedTest.baseline?.test_output
                         ?.conversation_summary ? (
@@ -1246,6 +1296,10 @@ export default function ComparisonView({
                               )}
                           </>
                         )}
+                        <ExperimentRunLink
+                          experimentId={currentTestRun.experiment_id}
+                          parameterVersion={currentTestRun.parameter_version}
+                        />
                       </Box>
                       {selectedTest.current.test_output
                         ?.conversation_summary ? (
@@ -1348,6 +1402,10 @@ export default function ComparisonView({
                         ) : (
                           <Chip label="No data" size="small" color="default" />
                         )}
+                        <ExperimentRunLink
+                          experimentId={baselineRun?.experiment_id}
+                          parameterVersion={baselineRun?.parameter_version}
+                        />
                       </Box>
 
                       {selectedTest.baseline && (
@@ -1674,6 +1732,10 @@ export default function ComparisonView({
                               )}
                           </>
                         )}
+                        <ExperimentRunLink
+                          experimentId={currentTestRun.experiment_id}
+                          parameterVersion={currentTestRun.parameter_version}
+                        />
                       </Box>
 
                       {/* Response */}
