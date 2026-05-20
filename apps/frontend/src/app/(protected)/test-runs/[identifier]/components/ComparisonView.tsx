@@ -40,6 +40,7 @@ import ListIcon from '@mui/icons-material/List';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { experimentHref } from '@/utils/experiment-links';
 import { MetricStatusChip } from '@/components/common/StatusChip';
 import ConversationHistory from '@/components/common/ConversationHistory';
 import { BiotechIcon } from '@/components/icons';
@@ -95,7 +96,7 @@ function ExperimentRunLink({
 
   return (
     <Link
-      href={`/experiments/${experimentId}`}
+      href={experimentHref(experimentId, parameterVersion)}
       target="_blank"
       rel="noopener noreferrer"
       style={{ textDecoration: 'none' }}
@@ -640,7 +641,10 @@ export default function ComparisonView({
                     {baselineRun.experiment_id &&
                       baselineRun.parameter_version && (
                         <Link
-                          href={`/experiments/${baselineRun.experiment_id}`}
+                          href={experimentHref(
+                            baselineRun.experiment_id,
+                            baselineRun.parameter_version
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{ textDecoration: 'none' }}
@@ -749,7 +753,10 @@ export default function ComparisonView({
                 {currentTestRun.experiment_id &&
                   currentTestRun.parameter_version && (
                     <Link
-                      href={`/experiments/${currentTestRun.experiment_id}`}
+                      href={experimentHref(
+                        currentTestRun.experiment_id,
+                        currentTestRun.parameter_version
+                      )}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{ textDecoration: 'none' }}

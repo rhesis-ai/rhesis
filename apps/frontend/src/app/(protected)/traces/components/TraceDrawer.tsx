@@ -43,6 +43,7 @@ import {
 import { formatDuration } from '@/utils/format-duration';
 import ScienceIcon from '@mui/icons-material/Science';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import { experimentHref } from '@/utils/experiment-links';
 
 interface TraceDrawerProps {
   open: boolean;
@@ -562,7 +563,7 @@ export default function TraceDrawer({
                   icon={<ScienceIcon />}
                   label={`Experiment: ${experimentInfo.name}`}
                   component={Link}
-                  href={`/experiments/${experimentInfo.id}`}
+                  href={experimentHref(experimentInfo.id, experimentInfo.version)}
                   target="_blank"
                   clickable
                   size="small"

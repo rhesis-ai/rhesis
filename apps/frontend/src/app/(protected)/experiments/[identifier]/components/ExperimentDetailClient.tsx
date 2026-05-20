@@ -26,7 +26,7 @@ import EditIcon from '@mui/icons-material/EditOutlined';
 import CancelIcon from '@mui/icons-material/CancelOutlined';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PageContainer, Breadcrumb } from '@toolpad/core/PageContainer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -147,7 +147,9 @@ export default function ExperimentDetailClient({
   sessionToken,
 }: ExperimentDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const notifications = useNotifications();
+  const openVersion = searchParams.get('version');
 
   const [experiment, setExperiment] = useState<ExperimentDetail | null>(null);
   const [schema, setSchema] = useState<ParameterSchema | null>(null);
@@ -1191,8 +1193,9 @@ export default function ExperimentDetailClient({
 
             <LatestResultsPanel
               experimentId={experiment.id}
+              experiment={experiment}
               sessionToken={sessionToken}
-              renderVersionHistory={outcomes => (
+              renderVersionHistory={(outcomes, selectionProps) => (
                 <VersionHistory
                   versions={experiment.versions}
                   schema={schema}
@@ -1200,7 +1203,9 @@ export default function ExperimentDetailClient({
                   experimentId={experiment.id}
                   canPromote={isShared}
                   onPromoteVersion={version => handlePromote(version)}
+                  openVersion={openVersion}
                   outcomes={outcomes}
+                  {...selectionProps}
                 />
               )}
             />

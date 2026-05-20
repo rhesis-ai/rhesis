@@ -7,6 +7,7 @@ import {
   AccordionSummary,
   Box,
   Button,
+  Checkbox,
   Chip,
   Stack,
   Table,
@@ -39,7 +40,11 @@ interface VersionHistoryProps {
   experimentId: string;
   canPromote: boolean;
   onPromoteVersion: (version: string) => void;
+  openVersion?: string | null;
   outcomes?: Record<string, VersionOutcomeSummary>;
+  selectable?: boolean;
+  selectedVersionHashes?: Set<string>;
+  onSelectionChange?: (versions: Set<string>) => void;
 }
 
 export interface VersionOutcomeSummary {
@@ -90,9 +95,22 @@ export default function VersionHistory({
   experimentId,
   canPromote,
   onPromoteVersion,
+  openVersion,
   outcomes = {},
+  selectable = false,
+  selectedVersionHashes,
+  onSelectionChange,
 }: VersionHistoryProps) {
   const theme = useTheme();
+  const [expandedVersions, setExpandedVersions] = React.useState<Set<string>>(
+    () => (openVersion ? new Set([openVersion]) : new Set())
+  );
+
+  React.useEffect(() => {
+    if (!openVersion) return;
+    setExpandedVersions(prev => new Set(prev).add(openVersion));
+  }, [openVersion]);
+
   const environmentsByVersion = React.useMemo(() => {
     const map = new Map<string, string[]>();
     if (!projectEnvironments) return map;
@@ -118,11 +136,63 @@ export default function VersionHistory({
     );
   }
 
+  const allSelected =
+    selectable &&
+    selectedVersionHashes !== undefined &&
+    versions.length > 0 &&
+    versions.every(v => selectedVersionHashes.has(v.version));
+
+  const someSelected =
+    selectable &&
+    selectedVersionHashes !== undefined &&
+    !allSelected &&
+    versions.some(v => selectedVersionHashes.has(v.version));
+
+  const handleToggleAll = () => {
+    if (!onSelectionChange) return;
+    if (allSelected) {
+      onSelectionChange(new Set());
+    } else {
+      onSelectionChange(new Set(versions.map(v => v.version)));
+    }
+  };
+
+  const handleToggleVersion = (versionHash: string) => {
+    if (!onSelectionChange || !selectedVersionHashes) return;
+    const next = new Set(selectedVersionHashes);
+    if (next.has(versionHash)) {
+      next.delete(versionHash);
+    } else {
+      next.add(versionHash);
+    }
+    onSelectionChange(next);
+  };
+
   // Render newest first so the most relevant entry sits at the top.
   const ordered = [...versions].reverse();
 
   return (
     <Stack spacing={1}>
+      {selectable && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            px: 1,
+            py: 0.5,
+          }}
+        >
+          <Checkbox
+            size="small"
+            checked={allSelected}
+            indeterminate={someSelected}
+            onChange={handleToggleAll}
+          />
+          <Typography variant="body2" color="text.secondary">
+            {allSelected ? 'Deselect all' : 'Select all'}
+          </Typography>
+        </Box>
+      )}
       {ordered.map((version, idxFromTop) => {
         const idxFromBottom = versions.length - 1 - idxFromTop;
         const previous =
@@ -144,9 +214,32 @@ export default function VersionHistory({
           : isRegressed
             ? TrendingDownIcon
             : RemoveIcon;
+        const isHighlighted = version.version === openVersion;
 
         return (
-          <Accordion key={version.version}>
+          <Accordion
+            key={version.version}
+            expanded={expandedVersions.has(version.version)}
+            sx={{
+              border: '1px solid',
+              borderColor: isHighlighted ? 'primary.main' : 'divider',
+              bgcolor: isHighlighted ? 'action.selected' : 'background.paper',
+              '&:before': {
+                display: 'none',
+              },
+            }}
+            onChange={(_, expanded) => {
+              setExpandedVersions(prev => {
+                const next = new Set(prev);
+                if (expanded) {
+                  next.add(version.version);
+                } else {
+                  next.delete(version.version);
+                }
+                return next;
+              });
+            }}
+          >
             <AccordionSummary>
               <Stack
                 direction="row"
@@ -154,9 +247,21 @@ export default function VersionHistory({
                 alignItems="center"
                 sx={{ width: '100%', mr: 2 }}
               >
+                {selectable && (
+                  <Checkbox
+                    size="small"
+                    checked={
+                      selectedVersionHashes?.has(version.version) ?? false
+                    }
+                    onClick={e => e.stopPropagation()}
+                    onChange={() => handleToggleVersion(version.version)}
+                  />
+                )}
                 <Chip
                   size="small"
                   label={shortVersion(version.version)}
+                  color={isHighlighted ? 'primary' : 'default'}
+                  variant={isHighlighted ? 'filled' : 'outlined'}
                   sx={{ fontFamily: 'monospace' }}
                 />
                 <Box sx={{ flex: 1 }}>

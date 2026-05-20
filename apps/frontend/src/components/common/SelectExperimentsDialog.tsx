@@ -45,6 +45,7 @@ import TypedValueEditor, {
 import { TYPE_META } from '@/app/(protected)/projects/[identifier]/components/parameter-schema-shared';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getApiErrorMessage } from '@/utils/error-utils';
+import { experimentHref } from '@/utils/experiment-links';
 import type { SelectedExperiment } from '@/utils/test-run-batch';
 
 interface SelectExperimentsDialogProps {
@@ -478,7 +479,7 @@ export default function SelectExperimentsDialog({
               <Tooltip title="Open experiment in a new tab">
                 <IconButton
                   component={Link}
-                  href={`/experiments/${detail.id}`}
+                  href={experimentHref(detail.id, effectiveViewedVersion)}
                   target="_blank"
                   rel="noopener noreferrer"
                   size="small"

@@ -29,6 +29,7 @@ import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import { experimentHref } from '@/utils/experiment-links';
 import { BiotechIcon } from '@/components/icons';
 
 interface TestRunHeaderProps {
@@ -398,7 +399,12 @@ export default function TestRunHeader({
 
               {testRun.experiment_id && (
                 <Link
-                  href={`/experiments/${testRun.experiment_id}`}
+                  href={experimentHref(
+                    testRun.experiment_id,
+                    typeof testRun.attributes?.parameter_version === 'string'
+                      ? testRun.attributes.parameter_version
+                      : undefined
+                  )}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: 'none' }}

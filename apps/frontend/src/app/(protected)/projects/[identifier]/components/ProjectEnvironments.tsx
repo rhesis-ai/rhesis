@@ -32,6 +32,7 @@ import {
 import Link from 'next/link';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { experimentHref } from '@/utils/experiment-links';
 import {
   BuiltInEnvironment,
   ENVIRONMENT_NAME_MAX_LENGTH,
@@ -405,7 +406,10 @@ export default function ProjectEnvironments({
               {params.row.pointer ? (
                 <>
                   <Link
-                    href={`/experiments/${params.row.pointer.experiment_id}`}
+                    href={experimentHref(
+                      params.row.pointer.experiment_id,
+                      params.row.pointer.version
+                    )}
                     style={{ textDecoration: 'none' }}
                   >
                     <Typography

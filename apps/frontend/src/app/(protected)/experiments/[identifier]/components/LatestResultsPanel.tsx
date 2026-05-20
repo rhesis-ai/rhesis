@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   Box,
+  Button,
   Typography,
   Paper,
   Tabs,
@@ -15,17 +16,28 @@ import Link from 'next/link';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
+  ExperimentDetail,
   ExperimentResultsRunItem,
   ExperimentResultsVersionItem,
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
+import { PlayArrowIcon } from '@/components/icons';
 import type { VersionOutcomeSummary } from './VersionHistory';
+import RunExperimentDrawer from './RunExperimentDrawer';
+
+export interface VersionSelectionProps {
+  selectable: true;
+  selectedVersionHashes: Set<string>;
+  onSelectionChange: (versions: Set<string>) => void;
+}
 
 interface LatestResultsPanelProps {
   experimentId: string;
+  experiment: ExperimentDetail;
   sessionToken: string;
   renderVersionHistory: (
-    outcomes: Record<string, VersionOutcomeSummary>
+    outcomes: Record<string, VersionOutcomeSummary>,
+    selectionProps: VersionSelectionProps
   ) => React.ReactNode;
 }
 
@@ -63,6 +75,7 @@ const RESULTS_TABS = [
 
 export default function LatestResultsPanel({
   experimentId,
+  experiment,
   sessionToken,
   renderVersionHistory,
 }: LatestResultsPanelProps) {
@@ -71,6 +84,9 @@ export default function LatestResultsPanel({
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<ExperimentResultsRunItem[]>([]);
   const [versions, setVersions] = useState<ExperimentResultsVersionItem[]>([]);
+
+  const [selectedVersionHashes, setSelectedVersionHashes] = useState<Set<string>>(new Set());
+  const [runDrawerOpen, setRunDrawerOpen] = useState(false);
 
   const apiFactory = useMemo(
     () => new ApiClientFactory(sessionToken),
@@ -147,25 +163,60 @@ export default function LatestResultsPanel({
     <Alert severity="error">{error}</Alert>
   ) : null;
 
+  const selectionProps: VersionSelectionProps = {
+    selectable: true,
+    selectedVersionHashes,
+    onSelectionChange: setSelectedVersionHashes,
+  };
+
+  const handleVersionRemove = (hash: string) => {
+    setSelectedVersionHashes(prev => {
+      const next = new Set(prev);
+      next.delete(hash);
+      return next;
+    });
+  };
+
   return (
     <Paper variant="outlined" sx={{ mt: 3 }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v)}
           aria-label="experiment results sections"
+          sx={{ flex: 1 }}
         >
           {RESULTS_TABS.map(t => (
             <Tab key={t.label} label={t.label} />
           ))}
         </Tabs>
+        {tab === 0 && (
+          <Button
+            size="small"
+            startIcon={<PlayArrowIcon />}
+            disabled={selectedVersionHashes.size === 0}
+            onClick={() => setRunDrawerOpen(true)}
+            sx={{ mr: 2 }}
+          >
+            Run Experiment
+            {selectedVersionHashes.size > 0 &&
+              ` (${selectedVersionHashes.size})`}
+          </Button>
+        )}
       </Box>
 
       <TabPanel value={tab} index={0}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {RESULTS_TABS[0].description}
         </Typography>
-        {renderVersionHistory(versionOutcomes)}
+        {renderVersionHistory(versionOutcomes, selectionProps)}
       </TabPanel>
       <TabPanel value={tab} index={1}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -173,6 +224,19 @@ export default function LatestResultsPanel({
         </Typography>
         {statusContent ?? <RunsView runs={runs} />}
       </TabPanel>
+
+      <RunExperimentDrawer
+        open={runDrawerOpen}
+        onClose={() => setRunDrawerOpen(false)}
+        sessionToken={sessionToken}
+        experiment={experiment}
+        selectedVersionHashes={selectedVersionHashes}
+        onVersionRemove={handleVersionRemove}
+        onSuccess={() => {
+          setSelectedVersionHashes(new Set());
+          if (tab === 1) setTab(1);
+        }}
+      />
     </Paper>
   );
 }
