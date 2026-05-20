@@ -45,7 +45,6 @@ from rhesis.backend.app.services.experiment import (
     to_read,
     unbind_environment,
 )
-from rhesis.backend.app.utils.decorators import with_count_header
 
 router = APIRouter(
     prefix="/experiments",
@@ -56,7 +55,6 @@ router = APIRouter(
 
 
 @router.get("", response_model=list[ExperimentRead])
-@with_count_header(model=Experiment)
 def list_experiments(
     response: Response,
     skip: int = 0,
@@ -91,6 +89,7 @@ def list_experiments(
         if r.visibility != "private"
         or (user_id is not None and str(r.owner_user_id) == str(user_id))
     ]
+    response.headers["X-Total-Count"] = str(len(visible))
     return [to_read(r) for r in visible]
 
 
@@ -197,9 +196,7 @@ def delete_experiment(
         user_id=user_id,
     )
     if project is not None:
-        for env_name in environments_pointing_at_experiment(
-            project, db_experiment.id
-        ):
+        for env_name in environments_pointing_at_experiment(project, db_experiment.id):
             unbind_environment(db, project=project, environment_name=env_name)
 
     snapshot = to_read(db_experiment)
