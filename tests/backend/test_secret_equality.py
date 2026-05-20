@@ -64,7 +64,13 @@ SENSITIVE_MARKERS = (
 # heuristic. Add an entry only with a one-line comment justifying why
 # the comparison is timing-safe (e.g. "compares to a public string
 # constant", "compares to None", "compares hash *prefix* by length").
-ALLOWED_SITES: frozenset[tuple[str, int]] = frozenset()
+ALLOWED_SITES: frozenset[tuple[str, int]] = frozenset(
+    {
+        # content_hash is a SHA-based fingerprint for version dedup, not a secret
+        ("apps/backend/src/rhesis/backend/app/services/experiment.py", 155),
+        ("apps/backend/src/rhesis/backend/app/services/experiment.py", 211),
+    }
+)
 
 
 def _is_sensitive_name(name: str) -> bool:
