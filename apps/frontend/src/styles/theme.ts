@@ -399,6 +399,24 @@ const getDesignTokens = (mode: PaletteMode) => ({
     line: ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803'], // Rhesis primary blue, orange, CTA blue, yellow
     pie: ['#97D5EE', '#50B9E0', '#2AA1CE'], // Rhesis light blue, primary blue, CTA blue
     status: ['#2E7D32', '#F57C00', '#C62828'], // success (green), warning (amber), error (red) - using light mode colors for consistency
+    categorical: [
+      '#50B9E0',
+      '#2AA1CE',
+      '#FD6E12',
+      '#FDD803',
+      '#97D5EE',
+      '#2E7D32',
+      '#F57C00',
+      '#C62828',
+      '#1A1A1A',
+      '#3D3D3D',
+      '#58A6FF',
+      '#F78166',
+      '#86EFAC',
+      '#FCD34D',
+      '#FCA5A5',
+      '#3BC4F2',
+    ],
   },
   elevation: {
     none: 0, // Flat surfaces, nested components
@@ -461,6 +479,7 @@ declare module '@mui/material/styles' {
       line: string[];
       pie: string[];
       status: string[];
+      categorical: string[];
     };
     elevation: {
       none: number;
@@ -498,6 +517,7 @@ declare module '@mui/material/styles' {
       line: string[];
       pie: string[];
       status: string[];
+      categorical: string[];
     };
     elevation?: {
       none: number;
