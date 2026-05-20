@@ -14,6 +14,98 @@ _GRAPH_KEY = "graph"
 _PAGE_SIZE = 100
 
 
+def _embedding_entity_type_key(model_or_name: type | str) -> str:
+    return model_or_name if isinstance(model_or_name, str) else model_or_name.__name__
+
+
+def _ensure_embeddings_for_entities(
+    db,
+    *,
+    entity_ids: list[UUID],
+    user,
+    embedded_entity: type | str,
+) -> None:
+    """Generate and persist active embeddings for entities that do not have one yet."""
+    if not entity_ids:
+        return
+
+    from rhesis.backend.app.services.embedding.generator import EmbeddingGenerator
+    from rhesis.backend.app.services.embedding.graph_builder import fetch_embeddings
+    from rhesis.backend.app.services.embedding.services import EmbeddingService
+
+    entity_type = _embedding_entity_type_key(embedded_entity)
+    org_id = str(user.organization_id)
+    user_id = str(user.id)
+
+    existing = fetch_embeddings(
+        db,
+        entity_ids,
+        embedded_entity=embedded_entity,
+        organization_id=org_id,
+        user_id=user_id,
+    )
+    covered = {e.entity_id for e in existing}
+    missing_ids = [entity_id for entity_id in entity_ids if entity_id not in covered]
+    if not missing_ids:
+        logger.info(
+            "Embedding backfill: all %s %s entities already have active embeddings",
+            len(entity_ids),
+            entity_type,
+        )
+        return
+
+    try:
+        model_id = EmbeddingService(db)._resolve_model_id(user_id)
+    except ValueError as exc:
+        logger.warning(
+            "Embedding backfill skipped for %s entities: no embedding model (%s)",
+            len(missing_ids),
+            exc,
+        )
+        return
+
+    generator = EmbeddingGenerator(db)
+    generated = 0
+    skipped_empty = 0
+    failed = 0
+    for entity_id in missing_ids:
+        try:
+            result = generator.generate(
+                entity_id=str(entity_id),
+                entity_type=entity_type,
+                organization_id=org_id,
+                user_id=user_id,
+                model_id=model_id,
+            )
+        except Exception as exc:
+            failed += 1
+            logger.warning(
+                "Embedding backfill failed for %s:%s: %s",
+                entity_type,
+                entity_id,
+                exc,
+                exc_info=True,
+            )
+            continue
+
+        status = result.get("status")
+        if status == "success":
+            generated += 1
+        elif status == "skipped_empty_text":
+            skipped_empty += 1
+        else:
+            failed += 1
+
+    logger.info(
+        "Embedding backfill for %s: missing=%s generated=%s skipped_empty=%s failed=%s",
+        entity_type,
+        len(missing_ids),
+        generated,
+        skipped_empty,
+        failed,
+    )
+
+
 def _collect_test_set_entity_ids(db, test_set_id: UUID) -> list[UUID]:
     """Return visible test IDs for a test set (excludes soft-deleted tests)."""
     from rhesis.backend.app import crud
@@ -84,6 +176,12 @@ def _run_embedding_graph(
         return
 
     entity_ids = resolve_entity_ids(db, user, parent)
+    _ensure_embeddings_for_entities(
+        db,
+        entity_ids=entity_ids,
+        user=user,
+        embedded_entity=embedded_entity,
+    )
     graph = build_2d_graph(db, entity_ids, user, embedded_entity=embedded_entity)
     persist_graph(parent, graph)
     db.add(parent)

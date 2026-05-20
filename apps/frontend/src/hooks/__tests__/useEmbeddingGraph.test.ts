@@ -131,51 +131,27 @@ describe('useEmbeddingGraph', () => {
     });
   });
 
-  it('does not schedule further polls after enabled becomes false', async () => {
-    mockTestSetsClient.getEmbeddingGraph
-      .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
-      .mockResolvedValue({ status: 'ready', graph: oldGraph });
-    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
+  it('does not poll when graph has never been computed', async () => {
+    mockTestSetsClient.getEmbeddingGraph.mockResolvedValue({
       status: 'pending',
-      task_id: 'task-1',
     });
 
-    const { result, rerender } = renderHook(
-      ({ enabled }: { enabled: boolean }) =>
-        useEmbeddingGraph('test-set-1', 'token', { enabled }),
-      { initialProps: { enabled: true } }
+    const { result } = renderHook(() =>
+      useEmbeddingGraph('test-set-1', 'token', { enabled: true })
     );
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    await act(async () => {
-      void result.current.computeGraph();
-    });
-
-    await waitFor(() => {
-      expect(
-        mockTestSetsClient.getEmbeddingGraph.mock.calls.length
-      ).toBeGreaterThan(1);
-    });
-
-    const callsBeforeDisable =
-      mockTestSetsClient.getEmbeddingGraph.mock.calls.length;
-
-    rerender({ enabled: false });
-
-    await waitFor(() => {
-      expect(result.current.isComputing).toBe(false);
-    });
+    expect(result.current.isComputing).toBe(false);
+    expect(result.current.graph).toBeNull();
 
     await act(async () => {
       await jest.advanceTimersByTimeAsync(30_000);
     });
 
-    expect(mockTestSetsClient.getEmbeddingGraph.mock.calls.length).toBe(
-      callsBeforeDisable
-    );
+    expect(mockTestSetsClient.getEmbeddingGraph).toHaveBeenCalledTimes(1);
   });
 
   it('resumes polling when enabled returns during recompute', async () => {

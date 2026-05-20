@@ -429,8 +429,9 @@ export default function EmbeddingTestsPanel({
                     }}
                   >
                     <Alert severity="info" icon={<RefreshIcon />}>
-                      No embeddings available yet. Add tests with embeddings,
-                      then compute clusters.
+                      No tests could be embedded (empty content or missing
+                      embedding model). Add content to tests or configure an
+                      embedding model, then compute clusters again.
                     </Alert>
                   </Box>
                 )}
@@ -447,8 +448,9 @@ export default function EmbeddingTestsPanel({
                   >
                     <Alert severity="info">
                       Visualize how tests cluster in embedding space. Click
-                      &quot;Compute clusters&quot; to generate a 2D projection
-                      with automatic cluster labels.
+                      &quot;Compute clusters&quot; to generate embeddings for
+                      tests that need them, then build a 2D projection with
+                      automatic cluster labels.
                     </Alert>
                   </Box>
                 )}
