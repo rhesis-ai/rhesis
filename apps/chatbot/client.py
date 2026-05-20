@@ -5,7 +5,7 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 # Import endpoint module first to initialize RhesisClient
 # This ensures only ONE tracer provider exists (critical for proper trace nesting)
@@ -26,6 +26,40 @@ PARAMETERS_ENVIRONMENT = os.getenv(
     "RHESIS_PARAMETERS_ENVIRONMENT",
     os.getenv("RHESIS_PARAMETERS_LABEL", "default"),
 )
+
+ABSENT_STRING_VALUES = {"", "none", "null", "undefined"}
+
+
+def _is_absent_value(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip().lower() in ABSENT_STRING_VALUES:
+        return True
+    return False
+
+
+def _optional_string(value: Any) -> Optional[str]:
+    if _is_absent_value(value):
+        return None
+    return str(value)
+
+
+def _float_or_default(value: Any, default: float) -> float:
+    if _is_absent_value(value):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _int_or_default(value: Any, default: int) -> int:
+    if _is_absent_value(value):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _resolve_chatbot_params() -> dict:
@@ -514,6 +548,14 @@ async def chat(
     Returns:
         ChatResponse with message, session_id, context, and metadata
     """
+    system_prompt = _optional_string(system_prompt)
+    model = _optional_string(model)
+    use_case = _optional_string(use_case) or "insurance"
+    output_mode = _optional_string(output_mode) or "text"
+    context_strategy = _optional_string(context_strategy) or "heuristic"
+    temperature = _float_or_default(temperature, 0.7)
+    max_tokens = _int_or_default(max_tokens, 1024)
+
     # Resolve session – reuse existing or create new
     session_id = session_id or str(uuid.uuid4())
     if session_id not in sessions:
@@ -745,7 +787,7 @@ async def chat_endpoint(
             {
                 key: value
                 for key, value in request_param_overrides.items()
-                if value not in (None, "")
+                if not _is_absent_value(value)
             }
         )
 

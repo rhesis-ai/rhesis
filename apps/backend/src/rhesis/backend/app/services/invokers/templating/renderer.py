@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any, Dict
 
-from jinja2 import Environment
+from jinja2 import ChainableUndefined, Environment
 
 from .filters import FILE_FILTERS
 
@@ -15,7 +15,7 @@ class TemplateRenderer:
     """Handles template rendering using Jinja2."""
 
     def __init__(self):
-        self.env = Environment()
+        self.env = Environment(undefined=ChainableUndefined)
         self.env.filters.update(FILE_FILTERS)
 
     def render(self, template_data: Any, input_data: Dict[str, Any]) -> Any:
@@ -34,6 +34,7 @@ class TemplateRenderer:
         """
         # Create a copy to avoid modifying the original input_data
         render_context = input_data.copy()
+        render_context.setdefault("params", {})
 
         # Conversation field aliases: ensure a value provided under any
         # recognised name is available under ALL recognised names so
@@ -187,6 +188,8 @@ class TemplateRenderer:
 
         # For non-simple templates, try to parse as JSON (e.g. filter output)
         filtered = self._filter_omit_markers(rendered_value)
+        if filtered.strip() == "None":
+            return None
         try:
             return json.loads(filtered)
         except (json.JSONDecodeError, TypeError):

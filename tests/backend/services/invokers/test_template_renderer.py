@@ -384,6 +384,20 @@ class TestTemplateRendererParams:
         assert result["model"] == "gpt-4"
         assert result["temperature"] == 0.7
 
+    def test_params_defaults_when_context_omits_params(self):
+        """Jinja default filter works when params is absent."""
+        renderer = TemplateRenderer()
+        template = {
+            "model": "{{ params.model | default('gpt-4') }}",
+            "temperature": "{{ params.temperature | default(0.7) }}",
+        }
+        input_data = {}
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] == "gpt-4"
+        assert result["temperature"] == 0.7
+
     def test_params_partial_keys_use_defaults_for_missing(self):
         """Missing keys within params resolve via Jinja default() filters."""
         renderer = TemplateRenderer()
@@ -441,6 +455,16 @@ class TestTemplateRendererParams:
         result = renderer.render(template, input_data)
 
         assert result["model"] == "fallback"
+
+    def test_default_none_filter_renders_python_none(self):
+        """default(none) renders as None, not the string 'None'."""
+        renderer = TemplateRenderer()
+        template = {"model": "{{ params.model | default(none) }}"}
+        input_data = {"params": {}}
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] is None
 
     def test_params_string_value_in_json_string_template(self):
         """params.* works in a JSON-string template (not just dict templates)."""
