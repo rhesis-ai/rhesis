@@ -232,24 +232,49 @@ function TestRunsTable({
         filterable: false,
         valueGetter: (_, row) => {
           if (!row.experiment_id) return '';
-          return (row.attributes?.parameter_version as string) || '';
+          const name =
+            (row.attributes?.parameter_experiment_name as string) || '';
+          const ver =
+            (row.attributes?.parameter_version as string) || '';
+          return `${name} ${ver}`.trim();
         },
         renderCell: params => {
           if (!params.row.experiment_id) return null;
+          const name =
+            (params.row.attributes?.parameter_experiment_name as string) ||
+            undefined;
           const version = params.row.attributes?.parameter_version as
             | string
             | undefined;
-          const shortVer = version ? version.slice(0, 8) : null;
 
-          if (!shortVer) return null;
+          if (!name && !version) return null;
 
           return (
-            <Chip
-              label={shortVer}
-              size="small"
-              variant="outlined"
-              sx={{ height: 20, '& .MuiChip-label': { px: 0.75 } }}
-            />
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+              }}
+            >
+              {name && (
+                <Typography
+                  variant="body2"
+                  sx={{ fontSize: '0.8125rem' }}
+                  noWrap
+                >
+                  {name}
+                </Typography>
+              )}
+              {version && (
+                <Chip
+                  label={version}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 20, '& .MuiChip-label': { px: 0.75 } }}
+                />
+              )}
+            </Box>
           );
         },
       },

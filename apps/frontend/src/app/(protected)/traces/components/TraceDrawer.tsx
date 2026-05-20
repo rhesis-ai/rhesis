@@ -561,7 +561,7 @@ export default function TraceDrawer({
               <>
                 <Chip
                   icon={<ScienceIcon />}
-                  label={`Experiment: ${experimentInfo.name}`}
+                  label={experimentInfo.name}
                   component={Link}
                   href={experimentHref(
                     experimentInfo.id,

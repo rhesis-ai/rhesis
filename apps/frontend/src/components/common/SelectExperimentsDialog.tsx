@@ -67,7 +67,7 @@ function rowKey(experimentId: string, version: string): string {
   return `${experimentId}::${version}`;
 }
 
-/** Drop duplicate version hashes while preserving append order. */
+/** Drop duplicate versions while preserving append order. */
 function dedupeVersionsByHash(
   versions: ExperimentVersion[]
 ): ExperimentVersion[] {

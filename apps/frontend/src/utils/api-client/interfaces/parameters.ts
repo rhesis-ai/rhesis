@@ -93,8 +93,8 @@ export function emptyParameterSchema(): ParameterSchema {
 /**
  * One immutable version inside an experiment's history.
  *
- * The ``version`` is a content hash and the natural identifier for
- * this version both in the API and on test runs that snapshot it.
+ * The ``version`` is a sequential label (v1, v2, ...) and the natural
+ * identifier for this version both in the API and on test runs that snapshot it.
  */
 export interface ExperimentVersion {
   version: string;
@@ -261,15 +261,10 @@ export function validateEnvironmentName(name: string): string | null {
   return null;
 }
 
-/** A short, display-friendly hash chip (e.g. ``v_a3f9b8``). */
+/** A short, display-friendly version label (e.g. ``v3``). */
 export function shortVersion(version: string | null | undefined): string {
   if (!version) return '';
-  // Hashes are formatted as ``v_<sha>``; trim to v_ + 6 chars so the
-  // chip stays readable in dense tables.
-  if (version.startsWith('v_')) {
-    return `v_${version.slice(2, 8)}`;
-  }
-  return version.slice(0, 8);
+  return version;
 }
 
 /**

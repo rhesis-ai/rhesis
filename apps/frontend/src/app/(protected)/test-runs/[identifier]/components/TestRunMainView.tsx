@@ -498,6 +498,10 @@ export default function TestRunMainView({
             typeof run.attributes?.parameter_version === 'string'
               ? (run.attributes.parameter_version as string)
               : undefined,
+          experiment_name:
+            typeof run.attributes?.parameter_experiment_name === 'string'
+              ? (run.attributes.parameter_experiment_name as string)
+              : undefined,
         }));
 
       setAvailableTestRuns(runs);
@@ -880,6 +884,10 @@ export default function TestRunMainView({
             parameter_version:
               typeof testRun.attributes?.parameter_version === 'string'
                 ? (testRun.attributes.parameter_version as string)
+                : undefined,
+            experiment_name:
+              typeof testRun.attributes?.parameter_experiment_name === 'string'
+                ? (testRun.attributes.parameter_experiment_name as string)
                 : undefined,
           }}
           currentTestResults={testResults}

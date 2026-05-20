@@ -435,7 +435,7 @@ export default function TestRunHeader({
                         fontWeight: 200,
                       }}
                     >
-                      Experiment:
+                      {(testRun.attributes?.parameter_experiment_name as string) || 'Experiment'}
                     </Typography>
                     {typeof testRun.attributes?.parameter_version ===
                       'string' && (

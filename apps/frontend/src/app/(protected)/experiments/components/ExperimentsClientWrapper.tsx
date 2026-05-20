@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Box, Chip, Paper, Typography } from '@mui/material';
+import { Box, Button, Chip, Paper, Typography } from '@mui/material';
 import {
   GridColDef,
   GridFilterModel,
@@ -23,7 +23,11 @@ import {
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { AddIcon, DeleteIcon, BiotechIcon } from '@/components/icons';
+import {
+  AddIcon,
+  DeleteIcon,
+  BiotechIcon,
+} from '@/components/icons';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
@@ -290,38 +294,79 @@ export default function ExperimentsClientWrapper({
           your project.
         </Typography>
       </Box>
-      <Paper elevation={2} sx={{ p: 2 }}>
-        <BaseDataGrid
-          rows={experiments}
-          columns={columns}
-          loading={loading}
-          density="comfortable"
-          actionButtons={actionButtons}
-          linkPath="/experiments"
-          linkField="id"
-          paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
-          filterModel={filterModel}
-          onFilterModelChange={handleFilterModelChange}
-          serverSideFiltering={true}
-          serverSidePagination={true}
-          totalRows={totalCount}
-          pageSizeOptions={[10, 25, 50]}
-          checkboxSelection
-          disableRowSelectionOnClick
-          rowSelectionModel={selectedRows}
-          onRowSelectionModelChange={setSelectedRows}
-          disablePaperWrapper
-          persistState
-          initialState={{
-            columns: {
-              columnVisibilityModel: {
-                versions_count: false,
-              },
-            },
+      {!loading && experiments.length === 0 && !filterModel.items.length ? (
+        <Paper
+          elevation={2}
+          sx={{
+            p: theme => theme.spacing(6),
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
           }}
-        />
-      </Paper>
+        >
+          <BiotechIcon
+            sx={{
+              fontSize: theme => theme.spacing(8),
+              color: 'text.disabled',
+              mb: 2,
+            }}
+          />
+          <Typography variant="h6" gutterBottom>
+            No experiments yet
+          </Typography>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ maxWidth: theme => theme.spacing(58), mb: 3 }}
+          >
+            Experiments let you bundle parameter values into versioned
+            configurations. Create one to start tracking how different settings
+            affect your test results.
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateOpen(true)}
+            disabled={projects.length === 0}
+          >
+            New Experiment
+          </Button>
+        </Paper>
+      ) : (
+        <Paper elevation={2} sx={{ p: 2 }}>
+          <BaseDataGrid
+            rows={experiments}
+            columns={columns}
+            loading={loading}
+            density="comfortable"
+            actionButtons={actionButtons}
+            linkPath="/experiments"
+            linkField="id"
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            filterModel={filterModel}
+            onFilterModelChange={handleFilterModelChange}
+            serverSideFiltering={true}
+            serverSidePagination={true}
+            totalRows={totalCount}
+            pageSizeOptions={[10, 25, 50]}
+            checkboxSelection
+            disableRowSelectionOnClick
+            rowSelectionModel={selectedRows}
+            onRowSelectionModelChange={setSelectedRows}
+            disablePaperWrapper
+            persistState
+            initialState={{
+              columns: {
+                columnVisibilityModel: {
+                  versions_count: false,
+                },
+              },
+            }}
+          />
+        </Paper>
+      )}
 
       <CreateExperimentDialog
         open={createOpen}

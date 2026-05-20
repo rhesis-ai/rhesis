@@ -44,10 +44,12 @@ import { experimentHref } from '@/utils/experiment-links';
 import { MetricStatusChip } from '@/components/common/StatusChip';
 import ConversationHistory from '@/components/common/ConversationHistory';
 import { BiotechIcon } from '@/components/icons';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 
 interface RunExperimentInfo {
   experiment_id?: string;
   parameter_version?: string;
+  experiment_name?: string;
 }
 
 interface ComparisonViewProps {
@@ -88,9 +90,11 @@ interface ComparisonTest {
 function ExperimentRunLink({
   experimentId,
   parameterVersion,
+  experimentName,
 }: {
   experimentId?: string;
   parameterVersion?: string;
+  experimentName?: string;
 }) {
   if (!experimentId || !parameterVersion) return null;
 
@@ -118,10 +122,10 @@ function ExperimentRunLink({
           className="experiment-label"
           color="text.secondary"
         >
-          Experiment:
+          {experimentName || 'Experiment'}
         </Typography>
         <Chip
-          label={parameterVersion.slice(0, 8)}
+          label={shortVersion(parameterVersion)}
           size="small"
           variant="outlined"
         />
@@ -640,49 +644,13 @@ export default function ComparisonView({
                     )}
                     {baselineRun.experiment_id &&
                       baselineRun.parameter_version && (
-                        <Link
-                          href={experimentHref(
-                            baselineRun.experiment_id,
-                            baselineRun.parameter_version
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ textDecoration: 'none' }}
-                        >
-                          <Box
-                            sx={{
-                              mt: 1,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.75,
-                              '&:hover .experiment-label': {
-                                color: 'primary.main',
-                                textDecoration: 'underline',
-                              },
-                            }}
-                          >
-                            <BiotechIcon
-                              fontSize="small"
-                              sx={{ color: 'text.secondary' }}
-                            />
-                            <Typography
-                              variant="caption"
-                              className="experiment-label"
-                              color="text.secondary"
-                            >
-                              Experiment:
-                            </Typography>
-                            <Chip
-                              label={baselineRun.parameter_version.slice(0, 8)}
-                              size="small"
-                              variant="outlined"
-                            />
-                            <OpenInNewIcon
-                              fontSize="inherit"
-                              sx={{ color: 'text.disabled' }}
-                            />
-                          </Box>
-                        </Link>
+                        <Box sx={{ mt: 1 }}>
+                          <ExperimentRunLink
+                            experimentId={baselineRun.experiment_id}
+                            parameterVersion={baselineRun.parameter_version}
+                            experimentName={baselineRun.experiment_name}
+                          />
+                        </Box>
                       )}
                   </>
                 )}
@@ -752,49 +720,13 @@ export default function ComparisonView({
                 </Box>
                 {currentTestRun.experiment_id &&
                   currentTestRun.parameter_version && (
-                    <Link
-                      href={experimentHref(
-                        currentTestRun.experiment_id,
-                        currentTestRun.parameter_version
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ textDecoration: 'none' }}
-                    >
-                      <Box
-                        sx={{
-                          mt: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.75,
-                          '&:hover .experiment-label': {
-                            color: 'primary.main',
-                            textDecoration: 'underline',
-                          },
-                        }}
-                      >
-                        <BiotechIcon
-                          fontSize="small"
-                          sx={{ color: 'text.secondary' }}
-                        />
-                        <Typography
-                          variant="caption"
-                          className="experiment-label"
-                          color="text.secondary"
-                        >
-                          Experiment:
-                        </Typography>
-                        <Chip
-                          label={currentTestRun.parameter_version.slice(0, 8)}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <OpenInNewIcon
-                          fontSize="inherit"
-                          sx={{ color: 'text.disabled' }}
-                        />
-                      </Box>
-                    </Link>
+                    <Box sx={{ mt: 1 }}>
+                      <ExperimentRunLink
+                        experimentId={currentTestRun.experiment_id}
+                        parameterVersion={currentTestRun.parameter_version}
+                        experimentName={currentTestRun.experiment_name}
+                      />
+                    </Box>
                   )}
               </CardContent>
             </Card>
@@ -1196,6 +1128,7 @@ export default function ComparisonView({
                         <ExperimentRunLink
                           experimentId={baselineRun?.experiment_id}
                           parameterVersion={baselineRun?.parameter_version}
+                          experimentName={baselineRun?.experiment_name}
                         />
                       </Box>
                       {selectedTest.baseline?.test_output
@@ -1306,6 +1239,7 @@ export default function ComparisonView({
                         <ExperimentRunLink
                           experimentId={currentTestRun.experiment_id}
                           parameterVersion={currentTestRun.parameter_version}
+                          experimentName={currentTestRun.experiment_name}
                         />
                       </Box>
                       {selectedTest.current.test_output
@@ -1412,6 +1346,7 @@ export default function ComparisonView({
                         <ExperimentRunLink
                           experimentId={baselineRun?.experiment_id}
                           parameterVersion={baselineRun?.parameter_version}
+                          experimentName={baselineRun?.experiment_name}
                         />
                       </Box>
 
@@ -1742,6 +1677,7 @@ export default function ComparisonView({
                         <ExperimentRunLink
                           experimentId={currentTestRun.experiment_id}
                           parameterVersion={currentTestRun.parameter_version}
+                          experimentName={currentTestRun.experiment_name}
                         />
                       </Box>
 
