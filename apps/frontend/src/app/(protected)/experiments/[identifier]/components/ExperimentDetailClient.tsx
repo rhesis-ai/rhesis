@@ -61,25 +61,33 @@ interface ExperimentDetailClientProps {
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
+  keepMounted?: boolean;
   value: number;
 }
 
-function TabPanel({ children, value, index }: TabPanelProps) {
+function TabPanel({
+  children,
+  value,
+  index,
+  keepMounted = false,
+}: TabPanelProps) {
+  const isActive = value === index;
+
   return (
     <div
       role="tabpanel"
-      hidden={value !== index}
+      hidden={!isActive}
       id={`experiment-tabpanel-${index}`}
       aria-labelledby={`experiment-tab-${index}`}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {(isActive || keepMounted) && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
 }
 
 const EXPERIMENT_TABS = [
   {
-    label: 'New Version',
+    label: 'Experiment',
     description:
       'Edit the parameters defined by the project schema and save them as a new immutable experiment version.',
   },
@@ -89,7 +97,7 @@ const EXPERIMENT_TABS = [
       'Configure the parameter schema for this project. Changes apply to all experiments.',
   },
   {
-    label: 'Experiment',
+    label: 'Details',
     description:
       'Review and update the experiment metadata, visibility, and promoted environments.',
   },
@@ -861,7 +869,7 @@ export default function ExperimentDetailClient({
                       variant="subtitle1"
                       sx={{ fontWeight: 'medium' }}
                     >
-                      Details
+                      Overview
                     </Typography>
                     <Tooltip title="Delete experiment">
                       <Button
@@ -1139,7 +1147,7 @@ export default function ExperimentDetailClient({
                 </Paper>
               </TabPanel>
 
-              <TabPanel value={tab} index={1}>
+              <TabPanel value={tab} index={1} keepMounted>
                 <Typography
                   variant="body2"
                   color="text.secondary"
