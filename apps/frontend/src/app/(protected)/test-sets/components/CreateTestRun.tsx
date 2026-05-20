@@ -341,12 +341,7 @@ export default function CreateTestRun({
                 );
               }}
               renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Project"
-                  required
-                  placeholder="Select a project"
-                />
+                <TextField {...params} label="Project" required />
               )}
               isOptionEqualToValue={(option, value) => option.id === value.id}
             />
@@ -365,16 +360,7 @@ export default function CreateTestRun({
               getOptionLabel={option => option.name}
               disabled={!selectedProject}
               renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Endpoint"
-                  required
-                  placeholder={
-                    selectedProject
-                      ? 'Select endpoint'
-                      : 'Select a project first'
-                  }
-                />
+                <TextField {...params} label="Endpoint" required />
               )}
               renderOption={(props, option) => {
                 const { key: _key, ...otherProps } = props;

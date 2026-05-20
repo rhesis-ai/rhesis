@@ -9,31 +9,13 @@ import {
   Stack,
   FormControl,
   FormHelperText,
+  InputLabel,
   Select,
   MenuItem,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UUID } from 'crypto';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
-
-// Shared sx applied to every outlined input so they match the Figma design:
-//   – 4px border radius
-//   – default (non-focused) border uses the greyscale border token
-//   – no floating label / notch
-const fieldSx = {
-  '& .MuiOutlinedInput-root': {
-    borderRadius: BORDER_RADIUS.xs,
-    '& .MuiOutlinedInput-notchedOutline': {
-      borderColor: GREYSCALE.light.border,
-    },
-  },
-  '& .MuiFormHelperText-root': {
-    marginLeft: 0,
-    fontSize: 12,
-    color: GREYSCALE.light.subtitle,
-  },
-};
 
 interface TestSetDrawerProps {
   open: boolean;
@@ -170,10 +152,6 @@ export default function TestSetDrawer({
     }
   };
 
-  const selectedTypeName = testSetTypes.find(
-    t => t.id === selectedTestSetTypeId
-  )?.type_value;
-
   return (
     <BaseDrawer
       open={open}
@@ -183,46 +161,32 @@ export default function TestSetDrawer({
       error={error}
       onSave={handleSave}
     >
-      <Stack spacing={5}>
-        {/* Name */}
+      <Stack spacing={3}>
         <TextField
-          placeholder="Name *"
+          label="Name"
           value={name}
           onChange={e => {
             setName(e.target.value);
             if (nameError) setNameError('');
           }}
           fullWidth
-          variant="outlined"
+          required
           disabled={loading}
           error={!!nameError}
           helperText={
             nameError || 'A clear, descriptive name for this test set'
           }
-          sx={fieldSx}
         />
 
-        {/* Test Set Type */}
-        <FormControl fullWidth disabled={loading} error={!!typeError}>
+        <FormControl fullWidth required disabled={loading} error={!!typeError}>
+          <InputLabel id="test-set-type-label">Test Set Type</InputLabel>
           <Select
+            labelId="test-set-type-label"
+            label="Test Set Type"
             value={selectedTestSetTypeId || ''}
             onChange={e => {
               setSelectedTestSetTypeId(e.target.value);
               if (typeError) setTypeError('');
-            }}
-            displayEmpty
-            renderValue={() =>
-              selectedTypeName || (
-                <span style={{ color: GREYSCALE.light.label }}>
-                  Test Set Type *
-                </span>
-              )
-            }
-            sx={{
-              borderRadius: BORDER_RADIUS.xs,
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: GREYSCALE.light.border,
-              },
             }}
           >
             {testSetTypes.map(type => (
@@ -231,35 +195,25 @@ export default function TestSetDrawer({
               </MenuItem>
             ))}
           </Select>
-          {typeError && (
-            <FormHelperText sx={{ ml: 0, fontSize: 12 }}>
-              {typeError}
-            </FormHelperText>
-          )}
+          {typeError && <FormHelperText>{typeError}</FormHelperText>}
         </FormControl>
 
-        {/* Short Description */}
         <TextField
-          placeholder="Short Description"
+          label="Short Description"
           value={shortDescription}
           onChange={e => setShortDescription(e.target.value)}
           fullWidth
-          variant="outlined"
           disabled={loading}
-          sx={fieldSx}
         />
 
-        {/* Description */}
         <TextField
-          placeholder="Description"
+          label="Description"
           value={description}
           onChange={e => setDescription(e.target.value)}
           multiline
           rows={4}
           fullWidth
-          variant="outlined"
           disabled={loading}
-          sx={fieldSx}
         />
       </Stack>
     </BaseDrawer>

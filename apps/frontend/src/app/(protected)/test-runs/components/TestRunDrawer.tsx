@@ -24,6 +24,7 @@ import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
+import tagStyles from '@/styles/BaseTag.module.css';
 
 interface TestRunDrawerProps {
   open: boolean;
@@ -392,16 +393,9 @@ export default function TestRunDrawer({
             chipColor="default"
             addOnBlur
             delimiters={[',', 'Enter']}
-            size="medium"
+            size="small"
+            chipClassName={tagStyles.modalTag}
             fullWidth
-            sx={{
-              '& .MuiInputBase-root': {
-                minHeight: '56px',
-                alignItems: 'flex-start',
-                paddingTop: 1,
-                paddingBottom: 1,
-              },
-            }}
           />
         </Stack>
       </Stack>
