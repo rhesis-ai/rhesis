@@ -234,8 +234,7 @@ function TestRunsTable({
           if (!row.experiment_id) return '';
           const name =
             (row.attributes?.parameter_experiment_name as string) || '';
-          const ver =
-            (row.attributes?.parameter_version as string) || '';
+          const ver = (row.attributes?.parameter_version as string) || '';
           return `${name} ${ver}`.trim();
         },
         renderCell: params => {
@@ -260,7 +259,7 @@ function TestRunsTable({
               {name && (
                 <Typography
                   variant="body2"
-                  sx={{ fontSize: '0.8125rem' }}
+                  sx={{ fontSize: theme => theme.typography.body2.fontSize }}
                   noWrap
                 >
                   {name}

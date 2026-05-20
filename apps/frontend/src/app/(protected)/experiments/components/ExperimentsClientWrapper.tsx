@@ -23,11 +23,7 @@ import {
   shortVersion,
 } from '@/utils/api-client/interfaces/parameters';
 import { Project } from '@/utils/api-client/interfaces/project';
-import {
-  AddIcon,
-  DeleteIcon,
-  BiotechIcon,
-} from '@/components/icons';
+import { AddIcon, DeleteIcon, BiotechIcon } from '@/components/icons';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { combineExperimentFiltersToOData } from '@/utils/odata-filter';
