@@ -43,7 +43,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import TestRunDrawer from './TestRunDrawer';
+import RunDrawer from '@/components/common/RunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
 
@@ -657,7 +657,8 @@ function TestRunsTable({
         persistState
       />
 
-      <TestRunDrawer
+      <RunDrawer
+        mode="newTestRun"
         open={isDrawerOpen}
         onClose={handleDrawerClose}
         sessionToken={sessionToken}

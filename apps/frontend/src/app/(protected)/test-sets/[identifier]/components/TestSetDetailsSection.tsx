@@ -18,7 +18,7 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '../../../../../utils/api-client/client-factory';
-import ExecuteTestSetDrawer from './ExecuteTestSetDrawer';
+import RunDrawer from '@/components/common/RunDrawer';
 import CancelIcon from '@mui/icons-material/CancelOutlined';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
@@ -701,10 +701,11 @@ export default function TestSetDetailsSection({
       {/* Tags Section */}
       <TestSetTags sessionToken={sessionToken} testSet={testSet} />
 
-      <ExecuteTestSetDrawer
+      <RunDrawer
+        mode="executeTestSet"
         open={testRunDrawerOpen}
         onClose={() => setTestRunDrawerOpen(false)}
-        testSetId={testSet.id}
+        data={{ testSetId: testSet.id }}
         sessionToken={sessionToken}
       />
     </>

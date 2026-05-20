@@ -22,6 +22,11 @@
 
 import type { UUID } from 'crypto';
 import type { TestSetsClient } from '@/utils/api-client/test-sets-client';
+import type { TestRunsClient } from '@/utils/api-client/test-runs-client';
+import { TagsClient } from '@/utils/api-client/tags-client';
+import { EntityType } from '@/utils/api-client/interfaces/tag';
+import type { TagCreate } from '@/utils/api-client/interfaces/tag';
+import { pollForTestRun } from '@/utils/test-run-utils';
 
 export interface SelectedExperiment {
   /** Experiment UUID. */
@@ -181,4 +186,50 @@ export async function executeBatchedTestRuns({
       result: responses[i],
     })),
   };
+}
+
+interface AssignTagsToRunsParams {
+  outcome: BatchRunOutcome;
+  testRunsClient: TestRunsClient;
+  sessionToken: string;
+  tags: string[];
+  organizationId: UUID | string;
+  userId?: string;
+}
+
+export async function assignTagsToRuns({
+  outcome,
+  testRunsClient,
+  sessionToken,
+  tags,
+  organizationId,
+  userId,
+}: AssignTagsToRunsParams): Promise<void> {
+  if (tags.length === 0) return;
+
+  const tagsClient = new TagsClient(sessionToken);
+
+  for (const member of outcome.members) {
+    const resultRecord = member.result as Record<string, unknown>;
+    const testConfigurationId =
+      (resultRecord?.test_configuration_id as string | undefined) ?? null;
+    if (!testConfigurationId) continue;
+
+    const testRun = await pollForTestRun(testRunsClient, testConfigurationId);
+    if (!testRun) {
+      console.warn(
+        `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
+      );
+      continue;
+    }
+
+    for (const tagName of tags) {
+      const tagPayload: TagCreate = {
+        name: tagName,
+        ...(organizationId && { organization_id: organizationId as UUID }),
+        ...(userId && { user_id: userId as UUID }),
+      };
+      await tagsClient.assignTagToEntity(EntityType.TEST_RUN, testRun.id, tagPayload);
+    }
+  }
 }

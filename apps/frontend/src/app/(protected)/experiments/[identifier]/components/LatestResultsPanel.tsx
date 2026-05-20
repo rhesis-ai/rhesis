@@ -23,7 +23,7 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { PlayArrowIcon } from '@/components/icons';
 import type { VersionOutcomeSummary } from './VersionHistory';
-import RunExperimentDrawer from './RunExperimentDrawer';
+import RunDrawer from '@/components/common/RunDrawer';
 
 export interface VersionSelectionProps {
   selectable: true;
@@ -199,6 +199,7 @@ export default function LatestResultsPanel({
         </Tabs>
         {tab === 0 && (
           <Button
+            variant="contained"
             size="small"
             startIcon={<PlayArrowIcon />}
             disabled={selectedVersionHashes.size === 0}
@@ -225,13 +226,16 @@ export default function LatestResultsPanel({
         {statusContent ?? <RunsView runs={runs} />}
       </TabPanel>
 
-      <RunExperimentDrawer
+      <RunDrawer
+        mode="runExperiment"
         open={runDrawerOpen}
         onClose={() => setRunDrawerOpen(false)}
         sessionToken={sessionToken}
-        experiment={experiment}
-        selectedVersionHashes={selectedVersionHashes}
-        onVersionRemove={handleVersionRemove}
+        data={{
+          experiment,
+          selectedVersionHashes,
+          onVersionRemove: handleVersionRemove,
+        }}
         onSuccess={() => {
           setSelectedVersionHashes(new Set());
           if (tab === 1) setTab(1);

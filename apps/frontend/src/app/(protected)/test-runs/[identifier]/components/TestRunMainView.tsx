@@ -31,7 +31,7 @@ import TestsTableView from './TestsTableView';
 import ComparisonView from './ComparisonView';
 import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
-import RerunTestRunDrawer from './RerunTestRunDrawer';
+import RunDrawer, { type RerunConfig } from '@/components/common/RunDrawer';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -897,10 +897,11 @@ export default function TestRunMainView({
       )}
 
       {/* Re-run Test Run Drawer */}
-      <RerunTestRunDrawer
+      <RunDrawer
+        mode="rerunTestRun"
         open={isRerunDrawerOpen}
         onClose={() => setIsRerunDrawerOpen(false)}
-        rerunConfig={{
+        data={{
           testSetId: testRun.test_configuration?.test_set?.id || '',
           testSetName: testRun.test_configuration?.test_set?.name || 'Unknown',
           testSetType:
