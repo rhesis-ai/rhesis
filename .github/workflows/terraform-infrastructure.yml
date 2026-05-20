@@ -176,6 +176,14 @@ jobs:
         working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
         run: terraform init -input=false -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
 
+      - name: Disable WireGuard VM deletion protection
+        if: needs.plan.outputs.target_env == 'wireguard'
+        run: |
+          gcloud compute instances update wireguard-server \
+            --no-deletion-protection \
+            --zone=europe-west4-a \
+            --project=${{ steps.ctx.outputs.project_id }} || true
+
       - name: Apply
         working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
         run: terraform apply -input=false tfplan

@@ -144,6 +144,33 @@ resource "google_compute_subnetwork_iam_member" "wireguard_compute_sa_subnet_use
   depends_on = [google_compute_shared_vpc_host_project.dev]
 }
 
+# Allow DNS (port 53) from GKE nodes/pods to the WireGuard server's BIND9 resolver.
+# Managed here (not in the wireguard module) because TF_SA_WIREGUARD lacks firewall
+# permissions in this project — TF_SA_DEV already has them.
+resource "google_compute_firewall" "wireguard_dns" {
+  name     = "wireguard-allow-dns-dev"
+  network  = module.dev.vpc_name
+  project  = var.project_id
+  priority = 900
+
+  allow {
+    protocol = "tcp"
+    ports    = ["53"]
+  }
+  allow {
+    protocol = "udp"
+    ports    = ["53"]
+  }
+  allow {
+    protocol = "icmp"
+  }
+
+  source_ranges = [local.cidrs.dev.nodes, local.cidrs.dev.pods]
+  target_tags   = ["wireguard-server"]
+
+  depends_on = [module.dev]
+}
+
 # ── Return-side peering: dev VPC → wireguard VPC (cross-project) ────
 # Kept for BIND9/DNS routing from GKE pods (not needed for kubectl which now
 # uses the direct Shared VPC NIC). Both sides must exist for ACTIVE state.
