@@ -71,6 +71,13 @@ const PROJECT_TABS = [
   },
 ] as const;
 
+const PROJECT_TAB_QUERY_VALUES: Record<string, number> = {
+  endpoints: 0,
+  traceMetrics: 1,
+  parameters: 2,
+  environments: 3,
+};
+
 export default function ClientWrapper({
   project,
   sessionToken,
@@ -84,13 +91,18 @@ export default function ClientWrapper({
   // Enable onboarding tour if tour parameter is present
   const tourId = searchParams.get('tour');
   useOnboardingTour(tourId === 'endpoint' ? 'endpoint' : undefined);
+  const tabParam = searchParams.get('tab');
+  const initialTab =
+    tabParam && tabParam in PROJECT_TAB_QUERY_VALUES
+      ? PROJECT_TAB_QUERY_VALUES[tabParam]
+      : 0;
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project>(project);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState(0);
+  const [currentTab, setCurrentTab] = useState(initialTab);
   const notifications = useNotifications();
 
   // Create dynamic breadcrumbs based on the current project (reactive to currentProject changes)
@@ -246,6 +258,7 @@ export default function ClientWrapper({
           <ProjectParameters
             projectId={projectId}
             sessionToken={sessionToken}
+            title="Define schema"
           />
         </TabPanel>
 

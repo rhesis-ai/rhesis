@@ -181,8 +181,14 @@ export class ParametersClient extends BaseApiClient {
     });
   }
 
-  async deleteExperiment(experimentId: string): Promise<ExperimentRead> {
-    return this.fetch<ExperimentRead>(`/experiments/${experimentId}`, {
+  async deleteExperiment(
+    experimentId: string,
+    options?: { cascadeEnvironments?: boolean }
+  ): Promise<ExperimentRead> {
+    const query = options?.cascadeEnvironments
+      ? '?cascade_environments=true'
+      : '';
+    return this.fetch<ExperimentRead>(`/experiments/${experimentId}${query}`, {
       method: 'DELETE',
     });
   }

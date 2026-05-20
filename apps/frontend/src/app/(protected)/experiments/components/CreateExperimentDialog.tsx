@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
-  Chip,
   FormControl,
   FormHelperText,
   InputLabel,
@@ -12,9 +11,12 @@ import {
   Select,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { PublicIcon, PublicOffIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   BuiltInEnvironment,
@@ -137,20 +139,42 @@ export default function CreateExperimentDialog({
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Visibility
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Chip
-              label="Private (only me)"
-              onClick={() => setVisibility('private')}
-              color={visibility === 'private' ? 'primary' : 'default'}
-              variant={visibility === 'private' ? 'filled' : 'outlined'}
-            />
-            <Chip
-              label="Shared (whole project)"
-              onClick={() => setVisibility('shared')}
-              color={visibility === 'shared' ? 'primary' : 'default'}
-              variant={visibility === 'shared' ? 'filled' : 'outlined'}
-            />
-          </Box>
+          <ToggleButtonGroup
+            value={visibility}
+            exclusive
+            size="small"
+            onChange={(_, value: ExperimentVisibility | null) => {
+              if (value) {
+                setVisibility(value);
+              }
+            }}
+            aria-label="experiment visibility"
+            sx={{
+              '& .MuiToggleButton-root': {
+                px: 2,
+                py: 0.5,
+                gap: 0.75,
+                textTransform: 'none',
+                fontWeight: 500,
+              },
+              '& .MuiToggleButton-root.Mui-selected': {
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                },
+              },
+            }}
+          >
+            <ToggleButton value="private" aria-label="Private">
+              <PublicOffIcon fontSize="small" />
+              Private
+            </ToggleButton>
+            <ToggleButton value="shared" aria-label="Shared">
+              <PublicIcon fontSize="small" />
+              Shared
+            </ToggleButton>
+          </ToggleButtonGroup>
           <FormHelperText>
             Only shared experiments can be promoted onto a project environment
             ({BuiltInEnvironment.ALL.join(', ')}).

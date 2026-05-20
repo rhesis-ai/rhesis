@@ -33,6 +33,8 @@ import {
 interface ProjectParametersProps {
   projectId: string;
   sessionToken: string;
+  title?: string;
+  headerAction?: React.ReactNode;
 }
 
 /**
@@ -50,6 +52,8 @@ interface ProjectParametersProps {
 export default function ProjectParameters({
   projectId,
   sessionToken,
+  title,
+  headerAction,
 }: ProjectParametersProps) {
   const {
     loading,
@@ -102,12 +106,20 @@ export default function ProjectParameters({
 
   return (
     <Paper elevation={2} sx={{ p: 2 }}>
-      <ParametersSaveBar
-        isDirty={isDirty}
-        saving={saving}
-        onSave={handleSave}
-        onRevert={handleRevert}
-      />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        {title && (
+          <Typography variant="subtitle1" sx={{ fontWeight: 'medium', flex: 1 }}>
+            {title}
+          </Typography>
+        )}
+        {headerAction}
+        <ParametersSaveBar
+          isDirty={isDirty}
+          saving={saving}
+          onSave={handleSave}
+          onRevert={handleRevert}
+        />
+      </Box>
 
       {draft.length === 0 ? (
         <ParametersEmptyState onAdd={handleAdd} />
@@ -255,12 +267,13 @@ export default function ProjectParameters({
                     const Icon = meta.icon;
                     return (
                       <Icon
+                        fontSize="small"
                         color={meta.color === 'default' ? 'inherit' : meta.color}
                       />
                     );
                   })()}
-                  <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
-                    Details
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'medium', flex: 1 }}>
+                    Parameter details
                   </Typography>
                   <Tooltip title="Remove field">
                     <IconButton

@@ -60,6 +60,20 @@ def create_test_run(
     if initial_status == RunStatus.PROGRESS:
         attributes["started_at"] = datetime.utcnow().isoformat()
 
+    # Batch-run grouping (multi-experiment fan-out). Keys originate from
+    # the request payload and live on test_configuration.attributes; we
+    # lift them onto the run so each member can be discovered/grouped
+    # without joining back through its configuration.
+    cfg_attrs = test_config.attributes or {}
+    for batch_key in (
+        "batch_id",
+        "batch_size",
+        "batch_index",
+        "batch_experiments",
+    ):
+        if batch_key in cfg_attrs:
+            attributes[batch_key] = cfg_attrs[batch_key]
+
     from rhesis.backend.app.services.experiment import apply_parameter_snapshot_to_run_attributes
 
     snapshot = apply_parameter_snapshot_to_run_attributes(

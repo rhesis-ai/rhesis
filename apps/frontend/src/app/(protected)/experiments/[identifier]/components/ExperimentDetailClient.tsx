@@ -9,27 +9,37 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  IconButton,
+  FormHelperText,
+  Grid,
   Paper,
   Stack,
   Tab,
   Tabs,
   TextField,
   Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import EditIcon from '@mui/icons-material/EditOutlined';
+import CancelIcon from '@mui/icons-material/CancelOutlined';
+import CheckIcon from '@mui/icons-material/CheckOutlined';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PageContainer, Breadcrumb } from '@toolpad/core/PageContainer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentDetail,
+  ExperimentUpdate,
+  ExperimentVisibility,
   ExperimentVersion,
   ParameterSchema,
   ParameterValue,
   ProjectEnvironments,
 } from '@/utils/api-client/interfaces/parameters';
 import {
+  ArrowOutwardIcon,
   DeleteIcon,
   PromoteIcon,
   PublicIcon,
@@ -41,6 +51,7 @@ import TypedValueEditor from './TypedValueEditor';
 import VersionHistory from './VersionHistory';
 import PromoteEnvironmentDialog from './PromoteEnvironmentDialog';
 import LatestResultsPanel from './LatestResultsPanel';
+import ProjectParameters from '@/app/(protected)/projects/[identifier]/components/ProjectParameters';
 
 interface ExperimentDetailClientProps {
   experimentId: string;
@@ -65,6 +76,24 @@ function TabPanel({ children, value, index }: TabPanelProps) {
     </div>
   );
 }
+
+const EXPERIMENT_TABS = [
+  {
+    label: 'New Version',
+    description:
+      'Edit the parameters defined by the project schema and save them as a new immutable experiment version.',
+  },
+  {
+    label: 'Parameters',
+    description:
+      'Configure the parameter schema for this project. Changes apply to all experiments.',
+  },
+  {
+    label: 'Overview',
+    description:
+      'Review and update the experiment metadata, visibility, and promoted environments.',
+  },
+] as const;
 
 function defaultsForSchema(
   schema: ParameterSchema
@@ -130,35 +159,56 @@ export default function ExperimentDetailClient({
     environment?: string;
     version?: string;
   }>({});
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const apiFactory = useMemo(
     () => new ApiClientFactory(sessionToken),
     [sessionToken]
   );
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const client = apiFactory.getParametersClient();
-      const detail = await client.getExperiment(experimentId);
-      setExperiment(detail);
-      const schemaResp = await client.getSchema(detail.project_id);
-      setSchema(schemaResp);
-      const environmentsResp = await client.getEnvironments(detail.project_id);
-      setEnvironments(environmentsResp);
-      const latest = detail.versions[detail.versions.length - 1];
-      setDraft(valuesFromVersion(latest, schemaResp));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load experiment');
-    } finally {
-      setLoading(false);
-    }
-  }, [apiFactory, experimentId]);
+  const refresh = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent === true;
+      // Only flip the full-page loader for the initial load. Save /
+      // promote / etc. call ``refresh({ silent: true })`` so the page
+      // shell stays mounted — otherwise the loading branch returns a
+      // placeholder, which unmounts ``LatestResultsPanel`` and forces
+      // it to refetch on remount (visible as a grid flicker).
+      if (!silent) {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const client = apiFactory.getParametersClient();
+        const detail = await client.getExperiment(experimentId);
+        setExperiment(detail);
+        const schemaResp = await client.getSchema(detail.project_id);
+        setSchema(schemaResp);
+        const environmentsResp = await client.getEnvironments(detail.project_id);
+        setEnvironments(environmentsResp);
+        const latest = detail.versions[detail.versions.length - 1];
+        setDraft(valuesFromVersion(latest, schemaResp));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load experiment');
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [apiFactory, experimentId]
+  );
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!loading && schema && schema.fields.length === 0) {
+      setTab(1);
+    }
+  }, [loading, schema]);
 
   const environmentsForExperiment = useMemo(() => {
     if (!environments || !experiment) return [] as string[];
@@ -191,7 +241,7 @@ export default function ExperimentDetailClient({
       });
       notifications.show('Version saved', { severity: 'success' });
       setMessage('');
-      await refresh();
+      await refresh({ silent: true });
     } catch (e) {
       notifications.show(
         e instanceof Error ? e.message : 'Failed to save version',
@@ -202,10 +252,11 @@ export default function ExperimentDetailClient({
     }
   }, [apiFactory, draft, experiment, message, notifications, refresh, schema]);
 
-  const handleVisibilityToggle = useCallback(async () => {
+  const handleVisibilityToggle = useCallback(async (target?: ExperimentVisibility) => {
     if (!experiment) return;
     const next =
-      experiment.visibility === 'shared' ? 'private' : 'shared';
+      target ?? (experiment.visibility === 'shared' ? 'private' : 'shared');
+    if (next === experiment.visibility) return;
     try {
       const client = apiFactory.getParametersClient();
       const updated = await client.patchExperiment(experiment.id, {
@@ -226,25 +277,37 @@ export default function ExperimentDetailClient({
     }
   }, [apiFactory, experiment, notifications]);
 
-  const handleDelete = useCallback(async () => {
+  const handleDeleteRequest = useCallback(() => {
+    setDeleteOpen(true);
+  }, []);
+
+  const handleDeleteCancel = useCallback(() => {
+    if (isDeleting) return;
+    setDeleteOpen(false);
+  }, [isDeleting]);
+
+  const handleDeleteConfirm = useCallback(async () => {
     if (!experiment) return;
-    if (
-      !window.confirm(
-        `Delete experiment "${experiment.name}"? Versions will also be removed.`
-      )
-    ) {
-      return;
-    }
+    setIsDeleting(true);
     try {
       const client = apiFactory.getParametersClient();
-      await client.deleteExperiment(experiment.id);
+      // ``cascadeEnvironments: true`` lets the backend unbind any
+      // environments currently pointing at this experiment before
+      // deleting it, instead of refusing with 409. The modal warns the
+      // user when this is going to happen.
+      await client.deleteExperiment(experiment.id, {
+        cascadeEnvironments: true,
+      });
       notifications.show('Experiment deleted', { severity: 'success' });
+      setDeleteOpen(false);
       router.push('/experiments');
     } catch (e) {
       notifications.show(
         e instanceof Error ? e.message : 'Failed to delete experiment',
         { severity: 'error' }
       );
+    } finally {
+      setIsDeleting(false);
     }
   }, [apiFactory, experiment, notifications, router]);
 
@@ -279,11 +342,23 @@ export default function ExperimentDetailClient({
     [apiFactory, experiment, notifications]
   );
 
-  // Inline editing for name and description
+  // Details form draft values. The visible Details tab intentionally uses
+  // the same always-editable form-control pattern as the Edit values tab.
   const [editingName, setEditingName] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
+
+  useEffect(() => {
+    if (!experiment) return;
+    if (!editingName) {
+      setEditName(experiment.name);
+    }
+    if (!editingDescription) {
+      setEditDescription(experiment.description ?? '');
+    }
+  }, [editingDescription, editingName, experiment]);
 
   const handleStartEditName = useCallback(() => {
     if (!experiment) return;
@@ -297,6 +372,16 @@ export default function ExperimentDetailClient({
     setEditingDescription(true);
   }, [experiment]);
 
+  const handleCancelEditName = useCallback(() => {
+    setEditingName(false);
+    setEditName(experiment?.name ?? '');
+  }, [experiment]);
+
+  const handleCancelEditDescription = useCallback(() => {
+    setEditingDescription(false);
+    setEditDescription(experiment?.description ?? '');
+  }, [experiment]);
+
   const handleSaveName = useCallback(async () => {
     if (!experiment) return;
     const trimmed = editName.trim();
@@ -304,6 +389,7 @@ export default function ExperimentDetailClient({
       setEditingName(false);
       return;
     }
+    setIsUpdatingDetails(true);
     try {
       const client = apiFactory.getParametersClient();
       const updated = await client.patchExperiment(experiment.id, {
@@ -311,13 +397,14 @@ export default function ExperimentDetailClient({
       });
       setExperiment(updated);
       notifications.show('Name updated', { severity: 'success' });
+      setEditingName(false);
     } catch (e) {
       notifications.show(
         e instanceof Error ? e.message : 'Failed to update name',
         { severity: 'error' }
       );
     } finally {
-      setEditingName(false);
+      setIsUpdatingDetails(false);
     }
   }, [apiFactory, editName, experiment, notifications]);
 
@@ -328,6 +415,7 @@ export default function ExperimentDetailClient({
       setEditingDescription(false);
       return;
     }
+    setIsUpdatingDetails(true);
     try {
       const client = apiFactory.getParametersClient();
       const updated = await client.patchExperiment(experiment.id, {
@@ -335,15 +423,75 @@ export default function ExperimentDetailClient({
       });
       setExperiment(updated);
       notifications.show('Description updated', { severity: 'success' });
+      setEditingDescription(false);
     } catch (e) {
       notifications.show(
         e instanceof Error ? e.message : 'Failed to update description',
         { severity: 'error' }
       );
     } finally {
-      setEditingDescription(false);
+      setIsUpdatingDetails(false);
     }
   }, [apiFactory, editDescription, experiment, notifications]);
+
+  const detailsDirty = useMemo(() => {
+    if (!experiment) return false;
+    return (
+      editName.trim() !== experiment.name ||
+      editDescription.trim() !== (experiment.description ?? '')
+    );
+  }, [editDescription, editName, experiment]);
+
+  const handleDiscardDetails = useCallback(() => {
+    if (!experiment) return;
+    setEditName(experiment.name);
+    setEditDescription(experiment.description ?? '');
+  }, [experiment]);
+
+  const handleSaveDetails = useCallback(async () => {
+    if (!experiment) return;
+    const trimmedName = editName.trim();
+    const trimmedDescription = editDescription.trim();
+
+    if (!trimmedName) {
+      notifications.show('Experiment name is required', {
+        severity: 'warning',
+      });
+      return;
+    }
+
+    const patch: ExperimentUpdate = {};
+    if (trimmedName !== experiment.name) {
+      patch.name = trimmedName;
+    }
+    if (trimmedDescription !== (experiment.description ?? '')) {
+      patch.description = trimmedDescription || null;
+    }
+    if (Object.keys(patch).length === 0) return;
+
+    setIsUpdatingDetails(true);
+    try {
+      const client = apiFactory.getParametersClient();
+      const updated = await client.patchExperiment(experiment.id, patch);
+      setExperiment(updated);
+      notifications.show('Experiment details updated', {
+        severity: 'success',
+      });
+    } catch (e) {
+      notifications.show(
+        e instanceof Error ? e.message : 'Failed to update experiment details',
+        { severity: 'error' }
+      );
+    } finally {
+      setIsUpdatingDetails(false);
+    }
+  }, [
+    apiFactory,
+    editDescription,
+    editName,
+    experiment,
+    notifications,
+  ]);
 
   const breadcrumbs: Breadcrumb[] = useMemo(() => {
     if (!experiment) return [];
@@ -379,236 +527,686 @@ export default function ExperimentDetailClient({
 
   return (
     <PageContainer title={experiment.name} breadcrumbs={breadcrumbs}>
-      <Stack spacing={2} sx={{ mt: 1 }}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            alignItems={{ md: 'center' }}
-            justifyContent="space-between"
-          >
-            <Box>
-              {editingName ? (
-                <TextField
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  onBlur={handleSaveName}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') handleSaveName();
-                    if (e.key === 'Escape') setEditingName(false);
-                  }}
-                  size="small"
-                  autoFocus
-                  fullWidth
-                  sx={{ mb: 0.5 }}
-                  InputProps={{ sx: { typography: 'h6' } }}
-                />
-              ) : (
-                <Box
-                  onClick={handleStartEditName}
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    cursor: 'pointer',
-                    '&:hover .edit-icon': { opacity: 1 },
-                  }}
-                >
-                  <Typography variant="h6">{experiment.name}</Typography>
-                  <EditIcon
-                    className="edit-icon"
-                    sx={{ fontSize: 'body1.fontSize', opacity: 0, color: 'text.secondary' }}
-                  />
-                </Box>
-              )}
-              {editingDescription ? (
-                <TextField
-                  value={editDescription}
-                  onChange={e => setEditDescription(e.target.value)}
-                  onBlur={handleSaveDescription}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) handleSaveDescription();
-                    if (e.key === 'Escape') setEditingDescription(false);
-                  }}
-                  size="small"
-                  autoFocus
-                  fullWidth
-                  multiline
-                  minRows={1}
-                  placeholder="Add a description..."
-                />
-              ) : (
-                <Box
-                  onClick={handleStartEditDescription}
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    cursor: 'pointer',
-                    '&:hover .edit-icon': { opacity: 1 },
-                  }}
-                >
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ fontStyle: experiment.description ? 'normal' : 'italic' }}
-                  >
-                    {experiment.description || 'Add a description...'}
-                  </Typography>
-                  <EditIcon
-                    className="edit-icon"
-                    sx={{ fontSize: 'caption.fontSize', opacity: 0, color: 'text.secondary' }}
-                  />
-                </Box>
-              )}
-              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                <Chip
-                  size="small"
-                  label={experiment.visibility}
-                  color={isShared ? 'primary' : 'default'}
-                  variant="outlined"
-                />
-                <Chip
-                  size="small"
-                  label={`${experiment.versions_count} version${
-                    experiment.versions_count === 1 ? '' : 's'
-                  }`}
-                />
-                {environmentsForExperiment.map(name => (
-                  <Chip
-                    key={name}
-                    size="small"
-                    color="success"
-                    label={`environment: ${name}`}
-                    onDelete={() => handleUnbindEnvironment(name)}
-                  />
-                ))}
-              </Stack>
-            </Box>
-            <Stack direction="row" spacing={1}>
-              <Tooltip
-                title={
-                  isShared
-                    ? 'Make this experiment private — fails if an environment points at it'
-                    : 'Share with the project so it can be promoted to an environment'
-                }
+      <Box sx={{ flexGrow: 1, pt: 3 }}>
+        <Grid container spacing={3}>
+          <Grid size={12}>
+            {tab === -1 && (
+              <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
+              {/* Action Buttons */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 2,
+                  mb: 3,
+                  alignItems: 'center',
+                }}
               >
-                <Button
-                  startIcon={isShared ? <PublicOffIcon /> : <PublicIcon />}
-                  onClick={handleVisibilityToggle}
-                  variant="outlined"
+                <Tooltip
+                  title={
+                    isShared
+                      ? 'Promote a version to a project environment'
+                      : 'Share the experiment first to promote it to an environment'
+                  }
                 >
-                  {isShared ? 'Make private' : 'Share'}
-                </Button>
-              </Tooltip>
-              <Tooltip
-                title={
-                  isShared
-                    ? 'Promote a version to a project environment'
-                    : 'Share the experiment first to promote it to an environment'
-                }
-              >
-                <span>
+                  <span>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<PromoteIcon />}
+                      onClick={() => handlePromote()}
+                      disabled={
+                        !isShared || experiment.versions.length === 0
+                      }
+                    >
+                      Promote
+                    </Button>
+                  </span>
+                </Tooltip>
+                <Tooltip
+                  title={
+                    isShared
+                      ? 'Make this experiment private — fails if an environment points at it'
+                      : 'Share with the project so it can be promoted to an environment'
+                  }
+                >
                   <Button
-                    startIcon={<PromoteIcon />}
-                    onClick={() => handlePromote()}
-                    variant="contained"
-                    disabled={!isShared || experiment.versions.length === 0}
+                    variant="outlined"
+                    startIcon={isShared ? <PublicOffIcon /> : <PublicIcon />}
+                    onClick={() => handleVisibilityToggle()}
                   >
-                    Promote
+                    {isShared ? 'Make Private' : 'Share'}
                   </Button>
-                </span>
-              </Tooltip>
-              <Tooltip title="Delete experiment">
-                <IconButton onClick={handleDelete} color="error">
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          </Stack>
-        </Paper>
+                </Tooltip>
+                <Box sx={{ flex: 1 }} />
+                <Tooltip title="Delete experiment">
+                  <Button
+                    variant="text"
+                    onClick={handleDeleteRequest}
+                    aria-label="Delete experiment"
+                    sx={{
+                      minWidth: 'auto',
+                      px: 1,
+                      color: 'text.secondary',
+                    }}
+                  >
+                    <DeleteIcon />
+                  </Button>
+                </Tooltip>
+              </Box>
 
-        <Paper variant="outlined">
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs
-              value={tab}
-              onChange={(_, v) => setTab(v)}
-              aria-label="experiment sections"
-            >
-              <Tab label="Edit values" />
-              <Tab
-                label={`Version history (${experiment.versions.length})`}
-              />
-            </Tabs>
-          </Box>
+              {/* Experiment Details */}
+              <Box sx={{ mb: 3, position: 'relative' }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Experiment Details
+                </Typography>
 
-          <TabPanel value={tab} index={0}>
-            <Stack spacing={2}>
-              {schema.fields.length === 0 ? (
-                <Alert severity="info">
-                  This project has no parameter schema yet. Define one
-                  on the project page before saving experiment values.
-                </Alert>
-              ) : (
-                <>
-                  <Stack spacing={2}>
-                    {schema.fields.map(field => (
-                      <TypedValueEditor
-                        key={field.name}
-                        field={field}
-                        value={draft[field.name] ?? null}
-                        onChange={value =>
-                          updateDraft(field.name, value)
-                        }
-                      />
-                    ))}
-                  </Stack>
-                  <Divider />
+                {/* Name Field */}
+                <Typography
+                  variant="subtitle1"
+                  sx={{ mb: 1, fontWeight: 'medium' }}
+                >
+                  Name
+                </Typography>
+                {editingName ? (
+                  <TextField
+                    fullWidth
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSaveName();
+                      }
+                    }}
+                    sx={{ mb: 2 }}
+                    autoFocus
+                    disabled={isUpdatingDetails}
+                  />
+                ) : (
+                  <Box sx={{ position: 'relative', mb: 3 }}>
+                    <Typography
+                      component="pre"
+                      variant="body2"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'monospace',
+                        bgcolor: 'action.hover',
+                        color: 'text.primary',
+                        borderRadius: theme =>
+                          theme.shape.borderRadius * 0.25,
+                        padding: 1,
+                        paddingRight: theme => theme.spacing(10),
+                        wordBreak: 'break-word',
+                        minHeight: 'calc(2 * 1.4375em + 2 * 8px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {experiment.name}
+                    </Typography>
+                    <Button
+                      startIcon={<EditIcon />}
+                      onClick={handleStartEditName}
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        zIndex: 1,
+                        backgroundColor: theme =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(0, 0, 0, 0.6)'
+                            : 'rgba(255, 255, 255, 0.8)',
+                        '&:hover': {
+                          backgroundColor: theme =>
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(0, 0, 0, 0.8)'
+                              : 'rgba(255, 255, 255, 0.9)',
+                        },
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </Box>
+                )}
+                {editingName && (
                   <Box
                     sx={{
                       display: 'flex',
-                      gap: 2,
-                      alignItems: 'flex-end',
+                      justifyContent: 'flex-end',
+                      gap: 1,
+                      mb: 3,
                     }}
                   >
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Saving with identical values is a no-op (the
-                        server returns the existing version). Use the
-                        message field to label what changed.
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<CancelIcon />}
+                      onClick={handleCancelEditName}
+                      disabled={isUpdatingDetails}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      startIcon={<CheckIcon />}
+                      onClick={handleSaveName}
+                      disabled={isUpdatingDetails || !editName.trim()}
+                    >
+                      Confirm
+                    </Button>
+                  </Box>
+                )}
+
+                {/* Description Field */}
+                <Typography
+                  variant="subtitle1"
+                  sx={{ mb: 1, fontWeight: 'medium' }}
+                >
+                  Description
+                </Typography>
+                {editingDescription ? (
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={4}
+                    value={editDescription}
+                    onChange={e => setEditDescription(e.target.value)}
+                    sx={{ mb: 1 }}
+                    autoFocus
+                    disabled={isUpdatingDetails}
+                  />
+                ) : (
+                  <Box sx={{ position: 'relative' }}>
+                    <Typography
+                      component="pre"
+                      variant="body2"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        fontFamily: 'monospace',
+                        bgcolor: 'action.hover',
+                        color: 'text.primary',
+                        borderRadius: theme =>
+                          theme.shape.borderRadius * 0.25,
+                        padding: 1,
+                        minHeight: 'calc(4 * 1.4375em + 2 * 8px)',
+                        paddingRight: theme => theme.spacing(10),
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {experiment.description || ' '}
+                    </Typography>
+                    <Button
+                      startIcon={<EditIcon />}
+                      onClick={handleStartEditDescription}
+                      sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        zIndex: 1,
+                        backgroundColor: theme =>
+                          theme.palette.mode === 'dark'
+                            ? 'rgba(0, 0, 0, 0.6)'
+                            : 'rgba(255, 255, 255, 0.8)',
+                        '&:hover': {
+                          backgroundColor: theme =>
+                            theme.palette.mode === 'dark'
+                              ? 'rgba(0, 0, 0, 0.8)'
+                              : 'rgba(255, 255, 255, 0.9)',
+                        },
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+
+              {editingDescription && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: 1,
+                    mb: 3,
+                  }}
+                >
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<CancelIcon />}
+                    onClick={handleCancelEditDescription}
+                    disabled={isUpdatingDetails}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<CheckIcon />}
+                    onClick={handleSaveDescription}
+                    disabled={isUpdatingDetails}
+                  >
+                    Confirm
+                  </Button>
+                </Box>
+              )}
+
+              {/* Visibility */}
+              <Box sx={{ mb: 3 }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ mb: 1, fontWeight: 'medium' }}
+                >
+                  Visibility
+                </Typography>
+                <Chip
+                  label={experiment.visibility}
+                  color={isShared ? 'primary' : 'default'}
+                  variant="outlined"
+                  size="medium"
+                  sx={{ fontWeight: 'medium' }}
+                />
+              </Box>
+
+              {/* Active Environments */}
+              {environmentsForExperiment.length > 0 && (
+                <Box sx={{ mb: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ mb: 1, fontWeight: 'medium' }}
+                  >
+                    Active Environments
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {environmentsForExperiment.map(name => (
+                      <Chip
+                        key={name}
+                        color="success"
+                        variant="outlined"
+                        size="medium"
+                        label={name}
+                        onDelete={() => handleUnbindEnvironment(name)}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+              </Paper>
+            )}
+
+            {/* Experiment tabs -- mirrors the project detail page
+                tab control so this and ``LatestResultsPanel`` below it
+                share the same outlined-Paper-plus-description-hint look. */}
+            <Paper variant="outlined" sx={{ mb: 4 }}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs
+                  value={tab}
+                  onChange={(_, v) => setTab(v)}
+                  aria-label="experiment sections"
+                >
+                  {EXPERIMENT_TABS.map(t => (
+                    <Tab key={t.label} label={t.label} />
+                  ))}
+                </Tabs>
+              </Box>
+
+              <TabPanel value={tab} index={2}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  {EXPERIMENT_TABS[2].description}
+                </Typography>
+                <Paper elevation={2} sx={{ p: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      mb: 2,
+                    }}
+                  >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                      Details
+                    </Typography>
+                    <Tooltip title="Delete experiment">
+                      <Button
+                        variant="text"
+                        color="error"
+                        onClick={handleDeleteRequest}
+                        aria-label="Delete experiment"
+                        sx={{ minWidth: 'auto', px: 1 }}
+                      >
+                        <DeleteIcon />
+                      </Button>
+                    </Tooltip>
+                  </Box>
+                  <Stack spacing={2}>
+                    <TextField
+                      label="Name"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
+                      size="small"
+                      fullWidth
+                      disabled={isUpdatingDetails}
+                      error={!editName.trim()}
+                      helperText={!editName.trim() ? 'Name is required' : undefined}
+                    />
+                    <TextField
+                      label="Description"
+                      value={editDescription}
+                      onChange={e => setEditDescription(e.target.value)}
+                      size="small"
+                      fullWidth
+                      multiline
+                      minRows={3}
+                      disabled={isUpdatingDetails}
+                    />
+                  </Stack>
+
+                  <Box sx={{ mb: 3, mt: 3 }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ mb: 1, fontWeight: 'medium' }}
+                    >
+                      Project
+                    </Typography>
+                    <Button
+                      component={Link}
+                      href={`/projects/${experiment.project_id}?tab=parameters`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="small"
+                      sx={{
+                        borderRadius: theme => theme.shape.borderRadius,
+                        backgroundColor: 'background.paper',
+                        color: 'text.secondary',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        px: 2,
+                        py: 0.5,
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                          color: 'text.primary',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                      endIcon={<ArrowOutwardIcon fontSize="small" />}
+                    >
+                      {experiment.project?.name ?? experiment.project_id}
+                    </Button>
+                  </Box>
+
+                  <Box sx={{ mb: 3, mt: 3 }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ mb: 1, fontWeight: 'medium' }}
+                    >
+                      Visibility
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={experiment.visibility}
+                      exclusive
+                      size="small"
+                      onChange={(_, value: ExperimentVisibility | null) => {
+                        if (value) {
+                          handleVisibilityToggle(value);
+                        }
+                      }}
+                      aria-label="experiment visibility"
+                      sx={{
+                        '& .MuiToggleButton-root': {
+                          px: 2,
+                          py: 0.5,
+                          gap: 0.75,
+                          textTransform: 'none',
+                          fontWeight: 500,
+                        },
+                        '& .MuiToggleButton-root.Mui-selected': {
+                          bgcolor: 'primary.main',
+                          color: 'primary.contrastText',
+                          '&:hover': {
+                            bgcolor: 'primary.dark',
+                          },
+                        },
+                      }}
+                    >
+                      <ToggleButton value="private" aria-label="Private">
+                        <PublicOffIcon fontSize="small" />
+                        Private
+                      </ToggleButton>
+                      <ToggleButton value="shared" aria-label="Shared">
+                        <PublicIcon fontSize="small" />
+                        Shared
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+
+                  {environmentsForExperiment.length > 0 && (
+                    <Box>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{ mb: 1, fontWeight: 'medium' }}
+                      >
+                        Active Environments
                       </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {environmentsForExperiment.map(name => (
+                          <Chip
+                            key={name}
+                            color="success"
+                            variant="outlined"
+                            size="medium"
+                            label={name}
+                            onDelete={() => handleUnbindEnvironment(name)}
+                          />
+                        ))}
+                      </Box>
                     </Box>
+                  )}
+                  <Divider sx={{ my: 3 }} />
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 1,
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                    }}
+                  >
+                    {detailsDirty && (
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        startIcon={<CancelIcon />}
+                        onClick={handleDiscardDetails}
+                        disabled={isUpdatingDetails}
+                      >
+                        Discard
+                      </Button>
+                    )}
                     <Button
                       variant="contained"
                       startIcon={<SaveIcon />}
-                      onClick={handleSaveVersion}
-                      disabled={saving || schema.fields.length === 0}
+                      onClick={handleSaveDetails}
+                      disabled={
+                        !detailsDirty ||
+                        isUpdatingDetails ||
+                        !editName.trim()
+                      }
                     >
-                      {saving ? 'Saving...' : 'Save as new version'}
+                      {isUpdatingDetails ? 'Saving...' : 'Save changes'}
                     </Button>
                   </Box>
-                </>
-              )}
-            </Stack>
-          </TabPanel>
+                </Paper>
+              </TabPanel>
 
-          <TabPanel value={tab} index={1}>
-            <VersionHistory
-              versions={experiment.versions}
-              schema={schema}
-              projectEnvironments={environments}
+              <TabPanel value={tab} index={0}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  {EXPERIMENT_TABS[0].description}
+                </Typography>
+                <Paper elevation={2} sx={{ p: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      mb: 2,
+                    }}
+                  >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                      Define values
+                    </Typography>
+                    <Button
+                      component={Link}
+                      href={`/projects/${experiment.project_id}?tab=parameters`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="small"
+                      sx={{
+                        borderRadius: theme => theme.shape.borderRadius,
+                        backgroundColor: 'background.paper',
+                        color: 'text.secondary',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        px: 2,
+                        py: 0.5,
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                          color: 'text.primary',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                      endIcon={<ArrowOutwardIcon fontSize="small" />}
+                    >
+                      {experiment.project?.name ?? experiment.project_id}
+                    </Button>
+                  </Box>
+                  <Stack spacing={2}>
+                    {schema.fields.length === 0 ? (
+                      <Alert severity="info">
+                        This project has no parameter schema yet. Define one
+                        on the project page before saving experiment values.
+                      </Alert>
+                    ) : (
+                      <>
+                        <Stack spacing={2}>
+                          {schema.fields.map(field => (
+                            <TypedValueEditor
+                              key={field.name}
+                              field={field}
+                              value={draft[field.name] ?? null}
+                              onChange={value =>
+                                updateDraft(field.name, value)
+                              }
+                            />
+                          ))}
+                        </Stack>
+                        <Divider />
+                        <Box>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              gap: 2,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <TextField
+                              label="Message (optional)"
+                              placeholder="Describe what changed, e.g. 'bumped temperature to 1.4'"
+                              value={message}
+                              onChange={e => setMessage(e.target.value)}
+                              size="small"
+                              fullWidth
+                              disabled={saving}
+                              sx={{ flex: 1 }}
+                            />
+                            <Button
+                              variant="contained"
+                              startIcon={<SaveIcon />}
+                              onClick={handleSaveVersion}
+                              disabled={saving || schema.fields.length === 0}
+                            >
+                              {saving ? 'Saving...' : 'Save'}
+                            </Button>
+                          </Box>
+                          <FormHelperText>
+                            Saving identical values is a no-op; the server
+                            returns the existing version.
+                          </FormHelperText>
+                        </Box>
+                      </>
+                    )}
+                  </Stack>
+                </Paper>
+              </TabPanel>
+
+              <TabPanel value={tab} index={1}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  {EXPERIMENT_TABS[1].description}
+                </Typography>
+                <ProjectParameters
+                  projectId={experiment.project_id}
+                  sessionToken={sessionToken}
+                  title="Define schema"
+                  headerAction={
+                    <Button
+                      component={Link}
+                      href={`/projects/${experiment.project_id}?tab=parameters`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      size="small"
+                      sx={{
+                        borderRadius: theme => theme.shape.borderRadius,
+                        backgroundColor: 'background.paper',
+                        color: 'text.secondary',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        px: 2,
+                        py: 0.5,
+                        '&:hover': {
+                          backgroundColor: 'action.hover',
+                          color: 'text.primary',
+                          borderColor: 'primary.main',
+                        },
+                      }}
+                      endIcon={<ArrowOutwardIcon fontSize="small" />}
+                    >
+                      {experiment.project?.name ?? experiment.project_id}
+                    </Button>
+                  }
+                />
+              </TabPanel>
+
+            </Paper>
+
+            <LatestResultsPanel
               experimentId={experiment.id}
-              canPromote={isShared}
-              onPromoteVersion={version => handlePromote(version)}
+              sessionToken={sessionToken}
+              renderVersionHistory={outcomes => (
+                <VersionHistory
+                  versions={experiment.versions}
+                  schema={schema}
+                  projectEnvironments={environments}
+                  experimentId={experiment.id}
+                  canPromote={isShared}
+                  onPromoteVersion={version => handlePromote(version)}
+                  outcomes={outcomes}
+                />
+              )}
             />
-          </TabPanel>
-        </Paper>
-      </Stack>
-
-      <LatestResultsPanel
-        experimentId={experiment.id}
-        sessionToken={sessionToken}
-      />
+          </Grid>
+        </Grid>
+      </Box>
 
       {experiment && environments && (
         <PromoteEnvironmentDialog
@@ -627,10 +1225,40 @@ export default function ExperimentDetailClient({
           defaultEnvironment={promotePrefill.environment}
           onPromoted={async () => {
             setPromoteOpen(false);
-            await refresh();
+            await refresh({ silent: true });
           }}
         />
       )}
+
+      <DeleteModal
+        open={deleteOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        title="Delete Experiment"
+        itemType="experiment"
+        itemName={experiment.name}
+        message={
+          <>
+            Are you sure you want to delete the experiment &quot;
+            {experiment.name}&quot;? All {experiment.versions_count} version
+            {experiment.versions_count === 1 ? '' : 's'} will be removed.
+            Existing test runs that used this experiment are kept; their
+            parameter snapshots remain intact.
+          </>
+        }
+        warningMessage={
+          environmentsForExperiment.length > 0
+            ? `This experiment is currently promoted to ${
+                environmentsForExperiment.length === 1
+                  ? 'environment'
+                  : 'environments'
+              } ${environmentsForExperiment.join(', ')}. ${
+                environmentsForExperiment.length === 1 ? 'It' : 'They'
+              } will be unbound as part of the delete.`
+            : undefined
+        }
+      />
     </PageContainer>
   );
 }

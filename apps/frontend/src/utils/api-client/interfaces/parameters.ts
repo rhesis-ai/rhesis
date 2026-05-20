@@ -12,6 +12,7 @@
  */
 
 import { UUID } from 'crypto';
+import { TestConfigurationDetail } from './test-configuration';
 
 /** Closed set of supported parameter types. Mirrors the backend literal. */
 export type ParameterType =
@@ -107,12 +108,18 @@ export interface ExperimentVersion {
 
 export type ExperimentVisibility = 'private' | 'shared';
 
+export interface ExperimentProject {
+  id: string;
+  name: string;
+}
+
 /** Compact list / single shape — omits the inline ``versions`` array. */
 export interface ExperimentRead {
   id: string;
   project_id: string;
   owner_user_id: string;
   organization_id?: string | null;
+  project?: ExperimentProject | null;
   project_name?: string | null;
   name: string;
   description?: string | null;
@@ -260,11 +267,31 @@ export function shortVersion(version: string | null | undefined): string {
   return version.slice(0, 8);
 }
 
+/**
+ * Per-run counts aggregated server-side from ``test_result.status``.
+ *
+ * Mirrors the breakdown shown on the test run detail page (Pass / Fail
+ * / Error). ``total`` is the sum of all three plus any unclassified
+ * statuses — use it as the denominator for a pass rate.
+ *
+ * Prefer these over ``attributes.passed_tests`` / ``failed_tests``:
+ * those are best-effort counters written during execution and don't
+ * reflect later metric or turn-override recalculations.
+ */
+export interface ExperimentRunStats {
+  total: number;
+  passed: number;
+  failed: number;
+  errors: number;
+}
+
 export interface ExperimentResultsRunItem {
   id: string;
   name?: string;
   created_at?: string;
   attributes?: Record<string, any>;
+  test_configuration?: TestConfigurationDetail;
+  stats?: ExperimentRunStats;
   experiment_summary?: {
     id: string;
     name: string;

@@ -328,7 +328,6 @@ export function ParametersSaveBar({
         display: 'flex',
         justifyContent: 'flex-end',
         gap: 1,
-        mb: 2,
       }}
     >
       {isDirty && (

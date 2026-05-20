@@ -431,12 +431,12 @@ export default function TestRunHeader({
                     >
                       Experiment:
                     </Typography>
-                    {typeof testRun.attributes.parameter_version ===
+                    {typeof testRun.attributes?.parameter_version ===
                       'string' && (
                       <Chip
                         label={shortVersion(
                           testRun.attributes
-                            .parameter_version as string
+                            ?.parameter_version as string
                         )}
                         size="small"
                         variant="outlined"

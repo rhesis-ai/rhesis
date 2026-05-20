@@ -17,7 +17,11 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
+import RemoveIcon from '@mui/icons-material/Remove';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import {
   ExperimentVersion,
   ParameterSchema,
@@ -35,6 +39,13 @@ interface VersionHistoryProps {
   experimentId: string;
   canPromote: boolean;
   onPromoteVersion: (version: string) => void;
+  outcomes?: Record<string, VersionOutcomeSummary>;
+}
+
+export interface VersionOutcomeSummary {
+  runCount: number;
+  passRate: number | null;
+  delta: number | null;
 }
 
 interface DiffEntry {
@@ -79,7 +90,9 @@ export default function VersionHistory({
   experimentId,
   canPromote,
   onPromoteVersion,
+  outcomes = {},
 }: VersionHistoryProps) {
+  const theme = useTheme();
   const environmentsByVersion = React.useMemo(() => {
     const map = new Map<string, string[]>();
     if (!projectEnvironments) return map;
@@ -110,12 +123,28 @@ export default function VersionHistory({
     <Stack spacing={1}>
       {ordered.map((version, idxFromTop) => {
         const idxFromBottom = versions.length - 1 - idxFromTop;
-        const previous = idxFromBottom > 0 ? versions[idxFromBottom - 1] : undefined;
+        const previous =
+          idxFromBottom > 0 ? versions[idxFromBottom - 1] : undefined;
         const diff = diffVersions(previous, version);
         const envNames = environmentsByVersion.get(version.version) ?? [];
+        const outcome = outcomes[version.version];
+        const delta = outcome?.delta ?? null;
+        const isImproved = delta !== null && delta > 0;
+        const isRegressed = delta !== null && delta < 0;
+        const isUnchanged = delta !== null && delta === 0;
+        const deltaColor = isImproved
+          ? theme.palette.success.main
+          : isRegressed
+            ? theme.palette.error.main
+            : theme.palette.text.secondary;
+        const DeltaIcon = isImproved
+          ? TrendingUpIcon
+          : isRegressed
+            ? TrendingDownIcon
+            : RemoveIcon;
 
         return (
-          <Accordion key={version.version} defaultExpanded={idxFromTop === 0}>
+          <Accordion key={version.version}>
             <AccordionSummary>
               <Stack
                 direction="row"
@@ -151,6 +180,49 @@ export default function VersionHistory({
                     label={name}
                   />
                 ))}
+                {outcome && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      {outcome.runCount} run
+                      {outcome.runCount === 1 ? '' : 's'}
+                      {' • '}Pass rate:
+                    </Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {outcome.passRate !== null
+                        ? `${outcome.passRate.toFixed(1)}%`
+                        : 'N/A'}
+                    </Typography>
+                    {delta !== null && (
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.25,
+                        }}
+                      >
+                        <DeltaIcon
+                          fontSize="small"
+                          sx={{ color: deltaColor }}
+                        />
+                        <Typography
+                          variant="caption"
+                          sx={{ color: deltaColor, fontWeight: 500 }}
+                        >
+                          {isUnchanged
+                            ? '0.0%'
+                            : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                )}
                 <Tooltip
                   title={
                     canPromote

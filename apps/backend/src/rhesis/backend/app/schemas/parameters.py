@@ -644,6 +644,15 @@ class ExperimentUpdate(BaseModel):
     visibility: Literal["private", "shared"] | None = None
 
 
+class ExperimentProject(BaseModel):
+    """Compact project reference returned inline with experiments."""
+
+    model_config = ConfigDict(extra="ignore", from_attributes=True)
+
+    id: UUID4
+    name: str
+
+
 class ExperimentRead(ExperimentBase):
     """Response body for experiment endpoints (single + list).
 
@@ -660,6 +669,7 @@ class ExperimentRead(ExperimentBase):
     project_id: UUID4
     owner_user_id: UUID4
     organization_id: UUID4 | None = None
+    project: ExperimentProject | None = None
     project_name: str | None = None
     versions_count: int = 0
     latest_version: str | None = None

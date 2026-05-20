@@ -38,6 +38,7 @@ from rhesis.backend.app.schemas.parameters import (
     EnvironmentPointer,
     ExperimentDetail,
     ExperimentRead,
+    ExperimentProject,
     ExperimentSummary,
     ExperimentVersion,
     ParameterSchema,
@@ -787,9 +788,14 @@ def connector_execute_extras_from_run_attributes(
 def to_read(db_experiment: Experiment) -> ExperimentRead:
     """Convert a DB experiment row to the compact list/read shape."""
     last = latest_version(db_experiment)
+    project: ExperimentProject | None = None
     project_name: str | None = None
     try:
         if db_experiment.project is not None:
+            project = ExperimentProject(
+                id=db_experiment.project.id,
+                name=db_experiment.project.name,
+            )
             project_name = db_experiment.project.name
     except Exception:
         pass
@@ -801,6 +807,7 @@ def to_read(db_experiment: Experiment) -> ExperimentRead:
         project_id=db_experiment.project_id,
         owner_user_id=db_experiment.owner_user_id,
         organization_id=db_experiment.organization_id,
+        project=project,
         project_name=project_name,
         versions_count=len(db_experiment.versions or []),
         latest_version=last.version if last else None,
@@ -816,6 +823,17 @@ def to_detail(db_experiment: Experiment) -> ExperimentDetail:
         for v in (db_experiment.versions or [])
     ]
     last = versions[-1] if versions else None
+    project: ExperimentProject | None = None
+    project_name: str | None = None
+    try:
+        if db_experiment.project is not None:
+            project = ExperimentProject(
+                id=db_experiment.project.id,
+                name=db_experiment.project.name,
+            )
+            project_name = db_experiment.project.name
+    except Exception:
+        pass
     return ExperimentDetail(
         id=db_experiment.id,
         name=db_experiment.name,
@@ -824,6 +842,8 @@ def to_detail(db_experiment: Experiment) -> ExperimentDetail:
         project_id=db_experiment.project_id,
         owner_user_id=db_experiment.owner_user_id,
         organization_id=db_experiment.organization_id,
+        project=project,
+        project_name=project_name,
         versions_count=len(versions),
         latest_version=last.version if last else None,
         created_at=db_experiment.created_at,

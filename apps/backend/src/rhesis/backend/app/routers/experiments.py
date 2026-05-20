@@ -38,10 +38,12 @@ from rhesis.backend.app.services.experiment import (
     append_version,
     assert_no_active_environments,
     coerce_schema,
+    environments_pointing_at_experiment,
     find_version,
     get_visible_experiment,
     to_detail,
     to_read,
+    unbind_environment,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
 
@@ -61,9 +63,7 @@ def list_experiments(
     limit: int = 50,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-    filter: str | None = Query(
-        None, alias="$filter", description="OData filter expression"
-    ),
+    filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -92,8 +92,6 @@ def list_experiments(
         or (user_id is not None and str(r.owner_user_id) == str(user_id))
     ]
     return [to_read(r) for r in visible]
-
-
 
 
 @router.get("/{experiment_id}", response_model=ExperimentDetail)
@@ -175,14 +173,26 @@ def update_experiment(
 @router.delete("/{experiment_id}", response_model=ExperimentRead)
 def delete_experiment(
     experiment_id: uuid.UUID,
+    cascade_environments: bool = Query(
+        False,
+        description=(
+            "If true, unbind any project environments pointing at this experiment"
+            " before deleting it. If false (default), the call is refused with 409"
+            " when bindings exist."
+        ),
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> ExperimentRead:
-    """Soft-delete an experiment. Refused if any environment still points at it.
+    """Soft-delete an experiment.
 
-    Same 409-then-move-the-environment-first dance as ``PATCH visibility``;
-    same rationale.
+    By default the call is refused with 409 if any project environment
+    still points at it (matching ``PATCH visibility``'s
+    "move-the-environment-first" dance). Pass ``cascade_environments=true``
+    to have the server unbind those environments first; the UI delete
+    flow uses this so users don't have to manually unbind before
+    deleting an experiment that was promoted.
     """
     organization_id, user_id = tenant_context
     db_experiment = get_visible_experiment(
@@ -199,7 +209,14 @@ def delete_experiment(
         user_id=user_id,
     )
     if project is not None:
-        assert_no_active_environments(project, db_experiment.id, action="delete")
+        if cascade_environments:
+            # Unbind every environment currently pointing at this experiment
+            # so the subsequent delete doesn't violate the
+            # "environments point only at live experiments" invariant.
+            for env_name in environments_pointing_at_experiment(project, db_experiment.id):
+                unbind_environment(db, project=project, environment_name=env_name)
+        else:
+            assert_no_active_environments(project, db_experiment.id, action="delete")
 
     snapshot = to_read(db_experiment)
     crud.delete_item(
@@ -282,9 +299,7 @@ def create_experiment_version(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
-    response.status_code = (
-        status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
-    )
+    response.status_code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
     return result.version
 
 
@@ -366,8 +381,30 @@ def get_experiment_results(
         user_id=user_id,
     )
 
+    # Real per-run counts, aggregated from test_result.status. Avoids the
+    # stale/incomplete ``attributes.passed_tests`` / ``failed_tests``
+    # counters that get written during execution and don't reflect later
+    # metric- or turn-override recalculations.
+    from rhesis.backend.tasks.execution.result_processor import (
+        get_test_statistics_for_runs,
+    )
+
+    run_stats = get_test_statistics_for_runs(
+        db,
+        [run.id for run in runs],
+        organization_id=organization_id,
+    )
+
+    def _with_stats(run) -> dict:
+        encoded = jsonable_encoder(run)
+        encoded["stats"] = run_stats.get(
+            str(run.id),
+            {"total": 0, "passed": 0, "failed": 0, "errors": 0},
+        )
+        return encoded
+
     if group_by == "run":
-        return {"items": jsonable_encoder(runs)}
+        return {"items": [_with_stats(r) for r in runs]}
 
     # Version-grouped response with diffs
     version_groups: dict[str, dict] = {}
@@ -377,17 +414,17 @@ def get_experiment_results(
             continue
         if v not in version_groups:
             version_groups[v] = {
-                "version": v, "runs": [], "total_tests": 0, "diff": {},
+                "version": v,
+                "runs": [],
+                "total_tests": 0,
+                "diff": {},
             }
-        version_groups[v]["runs"].append(jsonable_encoder(run))
-        version_groups[v]["total_tests"] += (
-            (run.attributes or {}).get("total_tests", 0)
-        )
+        version_groups[v]["runs"].append(_with_stats(run))
+        version_groups[v]["total_tests"] += run_stats.get(str(run.id), {}).get("total", 0)
 
     # Walk versions newest-first, compute diffs against parent
     versions_in_order = [
-        v.version if isinstance(v, ExperimentVersion)
-        else v.get("version")
+        v.version if isinstance(v, ExperimentVersion) else v.get("version")
         for v in (db_experiment.versions or [])
     ]
 

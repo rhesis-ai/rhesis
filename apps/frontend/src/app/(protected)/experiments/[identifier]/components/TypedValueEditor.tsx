@@ -3,13 +3,13 @@
 import * as React from 'react';
 import {
   Box,
-  Checkbox,
   FormControl,
   FormControlLabel,
   InputLabel,
   MenuItem,
   Select,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material';
@@ -115,18 +115,30 @@ export default function TypedValueEditor({
     case 'boolean': {
       const current =
         value && value.type === 'boolean' ? value.value : false;
+      // Mirrors the toggle pattern used by ``DefaultValueEditor`` so the
+      // boolean affordance is consistent across schema defaults and
+      // experiment value editing.
       return (
         <Stack>
           <FormControlLabel
             control={
-              <Checkbox
+              <Switch
                 checked={current}
                 onChange={e =>
                   onChange({ type: 'boolean', value: e.target.checked })
                 }
               />
             }
-            label={label}
+            label={
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="body2" color="text.secondary">
+                  {label}
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {current ? 'True' : 'False'}
+                </Typography>
+              </Stack>
+            }
           />
           {helper && (
             <Typography variant="caption" color="text.secondary">
