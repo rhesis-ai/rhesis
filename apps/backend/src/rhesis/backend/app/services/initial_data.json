@@ -724,7 +724,10 @@
                     {
                         "name": "use_case",
                         "type": "enum",
-                        "default": "insurance",
+                        "default": {
+                            "type": "enum",
+                            "value": "insurance"
+                        },
                         "options": [
                             "baufinanzierung",
                             "echo",
@@ -739,23 +742,35 @@
                     {
                         "name": "model",
                         "type": "string",
-                        "default": "rhesis/rhesis-default",
+                        "default": {
+                            "type": "string",
+                            "value": "rhesis/rhesis-default"
+                        },
                         "description": "LLM provider string (e.g. vertex_ai/gemini-2.0-flash)"
                     },
                     {
                         "name": "temperature",
                         "type": "number",
-                        "default": 0.7
+                        "default": {
+                            "type": "number",
+                            "value": 0.7
+                        }
                     },
                     {
                         "name": "max_tokens",
                         "type": "integer",
-                        "default": 1024
+                        "default": {
+                            "type": "integer",
+                            "value": 1024
+                        }
                     },
                     {
                         "name": "output_mode",
                         "type": "enum",
-                        "default": "text",
+                        "default": {
+                            "type": "enum",
+                            "value": "text"
+                        },
                         "options": [
                             "text",
                             "json"
@@ -764,7 +779,10 @@
                     {
                         "name": "context_strategy",
                         "type": "enum",
-                        "default": "heuristic",
+                        "default": {
+                            "type": "enum",
+                            "value": "heuristic"
+                        },
                         "options": [
                             "heuristic",
                             "rag",
