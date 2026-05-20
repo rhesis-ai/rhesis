@@ -20,6 +20,7 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import type { SelectChangeEvent } from '@mui/material/Select';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
@@ -34,6 +35,7 @@ import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import {
   buildEmbeddingChartColorConfig,
   EMBEDDING_COLOR_BY_OPTIONS,
+  getEmbeddingChartColors,
   type EmbeddingColorBy,
 } from '@/utils/embedding/embeddingColorBy';
 import TestSetTestsGrid from './TestSetTestsGrid';
@@ -72,6 +74,7 @@ export default function EmbeddingTestsPanel({
   sessionToken,
   testSetType,
 }: EmbeddingTestsPanelProps) {
+  const theme = useTheme();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(LIST_TAB);
   const clustersActive = activeTab === CLUSTERS_TAB;
@@ -146,10 +149,20 @@ export default function EmbeddingTestsPanel({
     };
   }, [clustersActive, sessionToken, testSetId]);
 
+  const embeddingColors = useMemo(
+    () => getEmbeddingChartColors(theme),
+    [theme]
+  );
+
   const colorConfig = useMemo(() => {
     if (!graph || graph.points.length === 0) return null;
-    return buildEmbeddingChartColorConfig(graph, tests, colorBy);
-  }, [graph, tests, colorBy]);
+    return buildEmbeddingChartColorConfig(
+      graph,
+      tests,
+      colorBy,
+      embeddingColors
+    );
+  }, [graph, tests, colorBy, embeddingColors]);
 
   const sortedTests = useMemo(() => {
     if (!graph || graph.points.length === 0) return tests;

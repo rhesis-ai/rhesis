@@ -1,3 +1,4 @@
+import type { Theme } from '@mui/material/styles';
 import type { Scatter2DGraph } from '@/utils/api-client/interfaces/embedding';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import {
@@ -20,33 +21,20 @@ export const EMBEDDING_COLOR_BY_OPTIONS: {
 
 export const UNASSIGNED_COLOR_LABEL = 'Unassigned';
 
-/** Gray for tests missing the selected dimension. */
-export const UNASSIGNED_COLOR = '#9e9e9e';
+export interface EmbeddingChartColors {
+  unassigned: string;
+  other: string;
+  palette: readonly string[];
+}
 
-/** Distinct colors for categorical dimensions (index 1+). */
-export const EMBEDDING_CATEGORY_PALETTE = [
-  '#1976d2',
-  '#2e7d32',
-  '#ed6c02',
-  '#9c27b0',
-  '#d32f2f',
-  '#0288d1',
-  '#558b2f',
-  '#7b1fa2',
-  '#c2185b',
-  '#00838f',
-  '#5d4037',
-  '#455a64',
-  '#f57c00',
-  '#512da8',
-  '#00796b',
-  '#ad1457',
-] as const;
-
-/** Uint8 max; index 0 reserved for unassigned / overflow bucket. */
-const MAX_NAMED_CATEGORIES = 254;
-
-const OTHER_COLOR = '#757575';
+/** Resolve embedding scatter colors from the active MUI theme. */
+export function getEmbeddingChartColors(theme: Theme): EmbeddingChartColors {
+  return {
+    unassigned: theme.palette.grey[500],
+    other: theme.palette.grey[600],
+    palette: theme.chartPalettes.categorical,
+  };
+}
 
 export interface EmbeddingColorLegendEntry {
   label: string;
@@ -62,8 +50,11 @@ export interface EmbeddingChartColorConfig {
   viewMode: 'points' | 'density';
 }
 
-function paletteColor(index: number): string {
-  return EMBEDDING_CATEGORY_PALETTE[index % EMBEDDING_CATEGORY_PALETTE.length];
+/** Uint8 max; index 0 reserved for unassigned / overflow bucket. */
+const MAX_NAMED_CATEGORIES = 254;
+
+function paletteColor(index: number, palette: readonly string[]): string {
+  return palette[index % palette.length];
 }
 
 function getDimensionValue(
@@ -84,7 +75,8 @@ function getDimensionValue(
 }
 
 function buildClusterLegend(
-  graph: Scatter2DGraph
+  graph: Scatter2DGraph,
+  colors: EmbeddingChartColors
 ): EmbeddingColorLegendEntry[] {
   const countByCluster = new Map<number, number>();
   for (const point of graph.points) {
@@ -108,7 +100,7 @@ function buildClusterLegend(
         label:
           cluster?.label ??
           (isNoise ? 'Unclustered' : `Cluster ${clusterIndex}`),
-        color: isNoise ? UNASSIGNED_COLOR : paletteColor(i),
+        color: isNoise ? colors.unassigned : paletteColor(i, colors.palette),
         count: countByCluster.get(clusterIndex) ?? 0,
       };
     })
@@ -117,7 +109,8 @@ function buildClusterLegend(
 
 function buildClusterColorConfig(
   graph: Scatter2DGraph,
-  baseViewData: EmbeddingViewData
+  baseViewData: EmbeddingViewData,
+  colors: EmbeddingChartColors
 ): EmbeddingChartColorConfig {
   const maxCategoryIndex = baseViewData.category.reduce(
     (max, c) => Math.max(max, c),
@@ -129,7 +122,7 @@ function buildClusterColorConfig(
       ...new Set(graph.points.map(p => p.cluster_index)),
     ].sort((a, b) => a - b)[i];
     categoryColors.push(
-      clusterIndex === -1 ? UNASSIGNED_COLOR : paletteColor(i)
+      clusterIndex === -1 ? colors.unassigned : paletteColor(i, colors.palette)
     );
   }
 
@@ -137,7 +130,7 @@ function buildClusterColorConfig(
     category: baseViewData.category,
     categoryColors,
     labels: baseViewData.labels,
-    legend: buildClusterLegend(graph),
+    legend: buildClusterLegend(graph, colors),
     viewMode: 'density',
   };
 }
@@ -145,9 +138,10 @@ function buildClusterColorConfig(
 function buildMetadataColorConfig(
   graph: Scatter2DGraph,
   tests: TestDetail[],
-  colorBy: EmbeddingColorBy
+  colorBy: EmbeddingColorBy,
+  colors: EmbeddingChartColors
 ): EmbeddingChartColorConfig {
-  const testsById = new Map(tests.map(t => [t.id, t]));
+  const testsById = new Map<string, TestDetail>(tests.map(t => [t.id, t]));
   const valueCounts = new Map<string, number>();
 
   for (const point of graph.points) {
@@ -194,12 +188,12 @@ function buildMetadataColorConfig(
   }
 
   const maxIndex = category.reduce((max, c) => Math.max(max, c), 0);
-  const categoryColors: string[] = [UNASSIGNED_COLOR];
+  const categoryColors: string[] = [colors.unassigned];
   for (let i = 1; i <= maxIndex; i++) {
-    categoryColors.push(paletteColor(i - 1));
+    categoryColors.push(paletteColor(i - 1, colors.palette));
   }
   if (otherCount > 0) {
-    categoryColors[otherIndex] = OTHER_COLOR;
+    categoryColors[otherIndex] = colors.other;
   }
 
   const legend: EmbeddingColorLegendEntry[] = [];
@@ -207,21 +201,21 @@ function buildMetadataColorConfig(
   if (unassignedCount > 0) {
     legend.push({
       label: UNASSIGNED_COLOR_LABEL,
-      color: UNASSIGNED_COLOR,
+      color: colors.unassigned,
       count: unassignedCount,
     });
   }
   valuesForIndex.forEach((name, i) => {
     legend.push({
       label: name,
-      color: paletteColor(i),
+      color: paletteColor(i, colors.palette),
       count: valueCounts.get(name) ?? 0,
     });
   });
   if (otherCount > 0) {
     legend.push({
       label: 'Other',
-      color: OTHER_COLOR,
+      color: colors.other,
       count: otherCount,
     });
   }
@@ -238,15 +232,16 @@ function buildMetadataColorConfig(
 export function buildEmbeddingChartColorConfig(
   graph: Scatter2DGraph,
   tests: TestDetail[],
-  colorBy: EmbeddingColorBy
+  colorBy: EmbeddingColorBy,
+  colors: EmbeddingChartColors
 ): EmbeddingChartColorConfig | null {
   const baseViewData = graphToEmbeddingViewData(graph);
   if (!baseViewData) return null;
 
   if (colorBy === 'cluster') {
-    return buildClusterColorConfig(graph, baseViewData);
+    return buildClusterColorConfig(graph, baseViewData, colors);
   }
-  return buildMetadataColorConfig(graph, tests, colorBy);
+  return buildMetadataColorConfig(graph, tests, colorBy, colors);
 }
 
 /** Base coordinates and entity ids — shared across color-by modes. */

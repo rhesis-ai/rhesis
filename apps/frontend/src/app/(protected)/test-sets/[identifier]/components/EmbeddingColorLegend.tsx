@@ -23,7 +23,7 @@ export default function EmbeddingColorLegend({
         maxHeight: 140,
         overflow: 'auto',
         p: 1,
-        borderRadius: 1,
+        borderRadius: theme => theme.shape.borderRadius,
         bgcolor: 'background.paper',
         border: 1,
         borderColor: 'divider',
@@ -42,7 +42,7 @@ export default function EmbeddingColorLegend({
               sx={{
                 width: 10,
                 height: 10,
-                borderRadius: '50%',
+                borderRadius: theme => theme.shape.circular,
                 bgcolor: entry.color,
                 flexShrink: 0,
                 border: 1,

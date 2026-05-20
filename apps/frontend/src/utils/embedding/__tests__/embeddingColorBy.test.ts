@@ -1,9 +1,15 @@
+import type { UUID } from 'crypto';
+import { lightTheme } from '@/styles/theme';
 import {
   buildEmbeddingChartColorConfig,
+  getEmbeddingChartColors,
   UNASSIGNED_COLOR_LABEL,
 } from '../embeddingColorBy';
 import type { Scatter2DGraph } from '@/utils/api-client/interfaces/embedding';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
+
+const uuid = (n: number) =>
+  `00000000-0000-0000-0000-${String(n).padStart(12, '0')}` as UUID;
 
 const sampleGraph: Scatter2DGraph = {
   computed_at: '2026-01-01T00:00:00Z',
@@ -14,7 +20,7 @@ const sampleGraph: Scatter2DGraph = {
   points: [
     {
       embedding_id: 'e1',
-      entity_id: 't1',
+      entity_id: uuid(1),
       entity_type: 'Test',
       cluster_index: 0,
       searchable_text: 'one',
@@ -23,7 +29,7 @@ const sampleGraph: Scatter2DGraph = {
     },
     {
       embedding_id: 'e2',
-      entity_id: 't2',
+      entity_id: uuid(2),
       entity_type: 'Test',
       cluster_index: 0,
       searchable_text: 'two',
@@ -32,7 +38,7 @@ const sampleGraph: Scatter2DGraph = {
     },
     {
       embedding_id: 'e3',
-      entity_id: 't3',
+      entity_id: uuid(3),
       entity_type: 'Test',
       cluster_index: 1,
       searchable_text: 'three',
@@ -44,35 +50,38 @@ const sampleGraph: Scatter2DGraph = {
 
 const sampleTests: TestDetail[] = [
   {
-    id: 't1',
+    id: uuid(1),
     created_at: '',
     updated_at: '',
-    behavior: { id: 'b1', name: 'Helpful' },
-    category: { id: 'c1', name: 'Support' },
-    topic: { id: 'tp1', name: 'Refunds' },
+    behavior: { id: uuid(101), name: 'Helpful' },
+    category: { id: uuid(201), name: 'Support' },
+    topic: { id: uuid(301), name: 'Refunds' },
   },
   {
-    id: 't2',
+    id: uuid(2),
     created_at: '',
     updated_at: '',
-    behavior: { id: 'b1', name: 'Helpful' },
-    category: { id: 'c2', name: 'Billing' },
-    topic: { id: 'tp2', name: 'Invoices' },
+    behavior: { id: uuid(101), name: 'Helpful' },
+    category: { id: uuid(202), name: 'Billing' },
+    topic: { id: uuid(302), name: 'Invoices' },
   },
   {
-    id: 't3',
+    id: uuid(3),
     created_at: '',
     updated_at: '',
-    behavior: { id: 'b2', name: 'Strict' },
+    behavior: { id: uuid(102), name: 'Strict' },
   },
 ];
+
+const embeddingColors = getEmbeddingChartColors(lightTheme);
 
 describe('buildEmbeddingChartColorConfig', () => {
   it('returns cluster labels in cluster mode', () => {
     const config = buildEmbeddingChartColorConfig(
       sampleGraph,
       sampleTests,
-      'cluster'
+      'cluster',
+      embeddingColors
     );
     expect(config).not.toBeNull();
     expect(config?.labels).toHaveLength(2);
@@ -84,7 +93,8 @@ describe('buildEmbeddingChartColorConfig', () => {
     const config = buildEmbeddingChartColorConfig(
       sampleGraph,
       sampleTests,
-      'behavior'
+      'behavior',
+      embeddingColors
     );
     expect(config).not.toBeNull();
     expect(config?.viewMode).toBe('points');
@@ -98,7 +108,8 @@ describe('buildEmbeddingChartColorConfig', () => {
     const config = buildEmbeddingChartColorConfig(
       sampleGraph,
       sampleTests,
-      'category'
+      'category',
+      embeddingColors
     );
     expect(config?.legend.map(l => l.label)).toEqual(
       expect.arrayContaining(['Support', 'Billing'])
@@ -106,12 +117,17 @@ describe('buildEmbeddingChartColorConfig', () => {
   });
 
   it('assigns unassigned when test metadata is missing', () => {
-    const config = buildEmbeddingChartColorConfig(sampleGraph, [], 'topic');
+    const config = buildEmbeddingChartColorConfig(
+      sampleGraph,
+      [],
+      'topic',
+      embeddingColors
+    );
     expect(config?.category.every(c => c === 0)).toBe(true);
     expect(config?.legend).toEqual([
       {
         label: UNASSIGNED_COLOR_LABEL,
-        color: '#9e9e9e',
+        color: embeddingColors.unassigned,
         count: 3,
       },
     ]);
