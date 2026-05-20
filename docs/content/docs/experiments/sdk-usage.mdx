@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components'
+import { CodeBlock } from '@/components/CodeBlock'
 
 # SDK Usage
 
@@ -10,18 +10,28 @@ import { Callout } from 'nextra/components'
 
 Retrieving configuration in your application code should be simple and unobtrusive. In the typical case, fetching parameter values is a single line:
 
-```python
-from rhesis.sdk import Parameters
+<CodeBlock filename="resolve_params.py" language="python">
+{`from rhesis.sdk import Parameters
 
-# Resolves against the 'default' environment
-params = Parameters.get(project="customer-support")
+# Resolves against the 'default' environment (accepts name or UUID)
+params = Parameters.get("Customer Support")
 
-# Use the typed accessors
+# Use dot access — types are resolved automatically from the schema
 response = llm.chat(
-    model=params.get_string("model"), 
-    temperature=params.get_number("temperature")
-)
-```
+    model=params.model, 
+    temperature=params.temperature
+)`}
+</CodeBlock>
+
+You can also start from a `Project` entity:
+
+<CodeBlock filename="from_entity.py" language="python">
+{`from rhesis.sdk.entities import Projects
+
+project = Projects.pull(name="Customer Support")
+params = project.parameters()
+params.model  # "gpt-4o"`}
+</CodeBlock>
 
 Production code typically looks just like this — no wrappers, no fallbacks, no special-casing for tests. Tests "just work" because of the contextvar precedence (covered in [Connector Injection](/docs/experiments/connector-injection)).
 
@@ -29,28 +39,48 @@ Production code typically looks just like this — no wrappers, no fallbacks, no
 
 There are three ways to call `Parameters.get()`, depending on your use case:
 
-1. **By Environment (live config):**
-   ```python
-   # Evaluates the pointer and returns whatever it currently targets
-   params = Parameters.get(project="support", environment="production")
-   ```
+**By Environment (live config):**
 
-2. **By Version (Immutable pin):**
-   ```python
-   # Fetches an exact, immutable snapshot. Useful for deploy-time pinning.
-   params = Parameters.get(project="support", version="v_abc123")
-   ```
+<CodeBlock filename="by_environment.py" language="python">
+{`# Evaluates the pointer and returns whatever it currently targets
+params = Parameters.get("Customer Support", environment="production")`}
+</CodeBlock>
 
-3. **By Experiment ID (Latest draft):**
-   ```python
-   # Fetches the newest version of a specific experiment. 
-   # Useful for staging a candidate before promoting it.
-   params = Parameters.get(project="support", experiment_id="exp_...")
-   ```
+**By Version (Immutable pin):**
 
-## Typed accessors
+<CodeBlock filename="by_version.py" language="python">
+{`# Fetches an exact, immutable snapshot. Useful for deploy-time pinning.
+params = Parameters.get("Customer Support", version="v_abc123")`}
+</CodeBlock>
 
-The `ResolvedParameters` object returned by `Parameters.get()` provides typed accessors for your schema slots:
+**By Experiment ID (Latest draft):**
+
+<CodeBlock filename="by_experiment.py" language="python">
+{`# Fetches the newest version of a specific experiment. 
+# Useful for staging a candidate before promoting it.
+params = Parameters.get("Customer Support", experiment_id="exp_...")`}
+</CodeBlock>
+
+## Accessing values
+
+The `ResolvedParameters` object returned by `Parameters.get()` supports dot access and dictionary access. Values are unwrapped to native Python types automatically based on the schema:
+
+<CodeBlock filename="access.py" language="python">
+{`params = Parameters.get("Customer Support")
+
+# Dot access (recommended)
+params.model          # "gpt-4o"
+params.temperature    # 0.7
+params.system_prompt  # "You are a helpful assistant..."
+
+# Dictionary access
+params["model"]
+params.get("temperature", 0.7)`}
+</CodeBlock>
+
+### Explicit typed accessors
+
+For cases where you want runtime type validation, typed accessors are also available. These raise `TypeError` on a type mismatch:
 
 - `params.get_text("system_prompt")`
 - `params.get_string("model")`
@@ -58,12 +88,10 @@ The `ResolvedParameters` object returned by `Parameters.get()` provides typed ac
 - `params.get_integer("max_tokens")`
 - `params.get_boolean("use_streaming")`
 - `params.get_enum("use_case")`
-- `params.get_model_ref("primary_model")` (Returns a UUID)
-- `params.get_secret_ref("api_key")` (Returns a UUID)
+- `params.get_model_ref("primary_model")`
+- `params.get_secret_ref("api_key")`
 
-These methods return the underlying typed Python value and will raise a `TypeError` on a type mismatch. You can provide a default value as the second argument.
-
-Plain dictionary access (`params["model"]`) and `.get(name)` are also available for ad-hoc reads.
+You can provide a default value as the second argument: `params.get_number("temperature", 0.7)`.
 
 ## Resolution order (Policy)
 
@@ -102,28 +130,28 @@ Failing loudly is the default behavior because silently serving stale configurat
 
 However, if your application requires graceful degradation, you must implement it yourself. The chatbot demo application provides an example of a try/except wrapper that falls back to environment defaults:
 
-```python
-def _resolve_chatbot_params() -> dict:
+<CodeBlock filename="graceful_degradation.py" language="python">
+{`def _resolve_chatbot_params() -> dict:
     try:
-        params = Parameters.get(project="chatbot-demo", environment="default")
+        params = Parameters.get("Chatbot Demo", environment="default")
         return {
-            "model": params.get_string("model"),
-            "temperature": params.get_number("temperature", 0.7),
+            "model": params.model,
+            "temperature": params.get("temperature", 0.7),
         }
     except Exception:
         logger.exception("SDK Parameters.get() failed, using fallbacks")
         return {
             "model": os.getenv("DEFAULT_GENERATION_MODEL"), 
             "temperature": 0.7,
-        }
-```
+        }`}
+</CodeBlock>
 
 ## Authoring experiments programmatically
 
 You can author experiments entirely through the SDK using the `Experiment` entity:
 
-```python
-from rhesis.sdk.entities import Experiment
+<CodeBlock filename="author_experiment.py" language="python">
+{`from rhesis.sdk.entities import Experiment
 
 # 1. Create the empty experiment shell
 exp = Experiment(
@@ -143,5 +171,5 @@ exp.commit(
 exp.share()
 
 # 4. Move an environment to point at the new version (the deploy step)
-exp.promote(environment="default")
-```
+exp.promote(environment="default")`}
+</CodeBlock>

@@ -291,13 +291,7 @@ export default function ExperimentDetailClient({
     setIsDeleting(true);
     try {
       const client = apiFactory.getParametersClient();
-      // ``cascadeEnvironments: true`` lets the backend unbind any
-      // environments currently pointing at this experiment before
-      // deleting it, instead of refusing with 409. The modal warns the
-      // user when this is going to happen.
-      await client.deleteExperiment(experiment.id, {
-        cascadeEnvironments: true,
-      });
+      await client.deleteExperiment(experiment.id);
       notifications.show('Experiment deleted', { severity: 'success' });
       setDeleteOpen(false);
       router.push('/experiments');

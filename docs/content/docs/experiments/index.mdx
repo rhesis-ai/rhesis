@@ -1,4 +1,4 @@
-import { Callout } from 'nextra/components'
+import { CodeBlock } from '@/components/CodeBlock'
 
 # Experiments
 
@@ -27,7 +27,7 @@ flowchart LR
     Promote --> Resolve
 ```
 
-1. **Schema:** The project's [Parameter Schema](/docs/parameters) defines the typed slots available to configure.
+1. **Schema:** The project's [Parameter Schema](/docs/experiments/parameter-schema) defines the typed slots available to configure.
 2. **Author:** You create a new experiment. By default, it is private to you, providing a safe sandbox.
 3. **Commit:** You fill in values for the parameter slots and save. Every save mints a new, immutable *Version* with a content hash.
 4. **Share:** Once the experiment is ready, you flip its visibility to shared, making it visible to your team.

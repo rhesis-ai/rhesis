@@ -494,19 +494,20 @@ def canonical_version(
 class ResolvedParameters(Mapping[str, Any]):
     """Read-only mapping of resolved parameter values with provenance.
 
-    Behaves like a regular ``Mapping`` so callers can do
-    ``params["temperature"]`` or ``params.get("system_prompt", "...")``.
-    The values returned by ``__getitem__`` are *unwrapped* native
-    Python objects (a string for ``text``/``string``/``enum``, an
-    ``int`` / ``float`` / ``bool``, a ``UUID`` for ref types) — the
-    typed :class:`ParameterValue` objects are still available via
-    :meth:`get_typed`.
+    Values are unwrapped to native Python types so you can use simple
+    attribute or dict access::
+
+        params = Parameters.get("My App")
+        params.model          # "gpt-4o"
+        params.temperature    # 0.7
+        params["max_tokens"]  # 1024
+
+    Typed accessors (``get_string``, ``get_number``, …) are still
+    available when you want explicit runtime type checking.
 
     Provenance fields (``experiment_id``, ``version``, ``source``,
     ``source_environment``) carry the same shape the backend's
-    :class:`ResolveResponse` exposes, so resolved parameters survive
-    round-trips intact whether they came from the SDK fetch path or
-    the connector wire.
+    :class:`ResolveResponse` exposes.
     """
 
     __slots__ = (
@@ -549,6 +550,14 @@ class ResolvedParameters(Mapping[str, Any]):
 
     def __contains__(self, key: object) -> bool:
         return key in self._typed
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(
+                f"No parameter named {name!r}"
+            ) from None
 
     def __repr__(self) -> str:
         # Mask secret refs in repr so logs don't leak credentials by sight.

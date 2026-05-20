@@ -5,7 +5,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 Manage typed configuration for your AI application. Define a schema once, create experiments with different values, and resolve the active configuration at runtime.
 
 <Callout type="default">
-  For the conceptual overview (schemas, versions, environments, visibility), see [Parameters](/docs/parameters) and [Experiments](/docs/experiments). This page covers the SDK API.
+  For the conceptual overview (schemas, versions, environments, visibility), see [Parameters](/docs/experiments/parameter-schema) and [Experiments](/docs/experiments). This page covers the SDK API.
 </Callout>
 
 ## Quick start
@@ -15,26 +15,26 @@ Manage typed configuration for your AI application. Define a schema once, create
 from rhesis.sdk.entities import Experiment
 from rhesis.sdk.models.parameters import ParameterField, ParameterSchema
 
-# 1. Define a schema
+# 1. Define a schema (accepts project name or UUID)
 schema = ParameterSchema(fields=[
     ParameterField(name="model", type="string", default="gpt-4o"),
     ParameterField(name="temperature", type="number", default=0.7),
     ParameterField(name="mode", type="enum", default="text", options=["text", "json"]),
 ])
-Parameters.put_schema("my-project", schema)
+Parameters.put_schema("My Project", schema)
 
 # 2. Publish an experiment (create → commit → share → promote)
 Experiment.publish(
     name="tuning-v1",
-    project_id="my-project",
+    project_id="<project-uuid>",
     values={"model": "claude-sonnet", "temperature": 0.5},
     environment="default",
 )
 
 # 3. Resolve at runtime
-params = Parameters.get("my-project")
-print(params["model"])         # "claude-sonnet"
-print(params["temperature"])   # 0.5`}
+params = Parameters.get("My Project")
+print(params.model)         # "claude-sonnet"
+print(params.temperature)   # 0.5`}
 </CodeBlock>
 
 ## Defining schemas
@@ -61,13 +61,13 @@ Push the schema with `Parameters.put_schema()`:
 <CodeBlock filename="push_schema.py" language="python">
 {`from rhesis.sdk import Parameters
 
-Parameters.put_schema("my-project", schema)`}
+Parameters.put_schema("My Project", schema)`}
 </CodeBlock>
 
 Read it back:
 
 <CodeBlock filename="read_schema.py" language="python">
-{`schema = Parameters.schema("my-project")
+{`schema = Parameters.schema("My Project")
 for field in schema.fields:
     print(f"{field.name}: {field.type}")`}
 </CodeBlock>
@@ -87,24 +87,43 @@ for field in schema.fields:
 
 ## Resolving parameters
 
-`Parameters.get()` returns a `ResolvedParameters` mapping:
+`Parameters.get()` accepts a project name or UUID and returns a `ResolvedParameters` mapping:
 
 <CodeBlock filename="resolve.py" language="python">
 {`from rhesis.sdk import Parameters
 
-# By environment (default when omitted)
-params = Parameters.get("my-project", environment="production")
+# By project name (resolved to UUID automatically)
+params = Parameters.get("My Project", environment="production")
 
-# By version (immutable pin)
-params = Parameters.get("my-project", version="v_abc123")
+# By project UUID (no lookup needed)
+params = Parameters.get(project_id="550e8400-...", version="v_abc123")
 
-# By experiment ID (latest version)
-params = Parameters.get("my-project", experiment_id="exp-uuid")`}
+# From a Project entity
+from rhesis.sdk.entities import Projects
+project = Projects.pull(name="My Project")
+params = project.parameters(experiment_id="exp-uuid")`}
 </CodeBlock>
 
-### Typed accessors
+### Accessing values
+
+Values are unwrapped to native Python types automatically based on the schema. Use dot access, dictionary access, or `.get()` with a fallback:
 
 <CodeBlock filename="accessors.py" language="python">
+{`# Dot access (recommended)
+params.model          # "gpt-4o"
+params.temperature    # 0.7
+params.system_prompt  # "You are a helpful assistant..."
+
+# Dictionary access
+params["model"]
+params.get("temperature", 0.7)`}
+</CodeBlock>
+
+### Explicit typed accessors
+
+For runtime type validation, typed accessors are also available. These raise `TypeError` on a type mismatch and return `None` (or your default) for missing keys:
+
+<CodeBlock filename="typed_accessors.py" language="python">
 {`params.get_text("system_prompt")       # str | None
 params.get_string("model")             # str | None
 params.get_str("model")                # str | None — works for both text and string
@@ -114,14 +133,8 @@ params.get_boolean("streaming")        # bool | None
 params.get_enum("mode")                # str | None
 
 # Provide a fallback
-params.get_number("temperature", 0.7)
-
-# Dict-style access
-model = params["model"]
-temp = params.get("temperature", 0.7)`}
+params.get_number("temperature", 0.7)`}
 </CodeBlock>
-
-Typed accessors raise `TypeError` on a type mismatch and return `None` (or your default) for missing keys.
 
 `get_str()` accepts both `text` and `string` types, useful when you don't care about the distinction.
 
@@ -144,7 +157,7 @@ params.source_environment    # "default", "production", etc. (if resolved via en
 Force a re-fetch:
 
 <CodeBlock filename="invalidate.py" language="python">
-{`Parameters.invalidate("my-project")   # one project
+{`Parameters.invalidate("My Project")   # one project
 Parameters.invalidate()                # all projects`}
 </CodeBlock>
 
@@ -152,13 +165,13 @@ Parameters.invalidate()                # all projects`}
 
 <CodeBlock filename="environments.py" language="python">
 {`# Read current environment bindings
-envs = Parameters.environments("my-project")
+envs = Parameters.environments("My Project")
 for name, pointer in envs.environments.items():
     print(f"{name} → experiment={pointer.experiment_id}, version={pointer.version}")
 
 # Move an environment
 Parameters.put_environment(
-    "my-project", "staging",
+    "My Project", "staging",
     experiment_id="exp-uuid",
     version="v_abc123",
 )`}
@@ -174,7 +187,7 @@ See [Experiments entity](/sdk/entities/experiments) for the full CRUD reference.
 {`from rhesis.sdk.entities import Experiment
 
 # Create
-exp = Experiment(name="tuning-v2", project_id="my-project")
+exp = Experiment(name="tuning-v2", project_id="My Project")
 exp.push()
 
 # Commit values (bare Python values are accepted)
@@ -192,14 +205,30 @@ exp.promote(environment="default")`}
 <CodeBlock filename="experiment_publish.py" language="python">
 {`exp = Experiment.publish(
     name="tuning-v3",
-    project_id="my-project",
+    project_id="My Project",
     values={"model": "gpt-4o", "temperature": 0.9},
     message="bump temp",
     environment="default",
 )`}
 </CodeBlock>
 
-`publish()` does create → commit → share → promote in a single call.
+`publish()` does create, commit, share, and promote in a single call.
+
+### Viewing results
+
+Retrieve aggregated test-run statistics for an experiment:
+
+<CodeBlock filename="experiment_results.py" language="python">
+{`data = exp.results(group_by="run")
+for run in data["items"]:
+    stats = run.get("stats", {})
+    print(f"{run['name']}: {stats['passed']}/{stats['total']} passed")
+
+# Group by parameter version to see diffs
+data = exp.results(group_by="version")
+for group in data["items"]:
+    print(f"Version {group['version']}: {group['total_tests']} tests")`}
+</CodeBlock>
 
 ## Running tests with parameters
 
@@ -268,10 +297,10 @@ For production code that calls `Parameters.get()` internally, the platform also 
 
 @endpoint(name="chat", request_mapping={"query": "{{ input }}"})
 def chat(query: str):
-    params = Parameters.get("my-project")
+    params = Parameters.get("My Project")
     return llm.invoke(
-        model=params.get_string("model"),
-        temperature=params.get_number("temperature"),
+        model=params.model,
+        temperature=params.temperature,
         prompt=query,
     )`}
 </CodeBlock>

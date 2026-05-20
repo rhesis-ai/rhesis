@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any, ClassVar, Optional
 
-from rhesis.sdk.clients import Endpoints
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
@@ -42,6 +42,10 @@ class Experiment(BaseEntity):
     latest_version: Optional[str] = None
     versions: Optional[list[dict[str, Any]]] = None
 
+    # ------------------------------------------------------------------ #
+    # Versions                                                             #
+    # ------------------------------------------------------------------ #
+
     @handle_http_errors
     def commit(
         self,
@@ -54,71 +58,138 @@ class Experiment(BaseEntity):
 
         Returns the version entry (including its content hash).
         """
-        client = self._get_client()
-        url = client.get_url(f"{self.endpoint.value}/{self.id}/versions")
         payload: dict[str, Any] = {"values": values}
         if message is not None:
             payload["message"] = message
         if parent_version is not None:
             payload["parent_version"] = parent_version
-        import requests as _requests
-
-        resp = _requests.post(url, headers=client.headers, json=payload)
-        resp.raise_for_status()
-        version_data = resp.json()
+        client = APIClient()
+        version_data = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params=f"{self.id}/versions",
+            data=payload,
+        )
         self.latest_version = version_data.get("version")
         return version_data
 
     @handle_http_errors
+    def list_versions(self) -> list[dict[str, Any]]:
+        """Return all versions for this experiment, oldest to newest."""
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/versions",
+        )
+
+    @handle_http_errors
     def latest_version_data(self) -> dict[str, Any] | None:
         """Fetch the latest version entry, or ``None`` if no versions."""
-        client = self._get_client()
-        url = client.get_url(f"{self.endpoint.value}/{self.id}/versions")
-        import requests as _requests
-
-        resp = _requests.get(url, headers=client.headers)
-        resp.raise_for_status()
-        versions = resp.json()
+        versions = self.list_versions()
         return versions[-1] if versions else None
 
     @handle_http_errors
     def get_version(self, version: str) -> dict[str, Any]:
         """Fetch a single version by content hash."""
-        client = self._get_client()
-        url = client.get_url(
-            f"{self.endpoint.value}/{self.id}/versions/{version}"
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/versions/{version}",
         )
-        import requests as _requests
 
-        resp = _requests.get(url, headers=client.headers)
-        resp.raise_for_status()
-        return resp.json()
+    # ------------------------------------------------------------------ #
+    # Visibility                                                           #
+    # ------------------------------------------------------------------ #
 
     @handle_http_errors
     def share(self) -> None:
         """Set visibility to ``shared``."""
-        self.visibility = "shared"
-        client = self._get_client()
-        url = client.get_url(f"{self.endpoint.value}/{self.id}")
-        import requests as _requests
-
-        resp = _requests.patch(
-            url, headers=client.headers, json={"visibility": "shared"}
+        client = APIClient()
+        client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.PATCH,
+            url_params=str(self.id),
+            data={"visibility": "shared"},
         )
-        resp.raise_for_status()
+        self.visibility = "shared"
 
     @handle_http_errors
     def unshare(self) -> None:
         """Set visibility back to ``private``."""
+        client = APIClient()
+        client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.PATCH,
+            url_params=str(self.id),
+            data={"visibility": "private"},
+        )
         self.visibility = "private"
-        client = self._get_client()
-        url = client.get_url(f"{self.endpoint.value}/{self.id}")
+
+    # ------------------------------------------------------------------ #
+    # Environment promotion                                                #
+    # ------------------------------------------------------------------ #
+
+    @handle_http_errors
+    def promote(self, environment: str = "default") -> None:
+        """Bind this experiment's latest version to *environment*.
+
+        The experiment must be shared and must have at least one version.
+        """
+        if self.latest_version is None:
+            raise ValueError("Experiment has no versions to promote")
+        client = APIClient()
         import requests as _requests
 
-        resp = _requests.patch(
-            url, headers=client.headers, json={"visibility": "private"}
+        url = client.get_url(
+            f"projects/{self.project_id}/parameters/environments/{environment}"
+        )
+        resp = _requests.put(
+            url,
+            headers=client.headers,
+            json={
+                "experiment_id": str(self.id),
+                "version": self.latest_version,
+            },
         )
         resp.raise_for_status()
+
+    # ------------------------------------------------------------------ #
+    # Results                                                              #
+    # ------------------------------------------------------------------ #
+
+    @handle_http_errors
+    def results(
+        self,
+        *,
+        group_by: str = "run",
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """Aggregate test-run results for this experiment.
+
+        Args:
+            group_by: ``"run"`` (default) returns one entry per test run.
+                ``"version"`` groups runs by parameter version and includes
+                diffs against each version's parent.
+            limit: Maximum number of test runs to include (1–1000).
+
+        Returns:
+            ``{"items": [...]}`` where each item is a run (or version
+            group) enriched with ``stats`` counters (total, passed,
+            failed, errors).
+        """
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/results",
+            params={"group_by": group_by, "limit": limit},
+        )
+
+    # ------------------------------------------------------------------ #
+    # Convenience                                                          #
+    # ------------------------------------------------------------------ #
 
     @classmethod
     def publish(
@@ -131,7 +202,7 @@ class Experiment(BaseEntity):
         environment: str = "default",
         description: str | None = None,
     ) -> "Experiment":
-        """One-liner: create → commit → share → promote.
+        """One-liner: create -> commit -> share -> promote.
 
         Returns the fully-published experiment::
 
@@ -152,30 +223,6 @@ class Experiment(BaseEntity):
         exp.share()
         exp.promote(environment=environment)
         return exp
-
-    @handle_http_errors
-    def promote(self, environment: str = "default") -> None:
-        """Bind this experiment's latest version to *environment*.
-
-        The experiment must be shared and must have at least one version.
-        """
-        if self.latest_version is None:
-            raise ValueError("Experiment has no versions to promote")
-        client = self._get_client()
-        url = client.get_url(
-            f"projects/{self.project_id}/parameters/environments/{environment}"
-        )
-        import requests as _requests
-
-        resp = _requests.put(
-            url,
-            headers=client.headers,
-            json={
-                "experiment_id": str(self.id),
-                "version": self.latest_version,
-            },
-        )
-        resp.raise_for_status()
 
 
 class Experiments(BaseCollection):

@@ -173,26 +173,14 @@ def update_experiment(
 @router.delete("/{experiment_id}", response_model=ExperimentRead)
 def delete_experiment(
     experiment_id: uuid.UUID,
-    cascade_environments: bool = Query(
-        False,
-        description=(
-            "If true, unbind any project environments pointing at this experiment"
-            " before deleting it. If false (default), the call is refused with 409"
-            " when bindings exist."
-        ),
-    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ) -> ExperimentRead:
     """Soft-delete an experiment.
 
-    By default the call is refused with 409 if any project environment
-    still points at it (matching ``PATCH visibility``'s
-    "move-the-environment-first" dance). Pass ``cascade_environments=true``
-    to have the server unbind those environments first; the UI delete
-    flow uses this so users don't have to manually unbind before
-    deleting an experiment that was promoted.
+    Any project environments pointing at this experiment are
+    automatically unbound before deletion.
     """
     organization_id, user_id = tenant_context
     db_experiment = get_visible_experiment(
@@ -209,14 +197,10 @@ def delete_experiment(
         user_id=user_id,
     )
     if project is not None:
-        if cascade_environments:
-            # Unbind every environment currently pointing at this experiment
-            # so the subsequent delete doesn't violate the
-            # "environments point only at live experiments" invariant.
-            for env_name in environments_pointing_at_experiment(project, db_experiment.id):
-                unbind_environment(db, project=project, environment_name=env_name)
-        else:
-            assert_no_active_environments(project, db_experiment.id, action="delete")
+        for env_name in environments_pointing_at_experiment(
+            project, db_experiment.id
+        ):
+            unbind_environment(db, project=project, environment_name=env_name)
 
     snapshot = to_read(db_experiment)
     crud.delete_item(

@@ -32,7 +32,7 @@ print(f"Created: {exp.id}")`}
 
 ## Committing values
 
-Each commit creates an immutable version. Pass bare Python values — the SDK wraps them using the project schema:
+Each commit creates an immutable version. Pass bare Python values -- the SDK wraps them using the project schema:
 
 <CodeBlock filename="commit.py" language="python">
 {`version = exp.commit(
@@ -83,17 +83,44 @@ Only shared experiments can be promoted to an environment.
 print(f"Live at version {exp.latest_version}")`}
 </CodeBlock>
 
-## Reading version history
+## Version history
 
 <CodeBlock filename="versions.py" language="python">
-{`# Latest version
+{`# All versions (oldest to newest)
+for v in exp.list_versions():
+    print(f"{v['version']}: {v['message']}")
+
+# Latest version only
 latest = exp.latest_version_data()
 print(f"{latest['version']}: {latest['message']}")
 
-# Specific version
+# Specific version by content hash
 v = exp.get_version("v_abc123")
 print(v["values"])`}
 </CodeBlock>
+
+## Results
+
+Retrieve aggregated test-run statistics for an experiment. Results can be grouped by individual run or by parameter version:
+
+<CodeBlock filename="results_by_run.py" language="python">
+{`# Per-run breakdown
+data = exp.results(group_by="run")
+for run in data["items"]:
+    stats = run.get("stats", {})
+    print(f"{run['name']}: {stats['passed']}/{stats['total']} passed")`}
+</CodeBlock>
+
+<CodeBlock filename="results_by_version.py" language="python">
+{`# Grouped by parameter version, with diffs against parent
+data = exp.results(group_by="version", limit=50)
+for group in data["items"]:
+    print(f"Version {group['version']}: {group['total_tests']} tests")
+    for key, change in group["diff"].items():
+        print(f"  {key}: {change['before']} → {change['after']}")`}
+</CodeBlock>
+
+Each run includes a `stats` object with `total`, `passed`, `failed`, and `errors` counts.
 
 ## Fetching experiments
 
@@ -113,15 +140,34 @@ exp = Experiments.pull(id="exp-uuid")`}
 
 ## Deleting experiments
 
+Deleting an experiment automatically unbinds any environments that point to it:
+
 <CodeBlock filename="delete.py" language="python">
 {`exp.delete()`}
 </CodeBlock>
+
+## Method reference
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `push()` | `dict` | Create or update the experiment header |
+| `pull()` | `Experiment` | Refresh from the server |
+| `delete()` | `bool` | Delete (auto-unbinds environments) |
+| `commit(values, *, message, parent_version)` | `dict` | Append an immutable version |
+| `list_versions()` | `list[dict]` | All versions, oldest to newest |
+| `latest_version_data()` | `dict \| None` | Most recent version entry |
+| `get_version(version)` | `dict` | Single version by content hash |
+| `share()` | `None` | Set visibility to shared |
+| `unshare()` | `None` | Set visibility to private |
+| `promote(environment)` | `None` | Bind latest version to environment |
+| `results(*, group_by, limit)` | `dict` | Aggregated test-run statistics |
+| `publish(*, name, project_id, values, ...)` | `Experiment` | Class method: create, commit, share, promote |
 
 ---
 
 <Callout type="default">
   **Next Steps**
   - [Parameters & Experiments SDK guide](/sdk/parameters) for the full workflow
-  - [Parameters schema](/docs/parameters) for defining typed slots
+  - [Parameters schema](/docs/experiments/parameter-schema) for defining typed slots
   - [Experiments concepts](/docs/experiments) for the mental model
 </Callout>

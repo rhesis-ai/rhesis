@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid as _uuid
 from typing import Any
 
 import requests
@@ -27,34 +28,65 @@ logger = logging.getLogger(__name__)
 _cache = ParameterCache()
 
 
+def _resolve_project_id(
+    project: str | None = None,
+    *,
+    project_id: str | None = None,
+) -> str:
+    """Return a project UUID string, resolving by name if needed."""
+    if project and project_id:
+        raise ValueError(
+            "Pass 'project' (name or id) or 'project_id', not both"
+        )
+    if project_id:
+        return str(project_id)
+    if project:
+        try:
+            _uuid.UUID(project)
+            return project
+        except ValueError:
+            pass
+        from rhesis.sdk.entities import Projects
+
+        proj = Projects.pull(name=project)
+        return proj.id
+    raise ValueError(
+        "Either 'project' (name or id) or 'project_id' must be provided"
+    )
+
+
 class Parameters:
     """Facade for resolving project-scoped parameter values.
 
     All methods are class methods — no instantiation needed::
 
-        from rhesis.sdk.models.parameters import BuiltInEnvironment
+        params = Parameters.get("My App")
+        params.model          # "gpt-4o"
+        params.temperature    # 0.7
 
-        params = Parameters.get(
-            project="chatbot-demo",
-            environment=BuiltInEnvironment.DEFAULT,
-        )
-        print(params["temperature"])
+    *project* accepts a project name or UUID string.  Use *project_id*
+    when you already have the UUID::
 
-    Plain strings work too (``environment="default"``);
-    :class:`BuiltInEnvironment` is purely a tidy namespace for callers
-    who prefer not to hand-write the built-in names.
+        params = Parameters.get(project_id="550e8400-...")
     """
 
     @classmethod
     def get(
         cls,
-        project: str,
+        project: str | None = None,
         *,
+        project_id: str | None = None,
         environment: str | None = None,
         experiment_id: str | None = None,
         version: str | None = None,
     ) -> ResolvedParameters:
-        """Resolve parameters for *project* and return a typed mapping.
+        """Resolve parameters and return a typed mapping.
+
+        *project* accepts a project name **or** UUID string.
+        Use *project_id* when you already have the UUID::
+
+            params = Parameters.get("My App")
+            params = Parameters.get(project_id="550e8400-...")
 
         Resolution order (first non-``None`` wins):
 
@@ -62,15 +94,11 @@ class Parameters:
         2. ``experiment_id`` — latest version of that experiment
         3. ``environment`` — movable pointer (``"default"`` when omitted)
 
-        When *version*, *experiment_id*, and *environment* are all omitted,
-        ``RHESIS_PARAMETERS_ENVIRONMENT`` is consulted (with legacy
-        ``RHESIS_PARAMETERS_LABEL`` as a fallback) so deploys can pin an
-        environment without code changes.
-
         Results are cached: immutable ``version`` lookups live forever;
-        ``environment`` and ``experiment_id`` lookups honour a TTL (default
-        60 s). Call :meth:`invalidate` to force a re-fetch.
+        ``environment`` and ``experiment_id`` lookups honour a TTL
+        (default 60 s). Call :meth:`invalidate` to force a re-fetch.
         """
+        pid = _resolve_project_id(project, project_id=project_id)
         if (
             environment is None
             and experiment_id is None
@@ -83,7 +111,7 @@ class Parameters:
                 environment = pinned
 
         cached = _cache.get(
-            project,
+            pid,
             environment=environment,
             experiment_id=experiment_id,
             version=version,
@@ -92,14 +120,14 @@ class Parameters:
             return cached
 
         response = cls._fetch(
-            project,
+            pid,
             environment=environment,
             experiment_id=experiment_id,
             version=version,
         )
         resolved = ResolvedParameters.from_response(response)
         _cache.put(
-            project,
+            pid,
             resolved,
             environment=environment,
             experiment_id=experiment_id,
@@ -108,11 +136,17 @@ class Parameters:
         return resolved
 
     @classmethod
-    def schema(cls, project: str) -> ParameterSchema:
+    def schema(
+        cls,
+        project: str | None = None,
+        *,
+        project_id: str | None = None,
+    ) -> ParameterSchema:
         """Fetch the project's parameter schema."""
+        pid = _resolve_project_id(project, project_id=project_id)
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
-        url = f"{base}/projects/{project}/parameters/schema"
+        url = f"{base}/projects/{pid}/parameters/schema"
         resp = requests.get(
             url, headers={"Authorization": f"Bearer {api_key}"}
         )
@@ -120,11 +154,17 @@ class Parameters:
         return ParameterSchema.model_validate(resp.json())
 
     @classmethod
-    def environments(cls, project: str) -> ProjectEnvironments:
+    def environments(
+        cls,
+        project: str | None = None,
+        *,
+        project_id: str | None = None,
+    ) -> ProjectEnvironments:
         """Fetch the project's bound environments."""
+        pid = _resolve_project_id(project, project_id=project_id)
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
-        url = f"{base}/projects/{project}/parameters/environments"
+        url = f"{base}/projects/{pid}/parameters/environments"
         resp = requests.get(
             url, headers={"Authorization": f"Bearer {api_key}"}
         )
@@ -132,14 +172,23 @@ class Parameters:
         return ProjectEnvironments.model_validate(resp.json())
 
     @classmethod
-    def put_schema(cls, project: str, schema: ParameterSchema) -> None:
+    def put_schema(
+        cls,
+        project: str | None = None,
+        schema: ParameterSchema | None = None,
+        *,
+        project_id: str | None = None,
+    ) -> None:
         """Push a parameter schema to the project.
 
         Overwrites any existing schema on the project.
         """
+        pid = _resolve_project_id(project, project_id=project_id)
+        if schema is None:
+            raise ValueError("schema is required")
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
-        url = f"{base}/projects/{project}/parameters/schema"
+        url = f"{base}/projects/{pid}/parameters/schema"
         resp = requests.put(
             url,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -150,16 +199,23 @@ class Parameters:
     @classmethod
     def put_environment(
         cls,
-        project: str,
-        environment: str,
+        project: str | None = None,
+        environment: str | None = None,
         *,
+        project_id: str | None = None,
         experiment_id: str,
         version: str,
     ) -> None:
         """Bind *environment* to a specific (experiment_id, version) pair."""
+        pid = _resolve_project_id(project, project_id=project_id)
+        if environment is None:
+            raise ValueError("environment is required")
         base = get_base_url().rstrip("/")
         api_key = get_api_key()
-        url = f"{base}/projects/{project}/parameters/environments/{environment}"
+        url = (
+            f"{base}/projects/{pid}"
+            f"/parameters/environments/{environment}"
+        )
         resp = requests.put(
             url,
             headers={"Authorization": f"Bearer {api_key}"},

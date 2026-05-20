@@ -423,14 +423,15 @@ class TestProjectEnvironments:
         )
         assert response.status_code == status.HTTP_409_CONFLICT
 
-    def test_deleting_with_active_environment_is_409(
+    def test_deleting_with_active_environment_cascades(
         self, authenticated_client: TestClient, db_project
     ) -> None:
+        """Delete auto-unbinds any environments pointing at the experiment."""
         _seed_schema(authenticated_client, db_project.id)
         exp = _create_experiment(
             authenticated_client,
             db_project.id,
-            name="protected-from-delete",
+            name="cascade-delete",
             visibility="shared",
         )
         committed, _ = _commit_version(
@@ -444,7 +445,13 @@ class TestProjectEnvironments:
         )
 
         response = authenticated_client.delete(_experiment_url(exp["id"]))
-        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.status_code == status.HTTP_200_OK
+
+        envs = authenticated_client.get(
+            f"/projects/{db_project.id}/parameters/environments"
+        )
+        pointer = envs.json()["environments"].get("default")
+        assert pointer is None
 
     def test_bind_unknown_version_is_404(
         self, authenticated_client: TestClient, db_project

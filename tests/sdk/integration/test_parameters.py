@@ -7,7 +7,7 @@ import pytest
 import requests
 
 from rhesis.sdk import Parameters
-from rhesis.sdk.entities import Experiment, Projects
+from rhesis.sdk.entities import Experiment, Project, Projects
 from rhesis.sdk.models.parameters import (
     NumberValue,
     ParameterField,
@@ -307,6 +307,69 @@ def test_cache_invalidation(docker_compose_test_env):
 # ------------------------------------------------------------------ #
 
 
+def test_experiment_list_versions(docker_compose_test_env):
+    """list_versions() returns the full version history."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment(name="integration-list-versions", project_id=TEST_PROJECT_ID)
+    exp.push()
+    v1 = exp.commit({"temperature": 0.3}, message="first")
+    v2 = exp.commit(
+        {"temperature": 0.9},
+        message="second",
+        parent_version=v1["version"],
+    )
+
+    versions = exp.list_versions()
+    assert len(versions) == 2
+    assert versions[0]["version"] == v1["version"]
+    assert versions[1]["version"] == v2["version"]
+
+    exp.delete()
+
+
+def test_experiment_results(docker_compose_test_env):
+    """results() returns aggregated run data (empty when no runs exist)."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment.publish(
+        name="integration-results",
+        project_id=TEST_PROJECT_ID,
+        values={"model": "results-test"},
+        environment="default",
+    )
+
+    by_run = exp.results(group_by="run")
+    assert "items" in by_run
+    assert isinstance(by_run["items"], list)
+
+    by_version = exp.results(group_by="version")
+    assert "items" in by_version
+    assert isinstance(by_version["items"], list)
+
+    exp.delete()
+
+
+def test_experiment_delete_cascades_environments(docker_compose_test_env):
+    """Deleting a promoted experiment auto-unbinds its environments."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment.publish(
+        name="integration-cascade-delete",
+        project_id=TEST_PROJECT_ID,
+        values={"model": "cascade-test"},
+        environment="default",
+    )
+
+    # Verify environment is bound
+    envs = Parameters.environments(TEST_PROJECT_ID)
+    assert envs.environments.get("default") is not None
+
+    # Delete should succeed without 409 — backend cascades automatically
+    result = exp.delete()
+    assert result is True
+
+
 def test_resolved_parameters_mapping_protocol(docker_compose_test_env):
     """ResolvedParameters acts as a dict-like mapping."""
     Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
@@ -339,3 +402,124 @@ def test_resolved_parameters_mapping_protocol(docker_compose_test_env):
 
     # Cleanup
     exp.delete()
+
+
+# ------------------------------------------------------------------ #
+# Name-based resolution & Project entity                              #
+# ------------------------------------------------------------------ #
+
+
+def test_parameters_get_by_project_name(docker_compose_test_env):
+    """Parameters.get() accepts a project name and resolves it to a UUID."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment.publish(
+        name="integration-name-lookup",
+        project_id=TEST_PROJECT_ID,
+        values={"model": "name-lookup-model", "temperature": 0.55},
+        environment="default",
+    )
+
+    Parameters.invalidate()
+    params = Parameters.get("Test Project", environment="default")
+
+    assert params["model"] == "name-lookup-model"
+    assert params["temperature"] == 0.55
+
+    exp.delete()
+
+
+def test_parameters_get_by_project_id_kwarg(docker_compose_test_env):
+    """Parameters.get(project_id=...) works with the explicit keyword."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment.publish(
+        name="integration-project-id-kwarg",
+        project_id=TEST_PROJECT_ID,
+        values={"model": "kwarg-model", "temperature": 0.33},
+        environment="default",
+    )
+
+    Parameters.invalidate()
+    params = Parameters.get(project_id=TEST_PROJECT_ID, environment="default")
+
+    assert params["model"] == "kwarg-model"
+    assert params["temperature"] == 0.33
+
+    exp.delete()
+
+
+def test_resolved_parameters_dot_access(docker_compose_test_env):
+    """ResolvedParameters supports attribute-style dot access."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment.publish(
+        name="integration-dot-access",
+        project_id=TEST_PROJECT_ID,
+        values={"model": "dot-model", "temperature": 0.77, "mode": "json"},
+        environment="default",
+    )
+
+    Parameters.invalidate()
+    params = Parameters.get(TEST_PROJECT_ID, environment="default")
+
+    assert params.model == "dot-model"
+    assert params.temperature == 0.77
+    assert params.mode == "json"
+
+    exp.delete()
+
+
+def test_project_entity_parameters(docker_compose_test_env):
+    """Project.parameters() resolves parameters through the entity."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment.publish(
+        name="integration-entity-params",
+        project_id=TEST_PROJECT_ID,
+        values={"model": "entity-model", "temperature": 0.61},
+        environment="default",
+    )
+
+    project = Projects.pull(name="Test Project")
+    Parameters.invalidate()
+    params = project.parameters(environment="default")
+
+    assert params.model == "entity-model"
+    assert params.temperature == 0.61
+    assert params.source == "environment"
+
+    exp.delete()
+
+
+def test_project_entity_parameter_schema(docker_compose_test_env):
+    """Project.parameter_schema() reads the schema through the entity."""
+    schema = _test_schema()
+    Parameters.put_schema(TEST_PROJECT_ID, schema)
+
+    project = Projects.pull(name="Test Project")
+    fetched = project.parameter_schema()
+
+    names = {f.name for f in fetched.fields}
+    assert {"model", "temperature", "mode"} <= names
+
+
+def test_project_entity_put_parameter_schema(docker_compose_test_env):
+    """Project.put_parameter_schema() writes a schema through the entity."""
+    project = Projects.pull(name="Test Project")
+
+    schema = _test_schema()
+    project.put_parameter_schema(schema)
+
+    fetched = project.parameter_schema()
+    names = {f.name for f in fetched.fields}
+    assert {"model", "temperature", "mode"} <= names
+
+
+def test_parameters_schema_by_name(docker_compose_test_env):
+    """Parameters.schema() and put_schema() accept project names."""
+    Parameters.put_schema("Test Project", _test_schema())
+
+    fetched = Parameters.schema("Test Project")
+    names = {f.name for f in fetched.fields}
+    assert {"model", "temperature", "mode"} <= names
