@@ -64,7 +64,8 @@ def create_test_run(
     # the request payload and live on test_configuration.attributes; we
     # lift them onto the run so each member can be discovered/grouped
     # without joining back through its configuration.
-    cfg_attrs = test_config.attributes or {}
+    raw_cfg_attrs = getattr(test_config, "attributes", None)
+    cfg_attrs = raw_cfg_attrs if isinstance(raw_cfg_attrs, dict) else {}
     for batch_key in (
         "batch_id",
         "batch_size",
