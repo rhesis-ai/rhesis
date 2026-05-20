@@ -107,18 +107,6 @@ module "ingress_dev" {
 # GCS buckets: managed by terraform/infrastructure (root) with the same state as GKE — not duplicated here.
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
 
-# Reserve the WireGuard NIC IP so GKE node-pool auto-assignment can never claim it.
-resource "google_compute_address" "wireguard_nic" {
-  name         = "wireguard-nic-ip-dev"
-  project      = var.project_id
-  region       = var.region
-  subnetwork   = module.dev.subnet_self_links["nodes"]
-  address_type = "INTERNAL"
-  address      = local.cidrs.dev.wireguard_nic_ip
-
-  depends_on = [module.dev]
-}
-
 # ── Shared VPC: dev project is the host, rhesis-platform-admin is a service project ──────────
 # This allows the WireGuard server (in rhesis-platform-admin) to attach a second NIC
 # directly into the dev nodes subnet, bypassing GCP's non-transitive peering limitation
