@@ -15,12 +15,12 @@ test.describe('Navigation @sanity', () => {
     await expect(page).toHaveURL(/\/projects/);
   });
 
-  test('can navigate to Test Sets from sidebar', async ({ page }) => {
+  test('can navigate to Test Set from sidebar', async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
     await dashboard.expectLoaded();
 
-    await dashboard.navigateTo('Test Sets');
+    await dashboard.navigateTo('Test Set');
     await expect(page).toHaveURL(/\/test-sets/);
   });
 

@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { Metadata } from 'next';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
-import { BetaBadge } from '../components/common/BetaBadge';
 import '../styles/fonts.css';
 // Side-effect import: registers EE features into core's extension
 // registries at module load. The actual @rhesis/ee-frontend import is
@@ -24,7 +23,6 @@ import {
   TerminalIcon,
   AssignmentIcon,
   MenuBookIcon,
-  BoltIcon,
   PsychologyIcon,
   StarIcon,
   ForumIcon,
@@ -86,7 +84,13 @@ async function getNavigationItems(
       title: 'Dashboard',
       icon: <DashboardIcon key="dashboard-icon" />,
     },
-    // DEFINE section — core definition/build items
+    {
+      kind: 'page',
+      segment: 'architect',
+      title: 'Architect',
+      icon: <EngineeringIcon key="architect-icon" />,
+    },
+    // DEFINE section — core definition items
     {
       kind: 'header',
       title: 'Define',
@@ -96,54 +100,6 @@ async function getNavigationItems(
       segment: 'projects',
       title: 'Projects',
       icon: <AppsIcon key="projects-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'tests',
-      title: 'Tests',
-      icon: <ScienceIcon key="tests-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'test-runs',
-      title: 'Test Runs',
-      icon: <AnimationIcon key="test-runs-icon" />,
-    },
-    // EVALUATE section — analysis and results
-    {
-      kind: 'header',
-      title: 'Evaluate',
-    },
-    {
-      kind: 'page',
-      segment: 'test-results',
-      title: 'Overview',
-      icon: <AssessmentIcon key="test-results-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'tasks',
-      title: 'Tasks',
-      icon: <AssignmentIcon key="tasks-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'traces',
-      title: 'Traces',
-      icon: <TimelineIcon key="traces-icon" />,
-    },
-    // DEVELOP section — tools and infrastructure (collapsible, collapsed by default)
-    {
-      kind: 'header',
-      title: 'Develop',
-      collapsible: true,
-      defaultCollapsed: true,
-    },
-    {
-      kind: 'page',
-      segment: 'endpoints',
-      title: 'Endpoints',
-      icon: <ApiIcon key="endpoints-icon" />,
     },
     {
       kind: 'page',
@@ -164,37 +120,76 @@ async function getNavigationItems(
       icon: <AutoGraphIcon key="metrics-icon" />,
       requireSuperuser: true,
     },
+    // GENERATE section — creation and exploration tools
     {
-      kind: 'page',
-      segment: 'test-sets',
-      title: 'Test Sets',
-      icon: <CategoryIcon key="test-sets-icon" />,
-    },
-    {
-      kind: 'page',
-      segment: 'architect',
-      title: 'Architect',
-      icon: <EngineeringIcon key="architect-icon" />,
-      action: <BetaBadge />,
-    },
-    {
-      kind: 'page',
-      segment: 'explorer',
-      title: 'Explorer',
-      icon: <AccountTreeIcon key="explorer-icon" />,
-      action: <BetaBadge />,
-    },
-    {
-      kind: 'page',
-      segment: 'generation',
-      title: 'Generation',
-      icon: <BoltIcon key="generation-icon" />,
+      kind: 'header',
+      title: 'Generate',
     },
     {
       kind: 'page',
       segment: 'playground',
       title: 'Playground',
       icon: <ChatIcon key="playground-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'explorer',
+      title: 'Explorer',
+      icon: <AccountTreeIcon key="explorer-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'tests',
+      title: 'Tests',
+      icon: <ScienceIcon key="tests-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'test-sets',
+      title: 'Test Set',
+      icon: <CategoryIcon key="test-sets-icon" />,
+    },
+    // IMPROVE section — analysis and iteration
+    {
+      kind: 'header',
+      title: 'Improve',
+    },
+    {
+      kind: 'page',
+      segment: 'test-results',
+      title: 'Insights',
+      icon: <AssessmentIcon key="test-results-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'test-runs',
+      title: 'Test Runs',
+      icon: <AnimationIcon key="test-runs-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'traces',
+      title: 'Traces',
+      icon: <TimelineIcon key="traces-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'tasks',
+      title: 'Tasks',
+      icon: <AssignmentIcon key="tasks-icon" />,
+    },
+    // DEVELOP section — tools and infrastructure (collapsible, collapsed by default)
+    {
+      kind: 'header',
+      title: 'Develop',
+      collapsible: true,
+      defaultCollapsed: true,
+    },
+    {
+      kind: 'page',
+      segment: 'endpoints',
+      title: 'Endpoints',
+      icon: <ApiIcon key="endpoints-icon" />,
     },
     {
       kind: 'page',

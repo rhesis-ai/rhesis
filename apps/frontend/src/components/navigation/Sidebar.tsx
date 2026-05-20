@@ -104,7 +104,7 @@ function filterNavItems(
 }
 
 // Group flat navigation array into typed sections for Figma-aligned rendering
-type StandaloneGroup = { type: 'standalone'; item: NavigationPageItem };
+type StandaloneGroup = { type: 'standalone'; items: NavigationPageItem[] };
 type SectionGroup = {
   type: 'section';
   header: NavigationHeaderItem;
@@ -152,7 +152,12 @@ function groupNavItems(items: NavigationItem[]): NavGroup[] {
       if (currentSection) {
         currentSection.items.push(item);
       } else {
-        groups.push({ type: 'standalone', item });
+        const last = groups[groups.length - 1];
+        if (last?.type === 'standalone') {
+          last.items.push(item);
+        } else {
+          groups.push({ type: 'standalone', items: [item] });
+        }
       }
     }
   }
@@ -630,11 +635,18 @@ export function Sidebar() {
         {mainGroups.map(group => {
           if (group.type === 'standalone') {
             return (
-              <NavItem
-                key={`standalone-${group.item.segment}`}
-                item={group.item}
-                collapsed={collapsed}
-              />
+              <Box
+                key={`standalone-${group.items.map(i => i.segment).join('-')}`}
+                sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+              >
+                {group.items.map(item => (
+                  <NavItem
+                    key={`standalone-${item.segment}`}
+                    item={item}
+                    collapsed={collapsed}
+                  />
+                ))}
+              </Box>
             );
           }
           return (
