@@ -152,6 +152,15 @@ const nextConfig = {
   // Webpack configuration (used by both `next dev --webpack` fallback and
   // `next build --webpack` for production).
   webpack: (config, { dev, isServer }) => {
+    // Next sets module.generator.asset.filename globally; that breaks asset/inline
+    // (e.g. embedding-atlas inlines DuckDB WASM via new URL(data:application/wasm,...)).
+    if (config.module?.generator?.asset?.filename) {
+      config.module.generator['asset/resource'] = {
+        filename: config.module.generator.asset.filename,
+      };
+      delete config.module.generator.asset;
+    }
+
     config.module.rules.push({
       test: /\.md$/,
       type: 'asset/source',
