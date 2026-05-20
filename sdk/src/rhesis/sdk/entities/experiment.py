@@ -29,6 +29,12 @@ class Experiment(BaseEntity):
         exp.commit({"temperature": 0.9, "model": "gpt-4o"}, message="bump temp")
         exp.share()
         exp.promote(environment="staging")
+
+        # Run a test set with this experiment's parameters
+        result = exp.run(test_set, endpoint)
+
+        # Inline parameters — commits automatically, then executes
+        result = exp.run(test_set, endpoint, parameters={"temperature": 0.9})
     """
 
     endpoint: ClassVar[Endpoints] = ENDPOINT
@@ -202,6 +208,40 @@ class Experiment(BaseEntity):
             method=Methods.GET,
             url_params=f"{self.id}/results",
             params={"group_by": group_by, "limit": limit},
+        )
+
+    # ------------------------------------------------------------------ #
+    # Execution                                                            #
+    # ------------------------------------------------------------------ #
+
+    @handle_http_errors
+    def run(
+        self,
+        test_set: Any,
+        endpoint: Any,
+        *,
+        parameters: dict[str, Any] | None = None,
+        mode: str = "parallel",
+        metrics: list | None = None,
+        execution_model_id: str | None = None,
+        evaluation_model_id: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Execute a test set with this experiment's parameters.
+
+        If *parameters* is provided, commits a new version before
+        executing.  Otherwise uses the latest version.
+
+        Equivalent to
+        ``test_set.execute(endpoint, experiment=self, ...)``.
+        """
+        return test_set.execute(
+            endpoint,
+            experiment=self,
+            parameters=parameters,
+            mode=mode,
+            metrics=metrics,
+            execution_model_id=execution_model_id,
+            evaluation_model_id=evaluation_model_id,
         )
 
     # ------------------------------------------------------------------ #

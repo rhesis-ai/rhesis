@@ -173,3 +173,39 @@ exp.share()
 # 4. Move an environment to point at the new version (the deploy step)
 exp.promote(environment="default")`}
 </CodeBlock>
+
+### Running experiments against test sets
+
+Once you have an experiment, you can execute it directly against a test set and endpoint:
+
+<CodeBlock filename="run_experiment.py" language="python">
+{`from rhesis.sdk.entities import Experiment, TestSets, Endpoints
+
+test_set = TestSets.pull(name="Safety Tests")
+endpoint = Endpoints.pull(name="GPT-4o")
+
+# Run with the experiment's latest version
+result = exp.run(test_set, endpoint)
+
+# Or inline new parameter values — commits automatically, then executes
+result = exp.run(test_set, endpoint, parameters={"temperature": 0.9})`}
+</CodeBlock>
+
+You can also pass an `Experiment` object to `TestSet.execute()`:
+
+<CodeBlock filename="execute_with_experiment.py" language="python">
+{`# Pass an Experiment object directly
+result = test_set.execute(endpoint, experiment=exp)
+
+# Inline parameters — commits a new version, then executes with it
+result = test_set.execute(
+    endpoint, experiment=exp, parameters={"temperature": 0.9}
+)
+
+# Raw experiment_id still works (resolves to latest version on the backend)
+result = test_set.execute(endpoint, experiment_id="<uuid>")`}
+</CodeBlock>
+
+<Callout type="default">
+  When you pass only ``experiment_id`` without a ``version``, the backend automatically resolves to the experiment's latest version. You don't need to look up the version hash yourself.
+</Callout>

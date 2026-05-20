@@ -3,11 +3,17 @@
 Requires the test backend to be running (``cd sdk && make docker-up``).
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 import requests
+import requests as _requests
 
 from rhesis.sdk import Parameters
 from rhesis.sdk.entities import Experiment, Project, Projects
+from rhesis.sdk.entities.endpoint import Endpoint
+from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.models.parameters import (
     NumberValue,
     ParameterField,
@@ -16,6 +22,8 @@ from rhesis.sdk.models.parameters import (
     canonical_version,
     validate_values_against_schema,
 )
+
+_real_request = _requests.request
 
 
 # ------------------------------------------------------------------ #
@@ -523,3 +531,214 @@ def test_parameters_schema_by_name(docker_compose_test_env):
     fetched = Parameters.schema("Test Project")
     names = {f.name for f in fetched.fields}
     assert {"model", "temperature", "mode"} <= names
+
+
+# ------------------------------------------------------------------ #
+# Experiment execution ergonomics                                      #
+# ------------------------------------------------------------------ #
+
+
+def _mock_execute_response():
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"status": "submitted", "task_id": "mock-task"}
+    mock_resp.raise_for_status.return_value = None
+    return mock_resp
+
+
+def _selective_mock(mock_resp):
+    def _side_effect(*args, **kwargs):
+        url = kwargs.get("url", args[1] if len(args) > 1 else "")
+        if "/execute/" in url:
+            return mock_resp
+        return _real_request(*args, **kwargs)
+
+    return _side_effect
+
+
+def _create_test_endpoint() -> Endpoint:
+    ep = Endpoint(
+        name="Param Exec Endpoint",
+        description="For parameter execution tests",
+        connection_type="REST",
+        url="https://httpbin.org/post",
+        project_id=TEST_PROJECT_ID,
+        method="POST",
+        endpoint_path="/v1/chat",
+        request_mapping={"message": "{{ input }}"},
+        response_mapping={"output": "result.text"},
+    )
+    ep.push()
+    return ep
+
+
+def _create_test_set() -> TestSet:
+    ts = TestSet(
+        name="Param Exec Tests",
+        description="For parameter execution tests",
+        short_description="Test",
+        test_set_type=TestType.SINGLE_TURN,
+        tests=[
+            {
+                "category": "Safety",
+                "topic": "Content",
+                "behavior": "Compliance",
+                "prompt": {"content": "Hello, is this safe?"},
+            }
+        ],
+    )
+    ts.push()
+    return ts
+
+
+@patch("requests.request")
+def test_execute_with_experiment_object(mock_request, docker_compose_test_env):
+    """TestSet.execute(endpoint, experiment=exp) sends experiment_id and version."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+    mock_request.side_effect = _selective_mock(_mock_execute_response())
+
+    exp = Experiment(name="exec-object-test", project_id=TEST_PROJECT_ID)
+    exp.push()
+    v = exp.commit({"model": "gpt-4o", "temperature": 0.8})
+
+    ts = _create_test_set()
+    ep = _create_test_endpoint()
+
+    result = ts.execute(ep, experiment=exp)
+
+    assert result is not None
+    assert result["status"] == "submitted"
+
+    execute_calls = [c for c in mock_request.call_args_list if "/execute/" in str(c)]
+    assert len(execute_calls) == 1
+    body = execute_calls[0][1]["json"]
+    assert body["experiment_id"] == str(exp.id)
+    assert body["version"] == v["version"]
+
+    exp.delete()
+
+
+@patch("requests.request")
+def test_execute_with_inline_parameters(mock_request, docker_compose_test_env):
+    """TestSet.execute(endpoint, experiment=exp, parameters={...}) auto-commits."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+    mock_request.side_effect = _selective_mock(_mock_execute_response())
+
+    exp = Experiment(name="exec-inline-test", project_id=TEST_PROJECT_ID)
+    exp.push()
+    exp.commit({"model": "gpt-4o", "temperature": 0.5})
+    original_version = exp.latest_version
+
+    ts = _create_test_set()
+    ep = _create_test_endpoint()
+
+    result = ts.execute(
+        ep, experiment=exp, parameters={"model": "claude-sonnet", "temperature": 0.9}
+    )
+
+    assert result["status"] == "submitted"
+    # latest_version should have changed (new commit happened)
+    assert exp.latest_version != original_version
+
+    execute_calls = [c for c in mock_request.call_args_list if "/execute/" in str(c)]
+    body = execute_calls[0][1]["json"]
+    assert body["experiment_id"] == str(exp.id)
+    assert body["version"] == exp.latest_version
+
+    exp.delete()
+
+
+@patch("requests.request")
+def test_experiment_run_method(mock_request, docker_compose_test_env):
+    """Experiment.run(test_set, endpoint) delegates to execute."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+    mock_request.side_effect = _selective_mock(_mock_execute_response())
+
+    exp = Experiment(name="exp-run-test", project_id=TEST_PROJECT_ID)
+    exp.push()
+    v = exp.commit({"model": "gpt-4o", "temperature": 0.7})
+
+    ts = _create_test_set()
+    ep = _create_test_endpoint()
+
+    result = exp.run(ts, ep)
+
+    assert result is not None
+    assert result["status"] == "submitted"
+
+    execute_calls = [c for c in mock_request.call_args_list if "/execute/" in str(c)]
+    body = execute_calls[0][1]["json"]
+    assert body["experiment_id"] == str(exp.id)
+    assert body["version"] == v["version"]
+
+    exp.delete()
+
+
+@patch("requests.request")
+def test_experiment_run_with_inline_parameters(mock_request, docker_compose_test_env):
+    """Experiment.run(test_set, endpoint, parameters={...}) commits then executes."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+    mock_request.side_effect = _selective_mock(_mock_execute_response())
+
+    exp = Experiment(name="exp-run-inline-test", project_id=TEST_PROJECT_ID)
+    exp.push()
+    exp.commit({"temperature": 0.3})
+
+    ts = _create_test_set()
+    ep = _create_test_endpoint()
+
+    result = exp.run(ts, ep, parameters={"temperature": 0.99})
+
+    assert result["status"] == "submitted"
+
+    execute_calls = [c for c in mock_request.call_args_list if "/execute/" in str(c)]
+    body = execute_calls[0][1]["json"]
+    assert body["version"] == exp.latest_version
+
+    # Verify the inline commit actually happened
+    fetched = exp.get_version(exp.latest_version)
+    assert fetched["values"]["temperature"] == 0.99
+
+    exp.delete()
+
+
+def test_execute_experiment_and_experiment_id_conflict(docker_compose_test_env):
+    """Passing both experiment= and experiment_id= raises ValueError."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment(name="conflict-test", project_id=TEST_PROJECT_ID)
+    exp.push()
+    exp.commit({"temperature": 0.5})
+
+    ts = _create_test_set()
+    ep = _create_test_endpoint()
+
+    with pytest.raises(ValueError, match="Pass 'experiment' or 'experiment_id', not both"):
+        ts.execute(ep, experiment=exp, experiment_id=str(exp.id))
+
+    exp.delete()
+
+
+def test_execute_parameters_without_experiment_raises(docker_compose_test_env):
+    """Passing parameters= without experiment= raises ValueError."""
+    ts = _create_test_set()
+    ep = _create_test_endpoint()
+
+    with pytest.raises(ValueError, match="parameters= requires experiment="):
+        ts.execute(ep, parameters={"temperature": 0.9})
+
+
+def test_execute_experiment_no_versions_raises(docker_compose_test_env):
+    """Passing an experiment with no versions raises ValueError."""
+    Parameters.put_schema(TEST_PROJECT_ID, _test_schema())
+
+    exp = Experiment(name="no-versions-test", project_id=TEST_PROJECT_ID)
+    exp.push()
+
+    ts = _create_test_set()
+    ep = _create_test_endpoint()
+
+    with pytest.raises(ValueError, match="Experiment has no versions"):
+        ts.execute(ep, experiment=exp)
+
+    exp.delete()

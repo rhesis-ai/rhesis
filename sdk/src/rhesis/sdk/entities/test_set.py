@@ -270,6 +270,8 @@ class TestSet(BaseEntity):
         self,
         endpoint: Endpoint,
         *,
+        experiment: Optional[Any] = None,
+        parameters: Optional[Dict[str, Any]] = None,
         mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
         metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
         execution_model_id: Optional[str] = None,
@@ -282,6 +284,14 @@ class TestSet(BaseEntity):
 
         Args:
             endpoint: The endpoint to execute tests against.
+            experiment: An ``Experiment`` object. Extracts its id and
+                latest version automatically. Mutually exclusive with
+                ``experiment_id``.
+            parameters: Inline parameter values to commit before
+                executing.  Requires ``experiment=`` so the values can
+                be committed as an immutable version.  The commit
+                happens automatically — no separate ``commit()`` call
+                is needed.
             mode: Execution mode -- ``ExecutionMode.PARALLEL`` (default),
                 ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
             metrics: Optional list of metrics for this execution.
@@ -293,7 +303,9 @@ class TestSet(BaseEntity):
                 execution model for multi-turn tests (Penelope).
             evaluation_model_id: Optional model ID to override the default
                 evaluation model (LLM as Judge).
-            experiment_id: Optional experiment ID for parameter resolution.
+            experiment_id: Optional experiment UUID string.  When passed
+                without ``version``, the backend resolves to the
+                experiment's latest version automatically.
             version: Optional version pin for parameter resolution.
             environment: Optional environment name for parameter resolution.
 
@@ -301,19 +313,42 @@ class TestSet(BaseEntity):
             Dict containing the execution submission response.
 
         Raises:
-            ValueError: If test set ID is not set.
+            ValueError: If test set ID is not set, or if both
+                ``experiment`` and ``experiment_id`` are provided.
             RhesisAPIError: If the API request fails.
 
         Example:
             >>> test_set = TestSets.pull(name="Safety Tests")
             >>> endpoint = Endpoints.pull(name="GPT-4o")
             >>> result = test_set.execute(endpoint)
+            >>> # With an Experiment object
+            >>> result = test_set.execute(endpoint, experiment=exp)
+            >>> # Inline parameters (auto-commits, then executes)
             >>> result = test_set.execute(
-            ...     endpoint, experiment_id="<uuid>", environment="staging"
+            ...     endpoint, experiment=exp, parameters={"temperature": 0.9}
             ... )
+            >>> # Raw experiment_id (resolves to latest version)
+            >>> result = test_set.execute(endpoint, experiment_id="<uuid>")
         """
         if not self.id:
             raise ValueError("Test set ID must be set before executing")
+
+        if experiment is not None and experiment_id is not None:
+            raise ValueError("Pass 'experiment' or 'experiment_id', not both")
+
+        if parameters is not None and experiment is None:
+            raise ValueError("parameters= requires experiment= to commit to")
+
+        if experiment is not None:
+            if parameters is not None:
+                experiment.commit(parameters)
+            if experiment.latest_version is None:
+                raise ValueError(
+                    "Experiment has no versions. Call experiment.commit(values) "
+                    "first, or pass parameters= to commit inline."
+                )
+            experiment_id = str(experiment.id)
+            version = experiment.latest_version
 
         body = self._build_execution_body(
             mode=mode,

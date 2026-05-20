@@ -46,6 +46,35 @@ result = test_set.execute(endpoint, mode="sequential")  # string also valid`}
 
 Invalid mode values raise `ValueError`.
 
+### Experiment Parameters
+
+Pass an `Experiment` object to execute with its parameter values. You can also provide inline
+parameters that are committed as a new version before executing:
+
+<CodeBlock filename="execute_experiment.py" language="python">
+{`from rhesis.sdk.entities import Experiment, TestSets, Endpoints
+
+test_set = TestSets.pull(name="Safety Evaluation")
+endpoint = Endpoints.pull(name="Production Chatbot")
+exp = Experiment.publish(
+    name="tuning-v3", project_id=pid,
+    values={"model": "gpt-4o", "temperature": 0.7},
+)
+
+# Execute with the experiment's latest version
+result = test_set.execute(endpoint, experiment=exp)
+
+# Inline parameters — auto-commits, then executes
+result = test_set.execute(
+    endpoint, experiment=exp, parameters={"temperature": 0.9}
+)
+
+# Or use raw experiment_id (resolves to latest version automatically)
+result = test_set.execute(endpoint, experiment_id="<uuid>")`}
+</CodeBlock>
+
+You can also call `exp.run(test_set, endpoint)` for the same result from the experiment side.
+
 ### Custom Metrics
 
 Pass a `metrics` list to override the test set and behavior-level metrics for a single execution.

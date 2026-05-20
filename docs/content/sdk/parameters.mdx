@@ -232,21 +232,34 @@ for group in data["items"]:
 
 ## Running tests with parameters
 
-Pass `experiment_id`, `version`, or `environment` to `TestSet.execute()` to pin a test run to a specific configuration:
+Pass an `Experiment` object, or raw `experiment_id` / `version` / `environment` strings, to `TestSet.execute()` to pin a test run to a specific configuration:
 
 <CodeBlock filename="execute_with_params.py" language="python">
-{`from rhesis.sdk.entities import TestSets, Endpoints
+{`from rhesis.sdk.entities import Experiment, TestSets, Endpoints
 
 test_set = TestSets.pull(name="Safety Tests")
 endpoint = Endpoints.pull(name="GPT-4o")
 
-# Run against the staging experiment
+# Pass an Experiment object directly
+exp = Experiment.publish(name="v3", project_id=pid, values={...})
+result = test_set.execute(endpoint, experiment=exp)
+
+# Inline parameters — commits a new version, then executes with it
 result = test_set.execute(
-    endpoint,
-    experiment_id="exp-uuid",
-    environment="staging",
-)`}
+    endpoint, experiment=exp, parameters={"temperature": 0.9}
+)
+
+# Or from the experiment side
+result = exp.run(test_set, endpoint)
+result = exp.run(test_set, endpoint, parameters={"temperature": 0.9})
+
+# Raw experiment_id still works (resolves to latest version)
+result = test_set.execute(endpoint, experiment_id="exp-uuid")`}
 </CodeBlock>
+
+<Callout type="default">
+  When you pass only `experiment_id` without a `version`, the backend automatically resolves to the experiment's latest version. You don't need to look up the version hash yourself.
+</Callout>
 
 The resolved values are snapshotted at queue time. Moving an environment after the run is queued does not affect it.
 

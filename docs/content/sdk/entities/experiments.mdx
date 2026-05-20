@@ -99,6 +99,25 @@ v = exp.get_version("v_abc123")
 print(v["values"])`}
 </CodeBlock>
 
+## Running experiments
+
+Execute a test set with this experiment's parameters using `run()`:
+
+<CodeBlock filename="run.py" language="python">
+{`from rhesis.sdk.entities import TestSets, Endpoints
+
+test_set = TestSets.pull(name="Safety Tests")
+endpoint = Endpoints.pull(name="GPT-4o")
+
+# Run with the experiment's latest version
+result = exp.run(test_set, endpoint)
+
+# Inline parameters — commits automatically, then executes
+result = exp.run(test_set, endpoint, parameters={"temperature": 0.9})`}
+</CodeBlock>
+
+This is equivalent to `test_set.execute(endpoint, experiment=exp)`. See [Test Execution](/sdk/execution) for the full execution API.
+
 ## Results
 
 Retrieve aggregated test-run statistics for an experiment. Results can be grouped by individual run or by parameter version:
@@ -160,6 +179,7 @@ Deleting an experiment automatically unbinds any environments that point to it:
 | `share()` | `None` | Set visibility to shared |
 | `unshare()` | `None` | Set visibility to private |
 | `promote(environment)` | `None` | Bind latest version to environment |
+| `run(test_set, endpoint, *, parameters, ...)` | `dict \| None` | Execute a test set with this experiment's parameters |
 | `results(*, group_by, limit)` | `dict` | Aggregated test-run statistics |
 | `publish(*, name, project_id, values, ...)` | `Experiment` | Class method: create, commit, share, promote |
 
