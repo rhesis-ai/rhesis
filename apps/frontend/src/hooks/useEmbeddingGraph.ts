@@ -29,6 +29,8 @@ export function useEmbeddingGraph(
   const [error, setError] = useState<string | null>(null);
   const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollAttemptsRef = useRef(0);
+  /** Bumped to cancel in-flight polls (disable, unmount, or new poll session). */
+  const pollGenerationRef = useRef(0);
   /** Set when compute/recompute starts; poll until graph computed_at is newer. */
   const computeBaselineRef = useRef<string | null>(null);
 
@@ -40,10 +42,15 @@ export function useEmbeddingGraph(
     pollAttemptsRef.current = 0;
   }, []);
 
+  const invalidatePollSession = useCallback(() => {
+    pollGenerationRef.current += 1;
+  }, []);
+
   const stopPolling = useCallback(() => {
+    invalidatePollSession();
     resetPollTimer();
     setIsComputing(false);
-  }, [resetPollTimer]);
+  }, [invalidatePollSession, resetPollTimer]);
 
   const clearPoll = useCallback(() => {
     stopPolling();
@@ -53,6 +60,7 @@ export function useEmbeddingGraph(
   const fetchGraph = useCallback(
     async (options?: {
       waitForNewerThanBaseline: boolean;
+      pollGeneration?: number;
     }): Promise<
       { status: 'ready'; graph: Scatter2DGraph } | { status: 'pending' }
     > => {
@@ -68,7 +76,12 @@ export function useEmbeddingGraph(
         ) {
           return { status: 'pending' };
         }
-        setGraph(response.graph);
+        if (
+          options?.pollGeneration !== undefined &&
+          pollGenerationRef.current !== options.pollGeneration
+        ) {
+          return { status: 'pending' };
+        }
         return { status: 'ready', graph: response.graph };
       }
       return { status: 'pending' };
@@ -78,13 +91,29 @@ export function useEmbeddingGraph(
 
   const pollUntilReady = useCallback(() => {
     resetPollTimer();
+    invalidatePollSession();
+    const pollGeneration = pollGenerationRef.current;
     setIsComputing(true);
 
+    const isPollSessionActive = () =>
+      pollGenerationRef.current === pollGeneration;
+
     const poll = async () => {
+      if (!isPollSessionActive()) {
+        return;
+      }
+
       pollAttemptsRef.current += 1;
       try {
-        const result = await fetchGraph({ waitForNewerThanBaseline: true });
+        const result = await fetchGraph({
+          waitForNewerThanBaseline: true,
+          pollGeneration,
+        });
+        if (!isPollSessionActive()) {
+          return;
+        }
         if (result.status === 'ready') {
+          setGraph(result.graph);
           clearPoll();
           return;
         }
@@ -93,8 +122,14 @@ export function useEmbeddingGraph(
           clearPoll();
           return;
         }
+        if (!isPollSessionActive()) {
+          return;
+        }
         pollTimeoutRef.current = setTimeout(poll, POLL_INTERVAL_MS);
       } catch (err) {
+        if (!isPollSessionActive()) {
+          return;
+        }
         const message =
           err instanceof Error ? err.message : 'Failed to load embedding map';
         setError(message);
@@ -103,12 +138,15 @@ export function useEmbeddingGraph(
     };
 
     void poll();
-  }, [clearPoll, fetchGraph, resetPollTimer]);
+  }, [clearPoll, fetchGraph, invalidatePollSession, resetPollTimer]);
 
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      await fetchGraph();
+      const result = await fetchGraph();
+      if (result.status === 'ready') {
+        setGraph(result.graph);
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to load embedding map';
@@ -158,6 +196,8 @@ export function useEmbeddingGraph(
           setGraph(null);
           return;
         }
+
+        setGraph(result.graph);
 
         const baseline = computeBaselineRef.current;
         if (

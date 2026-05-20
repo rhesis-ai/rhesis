@@ -154,6 +154,58 @@ describe('useEmbeddingGraph', () => {
     expect(mockTestSetsClient.getEmbeddingGraph).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores stale poll responses after enabled becomes false', async () => {
+    let resolveSecondFetch: (value: {
+      status: 'ready';
+      graph: Scatter2DGraph;
+    }) => void = () => undefined;
+    const secondFetch = new Promise<{ status: 'ready'; graph: Scatter2DGraph }>(
+      resolve => {
+        resolveSecondFetch = resolve;
+      }
+    );
+
+    mockTestSetsClient.getEmbeddingGraph
+      .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
+      .mockReturnValueOnce(secondFetch)
+      .mockResolvedValue({ status: 'ready', graph: newGraph });
+    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
+      status: 'pending',
+      task_id: 'task-1',
+    });
+
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useEmbeddingGraph('test-set-1', 'token', { enabled }),
+      { initialProps: { enabled: true } }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      void result.current.computeGraph();
+    });
+
+    await waitFor(() => {
+      expect(mockTestSetsClient.getEmbeddingGraph.mock.calls.length).toBe(2);
+    });
+
+    rerender({ enabled: false });
+
+    await waitFor(() => {
+      expect(result.current.isComputing).toBe(false);
+    });
+
+    await act(async () => {
+      resolveSecondFetch({ status: 'ready', graph: newGraph });
+      await Promise.resolve();
+    });
+
+    expect(result.current.graph).toEqual(oldGraph);
+  });
+
   it('resumes polling when enabled returns during recompute', async () => {
     mockTestSetsClient.getEmbeddingGraph
       .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
