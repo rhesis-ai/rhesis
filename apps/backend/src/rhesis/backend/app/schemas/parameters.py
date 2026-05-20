@@ -78,6 +78,7 @@ class BuiltInEnvironment:
         PRODUCTION,
     )
 
+
 #: Hard upper bound on environment-name length. Keeps URLs and column
 #: widths predictable; well below any HTTP path-segment limit.
 ENVIRONMENT_NAME_MAX_LENGTH: int = 63
@@ -251,8 +252,7 @@ class ParameterSchema(BaseModel):
         for f in self.fields:
             if not _NAME_RE.match(f.name):
                 raise ValueError(
-                    f"Parameter name {f.name!r} is not snake_case"
-                    " (must match [a-z][a-z0-9_]*)"
+                    f"Parameter name {f.name!r} is not snake_case (must match [a-z][a-z0-9_]*)"
                 )
             if f.name in seen:
                 raise ValueError(f"Duplicate parameter name: {f.name!r}")
@@ -260,9 +260,7 @@ class ParameterSchema(BaseModel):
 
             if f.type == "enum":
                 if not f.options:
-                    raise ValueError(
-                        f"Enum parameter {f.name!r} must have options"
-                    )
+                    raise ValueError(f"Enum parameter {f.name!r} must have options")
                 if f.default is not None:
                     if f.default.type != "enum":
                         raise ValueError(
@@ -271,14 +269,11 @@ class ParameterSchema(BaseModel):
                         )
                     if f.default.value not in f.options:
                         raise ValueError(
-                            f"Default value {f.default.value!r} not in options"
-                            f" for enum {f.name!r}"
+                            f"Default value {f.default.value!r} not in options for enum {f.name!r}"
                         )
             else:
                 if f.options is not None:
-                    raise ValueError(
-                        f"Parameter {f.name!r} of type {f.type!r} cannot have options"
-                    )
+                    raise ValueError(f"Parameter {f.name!r} of type {f.type!r} cannot have options")
                 if f.default is not None and f.default.type != f.type:
                     raise ValueError(
                         f"Default for {f.name!r} does not match parameter type"
@@ -359,9 +354,7 @@ class ProjectEnvironments(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    environments: dict[str, EnvironmentPointer | None] = Field(
-        default_factory=dict
-    )
+    environments: dict[str, EnvironmentPointer | None] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
@@ -505,10 +498,7 @@ def _coerce_value(
             ) from exc
 
     if typed.type != field.type:
-        raise ValueError(
-            f"Type mismatch for {name!r}: expected {field.type!r},"
-            f" got {typed.type!r}"
-        )
+        raise ValueError(f"Type mismatch for {name!r}: expected {field.type!r}, got {typed.type!r}")
 
     if field.type == "enum" and field.options is not None:
         if typed.value not in field.options:
@@ -577,10 +567,7 @@ def canonical_hash(
     dump so two value sets that hash identically were produced under the
     same schema interpretation.
     """
-    serialized = {
-        name: _dump_for_hash(value)
-        for name, value in values.items()
-    }
+    serialized = {name: _dump_for_hash(value) for name, value in values.items()}
     payload = {
         "schema_fingerprint": schema_fingerprint,
         "values": serialized,

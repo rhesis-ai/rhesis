@@ -55,10 +55,7 @@ def _column_exists(table: str, column: str) -> bool:
 def _index_exists(table: str, index_name: str) -> bool:
     conn = op.get_bind()
     row = conn.execute(
-        sa.text(
-            "SELECT 1 FROM pg_indexes "
-            "WHERE tablename = :t AND indexname = :i"
-        ),
+        sa.text("SELECT 1 FROM pg_indexes WHERE tablename = :t AND indexname = :i"),
         {"t": table, "i": index_name},
     ).fetchone()
     return row is not None
@@ -67,10 +64,7 @@ def _index_exists(table: str, index_name: str) -> bool:
 def _fk_exists(table: str, fk_name: str) -> bool:
     conn = op.get_bind()
     row = conn.execute(
-        sa.text(
-            "SELECT 1 FROM pg_constraint "
-            "WHERE conname = :name AND contype = 'f'"
-        ),
+        sa.text("SELECT 1 FROM pg_constraint WHERE conname = :name AND contype = 'f'"),
         {"name": fk_name},
     ).fetchone()
     return row is not None
@@ -142,9 +136,7 @@ def downgrade() -> None:
         op.drop_index("ix_test_run_experiment_id", table_name="test_run")
 
     if _fk_exists("test_run", "fk_test_run_experiment_id"):
-        op.drop_constraint(
-            "fk_test_run_experiment_id", "test_run", type_="foreignkey"
-        )
+        op.drop_constraint("fk_test_run_experiment_id", "test_run", type_="foreignkey")
 
     if _column_exists("test_run", "experiment_id"):
         op.drop_column("test_run", "experiment_id")

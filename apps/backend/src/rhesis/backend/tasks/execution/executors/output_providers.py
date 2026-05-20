@@ -30,9 +30,7 @@ from rhesis.backend.tasks.execution.executors.results import (
 logger = logging.getLogger(__name__)
 
 
-def _load_run_params(
-    db, test_execution_context: Optional[Dict[str, Any]]
-) -> Dict[str, Any]:
+def _load_run_params(db, test_execution_context: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Load resolved parameter snapshot from the TestRun attributes.
 
     Returns an empty dict when no parameters are available, so callers

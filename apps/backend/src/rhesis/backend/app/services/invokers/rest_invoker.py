@@ -332,12 +332,12 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                     value = value.replace("{API_KEY}", auth_token or "")
                 if "{auth_token}" in value:
                     value = value.replace("{auth_token}", auth_token or "")
-                
+
                 # Jinja rendering (handles {{ auth_token }} and {{ params.* }})
                 rendered_headers[key] = str(self.template_renderer.render(value, template_context))
             else:
                 rendered_headers[key] = value
-        
+
         headers = rendered_headers
 
         # Inject context headers using shared base method

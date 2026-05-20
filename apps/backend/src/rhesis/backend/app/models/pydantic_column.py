@@ -70,9 +70,7 @@ class PydanticListColumn(TypeDecorator):
         self.pydantic_type = pydantic_type
         self._adapter: TypeAdapter[list[T]] = TypeAdapter(list[pydantic_type])
 
-    def process_bind_param(
-        self, value: List[T] | List[dict] | None, dialect: Any
-    ) -> list | None:
+    def process_bind_param(self, value: List[T] | List[dict] | None, dialect: Any) -> list | None:
         if value is None:
             return None
         out: list = []
@@ -83,9 +81,7 @@ class PydanticListColumn(TypeDecorator):
                 out.append(item)
         return out
 
-    def process_result_value(
-        self, value: list | str | None, dialect: Any
-    ) -> List[T] | None:
+    def process_result_value(self, value: list | str | None, dialect: Any) -> List[T] | None:
         if value is None:
             return None
         if isinstance(value, str):

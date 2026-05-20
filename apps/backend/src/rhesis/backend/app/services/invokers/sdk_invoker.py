@@ -134,9 +134,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         if not request_mapping:
             logger.warning(f"No request_mapping configured for {function_name}, using passthrough")
             return {
-                k: v
-                for k, v in template_context.items()
-                if k not in self._PLATFORM_CONTEXT_KEYS
+                k: v for k, v in template_context.items() if k not in self._PLATFORM_CONTEXT_KEYS
             }
 
         # Full context (including params) available for Jinja rendering

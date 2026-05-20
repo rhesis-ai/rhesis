@@ -60,10 +60,7 @@ def _column_exists(table: str, column: str) -> bool:
 def _index_exists(table: str, index_name: str) -> bool:
     conn = op.get_bind()
     row = conn.execute(
-        sa.text(
-            "SELECT 1 FROM pg_indexes "
-            "WHERE tablename = :t AND indexname = :i"
-        ),
+        sa.text("SELECT 1 FROM pg_indexes WHERE tablename = :t AND indexname = :i"),
         {"t": table, "i": index_name},
     ).fetchone()
     return row is not None
@@ -200,9 +197,7 @@ def upgrade() -> None:
             "experiment",
             ["project_id", "owner_user_id", "name"],
             unique=True,
-            postgresql_where=sa.text(
-                "visibility = 'private' AND deleted_at IS NULL"
-            ),
+            postgresql_where=sa.text("visibility = 'private' AND deleted_at IS NULL"),
         )
     if not _index_exists("experiment", "uq_experiment_shared_name"):
         op.create_index(
@@ -210,17 +205,13 @@ def upgrade() -> None:
             "experiment",
             ["project_id", "name"],
             unique=True,
-            postgresql_where=sa.text(
-                "visibility = 'shared' AND deleted_at IS NULL"
-            ),
+            postgresql_where=sa.text("visibility = 'shared' AND deleted_at IS NULL"),
         )
 
     # ------------------------------------------------------------------ #
     # RLS for the new experiment table                                   #
     # ------------------------------------------------------------------ #
-    op.execute(
-        "ALTER TABLE public.experiment ENABLE ROW LEVEL SECURITY"
-    )
+    op.execute("ALTER TABLE public.experiment ENABLE ROW LEVEL SECURITY")
     op.execute("DROP POLICY IF EXISTS tenant_isolation ON public.experiment")
     op.execute(
         """

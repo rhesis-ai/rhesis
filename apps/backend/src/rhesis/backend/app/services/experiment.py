@@ -758,9 +758,7 @@ def apply_parameter_snapshot_to_run_attributes(
     merged["parameter_schema"] = resolved.schema_.model_dump(mode="json")
     merged["parameter_experiment_name"] = exp_name
     merged["parameter_experiment_visibility"] = exp_vis
-    return ParameterSnapshot(
-        attributes=merged, experiment_id=resolved.experiment_id
-    )
+    return ParameterSnapshot(attributes=merged, experiment_id=resolved.experiment_id)
 
 
 def connector_execute_extras_from_run_attributes(

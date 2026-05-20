@@ -157,9 +157,9 @@ class TemplateRenderer:
 
         if match:
             var_path = match.group(1)
-            
+
             # Navigate dotted path to get value
-            parts = var_path.split('.')
+            parts = var_path.split(".")
             value = render_context
             found = True
             for part in parts:
@@ -170,7 +170,7 @@ class TemplateRenderer:
                 else:
                     found = False
                     break
-                    
+
             if found:
                 # Check if value is a Pydantic model - convert to dict for serialization
                 if hasattr(value, "model_dump"):

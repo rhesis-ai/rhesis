@@ -2188,8 +2188,7 @@ def get_test_runs(
             q = q.filter(models.TestRun.experiment_id == experiment_id)
         if parameter_version:
             q = q.filter(
-                models.TestRun.attributes['parameter_version'].astext
-                == str(parameter_version)
+                models.TestRun.attributes["parameter_version"].astext == str(parameter_version)
             )
         if has_experiment is True:
             q = q.filter(models.TestRun.experiment_id.isnot(None))
