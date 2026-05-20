@@ -229,7 +229,11 @@ export async function assignTagsToRuns({
         ...(organizationId && { organization_id: organizationId as UUID }),
         ...(userId && { user_id: userId as UUID }),
       };
-      await tagsClient.assignTagToEntity(EntityType.TEST_RUN, testRun.id, tagPayload);
+      await tagsClient.assignTagToEntity(
+        EntityType.TEST_RUN,
+        testRun.id,
+        tagPayload
+      );
     }
   }
 }

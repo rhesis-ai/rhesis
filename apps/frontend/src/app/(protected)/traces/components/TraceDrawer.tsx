@@ -563,7 +563,10 @@ export default function TraceDrawer({
                   icon={<ScienceIcon />}
                   label={`Experiment: ${experimentInfo.name}`}
                   component={Link}
-                  href={experimentHref(experimentInfo.id, experimentInfo.version)}
+                  href={experimentHref(
+                    experimentInfo.id,
+                    experimentInfo.version
+                  )}
                   target="_blank"
                   clickable
                   size="small"

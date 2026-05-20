@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   Alert,
   Autocomplete,
@@ -228,7 +234,9 @@ export default function RunDrawer(props: RunDrawerProps) {
   // ---- Project / Endpoint ----
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [endpoints, setEndpoints] = useState<EndpointOption[]>([]);
-  const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>([]);
+  const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>(
+    []
+  );
   const [selectedProject, setSelectedProject] = useState<UUID | null>(null);
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
 
@@ -238,7 +246,9 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   // ---- Test set multi-search (runExperiment) ----
   const [searchTestSets, setSearchTestSets] = useState<TestSet[]>([]);
-  const [selectedSearchTestSets, setSelectedSearchTestSets] = useState<TestSet[]>([]);
+  const [selectedSearchTestSets, setSelectedSearchTestSets] = useState<
+    TestSet[]
+  >([]);
   const [testSetInput, setTestSetInput] = useState('');
   const [testSetSearching, setTestSetSearching] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -252,7 +262,9 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   // ---- Scoring target ----
   const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
-  const [lastTestRun, setLastTestRun] = useState<LastTestRunSummary | null>(null);
+  const [lastTestRun, setLastTestRun] = useState<LastTestRunSummary | null>(
+    null
+  );
 
   // ---- Metrics ----
   const [metricMode, setMetricMode] = useState<MetricMode>('use_behavior');
@@ -261,10 +273,13 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   // ---- Models ----
   const [selectedExecutionModelId, setSelectedExecutionModelId] = useState('');
-  const [selectedEvaluationModelId, setSelectedEvaluationModelId] = useState('');
+  const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
+    useState('');
 
   // ---- Experiments ----
-  const [selectedExperiments, setSelectedExperiments] = useState<SelectedExperiment[]>([]);
+  const [selectedExperiments, setSelectedExperiments] = useState<
+    SelectedExperiment[]
+  >([]);
   const [experimentsDialogOpen, setExperimentsDialogOpen] = useState(false);
 
   // ---- Tags ----
@@ -281,8 +296,10 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   const rerunConfig = mode === 'rerunTestRun' ? props.data : null;
   const experimentData = mode === 'runExperiment' ? props.data : null;
-  const executeTestSetId = mode === 'executeTestSet' ? props.data.testSetId : null;
-  const gridTestSetIds = mode === 'createFromGrid' ? props.data.selectedTestSetIds : null;
+  const executeTestSetId =
+    mode === 'executeTestSet' ? props.data.testSetId : null;
+  const gridTestSetIds =
+    mode === 'createFromGrid' ? props.data.selectedTestSetIds : null;
 
   const effectiveProjectId = useMemo(() => {
     if (rerunConfig?.projectId) return rerunConfig.projectId as UUID;
@@ -338,8 +355,16 @@ export default function RunDrawer(props: RunDrawerProps) {
         const endpointsClient = apiFactory.getEndpointsClient();
 
         const [projectsData, endpointsResponse] = await Promise.all([
-          projectsClient.getProjects({ sort_by: 'name', sort_order: 'asc', limit: 100 }),
-          endpointsClient.getEndpoints({ sort_by: 'name', sort_order: 'asc', limit: 100 }),
+          projectsClient.getProjects({
+            sort_by: 'name',
+            sort_order: 'asc',
+            limit: 100,
+          }),
+          endpointsClient.getEndpoints({
+            sort_by: 'name',
+            sort_order: 'asc',
+            limit: 100,
+          }),
         ]);
 
         if (!mounted) return;
@@ -393,7 +418,9 @@ export default function RunDrawer(props: RunDrawerProps) {
       }
     };
     load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, sessionToken, mode]);
 
@@ -406,14 +433,18 @@ export default function RunDrawer(props: RunDrawerProps) {
     let mounted = true;
     const load = async () => {
       try {
-        const res = await apiFactory.getTestSetsClient().getTestSets({ limit: 100 });
+        const res = await apiFactory
+          .getTestSetsClient()
+          .getTestSets({ limit: 100 });
         if (mounted) setTestSets(Array.isArray(res?.data) ? res.data : []);
       } catch {
         if (mounted) setTestSets([]);
       }
     };
     load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [open, mode, apiFactory]);
 
   // -----------------------------------------------------------------------
@@ -422,8 +453,7 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   useEffect(() => {
     if (!open) return;
-    const testSetId =
-      executeTestSetId ?? rerunConfig?.testSetId ?? null;
+    const testSetId = executeTestSetId ?? rerunConfig?.testSetId ?? null;
     if (!testSetId) return;
 
     let mounted = true;
@@ -450,7 +480,9 @@ export default function RunDrawer(props: RunDrawerProps) {
       }
     };
     load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [open, executeTestSetId, rerunConfig?.testSetId, mode, apiFactory]);
 
   // Rerun: pre-fill metrics & models from original attributes
@@ -461,15 +493,15 @@ export default function RunDrawer(props: RunDrawerProps) {
     if (origMetrics && origMetrics.length > 0) {
       setMetricMode('define_custom');
       setSelectedMetrics(
-        origMetrics.map(m => ({ id: m.id as UUID, name: m.name, scope: m.scope }))
+        origMetrics.map(m => ({
+          id: m.id as UUID,
+          name: m.name,
+          scope: m.scope,
+        }))
       );
     }
-    setSelectedExecutionModelId(
-      (orig?.execution_model_id as string) || ''
-    );
-    setSelectedEvaluationModelId(
-      (orig?.evaluation_model_id as string) || ''
-    );
+    setSelectedExecutionModelId((orig?.execution_model_id as string) || '');
+    setSelectedEvaluationModelId((orig?.evaluation_model_id as string) || '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode]);
 
@@ -478,26 +510,38 @@ export default function RunDrawer(props: RunDrawerProps) {
     if (!open || mode !== 'rerunTestRun') return;
     const origRef = rerunConfig?.originalAttributes?.parameters_ref;
     const origExpId = origRef?.experiment_id;
-    if (!origExpId) { setSelectedExperiments([]); return; }
+    if (!origExpId) {
+      setSelectedExperiments([]);
+      return;
+    }
 
     let cancelled = false;
     const load = async () => {
       try {
-        const exp = await apiFactory.getParametersClient().getExperiment(origExpId);
+        const exp = await apiFactory
+          .getParametersClient()
+          .getExperiment(origExpId);
         if (cancelled) return;
         const version = origRef?.version || exp.latest_version;
-        if (!version) { setSelectedExperiments([]); return; }
-        setSelectedExperiments([{
-          experiment_id: exp.id,
-          experiment_name: exp.name,
-          version,
-        }]);
+        if (!version) {
+          setSelectedExperiments([]);
+          return;
+        }
+        setSelectedExperiments([
+          {
+            experiment_id: exp.id,
+            experiment_name: exp.name,
+            version,
+          },
+        ]);
       } catch {
         if (!cancelled) setSelectedExperiments([]);
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode]);
 
@@ -512,7 +556,9 @@ export default function RunDrawer(props: RunDrawerProps) {
       setSelectedEndpoint(null);
       return;
     }
-    setFilteredEndpoints(endpoints.filter(e => e.project_id === selectedProject));
+    setFilteredEndpoints(
+      endpoints.filter(e => e.project_id === selectedProject)
+    );
     setSelectedEndpoint(null);
   }, [selectedProject, endpoints, mode]);
 
@@ -528,23 +574,33 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   useEffect(() => {
     if (mode !== 'executeTestSet' || !selectedEndpoint || !open) {
-      if (mode === 'executeTestSet') { setLastTestRun(null); setScoringTarget('fresh'); }
+      if (mode === 'executeTestSet') {
+        setLastTestRun(null);
+        setScoringTarget('fresh');
+      }
       return;
     }
     let mounted = true;
     const load = async () => {
       try {
-        const result = await apiFactory.getTestSetsClient().getLastTestRun(
-          executeTestSetId!,
-          selectedEndpoint
-        );
-        if (mounted) { setLastTestRun(result); setScoringTarget('fresh'); }
+        const result = await apiFactory
+          .getTestSetsClient()
+          .getLastTestRun(executeTestSetId!, selectedEndpoint);
+        if (mounted) {
+          setLastTestRun(result);
+          setScoringTarget('fresh');
+        }
       } catch {
-        if (mounted) { setLastTestRun(null); setScoringTarget('fresh'); }
+        if (mounted) {
+          setLastTestRun(null);
+          setScoringTarget('fresh');
+        }
       }
     };
     load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [mode, selectedEndpoint, executeTestSetId, open, apiFactory]);
 
   // -----------------------------------------------------------------------
@@ -584,9 +640,15 @@ export default function RunDrawer(props: RunDrawerProps) {
     (_: unknown, value: string, reason: string) => {
       setTestSetInput(value);
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-      if (value === '' || reason === 'reset') { fetchSearchTestSets(''); return; }
+      if (value === '' || reason === 'reset') {
+        fetchSearchTestSets('');
+        return;
+      }
       if (value.length < 2) return;
-      searchTimeoutRef.current = setTimeout(() => fetchSearchTestSets(value), 500);
+      searchTimeoutRef.current = setTimeout(
+        () => fetchSearchTestSets(value),
+        500
+      );
     },
     [fetchSearchTestSets]
   );
@@ -601,7 +663,11 @@ export default function RunDrawer(props: RunDrawerProps) {
       if (metric) {
         setSelectedMetrics(prev => [
           ...prev,
-          { id: metric.id as UUID, name: metric.name, scope: metric.metric_scope },
+          {
+            id: metric.id as UUID,
+            name: metric.name,
+            scope: metric.metric_scope,
+          },
         ]);
       }
     } catch (err) {
@@ -667,9 +733,15 @@ export default function RunDrawer(props: RunDrawerProps) {
         execution_mode: executionMode,
       };
 
-      if (cfg.showMetrics && metricMode === 'define_custom' && selectedMetrics.length > 0) {
+      if (
+        cfg.showMetrics &&
+        metricMode === 'define_custom' &&
+        selectedMetrics.length > 0
+      ) {
         baseAttributes.metrics = selectedMetrics.map(m => ({
-          id: m.id, name: m.name, scope: m.scope,
+          id: m.id,
+          name: m.name,
+          scope: m.scope,
         }));
       }
 
@@ -700,15 +772,20 @@ export default function RunDrawer(props: RunDrawerProps) {
         try {
           let organizationId: string;
           if (mode === 'rerunTestRun') {
-            const ep = await apiFactory.getEndpointsClient().getEndpoint(endpointId);
+            const ep = await apiFactory
+              .getEndpointsClient()
+              .getEndpoint(endpointId);
             organizationId = ep.organization_id as string;
           } else {
-            const epObj = filteredEndpoints.find(e => e.id === endpointId) ??
+            const epObj =
+              filteredEndpoints.find(e => e.id === endpointId) ??
               endpoints.find(e => e.id === endpointId);
             if (epObj?.organization_id) {
               organizationId = epObj.organization_id;
             } else {
-              const ep = await apiFactory.getEndpointsClient().getEndpoint(endpointId);
+              const ep = await apiFactory
+                .getEndpointsClient()
+                .getEndpoint(endpointId);
               organizationId = ep.organization_id as string;
             }
           }
@@ -755,7 +832,10 @@ export default function RunDrawer(props: RunDrawerProps) {
     return true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    mode, selectedEndpoint, selectedTestSet, selectedSearchTestSets,
+    mode,
+    selectedEndpoint,
+    selectedTestSet,
+    selectedSearchTestSets,
     experimentData?.selectedVersionHashes,
   ]);
 
@@ -801,14 +881,18 @@ export default function RunDrawer(props: RunDrawerProps) {
             setSelectedEndpoint(null);
           }}
           getOptionLabel={option => {
-            const hasDuplicate = projects.filter(p => p.name === option.name).length > 1;
+            const hasDuplicate =
+              projects.filter(p => p.name === option.name).length > 1;
             if (!hasDuplicate) return option.name;
-            const suffix = option.nano_id ? option.nano_id.slice(0, 6) : option.id.slice(0, 6);
+            const suffix = option.nano_id
+              ? option.nano_id.slice(0, 6)
+              : option.id.slice(0, 6);
             return `${option.name} (${suffix})`;
           }}
           renderOption={(props, option) => {
             const { key: _key, ...otherProps } = props;
-            const hasDuplicate = projects.filter(p => p.name === option.name).length > 1;
+            const hasDuplicate =
+              projects.filter(p => p.name === option.name).length > 1;
             return (
               <Box component="li" key={option.id} {...otherProps}>
                 <Box>
@@ -825,7 +909,12 @@ export default function RunDrawer(props: RunDrawerProps) {
             );
           }}
           renderInput={params => (
-            <TextField {...params} label="Project" required placeholder="Select a project" />
+            <TextField
+              {...params}
+              label="Project"
+              required
+              placeholder="Select a project"
+            />
           )}
           isOptionEqualToValue={(a, b) => a.id === b.id}
         />
@@ -851,7 +940,8 @@ export default function RunDrawer(props: RunDrawerProps) {
       return null;
     }
 
-    const options = mode === 'runExperiment' ? filteredEndpoints : filteredEndpoints;
+    const options =
+      mode === 'runExperiment' ? filteredEndpoints : filteredEndpoints;
     const disabled = mode !== 'runExperiment' && !selectedProject;
 
     return (
@@ -867,7 +957,9 @@ export default function RunDrawer(props: RunDrawerProps) {
               {...params}
               label="Endpoint"
               required
-              placeholder={disabled ? 'Select a project first' : 'Select endpoint'}
+              placeholder={
+                disabled ? 'Select a project first' : 'Select endpoint'
+              }
             />
           )}
           renderOption={(props, option) => {
@@ -877,7 +969,11 @@ export default function RunDrawer(props: RunDrawerProps) {
                 key={option.id}
                 {...otherProps}
                 component="li"
-                sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
               >
                 <span>{option.name}</span>
                 {option.environment && (
@@ -900,7 +996,9 @@ export default function RunDrawer(props: RunDrawerProps) {
           isOptionEqualToValue={(a, b) => a.id === b.id}
         />
         {options.length === 0 && !disabled && !loading && (
-          <FormHelperText>No endpoints available for this project</FormHelperText>
+          <FormHelperText>
+            No endpoints available for this project
+          </FormHelperText>
         )}
       </FormControl>
     );
@@ -977,7 +1075,9 @@ export default function RunDrawer(props: RunDrawerProps) {
               ...params.InputProps,
               endAdornment: (
                 <>
-                  {testSetSearching && <CircularProgress color="inherit" size={20} />}
+                  {testSetSearching && (
+                    <CircularProgress color="inherit" size={20} />
+                  )}
                   {params.InputProps.endAdornment}
                 </>
               ),
@@ -1037,61 +1137,80 @@ export default function RunDrawer(props: RunDrawerProps) {
       <Box>
         <Alert severity="info" sx={{ mb: 2 }}>
           Each selected experiment triggers its own test run with that
-          experiment&apos;s parameters pinned. Leave empty to run without
-          an experiment.
+          experiment&apos;s parameters pinned. Leave empty to run without an
+          experiment.
         </Alert>
 
-        {selectedExperiments.length > 0 && (() => {
-          const grouped = new Map<string, { name: string; versions: SelectedExperiment[] }>();
-          for (const exp of selectedExperiments) {
-            const key = String(exp.experiment_id);
-            const group = grouped.get(key) ?? { name: exp.experiment_name, versions: [] };
-            group.versions.push(exp);
-            grouped.set(key, group);
-          }
-          return (
-            <Stack spacing={1} sx={{ mb: 2 }}>
-              {Array.from(grouped.entries()).map(([expId, group]) => (
-                <Box
-                  key={expId}
-                  sx={{
-                    p: 1.5,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: theme => theme.spacing(1),
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <BiotechIcon fontSize="small" color="primary" />
-                    <Typography variant="body2" noWrap>
-                      {group.name}
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                    {group.versions.map(exp => (
-                      <Chip
-                        key={exp.version}
-                        label={shortVersion(exp.version)}
-                        size="small"
-                        variant="outlined"
-                        sx={{ fontFamily: 'monospace' }}
-                        onDelete={() =>
-                          setSelectedExperiments(prev =>
-                            prev.filter(
-                              row =>
-                                row.experiment_id !== exp.experiment_id ||
-                                row.version !== exp.version
+        {selectedExperiments.length > 0 &&
+          (() => {
+            const grouped = new Map<
+              string,
+              { name: string; versions: SelectedExperiment[] }
+            >();
+            for (const exp of selectedExperiments) {
+              const key = String(exp.experiment_id);
+              const group = grouped.get(key) ?? {
+                name: exp.experiment_name,
+                versions: [],
+              };
+              group.versions.push(exp);
+              grouped.set(key, group);
+            }
+            return (
+              <Stack spacing={1} sx={{ mb: 2 }}>
+                {Array.from(grouped.entries()).map(([expId, group]) => (
+                  <Box
+                    key={expId}
+                    sx={{
+                      p: 1.5,
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: theme => theme.spacing(1),
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        mb: 1,
+                      }}
+                    >
+                      <BiotechIcon fontSize="small" color="primary" />
+                      <Typography variant="body2" noWrap>
+                        {group.name}
+                      </Typography>
+                    </Box>
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      flexWrap="wrap"
+                      useFlexGap
+                    >
+                      {group.versions.map(exp => (
+                        <Chip
+                          key={exp.version}
+                          label={shortVersion(exp.version)}
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontFamily: 'monospace' }}
+                          onDelete={() =>
+                            setSelectedExperiments(prev =>
+                              prev.filter(
+                                row =>
+                                  row.experiment_id !== exp.experiment_id ||
+                                  row.version !== exp.version
+                              )
                             )
-                          )
-                        }
-                      />
-                    ))}
-                  </Stack>
-                </Box>
-              ))}
-            </Stack>
-          );
-        })()}
+                          }
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            );
+          })()}
 
         <Button
           variant="outlined"
@@ -1181,29 +1300,32 @@ export default function RunDrawer(props: RunDrawerProps) {
           </Select>
         </FormControl>
 
-        {scoringTarget === 'reuse' && mode === 'executeTestSet' && lastTestRun && (
-          <Alert severity="info">
-            Outputs from{' '}
-            <Link
-              href={`/test-runs/${lastTestRun.nano_id || lastTestRun.id}`}
-              target="_blank"
-              style={{ fontWeight: 600 }}
-            >
-              {lastTestRun.name ||
-                `Test run from ${
-                  lastTestRun.created_at
-                    ? new Date(lastTestRun.created_at).toLocaleDateString()
-                    : 'unknown date'
-                }`}
-            </Link>{' '}
-            ({lastTestRun.pass_rate}% pass rate, {lastTestRun.test_count} tests) will be
-            reused. Only metrics will be re-evaluated.
-          </Alert>
-        )}
+        {scoringTarget === 'reuse' &&
+          mode === 'executeTestSet' &&
+          lastTestRun && (
+            <Alert severity="info">
+              Outputs from{' '}
+              <Link
+                href={`/test-runs/${lastTestRun.nano_id || lastTestRun.id}`}
+                target="_blank"
+                style={{ fontWeight: 600 }}
+              >
+                {lastTestRun.name ||
+                  `Test run from ${
+                    lastTestRun.created_at
+                      ? new Date(lastTestRun.created_at).toLocaleDateString()
+                      : 'unknown date'
+                  }`}
+              </Link>{' '}
+              ({lastTestRun.pass_rate}% pass rate, {lastTestRun.test_count}{' '}
+              tests) will be reused. Only metrics will be re-evaluated.
+            </Alert>
+          )}
 
         {scoringTarget === 'reuse' && mode === 'rerunTestRun' && (
           <Alert severity="info">
-            Outputs from this test run will be reused. Only metrics will be re-evaluated.
+            Outputs from this test run will be reused. Only metrics will be
+            re-evaluated.
           </Alert>
         )}
       </>
@@ -1238,7 +1360,8 @@ export default function RunDrawer(props: RunDrawerProps) {
                     <Typography variant="body1">Test Set Metrics</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Use {testSetMetrics.length} metric
-                      {testSetMetrics.length !== 1 ? 's' : ''} configured on this test set
+                      {testSetMetrics.length !== 1 ? 's' : ''} configured on
+                      this test set
                     </Typography>
                   </Box>
                 </Box>
@@ -1295,7 +1418,10 @@ export default function RunDrawer(props: RunDrawerProps) {
                       <AutoGraphIcon fontSize="small" color="primary" />
                       <Typography variant="body2">{metric.name}</Typography>
                     </Box>
-                    <IconButton size="small" onClick={() => handleRemoveMetric(metric.id)}>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleRemoveMetric(metric.id)}
+                    >
                       <CloseIcon fontSize="small" />
                     </IconButton>
                   </Box>
@@ -1332,13 +1458,19 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Dynamic title for createFromGrid
   // -----------------------------------------------------------------------
 
-  const title = mode === 'createFromGrid' && gridTestSetIds
-    ? gridTestSetIds.length > 1 ? 'Execute Test Sets' : 'Execute Test Set'
-    : cfg.title;
+  const title =
+    mode === 'createFromGrid' && gridTestSetIds
+      ? gridTestSetIds.length > 1
+        ? 'Execute Test Sets'
+        : 'Execute Test Set'
+      : cfg.title;
 
-  const saveButtonText = mode === 'createFromGrid' && gridTestSetIds
-    ? gridTestSetIds.length > 1 ? 'Run Test Sets' : 'Run Test Set'
-    : cfg.saveButtonText;
+  const saveButtonText =
+    mode === 'createFromGrid' && gridTestSetIds
+      ? gridTestSetIds.length > 1
+        ? 'Run Test Sets'
+        : 'Run Test Set'
+      : cfg.saveButtonText;
 
   // -----------------------------------------------------------------------
   // Render
@@ -1397,18 +1529,23 @@ export default function RunDrawer(props: RunDrawerProps) {
           )}
 
           {/* Run count summary (runExperiment) */}
-          {mode === 'runExperiment' && canExecute && (() => {
-            const totalRuns = selectedSearchTestSets.length * props.data.selectedVersionHashes.size;
-            return (
-              <Alert severity="info">
-                This will create {totalRuns} test run{totalRuns !== 1 ? 's' : ''}
-                {' '}({selectedSearchTestSets.length} test set
-                {selectedSearchTestSets.length !== 1 ? 's' : ''}
-                {' '}&times; {props.data.selectedVersionHashes.size} version
-                {props.data.selectedVersionHashes.size !== 1 ? 's' : ''})
-              </Alert>
-            );
-          })()}
+          {mode === 'runExperiment' &&
+            canExecute &&
+            (() => {
+              const totalRuns =
+                selectedSearchTestSets.length *
+                props.data.selectedVersionHashes.size;
+              return (
+                <Alert severity="info">
+                  This will create {totalRuns} test run
+                  {totalRuns !== 1 ? 's' : ''} ({selectedSearchTestSets.length}{' '}
+                  test set
+                  {selectedSearchTestSets.length !== 1 ? 's' : ''} &times;{' '}
+                  {props.data.selectedVersionHashes.size} version
+                  {props.data.selectedVersionHashes.size !== 1 ? 's' : ''})
+                </Alert>
+              );
+            })()}
 
           <Divider />
 

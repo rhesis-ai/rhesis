@@ -85,7 +85,9 @@ export default function LatestResultsPanel({
   const [runs, setRuns] = useState<ExperimentResultsRunItem[]>([]);
   const [versions, setVersions] = useState<ExperimentResultsVersionItem[]>([]);
 
-  const [selectedVersionHashes, setSelectedVersionHashes] = useState<Set<string>>(new Set());
+  const [selectedVersionHashes, setSelectedVersionHashes] = useState<
+    Set<string>
+  >(new Set());
   const [runDrawerOpen, setRunDrawerOpen] = useState(false);
 
   const apiFactory = useMemo(

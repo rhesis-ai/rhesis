@@ -136,27 +136,6 @@ export default function VersionHistory({
     );
   }
 
-  const allSelected =
-    selectable &&
-    selectedVersionHashes !== undefined &&
-    versions.length > 0 &&
-    versions.every(v => selectedVersionHashes.has(v.version));
-
-  const someSelected =
-    selectable &&
-    selectedVersionHashes !== undefined &&
-    !allSelected &&
-    versions.some(v => selectedVersionHashes.has(v.version));
-
-  const handleToggleAll = () => {
-    if (!onSelectionChange) return;
-    if (allSelected) {
-      onSelectionChange(new Set());
-    } else {
-      onSelectionChange(new Set(versions.map(v => v.version)));
-    }
-  };
-
   const handleToggleVersion = (versionHash: string) => {
     if (!onSelectionChange || !selectedVersionHashes) return;
     const next = new Set(selectedVersionHashes);
@@ -168,35 +147,26 @@ export default function VersionHistory({
     onSelectionChange(next);
   };
 
+  const uniqueVersions = React.useMemo(() => {
+    const seen = new Set<string>();
+    return versions.filter(version => {
+      if (seen.has(version.version)) {
+        return false;
+      }
+      seen.add(version.version);
+      return true;
+    });
+  }, [versions]);
+
   // Render newest first so the most relevant entry sits at the top.
-  const ordered = [...versions].reverse();
+  const ordered = [...uniqueVersions].reverse();
 
   return (
     <Stack spacing={1}>
-      {selectable && (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            px: 1,
-            py: 0.5,
-          }}
-        >
-          <Checkbox
-            size="small"
-            checked={allSelected}
-            indeterminate={someSelected}
-            onChange={handleToggleAll}
-          />
-          <Typography variant="body2" color="text.secondary">
-            {allSelected ? 'Deselect all' : 'Select all'}
-          </Typography>
-        </Box>
-      )}
       {ordered.map((version, idxFromTop) => {
-        const idxFromBottom = versions.length - 1 - idxFromTop;
+        const idxFromBottom = uniqueVersions.length - 1 - idxFromTop;
         const previous =
-          idxFromBottom > 0 ? versions[idxFromBottom - 1] : undefined;
+          idxFromBottom > 0 ? uniqueVersions[idxFromBottom - 1] : undefined;
         const diff = diffVersions(previous, version);
         const envNames = environmentsByVersion.get(version.version) ?? [];
         const outcome = outcomes[version.version];
