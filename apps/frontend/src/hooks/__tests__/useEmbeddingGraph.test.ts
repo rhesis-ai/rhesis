@@ -130,4 +130,61 @@ describe('useEmbeddingGraph', () => {
       expect(result.current.isComputing).toBe(false);
     });
   });
+
+  it('resumes polling when enabled returns during recompute', async () => {
+    mockTestSetsClient.getEmbeddingGraph
+      .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
+      .mockResolvedValue({ status: 'ready', graph: oldGraph });
+    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
+      status: 'pending',
+      task_id: 'task-1',
+    });
+
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useEmbeddingGraph('test-set-1', 'token', { enabled }),
+      { initialProps: { enabled: true } }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      void result.current.computeGraph();
+    });
+
+    expect(result.current.isComputing).toBe(true);
+
+    rerender({ enabled: false });
+
+    await waitFor(() => {
+      expect(result.current.isComputing).toBe(false);
+    });
+
+    mockTestSetsClient.getEmbeddingGraph.mockResolvedValue({
+      status: 'ready',
+      graph: oldGraph,
+    });
+
+    rerender({ enabled: true });
+
+    await waitFor(() => {
+      expect(result.current.isComputing).toBe(true);
+    });
+
+    mockTestSetsClient.getEmbeddingGraph.mockResolvedValue({
+      status: 'ready',
+      graph: newGraph,
+    });
+
+    await act(async () => {
+      await jest.runOnlyPendingTimersAsync();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isComputing).toBe(false);
+      expect(result.current.graph).toEqual(newGraph);
+    });
+  });
 });

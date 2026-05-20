@@ -40,16 +40,22 @@ export function useEmbeddingGraph(
     pollAttemptsRef.current = 0;
   }, []);
 
-  const clearPoll = useCallback(() => {
+  const stopPolling = useCallback(() => {
     resetPollTimer();
-    computeBaselineRef.current = null;
     setIsComputing(false);
   }, [resetPollTimer]);
+
+  const clearPoll = useCallback(() => {
+    stopPolling();
+    computeBaselineRef.current = null;
+  }, [stopPolling]);
 
   const fetchGraph = useCallback(
     async (options?: {
       waitForNewerThanBaseline: boolean;
-    }): Promise<'ready' | 'pending'> => {
+    }): Promise<
+      { status: 'ready'; graph: Scatter2DGraph } | { status: 'pending' }
+    > => {
       const client = new ApiClientFactory(sessionToken).getTestSetsClient();
       const response = await client.getEmbeddingGraph(testSetId);
       if (response.status === 'ready') {
@@ -60,12 +66,12 @@ export function useEmbeddingGraph(
             computeBaselineRef.current
           )
         ) {
-          return 'pending';
+          return { status: 'pending' };
         }
         setGraph(response.graph);
-        return 'ready';
+        return { status: 'ready', graph: response.graph };
       }
-      return 'pending';
+      return { status: 'pending' };
     },
     [sessionToken, testSetId]
   );
@@ -77,8 +83,8 @@ export function useEmbeddingGraph(
     const poll = async () => {
       pollAttemptsRef.current += 1;
       try {
-        const status = await fetchGraph({ waitForNewerThanBaseline: true });
-        if (status === 'ready') {
+        const result = await fetchGraph({ waitForNewerThanBaseline: true });
+        if (result.status === 'ready') {
           clearPoll();
           return;
         }
@@ -129,8 +135,12 @@ export function useEmbeddingGraph(
   }, [clearPoll, graph?.computed_at, pollUntilReady, sessionToken, testSetId]);
 
   useEffect(() => {
+    clearPoll();
+  }, [clearPoll, sessionToken, testSetId]);
+
+  useEffect(() => {
     if (!enabled) {
-      clearPoll();
+      stopPolling();
       setIsLoading(false);
       return;
     }
@@ -141,9 +151,26 @@ export function useEmbeddingGraph(
       setIsLoading(true);
       setError(null);
       try {
-        const status = await fetchGraph();
-        if (!cancelled && status === 'pending') {
+        const result = await fetchGraph();
+        if (cancelled) return;
+
+        if (result.status === 'pending') {
           setGraph(null);
+          pollUntilReady();
+          return;
+        }
+
+        const baseline = computeBaselineRef.current;
+        if (
+          baseline !== null &&
+          !isEmbeddingGraphNewerThanBaseline(result.graph.computed_at, baseline)
+        ) {
+          pollUntilReady();
+          return;
+        }
+
+        if (baseline !== null) {
+          computeBaselineRef.current = null;
         }
       } catch (err) {
         if (!cancelled) {
@@ -162,9 +189,9 @@ export function useEmbeddingGraph(
 
     return () => {
       cancelled = true;
-      clearPoll();
+      stopPolling();
     };
-  }, [clearPoll, enabled, fetchGraph]);
+  }, [enabled, fetchGraph, pollUntilReady, stopPolling]);
 
   return {
     graph,
