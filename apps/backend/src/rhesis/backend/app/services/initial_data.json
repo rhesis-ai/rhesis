@@ -713,7 +713,66 @@
             "description": "Example project description for the insurance chatbot. This chatbot supports answering questions about insurance in different types of areas, such as health, life, auto, home, and more.",
             "is_active": true,
             "status": "Active",
-            "icon": "Science"
+            "icon": "Science",
+            "parameters_schema": {
+                "fields": [
+                    {
+                        "name": "system_prompt",
+                        "type": "text",
+                        "description": "Override the system prompt (blank = use markdown file)"
+                    },
+                    {
+                        "name": "use_case",
+                        "type": "enum",
+                        "default": "insurance",
+                        "options": [
+                            "baufinanzierung",
+                            "echo",
+                            "finance",
+                            "health",
+                            "insurance",
+                            "legal",
+                            "travel"
+                        ],
+                        "description": "Persona / context to adopt"
+                    },
+                    {
+                        "name": "model",
+                        "type": "string",
+                        "default": "rhesis/rhesis-default",
+                        "description": "LLM provider string (e.g. vertex_ai/gemini-2.0-flash)"
+                    },
+                    {
+                        "name": "temperature",
+                        "type": "number",
+                        "default": 0.7
+                    },
+                    {
+                        "name": "max_tokens",
+                        "type": "integer",
+                        "default": 1024
+                    },
+                    {
+                        "name": "output_mode",
+                        "type": "enum",
+                        "default": "text",
+                        "options": [
+                            "text",
+                            "json"
+                        ]
+                    },
+                    {
+                        "name": "context_strategy",
+                        "type": "enum",
+                        "default": "heuristic",
+                        "options": [
+                            "heuristic",
+                            "rag",
+                            "none"
+                        ]
+                    }
+                ]
+            }
         }
     ],
     "category": [
@@ -975,6 +1034,13 @@
             "request_mapping": {
                 "message": "{{ input }}",
                 "session_id": "{{ session_id }}",
+                "system_prompt": "{{ params.system_prompt | default(none) }}",
+                "use_case": "{{ params.use_case | default('insurance') }}",
+                "model": "{{ params.model | default(none) }}",
+                "temperature": "{{ params.temperature | default(0.7) }}",
+                "max_tokens": "{{ params.max_tokens | default(1024) }}",
+                "mode": "{{ params.output_mode | default('text') }}",
+                "context_strategy": "{{ params.context_strategy | default('heuristic') }}",
                 "files": "{{ files }}"
             },
             "response_mapping": {

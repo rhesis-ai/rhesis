@@ -140,7 +140,7 @@ def main():
                     conversation_history = st.session_state.messages[:-1]
                     stream = stream_assistant_response_sync(
                         prompt, 
-                        use_case=params.get("use_case", "travel"),
+                        use_case=params.get("use_case", "insurance"),
                         conversation_history=conversation_history,
                         mode=params.get("output_mode", "text"),
                         system_prompt_override=params.get("system_prompt"),

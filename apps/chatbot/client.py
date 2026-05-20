@@ -47,7 +47,7 @@ def _resolve_chatbot_params() -> dict:
         logger.exception("Falling back to env defaults: SDK Parameters.get() failed")
         return {
             "system_prompt": None,
-            "use_case": None,
+            "use_case": "insurance",
             "model": os.getenv("DEFAULT_GENERATION_MODEL"), 
             "temperature": 0.7, 
             "max_tokens": 1024,
@@ -361,7 +361,7 @@ def get_available_use_cases() -> List[str]:
                 use_cases.append(use_case_name)
         return sorted(use_cases)
     except Exception:
-        return ["echo", "travel", "insurance"]  # Default fallback
+        return ["echo", "insurance", "travel"]  # Default fallback
 
 
 class FileInput(BaseModel):
@@ -374,8 +374,13 @@ class FileInput(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
-    use_case: Optional[str] = "travel"  # Default to travel for backward compatibility
-    mode: Optional[str] = "text"  # Output mode: "text" or "json"
+    system_prompt: Optional[str] = None
+    use_case: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    mode: Optional[str] = None  # Output mode: "text" or "json"
+    context_strategy: Optional[str] = None
     files: Optional[List[FileInput]] = None
     rhesis: Optional[dict] = None
 
@@ -453,7 +458,7 @@ def extract_file_content(file_input: FileInput) -> dict:
         "max_tokens": "{{ params.max_tokens | default(1024) }}",
         "output_mode": "{{ params.output_mode | default(mode | default('text')) }}",
         "context_strategy": "{{ params.context_strategy | default('heuristic') }}",
-        "use_case": "{{ params.use_case | default('travel') }}",
+        "use_case": "{{ params.use_case | default('insurance') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
         "files": "{{ files }}",
         "rhesis": {
@@ -475,7 +480,7 @@ async def chat(
     *,
     session_id: Optional[str] = None,
     system_prompt: Optional[str] = None,
-    use_case: str = "travel",
+    use_case: str = "insurance",
     model: Optional[str] = None,
     temperature: float = 0.7,
     max_tokens: int = 1024,
@@ -729,13 +734,27 @@ async def chat_endpoint(
         
         # Resolve parameters from Rhesis (or fallback to env/defaults)
         params = _resolve_chatbot_params()
+        request_param_overrides = {
+            "system_prompt": chat_request.system_prompt,
+            "model": chat_request.model,
+            "temperature": chat_request.temperature,
+            "max_tokens": chat_request.max_tokens,
+            "context_strategy": chat_request.context_strategy,
+        }
+        params.update(
+            {
+                key: value
+                for key, value in request_param_overrides.items()
+                if value not in (None, "")
+            }
+        )
 
-        # Validate use case exists, default to travel if not
+        # Validate use case exists, default to insurance if not
         # The request payload overrides the resolved parameter if provided
-        use_case = chat_request.use_case or params.get("use_case") or "travel"
+        use_case = chat_request.use_case or params.get("use_case") or "insurance"
         available_use_cases = get_available_use_cases() + ["echo"]
         if use_case not in available_use_cases:
-            use_case = "travel"
+            use_case = "insurance"
             
         output_mode = chat_request.mode or params.get("output_mode", "text")
 

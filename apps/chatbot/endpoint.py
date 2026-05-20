@@ -80,7 +80,7 @@ class ResponseGenerator:
 
     def __init__(
         self,
-        use_case: str = "travel",
+        use_case: str = "insurance",
         system_prompt_override: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
@@ -515,7 +515,7 @@ into one of four categories.
 
 
 def get_response_generator(
-    use_case: str = "travel",
+    use_case: str = "insurance",
     system_prompt_override: str | None = None,
     model: str | None = None,
     temperature: float = 0.7,
@@ -535,7 +535,7 @@ def get_response_generator(
 
 async def get_assistant_response(
     prompt: str,
-    use_case: str = "travel",
+    use_case: str = "insurance",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
@@ -549,7 +549,7 @@ async def get_assistant_response(
 
 async def stream_assistant_response(
     prompt: str,
-    use_case: str = "travel",
+    use_case: str = "insurance",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
@@ -655,7 +655,7 @@ def _collect_stream_chunks(
 
 def stream_assistant_response_sync(
     prompt: str,
-    use_case: str = "travel",
+    use_case: str = "insurance",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
@@ -684,7 +684,7 @@ def stream_assistant_response_sync(
     yield from chunks
 
 
-async def generate_context(prompt: str, use_case: str = "travel") -> List[str]:
+async def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
     """Generate context fragments for a prompt."""
     response_generator = get_response_generator(use_case)
     return await response_generator.generate_context(prompt)
@@ -695,20 +695,20 @@ async def generate_context(prompt: str, use_case: str = "travel") -> List[str]:
     description="Classify user intent from a prompt",
     request_mapping={
         "prompt": "{{ input }}",
-        "use_case": "{{ use_case | default('travel') }}",
+        "use_case": "{{ use_case | default('insurance') }}",
     },
     response_mapping={
         "output": "{{ intent }}",
         "metadata": "{{ {'intent': intent, 'confidence': confidence} | tojson }}",
     },
 )
-async def recognize_intent_endpoint(prompt: str, use_case: str = "travel") -> dict:
+async def recognize_intent_endpoint(prompt: str, use_case: str = "insurance") -> dict:
     """
     Standalone SDK endpoint for testing intent recognition.
 
     Args:
         prompt: User's message/prompt to classify
-        use_case: Use case for context (default: "travel")
+        use_case: Use case for context (default: "insurance")
 
     Returns:
         Intent classification result with intent and confidence

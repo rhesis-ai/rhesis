@@ -148,6 +148,10 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 "user_id": user_id,  # Set the creating user
                 "owner_id": user_id,  # Set the owner to the same user
             }
+            if item.get("parameters_schema") is not None:
+                project_data["parameters_schema"] = item["parameters_schema"]
+            if item.get("parameter_environments") is not None:
+                project_data["parameter_environments"] = item["parameter_environments"]
 
             if status:
                 project_data["status_id"] = status.id

@@ -13,6 +13,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 CHATBOT_PROJECT = os.getenv("RHESIS_CHATBOT_PROJECT", "chatbot-demo")
+DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "rhesis/rhesis-default")
+SUPPORTED_USE_CASES = [
+    "baufinanzierung",
+    "echo",
+    "finance",
+    "health",
+    "insurance",
+    "legal",
+    "travel",
+]
 
 
 def bootstrap_chatbot_parameters():
@@ -32,13 +42,14 @@ def bootstrap_chatbot_parameters():
             ParameterField(
                 name="use_case",
                 type="enum",
-                default="travel",
-                options=["travel", "insurance", "medical", "echo"],
+                default="insurance",
+                options=SUPPORTED_USE_CASES,
                 description="Persona / context to adopt",
             ),
             ParameterField(
                 name="model",
                 type="string",
+                default=DEFAULT_GENERATION_MODEL,
                 description="LLM provider string (e.g. vertex_ai/gemini-2.0-flash)",
             ),
             ParameterField(
@@ -81,7 +92,8 @@ def bootstrap_chatbot_parameters():
             description="Baseline default configuration",
             values={
                 "system_prompt": "",
-                "use_case": "travel",
+                "use_case": "insurance",
+                "model": DEFAULT_GENERATION_MODEL,
                 "temperature": 0.7,
                 "max_tokens": 1024,
                 "output_mode": "text",
