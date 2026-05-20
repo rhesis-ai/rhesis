@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   Box,
+  Button,
   Typography,
   FormControl,
+  IconButton,
   InputLabel,
   Select,
   MenuItem,
@@ -24,6 +27,13 @@ import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 import ModelSelector from '@/components/common/ModelSelector';
+import SelectExperimentsDialog from '@/components/common/SelectExperimentsDialog';
+import {
+  executeBatchedTestRuns,
+  type SelectedExperiment,
+} from '@/utils/test-run-batch';
+import { BiotechIcon } from '@/components/icons';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 
 interface ProjectOption {
   id: UUID;
@@ -42,6 +52,8 @@ interface EndpointOption {
 // Import execution mode icons directly from Material-UI
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CallSplitIcon from '@mui/icons-material/CallSplit';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 
 interface CreateTestRunProps {
   open: boolean;
@@ -73,6 +85,14 @@ export default function CreateTestRun({
   const [selectedExecutionModelId, setSelectedExecutionModelId] = useState('');
   const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
     useState('');
+
+  // Experiment fan-out: bulk-running selectedTestSets.length test sets
+  // against selectedExperiments.length experiments produces
+  // ``testSets × experiments`` runs, all sharing one ``batch_id``.
+  const [selectedExperiments, setSelectedExperiments] = useState<
+    SelectedExperiment[]
+  >([]);
+  const [experimentsDialogOpen, setExperimentsDialogOpen] = useState(false);
 
   // Fetch projects and endpoints when drawer opens
   useEffect(() => {
@@ -156,8 +176,15 @@ export default function CreateTestRun({
       setTags([]);
       setSelectedExecutionModelId('');
       setSelectedEvaluationModelId('');
+      setSelectedExperiments([]);
     }
   }, [sessionToken, onError, selectedTestSetIds, open]);
+
+  // Experiments are project-scoped; switching project invalidates any
+  // previously selected ones.
+  useEffect(() => {
+    setSelectedExperiments([]);
+  }, [selectedProject]);
 
   // Filter endpoints when project changes
   useEffect(() => {
@@ -196,79 +223,62 @@ export default function CreateTestRun({
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
 
-      // Prepare test configuration attributes
-      const testConfigurationAttributes: Record<string, unknown> = {
+      const baseAttributes: Record<string, unknown> = {
         execution_mode: executionMode,
       };
       if (selectedExecutionModelId) {
-        testConfigurationAttributes.execution_model_id =
-          selectedExecutionModelId;
+        baseAttributes.execution_model_id = selectedExecutionModelId;
       }
       if (selectedEvaluationModelId) {
-        testConfigurationAttributes.evaluation_model_id =
-          selectedEvaluationModelId;
+        baseAttributes.evaluation_model_id = selectedEvaluationModelId;
       }
 
-      // Execute each test set individually with test configuration attributes
-      const results = await Promise.all(
-        selectedTestSetIds.map(testSetId =>
-          testSetsClient.executeTestSet(
-            testSetId,
-            selectedEndpoint,
-            testConfigurationAttributes
-          )
-        )
-      );
+      const outcome = await executeBatchedTestRuns({
+        testSetsClient,
+        testSetIds: selectedTestSetIds,
+        endpointId: selectedEndpoint,
+        selectedExperiments,
+        baseAttributes,
+      });
 
-      // Get the test configuration IDs from results and assign tags if any
       if (tags.length > 0) {
         try {
-          // Get endpoint to retrieve organization_id
           const endpointsClient = clientFactory.getEndpointsClient();
           const endpoint = await endpointsClient.getEndpoint(selectedEndpoint);
-
           const organizationId = endpoint.organization_id as UUID;
           const testRunsClient = clientFactory.getTestRunsClient();
           const tagsClient = new TagsClient(sessionToken);
 
-          // Assign tags to each created test run
-          for (const result of results) {
-            // The result should contain test_configuration_id
-            // We need to get the test run from the test configuration
-            const resultRecord = result as unknown as Record<string, unknown>;
-            if (resultRecord.test_configuration_id) {
-              const testConfigurationId =
-                resultRecord.test_configuration_id as string;
+          for (const member of outcome.members) {
+            const resultRecord = member.result as Record<string, unknown>;
+            const testConfigurationId =
+              (resultRecord?.test_configuration_id as string | undefined) ??
+              null;
+            if (!testConfigurationId) continue;
 
-              const testRun = await pollForTestRun(
-                testRunsClient,
-                testConfigurationId
+            const testRun = await pollForTestRun(
+              testRunsClient,
+              testConfigurationId
+            );
+            if (!testRun) {
+              console.warn(
+                `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
               );
-
-              if (testRun) {
-                for (const tagName of tags) {
-                  const tagPayload: TagCreate = {
-                    name: tagName,
-                    ...(organizationId && {
-                      organization_id: organizationId,
-                    }),
-                  };
-
-                  await tagsClient.assignTagToEntity(
-                    EntityType.TEST_RUN,
-                    testRun.id,
-                    tagPayload
-                  );
-                }
-              } else {
-                console.warn(
-                  `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
-                );
-              }
+              continue;
+            }
+            for (const tagName of tags) {
+              const tagPayload: TagCreate = {
+                name: tagName,
+                ...(organizationId && { organization_id: organizationId }),
+              };
+              await tagsClient.assignTagToEntity(
+                EntityType.TEST_RUN,
+                testRun.id,
+                tagPayload
+              );
             }
           }
         } catch (tagError) {
-          // Log error but don't fail the whole operation
           console.error('Failed to assign tags to test runs:', tagError);
         }
       }
@@ -415,6 +425,89 @@ export default function CreateTestRun({
               </FormHelperText>
             )}
           </FormControl>
+
+          {selectedProject && (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Each selected experiment runs against every selected
+                test set, producing one run per combination. Leave empty
+                to run each test set once with no pinned parameters.
+              </Alert>
+
+              {selectedExperiments.length > 0 && (
+                <Stack spacing={1} sx={{ mb: 2 }}>
+                  {selectedExperiments.map(exp => (
+                    <Box
+                      key={exp.experiment_id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: theme => theme.spacing(1),
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          minWidth: 0,
+                        }}
+                      >
+                        <BiotechIcon fontSize="small" color="primary" />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" noWrap>
+                            {exp.experiment_name}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                          >
+                            Version {shortVersion(exp.version)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setSelectedExperiments(prev =>
+                            prev.filter(
+                              row => row.experiment_id !== exp.experiment_id
+                            )
+                          )
+                        }
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setExperimentsDialogOpen(true)}
+              >
+                Add Experiment
+              </Button>
+            </Box>
+          )}
+
+          <SelectExperimentsDialog
+            open={experimentsDialogOpen}
+            onClose={() => setExperimentsDialogOpen(false)}
+            onConfirm={setSelectedExperiments}
+            sessionToken={sessionToken}
+            projectId={selectedProject}
+            initialSelection={selectedExperiments}
+            title="Experiments for this bulk run"
+            subtitle="Each selected experiment runs against every selected test set, producing one run per combination."
+          />
 
           <Divider />
 

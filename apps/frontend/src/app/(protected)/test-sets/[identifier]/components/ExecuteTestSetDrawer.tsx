@@ -43,13 +43,18 @@ import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import SelectExperimentsDialog from '@/components/common/SelectExperimentsDialog';
 import ModelSelector from '@/components/common/ModelSelector';
 import type {
   TestSetMetric,
   LastTestRunSummary,
 } from '@/utils/api-client/interfaces/test-set';
-import type { ExperimentRead } from '@/utils/api-client/interfaces/parameters';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import {
+  executeBatchedTestRuns,
+  type SelectedExperiment,
+} from '@/utils/test-run-batch';
+import { BiotechIcon } from '@/components/icons';
 
 interface ProjectOption {
   id: UUID;
@@ -115,10 +120,14 @@ export default function ExecuteTestSetDrawer({
   const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
     useState('');
 
-  // Experiment state
-  const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
-  const [selectedExperiment, setSelectedExperiment] =
-    useState<ExperimentRead | null>(null);
+  // Experiment state — supports multi-select via the picker dialog.
+  // Each selected entry produces its own run when execute is clicked;
+  // an empty list runs the test set once with no experiment association
+  // (legacy behaviour).
+  const [selectedExperiments, setSelectedExperiments] = useState<
+    SelectedExperiment[]
+  >([]);
+  const [experimentsDialogOpen, setExperimentsDialogOpen] = useState(false);
 
   // Scoring target state
   const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
@@ -236,8 +245,7 @@ export default function ExecuteTestSetDrawer({
       // Reset selections when drawer opens
       setSelectedProject(null);
       setSelectedEndpoint(null);
-      setSelectedExperiment(null);
-      setExperiments([]);
+      setSelectedExperiments([]);
       setTags([]);
       setSelectedMetrics([]);
       setScoringTarget('fresh');
@@ -265,34 +273,12 @@ export default function ExecuteTestSetDrawer({
     setSelectedEndpoint(null);
   }, [selectedProject, endpoints]);
 
-  // Fetch experiments when project changes
+  // Clear selected experiments whenever the project changes — they're
+  // project-scoped, so old selections would be invalid after a switch.
+  // The picker dialog re-fetches its own list from ``projectId`` on open.
   useEffect(() => {
-    const fetchExperiments = async () => {
-      if (!sessionToken || !selectedProject || !open) {
-        setExperiments([]);
-        setSelectedExperiment(null);
-        return;
-      }
-
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const parametersClient = clientFactory.getParametersClient();
-        const exps =
-          await parametersClient.listProjectExperiments(selectedProject, {
-            limit: 100,
-          });
-        // Only show shared experiments
-        setExperiments(
-          exps.filter(e => e.visibility === 'shared' && e.latest_version)
-        );
-      } catch {
-        setExperiments([]);
-      }
-    };
-
-    fetchExperiments();
-    setSelectedExperiment(null);
-  }, [sessionToken, selectedProject, open]);
+    setSelectedExperiments([]);
+  }, [selectedProject]);
 
   // Fetch last test run when endpoint changes (for output reuse hint)
   useEffect(() => {
@@ -368,14 +354,14 @@ export default function ExecuteTestSetDrawer({
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
 
-      // Prepare test configuration attributes
-      const testConfigurationAttributes: Record<string, unknown> = {
+      // Base attributes shared by every member of the batch. The helper
+      // adds the per-member experiment + batch_* keys on top of these.
+      const baseAttributes: Record<string, unknown> = {
         execution_mode: executionMode,
       };
 
-      // Add execution-time metrics if custom metrics are defined
       if (metricMode === 'define_custom' && selectedMetrics.length > 0) {
-        testConfigurationAttributes.metrics = selectedMetrics.map(m => ({
+        baseAttributes.metrics = selectedMetrics.map(m => ({
           id: m.id,
           name: m.name,
           scope: m.scope,
@@ -383,95 +369,80 @@ export default function ExecuteTestSetDrawer({
       }
 
       if (selectedExecutionModelId) {
-        testConfigurationAttributes.execution_model_id =
-          selectedExecutionModelId;
+        baseAttributes.execution_model_id = selectedExecutionModelId;
       }
       if (selectedEvaluationModelId) {
-        testConfigurationAttributes.evaluation_model_id =
-          selectedEvaluationModelId;
+        baseAttributes.evaluation_model_id = selectedEvaluationModelId;
       }
 
-      // Add experiment parameters if an experiment is selected
-      if (selectedExperiment) {
-        testConfigurationAttributes.experiment_id = selectedExperiment.id;
-        if (selectedExperiment.latest_version) {
-          testConfigurationAttributes.experiment_version =
-            selectedExperiment.latest_version;
-        }
-      }
-
-      // Add reference_test_run_id if reusing outputs
       if (scoringTarget === 'reuse' && lastTestRun) {
-        testConfigurationAttributes.reference_test_run_id = lastTestRun.id;
+        baseAttributes.reference_test_run_id = lastTestRun.id;
       }
 
-      // Execute test set against the selected endpoint with test configuration attributes
-      const result = await testSetsClient.executeTestSet(
-        testSetId,
-        selectedEndpoint,
-        testConfigurationAttributes
-      );
+      const outcome = await executeBatchedTestRuns({
+        testSetsClient,
+        testSetIds: [testSetId],
+        endpointId: selectedEndpoint,
+        selectedExperiments,
+        baseAttributes,
+      });
 
-      // Assign tags if any
       if (tags.length > 0) {
         try {
-          // Get endpoint to retrieve organization_id
           const endpointsClient = apiFactory.getEndpointsClient();
           const endpoint = await endpointsClient.getEndpoint(selectedEndpoint);
-
           const organizationId = endpoint.organization_id as UUID;
+          const testRunsClient = apiFactory.getTestRunsClient();
+          const tagsClient = new TagsClient(sessionToken);
 
-          // Get the test configuration ID from result and get the test run
-          const resultRecord = result as unknown as Record<string, unknown>;
-          if (resultRecord.test_configuration_id) {
+          // Tag every run produced by the batch — one per experiment
+          // (or one total when no experiment was selected).
+          for (const member of outcome.members) {
+            const resultRecord = member.result as Record<string, unknown>;
             const testConfigurationId =
-              resultRecord.test_configuration_id as string;
-            const testRunsClient = apiFactory.getTestRunsClient();
-            const tagsClient = new TagsClient(sessionToken);
+              (resultRecord?.test_configuration_id as string | undefined) ??
+              null;
+            if (!testConfigurationId) continue;
 
             const testRun = await pollForTestRun(
               testRunsClient,
               testConfigurationId
             );
-
-            if (testRun) {
-              for (const tagName of tags) {
-                const tagPayload: TagCreate = {
-                  name: tagName,
-                  ...(organizationId && {
-                    organization_id: organizationId,
-                  }),
-                };
-
-                await tagsClient.assignTagToEntity(
-                  EntityType.TEST_RUN,
-                  testRun.id,
-                  tagPayload
-                );
-              }
-            } else {
+            if (!testRun) {
               console.warn(
                 `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
+              );
+              continue;
+            }
+            for (const tagName of tags) {
+              const tagPayload: TagCreate = {
+                name: tagName,
+                ...(organizationId && { organization_id: organizationId }),
+              };
+              await tagsClient.assignTagToEntity(
+                EntityType.TEST_RUN,
+                testRun.id,
+                tagPayload
               );
             }
           }
         } catch (tagError) {
-          // Log error but don't fail the whole operation
-          console.error('Failed to assign tags to test run:', tagError);
+          console.error('Failed to assign tags to test run(s):', tagError);
         }
       }
 
-      // Show success notification
-      notifications.show('Test execution queued successfully', {
-        severity: 'success',
-        autoHideDuration: 5000,
-      });
+      const runCount = outcome.members.length;
+      notifications.show(
+        runCount > 1
+          ? `Queued ${runCount} test runs (one per experiment)`
+          : 'Test execution queued successfully',
+        { severity: 'success', autoHideDuration: 5000 }
+      );
 
-      // Close drawer on success
       onClose();
     } catch (err) {
       setError(getApiErrorMessage(err, 'Failed to execute test set'));
-      throw err; // Re-throw so BaseDrawer can handle the error state
+      throw err;
     } finally {
       setExecuting(false);
     }
@@ -616,51 +587,89 @@ export default function ExecuteTestSetDrawer({
             )}
           </FormControl>
 
-          {experiments.length > 0 && (
-            <FormControl fullWidth>
-              <InputLabel>Experiment</InputLabel>
-              <Select
-                value={selectedExperiment?.id ?? ''}
-                onChange={e => {
-                  const id = e.target.value;
-                  if (!id) {
-                    setSelectedExperiment(null);
-                    return;
-                  }
-                  const exp = experiments.find(ex => ex.id === id) || null;
-                  setSelectedExperiment(exp);
-                }}
-                label="Experiment"
-              >
-                <MenuItem value="">
-                  <Typography variant="body1">None</Typography>
-                </MenuItem>
-                {experiments.map(exp => (
-                  <MenuItem key={exp.id} value={exp.id}>
-                    <Box>
-                      <Typography variant="body1">
-                        {exp.name}
-                        {exp.latest_version && (
+          {selectedProject && (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Each selected experiment triggers its own test run with
+                that experiment&apos;s parameters pinned. Leave empty to
+                run without an experiment.
+              </Alert>
+
+              {selectedExperiments.length > 0 && (
+                <Stack spacing={1} sx={{ mb: 2 }}>
+                  {selectedExperiments.map(exp => (
+                    <Box
+                      key={exp.experiment_id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: theme => theme.spacing(1),
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          minWidth: 0,
+                        }}
+                      >
+                        <BiotechIcon fontSize="small" color="primary" />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" noWrap>
+                            {exp.experiment_name}
+                          </Typography>
                           <Typography
-                            component="span"
                             variant="caption"
                             color="text.secondary"
-                            sx={{ ml: 0.5 }}
                           >
-                            ({shortVersion(exp.latest_version)})
+                            Version {shortVersion(exp.version)}
                           </Typography>
-                        )}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {exp.description ||
-                          'Pin parameters from this experiment'}
-                      </Typography>
+                        </Box>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setSelectedExperiments(prev =>
+                            prev.filter(
+                              row => row.experiment_id !== exp.experiment_id
+                            )
+                          )
+                        }
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
                     </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                  ))}
+                </Stack>
+              )}
+
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setExperimentsDialogOpen(true)}
+              >
+                Add Experiment
+              </Button>
+            </Box>
           )}
+
+          <SelectExperimentsDialog
+            open={experimentsDialogOpen}
+            onClose={() => setExperimentsDialogOpen(false)}
+            onConfirm={setSelectedExperiments}
+            sessionToken={sessionToken}
+            projectId={selectedProject}
+            initialSelection={selectedExperiments}
+            title="Experiments for this run"
+            subtitle="Selecting multiple experiments queues one run per experiment. You can edit values inline and save a new version on the spot."
+          />
+
 
           <Divider />
 

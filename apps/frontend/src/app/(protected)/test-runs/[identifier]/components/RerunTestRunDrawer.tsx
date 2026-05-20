@@ -39,9 +39,14 @@ import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import SelectExperimentsDialog from '@/components/common/SelectExperimentsDialog';
 import type { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
-import type { ExperimentRead } from '@/utils/api-client/interfaces/parameters';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import {
+  executeBatchedTestRuns,
+  type SelectedExperiment,
+} from '@/utils/test-run-batch';
+import { BiotechIcon } from '@/components/icons';
 
 type MetricMode = 'use_test_set' | 'use_behavior' | 'define_custom';
 type ScoringTarget = 'fresh' | 'reuse';
@@ -120,10 +125,12 @@ export default function RerunTestRunDrawer({
   const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
     useState('');
 
-  // Experiment state
-  const [experiments, setExperiments] = useState<ExperimentRead[]>([]);
-  const [selectedExperiment, setSelectedExperiment] =
-    useState<ExperimentRead | null>(null);
+  // Experiment state — multi-select via the picker. Re-runs pre-fill
+  // from the original run's pinned experiment when present.
+  const [selectedExperiments, setSelectedExperiments] = useState<
+    SelectedExperiment[]
+  >([]);
+  const [experimentsDialogOpen, setExperimentsDialogOpen] = useState(false);
 
   // Fetch test set metrics and determine original metric source when drawer opens
   useEffect(() => {
@@ -194,46 +201,54 @@ export default function RerunTestRunDrawer({
     rerunConfig.originalAttributes,
   ]);
 
-  // Fetch experiments for the project and pre-fill from original run
+  // Pre-fill the experiment picker with the original run's pinned
+  // experiment when re-opening. We hit the API directly (rather than
+  // listing the whole project) so the initial chip carries the right
+  // name + version without waiting for the modal to open and load.
   useEffect(() => {
-    const fetchExperiments = async () => {
-      if (!sessionToken || !open || !rerunConfig.projectId) {
-        setExperiments([]);
-        setSelectedExperiment(null);
-        return;
-      }
+    if (!open) return;
+    const origRef = rerunConfig.originalAttributes?.parameters_ref;
+    const origExpId = origRef?.experiment_id;
+    if (!sessionToken || !origExpId) {
+      setSelectedExperiments([]);
+      return;
+    }
 
+    let cancelled = false;
+    const loadOriginalExperiment = async () => {
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
         const parametersClient = clientFactory.getParametersClient();
-        const exps = await parametersClient.listProjectExperiments(
-          rerunConfig.projectId,
-          { limit: 100 }
-        );
-        const shared = exps.filter(
-          e => e.visibility === 'shared' && e.latest_version
-        );
-        setExperiments(shared);
-
-        // Pre-fill from original run's experiment if present
-        const origExpId =
-          rerunConfig.originalAttributes?.parameters_ref?.experiment_id;
-        if (origExpId) {
-          const match = shared.find(e => e.id === origExpId);
-          setSelectedExperiment(match || null);
-        } else {
-          setSelectedExperiment(null);
+        const exp = await parametersClient.getExperiment(origExpId);
+        if (cancelled) return;
+        const version =
+          origRef?.version || exp.latest_version || undefined;
+        if (!version) {
+          setSelectedExperiments([]);
+          return;
         }
+        setSelectedExperiments([
+          {
+            experiment_id: exp.id,
+            experiment_name: exp.name,
+            version,
+          },
+        ]);
       } catch {
-        setExperiments([]);
-        setSelectedExperiment(null);
+        if (!cancelled) setSelectedExperiments([]);
       }
     };
 
-    if (open) {
-      fetchExperiments();
-    }
-  }, [sessionToken, open, rerunConfig.projectId, rerunConfig.originalAttributes]);
+    loadOriginalExperiment();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    sessionToken,
+    open,
+    rerunConfig.projectId,
+    rerunConfig.originalAttributes,
+  ]);
 
   // Handle adding a metric from the dialog
   const handleAddMetric = async (metricId: UUID) => {
@@ -267,111 +282,88 @@ export default function RerunTestRunDrawer({
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
 
-      // Prepare test configuration attributes
-      const testConfigurationAttributes: Record<string, unknown> = {
+      const baseAttributes: Record<string, unknown> = {
         execution_mode: executionMode,
       };
 
-      // Add execution-time metrics if custom metrics are defined
       if (metricMode === 'define_custom' && selectedMetrics.length > 0) {
-        testConfigurationAttributes.metrics = selectedMetrics.map(m => ({
+        baseAttributes.metrics = selectedMetrics.map(m => ({
           id: m.id,
           name: m.name,
           scope: m.scope,
         }));
       }
 
-      // Add model overrides if specified
       if (selectedExecutionModelId) {
-        testConfigurationAttributes.execution_model_id =
-          selectedExecutionModelId;
+        baseAttributes.execution_model_id = selectedExecutionModelId;
       }
       if (selectedEvaluationModelId) {
-        testConfigurationAttributes.evaluation_model_id =
-          selectedEvaluationModelId;
+        baseAttributes.evaluation_model_id = selectedEvaluationModelId;
       }
 
-      // Add experiment parameters if an experiment is selected
-      if (selectedExperiment) {
-        testConfigurationAttributes.experiment_id = selectedExperiment.id;
-        if (selectedExperiment.latest_version) {
-          testConfigurationAttributes.experiment_version =
-            selectedExperiment.latest_version;
-        }
-      }
-
-      // Add reference_test_run_id if reusing outputs from current run
       if (scoringTarget === 'reuse' && rerunConfig.testRunId) {
-        testConfigurationAttributes.reference_test_run_id =
-          rerunConfig.testRunId;
+        baseAttributes.reference_test_run_id = rerunConfig.testRunId;
       }
 
-      // Execute test set against the endpoint (creates a new test configuration)
-      const result = await testSetsClient.executeTestSet(
-        rerunConfig.testSetId,
-        rerunConfig.endpointId,
-        testConfigurationAttributes
-      );
+      const outcome = await executeBatchedTestRuns({
+        testSetsClient,
+        testSetIds: [rerunConfig.testSetId],
+        endpointId: rerunConfig.endpointId,
+        selectedExperiments,
+        baseAttributes,
+      });
 
-      // Assign tags if any
       if (tags.length > 0) {
         try {
           const tagsClient = new TagsClient(sessionToken);
+          const testRunsClient = apiFactory.getTestRunsClient();
+          const endpointsClient = apiFactory.getEndpointsClient();
+          const endpoint = await endpointsClient.getEndpoint(
+            rerunConfig.endpointId
+          );
+          const organizationId = endpoint.organization_id as UUID;
 
-          // Get the test configuration ID from result and get the test run
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const resultAny = result as any;
-          if (resultAny.test_configuration_id) {
+          for (const member of outcome.members) {
+            const resultAny = member.result as Record<string, unknown>;
             const testConfigurationId =
-              resultAny.test_configuration_id as string;
-            const testRunsClient = apiFactory.getTestRunsClient();
+              (resultAny?.test_configuration_id as string | undefined) ?? null;
+            if (!testConfigurationId) continue;
 
             const testRun = await pollForTestRun(
               testRunsClient,
               testConfigurationId
             );
+            if (!testRun) continue;
 
-            if (testRun) {
-              // Get endpoint to retrieve organization_id
-              const endpointsClient = apiFactory.getEndpointsClient();
-              const endpoint = await endpointsClient.getEndpoint(
-                rerunConfig.endpointId
+            for (const tagName of tags) {
+              const tagPayload: TagCreate = {
+                name: tagName,
+                ...(organizationId && { organization_id: organizationId }),
+              };
+              await tagsClient.assignTagToEntity(
+                EntityType.TEST_RUN,
+                testRun.id,
+                tagPayload
               );
-              const organizationId = endpoint.organization_id as UUID;
-
-              // Assign each tag to the test run
-              for (const tagName of tags) {
-                const tagPayload: TagCreate = {
-                  name: tagName,
-                  ...(organizationId && { organization_id: organizationId }),
-                };
-
-                await tagsClient.assignTagToEntity(
-                  EntityType.TEST_RUN,
-                  testRun.id,
-                  tagPayload
-                );
-              }
             }
           }
         } catch (tagError) {
-          // Log error but don't fail the whole operation
-          console.error('Failed to assign tags to test run:', tagError);
+          console.error('Failed to assign tags to test run(s):', tagError);
         }
       }
 
-      // Show success notification
-      notifications.show('Test run queued successfully', {
-        severity: 'success',
-        autoHideDuration: 5000,
-      });
+      const runCount = outcome.members.length;
+      notifications.show(
+        runCount > 1
+          ? `Queued ${runCount} test runs (one per experiment)`
+          : 'Test run queued successfully',
+        { severity: 'success', autoHideDuration: 5000 }
+      );
 
-      // Call onSuccess callback if provided
       if (onSuccess) {
         onSuccess();
       }
 
-      // Close drawer on success
       onClose();
     } catch (err) {
       setError(getApiErrorMessage(err, 'Failed to start test run'));
@@ -431,51 +423,89 @@ export default function RerunTestRunDrawer({
             }}
           />
 
-          {experiments.length > 0 && (
-            <FormControl fullWidth>
-              <InputLabel>Experiment</InputLabel>
-              <Select
-                value={selectedExperiment?.id ?? ''}
-                onChange={e => {
-                  const id = e.target.value;
-                  if (!id) {
-                    setSelectedExperiment(null);
-                    return;
-                  }
-                  const exp = experiments.find(ex => ex.id === id) || null;
-                  setSelectedExperiment(exp);
-                }}
-                label="Experiment"
-              >
-                <MenuItem value="">
-                  <Typography variant="body1">None</Typography>
-                </MenuItem>
-                {experiments.map(exp => (
-                  <MenuItem key={exp.id} value={exp.id}>
-                    <Box>
-                      <Typography variant="body1">
-                        {exp.name}
-                        {exp.latest_version && (
+          {rerunConfig.projectId && (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Each selected experiment triggers its own re-run with
+                that experiment&apos;s parameters pinned. Leave empty to
+                re-run without an experiment.
+              </Alert>
+
+              {selectedExperiments.length > 0 && (
+                <Stack spacing={1} sx={{ mb: 2 }}>
+                  {selectedExperiments.map(exp => (
+                    <Box
+                      key={exp.experiment_id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: theme => theme.spacing(1),
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          minWidth: 0,
+                        }}
+                      >
+                        <BiotechIcon fontSize="small" color="primary" />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" noWrap>
+                            {exp.experiment_name}
+                          </Typography>
                           <Typography
-                            component="span"
                             variant="caption"
                             color="text.secondary"
-                            sx={{ ml: 0.5 }}
                           >
-                            ({shortVersion(exp.latest_version)})
+                            Version {shortVersion(exp.version)}
                           </Typography>
-                        )}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {exp.description ||
-                          'Pin parameters from this experiment'}
-                      </Typography>
+                        </Box>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          setSelectedExperiments(prev =>
+                            prev.filter(
+                              row => row.experiment_id !== exp.experiment_id
+                            )
+                          )
+                        }
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
                     </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                  ))}
+                </Stack>
+              )}
+
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setExperimentsDialogOpen(true)}
+              >
+                Add Experiment
+              </Button>
+            </Box>
           )}
+
+          <SelectExperimentsDialog
+            open={experimentsDialogOpen}
+            onClose={() => setExperimentsDialogOpen(false)}
+            onConfirm={setSelectedExperiments}
+            sessionToken={sessionToken}
+            projectId={rerunConfig.projectId ?? null}
+            initialSelection={selectedExperiments}
+            title="Experiments for this re-run"
+            subtitle="Selecting multiple experiments queues one re-run per experiment. Edit values inline to save a new version on the spot."
+          />
+
 
           <Divider />
 

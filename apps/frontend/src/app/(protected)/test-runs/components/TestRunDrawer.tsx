@@ -3,20 +3,25 @@
 import React, { useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import ModelSelector from '@/components/common/ModelSelector';
+import SelectExperimentsDialog from '@/components/common/SelectExperimentsDialog';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import {
+  Alert,
   Autocomplete,
+  Button,
+  IconButton,
   TextField,
   Box,
   Typography,
   Divider,
   Stack,
 } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { TestConfigurationCreate } from '@/utils/api-client/interfaces/test-configuration';
 import { UUID } from 'crypto';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseTag from '@/components/common/BaseTag';
@@ -24,6 +29,12 @@ import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
+import {
+  executeBatchedTestRuns,
+  type SelectedExperiment,
+} from '@/utils/test-run-batch';
+import { BiotechIcon } from '@/components/icons';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 
 interface TestRunDrawerProps {
   open: boolean;
@@ -58,6 +69,14 @@ export default function TestRunDrawer({
     React.useState('');
   const [selectedEvaluationModelId, setSelectedEvaluationModelId] =
     React.useState('');
+
+  // Experiment fan-out (optional): when set, each experiment triggers
+  // its own run via the shared batch helper.
+  const [selectedExperiments, setSelectedExperiments] = React.useState<
+    SelectedExperiment[]
+  >([]);
+  const [experimentsDialogOpen, setExperimentsDialogOpen] =
+    React.useState(false);
 
   const getCurrentUserId = useCallback((): UUID | undefined => {
     try {
@@ -132,6 +151,7 @@ export default function TestRunDrawer({
           }
           setSelectedExecutionModelId('');
           setSelectedEvaluationModelId('');
+          setSelectedExperiments([]);
         } catch (_fetchError) {
           setError('Failed to load required data');
           // Ensure state remains as empty arrays even on error
@@ -169,6 +189,13 @@ export default function TestRunDrawer({
     }
   }, [project, endpoints, endpoint]);
 
+  // Experiments are project-scoped — drop any pinned ones if the user
+  // switches project so they can't accidentally submit a cross-project
+  // experiment.
+  React.useEffect(() => {
+    setSelectedExperiments([]);
+  }, [project]);
+
   const handleSave = async () => {
     if (!sessionToken || !testSet || !endpoint) {
       setError('Please select a test set and endpoint');
@@ -180,13 +207,10 @@ export default function TestRunDrawer({
       setError(undefined);
 
       const clientFactory = new ApiClientFactory(sessionToken);
-      const testConfigurationsClient =
-        clientFactory.getTestConfigurationsClient();
-
+      const testSetsClient = clientFactory.getTestSetsClient();
       const currentUserId = getCurrentUserId();
 
-      // Create test configuration
-      const attributes: Record<string, unknown> = {
+      const baseAttributes: Record<string, unknown> = {
         ...(selectedExecutionModelId && {
           execution_model_id: selectedExecutionModelId,
         }),
@@ -195,67 +219,66 @@ export default function TestRunDrawer({
         }),
       };
 
-      const testConfigurationData: TestConfigurationCreate = {
-        endpoint_id: endpoint.id as UUID,
-        test_set_id: testSet.id as UUID,
-        ...(currentUserId && { user_id: currentUserId }),
-        organization_id: endpoint.organization_id as UUID,
-        ...(Object.keys(attributes).length > 0 && { attributes }),
-      };
+      // Routed through the shared batch helper for consistency with the
+      // other launch surfaces: experiment fan-out, ``batch_*`` metadata,
+      // and the same ``executeTestSet`` request shape land on the same
+      // queue path.
+      const outcome = await executeBatchedTestRuns({
+        testSetsClient,
+        testSetIds: [testSet.id as string],
+        endpointId: endpoint.id as string,
+        selectedExperiments,
+        baseAttributes,
+      });
 
-      // Create the test configuration
-      const testConfiguration =
-        await testConfigurationsClient.createTestConfiguration(
-          testConfigurationData
-        );
-
-      // Execute the test configuration (this automatically creates a test run)
-      await testConfigurationsClient.executeTestConfiguration(
-        testConfiguration.id
-      );
-
-      // Get the created test run and assign tags if any
       if (tags.length > 0) {
         try {
           const testRunsClient = clientFactory.getTestRunsClient();
-          const testRun = await pollForTestRun(
-            testRunsClient,
-            testConfiguration.id
-          );
+          const tagsClient = new TagsClient(sessionToken);
+          const organizationId = endpoint.organization_id as UUID;
 
-          if (testRun) {
-            const tagsClient = new TagsClient(sessionToken);
-            const organizationId = endpoint.organization_id as UUID;
+          for (const member of outcome.members) {
+            const resultRecord = member.result as Record<string, unknown>;
+            const testConfigurationId =
+              (resultRecord?.test_configuration_id as string | undefined) ??
+              null;
+            if (!testConfigurationId) continue;
 
-            // Assign each tag to the test run
+            const testRun = await pollForTestRun(
+              testRunsClient,
+              testConfigurationId
+            );
+            if (!testRun) {
+              console.warn(
+                'Test run not found after polling, tags will not be assigned'
+              );
+              continue;
+            }
             for (const tagName of tags) {
               const tagPayload: TagCreate = {
                 name: tagName,
                 ...(organizationId && { organization_id: organizationId }),
                 ...(currentUserId && { user_id: currentUserId }),
               };
-
               await tagsClient.assignTagToEntity(
                 EntityType.TEST_RUN,
                 testRun.id,
                 tagPayload
               );
             }
-          } else {
-            console.warn(
-              'Test run not found after polling, tags will not be assigned'
-            );
           }
         } catch (tagError) {
-          // Log error but don't fail the whole operation
-          console.error('Failed to assign tags to test run:', tagError);
+          console.error('Failed to assign tags to test run(s):', tagError);
         }
       }
 
-      // Show success notification
-      notifications.show('Test execution queued successfully', {
-        severity: 'success',
-      });
+      const runCount = outcome.members.length;
+      notifications.show(
+        runCount > 1
+          ? `Queued ${runCount} test runs (one per experiment)`
+          : 'Test execution queued successfully',
+        { severity: 'success' }
+      );
 
       onSuccess?.();
       onClose();
@@ -343,6 +366,90 @@ export default function TestRunDrawer({
                   helperText={!project ? 'Select a project first' : undefined}
                 />
               )}
+            />
+
+            {project && (
+              <Box>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Each selected experiment triggers its own test run
+                  with that experiment&apos;s parameters pinned. Leave
+                  empty to run without an experiment.
+                </Alert>
+
+                {selectedExperiments.length > 0 && (
+                  <Stack spacing={1} sx={{ mb: 2 }}>
+                    {selectedExperiments.map(exp => (
+                      <Box
+                        key={exp.experiment_id}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 1,
+                          border: 1,
+                          borderColor: 'divider',
+                          borderRadius: theme => theme.spacing(1),
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          <BiotechIcon fontSize="small" color="primary" />
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="body2" noWrap>
+                              {exp.experiment_name}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              Version {shortVersion(exp.version)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            setSelectedExperiments(prev =>
+                              prev.filter(
+                                row =>
+                                  row.experiment_id !== exp.experiment_id
+                              )
+                            )
+                          }
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setExperimentsDialogOpen(true)}
+                >
+                  Add Experiment
+                </Button>
+              </Box>
+            )}
+
+            <SelectExperimentsDialog
+              open={experimentsDialogOpen}
+              onClose={() => setExperimentsDialogOpen(false)}
+              onConfirm={setSelectedExperiments}
+              sessionToken={sessionToken}
+              projectId={(project?.id as string) ?? null}
+              initialSelection={selectedExperiments}
+              title="Experiments for this run"
+              subtitle="Selecting multiple experiments queues one run per experiment."
             />
           </Stack>
         </Stack>
