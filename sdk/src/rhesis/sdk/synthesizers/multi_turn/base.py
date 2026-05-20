@@ -59,9 +59,11 @@ class MultiTurnSynthesizer:
         config: GenerationConfig,
         model: Optional[Union[str, BaseLLM]] = None,
         batch_size: int = 10,
+        harmful: bool = False,
     ):
         self.config = config
         self.batch_size = batch_size
+        self.harmful = harmful
 
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
@@ -101,6 +103,7 @@ class MultiTurnSynthesizer:
         prompt_template = self.load_prompt_template(self.prompt_template_file)
         template_context = {
             "num_tests": self.batch_size,
+            "harmful": self.harmful,
             **self.config.model_dump(),
         }
         prompt = prompt_template.render(template_context)

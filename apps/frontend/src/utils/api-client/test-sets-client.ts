@@ -3,6 +3,10 @@ import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { joinUrl } from '@/utils/url';
 import {
+  EmbeddingGraphComputeResponse,
+  EmbeddingGraphGetResponse,
+} from './interfaces/embedding';
+import {
   TestSet,
   TestSetCreate,
   TestSetStatsResponse,
@@ -558,6 +562,24 @@ export class TestSetsClient extends BaseApiClient {
       {
         method: 'DELETE',
       }
+    );
+  }
+
+  async computeEmbeddingGraph(
+    testSetId: string
+  ): Promise<EmbeddingGraphComputeResponse> {
+    return this.fetch<EmbeddingGraphComputeResponse>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/embeddings/compute-graph`,
+      { method: 'POST' }
+    );
+  }
+
+  async getEmbeddingGraph(
+    testSetId: string
+  ): Promise<EmbeddingGraphGetResponse> {
+    return this.fetch<EmbeddingGraphGetResponse>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/embeddings/graph`,
+      { cache: 'no-store' }
     );
   }
 

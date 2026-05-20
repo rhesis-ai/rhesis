@@ -91,7 +91,14 @@ def bootstrap(app: "FastAPI") -> None:
     # forensic capability; refuse to bootstrap rather than ship an
     # un-correlatable audit stream.
     env = os.getenv("ENVIRONMENT", "").lower()
-    if env not in ("local", "test", "dev", "development"):
+    backend_env = os.getenv("BACKEND_ENV", "").lower()
+    is_dev = env in ("local", "test", "dev", "development") or backend_env in (
+        "local",
+        "test",
+        "dev",
+        "development",
+    )
+    if not is_dev:
         if not os.getenv("AUDIT_HASH_KEY"):
             raise RuntimeError(
                 "AUDIT_HASH_KEY must be set in non-dev environments; "
