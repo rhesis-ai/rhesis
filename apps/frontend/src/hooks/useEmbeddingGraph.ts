@@ -43,6 +43,7 @@ export function useEmbeddingGraph(
   const clearPoll = useCallback(() => {
     resetPollTimer();
     computeBaselineRef.current = null;
+    setIsComputing(false);
   }, [resetPollTimer]);
 
   const fetchGraph = useCallback(
@@ -78,13 +79,11 @@ export function useEmbeddingGraph(
       try {
         const status = await fetchGraph({ waitForNewerThanBaseline: true });
         if (status === 'ready') {
-          setIsComputing(false);
           clearPoll();
           return;
         }
         if (pollAttemptsRef.current >= MAX_POLL_ATTEMPTS) {
           setError('Embedding map computation timed out. Please try again.');
-          setIsComputing(false);
           clearPoll();
           return;
         }
@@ -93,7 +92,6 @@ export function useEmbeddingGraph(
         const message =
           err instanceof Error ? err.message : 'Failed to load embedding map';
         setError(message);
-        setIsComputing(false);
         clearPoll();
       }
     };
@@ -126,13 +124,13 @@ export function useEmbeddingGraph(
           ? err.message
           : 'Failed to start embedding map computation';
       setError(message);
-      setIsComputing(false);
-      computeBaselineRef.current = null;
+      clearPoll();
     }
-  }, [graph?.computed_at, pollUntilReady, sessionToken, testSetId]);
+  }, [clearPoll, graph?.computed_at, pollUntilReady, sessionToken, testSetId]);
 
   useEffect(() => {
     if (!enabled) {
+      clearPoll();
       setIsLoading(false);
       return;
     }

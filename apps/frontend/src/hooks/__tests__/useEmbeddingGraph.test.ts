@@ -98,4 +98,36 @@ describe('useEmbeddingGraph', () => {
     });
     expect(result.current.graph).toEqual(newGraph);
   });
+
+  it('resets isComputing when enabled becomes false during poll', async () => {
+    mockTestSetsClient.getEmbeddingGraph
+      .mockResolvedValueOnce({ status: 'ready', graph: oldGraph })
+      .mockResolvedValue({ status: 'ready', graph: oldGraph });
+    mockTestSetsClient.computeEmbeddingGraph.mockResolvedValue({
+      status: 'pending',
+      task_id: 'task-1',
+    });
+
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useEmbeddingGraph('test-set-1', 'token', { enabled }),
+      { initialProps: { enabled: true } }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      void result.current.computeGraph();
+    });
+
+    expect(result.current.isComputing).toBe(true);
+
+    rerender({ enabled: false });
+
+    await waitFor(() => {
+      expect(result.current.isComputing).toBe(false);
+    });
+  });
 });
