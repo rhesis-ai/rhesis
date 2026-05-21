@@ -517,18 +517,20 @@ async def check_behavior_metric_coverage(
                     ", ".join(metric_names) if metric_names else None,
                 )
         else:
-            behavior_ids = (
-                db.query(Test.behavior_id)
+            behavior_rows = (
+                db.query(Test.behavior_id, Behavior.name)
                 .join(
                     test_test_set_association,
                     Test.id == test_test_set_association.c.test_id,
                 )
+                .join(Behavior, Behavior.id == Test.behavior_id)
                 .filter(test_test_set_association.c.test_set_id == test_set_id)
                 .filter(Test.behavior_id.isnot(None))
                 .distinct()
                 .all()
             )
-            behavior_id_set = {b[0] for b in behavior_ids}
+            behavior_map = {row[0]: row[1] for row in behavior_rows}
+            behavior_id_set = set(behavior_map.keys())
 
             if not behavior_id_set:
                 result = _make_result(
@@ -553,8 +555,9 @@ async def check_behavior_metric_coverage(
 
                 missing = behavior_id_set - behaviors_with_metrics
                 if missing:
-                    missing_names = db.query(Behavior.name).filter(Behavior.id.in_(missing)).all()
-                    names_list = [n[0] for n in missing_names]
+                    names_list = [
+                        behavior_map.get(bid) or str(bid) for bid in missing
+                    ]
                     names_str = ", ".join(names_list[:10])
                     if len(names_list) > 10:
                         names_str += f" and {len(names_list) - 10} more"
@@ -569,17 +572,14 @@ async def check_behavior_metric_coverage(
                         "skipped during evaluation.",
                     )
                 else:
-                    behavior_names = [
-                        row[0]
-                        for row in db.query(Behavior.name)
-                        .filter(Behavior.id.in_(behavior_id_set))
-                        .all()
-                    ]
+                    behavior_names = list(behavior_map.values())
                     result = _make_result(
                         check_id,
                         PreflightCheckStatus.PASSED,
                         f"All {len(behavior_id_set)} behavior(s) have metrics",
-                        ", ".join(behavior_names) if behavior_names else None,
+                        ", ".join(
+                            n for n in behavior_names if n
+                        ) or None,
                     )
 
     except Exception as e:
