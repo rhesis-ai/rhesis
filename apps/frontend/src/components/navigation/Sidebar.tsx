@@ -3,7 +3,7 @@
 import React, { useState, useContext } from 'react';
 import NextLink from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -17,6 +17,8 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -429,6 +431,11 @@ export function Sidebar() {
   const { data: session } = useSession();
   const user = session?.user as ExtendedUser | undefined;
   const { toggleColorMode, mode } = useContext(ColorModeContext);
+  const router = useRouter();
+
+  // Org menu popover
+  const [orgMenuAnchor, setOrgMenuAnchor] = useState<HTMLElement | null>(null);
+  const orgMenuOpen = Boolean(orgMenuAnchor);
 
   // User menu popover
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -519,17 +526,22 @@ export function Sidebar() {
             </Tooltip>
             <Tooltip title={orgName} placement="right">
               <Box
-                component={NextLink}
-                href="/organizations"
+                onClick={e => setOrgMenuAnchor(e.currentTarget)}
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   width: 40,
                   height: 40,
-                  textDecoration: 'none',
                   flexShrink: 0,
-                  '&:hover': { opacity: 0.85 },
+                  cursor: 'pointer',
+                  borderRadius: BORDER_RADIUS.md,
+                  '&:hover': {
+                    bgcolor: theme =>
+                      theme.palette.mode === 'light'
+                        ? GREYSCALE.light.surface2
+                        : GREYSCALE.dark.surface2,
+                  },
                 }}
               >
                 <Image
@@ -551,18 +563,26 @@ export function Sidebar() {
               flexShrink: 0,
             }}
           >
-            {/* Brand link: logo + name + caret */}
+            {/* Brand block: logo + name — opens org menu */}
             <Box
-              component={NextLink}
-              href="/organizations"
+              onClick={e => setOrgMenuAnchor(e.currentTarget)}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                textDecoration: 'none',
                 flex: 1,
                 minWidth: 0,
-                '&:hover': { opacity: 0.85 },
+                // Reclaim ~2 characters of width (chevron removed) before ellipsis
+                mr: '-2ch',
+                cursor: 'pointer',
+                borderRadius: BORDER_RADIUS.pill,
+                '&:hover': {
+                  bgcolor: theme =>
+                    theme.palette.mode === 'light'
+                      ? GREYSCALE.light.surface2
+                      : GREYSCALE.dark.surface2,
+                },
+                transition: 'background-color 0.15s ease',
               }}
             >
               <Box
@@ -599,9 +619,6 @@ export function Sidebar() {
               >
                 {orgName}
               </Typography>
-              <KeyboardArrowDownIcon
-                sx={{ fontSize: 20, color: SUBTITLE_COLOR, flexShrink: 0 }}
-              />
             </Box>
             {/* Collapse toggle — inline, right of brand row */}
             <Tooltip title="Collapse sidebar" placement="right">
@@ -630,6 +647,115 @@ export function Sidebar() {
             </Tooltip>
           </Box>
         )}
+
+        {/* Org menu popover */}
+        <Popover
+          open={orgMenuOpen}
+          anchorEl={orgMenuAnchor}
+          onClose={() => setOrgMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          slotProps={{
+            paper: {
+              sx: {
+                bgcolor: theme =>
+                  theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
+                borderRadius: BORDER_RADIUS.lg,
+                boxShadow: ELEVATION.xs,
+                minWidth: 188,
+                py: '10px',
+                overflow: 'hidden',
+              },
+            },
+          }}
+        >
+          <Box
+            onClick={() => {
+              router.push('/organizations/settings');
+              setOrgMenuAnchor(null);
+            }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              px: '14px',
+              py: '8px',
+              cursor: 'pointer',
+              '&:hover': {
+                bgcolor: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.border
+                    : GREYSCALE.dark.border,
+              },
+            }}
+          >
+            <SettingsOutlinedIcon
+              sx={{
+                fontSize: 24,
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.body
+                    : '#ffffff',
+              }}
+            />
+            <Typography
+              sx={{
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: '22px',
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.body
+                    : '#ffffff',
+              }}
+            >
+              Settings
+            </Typography>
+          </Box>
+          <Box
+            onClick={() => {
+              router.push('/organizations/team');
+              setOrgMenuAnchor(null);
+            }}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              px: '14px',
+              py: '8px',
+              cursor: 'pointer',
+              '&:hover': {
+                bgcolor: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.border
+                    : GREYSCALE.dark.border,
+              },
+            }}
+          >
+            <GroupOutlinedIcon
+              sx={{
+                fontSize: 24,
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.body
+                    : '#ffffff',
+              }}
+            />
+            <Typography
+              sx={{
+                fontSize: 14,
+                fontWeight: 700,
+                lineHeight: '22px',
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.body
+                    : '#ffffff',
+              }}
+            >
+              Team
+            </Typography>
+          </Box>
+        </Popover>
 
         {/* Main nav groups */}
         {mainGroups.map(group => {

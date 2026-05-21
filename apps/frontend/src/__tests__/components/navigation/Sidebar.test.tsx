@@ -1,10 +1,13 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+
+const mockRouterPush = jest.fn();
 
 // ── module mocks (must be declared before importing the component) ─────────
 jest.mock('next/navigation', () => ({
   usePathname: jest.fn(() => '/insights'),
+  useRouter: jest.fn(() => ({ push: mockRouterPush })),
 }));
 
 jest.mock('next-auth/react', () => ({
@@ -26,6 +29,17 @@ jest.mock('@/components/common/UserAvatar', () => ({
 jest.mock('@/components/common/ThemeAwareLogo', () => ({
   __esModule: true,
   default: () => <div data-testid="theme-logo" />,
+}));
+
+jest.mock('@/actions/auth', () => ({
+  handleSignOut: jest.fn(),
+}));
+
+jest.mock('@/components/providers/ThemeProvider', () => ({
+  ColorModeContext: React.createContext({
+    toggleColorMode: jest.fn(),
+    mode: 'light',
+  }),
 }));
 
 // ── imports (after mocks) ──────────────────────────────────────────────────
@@ -66,6 +80,7 @@ function setupMocks({
 describe('Sidebar', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouterPush.mockClear();
   });
 
   it('renders without crashing', () => {
@@ -159,6 +174,58 @@ describe('Sidebar', () => {
     setupMocks({ navigation: [] });
     render(<Sidebar />);
     expect(screen.getByText('Test User')).toBeInTheDocument();
+  });
+
+  describe('org menu popover', () => {
+    it('does not link the brand row directly to /organizations', () => {
+      setupMocks();
+      (useNavigationItems as jest.Mock).mockReturnValue({
+        navigation: [],
+        branding: { title: 'Acme Corp', logo: null, homeUrl: '/architect' },
+      });
+      render(<Sidebar />);
+      expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+      const orgLinks = screen
+        .queryAllByRole('link')
+        .filter(link => link.getAttribute('href') === '/organizations');
+      expect(orgLinks).toHaveLength(0);
+    });
+
+    it('opens Settings and Team in a popover when the org brand is clicked', () => {
+      setupMocks();
+      (useNavigationItems as jest.Mock).mockReturnValue({
+        navigation: [],
+        branding: { title: 'Acme Corp', logo: null, homeUrl: '/architect' },
+      });
+      render(<Sidebar />);
+      fireEvent.click(screen.getByText('Acme Corp'));
+      expect(screen.getByText('Settings')).toBeInTheDocument();
+      expect(screen.getByText('Team')).toBeInTheDocument();
+    });
+
+    it('navigates to settings when Settings is clicked', () => {
+      setupMocks();
+      (useNavigationItems as jest.Mock).mockReturnValue({
+        navigation: [],
+        branding: { title: 'Acme Corp', logo: null, homeUrl: '/architect' },
+      });
+      render(<Sidebar />);
+      fireEvent.click(screen.getByText('Acme Corp'));
+      fireEvent.click(screen.getByText('Settings'));
+      expect(mockRouterPush).toHaveBeenCalledWith('/organizations/settings');
+    });
+
+    it('navigates to team when Team is clicked', () => {
+      setupMocks();
+      (useNavigationItems as jest.Mock).mockReturnValue({
+        navigation: [],
+        branding: { title: 'Acme Corp', logo: null, homeUrl: '/architect' },
+      });
+      render(<Sidebar />);
+      fireEvent.click(screen.getByText('Acme Corp'));
+      fireEvent.click(screen.getByText('Team'));
+      expect(mockRouterPush).toHaveBeenCalledWith('/organizations/team');
+    });
   });
 
   it('falls back to "User" when session has no name', () => {
