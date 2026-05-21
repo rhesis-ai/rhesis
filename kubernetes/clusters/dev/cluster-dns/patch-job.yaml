@@ -55,4 +55,4 @@ spec:
               echo "Done."
           env:
             - name: BIND9_IP
-              value: "10.2.1.200"
+              value: "10.2.1.10"

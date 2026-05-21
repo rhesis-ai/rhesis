@@ -8,7 +8,7 @@ configMapGenerator:
   - name: internal-dns-config
     literals:
       - tsig-secret-gcp-key=internal-dns-tsig-key-dev
-      - rfc2136-host=10.2.1.200
+      - rfc2136-host=10.2.1.10
       - tsig-keyname=tsig-dev
       - domain-filter=rhesis.ai
       - txt-owner-id=dev-internal-dns
