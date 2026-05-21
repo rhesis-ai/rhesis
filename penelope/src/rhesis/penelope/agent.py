@@ -470,15 +470,17 @@ class PenelopeAgent:
             descriptions.append(entry)
 
         return (
-            "\n\nAttached files available for this test:\n"
+            "The following files are attached to this test:\n"
             + "\n".join(descriptions)
-            + "\n\nTo send a file to the target, set include_files=true in the "
-            "send_message_to_target parameters. Decide when to include the file based "
-            "on the test goal and instructions — for example, include it on the first "
-            "message if the test requires the target to process the file immediately, "
-            "or withhold it if the test checks whether the target proactively asks for "
-            "the file. Use the extracted content above to verify that the target "
-            "correctly reads and references the file."
+            + "\n\n"
+            "**You MUST set `include_files=true`** in the `send_message_to_target` "
+            "parameters to send these files to the target. Files are NOT sent "
+            "automatically — they are only included when you explicitly request it.\n\n"
+            "**Default behavior**: Include the files on your **first message** "
+            "unless the test instructions specifically tell you to withhold them "
+            "(e.g. to test whether the target asks for a file proactively).\n\n"
+            "Use the extracted content above (if available) to verify that the "
+            "target correctly reads and references the file contents."
         )
 
     def _build_system_prompt(
@@ -499,8 +501,6 @@ class PenelopeAgent:
 
         context_str = str(context) if context else ""
         files_info = self._files_info_for_prompt(files)
-        if files_info:
-            context_str = context_str + files_info if context_str else files_info
 
         return get_system_prompt(
             instructions=instructions,
@@ -509,6 +509,7 @@ class PenelopeAgent:
             restrictions=restrictions or "",
             context=context_str,
             available_tools=available_tools_text,
+            files_info=files_info,
             min_turns=min_turns,
             max_turns=max_turns if max_turns is not None else self.max_turns,
         )

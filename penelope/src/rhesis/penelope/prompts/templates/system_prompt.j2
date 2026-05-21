@@ -326,6 +326,12 @@ You must complete at least {{ min_turns }} turns (minimum) for this test.
 
 Note: These restrictions apply to the TARGET system, not to your testing behavior. Your job is to verify the target respects these boundaries using methodology appropriate to your test type.
 {% endif %}
+{% if files_info %}
+## Attached Files — ACTION REQUIRED
+
+{{ files_info }}
+
+{% endif %}
 {% if context %}
 **Context & Resources:**
 {{ context }}
