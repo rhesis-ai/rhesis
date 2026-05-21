@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import type { GridFilterModel } from '@mui/x-data-grid';
 import {
   Alert,
   Box,
@@ -29,6 +30,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { BetaBadge } from '@/components/common/BetaBadge';
 import { useEmbeddingGraph } from '@/hooks/useEmbeddingGraph';
 import { getTestDisplayContent } from '@/app/(protected)/tests/components/test-grid-helpers';
+import TestsQuickFilterField from '@/app/(protected)/tests/components/TestsQuickFilterField';
+import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import { filterScatter2DGraph } from '@/utils/embedding/filterScatter2DGraph';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import {
@@ -89,12 +93,18 @@ export default function EmbeddingTestsPanel({
   const [listHoveredId, setListHoveredId] = useState<string | null>(null);
   const [listVisible, setListVisible] = useState(false);
   const [colorBy, setColorBy] = useState<EmbeddingColorBy>('cluster');
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
+  });
+
+  const handleFilterModelChange = useCallback((model: GridFilterModel) => {
+    setFilterModel(model);
+    setChartHoveredId(null);
+    setListHoveredId(null);
+  }, []);
   const hoveredEntityId = listHoveredId ?? chartHoveredId;
   const itemRefs = useRef<Map<string, HTMLElement>>(new Map());
   const listRef = useRef<HTMLDivElement>(null);
-
-  const hasPoints = (graph?.points.length ?? 0) > 0;
-  const showChart = hasPoints && !isComputing;
 
   useEffect(() => {
     setListVisible(false);
@@ -107,6 +117,7 @@ export default function EmbeddingTestsPanel({
 
     let cancelled = false;
     const PAGE_SIZE = 100;
+    const filterString = combineTestFiltersToOData(filterModel);
 
     async function fetchAll() {
       setTestsLoading(true);
@@ -120,6 +131,7 @@ export default function EmbeddingTestsPanel({
           const res = await client.getTestSetTests(testSetId, {
             skip,
             limit: PAGE_SIZE,
+            ...(filterString && { $filter: filterString }),
           });
           if (cancelled) return;
           accumulated.push(...res.data);
@@ -147,26 +159,39 @@ export default function EmbeddingTestsPanel({
     return () => {
       cancelled = true;
     };
-  }, [clustersActive, sessionToken, testSetId]);
+  }, [clustersActive, sessionToken, testSetId, filterModel]);
 
   const embeddingColors = useMemo(
     () => getEmbeddingChartColors(theme),
     [theme]
   );
 
+  const filteredEntityIds = useMemo((): Set<string> => {
+    return new Set(tests.map(t => String(t.id)));
+  }, [tests]);
+
+  const displayGraph = useMemo(() => {
+    if (!graph) return null;
+    const needsFilter = graph.points.some(
+      p => !filteredEntityIds.has(p.entity_id)
+    );
+    if (!needsFilter) return graph;
+    return filterScatter2DGraph(graph, filteredEntityIds);
+  }, [graph, filteredEntityIds]);
+
   const colorConfig = useMemo(() => {
-    if (!graph || graph.points.length === 0) return null;
+    if (!displayGraph || displayGraph.points.length === 0) return null;
     return buildEmbeddingChartColorConfig(
-      graph,
+      displayGraph,
       tests,
       colorBy,
       embeddingColors
     );
-  }, [graph, tests, colorBy, embeddingColors]);
+  }, [displayGraph, tests, colorBy, embeddingColors]);
 
   const sortedTests = useMemo(() => {
-    if (!graph || graph.points.length === 0) return tests;
-    const pointMap = new Map(graph.points.map(p => [p.entity_id, p]));
+    if (!displayGraph || displayGraph.points.length === 0) return tests;
+    const pointMap = new Map(displayGraph.points.map(p => [p.entity_id, p]));
 
     const metadataKey = (test: TestDetail): string => {
       switch (colorBy) {
@@ -196,7 +221,16 @@ export default function EmbeddingTestsPanel({
       }
       return pa.x - pb.x;
     });
-  }, [tests, graph, colorBy]);
+  }, [tests, displayGraph, colorBy]);
+
+  const hasPoints = (displayGraph?.points.length ?? 0) > 0;
+  const showChart = hasPoints && !isComputing;
+  const hasActiveFilters =
+    filterModel.items.length > 0 &&
+    !testsLoading &&
+    graph != null &&
+    graph.points.length > 0 &&
+    !hasPoints;
 
   const handleColorByChange = useCallback((event: SelectChangeEvent) => {
     setColorBy(event.target.value as EmbeddingColorBy);
@@ -324,6 +358,10 @@ export default function EmbeddingTestsPanel({
               flexWrap="wrap"
               useFlexGap
             >
+              <TestsQuickFilterField
+                filterModel={filterModel}
+                onFilterModelChange={handleFilterModelChange}
+              />
               {graph?.computed_at && (
                 <Typography variant="body2" color="text.secondary">
                   Last computed{' '}
@@ -442,20 +480,40 @@ export default function EmbeddingTestsPanel({
                 </Box>
               )}
 
-              {showChart && graph && colorConfig && (
-                <>
-                  <EmbeddingAtlasView
-                    graph={graph}
-                    colorConfig={colorConfig}
-                    highlightedEntityId={hoveredEntityId}
-                    onPointSelect={handlePointSelect}
-                    onPointHover={handlePointHover}
-                  />
-                  {colorBy !== 'cluster' && (
-                    <EmbeddingColorLegend entries={colorConfig.legend} />
-                  )}
-                </>
+              {hasActiveFilters && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    p: 2,
+                  }}
+                >
+                  <Alert severity="info">
+                    No tests match the current search or filters. Adjust filters
+                    or clear search to see clusters.
+                  </Alert>
+                </Box>
               )}
+
+              {showChart &&
+                displayGraph &&
+                colorConfig &&
+                !hasActiveFilters && (
+                  <>
+                    <EmbeddingAtlasView
+                      graph={displayGraph}
+                      colorConfig={colorConfig}
+                      highlightedEntityId={hoveredEntityId}
+                      onPointSelect={handlePointSelect}
+                      onPointHover={handlePointHover}
+                    />
+                    {colorBy !== 'cluster' && (
+                      <EmbeddingColorLegend entries={colorConfig.legend} />
+                    )}
+                  </>
+                )}
             </Box>
 
             {/* Tests list — slides in when hovering chart points */}
@@ -499,7 +557,10 @@ export default function EmbeddingTestsPanel({
                   color="text.secondary"
                   sx={{ py: 1, flexShrink: 0 }}
                 >
-                  Tests{tests.length > 0 ? ` · ${tests.length}` : ''}
+                  Tests
+                  {tests.length > 0
+                    ? ` · ${tests.length}${graph && tests.length < graph.points.length ? ` of ${graph.points.length}` : ''}`
+                    : ''}
                 </Typography>
 
                 {testsLoading && (

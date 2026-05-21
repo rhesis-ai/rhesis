@@ -377,7 +377,7 @@ export default function TestSetTestsGrid({
         onFilterModelChange={handleFilterModelChange}
         showToolbar={true}
         disablePaperWrapper={true}
-        persistState
+        persistState={!embedded}
       />
     </>
   );
