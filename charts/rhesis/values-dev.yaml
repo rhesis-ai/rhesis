@@ -210,6 +210,11 @@ postgresql:
     extraEnvVars:
       - name: POSTGRES_DB
         value: *rhesis_db_name
+      - name: ANALYTICS_DB_PASS
+        valueFrom:
+          secretKeyRef:
+            name: rhesis-app-secrets
+            key: ANALYTICS_DB_PASS
     persistence:
       enabled: true
       size: 5Gi
@@ -225,12 +230,16 @@ postgresql:
         init-extensions.sql: |
           CREATE EXTENSION IF NOT EXISTS vector;
           CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-        init-analytics-db.sql: |
-          -- Mirrors the stg/prd CNPG postInitSQL pattern.
-          -- Runs as superuser (postgres) during first-time PVC init only.
-          CREATE ROLE "rhesis-analytics-user" LOGIN;
-          CREATE DATABASE "rhesis-analytics-dev-db" OWNER "rhesis-analytics-user";
-          GRANT CONNECT ON DATABASE "rhesis-analytics-dev-db" TO "rhesis-admin";
+        init-analytics-db.sh: |
+          #!/bin/bash
+          # Mirrors the stg/prd CNPG postInitSQL pattern.
+          # Runs as superuser during first-time PVC init only.
+          set -e
+          psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" <<-EOSQL
+            CREATE ROLE "rhesis-analytics-user" LOGIN PASSWORD '$ANALYTICS_DB_PASS';
+            CREATE DATABASE "rhesis-analytics-dev-db" OWNER "rhesis-analytics-user";
+            GRANT CONNECT ON DATABASE "rhesis-analytics-dev-db" TO "rhesis-admin";
+          EOSQL
     podSecurityContext:
       enabled: true
       fsGroup: 999
