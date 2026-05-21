@@ -16,6 +16,7 @@ LOG_DIR = os.environ.get("LOG_DIR", "logs")
 ENVIRONMENT = os.environ.get("ENVIRONMENT") or os.environ.get("ENV", "production")
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
+BACKEND_URL = os.environ.get("BACKEND_URL", "localhost:8080")
 
 
 _SENSITIVE_PATTERNS = [
@@ -235,10 +236,11 @@ def set_logger():
     # default lastResort handler) so we control all output.
     root_logger.handlers.clear()
 
-    json_console_handler = logging.StreamHandler(stream=sys.stdout)
-    json_console_handler.setLevel(LOG_LEVEL)
-    json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
-    root_logger.addHandler(json_console_handler)
+    if "rhesis.ai" in BACKEND_URL:
+        json_console_handler = logging.StreamHandler(stream=sys.stdout)
+        json_console_handler.setLevel(LOG_LEVEL)
+        json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
+        root_logger.addHandler(json_console_handler)
 
     if ENVIRONMENT in ("local", "development"):
         color_console_handler = logging.StreamHandler(stream=sys.stdout)
