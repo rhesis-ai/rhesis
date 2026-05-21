@@ -83,15 +83,14 @@ export function PreflightDialog({
   const [summary, setSummary] = useState<PreflightCompletePayload | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [timedOut, setTimedOut] = useState(false);
-  const prevCorrelationIdRef = useRef(correlationId);
 
-  if (correlationId !== prevCorrelationIdRef.current) {
-    prevCorrelationIdRef.current = correlationId;
+  useEffect(() => {
+    if (!open) return;
     setChecks(new Map());
     setSummary(null);
     setExpanded(new Set());
     setTimedOut(false);
-  }
+  }, [correlationId, open]);
 
   const channels = useMemo(
     () => (open ? [`preflight:${correlationId}`] : []),

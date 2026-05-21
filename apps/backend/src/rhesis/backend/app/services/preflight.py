@@ -555,9 +555,7 @@ async def check_behavior_metric_coverage(
 
                 missing = behavior_id_set - behaviors_with_metrics
                 if missing:
-                    names_list = [
-                        behavior_map.get(bid) or str(bid) for bid in missing
-                    ]
+                    names_list = [behavior_map.get(bid) or str(bid) for bid in missing]
                     names_str = ", ".join(names_list[:10])
                     if len(names_list) > 10:
                         names_str += f" and {len(names_list) - 10} more"
@@ -577,9 +575,7 @@ async def check_behavior_metric_coverage(
                         check_id,
                         PreflightCheckStatus.PASSED,
                         f"All {len(behavior_id_set)} behavior(s) have metrics",
-                        ", ".join(
-                            n for n in behavior_names if n
-                        ) or None,
+                        ", ".join(n for n in behavior_names if n) or None,
                     )
 
     except Exception as e:
@@ -807,6 +803,9 @@ async def run_preflight_checks_multi(
     results: List[PreflightCheckResult] = []
     tasks: list[tuple[str, asyncio.Task]] = []
     multi = len(test_sets) > 1
+    ts_name_map: dict[str, str] = {
+        str(ts_id): ts_name for ts_id, ts_name, _ in test_sets
+    } if multi else {}
 
     endpoint = db.query(Endpoint).filter(Endpoint.id == endpoint_id).first()
     any_multi_turn = any(mt for _, _, mt in test_sets)
@@ -929,6 +928,9 @@ async def run_preflight_checks_multi(
                     f"Preflight check '{comp_key}' failed: {tr}",
                     exc_info=tr,
                 )
+                parts = comp_key.split(":", 1)
+                ts_id = parts[1] if len(parts) > 1 else None
+                ts_name = ts_name_map.get(ts_id) if ts_id else None
                 results.append(
                     PreflightCheckResult(
                         check_id=base_check_id,
@@ -937,6 +939,8 @@ async def run_preflight_checks_multi(
                         message="Check raised an unexpected error",
                         detail=str(tr),
                         composite_key=comp_key,
+                        test_set_id=ts_id,
+                        test_set_name=ts_name,
                     )
                 )
             else:
