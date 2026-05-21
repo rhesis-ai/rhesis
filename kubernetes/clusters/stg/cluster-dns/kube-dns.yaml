@@ -6,4 +6,4 @@ metadata:
   name: kube-dns
   namespace: kube-system
 data:
-  stubDomains: '{"rhesis.ai": ["10.4.1.200"]}'
+  stubDomains: '{"rhesis.ai": ["10.4.1.10"]}'
