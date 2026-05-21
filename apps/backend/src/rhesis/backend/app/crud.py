@@ -4057,10 +4057,7 @@ def query_traces(
             search_filters.append(models.Trace.project_id == project_id)
 
         matching_trace_ids = (
-            db.query(models.Trace.trace_id)
-            .filter(*search_filters)
-            .distinct()
-            .subquery()
+            db.query(models.Trace.trace_id).filter(*search_filters).distinct().subquery()
         )
         query = query.filter(models.Trace.trace_id.in_(select(matching_trace_ids.c.trace_id)))
 
