@@ -72,6 +72,21 @@ const TITLE_COLOR = GREYSCALE.light.title;
 const BODY_COLOR = GREYSCALE.light.body;
 const SUBTITLE_COLOR = GREYSCALE.light.subtitle;
 
+/** 40×40 icon hit target inside the 64px collapsed sidebar (12px rail padding each side). */
+const COLLAPSED_NAV_ITEM_SIZE = 40;
+const collapsedNavItemSx = {
+  justifyContent: 'center',
+  gap: 0,
+  p: '8px',
+  width: COLLAPSED_NAV_ITEM_SIZE,
+  height: COLLAPSED_NAV_ITEM_SIZE,
+  boxSizing: 'border-box' as const,
+  alignSelf: 'center',
+};
+const collapsedNavGroupSx = {
+  alignItems: 'center',
+};
+
 interface ExtendedUser {
   name?: string | null;
   email?: string | null;
@@ -200,9 +215,9 @@ function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: '10px',
-        px: '14px',
-        py: '8px',
+        ...(collapsed
+          ? collapsedNavItemSx
+          : { gap: '10px', px: '14px', py: '8px' }),
         borderRadius: BORDER_RADIUS.sm,
         textDecoration: 'none',
         cursor: 'pointer',
@@ -265,7 +280,9 @@ function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
 
   return collapsed ? (
     <Tooltip title={item.title} placement="right">
-      {button}
+      <Box component="span" sx={{ display: 'inline-flex' }}>
+        {button}
+      </Box>
     </Tooltip>
   ) : (
     button
@@ -366,9 +383,18 @@ function NavSection({ header, items, collapsed }: NavSectionProps) {
   const [sectionOpen, setSectionOpen] = useState(
     !(header.defaultCollapsed ?? false)
   );
+  // Icon-only sidebar: always show section items (section headers are hidden).
+  const showItems = collapsed || !isCollapsible || sectionOpen;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        ...(collapsed ? collapsedNavGroupSx : {}),
+      }}
+    >
       {!collapsed && (
         <Box
           onClick={isCollapsible ? () => setSectionOpen(o => !o) : undefined}
@@ -411,9 +437,16 @@ function NavSection({ header, items, collapsed }: NavSectionProps) {
         </Box>
       )}
 
-      {/* Items — always visible when sidebar is not collapsible, or toggled when collapsible */}
-      <Collapse in={!isCollapsible || sectionOpen} timeout="auto">
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {/* Items — always visible when sidebar is collapsed, not collapsible, or toggled open */}
+      <Collapse in={showItems} timeout="auto">
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            ...(collapsed ? collapsedNavGroupSx : {}),
+          }}
+        >
           {items.map(item => (
             <NavItem key={item.segment} item={item} collapsed={collapsed} />
           ))}
@@ -478,7 +511,7 @@ export function Sidebar() {
         sx={{
           display: 'flex',
           flexDirection: 'column',
-          gap: '36px',
+          gap: '28px',
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
@@ -763,7 +796,12 @@ export function Sidebar() {
             return (
               <Box
                 key={`standalone-${group.items.map(i => i.segment).join('-')}`}
-                sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  ...(collapsed ? collapsedNavGroupSx : {}),
+                }}
               >
                 {group.items.map(item => (
                   <NavItem
@@ -797,7 +835,7 @@ export function Sidebar() {
         }}
       >
         {/* White rounded card for external footer links (Star Rhesis, Support) */}
-        {footerGroup && footerGroup.items.length > 0 && (
+        {footerGroup && footerGroup.items.length > 0 && !collapsed && (
           <Box
             sx={{
               bgcolor: theme =>
@@ -824,9 +862,12 @@ export function Sidebar() {
           sx={{
             display: 'flex',
             alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
             gap: '10px',
             px: collapsed ? 0 : '10px',
-            py: '10px',
+            py: collapsed ? '4px' : '10px',
+            width: collapsed ? COLLAPSED_NAV_ITEM_SIZE : 'auto',
+            alignSelf: collapsed ? 'center' : 'stretch',
             borderRadius: BORDER_RADIUS.pill,
             overflow: 'hidden',
             cursor: 'pointer',
