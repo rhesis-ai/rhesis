@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
-  Chip,
   Divider,
   Card,
   CardContent,
@@ -20,6 +19,7 @@ import {
   Tab,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import GridBadge from '@/components/common/GridBadge';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import {
@@ -448,17 +448,12 @@ export default function SpanDetailsPanel({
                     <Typography variant="caption" color="text.secondary">
                       Timing
                     </Typography>
-                    <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
-                      <Chip
+                    <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                      <GridBadge
+                        size="detail"
                         label={`Duration: ${formatDuration(span.duration_ms)}`}
-                        size="small"
-                        variant="outlined"
                       />
-                      <Chip
-                        label={span.span_kind}
-                        size="small"
-                        variant="outlined"
-                      />
+                      <GridBadge size="detail" label={span.span_kind} />
                     </Stack>
                     <Typography
                       variant="caption"
@@ -478,11 +473,7 @@ export default function SpanDetailsPanel({
                       Status
                     </Typography>
                     <Box sx={{ mt: 0.5 }}>
-                      <Chip
-                        label={span.status_code}
-                        color={span.status_code === 'OK' ? 'success' : 'error'}
-                        size="small"
-                      />
+                      <GridBadge size="detail" label={span.status_code} />
                       {span.status_message && (
                         <Typography variant="body2" sx={{ mt: 0.5 }}>
                           {span.status_message}

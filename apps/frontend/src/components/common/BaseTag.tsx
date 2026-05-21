@@ -29,6 +29,7 @@ import { TagsClient } from '@/utils/api-client/tags-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
+import { editableTagChipSx } from '@/components/common/editableTagChipSx';
 
 // Type definitions
 interface TaggableEntity {
@@ -419,7 +420,8 @@ export default function BaseTag({
               color={chipColor}
               disabled={disabled}
               className={chipClassName || styles.baseTag}
-              deleteIcon={<CloseIcon />}
+              sx={editableTagChipSx}
+              deleteIcon={<CloseIcon fontSize="small" />}
               onDelete={
                 !disabled && !disableEdition
                   ? () => handleDeleteTag(option)

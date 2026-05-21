@@ -6,7 +6,6 @@ import {
   Box,
   Paper,
   Grid,
-  Chip,
   Divider,
   useTheme,
   Avatar,
@@ -16,9 +15,9 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import DevicesIcon from '@mui/icons-material/Devices';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import GridBadge from '@/components/common/GridBadge';
+import Tag from '@/components/common/Tag';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import EditDrawer from './edit-drawer';
 
@@ -92,22 +91,6 @@ const getProjectIcon = (project: Project) => {
   return <SmartToyIcon />;
 };
 
-// Function to get environment color
-const getEnvironmentColor = (environment?: string) => {
-  if (!environment) return 'default';
-
-  switch (environment.toLowerCase()) {
-    case 'production':
-      return 'success';
-    case 'staging':
-      return 'warning';
-    case 'development':
-      return 'info';
-    default:
-      return 'default';
-  }
-};
-
 export function EditDrawerWrapper({
   project,
   sessionToken,
@@ -155,20 +138,12 @@ export function ProjectContent({ project }: { project: Project }) {
             </Avatar>
             <Typography variant="h5">{project.name}</Typography>
             {project.is_active !== undefined && (
-              <Chip
-                icon={
-                  project.is_active ? (
-                    <CheckCircleIcon fontSize="small" />
-                  ) : (
-                    <DoNotDisturbAltIcon fontSize="small" />
-                  )
-                }
-                label={project.is_active ? 'Active' : 'Inactive'}
-                size="small"
-                color={project.is_active ? 'success' : 'error'}
-                variant="outlined"
-                sx={{ ml: 2 }}
-              />
+              <Box sx={{ ml: 2 }}>
+                <GridBadge
+                  size="detail"
+                  label={project.is_active ? 'Active' : 'Inactive'}
+                />
+              </Box>
             )}
           </Box>
           <Divider sx={{ mb: 3 }} />
@@ -236,20 +211,10 @@ export function ProjectContent({ project }: { project: Project }) {
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     {project.environment && (
-                      <Chip
-                        label={project.environment}
-                        size="medium"
-                        variant="outlined"
-                        color={getEnvironmentColor(project.environment)}
-                      />
+                      <GridBadge size="detail" label={project.environment} />
                     )}
                     {project.useCase && (
-                      <Chip
-                        label={project.useCase}
-                        size="medium"
-                        variant="outlined"
-                        color="primary"
-                      />
+                      <GridBadge size="detail" label={project.useCase} />
                     )}
                   </Box>
                 </Box>
@@ -305,13 +270,7 @@ export function ProjectContent({ project }: { project: Project }) {
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {project.tags.map((tag: string) => (
-                      <Chip
-                        key={tag}
-                        label={tag}
-                        size="medium"
-                        variant="outlined"
-                        color="secondary"
-                      />
+                      <Tag key={tag} label={tag} />
                     ))}
                   </Box>
                 </Box>

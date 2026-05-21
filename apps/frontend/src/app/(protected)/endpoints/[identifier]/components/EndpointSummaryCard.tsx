@@ -2,7 +2,7 @@
 
 import { Box, Typography } from '@mui/material';
 import Link from 'next/link';
-import BadgeChip from '@/components/common/BadgeChip';
+import GridBadge from '@/components/common/GridBadge';
 import SectionCard from '@/components/common/SectionCard';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 
@@ -41,7 +41,7 @@ export default function EndpointSummaryCard() {
             Connection type
           </Typography>
           <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <BadgeChip label={endpoint.connection_type} />
+            <GridBadge size="detail" label={endpoint.connection_type} />
           </Box>
         </Box>
 
@@ -71,7 +71,8 @@ export default function EndpointSummaryCard() {
             Environment
           </Typography>
           <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <BadgeChip
+            <GridBadge
+              size="detail"
               label={
                 endpoint.environment.charAt(0).toUpperCase() +
                 endpoint.environment.slice(1)
@@ -85,7 +86,10 @@ export default function EndpointSummaryCard() {
             Status
           </Typography>
           <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <BadgeChip label={endpoint.status?.name ?? 'Unknown'} />
+            <GridBadge
+              size="detail"
+              label={endpoint.status?.name ?? 'Unknown'}
+            />
           </Box>
         </Box>
 
@@ -112,7 +116,8 @@ export default function EndpointSummaryCard() {
             Tracing
           </Typography>
           <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <BadgeChip
+            <GridBadge
+              size="detail"
               label={endpoint.disable_tracing ? 'Disabled' : 'Enabled'}
             />
           </Box>
@@ -123,7 +128,10 @@ export default function EndpointSummaryCard() {
             Config source
           </Typography>
           <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <BadgeChip label={formatLabel(endpoint.config_source)} />
+            <GridBadge
+              size="detail"
+              label={formatLabel(endpoint.config_source)}
+            />
           </Box>
         </Box>
 
@@ -133,7 +141,7 @@ export default function EndpointSummaryCard() {
               Method
             </Typography>
             <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              <BadgeChip label={endpoint.method} />
+              <GridBadge size="detail" label={endpoint.method} />
             </Box>
           </Box>
         )}

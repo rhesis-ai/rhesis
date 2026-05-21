@@ -19,7 +19,8 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Box, Alert } from '@mui/material';
-import BadgeChip from '@/components/common/BadgeChip';
+import GridBadge from '@/components/common/GridBadge';
+import TagLabel from '@/components/common/Tag';
 import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -273,7 +274,7 @@ export default function TestSetTestsGrid({
           const behaviorName = params.row.behavior?.name;
           if (!behaviorName) return null;
 
-          return <BadgeChip label={behaviorName} />;
+          return <GridBadge label={behaviorName} />;
         },
       },
       {
@@ -284,7 +285,7 @@ export default function TestSetTestsGrid({
           const topicName = params.row.topic?.name;
           if (!topicName) return null;
 
-          return <BadgeChip label={topicName} />;
+          return <GridBadge label={topicName} />;
         },
       },
       {
@@ -295,7 +296,7 @@ export default function TestSetTestsGrid({
           const categoryName = params.row.category?.name;
           if (!categoryName) return null;
 
-          return <BadgeChip label={categoryName} />;
+          return <GridBadge label={categoryName} />;
         },
       },
       {
@@ -307,7 +308,7 @@ export default function TestSetTestsGrid({
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
-          return <BadgeChip label={testType} />;
+          return <GridBadge label={testType} />;
         },
       },
       {
@@ -336,10 +337,10 @@ export default function TestSetTestsGrid({
               }}
             >
               {validTags.slice(0, 2).map((tag: Tag) => (
-                <BadgeChip key={tag.id} label={tag.name} />
+                <TagLabel key={tag.id} label={tag.name} />
               ))}
               {validTags.length > 2 && (
-                <BadgeChip label={`+${validTags.length - 2}`} />
+                <TagLabel label={`+${validTags.length - 2}`} />
               )}
             </Box>
           );

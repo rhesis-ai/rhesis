@@ -13,7 +13,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { SearchPill } from '@/components/common/SearchPill';
 import { FilterButton } from '@/components/common/FilterButton';
-import BadgeChip from '@/components/common/BadgeChip';
+import GridBadge from '@/components/common/GridBadge';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -306,7 +306,7 @@ export default function TeamMembersGrid({
         renderCell: params => {
           const status = getUserStatus(params.row as User);
           return (
-            <BadgeChip label={status === 'active' ? 'Active' : 'Invited'} />
+            <GridBadge label={status === 'active' ? 'Active' : 'Invited'} />
           );
         },
       },

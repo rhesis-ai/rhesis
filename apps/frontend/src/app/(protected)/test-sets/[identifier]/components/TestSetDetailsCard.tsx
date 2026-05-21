@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Box, TextField, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import ViewField from '@/components/common/ViewField';
+import { BadgeRow } from '@/components/common/GridBadge';
 import EditableSection from '@/components/common/EditableSection';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -44,91 +45,6 @@ function SectionDivider({ headline, description }: SectionDividerProps) {
           }}
         >
           {description}
-        </Typography>
-      )}
-    </Box>
-  );
-}
-
-// ── Read-only chip row ─────────────────────────────────────────────────────────
-
-interface ChipRowProps {
-  items: string[];
-  maxVisible?: number;
-}
-
-function ChipRow({ items, maxVisible = 20 }: ChipRowProps) {
-  const visible = items.slice(0, maxVisible);
-  const remaining = items.length - maxVisible;
-
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '8px',
-        minHeight: 28,
-        alignItems: 'center',
-      }}
-    >
-      {visible.length > 0 ? (
-        <>
-          {visible.map(item => (
-            <Box
-              key={item}
-              sx={{
-                bgcolor: '#f3f4f6',
-                borderRadius: '4px',
-                px: '12px',
-                py: '2px',
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: 14,
-                  lineHeight: '22px',
-                  color: '#2a2e36',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {item}
-              </Typography>
-            </Box>
-          ))}
-          {remaining > 0 && (
-            <Box
-              sx={{
-                bgcolor: '#f3f4f6',
-                borderRadius: '4px',
-                px: '12px',
-                py: '2px',
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: 14,
-                  lineHeight: '22px',
-                  color: '#2a2e36',
-                  fontWeight: 600,
-                }}
-              >
-                +{remaining}
-              </Typography>
-            </Box>
-          )}
-        </>
-      ) : (
-        <Typography
-          sx={{
-            fontSize: 14,
-            color: theme => theme.palette.greyscale?.subtitle ?? '#7f8a9b',
-          }}
-        >
-          None
         </Typography>
       )}
     </Box>
@@ -264,7 +180,7 @@ export default function TestSetDetailsCard({
               headline="Behaviors"
               description="The behaviors covered by tests in this set"
             />
-            <ChipRow items={behaviors} />
+            <BadgeRow items={behaviors} />
           </Box>
 
           {/* ── Topics ────────────────────────────────────────────────────── */}
@@ -273,7 +189,7 @@ export default function TestSetDetailsCard({
               headline="Topics"
               description="The topics covered by tests in this set"
             />
-            <ChipRow items={topics} />
+            <BadgeRow items={topics} />
           </Box>
 
           {/* ── Categories ────────────────────────────────────────────────── */}
@@ -282,7 +198,7 @@ export default function TestSetDetailsCard({
               headline="Categories"
               description="The categories covered by tests in this set"
             />
-            <ChipRow items={categories} />
+            <BadgeRow items={categories} />
           </Box>
 
           {/* ── Sources (conditional) ─────────────────────────────────────── */}

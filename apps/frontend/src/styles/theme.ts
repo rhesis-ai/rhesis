@@ -409,7 +409,8 @@ const getDesignTokens = (mode: PaletteMode) => {
           root: {
             fontFamily: '"Be Vietnam Pro", sans-serif',
             fontWeight: 500,
-            borderRadius: 999,
+            // Tags and interactive chips stay rectangular; use GridBadge for pill badges.
+            borderRadius: 4,
             fontSize: '0.75rem',
             paddingTop: '6px',
             paddingBottom: '6px',

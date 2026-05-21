@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Chip,
   CircularProgress,
   Alert,
   Link as MuiLink,
@@ -18,13 +17,9 @@ import {
   GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import GridBadge from '@/components/common/GridBadge';
 import AutoGraphIcon from '@mui/icons-material/AutoGraph';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import NumbersIcon from '@mui/icons-material/Numbers';
-import CategoryIcon from '@mui/icons-material/Category';
-import BugReportIcon from '@mui/icons-material/BugReport';
-import HandymanIcon from '@mui/icons-material/Handyman';
-import StorageIcon from '@mui/icons-material/Storage';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -42,19 +37,6 @@ interface ProjectTraceMetricsProps {
   sessionToken: string;
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<void>;
 }
-
-const getBackendIcon = (backendType?: string) => {
-  if (!backendType) return <StorageIcon fontSize="small" />;
-
-  switch (backendType.toLowerCase()) {
-    case 'deepeval':
-      return <BugReportIcon fontSize="small" />;
-    case 'ragas':
-      return <HandymanIcon fontSize="small" />;
-    default:
-      return <StorageIcon fontSize="small" />;
-  }
-};
 
 export default function ProjectTraceMetrics({
   project,
@@ -289,26 +271,12 @@ export default function ProjectTraceMetrics({
       headerName: 'Score Type',
       flex: 1,
       renderCell: (params: GridRenderCellParams<MetricDetail>) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-          <Chip
-            size="small"
-            label={
-              params.row.score_type.charAt(0).toUpperCase() +
-              params.row.score_type.slice(1)
-            }
-            icon={
-              params.row.score_type === 'numeric' ? (
-                <NumbersIcon fontSize="small" />
-              ) : (
-                <CategoryIcon fontSize="small" />
-              )
-            }
-            sx={{
-              height: 24,
-              fontSize: 'caption.fontSize',
-            }}
-          />
-        </Box>
+        <GridBadge
+          label={
+            params.row.score_type.charAt(0).toUpperCase() +
+            params.row.score_type.slice(1)
+          }
+        />
       ),
     },
     {
@@ -319,19 +287,7 @@ export default function ProjectTraceMetrics({
         const typeValue = params.row.backend_type?.type_value;
         if (!typeValue) return null;
 
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-            <Chip
-              size="small"
-              label={typeValue}
-              icon={getBackendIcon(typeValue)}
-              sx={{
-                height: 24,
-                fontSize: 'caption.fontSize',
-              }}
-            />
-          </Box>
-        );
+        return <GridBadge label={typeValue} />;
       },
     },
     {

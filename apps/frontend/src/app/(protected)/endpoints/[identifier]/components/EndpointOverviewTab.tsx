@@ -17,7 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import BadgeChip from '@/components/common/BadgeChip';
+import GridBadge from '@/components/common/GridBadge';
 import EditableSection from '@/components/common/EditableSection';
 import ViewField from '@/components/common/ViewField';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -246,7 +246,8 @@ export default function EndpointOverviewTab() {
                     Tracing
                   </Typography>
                   <Box sx={{ mt: 0.5, display: 'flex', gap: 1 }}>
-                    <BadgeChip
+                    <GridBadge
+                      size="detail"
                       label={endpoint.disable_tracing ? 'Disabled' : 'Enabled'}
                     />
                   </Box>
@@ -258,7 +259,10 @@ export default function EndpointOverviewTab() {
                 Status
               </Typography>
               <Box sx={{ mt: 0.5, display: 'flex', gap: 1 }}>
-                <BadgeChip label={endpoint.status?.name ?? 'Unknown'} />
+                <GridBadge
+                  size="detail"
+                  label={endpoint.status?.name ?? 'Unknown'}
+                />
               </Box>
             </Grid>
           </Grid>

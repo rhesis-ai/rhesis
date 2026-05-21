@@ -34,7 +34,7 @@ import {
   ButtonGroup,
 } from '@mui/material';
 import { SearchPill } from '@/components/common/SearchPill';
-import BadgeChip from '@/components/common/BadgeChip';
+import GridBadge from '@/components/common/GridBadge';
 import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -435,7 +435,7 @@ export default function TestsTable({
           const behaviorName = params.row.behavior?.name;
           if (!behaviorName) return null;
 
-          return <BadgeChip label={behaviorName} />;
+          return <GridBadge label={behaviorName} />;
         },
       },
       {
@@ -450,7 +450,7 @@ export default function TestsTable({
           const topicName = params.row.topic?.name;
           if (!topicName) return null;
 
-          return <BadgeChip label={topicName} />;
+          return <GridBadge label={topicName} />;
         },
       },
       {
@@ -465,7 +465,7 @@ export default function TestsTable({
           const categoryName = params.row.category?.name;
           if (!categoryName) return null;
 
-          return <BadgeChip label={categoryName} />;
+          return <GridBadge label={categoryName} />;
         },
       },
       {
@@ -480,7 +480,7 @@ export default function TestsTable({
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
 
-          return <BadgeChip label={testType} />;
+          return <GridBadge label={testType} />;
         },
       },
       {

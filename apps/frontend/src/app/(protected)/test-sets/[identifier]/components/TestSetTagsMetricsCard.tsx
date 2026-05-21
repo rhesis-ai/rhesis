@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import EditableSection from '@/components/common/EditableSection';
-import BaseTag from '@/components/common/BaseTag';
+import TagsField from '@/components/common/TagsField';
 import TestSetMetrics from './TestSetMetrics';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -111,94 +111,13 @@ export default function TestSetTagsMetricsCard({
           </Box>
 
           {/* Tags */}
-          {isEditing ? (
-            <BaseTag
-              value={draft.tagNames}
-              onChange={tagNames => setDraft(d => ({ ...d, tagNames }))}
-              label="Tags"
-              placeholder="Add tags (press Enter or comma to add)"
-              helperText="These tags help categorize and find this test set"
-              chipColor="default"
-              addOnBlur
-              delimiters={[',', 'Enter']}
-              size="medium"
-              fullWidth
-            />
-          ) : (
-            <Box>
-              <Typography
-                sx={{
-                  fontSize: 14,
-                  lineHeight: '22px',
-                  color: theme =>
-                    theme.palette.greyscale?.subtitle ?? '#7f8a9b',
-                  px: '14px',
-                  mb: '6px',
-                }}
-              >
-                Tags
-              </Typography>
-              <Box
-                sx={{
-                  border: '1px solid #c1c7d1',
-                  borderRadius: '4px',
-                  pl: '16px',
-                  pr: '12px',
-                  py: '16px',
-                  display: 'flex',
-                  gap: '10px',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  minHeight: 56,
-                }}
-              >
-                {draft.tagNames.length > 0 ? (
-                  draft.tagNames.map(tag => (
-                    <Box
-                      key={tag}
-                      sx={{
-                        bgcolor: '#f3f4f6',
-                        borderRadius: '4px',
-                        px: '12px',
-                        py: '2px',
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          fontSize: 14,
-                          lineHeight: '22px',
-                          color: '#2a2e36',
-                        }}
-                      >
-                        {tag}
-                      </Typography>
-                    </Box>
-                  ))
-                ) : (
-                  <Typography
-                    sx={{
-                      fontSize: 16,
-                      lineHeight: '24px',
-                      color: '#545a65',
-                    }}
-                  >
-                    No tags
-                  </Typography>
-                )}
-              </Box>
-              <Typography
-                sx={{
-                  fontSize: 12,
-                  lineHeight: '18px',
-                  color: 'text.secondary',
-                  px: '14px',
-                  pt: '3px',
-                }}
-              >
-                These tags help categorize and find this test set
-              </Typography>
-            </Box>
-          )}
+          <TagsField
+            tagNames={draft.tagNames}
+            isEditing={isEditing}
+            onChange={tagNames => setDraft(d => ({ ...d, tagNames }))}
+            helperText="These tags help categorize and find this test set"
+            emptyLabel="No tags"
+          />
         </Box>
       )}
     </EditableSection>

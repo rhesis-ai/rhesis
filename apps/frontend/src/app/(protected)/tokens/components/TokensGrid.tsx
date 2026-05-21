@@ -18,24 +18,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { DeleteIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
-
-// Figma "Badge" (RCN0J2AjA0UlStdPpdjUCu, node 776:28220):
-//   bg #f3f4f6, body text #2a2e36, 12/18 regular, pill, 10px/2px padding.
-const badgeSx = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  px: '10px',
-  py: '2px',
-  borderRadius: BORDER_RADIUS.pill,
-  bgcolor: '#f3f4f6',
-  color: GREYSCALE.light.body,
-  fontSize: 12,
-  lineHeight: '18px',
-  fontWeight: 400,
-  whiteSpace: 'nowrap' as const,
-} as const;
+import GridBadge from '@/components/common/GridBadge';
 
 interface TokensGridProps {
   tokens: Token[];
@@ -101,13 +84,15 @@ export default function TokensGrid({
       headerName: 'Expires',
       flex: 1,
       renderCell: (params: GridRenderCellParams) => (
-        <Box component="span" sx={badgeSx}>
-          {params.row.expires_at
-            ? formatDistanceToNow(new Date(params.row.expires_at), {
-                addSuffix: true,
-              })
-            : 'Never'}
-        </Box>
+        <GridBadge
+          label={
+            params.row.expires_at
+              ? formatDistanceToNow(new Date(params.row.expires_at), {
+                  addSuffix: true,
+                })
+              : 'Never'
+          }
+        />
       ),
     },
     {

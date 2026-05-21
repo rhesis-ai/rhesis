@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
-import BadgeChip from '@/components/common/BadgeChip';
+import GridBadge from '@/components/common/GridBadge';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
@@ -137,7 +137,7 @@ export default function LinkedTestSetsSection({
       headerName: 'Visibility',
       width: 120,
       renderCell: params => (
-        <BadgeChip label={params.value ?? 'organization'} />
+        <GridBadge label={params.value ?? 'organization'} />
       ),
     },
     {

@@ -26,12 +26,12 @@ import {
   Typography,
   Box,
   Alert,
-  Chip,
   Avatar,
   Button,
   ButtonGroup,
 } from '@mui/material';
 import { FilterButton } from '@/components/common/FilterButton';
+import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -452,32 +452,9 @@ export default function TasksGrid({
         width: 120,
         minWidth: 90,
         resizable: true,
-        renderCell: params => {
-          const getStatusColor = (
-            status?: string
-          ): 'warning' | 'primary' | 'success' | 'error' | 'default' => {
-            switch (status) {
-              case 'Open':
-                return 'warning';
-              case 'In Progress':
-                return 'primary';
-              case 'Completed':
-                return 'success';
-              case 'Cancelled':
-                return 'error';
-              default:
-                return 'default';
-            }
-          };
-
-          return (
-            <Chip
-              label={params.row.status?.name || 'Unknown'}
-              color={getStatusColor(params.row.status?.name)}
-              size="small"
-            />
-          );
-        },
+        renderCell: params => (
+          <GridBadge label={params.row.status?.name || 'Unknown'} />
+        ),
       },
       {
         field: 'assignee',

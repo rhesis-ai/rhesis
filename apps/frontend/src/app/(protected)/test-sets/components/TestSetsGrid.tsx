@@ -24,7 +24,6 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import {
   Box,
-  Chip,
   Tooltip,
   Typography,
   Avatar,
@@ -52,7 +51,7 @@ import TestSetFilterDrawer, {
   hasActiveTestSetFilters,
 } from './TestSetFilterDrawer';
 import { TEST_TYPES } from '@/constants/test-types';
-import BadgeChip from '@/components/common/BadgeChip';
+import GridBadge from '@/components/common/GridBadge';
 
 interface TestSetsGridProps {
   sessionToken?: string;
@@ -212,11 +211,11 @@ const ChipContainer = ({ items }: { items: string[] }) => {
       }}
     >
       {visibleItems.map((item: string) => (
-        <BadgeChip key={item} label={item} />
+        <GridBadge key={item} label={item} />
       ))}
       {remainingCount > 0 && (
         <Tooltip title={items.slice(maxVisible).join(', ')} arrow>
-          <Chip label={`+${remainingCount}`} size="small" variant="outlined" />
+          <GridBadge label={`+${remainingCount}`} />
         </Tooltip>
       )}
     </Box>
@@ -540,7 +539,7 @@ export default function TestSetsGrid({
         filterable: true,
         valueGetter: (_, row) => row.testSetType || '',
         renderCell: params =>
-          params.value ? <BadgeChip label={params.value} /> : null,
+          params.value ? <GridBadge label={params.value} /> : null,
       },
       {
         field: 'created_at',

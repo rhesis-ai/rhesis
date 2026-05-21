@@ -11,10 +11,8 @@ import React, {
 import DeleteIcon from '@mui/icons-material/Delete';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import { FilterButton } from '@/components/common/FilterButton';
-import {
-  getTestRunStatusColor,
-  getTestRunStatusIcon,
-} from '@/components/common/TestRunStatus';
+import GridBadge from '@/components/common/GridBadge';
+import TagLabel from '@/components/common/Tag';
 import {
   GridColDef,
   GridRowSelectionModel,
@@ -437,14 +435,7 @@ function TestRunsGrid({
 
           if (!testSetType) return null;
 
-          return (
-            <Chip
-              label={testSetType}
-              size="small"
-              variant="outlined"
-              sx={{ fontWeight: 500 }}
-            />
-          );
+          return <GridBadge label={testSetType} />;
         },
       },
       {
@@ -457,18 +448,7 @@ function TestRunsGrid({
           const status = params.row.status?.name;
           if (!status) return null;
 
-          const color = getTestRunStatusColor(status);
-          const icon = getTestRunStatusIcon(status, 'small');
-
-          return (
-            <Chip
-              label={status}
-              size="small"
-              color={color}
-              icon={icon}
-              sx={{ fontWeight: 500 }}
-            />
-          );
+          return <GridBadge label={status} />;
         },
       },
       {
@@ -580,19 +560,12 @@ function TestRunsGrid({
                 .filter((tag: Tag) => tag && tag.id && tag.name)
                 .slice(0, 2)
                 .map((tag: Tag) => (
-                  <Chip
-                    key={tag.id}
-                    label={tag.name}
-                    size="small"
-                    variant="outlined"
-                  />
+                  <TagLabel key={tag.id} label={tag.name} />
                 ))}
               {testRun.tags.filter((tag: Tag) => tag && tag.id && tag.name)
                 .length > 2 && (
-                <Chip
+                <TagLabel
                   label={`+${testRun.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
-                  size="small"
-                  variant="outlined"
                 />
               )}
             </Box>

@@ -5,6 +5,7 @@ import { useTheme } from '@mui/material/styles';
 import { Box, Typography, Avatar, IconButton } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
 import { GREYSCALE, BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import GridBadge from '@/components/common/GridBadge';
 
 export interface ChipData {
   key: string;
@@ -69,7 +70,7 @@ const DESCRIPTION_LINE_HEIGHT = 22;
 const DESCRIPTION_MAX_LINES = 3;
 const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
 
-/** Figma Chip (818:38066) — filled tag; green/red tint for active/inactive. */
+/** Status badge on entity cards — pill shape; semantic tint for active/inactive. */
 export function EntityCardStatusBadge({ status }: { status: string }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
@@ -78,36 +79,15 @@ export function EntityCardStatusBadge({ status }: { status: string }) {
     status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
   return (
-    <Box
-      component="span"
+    <GridBadge
+      size="detail"
+      label={statusLabel}
       sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         alignSelf: 'flex-start',
-        width: 'fit-content',
-        maxWidth: '100%',
-        flexShrink: 0,
         bgcolor: bg,
-        borderRadius: BORDER_RADIUS.xs,
-        px: '10px',
-        pt: '1px',
-        pb: '2px',
+        color,
       }}
-    >
-      <Typography
-        component="span"
-        sx={{
-          fontSize: 12,
-          fontWeight: 400,
-          lineHeight: '18px',
-          color,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {statusLabel}
-      </Typography>
-    </Box>
+    />
   );
 }
 
@@ -141,8 +121,6 @@ export default function EntityCard({
     ? theme.palette.divider
     : GREYSCALE.light.border;
   const resolvedBorderColor = borderColorProp ?? defaultBorderColor;
-  const chipBg = isDark ? GREYSCALE.dark.surface2 : CHIP_SURFACE_DEFAULT;
-
   return (
     <Box
       onClick={onClick}
@@ -323,27 +301,20 @@ export default function EntityCard({
                 ) : section.chips.length > 0 ? (
                   <Box sx={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {section.chips.map(chip => (
-                      <Box
+                      <GridBadge
+                        size="detail"
                         key={chip.key}
-                        sx={{
-                          bgcolor: chipBg,
-                          borderRadius: '4px',
-                          px: '10px',
-                          pt: '1px',
-                          pb: '2px',
-                          fontSize: 12,
-                          color: 'text.secondary',
-                          lineHeight: '18px',
-                          ...(chip.maxWidth && {
-                            maxWidth: chip.maxWidth,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }),
-                        }}
-                      >
-                        {chip.label}
-                      </Box>
+                        label={chip.label}
+                        sx={
+                          chip.maxWidth
+                            ? {
+                                maxWidth: chip.maxWidth,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }
+                            : undefined
+                        }
+                      />
                     ))}
                   </Box>
                 ) : (

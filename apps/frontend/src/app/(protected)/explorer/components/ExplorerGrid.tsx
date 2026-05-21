@@ -9,7 +9,8 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import { Box, Chip, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import GridBadge from '@/components/common/GridBadge';
 import DeleteIcon from '@mui/icons-material/Delete';
 import IosShareOutlinedIcon from '@mui/icons-material/IosShareOutlined';
 import type { ExplorerTestSet } from '@/utils/api-client/interfaces/explorer';
@@ -109,7 +110,7 @@ export default function ExplorerGrid({
       renderCell: params => {
         const status = params.value;
         if (!status) return '-';
-        return <Chip label={status} size="small" variant="outlined" />;
+        return <GridBadge label={status} />;
       },
     },
     {

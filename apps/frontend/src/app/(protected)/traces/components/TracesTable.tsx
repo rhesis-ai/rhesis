@@ -21,7 +21,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import BadgeChip from '@/components/common/BadgeChip';
+import GridBadge from '@/components/common/GridBadge';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
@@ -366,7 +366,7 @@ export default function TracesTable({
 
           return (
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <BadgeChip label={evalStatus} />
+              <GridBadge label={evalStatus} />
               {hasReview && (
                 <Tooltip
                   title={
@@ -401,7 +401,7 @@ export default function TracesTable({
           if (!env) return null;
 
           const envLabel = env.charAt(0).toUpperCase() + env.slice(1);
-          return <BadgeChip label={envLabel} />;
+          return <GridBadge label={envLabel} />;
         },
       },
     ],

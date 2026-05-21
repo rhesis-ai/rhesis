@@ -7,7 +7,8 @@ import React, {
   useContext,
   useMemo,
 } from 'react';
-import { Chip, Box, Typography, useTheme, Alert } from '@mui/material';
+import { Box, Typography, useTheme, Alert } from '@mui/material';
+import GridBadge from '@/components/common/GridBadge';
 import { FilterButton } from '@/components/common/FilterButton';
 import {
   GridColDef,
@@ -35,7 +36,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { createEndpoint } from '@/actions/endpoints';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { getStatusColor } from '@/utils/status-colors';
 import { SearchPill } from '@/components/common/SearchPill';
 import { buildEndpointListFilter } from '@/utils/odata-filter';
 import { GREYSCALE } from '@/styles/theme';
@@ -479,17 +479,13 @@ export default function EndpointsGrid({
         field: 'connection_type',
         headerName: 'Connection Type',
         flex: 0.7,
-        renderCell: params => (
-          <Chip label={params.value} size="small" variant="outlined" />
-        ),
+        renderCell: params => <GridBadge label={params.value} />,
       },
       {
         field: 'environment',
         headerName: 'Environment',
         flex: 0.8,
-        renderCell: params => (
-          <Chip label={params.value} size="small" variant="outlined" />
-        ),
+        renderCell: params => <GridBadge label={params.value} />,
       },
       {
         field: 'project',
@@ -530,25 +526,7 @@ export default function EndpointsGrid({
           const endpoint = params.row as Endpoint;
           const status = endpoint.status;
 
-          if (!status) {
-            return (
-              <Chip
-                label="Unknown"
-                size="small"
-                variant="outlined"
-                color="default"
-              />
-            );
-          }
-
-          return (
-            <Chip
-              label={status.name}
-              size="small"
-              variant="outlined"
-              color={getStatusColor(status.name)}
-            />
-          );
+          return <GridBadge label={status?.name ?? 'Unknown'} />;
         },
       },
     ],
