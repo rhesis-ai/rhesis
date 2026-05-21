@@ -6,7 +6,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import AddIcon from '@mui/icons-material/Add';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { SearchPill } from '@/components/common/SearchPill';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -347,7 +347,7 @@ export default function ModelsPage() {
       description="Connect language models for test generation and language-model-as-judge evaluation, and embedding models for platform use. Set your defaults for generation, evaluation, and execution."
       breadcrumbs={[]}
       actions={
-        <>
+        <FabGroup>
           <Fab
             icon={<AddIcon />}
             tooltip="Add model"
@@ -366,7 +366,7 @@ export default function ModelsPage() {
               Embedding model
             </MenuItem>
           </Menu>
-        </>
+        </FabGroup>
       }
     >
       {error && (

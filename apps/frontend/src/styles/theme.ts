@@ -9,8 +9,9 @@ import {
   BORDER_RADIUS,
   BACKDROP_COLORS,
   ELEVATION,
+  FAB_GROUP_GAP,
 } from './theme-constants';
-export { GREYSCALE, BORDER_RADIUS, BACKDROP_COLORS, ELEVATION };
+export { GREYSCALE, BORDER_RADIUS, BACKDROP_COLORS, ELEVATION, FAB_GROUP_GAP };
 
 // Define theme settings for both light and dark modes
 const getDesignTokens = (mode: PaletteMode) => {

@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import {
-  Box,
   Button,
   CircularProgress,
   Dialog,
@@ -10,29 +9,18 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Tooltip,
 } from '@mui/material';
-import MuiFab from '@mui/material/Fab';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DownloadIcon from '@mui/icons-material/Download';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { useRouter } from 'next/navigation';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import ExecuteTestSetDrawer from './ExecuteTestSetDrawer';
 import type { GarakSyncPreviewResponse } from '@/utils/api-client/garak-client';
-
-const FAB_SX = {
-  bgcolor: 'primary.main',
-  color: '#fff',
-  boxShadow: '0px 2px 2px rgba(84, 90, 101, 0.25)',
-  width: 56,
-  height: 56,
-  '&:hover': { bgcolor: 'primary.dark' },
-  '&:active': { boxShadow: '0px 2px 2px rgba(84, 90, 101, 0.25)' },
-} as const;
 
 interface TestSetHeaderActionsProps {
   sessionToken: string;
@@ -151,52 +139,25 @@ export default function TestSetHeaderActions({
 
   return (
     <>
-      <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-        {/* Delete FAB */}
-        <Tooltip title="Delete test set" placement="bottom">
-          <MuiFab
-            size="medium"
-            sx={FAB_SX}
-            onClick={() => setDeleteDialogOpen(true)}
-            disabled={isDeleting}
-          >
-            {isDeleting ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : (
-              <DeleteOutlineIcon sx={{ fontSize: 28 }} />
-            )}
-          </MuiFab>
-        </Tooltip>
-
-        {/* Download FAB */}
-        <Tooltip title="Download test set (CSV)" placement="bottom">
-          <MuiFab
-            size="medium"
-            sx={FAB_SX}
-            onClick={handleDownload}
-            disabled={isDownloading}
-          >
-            {isDownloading ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : (
-              <DownloadIcon sx={{ fontSize: 28 }} />
-            )}
-          </MuiFab>
-        </Tooltip>
-
-        {/* Execute FAB */}
-        <Tooltip title="Execute test set" placement="bottom">
-          <MuiFab
-            size="medium"
-            sx={FAB_SX}
-            onClick={() => setExecuteDrawerOpen(true)}
-            disabled={testCount === 0}
-          >
-            <PlayArrowIcon sx={{ fontSize: 32 }} />
-          </MuiFab>
-        </Tooltip>
-
-        {/* Garak Sync — conditional rectangular button */}
+      <FabGroup>
+        <Fab
+          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+          tooltip="Delete test set"
+          onClick={() => setDeleteDialogOpen(true)}
+          loading={isDeleting}
+        />
+        <Fab
+          icon={<DownloadIcon sx={{ fontSize: 28 }} />}
+          tooltip="Download test set (CSV)"
+          onClick={handleDownload}
+          loading={isDownloading}
+        />
+        <Fab
+          icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
+          tooltip="Execute test set"
+          onClick={() => setExecuteDrawerOpen(true)}
+          disabled={testCount === 0}
+        />
         {isGarakTestSet && (
           <Button
             variant="outlined"
@@ -209,9 +170,8 @@ export default function TestSetHeaderActions({
             {isSyncing ? 'Syncing…' : 'Sync from Garak'}
           </Button>
         )}
-      </Box>
+      </FabGroup>
 
-      {/* Execute Drawer */}
       <ExecuteTestSetDrawer
         open={executeDrawerOpen}
         onClose={() => setExecuteDrawerOpen(false)}
@@ -219,7 +179,6 @@ export default function TestSetHeaderActions({
         sessionToken={sessionToken}
       />
 
-      {/* Delete Confirmation */}
       <DeleteModal
         open={deleteDialogOpen}
         onClose={() => !isDeleting && setDeleteDialogOpen(false)}
@@ -234,7 +193,6 @@ export default function TestSetHeaderActions({
         }
       />
 
-      {/* Garak Sync Confirmation */}
       <Dialog open={syncDialogOpen} onClose={() => setSyncDialogOpen(false)}>
         <DialogTitle>Confirm Garak sync</DialogTitle>
         <DialogContent>

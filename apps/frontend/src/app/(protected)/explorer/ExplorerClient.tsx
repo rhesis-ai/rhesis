@@ -9,7 +9,7 @@ import AddIcon from '@mui/icons-material/Add';
 import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -98,7 +98,7 @@ export default function ExplorerClient() {
         description="Interactive sessions to discover behaviors, generate tests, and export them to test sets."
         breadcrumbs={[]}
         actions={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <FabGroup>
             <Fab
               icon={<FileUploadIcon />}
               tooltip="Load test set"
@@ -109,7 +109,7 @@ export default function ExplorerClient() {
               tooltip="New session"
               onClick={() => setCreateDialogOpen(true)}
             />
-          </Box>
+          </FabGroup>
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>

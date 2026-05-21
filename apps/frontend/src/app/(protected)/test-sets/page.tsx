@@ -10,7 +10,7 @@ import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
 import SecurityIcon from '@mui/icons-material/SecurityOutlined';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { HorizontalSplitIcon } from '@/components/icons';
 import TestSetsGrid from './components/TestSetsGrid';
@@ -119,7 +119,7 @@ export default function TestSetsPage() {
         description="Curated collections of tests you can version, share, and execute against your AI endpoints."
         breadcrumbs={[]}
         actions={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <FabGroup>
             <Fab
               icon={<FileUploadIcon />}
               tooltip="Import from File"
@@ -135,7 +135,7 @@ export default function TestSetsPage() {
               tooltip="New Test Set"
               onClick={() => setCreateDrawerOpen(true)}
             />
-          </Box>
+          </FabGroup>
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>

@@ -21,7 +21,7 @@ import ProjectFilterDrawer, {
 import AddIcon from '@mui/icons-material/Add';
 import FolderIcon from '@mui/icons-material/Folder';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
@@ -223,14 +223,16 @@ export default function ProjectsClientWrapper({
       description="Organize your AI applications by grouping endpoints, tests, and results into projects."
       breadcrumbs={[]}
       actions={
-        <Fab
-          icon={<AddIcon />}
-          tooltip="Create project"
-          aria-label="Create project"
-          data-tour="create-project-button"
-          disabled={isProjectButtonDisabled}
-          onClick={() => setCreateDrawerOpen(true)}
-        />
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="Create project"
+            aria-label="Create project"
+            data-tour="create-project-button"
+            disabled={isProjectButtonDisabled}
+            onClick={() => setCreateDrawerOpen(true)}
+          />
+        </FabGroup>
       }
     >
       {/* Figma Toolbar (841:38547) — 3-col grid keeps pills truly centered */}

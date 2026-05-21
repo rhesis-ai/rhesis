@@ -9,7 +9,7 @@ import { useSession } from 'next-auth/react';
 import AddIcon from '@mui/icons-material/Add';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { ScienceIcon } from '@/components/icons';
 import TestsGrid from './components/TestsGrid';
@@ -201,7 +201,7 @@ export default function TestsPage() {
         description="Individual test cases that evaluate your AI endpoints for quality, safety, and reliability."
         breadcrumbs={[]}
         actions={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <FabGroup>
             <Fab
               icon={<DownloadOutlinedIcon />}
               tooltip="Import tests"
@@ -213,7 +213,7 @@ export default function TestsPage() {
               onClick={handleOpenModal}
               disabled={shouldDisableAddButton}
             />
-          </Box>
+          </FabGroup>
         }
       >
         {/* Table Section */}

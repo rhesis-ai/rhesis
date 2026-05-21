@@ -5,7 +5,7 @@ import { Box, Alert, CircularProgress, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { FilterButton } from '@/components/common/FilterButton';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { SearchPill } from '@/components/common/SearchPill';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -202,12 +202,14 @@ export default function MCPSPage() {
       description="Connect to Model Context Protocol (MCP) providers to import knowledge sources and enhance your evaluation workflows."
       breadcrumbs={[]}
       actions={
-        <Fab
-          icon={<AddIcon />}
-          tooltip="Add MCP connection"
-          aria-label="Add MCP connection"
-          onClick={() => setProviderSelectionOpen(true)}
-        />
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="Add MCP connection"
+            aria-label="Add MCP connection"
+            onClick={() => setProviderSelectionOpen(true)}
+          />
+        </FabGroup>
       }
     >
       {error && (

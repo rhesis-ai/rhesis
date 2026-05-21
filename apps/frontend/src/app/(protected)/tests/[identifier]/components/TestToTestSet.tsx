@@ -1,26 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Tooltip, CircularProgress } from '@mui/material';
-import Fab from '@mui/material/Fab';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import TrialDrawer from '../../components/TrialDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
-
-const FAB_SX = {
-  bgcolor: 'primary.main',
-  color: '#fff',
-  boxShadow: '0px 2px 2px rgba(84, 90, 101, 0.25)',
-  width: 56,
-  height: 56,
-  '&:hover': { bgcolor: 'primary.dark' },
-  '&:active': { boxShadow: '0px 2px 2px rgba(84, 90, 101, 0.25)' },
-} as const;
 
 interface TestToTestSetProps {
   sessionToken: string;
@@ -97,49 +86,27 @@ export default function TestToTestSet({
 
   return (
     <>
-      <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+      <FabGroup>
         {parentButton}
+        <Fab
+          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+          tooltip="Delete test"
+          onClick={() => setDeleteDialogOpen(true)}
+          loading={isDeleting}
+        />
+        <Fab
+          icon={<FileCopyOutlinedIcon sx={{ fontSize: 28 }} />}
+          tooltip="Duplicate test"
+          onClick={handleDuplicate}
+          loading={isDuplicating}
+        />
+        <Fab
+          icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
+          tooltip="Run test"
+          onClick={() => setTrialDrawerOpen(true)}
+        />
+      </FabGroup>
 
-        {/* Delete FAB */}
-        <Tooltip title="Delete test" placement="bottom">
-          <Fab
-            size="medium"
-            sx={FAB_SX}
-            onClick={() => setDeleteDialogOpen(true)}
-          >
-            <DeleteOutlineIcon sx={{ fontSize: 32 }} />
-          </Fab>
-        </Tooltip>
-
-        {/* Duplicate FAB */}
-        <Tooltip title="Duplicate test" placement="bottom">
-          <Fab
-            size="medium"
-            sx={FAB_SX}
-            onClick={handleDuplicate}
-            disabled={isDuplicating}
-          >
-            {isDuplicating ? (
-              <CircularProgress size={24} sx={{ color: '#fff' }} />
-            ) : (
-              <FileCopyOutlinedIcon sx={{ fontSize: 32 }} />
-            )}
-          </Fab>
-        </Tooltip>
-
-        {/* Run Test FAB */}
-        <Tooltip title="Run test" placement="bottom">
-          <Fab
-            size="medium"
-            sx={FAB_SX}
-            onClick={() => setTrialDrawerOpen(true)}
-          >
-            <PlayArrowIcon sx={{ fontSize: 32 }} />
-          </Fab>
-        </Tooltip>
-      </Box>
-
-      {/* Run Test drawer */}
       <TrialDrawer
         open={trialDrawerOpen}
         onClose={() => setTrialDrawerOpen(false)}
@@ -148,7 +115,6 @@ export default function TestToTestSet({
         onSuccess={handleTrialSuccess}
       />
 
-      {/* Delete confirmation dialog */}
       <DeleteModal
         open={deleteDialogOpen}
         onClose={() => !isDeleting && setDeleteDialogOpen(false)}

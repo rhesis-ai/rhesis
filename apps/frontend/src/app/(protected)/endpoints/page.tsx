@@ -8,7 +8,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { ApiIcon } from '@/components/icons';
 import EndpointsGrid from './components/EndpointsGrid';
@@ -76,14 +76,14 @@ export default function EndpointsPage() {
       description="Connect the Rhesis platform to your application under test via endpoints to enable comprehensive testing and evaluation workflows."
       breadcrumbs={[]}
       actions={
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <FabGroup>
           <Fab
             icon={<AddIcon />}
             tooltip="New Endpoint"
             onClick={() => router.push('/endpoints/new')}
             data-tour="create-endpoint-button"
           />
-        </Box>
+        </FabGroup>
       }
     >
       <Box sx={{ mt: 2, mb: 2 }}>

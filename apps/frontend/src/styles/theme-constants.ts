@@ -43,6 +43,9 @@ export const BACKDROP_COLORS = {
   filter: 'rgba(0, 101, 140, 0.8)',
 } as const;
 
+/** Horizontal gap between FAB buttons in a page-header action group (Figma) */
+export const FAB_GROUP_GAP = '20px';
+
 export const ELEVATION = {
   xs: '0px 2px 4px rgba(84, 90, 101, 0.25)',
   s: '0px 16px 32px -4px rgba(84, 90, 101, 0.10), 0px 4px 4px rgba(84, 90, 101, 0.04)',

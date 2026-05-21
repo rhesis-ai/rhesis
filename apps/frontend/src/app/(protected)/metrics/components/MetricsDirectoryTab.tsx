@@ -15,7 +15,7 @@ import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
 import MetricFilterDrawer from './MetricFilterDrawer';
 import { SearchPill } from '@/components/common/SearchPill';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -485,12 +485,14 @@ export default function MetricsDirectoryTab({
       description="Metrics are quantifiable measurements that evaluate behaviors and determine if requirements are met."
       breadcrumbs={[]}
       actions={
-        <Fab
-          icon={<AddIcon />}
-          tooltip="Create metric"
-          aria-label="Create metric"
-          onClick={() => setCreateMetricOpen(true)}
-        />
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="Create metric"
+            aria-label="Create metric"
+            onClick={() => setCreateMetricOpen(true)}
+          />
+        </FabGroup>
       }
     >
       {/* Toolbar */}

@@ -20,7 +20,7 @@ import { SearchPill } from '@/components/common/SearchPill';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import BehaviorFilterDrawer, {
   type BehaviorFilters,
   type MetricFilter,
@@ -428,12 +428,14 @@ export default function BehaviorsClient({
       description="Behaviors are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
       breadcrumbs={[]}
       actions={
-        <Fab
-          icon={<AddIcon />}
-          tooltip="Create behavior"
-          aria-label="Create behavior"
-          onClick={handleAddNewBehavior}
-        />
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="Create behavior"
+            aria-label="Create behavior"
+            onClick={handleAddNewBehavior}
+          />
+        </FabGroup>
       }
     >
       {/* Figma Toolbar (841:38547) — 3-col grid keeps pills truly centered */}

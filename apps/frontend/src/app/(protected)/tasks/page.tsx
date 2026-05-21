@@ -9,7 +9,7 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import TasksGrid from './components/TasksGrid';
 import TaskDrawer, {
@@ -129,7 +129,7 @@ export default function TasksPage() {
         description="Track and manage work items linked to tests, endpoints, and comments across your organization."
         breadcrumbs={[]}
         actions={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <FabGroup>
             <Fab
               icon={<AddIcon />}
               tooltip="New Task"
@@ -139,7 +139,7 @@ export default function TasksPage() {
                 setCreateDrawerOpen(true);
               }}
             />
-          </Box>
+          </FabGroup>
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>

@@ -5,7 +5,7 @@ import { Box, Alert, Paper } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { MenuBookIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -92,7 +92,7 @@ export default function KnowledgeClientWrapper({
         description="Upload knowledge sources to use as context for test generation and evaluation workflows."
         breadcrumbs={[]}
         actions={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <FabGroup>
             <Fab
               icon={<UploadIcon />}
               tooltip="Upload Source"
@@ -105,7 +105,7 @@ export default function KnowledgeClientWrapper({
               aria-label="Import from MCP"
               onClick={() => setMcpImportDrawerOpen(true)}
             />
-          </Box>
+          </FabGroup>
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>

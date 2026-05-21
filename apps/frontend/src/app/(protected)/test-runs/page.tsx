@@ -7,7 +7,7 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { PlayArrowIcon } from '@/components/icons';
 import TestRunsGrid from './components/TestRunsGrid';
@@ -80,13 +80,13 @@ export default function TestRunsPage() {
         description="Executions of your test sets against AI endpoints. Track status, results, and history of each run."
         breadcrumbs={[]}
         actions={
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <FabGroup>
             <Fab
               icon={<AddIcon />}
               tooltip="New Test Run"
               onClick={() => setCreateDrawerOpen(true)}
             />
-          </Box>
+          </FabGroup>
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>

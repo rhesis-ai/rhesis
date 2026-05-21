@@ -29,7 +29,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Token, TokenResponse } from '@/utils/api-client/interfaces/token';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { SearchPill } from '@/components/common/SearchPill';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { VpnKeyIcon } from '@/components/icons';
@@ -220,12 +220,14 @@ export default function TokensPageClient({
       description="Create API tokens to authenticate with the Rhesis SDK and programmatically manage your testing workflows from your code."
       breadcrumbs={[]}
       actions={
-        <Fab
-          icon={<AddIcon />}
-          tooltip="Create API token"
-          aria-label="Create API token"
-          onClick={handleOpenCreateModal}
-        />
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="Create API token"
+            aria-label="Create API token"
+            onClick={handleOpenCreateModal}
+          />
+        </FabGroup>
       }
     >
       {/* Toolbar — 3-col grid keeps pills truly centered */}

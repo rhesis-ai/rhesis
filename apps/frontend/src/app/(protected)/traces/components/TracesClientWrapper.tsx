@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Alert, Box, Paper } from '@mui/material';
 import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab } from '@/components/common/Fab';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -66,12 +66,14 @@ export default function TracesClientWrapper({
       description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and reviews."
       breadcrumbs={[]}
       actions={
-        <Fab
-          icon={<RefreshOutlinedIcon />}
-          tooltip="Refresh traces"
-          aria-label="Refresh traces"
-          onClick={handleRefresh}
-        />
+        <FabGroup>
+          <Fab
+            icon={<RefreshOutlinedIcon />}
+            tooltip="Refresh traces"
+            aria-label="Refresh traces"
+            onClick={handleRefresh}
+          />
+        </FabGroup>
       }
     >
       <Box sx={{ mt: 2, mb: 2 }}>
