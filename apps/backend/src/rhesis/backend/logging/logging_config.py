@@ -176,7 +176,7 @@ class JsonLogFormatter(logging.Formatter):
             {
                 "severity": record.levelname,
                 "module": record.name,
-                "message": record.getMessage(),
+                "message": f"{record.name}: {record.getMessage()}",
             }
         )
 
