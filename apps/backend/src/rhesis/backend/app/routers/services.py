@@ -476,9 +476,7 @@ async def test_pipeline_endpoint(
             user=current_user,
             prompt=request.prompt,
             organization_id=organization_id,
-            project_id=(
-                str(request.project_id) if request.project_id else None
-            ),
+            project_id=(str(request.project_id) if request.project_id else None),
             previous_messages=request.previous_messages,
             test_type=request.test_type,
             num_tests=request.num_tests,
@@ -488,9 +486,7 @@ async def test_pipeline_endpoint(
         ):
             yield chunk
 
-    return StreamingResponse(
-        _stream(), media_type="application/x-ndjson"
-    )
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
