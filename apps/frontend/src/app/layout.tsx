@@ -170,10 +170,10 @@ async function getNavigationItems(
       title: 'Tasks',
       icon: <TasksIcon key="tasks-icon" />,
     },
-    // DEVELOP section — tools and infrastructure (collapsible, collapsed by default)
+    // CONNECT section — tools and infrastructure (collapsible, collapsed by default)
     {
       kind: 'header',
-      title: 'Develop',
+      title: 'CONNECT',
       collapsible: true,
       defaultCollapsed: true,
     },
