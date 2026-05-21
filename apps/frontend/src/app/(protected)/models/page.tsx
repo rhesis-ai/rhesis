@@ -6,6 +6,7 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
+import { Organization } from '@/utils/api-client/interfaces/organization';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -18,7 +19,6 @@ import {
 } from './components';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
 import type { ValidationStatus } from './types';
-import type { Organization } from '@/utils/api-client/interfaces/organization';
 
 export type { ValidationStatus } from './types';
 
@@ -44,9 +44,7 @@ export default function ModelsPage() {
     'language' | 'embedding'
   >('language');
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
-  const [organization, setOrganization] = useState<Organization | undefined>(
-    undefined
-  );
+  const [organization, setOrganization] = useState<Organization | undefined>();
 
   useEffect(() => {
     async function loadData() {

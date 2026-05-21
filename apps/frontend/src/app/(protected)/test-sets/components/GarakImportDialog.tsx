@@ -339,7 +339,8 @@ export default function GarakImportDialog({
           isComplete: false,
         });
 
-        const maxSimulated = Math.floor(previewData.total_tests * 0.95);
+        const totalTests = previewData.total_tests;
+        const maxSimulated = Math.floor(totalTests * 0.95);
         const progressInterval = setInterval(() => {
           setImportProgress(prev => {
             if (
@@ -349,10 +350,7 @@ export default function GarakImportDialog({
               !previewData
             )
               return prev;
-            const testsPerInterval = Math.max(
-              1,
-              Math.ceil(previewData.total_tests / 60)
-            );
+            const testsPerInterval = Math.max(1, Math.ceil(totalTests / 60));
             const nextTestCount = Math.min(
               prev.currentTestCount + testsPerInterval,
               maxSimulated
@@ -385,7 +383,7 @@ export default function GarakImportDialog({
           prev
             ? {
                 ...prev,
-                currentTestCount: previewData?.total_tests ?? 0,
+                currentTestCount: totalTests,
                 staticImported: staticProbes.length,
               }
             : prev

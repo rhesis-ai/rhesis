@@ -206,7 +206,17 @@ def list_traces(
     ),
     endpoint_id: Optional[str] = Query(None, description="Endpoint ID filter"),
     environment: Optional[str] = Query(None, description="Environment filter"),
-    span_name: Optional[str] = Query(None, description="Span name filter (e.g., 'ai.llm.invoke')"),
+    search: Optional[str] = Query(
+        None,
+        description=(
+            "Case-insensitive search across trace ID, operation names, endpoint metadata, "
+            "and conversation text"
+        ),
+    ),
+    span_name: Optional[str] = Query(
+        None,
+        description="Exact span name filter (e.g., 'ai.llm.invoke'); prefer `search` for UI",
+    ),
     status_code: Optional[str] = Query(None, description="Status code filter (OK, ERROR)"),
     start_time_after: Optional[datetime] = Query(None, description="Start time >= (ISO 8601)"),
     start_time_before: Optional[datetime] = Query(None, description="Start time <= (ISO 8601)"),
@@ -259,7 +269,8 @@ def list_traces(
 
     **Filters**:
     - `environment`: Filter by environment (development, staging, production)
-    - `span_name`: Filter by span name (e.g., "ai.llm.invoke")
+    - `search`: Substring search across trace ID, operations, endpoint name/URL, conversation I/O
+    - `span_name`: Exact match on root span name (legacy; prefer `search`)
     - `status_code`: Filter by span status (OK, ERROR)
     - `trace_metrics_status`: Filter by evaluation status (Pass, Fail, Error)
     - `start_time_after`: Filter by start time >= timestamp
@@ -290,6 +301,7 @@ def list_traces(
             trace_source=trace_source,
             trace_type=trace_type,
             environment=environment,
+            search=search,
             span_name=span_name,
             status_code=status_code,
             start_time_after=start_time_after,

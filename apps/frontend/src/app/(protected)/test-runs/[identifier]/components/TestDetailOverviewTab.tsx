@@ -166,6 +166,9 @@ export default function TestDetailOverviewTab({
   // Determine if this is a multi-turn test
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
+  const expectedResponse = test.prompt_id
+    ? prompts[test.prompt_id]?.expected_response
+    : undefined;
 
   // Get test configuration from test_output (multi-turn data lives here)
   const testConfig = test.test_output?.test_configuration;
@@ -315,10 +318,8 @@ export default function TestDetailOverviewTab({
               overflow: 'auto',
             }}
           >
-            {test.prompt_id && prompts[test.prompt_id]?.expected_response ? (
-              renderTextContent(
-                prompts[test.prompt_id]?.expected_response ?? ''
-              )
+            {expectedResponse ? (
+              renderTextContent(expectedResponse)
             ) : (
               <Typography
                 variant="body2"

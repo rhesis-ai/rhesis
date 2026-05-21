@@ -150,9 +150,9 @@ export default function PlaygroundChat({
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      setStagedFiles(prev => [...prev, ...Array.from(files)]);
+    const selectedFiles = e.target.files;
+    if (selectedFiles) {
+      setStagedFiles(prev => [...prev, ...Array.from(selectedFiles)]);
     }
     // Reset so the same file can be selected again
     e.target.value = '';

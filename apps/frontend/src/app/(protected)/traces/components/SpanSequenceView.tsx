@@ -334,7 +334,7 @@ export default function SpanSequenceView({
             >
               All
             </Button>
-            {rootSpans?.map((span, i) => (
+            {(rootSpans ?? []).map((span, i) => (
               <Button
                 key={span.span_id}
                 onClick={() => setActiveTurn(i)}
