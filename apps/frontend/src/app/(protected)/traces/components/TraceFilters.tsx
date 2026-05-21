@@ -66,6 +66,13 @@ export default function TraceFilters({
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const [searchInput, setSearchInput] = useState(filters.search || '');
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const onFiltersChangeRef = useRef(onFiltersChange);
+  const filtersRef = useRef(filters);
+
+  useEffect(() => {
+    onFiltersChangeRef.current = onFiltersChange;
+    filtersRef.current = filters;
+  });
 
   const handleFilterChange = (
     key: keyof TraceQueryParams,
@@ -93,27 +100,24 @@ export default function TraceFilters({
     setSearchInput(filters.search || '');
   }, [filters.search]);
 
-  const handleSearchChange = useCallback(
-    (value: string) => {
-      setSearchInput(value);
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
 
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
 
-      searchDebounceRef.current = setTimeout(() => {
-        searchDebounceRef.current = null;
-        const trimmed = value.trim();
-        const newFilters = {
-          ...filters,
-          search: trimmed || undefined,
-          offset: 0,
-        };
-        onFiltersChange(newFilters);
-      }, 300);
-    },
-    [filters, onFiltersChange]
-  );
+    searchDebounceRef.current = setTimeout(() => {
+      searchDebounceRef.current = null;
+      const trimmed = value.trim();
+      const newFilters = {
+        ...filtersRef.current,
+        search: trimmed || undefined,
+        offset: 0,
+      };
+      onFiltersChangeRef.current(newFilters);
+    }, 300);
+  }, []);
 
   useEffect(() => {
     return () => {
