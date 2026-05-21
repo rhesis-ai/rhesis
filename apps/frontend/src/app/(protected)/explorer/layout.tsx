@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Test explorer',
+  title: 'Explorer',
 };
 
 export default function ExplorerLayout({

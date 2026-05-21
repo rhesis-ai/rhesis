@@ -49,7 +49,7 @@ export default async function ExplorerDetailPage({
         title={testSetName}
         breadcrumbs={[
           {
-            title: 'Test explorer',
+            title: 'Explorer',
             path: '/explorer',
           },
           { title: testSetName, path: '' },
