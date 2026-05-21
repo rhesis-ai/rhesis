@@ -78,12 +78,6 @@ async function getNavigationItems(
   const navItems = [
     {
       kind: 'page',
-      segment: 'insights',
-      title: 'Insights',
-      icon: <AssessmentIcon key="insights-icon" />,
-    },
-    {
-      kind: 'page',
       segment: 'architect',
       title: 'Architect',
       icon: <EngineeringIcon key="architect-icon" />,
@@ -151,6 +145,12 @@ async function getNavigationItems(
     {
       kind: 'header',
       title: 'Improve',
+    },
+    {
+      kind: 'page',
+      segment: 'insights',
+      title: 'Insights',
+      icon: <AssessmentIcon key="insights-icon" />,
     },
     {
       kind: 'page',
