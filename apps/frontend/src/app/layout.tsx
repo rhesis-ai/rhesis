@@ -200,7 +200,7 @@ async function getNavigationItems(
     {
       kind: 'page',
       segment: 'tokens',
-      title: 'API Tokens',
+      title: 'API',
       icon: <VpnKeyIcon key="tokens-icon" />,
     },
     // Divider before footer links
