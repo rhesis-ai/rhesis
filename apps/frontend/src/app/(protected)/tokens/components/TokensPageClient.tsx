@@ -14,7 +14,7 @@ import {
   Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import TuneIcon from '@mui/icons-material/TuneOutlined';
+import { FilterButton } from '@/components/common/FilterButton';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import TokensGrid from './TokensGrid';
 import CreateTokenModal from './CreateTokenModal';
@@ -33,7 +33,6 @@ import { Fab } from '@/components/common/Fab';
 import { SearchPill } from '@/components/common/SearchPill';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { VpnKeyIcon } from '@/components/icons';
-import { BORDER_RADIUS } from '@/styles/theme';
 
 const STATUS_OPTIONS: { value: TokenStatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -241,20 +240,10 @@ export default function TokensPageClient({
       >
         {/* Left: Filter icon + Search pill */}
         <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <IconButton
-            aria-label="Filter"
+          <FilterButton
             onClick={() => setFilterDrawerOpen(true)}
-            sx={{
-              bgcolor: 'primary.main',
-              color: '#fff',
-              borderRadius: BORDER_RADIUS.sm,
-              p: '9px',
-              '&:hover': { bgcolor: 'primary.dark' },
-              '& .MuiSvgIcon-root': { fontSize: 20 },
-            }}
-          >
-            <TuneIcon />
-          </IconButton>
+            hasActiveFilters={hasActiveTokenFilters(drawerFilters)}
+          />
 
           <SearchPill
             value={search}

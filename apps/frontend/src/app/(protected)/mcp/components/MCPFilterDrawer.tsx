@@ -16,6 +16,10 @@ export const EMPTY_MCP_FILTERS: MCPFilters = {
   providers: [],
 };
 
+export function hasActiveMCPFilters(f: MCPFilters): boolean {
+  return f.providers.length > 0;
+}
+
 interface MCPFilterDrawerProps {
   open: boolean;
   onClose: () => void;

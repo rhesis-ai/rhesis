@@ -6,9 +6,8 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
-import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
-import TuneIcon from '@mui/icons-material/TuneOutlined';
+import { FilterButton } from '@/components/common/FilterButton';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
@@ -26,6 +25,7 @@ import BehaviorFilterDrawer, {
   type BehaviorFilters,
   type MetricFilter,
   EMPTY_BEHAVIOR_FILTERS,
+  hasActiveBehaviorFilters,
 } from './BehaviorFilterDrawer';
 import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 
@@ -448,20 +448,10 @@ export default function BehaviorsClient({
       >
         {/* Left: Filter icon + Search pill */}
         <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <IconButton
-            aria-label="Filter"
+          <FilterButton
             onClick={() => setFilterDrawerOpen(true)}
-            sx={{
-              bgcolor: 'primary.main',
-              color: '#fff',
-              borderRadius: BORDER_RADIUS.sm,
-              p: '9px',
-              '&:hover': { bgcolor: 'primary.dark' },
-              '& .MuiSvgIcon-root': { fontSize: 20 },
-            }}
-          >
-            <TuneIcon />
-          </IconButton>
+            hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
+          />
 
           <SearchPill
             value={searchQuery}

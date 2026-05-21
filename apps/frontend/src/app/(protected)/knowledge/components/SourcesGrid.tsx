@@ -21,14 +21,14 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Source } from '@/utils/api-client/interfaces/source';
-import { Box, Typography, Chip, IconButton, Tooltip } from '@mui/material';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { Box, Typography, Chip } from '@mui/material';
+import { FilterButton } from '@/components/common/FilterButton';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { SearchPill } from '@/components/common/SearchPill';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+import { GREYSCALE } from '@/styles/theme';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import { ChatIcon } from '@/components/icons';
@@ -53,18 +53,23 @@ interface SourcesToolbarState {
   searchQuery: string;
   setSearchQuery: (v: string) => void;
   openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
 }
 
 const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
   searchQuery: '',
   setSearchQuery: () => {},
   openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
 });
 
 function SourcesUnifiedToolbar() {
-  const { searchQuery, setSearchQuery, openFilterDrawer } = useContext(
-    SourcesToolbarContext
-  );
+  const {
+    searchQuery,
+    setSearchQuery,
+    openFilterDrawer,
+    hasActiveDrawerFilters,
+  } = useContext(SourcesToolbarContext);
 
   return (
     <Box
@@ -83,23 +88,10 @@ function SourcesUnifiedToolbar() {
         minHeight: 52,
       }}
     >
-      <Tooltip title="Filters">
-        <IconButton
-          size="small"
-          onClick={openFilterDrawer}
-          sx={{
-            bgcolor: 'primary.main',
-            color: '#fff',
-            borderRadius: BORDER_RADIUS.sm,
-            width: 36,
-            height: 36,
-            flexShrink: 0,
-            '&:hover': { bgcolor: 'primary.dark' },
-          }}
-        >
-          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
-        </IconButton>
-      </Tooltip>
+      <FilterButton
+        onClick={openFilterDrawer}
+        hasActiveFilters={hasActiveDrawerFilters}
+      />
 
       <SearchPill
         value={searchQuery}
@@ -356,8 +348,9 @@ export default function SourcesGrid({
       searchQuery,
       setSearchQuery,
       openFilterDrawer: () => setFilterDrawerOpen(true),
+      hasActiveDrawerFilters: hasActiveSourceFilters(drawerFilters),
     }),
-    [searchQuery]
+    [searchQuery, drawerFilters]
   );
 
   // Column definitions
@@ -649,21 +642,6 @@ export default function SourcesGrid({
         toolbarSlot={SourcesUnifiedToolbar}
         persistState
       />
-
-      {hasActiveSourceFilters(drawerFilters) && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            left: 8,
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            bgcolor: 'primary.main',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
 
       <DeleteModal
         open={deleteModalOpen}

@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { FilterButton } from '@/components/common/FilterButton';
 import {
   getTestRunStatusColor,
   getTestRunStatusIcon,
@@ -34,8 +34,6 @@ import {
   Chip,
   Button,
   ButtonGroup,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import { SearchPill } from '@/components/common/SearchPill';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
@@ -73,6 +71,7 @@ interface TestRunsToolbarState {
   statusFilter: string;
   setStatusFilter: (v: string) => void;
   openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
 }
 
 const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
@@ -81,6 +80,7 @@ const TestRunsToolbarContext = React.createContext<TestRunsToolbarState>({
   statusFilter: 'all',
   setStatusFilter: () => {},
   openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
 });
 
 function TestRunsUnifiedToolbar() {
@@ -90,6 +90,7 @@ function TestRunsUnifiedToolbar() {
     statusFilter,
     setStatusFilter,
     openFilterDrawer,
+    hasActiveDrawerFilters,
   } = useContext(TestRunsToolbarContext);
 
   return (
@@ -109,24 +110,10 @@ function TestRunsUnifiedToolbar() {
         minHeight: 52,
       }}
     >
-      {/* Left: filter button + search */}
-      <Tooltip title="Filters">
-        <IconButton
-          size="small"
-          onClick={openFilterDrawer}
-          sx={{
-            bgcolor: 'primary.main',
-            color: '#fff',
-            borderRadius: BORDER_RADIUS.sm,
-            width: 36,
-            height: 36,
-            flexShrink: 0,
-            '&:hover': { bgcolor: 'primary.dark' },
-          }}
-        >
-          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
-        </IconButton>
-      </Tooltip>
+      <FilterButton
+        onClick={openFilterDrawer}
+        hasActiveFilters={hasActiveDrawerFilters}
+      />
 
       <SearchPill
         value={searchQuery}
@@ -797,6 +784,7 @@ function TestRunsGrid({
         statusFilter,
         setStatusFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
+        hasActiveDrawerFilters: hasActiveTestRunFilters(drawerFilters),
       }}
     >
       {error && (
@@ -851,22 +839,6 @@ function TestRunsGrid({
         toolbarSlot={TestRunsUnifiedToolbar}
         persistState
       />
-
-      {/* Active filter badge */}
-      {hasActiveTestRunFilters(drawerFilters) && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            left: 8,
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            bgcolor: 'primary.main',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
 
       <DeleteModal
         open={deleteModalOpen}

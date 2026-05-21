@@ -4,27 +4,25 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Button,
   Alert,
   Paper,
   CircularProgress,
-  IconButton,
   TablePagination,
 } from '@mui/material';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
-import { BORDER_RADIUS } from '@/styles/theme';
 import ProjectCard from './ProjectCard';
 import ProjectCreateDrawer from './ProjectCreateDrawer';
 import ProjectFilterDrawer, {
   type ProjectFilters,
   EMPTY_FILTERS,
+  hasActiveProjectFilters,
 } from './ProjectFilterDrawer';
 import AddIcon from '@mui/icons-material/Add';
 import FolderIcon from '@mui/icons-material/Folder';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { Fab } from '@/components/common/Fab';
-import TuneIcon from '@mui/icons-material/TuneOutlined';
+import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AppsIcon } from '@/components/icons';
@@ -247,20 +245,10 @@ export default function ProjectsClientWrapper({
       >
         {/* Left: Filter icon + Search pill */}
         <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <IconButton
-            aria-label="Filter"
+          <FilterButton
             onClick={() => setFilterDrawerOpen(true)}
-            sx={{
-              bgcolor: 'primary.main',
-              color: '#fff',
-              borderRadius: BORDER_RADIUS.sm,
-              p: '9px',
-              '&:hover': { bgcolor: 'primary.dark' },
-              '& .MuiSvgIcon-root': { fontSize: 20 },
-            }}
-          >
-            <TuneIcon />
-          </IconButton>
+            hasActiveFilters={hasActiveProjectFilters(activeFilters)}
+          />
 
           {/* Search pill */}
           <SearchPill

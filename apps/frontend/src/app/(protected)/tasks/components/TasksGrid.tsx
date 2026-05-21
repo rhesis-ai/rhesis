@@ -30,10 +30,8 @@ import {
   Avatar,
   Button,
   ButtonGroup,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { FilterButton } from '@/components/common/FilterButton';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -67,6 +65,7 @@ interface TasksToolbarState {
   statusFilter: string;
   setStatusFilter: (v: string) => void;
   openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
 }
 
 const TasksToolbarContext = React.createContext<TasksToolbarState>({
@@ -75,6 +74,7 @@ const TasksToolbarContext = React.createContext<TasksToolbarState>({
   statusFilter: 'all',
   setStatusFilter: () => {},
   openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
 });
 
 function TasksUnifiedToolbar() {
@@ -84,6 +84,7 @@ function TasksUnifiedToolbar() {
     statusFilter,
     setStatusFilter,
     openFilterDrawer,
+    hasActiveDrawerFilters,
   } = useContext(TasksToolbarContext);
 
   return (
@@ -103,23 +104,10 @@ function TasksUnifiedToolbar() {
         minHeight: 52,
       }}
     >
-      <Tooltip title="Filters">
-        <IconButton
-          size="small"
-          onClick={openFilterDrawer}
-          sx={{
-            bgcolor: 'primary.main',
-            color: '#fff',
-            borderRadius: BORDER_RADIUS.sm,
-            width: 36,
-            height: 36,
-            flexShrink: 0,
-            '&:hover': { bgcolor: 'primary.dark' },
-          }}
-        >
-          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
-        </IconButton>
-      </Tooltip>
+      <FilterButton
+        onClick={openFilterDrawer}
+        hasActiveFilters={hasActiveDrawerFilters}
+      />
 
       <SearchPill
         value={searchQuery}
@@ -534,6 +522,7 @@ export default function TasksGrid({
         statusFilter,
         setStatusFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
+        hasActiveDrawerFilters: hasActiveTaskFilters(drawerFilters),
       }}
     >
       <Box sx={{ position: 'relative' }}>
@@ -594,21 +583,6 @@ export default function TasksGrid({
             },
           }}
         />
-
-        {hasActiveTaskFilters(drawerFilters) && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 8,
-              left: 8,
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              bgcolor: 'primary.main',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
 
         <DeleteModal
           open={deleteModalOpen}

@@ -31,14 +31,13 @@ import {
   Alert,
   Button,
   ButtonGroup,
-  IconButton,
 } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PersonIcon from '@mui/icons-material/Person';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { FilterButton } from '@/components/common/FilterButton';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import { SearchPill } from '@/components/common/SearchPill';
@@ -69,6 +68,7 @@ interface TestSetsToolbarState {
   typeFilter: string;
   setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
 }
 
 const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
@@ -77,6 +77,7 @@ const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
   typeFilter: 'all',
   setTypeFilter: () => {},
   openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
 });
 
 const PILL_TABS = [
@@ -92,6 +93,7 @@ function TestSetsUnifiedToolbar() {
     typeFilter,
     setTypeFilter,
     openFilterDrawer,
+    hasActiveDrawerFilters,
   } = useContext(TestSetsToolbarContext);
 
   return (
@@ -111,24 +113,10 @@ function TestSetsUnifiedToolbar() {
         minHeight: 52,
       }}
     >
-      {/* Left: filter button + search */}
-      <Tooltip title="Filters">
-        <IconButton
-          size="small"
-          onClick={openFilterDrawer}
-          sx={{
-            bgcolor: 'primary.main',
-            color: '#fff',
-            borderRadius: BORDER_RADIUS.sm,
-            width: 36,
-            height: 36,
-            flexShrink: 0,
-            '&:hover': { bgcolor: 'primary.dark' },
-          }}
-        >
-          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
-        </IconButton>
-      </Tooltip>
+      <FilterButton
+        onClick={openFilterDrawer}
+        hasActiveFilters={hasActiveDrawerFilters}
+      />
 
       <SearchPill
         value={searchQuery}
@@ -738,6 +726,7 @@ export default function TestSetsGrid({
         typeFilter,
         setTypeFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
+        hasActiveDrawerFilters: hasActiveTestSetFilters(drawerFilters),
       }}
     >
       {error && (
@@ -799,22 +788,6 @@ export default function TestSetsGrid({
           },
         }}
       />
-
-      {/* Active filter badge */}
-      {hasActiveTestSetFilters(drawerFilters) && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            left: 8,
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            bgcolor: 'primary.main',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
 
       {/* Test Run Drawer */}
       {sessionToken && (

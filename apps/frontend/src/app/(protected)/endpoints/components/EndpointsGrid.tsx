@@ -7,16 +7,8 @@ import React, {
   useContext,
   useMemo,
 } from 'react';
-import {
-  Chip,
-  Box,
-  Typography,
-  useTheme,
-  Alert,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { Chip, Box, Typography, useTheme, Alert } from '@mui/material';
+import { FilterButton } from '@/components/common/FilterButton';
 import {
   GridColDef,
   GridPaginationModel,
@@ -46,7 +38,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { getStatusColor } from '@/utils/status-colors';
 import { SearchPill } from '@/components/common/SearchPill';
 import { buildEndpointListFilter } from '@/utils/odata-filter';
-import { BORDER_RADIUS, GREYSCALE } from '@/styles/theme';
+import { GREYSCALE } from '@/styles/theme';
 import EndpointFilterDrawer, {
   type EndpointFilters,
   EMPTY_ENDPOINT_FILTERS,
@@ -155,41 +147,10 @@ function EndpointsUnifiedToolbar() {
         minHeight: 52,
       }}
     >
-      <Tooltip title="Filters">
-        <IconButton
-          size="small"
-          onClick={openFilterDrawer}
-          aria-label="Filters"
-          sx={{
-            position: 'relative',
-            bgcolor: 'primary.main',
-            color: '#fff',
-            borderRadius: BORDER_RADIUS.sm,
-            width: 36,
-            height: 36,
-            flexShrink: 0,
-            '&:hover': { bgcolor: 'primary.dark' },
-          }}
-        >
-          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
-          {hasActiveDrawerFilters && (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 4,
-                right: 4,
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                bgcolor: 'warning.light',
-                border: '2px solid',
-                borderColor: 'primary.main',
-                pointerEvents: 'none',
-              }}
-            />
-          )}
-        </IconButton>
-      </Tooltip>
+      <FilterButton
+        onClick={openFilterDrawer}
+        hasActiveFilters={hasActiveDrawerFilters}
+      />
 
       <SearchPill
         value={searchQuery}

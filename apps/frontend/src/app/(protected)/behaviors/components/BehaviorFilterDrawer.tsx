@@ -24,6 +24,10 @@ export const EMPTY_BEHAVIOR_FILTERS: BehaviorFilters = {
   metricCount: 'all',
 };
 
+export function hasActiveBehaviorFilters(f: BehaviorFilters): boolean {
+  return f.metricCount !== 'all';
+}
+
 interface FilterSectionProps {
   title: string;
   children: React.ReactNode;

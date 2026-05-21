@@ -1,19 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Box,
-  Alert,
-  CircularProgress,
-  Typography,
-  IconButton,
-} from '@mui/material';
+import { Box, Alert, CircularProgress, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import TuneIcon from '@mui/icons-material/TuneOutlined';
+import { FilterButton } from '@/components/common/FilterButton';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab } from '@/components/common/Fab';
 import { SearchPill } from '@/components/common/SearchPill';
-import { BORDER_RADIUS } from '@/styles/theme';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -31,7 +24,10 @@ import {
   MCPFilterDrawer,
   MCPFilters,
 } from './components';
-import { EMPTY_MCP_FILTERS } from './components/MCPFilterDrawer';
+import {
+  EMPTY_MCP_FILTERS,
+  hasActiveMCPFilters,
+} from './components/MCPFilterDrawer';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 export default function MCPSPage() {
@@ -182,8 +178,6 @@ export default function MCPSPage() {
     [tools]
   );
 
-  const activeFilterCount = filters.providers.length;
-
   const filteredTools = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return tools.filter(tool => {
@@ -234,20 +228,10 @@ export default function MCPSPage() {
       >
         {/* Left: Filter icon + Search pill */}
         <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <IconButton
-            aria-label="Filter"
+          <FilterButton
             onClick={() => setFilterDrawerOpen(true)}
-            sx={{
-              bgcolor: activeFilterCount > 0 ? 'primary.dark' : 'primary.main',
-              color: '#fff',
-              borderRadius: BORDER_RADIUS.sm,
-              p: '9px',
-              '&:hover': { bgcolor: 'primary.dark' },
-              '& .MuiSvgIcon-root': { fontSize: 20 },
-            }}
-          >
-            <TuneIcon />
-          </IconButton>
+            hasActiveFilters={hasActiveMCPFilters(filters)}
+          />
           <SearchPill
             value={searchQuery}
             onChange={v => setSearchQuery(v)}

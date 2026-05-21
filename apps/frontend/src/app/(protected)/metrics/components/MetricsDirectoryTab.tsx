@@ -4,12 +4,10 @@ import * as React from 'react';
 import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import IconButton from '@mui/material/IconButton';
-import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 import TablePagination from '@mui/material/TablePagination';
-import TuneIcon from '@mui/icons-material/Tune';
+import { FilterButton } from '@/components/common/FilterButton';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -18,7 +16,6 @@ import MetricFilterDrawer from './MetricFilterDrawer';
 import { SearchPill } from '@/components/common/SearchPill';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab } from '@/components/common/Fab';
-import { BORDER_RADIUS } from '@/styles/theme';
 import MetricCard from './MetricCard';
 import MetricTypeDialog from './MetricTypeDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -508,21 +505,12 @@ export default function MetricsDirectoryTab({
       >
         {/* Left: Filter icon + Search pill */}
         <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <IconButton
+          <FilterButton
             aria-label="Advanced filters"
+            tooltip="Advanced filters"
             onClick={() => setFilterDrawerOpen(true)}
-            sx={{
-              bgcolor:
-                activeAdvancedFilterCount > 0 ? 'primary.dark' : 'primary.main',
-              color: '#fff',
-              borderRadius: BORDER_RADIUS.sm,
-              p: '9px',
-              '&:hover': { bgcolor: 'primary.dark' },
-              '& .MuiSvgIcon-root': { fontSize: 20 },
-            }}
-          >
-            <TuneIcon />
-          </IconButton>
+            hasActiveFilters={activeAdvancedFilterCount > 0}
+          />
           <SearchPill
             value={filters.search}
             onChange={value => handleFilterChange('search', value)}

@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import ListIcon from '@mui/icons-material/ListOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
+import { FilterButton } from '@/components/common/FilterButton';
 import {
   GridColDef,
   GridRowParams,
@@ -32,8 +32,6 @@ import {
   Chip,
   Button,
   ButtonGroup,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import { SearchPill } from '@/components/common/SearchPill';
 import BadgeChip from '@/components/common/BadgeChip';
@@ -74,6 +72,7 @@ interface TestsToolbarState {
   typeFilter: string;
   setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
 }
 
 const TestsToolbarContext = React.createContext<TestsToolbarState>({
@@ -82,6 +81,7 @@ const TestsToolbarContext = React.createContext<TestsToolbarState>({
   typeFilter: 'all',
   setTypeFilter: () => {},
   openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
 });
 
 const PILL_TABS = [
@@ -97,6 +97,7 @@ function TestsUnifiedToolbar() {
     typeFilter,
     setTypeFilter,
     openFilterDrawer,
+    hasActiveDrawerFilters,
   } = useContext(TestsToolbarContext);
 
   return (
@@ -110,30 +111,20 @@ function TestsUnifiedToolbar() {
         borderBottom: theme =>
           `1px solid ${
             theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
+              ? GREYSCALE.light.tableBorder
+              : GREYSCALE.dark.tableBorder
           }`,
+        bgcolor: theme =>
+          theme.palette.mode === 'light'
+            ? GREYSCALE.light.tableSurface
+            : GREYSCALE.dark.tableSurface,
         minHeight: 52,
       }}
     >
-      {/* Left: filter button + search */}
-      <Tooltip title="Filters">
-        <IconButton
-          size="small"
-          onClick={openFilterDrawer}
-          sx={{
-            bgcolor: 'primary.main',
-            color: '#fff',
-            borderRadius: BORDER_RADIUS.sm,
-            width: 36,
-            height: 36,
-            flexShrink: 0,
-            '&:hover': { bgcolor: 'primary.dark' },
-          }}
-        >
-          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
-        </IconButton>
-      </Tooltip>
+      <FilterButton
+        onClick={openFilterDrawer}
+        hasActiveFilters={hasActiveDrawerFilters}
+      />
 
       <SearchPill
         value={searchQuery}
@@ -841,6 +832,7 @@ export default function TestsTable({
         typeFilter,
         setTypeFilter,
         openFilterDrawer: () => setFilterDrawerOpen(true),
+        hasActiveDrawerFilters: hasActiveTestFilters(drawerFilters),
       }}
     >
       {error && (
@@ -947,22 +939,6 @@ export default function TestsTable({
           else if (!drawerFilters.testType) setTypeFilter('all');
         }}
       />
-
-      {/* Active filter badge */}
-      {hasActiveTestFilters(drawerFilters) && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            left: 8,
-            width: 8,
-            height: 8,
-            borderRadius: '50%', // circular badge dot — not a theme token
-            bgcolor: 'primary.main',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
     </TestsToolbarContext.Provider>
   );
 }

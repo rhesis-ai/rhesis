@@ -25,6 +25,10 @@ export const EMPTY_FILTERS: ProjectFilters = {
   environments: [],
 };
 
+export function hasActiveProjectFilters(f: ProjectFilters): boolean {
+  return f.activeStatus !== null || f.environments.length > 0;
+}
+
 interface SectionProps {
   title: string;
   children: React.ReactNode;
