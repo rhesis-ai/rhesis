@@ -301,6 +301,7 @@ export default function VersionHistory({
                 >
                   <span>
                     <Button
+                      component="span"
                       size="small"
                       startIcon={<PromoteIcon />}
                       disabled={!canPromote}

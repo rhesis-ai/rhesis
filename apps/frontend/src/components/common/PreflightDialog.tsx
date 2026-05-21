@@ -332,7 +332,7 @@ export function PreflightDialog({
                 mb: 1,
                 p: 1.5,
                 bgcolor: 'action.hover',
-                borderRadius: 1,
+                borderRadius: 1, // Intentional: MUI sx multiplier of theme.shape.borderRadius
               }}
             >
               <Typography variant="caption" color="text.secondary">
