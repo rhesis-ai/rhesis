@@ -1,6 +1,5 @@
 import React from 'react';
 import { SvgIcon } from '@mui/material';
-import { AutoGraphIcon } from '@/components/icons';
 import HandymanIcon from '@mui/icons-material/Handyman';
 import FaceIcon from '@mui/icons-material/Face';
 import StorageIcon from '@mui/icons-material/Storage';
@@ -47,11 +46,6 @@ interface MetricCardProps {
   showUsage?: boolean;
   onDelete?: () => void;
 }
-
-const _getMetricIcon = (_type: string) => {
-  // Use the same icon as in the navbar for consistency
-  return <AutoGraphIcon />;
-};
 
 const getBackendIcon = (backend: string) => {
   switch (backend.toLowerCase()) {
@@ -207,7 +201,6 @@ export default function MetricCard({
 
   return (
     <EntityCard
-      icon={<AutoGraphIcon fontSize="medium" />}
       title={title}
       description={description}
       chipSections={chipSections}

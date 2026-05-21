@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { PsychologyIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -76,7 +75,6 @@ export default function BehaviorCard({
   return (
     <>
       <EntityCard
-        icon={<PsychologyIcon fontSize="medium" />}
         title={behavior.name}
         description={behavior.description || 'No description provided'}
         onDelete={canDelete ? () => setDeleteDialogOpen(true) : undefined}

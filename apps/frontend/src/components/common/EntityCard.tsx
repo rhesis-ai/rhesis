@@ -22,7 +22,7 @@ export interface ChipSection {
 }
 
 export interface EntityCardProps {
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title: string;
   description?: string;
   onClick?: () => void;
@@ -145,21 +145,29 @@ export default function EntityCard({
       {/* Header section */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {/* Icon + Title row */}
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-          <Box
-            sx={{
-              width: 24,
-              height: 24,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'primary.dark',
-              flexShrink: 0,
-              '& .MuiSvgIcon-root': { fontSize: 20 },
-            }}
-          >
-            {icon}
-          </Box>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: icon ? '10px' : 0,
+          }}
+        >
+          {icon && (
+            <Box
+              sx={{
+                width: 24,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'primary.dark',
+                flexShrink: 0,
+                '& .MuiSvgIcon-root': { fontSize: 20 },
+              }}
+            >
+              {icon}
+            </Box>
+          )}
           <Typography
             sx={{
               fontSize: 18,
