@@ -604,9 +604,17 @@ async def _evaluate_metrics_dry_run(
         get_evaluation_model_with_override,
     )
     from rhesis.backend.metrics.evaluator import MetricEvaluator
+    from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
     model = get_evaluation_model_with_override(db, user, model_id=evaluation_model_id)
     org_id = str(user.organization_id) if user.organization_id else None
+
+    dummy_conversation = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Is this a test?"},
+            {"role": "assistant", "content": "Yes, this is a test."},
+        ]
+    )
 
     evaluator = MetricEvaluator(model=model, db=db, organization_id=org_id)
     eval_results = evaluator.evaluate(
@@ -616,6 +624,7 @@ async def _evaluate_metrics_dry_run(
         context=["This is a preflight test."],
         metrics=metrics,
         max_workers=3,
+        conversation_history=dummy_conversation,
     )
 
     failed: list[str] = []
