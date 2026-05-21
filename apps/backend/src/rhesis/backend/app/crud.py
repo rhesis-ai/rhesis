@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, cast, desc, func, or_, text
+from sqlalchemy import and_, cast, desc, func, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
@@ -3869,6 +3869,29 @@ def get_span_by_id(
     )
 
 
+def _escape_like_pattern(term: str) -> str:
+    """Escape SQL LIKE wildcards in user-provided search text."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _build_trace_search_conditions(pattern: str):
+    """Case-insensitive substring match across common trace text fields."""
+    from rhesis.backend.app.services.invokers.tracing import EndpointAttributes
+
+    attrs = models.Trace.attributes
+
+    return or_(
+        models.Trace.trace_id.ilike(pattern),
+        models.Trace.span_name.ilike(pattern),
+        models.Trace.status_message.ilike(pattern),
+        attrs[EndpointAttributes.ENDPOINT_NAME].astext.ilike(pattern),
+        attrs[EndpointAttributes.ENDPOINT_URL].astext.ilike(pattern),
+        attrs[EndpointAttributes.CONVERSATION_INPUT].astext.ilike(pattern),
+        attrs[EndpointAttributes.CONVERSATION_OUTPUT].astext.ilike(pattern),
+        attrs[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW].astext.ilike(pattern),
+    )
+
+
 def query_traces(
     db: Session,
     organization_id: str,
@@ -3878,6 +3901,7 @@ def query_traces(
     trace_source: TraceSource = TraceSource.ALL,
     trace_type: TraceType = TraceType.ALL,
     environment: Optional[str] = None,
+    search: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
@@ -3913,7 +3937,6 @@ def query_traces(
     from uuid import UUID
 
     from fastapi import HTTPException
-    from sqlalchemy import select
     from sqlalchemy.orm import aliased, joinedload
 
     def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
@@ -4024,7 +4047,24 @@ def query_traces(
     if environment:
         query = query.filter(models.Trace.environment == environment)
 
-    if span_name:
+    if search and search.strip():
+        pattern = f"%{_escape_like_pattern(search.strip())}%"
+        search_filters = [
+            models.Trace.organization_id == org_uuid,
+            _build_trace_search_conditions(pattern),
+        ]
+        if project_id:
+            search_filters.append(models.Trace.project_id == project_id)
+
+        matching_trace_ids = (
+            db.query(models.Trace.trace_id)
+            .filter(*search_filters)
+            .distinct()
+            .subquery()
+        )
+        query = query.filter(models.Trace.trace_id.in_(select(matching_trace_ids.c.trace_id)))
+
+    elif span_name:
         query = query.filter(models.Trace.span_name == span_name)
 
     if status_code:
