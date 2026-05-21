@@ -223,13 +223,9 @@ def _get_requested_model_label(
     except (ValueError, AttributeError):
         return None
 
-    model = crud.get_model(
-        db=db, model_id=model_uuid, organization_id=organization_id
-    )
+    model = crud.get_model(db=db, model_id=model_uuid, organization_id=organization_id)
     if not model:
         return None
-    if model.provider_type:
-        return f"{model.provider_type.type_value}/{model.model_name}"
     return str(model.name)
 
 
@@ -237,13 +233,19 @@ def _build_model_detail(
     resolved_model,
     model_id: Optional[str],
     db: Session,
-    organization_id: str,
+    user: User,
+    purpose: str = "evaluation",
 ) -> str:
     """Build detail showing the user-selected model name."""
     resolved = _describe_model(resolved_model)
-    requested = _get_requested_model_label(
-        db, model_id, organization_id
-    )
+    effective_id = model_id
+    if not effective_id:
+        settings = getattr(user.settings.models, purpose, None)
+        if settings:
+            mid = getattr(settings, "model_id", None)
+            if mid:
+                effective_id = str(mid)
+    requested = _get_requested_model_label(db, effective_id, str(user.organization_id))
     if requested:
         return requested
     return resolved
@@ -371,9 +373,7 @@ async def check_evaluation_model(
 
         model = get_evaluation_model_with_override(db, user, model_id=evaluation_model_id)
         await _verify_model_responds(model)
-        model_detail = _build_model_detail(
-            model, evaluation_model_id, db, str(user.organization_id)
-        )
+        model_detail = _build_model_detail(model, evaluation_model_id, db, user, "evaluation")
         result = _make_result(
             check_id,
             PreflightCheckStatus.PASSED,
@@ -423,9 +423,7 @@ async def check_execution_model(
 
         model = get_execution_model_with_override(db, user, model_id=execution_model_id)
         await _verify_model_responds(model)
-        model_detail = _build_model_detail(
-            model, execution_model_id, db, str(user.organization_id)
-        )
+        model_detail = _build_model_detail(model, execution_model_id, db, user, "execution")
         result = _make_result(
             check_id,
             PreflightCheckStatus.PASSED,
@@ -888,9 +886,7 @@ async def run_preflight_checks_multi(
 
         tasks.append(
             (
-                _make_composite_key(
-                    CHECK_BEHAVIOR_METRIC_COVERAGE, ts_id_str
-                ),
+                _make_composite_key(CHECK_BEHAVIOR_METRIC_COVERAGE, ts_id_str),
                 check_behavior_metric_coverage(
                     db,
                     ts_id,

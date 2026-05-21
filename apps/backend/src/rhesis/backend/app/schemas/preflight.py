@@ -46,9 +46,7 @@ class PreflightCheckRequest(BaseModel):
         elif self.test_set_id is not None:
             self.test_set_ids = [self.test_set_id]
         else:
-            raise ValueError(
-                "Either test_set_id or test_set_ids must be provided"
-            )
+            raise ValueError("Either test_set_id or test_set_ids must be provided")
         return self
 
 
@@ -83,9 +81,7 @@ class PreflightSyncResponse(BaseModel):
     """Returned for sync mode (200)."""
 
     checks: List[PreflightCheckResult]
-    summary: str = Field(
-        description="Overall result: passed, failed, or warning"
-    )
+    summary: str = Field(description="Overall result: passed, failed, or warning")
     passed: int = 0
     failed: int = 0
     warnings: int = 0

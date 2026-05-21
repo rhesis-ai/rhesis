@@ -94,9 +94,7 @@ def _determine_applicable_checks(
             CHECK_BEHAVIOR_METRIC_COVERAGE,
             CHECK_METRIC_FUNCTIONALITY,
         ]:
-            composite_key = (
-                f"{check_id}:{ts_id_str}" if multi else check_id
-            )
+            composite_key = f"{check_id}:{ts_id_str}" if multi else check_id
             checks.append(
                 PreflightCheckInfo(
                     check_id=check_id,
@@ -125,9 +123,7 @@ async def _run_preflight_background(
         with get_db_with_tenant_variables(organization_id, user_id) as db:
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
-                logger.error(
-                    f"Preflight background task: user {user_id} not found"
-                )
+                logger.error(f"Preflight background task: user {user_id} not found")
                 return
 
             await run_preflight_checks_multi(
@@ -154,16 +150,10 @@ async def run_preflight(
     current_user: User = Depends(require_current_user_or_token),
 ):
     # Query all requested test sets
-    db_test_sets = (
-        db.query(TestSet)
-        .filter(TestSet.id.in_(request.test_set_ids))
-        .all()
-    )
+    db_test_sets = db.query(TestSet).filter(TestSet.id.in_(request.test_set_ids)).all()
 
     found_ids = {ts.id for ts in db_test_sets}
-    missing = [
-        str(tid) for tid in request.test_set_ids if tid not in found_ids
-    ]
+    missing = [str(tid) for tid in request.test_set_ids if tid not in found_ids]
     if missing:
         raise HTTPException(
             status_code=404,
@@ -204,9 +194,7 @@ async def run_preflight(
     # Async mode: return 202 immediately, run checks in background
     correlation_id = request.correlation_id or str(uuid.uuid4())
 
-    ts_strs = [
-        (str(tid), name, mt) for tid, name, mt in test_sets
-    ]
+    ts_strs = [(str(tid), name, mt) for tid, name, mt in test_sets]
     checks = _determine_applicable_checks(request.scoring_target, ts_strs)
 
     asyncio.create_task(
