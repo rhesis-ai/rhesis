@@ -3,7 +3,10 @@
 import React from 'react';
 import { Box, Skeleton } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
+import EntityCard, {
+  EntityCardStatusBadge,
+  type ChipSection,
+} from '@/components/common/EntityCard';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
 
@@ -112,13 +115,21 @@ const ProjectCard = React.memo(
 
     const chipSections: ChipSection[] = [];
 
-    if (project.tags !== undefined) {
-      chipSections.push({
-        label: 'Tags',
-        chips: (project.tags ?? []).map(tag => ({ key: tag, label: tag })),
-        emptyText: 'No tags assigned',
-      });
-    }
+    const projectStatus =
+      project.is_active === true
+        ? 'active'
+        : project.is_active === false
+          ? 'inactive'
+          : undefined;
+
+    chipSections.push({
+      label: 'Status',
+      chips: [],
+      customContent: projectStatus ? (
+        <EntityCardStatusBadge status={projectStatus} />
+      ) : undefined,
+      emptyText: 'No status set',
+    });
 
     if (project.environment !== undefined) {
       chipSections.push({
@@ -139,14 +150,7 @@ const ProjectCard = React.memo(
         onDelete={onDelete}
         userAvatar={project.owner?.picture}
         userName={project.owner?.name}
-        status={
-          project.is_active === true
-            ? 'active'
-            : project.is_active === false
-              ? 'inactive'
-              : undefined
-        }
-        chipSections={chipSections.length > 0 ? chipSections : undefined}
+        chipSections={chipSections}
       />
     );
   }

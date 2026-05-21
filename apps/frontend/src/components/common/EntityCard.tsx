@@ -19,6 +19,8 @@ export interface ChipSection {
   label?: string;
   chips: ChipData[];
   emptyText?: string;
+  /** Renders instead of chips when set (e.g. status badge on project cards). */
+  customContent?: React.ReactNode;
 }
 
 export interface EntityCardProps {
@@ -39,14 +41,74 @@ export interface EntityCardProps {
   footer?: React.ReactNode;
 }
 
-// Status dot / badge colours — intentional semantic values, defined once here
-const STATUS_COLORS: Record<string, string> = {
-  active: '#38ad87', // Intentional: semantic green
-  inactive: '#ef4444', // Intentional: semantic red
+// Status chip colours — Figma Chip with semantic green/red tint
+const STATUS_CHIP_STYLES: Record<string, { bg: string; color: string }> = {
+  active: { bg: 'rgba(56, 173, 135, 0.14)', color: '#38ad87' },
+  inactive: { bg: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' },
 };
 
-function getStatusColor(status: string): string {
-  return STATUS_COLORS[status.toLowerCase()] ?? GREYSCALE.light.subtitle;
+/** Figma greyscale/surface/default — matches linked-entity chips */
+const CHIP_SURFACE_DEFAULT = '#f3f4f6';
+
+function getStatusChipStyles(
+  status: string,
+  isDark: boolean
+): { bg: string; color: string } {
+  const preset = STATUS_CHIP_STYLES[status.toLowerCase()];
+  if (preset) {
+    return preset;
+  }
+  return {
+    bg: isDark ? GREYSCALE.dark.surface2 : CHIP_SURFACE_DEFAULT,
+    color: isDark ? GREYSCALE.dark.body : GREYSCALE.light.body,
+  };
+}
+
+const DESCRIPTION_FONT_SIZE = 14;
+const DESCRIPTION_LINE_HEIGHT = 22;
+const DESCRIPTION_MAX_LINES = 3;
+const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
+
+/** Figma Chip (818:38066) — filled tag; green/red tint for active/inactive. */
+export function EntityCardStatusBadge({ status }: { status: string }) {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const { bg, color } = getStatusChipStyles(status, isDark);
+  const statusLabel =
+    status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+  return (
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        alignSelf: 'flex-start',
+        width: 'fit-content',
+        maxWidth: '100%',
+        flexShrink: 0,
+        bgcolor: bg,
+        borderRadius: BORDER_RADIUS.xs,
+        px: '10px',
+        pt: '1px',
+        pb: '2px',
+      }}
+    >
+      <Typography
+        component="span"
+        sx={{
+          fontSize: 12,
+          fontWeight: 400,
+          lineHeight: '18px',
+          color,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {statusLabel}
+      </Typography>
+    </Box>
+  );
 }
 
 export default function EntityCard({
@@ -71,11 +133,6 @@ export default function EntityCard({
     : (captionText ?? undefined);
   const hasTopRightContent = !!topRightActions || !!onDelete;
 
-  const statusColor = status ? getStatusColor(status) : null;
-  const statusLabel = status
-    ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
-    : null;
-
   const hasChipContent = !!(chipSections && chipSections.length > 0);
   const hasFurtherInfo = !!status || hasChipContent;
 
@@ -84,7 +141,7 @@ export default function EntityCard({
     ? theme.palette.divider
     : GREYSCALE.light.border;
   const resolvedBorderColor = borderColorProp ?? defaultBorderColor;
-  const chipBg = isDark ? GREYSCALE.dark.surface2 : GREYSCALE.light.surface2;
+  const chipBg = isDark ? GREYSCALE.dark.surface2 : CHIP_SURFACE_DEFAULT;
 
   return (
     <Box
@@ -183,23 +240,23 @@ export default function EntityCard({
           </Typography>
         </Box>
 
-        {/* Description — clamped to 3 lines so cards share equal height */}
-        {description && (
-          <Typography
-            sx={{
-              fontSize: 14,
-              fontWeight: 400,
-              lineHeight: '22px',
-              color: 'text.secondary',
-              display: '-webkit-box',
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
-            {description}
-          </Typography>
-        )}
+        {/* Description — always reserves 3 lines so card footers align */}
+        <Typography
+          data-testid="entity-card-description"
+          sx={{
+            fontSize: DESCRIPTION_FONT_SIZE,
+            fontWeight: 400,
+            lineHeight: `${DESCRIPTION_LINE_HEIGHT}px`,
+            minHeight: `${DESCRIPTION_MIN_HEIGHT}px`,
+            color: 'text.secondary',
+            display: '-webkit-box',
+            WebkitLineClamp: DESCRIPTION_MAX_LINES,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {description ?? ''}
+        </Typography>
       </Box>
 
       {/* User row */}
@@ -219,35 +276,10 @@ export default function EntityCard({
       {/* Further info section */}
       {hasFurtherInfo && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          {/* Status badge */}
-          {statusColor && statusLabel && (
-            <Box sx={{ display: 'flex' }}>
-              <Box
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  border: `1px solid ${statusColor}`,
-                  borderRadius: BORDER_RADIUS.pill,
-                  px: '10px',
-                  py: '2px',
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: BORDER_RADIUS.pill,
-                    bgcolor: statusColor,
-                    flexShrink: 0,
-                  }}
-                />
-                <Typography
-                  sx={{ fontSize: 12, color: statusColor, lineHeight: 1.5 }}
-                >
-                  {statusLabel}
-                </Typography>
-              </Box>
+          {/* Status chip — shown above divider when not placed in a chip section */}
+          {status && (
+            <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+              <EntityCardStatusBadge status={status} />
             </Box>
           )}
 
@@ -284,7 +316,11 @@ export default function EntityCard({
                   </Typography>
                 )}
 
-                {section.chips.length > 0 ? (
+                {section.customContent ? (
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                    {section.customContent}
+                  </Box>
+                ) : section.chips.length > 0 ? (
                   <Box sx={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {section.chips.map(chip => (
                       <Box

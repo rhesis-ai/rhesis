@@ -94,4 +94,22 @@ describe('EntityCard', () => {
 
     expect(screen.getByText('My Entity')).toBeInTheDocument();
   });
+
+  it('reserves min height for three description lines when text is short', () => {
+    render(<EntityCard {...defaultProps} description="Short text" />);
+
+    expect(screen.getByTestId('entity-card-description')).toHaveStyle({
+      minHeight: '66px',
+    });
+  });
+
+  it('reserves description height when description is omitted', () => {
+    const { description: _description, ...propsWithoutDescription } =
+      defaultProps;
+    render(<EntityCard {...propsWithoutDescription} />);
+
+    expect(screen.getByTestId('entity-card-description')).toHaveStyle({
+      minHeight: '66px',
+    });
+  });
 });
