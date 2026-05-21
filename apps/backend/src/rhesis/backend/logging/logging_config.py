@@ -1,7 +1,10 @@
+import json
 import logging
 import os
 import re
 import sys
+from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -13,6 +16,7 @@ LOG_DIR = os.environ.get("LOG_DIR", "logs")
 ENVIRONMENT = os.environ.get("ENVIRONMENT") or os.environ.get("ENV", "production")
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
+BACKEND_URL = os.environ.get("BACKEND_URL", "localhost:8080")
 
 
 _SENSITIVE_PATTERNS = [
@@ -165,6 +169,19 @@ class RedactingFormatter(logging.Formatter):
         return self._inner.formatStack(stack_info)
 
 
+class JsonLogFormatter(logging.Formatter):
+    """Format log records as Google Cloud-compatible structured JSON."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return json.dumps(
+            {
+                "severity": record.levelname,
+                "module": record.name,
+                "message": f"{record.name}: {record.getMessage()}",
+            }
+        )
+
+
 class ColorFormatter(logging.Formatter):
     """Formatter that adds ANSI color codes to log level names for terminal output."""
 
@@ -186,9 +203,12 @@ class ColorFormatter(logging.Formatter):
         return result
 
 
-def _create_formatter(*, color: bool = False):
-    cls = ColorFormatter if color else logging.Formatter
-    return cls(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+def _create_formatter():
+    return logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+
+
+def _create_color_formatter():
+    return ColorFormatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
 
 
 _configured = False
@@ -197,7 +217,7 @@ _configured = False
 def set_logger():
     """Configure the root logger for the application.
 
-    Sets up console output with optional file logging for local development.
+    Sets up JSON console output with extra local-development output.
     All handlers use RedactingFormatter to ensure sensitive data is scrubbed
     from the final output without mutating shared LogRecord objects.
 
@@ -216,16 +236,17 @@ def set_logger():
     # default lastResort handler) so we control all output.
     root_logger.handlers.clear()
 
-    console_handler = logging.StreamHandler(stream=sys.stdout)
-    console_handler.setLevel(LOG_LEVEL)
-    console_handler.setFormatter(RedactingFormatter(_create_formatter(color=True)))
-    root_logger.addHandler(console_handler)
+    if "rhesis.ai" in BACKEND_URL:
+        json_console_handler = logging.StreamHandler(stream=sys.stdout)
+        json_console_handler.setLevel(LOG_LEVEL)
+        json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
+        root_logger.addHandler(json_console_handler)
 
     if ENVIRONMENT in ("local", "development"):
-        from datetime import datetime
-        from pathlib import Path
-
-        from pythonjsonlogger.json import JsonFormatter
+        color_console_handler = logging.StreamHandler(stream=sys.stdout)
+        color_console_handler.setLevel(LOG_LEVEL)
+        color_console_handler.setFormatter(RedactingFormatter(_create_color_formatter()))
+        root_logger.addHandler(color_console_handler)
 
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
@@ -233,26 +254,8 @@ def set_logger():
         log_file_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.log")
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(LOG_LEVEL)
-        file_handler.setFormatter(RedactingFormatter(_create_formatter(color=False)))
+        file_handler.setFormatter(RedactingFormatter(_create_formatter()))
         root_logger.addHandler(file_handler)
-
-        json_log_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.json.log")
-        json_handler = logging.FileHandler(json_log_path)
-        json_handler.setLevel(LOG_LEVEL)
-        json_handler.setFormatter(
-            RedactingFormatter(
-                JsonFormatter(
-                    fmt="%(asctime)s %(name)s %(levelname)s %(message)s",
-                    datefmt=LOG_DATE_FORMAT,
-                    rename_fields={
-                        "asctime": "timestamp",
-                        "levelname": "level",
-                        "name": "logger",
-                    },
-                )
-            )
-        )
-        root_logger.addHandler(json_handler)
 
     for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "websockets", "fastapi"):
         logger = logging.getLogger(name)
