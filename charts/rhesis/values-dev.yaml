@@ -53,8 +53,8 @@ config:
 backend:
   resources:
     requests:
-      memory: "1Gi"
-      cpu: "500m"
+      memory: "512Mi"
+      cpu: "200m"
     limits:
       # Garak probe cache pre-warm loads probes + wordnet; 1Gi OOMKills the API.
       memory: "2Gi"
@@ -99,6 +99,13 @@ docs:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 chatbot:
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
   ingress:
     enabled: true
     host: "dev-chatbot.rhesis.ai"
@@ -127,6 +134,13 @@ telemetryProcessor:
   enabled: true
 
 polyphemus:
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
   ingress:
     enabled: true
     host: "dev-polyphemus.rhesis.ai"
