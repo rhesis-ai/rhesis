@@ -285,9 +285,11 @@ def build_2d_graph(
     X = np.array([e.embedding for e in embeddings], dtype=np.float64)
 
     umap_50d = _reduce_dimensions(X, purpose="clustering")
-    umap_2d = umap_50d if umap_50d.shape[1] == 2 else _reduce_dimensions(
-        umap_50d, purpose="visualization"
-        )
+    umap_2d = (
+        umap_50d
+        if umap_50d.shape[1] == 2
+        else _reduce_dimensions(umap_50d, purpose="visualization")
+    )
 
     cluster_ids, centroids = _cluster_with_hdbscan(umap_50d)
 
