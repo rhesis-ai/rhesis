@@ -1,30 +1,203 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { AddIcon, DeleteIcon } from '@/components/icons';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+} from 'react';
+import { DeleteIcon } from '@/components/icons';
 import {
   GridColDef,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
   GridRowParams,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Task } from '@/utils/api-client/interfaces/task';
-import { Typography, Box, Alert, Chip, Avatar } from '@mui/material';
+import {
+  Typography,
+  Box,
+  Alert,
+  Chip,
+  Avatar,
+  Button,
+  ButtonGroup,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTaskFiltersToOData } from '@/utils/odata-filter';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import { SearchPill } from '@/components/common/SearchPill';
+import { BORDER_RADIUS, GREYSCALE } from '@/styles/theme';
+import TaskFilterDrawer, {
+  type TaskFilters,
+  EMPTY_TASK_FILTERS,
+  hasActiveTaskFilters,
+} from './TaskFilterDrawer';
 
 interface TasksGridProps {
   sessionToken: string;
+  refreshKey?: number;
   onRefresh?: () => void;
 }
 
-export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
+const STATUS_PILL_TABS = [
+  { label: 'All', value: 'all' },
+  { label: 'Open', value: 'Open' },
+  { label: 'In Progress', value: 'In Progress' },
+  { label: 'Completed', value: 'Completed' },
+  { label: 'Cancelled', value: 'Cancelled' },
+] as const;
+
+interface TasksToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  statusFilter: string;
+  setStatusFilter: (v: string) => void;
+  openFilterDrawer: () => void;
+}
+
+const TasksToolbarContext = React.createContext<TasksToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  statusFilter: 'all',
+  setStatusFilter: () => {},
+  openFilterDrawer: () => {},
+});
+
+function TasksUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    statusFilter,
+    setStatusFilter,
+    openFilterDrawer,
+  } = useContext(TasksToolbarContext);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        px: 2,
+        py: 1,
+        borderBottom: theme =>
+          `1px solid ${
+            theme.palette.mode === 'light'
+              ? GREYSCALE.light.border
+              : GREYSCALE.dark.border
+          }`,
+        minHeight: 52,
+      }}
+    >
+      <Tooltip title="Filters">
+        <IconButton
+          size="small"
+          onClick={openFilterDrawer}
+          sx={{
+            bgcolor: 'primary.main',
+            color: '#fff',
+            borderRadius: BORDER_RADIUS.sm,
+            width: 36,
+            height: 36,
+            flexShrink: 0,
+            '&:hover': { bgcolor: 'primary.dark' },
+          }}
+        >
+          <TuneOutlinedIcon sx={{ fontSize: 20 }} />
+        </IconButton>
+      </Tooltip>
+
+      <SearchPill
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search tasks…"
+        width={240}
+      />
+
+      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+        <ButtonGroup
+          variant="outlined"
+          size="small"
+          sx={{
+            '& .MuiButtonGroup-grouped': {
+              borderRadius: 0,
+              '&:first-of-type': {
+                borderTopLeftRadius: BORDER_RADIUS.pill,
+                borderBottomLeftRadius: BORDER_RADIUS.pill,
+              },
+              '&:last-of-type': {
+                borderTopRightRadius: BORDER_RADIUS.pill,
+                borderBottomRightRadius: BORDER_RADIUS.pill,
+              },
+              borderColor: theme =>
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : GREYSCALE.dark.border,
+            },
+          }}
+        >
+          {STATUS_PILL_TABS.map(tab => (
+            <Button
+              key={tab.value}
+              onClick={() => setStatusFilter(tab.value)}
+              sx={{
+                px: 2,
+                py: 0.5,
+                fontWeight: statusFilter === tab.value ? 600 : 400,
+                bgcolor:
+                  statusFilter === tab.value ? 'primary.dark' : 'transparent',
+                color:
+                  statusFilter === tab.value
+                    ? '#fff'
+                    : theme =>
+                        theme.palette.mode === 'light'
+                          ? GREYSCALE.light.body
+                          : GREYSCALE.dark.body,
+                '&:hover': {
+                  bgcolor:
+                    statusFilter === tab.value
+                      ? 'primary.dark'
+                      : theme =>
+                          theme.palette.mode === 'light'
+                            ? GREYSCALE.light.surface1
+                            : GREYSCALE.dark.surface1,
+                },
+              }}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </ButtonGroup>
+      </Box>
+
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <GridToolbarColumnsButton />
+        <GridToolbarDensitySelector />
+        <GridToolbarExport />
+      </Box>
+    </Box>
+  );
+}
+
+export default function TasksGrid({
+  sessionToken,
+  refreshKey,
+  onRefresh,
+}: TasksGridProps) {
   const router = useRouter();
   const notifications = useNotifications();
   const isMounted = useRef(true);
@@ -35,7 +208,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
     };
   }, []);
 
-  // Component state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,8 +224,10 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] =
+    useState<TaskFilters>(EMPTY_TASK_FILTERS);
 
-  // Data fetching function
   const fetchTasks = useCallback(async () => {
     if (!sessionToken) return;
 
@@ -61,7 +237,6 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       const clientFactory = new ApiClientFactory(sessionToken);
       const tasksClient = clientFactory.getTasksClient();
 
-      // Convert filter model to OData filter
       const oDataFilter = combineTaskFiltersToOData(filterModel);
 
       const response = await tasksClient.getTasks({
@@ -72,15 +247,17 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         $filter: oDataFilter,
       });
 
+      if (!isMounted.current) return;
+
       setTasks(response.data);
       setTotalCount(response.totalCount || 0);
-
       setError(null);
-    } catch (_error) {
+    } catch {
+      if (!isMounted.current) return;
       setError('Failed to load tasks');
       setTasks([]);
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   }, [
     sessionToken,
@@ -89,12 +266,81 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
     filterModel,
   ]);
 
-  // Initial data fetch
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
 
-  // Delete task
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      fetchTasks();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'quickFilter'
+      );
+      const items = searchQuery
+        ? [
+            ...otherItems,
+            { field: 'quickFilter', operator: 'contains', value: searchQuery },
+          ]
+        : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(item => item.field !== 'status');
+      const items =
+        statusFilter && statusFilter !== 'all'
+          ? [
+              ...otherItems,
+              { field: 'status', operator: 'equals', value: statusFilter },
+            ]
+          : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [statusFilter]);
+
+  useEffect(() => {
+    const DRAWER_FIELDS = ['status', 'priority', 'assignee'];
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      );
+      const drawerItems: typeof prev.items = [];
+      if (drawerFilters.status) {
+        drawerItems.push({
+          field: 'status',
+          operator: 'equals',
+          value: drawerFilters.status,
+        });
+      }
+      if (drawerFilters.priority) {
+        drawerItems.push({
+          field: 'priority',
+          operator: 'equals',
+          value: drawerFilters.priority,
+        });
+      }
+      if (drawerFilters.assignee) {
+        drawerItems.push({
+          field: 'assignee',
+          operator: 'equals',
+          value: drawerFilters.assignee,
+        });
+      }
+      return { ...prev, items: [...otherItems, ...drawerItems] };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [drawerFilters]);
+
   const deleteTask = useCallback(
     async (taskId: string) => {
       try {
@@ -103,10 +349,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
         await tasksClient.deleteTask(taskId);
 
-        // Remove from local state
         setTasks(prev => prev.filter(task => task.id !== taskId));
         setSelectedRows(prev => prev.filter(id => id !== taskId));
-        // Update total count
         setTotalCount(prev => Math.max(0, prev - 1));
 
         notifications.show('Task deleted successfully', {
@@ -117,15 +361,12 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to delete task';
         notifications.show(errorMessage, { severity: 'error' });
-
-        // Refresh data to ensure consistency after delete failure
         fetchTasks();
       }
     },
     [sessionToken, onRefresh, fetchTasks, notifications]
   );
 
-  // Delete selected tasks
   const handleDeleteSelected = useCallback(() => {
     if (selectedRows.length === 0) return;
     setDeleteModalOpen(true);
@@ -138,7 +379,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       setIsDeleting(true);
       await Promise.all(selectedRows.map(id => deleteTask(id as string)));
       setSelectedRows([]);
-    } catch (_err) {
+    } catch {
+      // Individual delete errors are handled in deleteTask
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
@@ -149,7 +391,6 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
     setDeleteModalOpen(false);
   }, []);
 
-  // Handle row click
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
       router.push(`/tasks/${params.id}`);
@@ -157,32 +398,20 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
     [router]
   );
 
-  // Get action buttons based on selection
   const getActionButtons = useCallback(() => {
-    const buttons = [];
+    if (selectedRows.length === 0) return [];
 
-    buttons.push({
-      label: 'Create Task',
-      onClick: () => router.push('/tasks/create'),
-      icon: <AddIcon />,
-      variant: 'contained' as const,
-      color: 'primary' as const,
-    });
-
-    if (selectedRows.length > 0) {
-      buttons.push({
+    return [
+      {
         label: `Delete (${selectedRows.length})`,
         onClick: handleDeleteSelected,
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
-      });
-    }
+      },
+    ];
+  }, [selectedRows.length, handleDeleteSelected]);
 
-    return buttons;
-  }, [selectedRows.length, handleDeleteSelected, router]);
-
-  // Handle pagination change
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
       setPaginationModel(newModel);
@@ -190,15 +419,12 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
     []
   );
 
-  // Handle filter change
   const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
     setFilterModel(newModel);
-    // Reset to first page when filters change
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
-  // Column definitions
-  const columns: GridColDef[] = React.useMemo(
+  const columns: GridColDef[] = useMemo(
     () => [
       {
         field: 'title',
@@ -301,50 +527,113 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
   );
 
   return (
-    <Box>
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
+    <TasksToolbarContext.Provider
+      value={{
+        searchQuery,
+        setSearchQuery,
+        statusFilter,
+        setStatusFilter,
+        openFilterDrawer: () => setFilterDrawerOpen(true),
+      }}
+    >
+      <Box sx={{ position: 'relative' }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-      <BaseDataGrid
-        rows={tasks}
-        columns={columns}
-        loading={loading}
-        getRowId={row => row.id}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        filterModel={filterModel}
-        onFilterModelChange={handleFilterModelChange}
-        actionButtons={getActionButtons()}
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={setSelectedRows}
-        rowSelectionModel={selectedRows}
-        onRowClick={handleRowClick}
-        serverSidePagination={true}
-        totalRows={totalCount}
-        pageSizeOptions={[10, 25, 50, 100]}
-        serverSideFiltering={true}
-        showToolbar={true}
-        disablePaperWrapper={true}
-        sx={{
-          '& .MuiDataGrid-row': {
-            cursor: 'pointer',
-          },
-        }}
-      />
+        {selectedRows.length > 0 && (
+          <Box
+            sx={{
+              px: 2,
+              py: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              borderBottom: theme =>
+                `1px solid ${
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.border
+                    : GREYSCALE.dark.border
+                }`,
+            }}
+          >
+            <Typography variant="subtitle1" color="primary">
+              {selectedRows.length} selected
+            </Typography>
+          </Box>
+        )}
 
-      <DeleteModal
-        open={deleteModalOpen}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        isLoading={isDeleting}
-        title="Delete Tasks"
-        message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'task' : 'tasks'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
-        itemType="tasks"
-      />
-    </Box>
+        <BaseDataGrid
+          rows={tasks}
+          columns={columns}
+          loading={loading}
+          getRowId={row => row.id}
+          paginationModel={paginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
+          filterModel={filterModel}
+          onFilterModelChange={handleFilterModelChange}
+          actionButtons={getActionButtons()}
+          checkboxSelection
+          disableRowSelectionOnClick
+          onRowSelectionModelChange={setSelectedRows}
+          rowSelectionModel={selectedRows}
+          onRowClick={handleRowClick}
+          serverSidePagination={true}
+          totalRows={totalCount}
+          pageSizeOptions={[10, 25, 50, 100]}
+          serverSideFiltering={true}
+          showToolbar={true}
+          toolbarSlot={TasksUnifiedToolbar}
+          disablePaperWrapper={true}
+          persistState
+          sx={{
+            '& .MuiDataGrid-row': {
+              cursor: 'pointer',
+            },
+          }}
+        />
+
+        {hasActiveTaskFilters(drawerFilters) && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 8,
+              left: 8,
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: 'primary.main',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        <DeleteModal
+          open={deleteModalOpen}
+          onClose={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          isLoading={isDeleting}
+          title="Delete Tasks"
+          message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'task' : 'tasks'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+          itemType="tasks"
+        />
+
+        <TaskFilterDrawer
+          open={filterDrawerOpen}
+          onClose={() => setFilterDrawerOpen(false)}
+          filters={drawerFilters}
+          onApply={f => {
+            setDrawerFilters(f);
+            if (f.status) {
+              setStatusFilter(f.status);
+            } else if (!drawerFilters.status) {
+              setStatusFilter('all');
+            }
+          }}
+        />
+      </Box>
+    </TasksToolbarContext.Provider>
   );
 }

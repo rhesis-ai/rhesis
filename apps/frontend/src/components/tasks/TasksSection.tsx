@@ -25,7 +25,8 @@ interface TasksSectionProps {
   onCreateTask: (taskData: Record<string, unknown>) => Promise<void>;
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
-  onNavigateToCreate?: () => void;
+  /** Opens the in-context task creation drawer */
+  onOpenCreateDrawer?: (commentId?: string) => void;
   currentUserId: string;
   currentUserName: string;
 }
@@ -37,7 +38,7 @@ export function TasksSection({
   onCreateTask: _onCreateTask,
   onEditTask: _onEditTask,
   onDeleteTask,
-  onNavigateToCreate,
+  onOpenCreateDrawer,
   currentUserId: _currentUserId,
   currentUserName: _currentUserName,
 }: TasksSectionProps) {
@@ -142,16 +143,8 @@ export function TasksSection({
   };
 
   const handleCreateTask = () => {
-    // Use the provided navigation handler if available (includes additional metadata)
-    if (onNavigateToCreate) {
-      onNavigateToCreate();
-    } else {
-      // Fallback to direct navigation
-      const queryParams = new URLSearchParams({
-        entityType,
-        entityId,
-      });
-      router.push(`/tasks/create?${queryParams.toString()}`);
+    if (onOpenCreateDrawer) {
+      onOpenCreateDrawer();
     }
   };
 
