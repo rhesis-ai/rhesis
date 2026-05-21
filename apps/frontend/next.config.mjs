@@ -175,9 +175,6 @@ const nextConfig = {
 
     // Development-specific optimizations
     if (dev) {
-      // Use faster source map option
-      config.devtool = 'eval-cheap-module-source-map';
-
       config.watchOptions = {
         poll: 500, // Reduced from 1000 for faster detection
         aggregateTimeout: 200, // Reduced from 300

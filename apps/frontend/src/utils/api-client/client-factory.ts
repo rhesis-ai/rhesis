@@ -31,6 +31,7 @@ import { ImportClient } from './import-client';
 import { FilesClient } from './files-client';
 import { FeaturesClient } from './features-client';
 import { ParametersClient } from './parameters-client';
+import { PreflightClient } from './preflight-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
@@ -50,6 +51,7 @@ export class ApiClientFactory {
   private featuresClient: FeaturesClient | null = null;
   private architectClient: ArchitectClient | null = null;
   private parametersClient: ParametersClient | null = null;
+  private preflightClient: PreflightClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
@@ -233,5 +235,12 @@ export class ApiClientFactory {
       this.parametersClient = new ParametersClient(this.sessionToken);
     }
     return this.parametersClient;
+  }
+
+  getPreflightClient(): PreflightClient {
+    if (!this.preflightClient) {
+      this.preflightClient = new PreflightClient(this.sessionToken);
+    }
+    return this.preflightClient;
   }
 }

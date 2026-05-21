@@ -53,6 +53,10 @@ export enum EventType {
   // awaiting bubble so the user sees per-step progress instead of a
   // bare "Working…".
   ARCHITECT_TASK_PROGRESS = 'architect.task_progress',
+
+  // Preflight check events
+  PREFLIGHT_CHECK_UPDATE = 'preflight.check_update',
+  PREFLIGHT_COMPLETE = 'preflight.complete',
 }
 
 /**
@@ -170,6 +174,34 @@ export interface ArchitectErrorPayload {
   error: string;
   error_type?: string;
   session_id?: string;
+}
+
+/**
+ * Preflight check update payload (received from server).
+ */
+export interface PreflightCheckUpdatePayload {
+  check_id: string;
+  label: string;
+  status: 'running' | 'passed' | 'failed' | 'warning' | 'skipped';
+  message?: string;
+  detail?: string;
+  correlation_id: string;
+  test_set_id?: string;
+  test_set_name?: string;
+  composite_key?: string;
+}
+
+/**
+ * Preflight complete payload (received from server).
+ */
+export interface PreflightCompletePayload {
+  correlation_id: string;
+  summary: 'passed' | 'failed' | 'warning';
+  passed: number;
+  failed: number;
+  warnings: number;
+  skipped: number;
+  checks?: PreflightCheckUpdatePayload[];
 }
 
 /**
