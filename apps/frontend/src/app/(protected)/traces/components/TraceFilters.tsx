@@ -74,6 +74,13 @@ export default function TraceFilters({
     filtersRef.current = filters;
   });
 
+  const cancelSearchDebounce = () => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+  };
+
   const handleFilterChange = (
     key: keyof TraceQueryParams,
     value: TraceQueryParams[keyof TraceQueryParams]
@@ -102,28 +109,31 @@ export default function TraceFilters({
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
+    cancelSearchDebounce();
 
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
+    const trimmed = value.trim();
+    if (!trimmed) {
+      onFiltersChangeRef.current({
+        ...filtersRef.current,
+        search: undefined,
+        offset: 0,
+      });
+      return;
     }
 
     searchDebounceRef.current = setTimeout(() => {
       searchDebounceRef.current = null;
-      const trimmed = value.trim();
-      const newFilters = {
+      onFiltersChangeRef.current({
         ...filtersRef.current,
-        search: trimmed || undefined,
+        search: trimmed,
         offset: 0,
-      };
-      onFiltersChangeRef.current(newFilters);
+      });
     }, 300);
   }, []);
 
   useEffect(() => {
     return () => {
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
+      cancelSearchDebounce();
     };
   }, []);
 
@@ -240,6 +250,8 @@ export default function TraceFilters({
   };
 
   const handleClearAllFilters = () => {
+    cancelSearchDebounce();
+    setSearchInput('');
     const clearedFilters: TraceQueryParams = {
       project_id: filters.project_id, // Keep project selection
       limit: filters.limit || 50,
@@ -784,6 +796,10 @@ export default function TraceFilters({
                 label={chip.label}
                 size="small"
                 onDelete={() => {
+                  if (chip.key === 'search') {
+                    handleSearchChange('');
+                    return;
+                  }
                   handleFilterChange(
                     chip.key as keyof TraceQueryParams,
                     undefined
