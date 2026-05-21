@@ -289,7 +289,7 @@ export interface ExperimentResultsRunItem {
   id: string;
   name?: string;
   created_at?: string;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
   test_configuration?: TestConfigurationDetail;
   stats?: ExperimentRunStats;
   experiment_summary?: {
@@ -305,7 +305,7 @@ export interface ExperimentResultsVersionItem {
   version: string;
   runs: ExperimentResultsRunItem[];
   total_tests: number;
-  diff: Record<string, { before: any; after: any }>;
+  diff: Record<string, { before: unknown; after: unknown }>;
 }
 
 export interface ExperimentResultsByRun {

@@ -354,7 +354,11 @@ function RunsView({ runs }: { runs: ExperimentResultsRunItem[] }) {
         ) => (
           <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
             <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-              {shortVersion(params.row.attributes?.parameter_version)}
+              {shortVersion(
+                typeof params.row.attributes?.parameter_version === 'string'
+                  ? params.row.attributes.parameter_version
+                  : undefined
+              )}
             </Typography>
           </Box>
         ),

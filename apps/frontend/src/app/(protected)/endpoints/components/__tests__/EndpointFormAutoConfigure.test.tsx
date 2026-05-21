@@ -17,8 +17,6 @@ jest.mock(
         loader().then(mod => {
           setComp(() => mod.default ?? (mod as unknown as React.ComponentType));
         });
-        // loader identity is stable per mock call; omitting from deps is intentional.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
       }, []);
       if (!Comp) return null;
       return React.createElement(Comp, props);

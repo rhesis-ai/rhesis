@@ -141,7 +141,10 @@ describe('DragAndDropUpload', () => {
 
     const dropZone = screen
       .getByText(/drag and drop|click to browse/i)
-      .closest('div')!;
+      .closest('div');
+    if (!dropZone) {
+      throw new Error('Expected drop zone wrapper to exist');
+    }
 
     fireEvent.dragOver(dropZone, {
       dataTransfer: { files: [badFile] },

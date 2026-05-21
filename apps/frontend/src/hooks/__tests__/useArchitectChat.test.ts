@@ -858,7 +858,10 @@ describe('useArchitectChat', () => {
         m => m.isStreaming && m.id !== firstId
       );
       expect(secondStreaming).toBeDefined();
-      const secondId = secondStreaming!.id;
+      if (!secondStreaming) {
+        throw new Error('Expected a second streaming message');
+      }
+      const secondId = secondStreaming.id;
       act(() => {
         subscriptionHandlers[EventType.ARCHITECT_RESPONSE]({
           type: EventType.ARCHITECT_RESPONSE,

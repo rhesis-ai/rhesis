@@ -181,7 +181,7 @@ function buildMetadataColorConfig(
     if (key === UNASSIGNED_COLOR_LABEL) {
       category[i] = 0;
     } else if (indexByValue.has(key)) {
-      category[i] = indexByValue.get(key)!;
+      category[i] = indexByValue.get(key) ?? otherIndex;
     } else {
       category[i] = otherIndex;
     }

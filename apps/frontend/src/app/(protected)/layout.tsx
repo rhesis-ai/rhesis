@@ -16,6 +16,7 @@ import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
+import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -202,8 +203,10 @@ export default function ProtectedLayout({
     <QueryClientProvider client={queryClient}>
       <AuthErrorBoundary>
         <FeaturesProvider>
-          {!isOnboarding && <VerificationBanner />}
-          {content}
+          <WebSocketProvider>
+            {!isOnboarding && <VerificationBanner />}
+            {content}
+          </WebSocketProvider>
         </FeaturesProvider>
       </AuthErrorBoundary>
     </QueryClientProvider>
