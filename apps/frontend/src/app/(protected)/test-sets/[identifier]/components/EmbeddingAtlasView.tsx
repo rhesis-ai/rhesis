@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef } from 'react';
+import { Box } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
   EmbeddingView,
@@ -13,6 +14,7 @@ import {
   graphToEmbeddingViewData,
   type EmbeddingViewData,
 } from '@/utils/embedding/graphToEmbeddingViewData';
+import { getEmbeddingViewSurfaceBg } from '@/utils/embedding/embeddingViewSurface';
 
 const VIEW_HEIGHT = 560;
 const HOVER_PIXEL_RADIUS = 8;
@@ -210,11 +212,23 @@ export default function EmbeddingAtlasView({
 
   if (!viewData) return null;
 
+  const surfaceBg = getEmbeddingViewSurfaceBg(theme);
+
   return (
-    <div
+    <Box
       ref={wrapperRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => onPointHover?.(null)}
+      sx={{
+        width: '100%',
+        height: VIEW_HEIGHT,
+        bgcolor: surfaceBg,
+        '& > div': {
+          width: '100%',
+          height: '100%',
+          bgcolor: surfaceBg,
+        },
+      }}
     >
       <EmbeddingView
         data={{
@@ -229,7 +243,7 @@ export default function EmbeddingAtlasView({
         config={{
           autoLabelEnabled: false,
           mode: colorConfig.viewMode,
-          colorScheme: 'light',
+          colorScheme: theme.palette.mode === 'dark' ? 'dark' : 'light',
         }}
         tooltip={highlightedPoint}
         customTooltip={EmptyTooltip}
@@ -237,6 +251,6 @@ export default function EmbeddingAtlasView({
         querySelection={querySelection}
         onSelection={handleSelection}
       />
-    </div>
+    </Box>
   );
 }

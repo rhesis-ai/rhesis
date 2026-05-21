@@ -6,6 +6,7 @@ import {
   GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
+  GridFilterModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Typography, Box, Alert, Chip } from '@mui/material';
@@ -21,6 +22,8 @@ import {
   renderTestContentCell,
 } from '@/app/(protected)/tests/components/test-grid-helpers';
 import { isMultiTurnTest } from '@/constants/test-types';
+import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import { formatDate } from '@/utils/date';
 
 interface TestSetTestsGridProps {
   sessionToken: string;
@@ -46,7 +49,10 @@ export default function TestSetTestsGrid({
   const [totalCount, setTotalCount] = useState<number>(0);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
-    pageSize: 50,
+    pageSize: 25,
+  });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
   });
 
   // Data fetching function
@@ -61,11 +67,14 @@ export default function TestSetTestsGrid({
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
 
+      const filterString = combineTestFiltersToOData(filterModel);
+
       const response = await testSetsClient.getTestSetTests(testSetId, {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
-        sort_by: 'topic',
-        sort_order: 'asc',
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        ...(filterString && { $filter: filterString }),
       });
 
       if (isMounted.current) {
@@ -83,7 +92,13 @@ export default function TestSetTestsGrid({
         setLoading(false);
       }
     }
-  }, [sessionToken, testSetId, paginationModel.page, paginationModel.pageSize]);
+  }, [
+    sessionToken,
+    testSetId,
+    paginationModel.page,
+    paginationModel.pageSize,
+    filterModel,
+  ]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -100,19 +115,27 @@ export default function TestSetTestsGrid({
     []
   );
 
+  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
+    setFilterModel(newModel);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
   const columns: GridColDef[] = React.useMemo(
     () => [
       {
         field: 'prompt.content',
         headerName: isMultiTurnTest(testSetType) ? 'Goal' : 'Content',
         flex: 3,
+        filterable: true,
         valueGetter: getTestContentValue,
         renderCell: renderTestContentCell,
       },
       {
-        field: 'behavior',
+        field: 'behavior.name',
         headerName: 'Behavior',
         flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.behavior?.name || '',
         renderCell: params => {
           const behaviorName = params.row.behavior?.name;
           if (!behaviorName) return null;
@@ -128,9 +151,11 @@ export default function TestSetTestsGrid({
         },
       },
       {
-        field: 'topic',
+        field: 'topic.name',
         headerName: 'Topic',
         flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.topic?.name || '',
         renderCell: params => {
           const topicName = params.row.topic?.name;
           if (!topicName) return null;
@@ -146,9 +171,11 @@ export default function TestSetTestsGrid({
         },
       },
       {
-        field: 'category',
+        field: 'category.name',
         headerName: 'Category',
         flex: 1,
+        filterable: true,
+        valueGetter: (value, row) => row.category?.name || '',
         renderCell: params => {
           const categoryName = params.row.category?.name;
           if (!categoryName) return null;
@@ -167,6 +194,7 @@ export default function TestSetTestsGrid({
         field: 'test_type.type_value',
         headerName: 'Test Type',
         flex: 1,
+        filterable: true,
         valueGetter: (value, row) => row.test_type?.type_value || '',
         renderCell: params => {
           const testType = params.row.test_type?.type_value;
@@ -176,11 +204,24 @@ export default function TestSetTestsGrid({
         },
       },
       {
+        field: 'created_at',
+        headerName: 'Created',
+        flex: 0.8,
+        minWidth: 120,
+        filterable: false,
+        renderCell: params => (
+          <Typography variant="body2" color="text.secondary">
+            {formatDate(params.row.created_at)}
+          </Typography>
+        ),
+      },
+      {
         field: 'tags',
         headerName: 'Tags',
         flex: 1.5,
         minWidth: 140,
         sortable: false,
+        filterable: true,
         renderCell: params => {
           const test = params.row;
           if (!test.tags || test.tags.length === 0) {
@@ -331,7 +372,12 @@ export default function TestSetTestsGrid({
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
+        serverSideFiltering={true}
+        filterModel={filterModel}
+        onFilterModelChange={handleFilterModelChange}
+        showToolbar={true}
         disablePaperWrapper={true}
+        persistState={!embedded}
       />
     </>
   );
