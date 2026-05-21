@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Skeleton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SendIcon from '@mui/icons-material/Send';
@@ -29,6 +30,7 @@ import ApiIcon from '@mui/icons-material/Api';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import FolderIcon from '@mui/icons-material/Folder';
 import {
   ConfigChips,
@@ -38,6 +40,7 @@ import {
   TestType,
 } from './shared/types';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
+import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
 import ChipGroup from './shared/ChipGroup';
 import TestSampleCard from './shared/TestSampleCard';
 import ActionBar from '@/components/common/ActionBar';
@@ -45,6 +48,16 @@ import EndpointSelector from './shared/EndpointSelector';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TEST_TYPES } from '@/constants/test-types';
+
+function extractResponseText(response: unknown): string {
+  if (typeof response === 'string') return response;
+  const r = response as Record<string, unknown> | null;
+  if (r?.output != null) return String(r.output);
+  if (r?.text != null) return String(r.text);
+  if (r?.response != null) return String(r.response);
+  if (r?.content != null) return String(r.content);
+  return JSON.stringify(response);
+}
 
 interface TestGenerationInterfaceProps {
   testType: TestType;
@@ -134,10 +147,8 @@ export default function TestGenerationInterface({
       testSamples.length !== localTestSamples.length ||
       testSamples.some(s => !existingSampleIds.has(s.id));
 
-    // If sample IDs changed, reset processed IDs and trigger endpoint fetch
     if (sampleIdsChanged) {
       setProcessedSampleIds(new Set());
-      setFetchTrigger(prev => prev + 1);
     }
 
     // Create a map of existing samples with responses
@@ -201,6 +212,13 @@ export default function TestGenerationInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testSamples]);
 
+  // Notify parent whenever local samples change
+  useEffect(() => {
+    if (onSamplesUpdate) onSamplesUpdate(localTestSamples);
+    // onSamplesUpdate intentionally excluded to avoid re-triggering on callback identity change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localTestSamples]);
+
   // Load endpoint information when selectedEndpointId changes
   useEffect(() => {
     const loadEndpointInfo = async () => {
@@ -258,20 +276,21 @@ export default function TestGenerationInterface({
     loadEndpointInfo();
   }, [selectedEndpointId, session]);
 
-  // Fetch responses from endpoint for all samples (only auto-fetch for single-turn)
+  // Fetch responses from endpoint for all unprocessed samples (in parallel).
+  // Only triggered explicitly via fetchTrigger (e.g. "Generate Responses" button).
   useEffect(() => {
+    if (fetchTrigger === 0) return;
+
     const fetchResponses = async () => {
       if (
         !selectedEndpointId ||
         !session?.session_token ||
         localTestSamples.length === 0 ||
-        isFetchingResponses ||
-        testType === 'multi_turn' // Don't auto-fetch for multi-turn
+        isFetchingResponses
       ) {
         return;
       }
 
-      // Find samples that haven't been processed yet
       const samplesToFetch = localTestSamples.filter(
         sample =>
           !processedSampleIds.has(sample.id) &&
@@ -285,179 +304,140 @@ export default function TestGenerationInterface({
 
       setIsFetchingResponses(true);
 
-      try {
-        const apiFactory = new ApiClientFactory(session.session_token);
-        const endpointsClient = apiFactory.getEndpointsClient();
-        const testsClient = apiFactory.getTestsClient();
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const endpointsClient = apiFactory.getEndpointsClient();
+      const testsClient = apiFactory.getTestsClient();
 
-        // Mark samples to fetch as loading
-        const updatedSamples = localTestSamples.map(sample => {
-          if (samplesToFetch.some(s => s.id === sample.id)) {
-            if (sample.testType === 'single_turn') {
-              const newSample = {
-                ...sample,
-                isLoadingResponse: true,
-              };
-              delete newSample.response;
-              delete newSample.responseError;
-              return newSample;
-            } else {
-              const newSample = {
-                ...sample,
-                isLoadingConversation: true,
-              };
-              delete newSample.response;
-              delete newSample.responseError;
-              delete newSample.conversation;
-              delete newSample.conversationError;
-              return newSample;
+      // Mark all samples as loading
+      setLocalTestSamples(prev =>
+        prev.map(sample => {
+          if (!samplesToFetch.some(s => s.id === sample.id)) return sample;
+          if (sample.testType === 'single_turn') {
+            const s = { ...sample, isLoadingResponse: true };
+            delete s.response;
+            delete s.responseError;
+            return s;
+          }
+          const s = { ...sample, isLoadingConversation: true };
+          delete s.response;
+          delete s.responseError;
+          delete s.conversation;
+          delete s.conversationError;
+          return s;
+        })
+      );
+
+      // Fire all requests in parallel, updating each card as it resolves
+      const promises = samplesToFetch.map(async sample => {
+        try {
+          if (sample.testType === 'single_turn') {
+            const response = await endpointsClient.invokeEndpoint(
+              selectedEndpointId,
+              { input: sample.prompt }
+            );
+
+            const responseText = extractResponseText(response);
+
+            setLocalTestSamples(prev =>
+              prev.map(s =>
+                s.id === sample.id
+                  ? {
+                      ...s,
+                      response: responseText,
+                      isLoadingResponse: false,
+                      responseError: undefined,
+                    }
+                  : s
+              )
+            );
+          } else {
+            const executeResponse = await testsClient.executeTest({
+              endpoint_id:
+                selectedEndpointId as `${string}-${string}-${string}-${string}-${string}`,
+              test_configuration: {
+                goal: sample.prompt.goal,
+                instructions: sample.prompt.instructions,
+                restrictions: sample.prompt.restrictions,
+                scenario: sample.prompt.scenario,
+              },
+              behavior: sample.behavior,
+              topic: sample.topic,
+              category: sample.category,
+              evaluate_metrics: false,
+            });
+
+            let conversation: ConversationTurn[] = [];
+            if (
+              executeResponse.test_output &&
+              typeof executeResponse.test_output === 'object'
+            ) {
+              conversation = Array.isArray(
+                executeResponse.test_output.conversation_summary
+              )
+                ? executeResponse.test_output.conversation_summary
+                : [];
             }
+
+            setLocalTestSamples(prev =>
+              prev.map(s =>
+                s.id === sample.id
+                  ? {
+                      ...s,
+                      conversation,
+                      isLoadingConversation: false,
+                      response: `Goal: ${sample.prompt.goal} (${conversation.length} turns)`,
+                      conversationError: undefined,
+                    }
+                  : s
+              )
+            );
           }
-          return sample;
-        });
-        setLocalTestSamples(updatedSamples);
 
-        // Fetch responses for each new sample
-        const newProcessedIds = new Set(processedSampleIds);
+          return { id: sample.id, success: true };
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : 'Failed to fetch response';
 
-        for (let i = 0; i < updatedSamples.length; i++) {
-          const sample = updatedSamples[i];
-
-          // Skip samples that were already processed or not in the fetch list
-          if (!samplesToFetch.some(s => s.id === sample.id)) {
-            continue;
-          }
-
-          try {
-            if (sample.testType === 'single_turn') {
-              // Single-turn: use old invoke endpoint
-              const response = await endpointsClient.invokeEndpoint(
-                selectedEndpointId,
-                {
-                  input: sample.prompt,
-                }
-              );
-
-              // Extract response text from various possible response formats
-              let responseText = '';
-              if (typeof response === 'string') {
-                responseText = response;
-              } else if (response?.output != null) {
-                responseText = String(response.output);
-              } else if (response?.text != null) {
-                responseText = String(response.text);
-              } else if (response?.response != null) {
-                responseText = String(response.response);
-              } else if (response?.content != null) {
-                responseText = String(response.content);
-              } else {
-                responseText = JSON.stringify(response);
-              }
-
-              updatedSamples[i] = {
-                ...sample,
-                response: responseText,
-                isLoadingResponse: false,
-              };
-              delete updatedSamples[i].responseError;
-            } else {
-              // Multi-turn: use new /tests/execute endpoint
-              const executeRequest = {
-                endpoint_id:
-                  selectedEndpointId as `${string}-${string}-${string}-${string}-${string}`,
-                test_configuration: {
-                  goal: sample.prompt.goal,
-                  instructions: sample.prompt.instructions,
-                  restrictions: sample.prompt.restrictions,
-                  scenario: sample.prompt.scenario,
-                },
-                behavior: sample.behavior,
-                topic: sample.topic,
-                category: sample.category,
-                evaluate_metrics: false, // We just want conversation output
-              };
-
-              const executeResponse =
-                await testsClient.executeTest(executeRequest);
-
-              // Extract conversation from test_output
-              let conversation = [];
-              if (
-                executeResponse.test_output &&
-                typeof executeResponse.test_output === 'object'
-              ) {
-                conversation = Array.isArray(
-                  executeResponse.test_output.conversation_summary
-                )
-                  ? executeResponse.test_output.conversation_summary
-                  : [];
-              }
-
-              if (sample.testType === 'multi_turn') {
-                const newSample = {
-                  ...sample,
-                  conversation,
-                  isLoadingConversation: false,
-                  response: `Goal: ${sample.prompt.goal} (${conversation.length} turns)`,
+          setLocalTestSamples(prev =>
+            prev.map(s => {
+              if (s.id !== sample.id) return s;
+              if (s.testType === 'single_turn') {
+                return {
+                  ...s,
+                  isLoadingResponse: false,
+                  responseError: errorMsg,
+                  response: undefined,
                 };
-                delete newSample.conversationError;
-                updatedSamples[i] = newSample;
               }
-            }
-
-            newProcessedIds.add(sample.id);
-          } catch (error) {
-            if (sample.testType === 'single_turn') {
-              const newSample = {
-                ...sample,
-                isLoadingResponse: false,
-                responseError:
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to fetch response',
-              };
-              delete newSample.response;
-              updatedSamples[i] = newSample;
-            } else if (sample.testType === 'multi_turn') {
-              const newSample = {
-                ...sample,
+              return {
+                ...s,
                 isLoadingConversation: false,
-                conversationError:
-                  error instanceof Error
-                    ? error.message
-                    : 'Failed to execute test',
+                conversationError: errorMsg,
+                conversation: undefined,
               };
-              delete newSample.conversation;
-              updatedSamples[i] = newSample;
-            }
-            newProcessedIds.add(sample.id);
-          }
+            })
+          );
 
-          // Update state after each response to show progress
-          setLocalTestSamples([...updatedSamples]);
+          return { id: sample.id, success: false };
         }
+      });
 
-        // Update processed IDs
-        setProcessedSampleIds(newProcessedIds);
+      const results = await Promise.allSettled(promises);
 
-        // Notify parent component of updates if callback provided
-        if (onSamplesUpdate) {
-          onSamplesUpdate(updatedSamples);
+      const newProcessedIds = new Set(processedSampleIds);
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          newProcessedIds.add(result.value.id);
         }
-      } finally {
-        setIsFetchingResponses(false);
       }
+      setProcessedSampleIds(newProcessedIds);
+
+      setIsFetchingResponses(false);
     };
 
     fetchResponses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    selectedEndpointId,
-    session?.session_token,
-    localTestSamples.length,
-    fetchTrigger,
-    testType,
-  ]);
+  }, [fetchTrigger]);
 
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim()) {
@@ -506,85 +486,65 @@ export default function TestGenerationInterface({
     [onSampleFeedbackChange]
   );
 
-  // Manual fetch for a single sample (for multi-turn)
+  // Manual fetch for a single sample (for multi-turn "Simulate Response" button)
   const handleFetchSampleResponse = useCallback(
     async (sampleId: string) => {
-      if (!selectedEndpointId || !session?.session_token) {
+      if (!selectedEndpointId || !session?.session_token) return;
+
+      const sample = localTestSamples.find(s => s.id === sampleId);
+      if (!sample) return;
+      if (processedSampleIds.has(sampleId) || sample.isLoadingResponse) return;
+      if (sample.testType === 'multi_turn' && sample.isLoadingConversation)
         return;
-      }
 
-      const sampleIndex = localTestSamples.findIndex(s => s.id === sampleId);
-      if (sampleIndex === -1) return;
+      const apiFactory = new ApiClientFactory(session.session_token);
+      const endpointsClient = apiFactory.getEndpointsClient();
+      const testsClient = apiFactory.getTestsClient();
 
-      const sample = localTestSamples[sampleIndex];
-
-      // Skip if already processed or loading
-      if (processedSampleIds.has(sample.id) || sample.isLoadingResponse) {
-        return;
-      }
-
-      // Additional check for multi-turn
-      if (sample.testType === 'multi_turn' && sample.isLoadingConversation) {
-        return;
-      }
+      // Mark sample as loading
+      setLocalTestSamples(prev =>
+        prev.map(s => {
+          if (s.id !== sampleId) return s;
+          return s.testType === 'single_turn'
+            ? {
+                ...s,
+                isLoadingResponse: true,
+                response: undefined,
+                responseError: undefined,
+              }
+            : {
+                ...s,
+                isLoadingConversation: true,
+                response: undefined,
+                responseError: undefined,
+                conversation: undefined,
+                conversationError: undefined,
+              };
+        })
+      );
 
       try {
-        const apiFactory = new ApiClientFactory(session.session_token);
-        const endpointsClient = apiFactory.getEndpointsClient();
-        const testsClient = apiFactory.getTestsClient();
-
-        // Mark sample as loading
-        const updatedSamples = [...localTestSamples];
         if (sample.testType === 'single_turn') {
-          const newSample = { ...sample, isLoadingResponse: true };
-          delete newSample.response;
-          delete newSample.responseError;
-          updatedSamples[sampleIndex] = newSample;
-        } else {
-          const newSample = { ...sample, isLoadingConversation: true };
-          delete newSample.response;
-          delete newSample.responseError;
-          delete newSample.conversation;
-          delete newSample.conversationError;
-          updatedSamples[sampleIndex] = newSample;
-        }
-        setLocalTestSamples(updatedSamples);
-
-        if (sample.testType === 'single_turn') {
-          // Single-turn: use old invoke endpoint
           const response = await endpointsClient.invokeEndpoint(
             selectedEndpointId,
-            {
-              input: sample.prompt,
-            }
+            { input: sample.prompt }
           );
+          const responseText = extractResponseText(response);
 
-          // Extract response text
-          let responseText = '';
-          if (typeof response === 'string') {
-            responseText = response;
-          } else if (response?.output != null) {
-            responseText = String(response.output);
-          } else if (response?.text != null) {
-            responseText = String(response.text);
-          } else if (response?.response != null) {
-            responseText = String(response.response);
-          } else if (response?.content != null) {
-            responseText = String(response.content);
-          } else {
-            responseText = JSON.stringify(response);
-          }
-
-          const newSample = {
-            ...sample,
-            response: responseText,
-            isLoadingResponse: false,
-          };
-          delete newSample.responseError;
-          updatedSamples[sampleIndex] = newSample;
+          setLocalTestSamples(prev =>
+            prev.map(s =>
+              s.id === sampleId
+                ? {
+                    ...s,
+                    response: responseText,
+                    isLoadingResponse: false,
+                    responseError: undefined,
+                  }
+                : s
+            )
+          );
         } else {
-          // Multi-turn: use /tests/execute endpoint
-          const executeRequest = {
+          const executeResponse = await testsClient.executeTest({
             endpoint_id:
               selectedEndpointId as `${string}-${string}-${string}-${string}-${string}`,
             test_configuration: {
@@ -597,12 +557,9 @@ export default function TestGenerationInterface({
             topic: sample.topic,
             category: sample.category,
             evaluate_metrics: false,
-          };
+          });
 
-          const executeResponse = await testsClient.executeTest(executeRequest);
-
-          // Extract conversation from test_output
-          let conversation = [];
+          let conversation: ConversationTurn[] = [];
           if (
             executeResponse.test_output &&
             typeof executeResponse.test_output === 'object'
@@ -614,58 +571,46 @@ export default function TestGenerationInterface({
               : [];
           }
 
-          const newSample = {
-            ...sample,
-            conversation,
-            isLoadingConversation: false,
-            response: `Goal: ${sample.prompt.goal} (${conversation.length} turns)`,
-          };
-          delete newSample.conversationError;
-          updatedSamples[sampleIndex] = newSample;
+          setLocalTestSamples(prev =>
+            prev.map(s =>
+              s.id === sampleId
+                ? {
+                    ...s,
+                    conversation,
+                    isLoadingConversation: false,
+                    response: `Goal: ${sample.prompt.goal} (${conversation.length} turns)`,
+                    conversationError: undefined,
+                  }
+                : s
+            )
+          );
         }
 
-        // Mark as processed
-        const newProcessedIds = new Set(processedSampleIds);
-        newProcessedIds.add(sample.id);
-        setProcessedSampleIds(newProcessedIds);
-
-        // Update state
-        setLocalTestSamples(updatedSamples);
-
-        // Notify parent component
-        if (onSamplesUpdate) {
-          onSamplesUpdate(updatedSamples);
-        }
+        setProcessedSampleIds(prev => new Set(prev).add(sampleId));
       } catch (error) {
-        const updatedSamples = [...localTestSamples];
-        if (sample.testType === 'single_turn') {
-          const newSample = {
-            ...sample,
-            isLoadingResponse: false,
-            responseError:
-              error instanceof Error
-                ? error.message
-                : 'Failed to fetch response',
-          };
-          delete newSample.response;
-          updatedSamples[sampleIndex] = newSample;
-        } else {
-          const newSample = {
-            ...sample,
-            isLoadingConversation: false,
-            conversationError:
-              error instanceof Error ? error.message : 'Failed to execute test',
-          };
-          delete newSample.conversation;
-          updatedSamples[sampleIndex] = newSample;
-        }
+        const errorMsg =
+          error instanceof Error ? error.message : 'Failed to fetch response';
 
-        // Mark as processed even on error
-        const newProcessedIds = new Set(processedSampleIds);
-        newProcessedIds.add(sample.id);
-        setProcessedSampleIds(newProcessedIds);
+        setLocalTestSamples(prev =>
+          prev.map(s => {
+            if (s.id !== sampleId) return s;
+            return s.testType === 'single_turn'
+              ? {
+                  ...s,
+                  isLoadingResponse: false,
+                  responseError: errorMsg,
+                  response: undefined,
+                }
+              : {
+                  ...s,
+                  isLoadingConversation: false,
+                  conversationError: errorMsg,
+                  conversation: undefined,
+                };
+          })
+        );
 
-        setLocalTestSamples(updatedSamples);
+        setProcessedSampleIds(prev => new Set(prev).add(sampleId));
       }
     },
     [
@@ -673,7 +618,6 @@ export default function TestGenerationInterface({
       session?.session_token,
       localTestSamples,
       processedSampleIds,
-      onSamplesUpdate,
     ]
   );
 
@@ -736,7 +680,7 @@ export default function TestGenerationInterface({
                     >
                       <InfoOutlinedIcon
                         sx={{
-                          fontSize: 16,
+                          fontSize: theme => theme.iconSizes.small,
                           color: 'text.secondary',
                           cursor: 'help',
                         }}
@@ -750,38 +694,11 @@ export default function TestGenerationInterface({
               <Box
                 sx={{
                   flex: 1,
-                  overflow: isLoadingConfig || isGenerating ? 'hidden' : 'auto',
+                  overflow: 'auto',
                   p: 3,
                   position: 'relative',
                 }}
               >
-                {/* Loading Overlay */}
-                {(isLoadingConfig || isGenerating) && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: 'background.paper',
-                      opacity: 0.95,
-                      zIndex: 1,
-                    }}
-                  >
-                    <CircularProgress sx={{ mb: 2 }} />
-                    <Typography variant="body1">
-                      {isLoadingConfig
-                        ? 'Loading configuration...'
-                        : 'Updating configuration...'}
-                    </Typography>
-                  </Box>
-                )}
-
                 {/* Behavior Testing */}
                 <Box sx={{ mb: 4 }}>
                   <Box
@@ -808,6 +725,28 @@ export default function TestGenerationInterface({
                     chips={configChips.behavior}
                     onToggle={chipId => onChipToggle('behavior', chipId)}
                   />
+                  {isLoadingConfig && configChips.behavior.length === 0 && (
+                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                      <Skeleton
+                        variant="rounded"
+                        width="30%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="22%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="35%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                    </Box>
+                  )}
                 </Box>
 
                 {/* Topics */}
@@ -836,6 +775,28 @@ export default function TestGenerationInterface({
                     chips={configChips.topics}
                     onToggle={chipId => onChipToggle('topics', chipId)}
                   />
+                  {isLoadingConfig && configChips.topics.length === 0 && (
+                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                      <Skeleton
+                        variant="rounded"
+                        width="25%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="20%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="28%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                    </Box>
+                  )}
                 </Box>
 
                 {/* Category */}
@@ -864,6 +825,22 @@ export default function TestGenerationInterface({
                     chips={configChips.category}
                     onToggle={chipId => onChipToggle('category', chipId)}
                   />
+                  {isLoadingConfig && configChips.category.length === 0 && (
+                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                      <Skeleton
+                        variant="rounded"
+                        width="32%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="22%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                    </Box>
+                  )}
                 </Box>
               </Box>
 
@@ -939,7 +916,7 @@ export default function TestGenerationInterface({
                     disabled={!inputMessage.trim()}
                     sx={{
                       bgcolor: 'primary.main',
-                      color: 'white',
+                      color: 'primary.contrastText',
                       '&:hover': {
                         bgcolor: 'primary.dark',
                       },
@@ -982,6 +959,7 @@ export default function TestGenerationInterface({
                   bgcolor: 'background.paper',
                   minHeight: 64,
                   alignItems: 'center',
+                  '& .MuiCardHeader-action': { alignSelf: 'center', m: 0 },
                 }}
                 title={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1007,7 +985,7 @@ export default function TestGenerationInterface({
                     >
                       <InfoOutlinedIcon
                         sx={{
-                          fontSize: 16,
+                          fontSize: theme => theme.iconSizes.small,
                           color: 'text.secondary',
                           cursor: 'help',
                         }}
@@ -1055,7 +1033,7 @@ export default function TestGenerationInterface({
                         ? endpointInfo.name
                         : testType === 'multi_turn'
                           ? 'Activate Live Responses'
-                          : 'Show Live Responses'}
+                          : 'Get Endpoint Responses'}
                     </Button>
                   </Box>
                 }
@@ -1072,24 +1050,9 @@ export default function TestGenerationInterface({
                   flexDirection: 'column',
                 }}
               >
-                {isLoadingSamples || isGenerating ? (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flex: 1,
-                    }}
-                  >
-                    <CircularProgress sx={{ mb: 2 }} />
-                    <Typography variant="body1">
-                      {isLoadingSamples
-                        ? 'Loading test samples...'
-                        : 'Generating test samples...'}
-                    </Typography>
-                  </Box>
-                ) : localTestSamples.length === 0 ? (
+                {localTestSamples.length === 0 &&
+                !isLoadingSamples &&
+                !isGenerating ? (
                   <Box
                     sx={{
                       display: 'flex',
@@ -1101,7 +1064,11 @@ export default function TestGenerationInterface({
                     }}
                   >
                     <VisibilityIcon
-                      sx={{ fontSize: 64, opacity: 0.3, mb: 2 }}
+                      sx={{
+                        fontSize: theme => theme.iconSizes.xlarge,
+                        opacity: 0.3,
+                        mb: 2,
+                      }}
                     />
                     <Typography
                       variant="h6"
@@ -1147,23 +1114,93 @@ export default function TestGenerationInterface({
                       />
                     ))}
 
+                    {(isLoadingConfig || isLoadingSamples || isGenerating) && (
+                      <Box>
+                        {(localTestSamples.length === 0
+                          ? ['initial-1', 'initial-2', 'initial-3']
+                          : ['loading']
+                        ).map(skeletonKey => (
+                          <Card
+                            key={`skeleton-${skeletonKey}`}
+                            elevation={0}
+                            sx={{
+                              mb: 2,
+                              borderRadius: theme => theme.shape.borderRadius,
+                              border: 1,
+                              borderColor: 'divider',
+                              bgcolor: 'background.paper',
+                            }}
+                          >
+                            <CardContent
+                              sx={{ p: 2, '&:last-child': { pb: 2 } }}
+                            >
+                              <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
+                                <Skeleton
+                                  variant="rounded"
+                                  width="20%"
+                                  height={24}
+                                  sx={{
+                                    borderRadius: theme =>
+                                      theme.shape.borderRadius,
+                                  }}
+                                />
+                                <Skeleton
+                                  variant="rounded"
+                                  width="15%"
+                                  height={24}
+                                  sx={{
+                                    borderRadius: theme =>
+                                      theme.shape.borderRadius,
+                                  }}
+                                />
+                                <Skeleton
+                                  variant="rounded"
+                                  width="18%"
+                                  height={24}
+                                  sx={{
+                                    borderRadius: theme =>
+                                      theme.shape.borderRadius,
+                                  }}
+                                />
+                              </Box>
+                              <Skeleton
+                                variant="rounded"
+                                width="85%"
+                                height={56}
+                                sx={{
+                                  borderRadius: theme =>
+                                    theme.shape.borderRadius,
+                                  mb: 1,
+                                }}
+                              />
+                              <Skeleton variant="text" width="40%" />
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Box>
+                    )}
+
                     {/* Load More Button */}
-                    <Box sx={{ textAlign: 'center', mt: 3 }}>
-                      <Button
-                        variant="outlined"
-                        startIcon={
-                          isLoadingMore ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <AutoFixHighIcon />
-                          )
-                        }
-                        onClick={onLoadMoreSamples}
-                        disabled={isLoadingMore}
-                      >
-                        {isLoadingMore ? 'Loading...' : 'Load More Samples'}
-                      </Button>
-                    </Box>
+                    {!isLoadingSamples &&
+                      !isGenerating &&
+                      localTestSamples.length > 0 && (
+                        <Box sx={{ textAlign: 'center', mt: 3 }}>
+                          <Button
+                            variant="outlined"
+                            startIcon={
+                              isLoadingMore ? (
+                                <CircularProgress size={16} />
+                              ) : (
+                                <AutoFixHighIcon />
+                              )
+                            }
+                            onClick={onLoadMoreSamples}
+                            disabled={isLoadingMore}
+                          >
+                            {isLoadingMore ? 'Loading...' : 'Load More Samples'}
+                          </Button>
+                        </Box>
+                      )}
                   </Box>
                 )}
               </CardContent>
@@ -1208,6 +1245,22 @@ export default function TestGenerationInterface({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowEndpointModal(false)}>Close</Button>
+          <Button
+            variant="contained"
+            startIcon={<PlayArrowIcon />}
+            onClick={() => {
+              setFetchTrigger(prev => prev + 1);
+              setShowEndpointModal(false);
+            }}
+            disabled={
+              !selectedEndpointId ||
+              localTestSamples.length === 0 ||
+              isFetchingResponses ||
+              isLoadingSamples
+            }
+          >
+            {isFetchingResponses ? 'Getting...' : 'Get Responses'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

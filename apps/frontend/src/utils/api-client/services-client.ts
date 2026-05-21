@@ -32,6 +32,8 @@ import { RecentActivitiesResponse } from './interfaces/activities';
 import {
   GenerateTestsRequest,
   GenerateTestsResponse,
+  TestPipelineEvent,
+  TestPipelineRequest,
 } from './interfaces/test-set';
 
 interface ChipState {
@@ -138,6 +140,69 @@ export interface CreateJiraTicketFromTaskResponse {
 }
 
 export class ServicesClient extends BaseApiClient {
+  private async *readNdjsonStream(
+    response: Response
+  ): AsyncGenerator<unknown, void, void> {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Streaming response body is not available.');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex = buffer.indexOf('\n');
+      while (newlineIndex !== -1) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line) {
+          yield JSON.parse(line) as unknown;
+        }
+        newlineIndex = buffer.indexOf('\n');
+      }
+    }
+
+    const remaining = buffer.trim();
+    if (remaining) {
+      yield JSON.parse(remaining) as unknown;
+    }
+  }
+
+  async generateTestPipelineStream(
+    request: TestPipelineRequest,
+    options: {
+      onEvent: (event: TestPipelineEvent) => void;
+      signal?: AbortSignal;
+    }
+  ): Promise<void> {
+    const headers = this.getHeaders();
+    const response = await fetch(
+      `${this.baseUrl}${API_ENDPOINTS.services}/generate/test_pipeline`,
+      {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: options.signal,
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(
+        `Test pipeline request failed (${response.status}): ${errorBody}`
+      );
+    }
+
+    for await (const event of this.readNdjsonStream(response)) {
+      options.onEvent(event as TestPipelineEvent);
+    }
+  }
+
   async getGitHubContents(repo_url: string): Promise<string> {
     return this.fetch<string>(
       `${API_ENDPOINTS.services}/github/contents?repo_url=${encodeURIComponent(repo_url)}`
