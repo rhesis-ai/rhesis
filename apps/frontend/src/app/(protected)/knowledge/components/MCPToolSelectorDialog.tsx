@@ -29,6 +29,8 @@ interface MCPToolSelectorDialogProps {
   onClose: () => void;
   onSelectTool: (tool: Tool) => void;
   sessionToken: string;
+  /** When true, render content only (no Dialog wrapper) for use inside a drawer */
+  embedded?: boolean;
 }
 
 export default function MCPToolSelectorDialog({
@@ -36,6 +38,7 @@ export default function MCPToolSelectorDialog({
   onClose,
   onSelectTool,
   sessionToken,
+  embedded = false,
 }: MCPToolSelectorDialogProps) {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,6 +123,61 @@ export default function MCPToolSelectorDialog({
     return <SmartToyIcon />;
   };
 
+  const content = (
+    <Box sx={{ mt: embedded ? 0 : 1 }}>
+      {loading ? (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '200px',
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : tools.length === 0 ? (
+        <Alert severity="info">
+          No MCP tools available. Please configure MCP tools in Settings &gt;
+          Integrations &gt; MCPs.
+        </Alert>
+      ) : (
+        <List>
+          {tools.map((tool, index) => (
+            <React.Fragment key={tool.id}>
+              {index > 0 && <Divider />}
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => handleSelectTool(tool)}>
+                  <ListItemIcon>{getToolIcon(tool)}</ListItemIcon>
+                  <ListItemText
+                    primary={tool.name}
+                    secondary={
+                      tool.tool_provider_type?.type_value
+                        ? tool.tool_provider_type.type_value
+                            .charAt(0)
+                            .toUpperCase() +
+                          tool.tool_provider_type.type_value.slice(1)
+                        : 'Unknown provider'
+                    }
+                    primaryTypographyProps={{ fontWeight: 500 }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            </React.Fragment>
+          ))}
+        </List>
+      )}
+    </Box>
+  );
+
+  if (embedded) {
+    return open ? content : null;
+  }
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
@@ -133,59 +191,7 @@ export default function MCPToolSelectorDialog({
           </IconButton>
         </Box>
       </DialogTitle>
-
-      <DialogContent>
-        <Box sx={{ mt: 1 }}>
-          {loading ? (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '200px',
-              }}
-            >
-              <CircularProgress />
-            </Box>
-          ) : error ? (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          ) : tools.length === 0 ? (
-            <Alert severity="info">
-              No MCP tools available. Please configure MCP tools in Settings
-              &gt; Integrations &gt; MCPs.
-            </Alert>
-          ) : (
-            <List>
-              {tools.map((tool, index) => (
-                <React.Fragment key={tool.id}>
-                  {index > 0 && <Divider />}
-                  <ListItem disablePadding>
-                    <ListItemButton onClick={() => handleSelectTool(tool)}>
-                      <ListItemIcon>{getToolIcon(tool)}</ListItemIcon>
-                      <ListItemText
-                        primary={tool.name}
-                        secondary={
-                          tool.tool_provider_type?.type_value
-                            ? tool.tool_provider_type.type_value
-                                .charAt(0)
-                                .toUpperCase() +
-                              tool.tool_provider_type.type_value.slice(1)
-                            : 'Unknown provider'
-                        }
-                        primaryTypographyProps={{ fontWeight: 500 }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                </React.Fragment>
-              ))}
-            </List>
-          )}
-        </Box>
-      </DialogContent>
-
-      {/* No footer actions – selection happens on click */}
+      <DialogContent>{content}</DialogContent>
     </Dialog>
   );
 }

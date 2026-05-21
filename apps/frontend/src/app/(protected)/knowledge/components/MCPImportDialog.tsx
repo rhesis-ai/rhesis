@@ -58,6 +58,8 @@ interface MCPImportDialogProps {
   onSuccess?: () => void;
   sessionToken: string;
   tool?: Tool | null;
+  /** When true, render content only (no Dialog wrapper) for use inside a drawer */
+  embedded?: boolean;
 }
 
 export default function MCPImportDialog({
@@ -67,6 +69,7 @@ export default function MCPImportDialog({
   onSuccess,
   sessionToken,
   tool,
+  embedded = false,
 }: MCPImportDialogProps) {
   const theme = useTheme();
   const [importMode, setImportMode] = useState<ImportMode>('search');
@@ -507,6 +510,314 @@ export default function MCPImportDialog({
 
   const isProcessing = searching || importing;
 
+  const footerActions = (
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexShrink: 0,
+        pt: 2,
+      }}
+    >
+      <Button
+        onClick={handleBack}
+        disabled={isProcessing}
+        startIcon={<ArrowBackIcon />}
+      >
+        Back
+      </Button>
+
+      {importMode === 'search' && searchResults.length > 0 && (
+        <Button
+          variant="contained"
+          onClick={handleImportAsSources}
+          disabled={selectedIds.size === 0 || importing}
+          startIcon={importing ? <CircularProgress size={20} /> : <SaveIcon />}
+        >
+          {importing
+            ? 'Importing...'
+            : `Import ${selectedIds.size} as Source${selectedIds.size !== 1 ? 's' : ''}`}
+        </Button>
+      )}
+
+      {importMode === 'url' && (
+        <Button
+          variant="contained"
+          onClick={handleImportUrls}
+          disabled={
+            importing ||
+            !urlItems.some(
+              item => item.url.trim() && item.status === 'pending'
+            ) ||
+            !tool
+          }
+          startIcon={importing ? <CircularProgress size={20} /> : <SaveIcon />}
+        >
+          {importing
+            ? 'Importing...'
+            : `Import ${urlItems.filter(item => item.url.trim() && item.status === 'pending').length} URL${urlItems.filter(item => item.url.trim() && item.status === 'pending').length !== 1 ? 's' : ''}`}
+        </Button>
+      )}
+    </Box>
+  );
+
+  const importContent = (
+    <>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+        {!tool && (
+          <Alert severity="error">
+            No MCP tool selected. Please select a tool first.
+          </Alert>
+        )}
+
+        {/* Import Mode Tabs */}
+        <Tabs
+          value={importMode}
+          onChange={(_, newValue) => {
+            setImportMode(newValue);
+            setError(null);
+          }}
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab
+            label="Search"
+            value="search"
+            icon={<SearchIcon />}
+            iconPosition="start"
+          />
+          <Tab
+            label="Direct Link"
+            value="url"
+            icon={<LinkIcon />}
+            iconPosition="start"
+          />
+        </Tabs>
+
+        {/* Search Section */}
+        {importMode === 'search' && (
+          <>
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                {tool?.tool_provider_type?.type_value === 'github' ? (
+                  <>
+                    Search{' '}
+                    {tool.tool_metadata?.repository ? (
+                      <strong>{tool.tool_metadata.repository.full_name}</strong>
+                    ) : (
+                      'GitHub'
+                    )}
+                  </>
+                ) : (
+                  <>
+                    Search{' '}
+                    {tool?.tool_provider_type?.type_value
+                      ? tool.tool_provider_type.type_value
+                          .charAt(0)
+                          .toUpperCase() +
+                        tool.tool_provider_type.type_value.slice(1)
+                      : 'MCP'}{' '}
+                    Pages
+                  </>
+                )}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  placeholder="Describe the content you want to import..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  disabled={isProcessing}
+                  autoFocus
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleSearch}
+                  disabled={isProcessing || !tool}
+                  startIcon={
+                    searching ? <CircularProgress size={20} /> : <SearchIcon />
+                  }
+                >
+                  {searching ? 'Searching...' : 'Search'}
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Error Display */}
+            {error && (
+              <Alert severity="error" onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
+
+            {/* Results Section */}
+            {searchResults.length > 0 && (
+              <Box>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="subtitle2">
+                    Search Results ({searchResults.length})
+                  </Typography>
+                  <Button size="small" onClick={handleSelectAll}>
+                    {selectedIds.size === searchResults.length
+                      ? 'Deselect All'
+                      : 'Select All'}
+                  </Button>
+                </Box>
+                <Paper
+                  variant="outlined"
+                  sx={{ maxHeight: '300px', overflow: 'auto' }}
+                >
+                  <List dense>
+                    {searchResults.map((item, index) => (
+                      <React.Fragment key={item.id}>
+                        {index > 0 && <Divider />}
+                        <ListItem disablePadding>
+                          <ListItemButton
+                            onClick={() => handleToggleSelection(item.id)}
+                            disabled={importing}
+                          >
+                            <ListItemIcon>
+                              <Checkbox
+                                edge="start"
+                                checked={selectedIds.has(item.id)}
+                                tabIndex={-1}
+                                disableRipple
+                              />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={item.title}
+                              secondary={
+                                <Box
+                                  component="a"
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={e => e.stopPropagation()}
+                                  sx={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                    color: 'primary.main',
+                                    textDecoration: 'none',
+                                    fontSize: theme.typography.body2.fontSize,
+                                    '&:hover': {
+                                      textDecoration: 'underline',
+                                    },
+                                  }}
+                                >
+                                  Open in{' '}
+                                  {tool?.tool_provider_type?.type_value
+                                    ? tool.tool_provider_type.type_value
+                                        .charAt(0)
+                                        .toUpperCase() +
+                                      tool.tool_provider_type.type_value.slice(
+                                        1
+                                      )
+                                    : 'MCP'}
+                                  <OpenInNewIcon
+                                    sx={{ fontSize: theme.iconSizes.small }}
+                                  />
+                                </Box>
+                              }
+                              primaryTypographyProps={{ fontWeight: 500 }}
+                            />
+                          </ListItemButton>
+                        </ListItem>
+                      </React.Fragment>
+                    ))}
+                  </List>
+                </Paper>
+              </Box>
+            )}
+          </>
+        )}
+
+        {/* Direct Link Section */}
+        {importMode === 'url' && (
+          <>
+            <Box>
+              {/* URL Input Fields */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {urlItems.map((item, _index) => (
+                  <TextField
+                    key={item.id}
+                    fullWidth
+                    placeholder={`Paste ${tool?.tool_provider_type?.type_value || 'resource'} URL...`}
+                    value={item.url}
+                    onChange={e => handleUrlChange(item.id, e.target.value)}
+                    disabled={item.status !== 'pending'}
+                    error={item.status === 'error'}
+                    helperText={
+                      item.status === 'error'
+                        ? item.error
+                        : item.status === 'success'
+                          ? `Imported as: ${item.title}`
+                          : ''
+                    }
+                    sx={{
+                      '& .MuiInputBase-root': {
+                        backgroundColor:
+                          item.status === 'success'
+                            ? theme.palette.success.light + '20'
+                            : item.status === 'error'
+                              ? theme.palette.error.light + '20'
+                              : undefined,
+                      },
+                    }}
+                    InputProps={{
+                      endAdornment:
+                        item.status === 'success' ? (
+                          <CheckCircleIcon color="success" />
+                        ) : item.status === 'error' ? (
+                          <ErrorIcon color="error" />
+                        ) : null,
+                    }}
+                  />
+                ))}
+
+                {/* Add More Button */}
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={handleAddUrlField}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  Add Another URL
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Error Display */}
+            {error && (
+              <Alert severity="error" onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
+          </>
+        )}
+      </Box>
+      {footerActions}
+    </>
+  );
+
+  if (embedded) {
+    return open ? (
+      <Box
+        sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+      >
+        {importContent}
+      </Box>
+    ) : null;
+  }
+
   return (
     <Dialog
       open={open}
@@ -528,303 +839,7 @@ export default function MCPImportDialog({
           </IconButton>
         </Box>
       </DialogTitle>
-
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-          {!tool && (
-            <Alert severity="error">
-              No MCP tool selected. Please select a tool first.
-            </Alert>
-          )}
-
-          {/* Import Mode Tabs */}
-          <Tabs
-            value={importMode}
-            onChange={(_, newValue) => {
-              setImportMode(newValue);
-              setError(null);
-            }}
-            sx={{ borderBottom: 1, borderColor: 'divider' }}
-          >
-            <Tab
-              label="Search"
-              value="search"
-              icon={<SearchIcon />}
-              iconPosition="start"
-            />
-            <Tab
-              label="Direct Link"
-              value="url"
-              icon={<LinkIcon />}
-              iconPosition="start"
-            />
-          </Tabs>
-
-          {/* Search Section */}
-          {importMode === 'search' && (
-            <>
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  {tool?.tool_provider_type?.type_value === 'github' ? (
-                    <>
-                      Search{' '}
-                      {tool.tool_metadata?.repository ? (
-                        <strong>
-                          {tool.tool_metadata.repository.full_name}
-                        </strong>
-                      ) : (
-                        'GitHub'
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      Search{' '}
-                      {tool?.tool_provider_type?.type_value
-                        ? tool.tool_provider_type.type_value
-                            .charAt(0)
-                            .toUpperCase() +
-                          tool.tool_provider_type.type_value.slice(1)
-                        : 'MCP'}{' '}
-                      Pages
-                    </>
-                  )}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <TextField
-                    fullWidth
-                    placeholder="Describe the content you want to import..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    disabled={isProcessing}
-                    autoFocus
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={handleSearch}
-                    disabled={isProcessing || !tool}
-                    startIcon={
-                      searching ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        <SearchIcon />
-                      )
-                    }
-                  >
-                    {searching ? 'Searching...' : 'Search'}
-                  </Button>
-                </Box>
-              </Box>
-
-              {/* Error Display */}
-              {error && (
-                <Alert severity="error" onClose={() => setError(null)}>
-                  {error}
-                </Alert>
-              )}
-
-              {/* Results Section */}
-              {searchResults.length > 0 && (
-                <Box>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      mb: 1,
-                    }}
-                  >
-                    <Typography variant="subtitle2">
-                      Search Results ({searchResults.length})
-                    </Typography>
-                    <Button size="small" onClick={handleSelectAll}>
-                      {selectedIds.size === searchResults.length
-                        ? 'Deselect All'
-                        : 'Select All'}
-                    </Button>
-                  </Box>
-                  <Paper
-                    variant="outlined"
-                    sx={{ maxHeight: '300px', overflow: 'auto' }}
-                  >
-                    <List dense>
-                      {searchResults.map((item, index) => (
-                        <React.Fragment key={item.id}>
-                          {index > 0 && <Divider />}
-                          <ListItem disablePadding>
-                            <ListItemButton
-                              onClick={() => handleToggleSelection(item.id)}
-                              disabled={importing}
-                            >
-                              <ListItemIcon>
-                                <Checkbox
-                                  edge="start"
-                                  checked={selectedIds.has(item.id)}
-                                  tabIndex={-1}
-                                  disableRipple
-                                />
-                              </ListItemIcon>
-                              <ListItemText
-                                primary={item.title}
-                                secondary={
-                                  <Box
-                                    component="a"
-                                    href={item.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={e => e.stopPropagation()}
-                                    sx={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 0.5,
-                                      color: 'primary.main',
-                                      textDecoration: 'none',
-                                      fontSize: theme.typography.body2.fontSize,
-                                      '&:hover': {
-                                        textDecoration: 'underline',
-                                      },
-                                    }}
-                                  >
-                                    Open in{' '}
-                                    {tool?.tool_provider_type?.type_value
-                                      ? tool.tool_provider_type.type_value
-                                          .charAt(0)
-                                          .toUpperCase() +
-                                        tool.tool_provider_type.type_value.slice(
-                                          1
-                                        )
-                                      : 'MCP'}
-                                    <OpenInNewIcon
-                                      sx={{ fontSize: theme.iconSizes.small }}
-                                    />
-                                  </Box>
-                                }
-                                primaryTypographyProps={{ fontWeight: 500 }}
-                              />
-                            </ListItemButton>
-                          </ListItem>
-                        </React.Fragment>
-                      ))}
-                    </List>
-                  </Paper>
-                </Box>
-              )}
-            </>
-          )}
-
-          {/* Direct Link Section */}
-          {importMode === 'url' && (
-            <>
-              <Box>
-                {/* URL Input Fields */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {urlItems.map((item, _index) => (
-                    <TextField
-                      key={item.id}
-                      fullWidth
-                      placeholder={`Paste ${tool?.tool_provider_type?.type_value || 'resource'} URL...`}
-                      value={item.url}
-                      onChange={e => handleUrlChange(item.id, e.target.value)}
-                      disabled={item.status !== 'pending'}
-                      error={item.status === 'error'}
-                      helperText={
-                        item.status === 'error'
-                          ? item.error
-                          : item.status === 'success'
-                            ? `Imported as: ${item.title}`
-                            : ''
-                      }
-                      sx={{
-                        '& .MuiInputBase-root': {
-                          backgroundColor:
-                            item.status === 'success'
-                              ? theme.palette.success.light + '20'
-                              : item.status === 'error'
-                                ? theme.palette.error.light + '20'
-                                : undefined,
-                        },
-                      }}
-                      InputProps={{
-                        endAdornment:
-                          item.status === 'success' ? (
-                            <CheckCircleIcon color="success" />
-                          ) : item.status === 'error' ? (
-                            <ErrorIcon color="error" />
-                          ) : null,
-                      }}
-                    />
-                  ))}
-
-                  {/* Add More Button */}
-                  <Button
-                    variant="outlined"
-                    startIcon={<AddIcon />}
-                    onClick={handleAddUrlField}
-                    sx={{ alignSelf: 'flex-start' }}
-                  >
-                    Add Another URL
-                  </Button>
-                </Box>
-              </Box>
-
-              {/* Error Display */}
-              {error && (
-                <Alert severity="error" onClose={() => setError(null)}>
-                  {error}
-                </Alert>
-              )}
-            </>
-          )}
-        </Box>
-      </DialogContent>
-
-      <DialogActions sx={{ p: 3, pt: 1, justifyContent: 'space-between' }}>
-        <Button
-          onClick={handleBack}
-          disabled={isProcessing}
-          startIcon={<ArrowBackIcon />}
-        >
-          Back
-        </Button>
-
-        {/* Search mode import button */}
-        {importMode === 'search' && searchResults.length > 0 && (
-          <Button
-            variant="contained"
-            onClick={handleImportAsSources}
-            disabled={selectedIds.size === 0 || importing}
-            startIcon={
-              importing ? <CircularProgress size={20} /> : <SaveIcon />
-            }
-          >
-            {importing
-              ? 'Importing...'
-              : `Import ${selectedIds.size} as Source${selectedIds.size !== 1 ? 's' : ''}`}
-          </Button>
-        )}
-
-        {/* URL mode import button */}
-        {importMode === 'url' && (
-          <Button
-            variant="contained"
-            onClick={handleImportUrls}
-            disabled={
-              importing ||
-              !urlItems.some(
-                item => item.url.trim() && item.status === 'pending'
-              ) ||
-              !tool
-            }
-            startIcon={
-              importing ? <CircularProgress size={20} /> : <SaveIcon />
-            }
-          >
-            {importing
-              ? 'Importing...'
-              : `Import ${urlItems.filter(item => item.url.trim() && item.status === 'pending').length} URL${urlItems.filter(item => item.url.trim() && item.status === 'pending').length !== 1 ? 's' : ''}`}
-          </Button>
-        )}
-      </DialogActions>
+      <DialogContent>{importContent}</DialogContent>
     </Dialog>
   );
 }
