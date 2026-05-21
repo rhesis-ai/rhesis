@@ -50,7 +50,9 @@ def _reduce_dimensions(X: np.ndarray, purpose: str) -> np.ndarray:
     max_neighbors = max(1, n_samples - 1)
 
     if purpose == "clustering":
-        n_components = max(2, min(50, n_samples - 1))
+        # n_components must be < n_samples; UMAP spectral init calls eigsh(k=n_components+1)
+        # so we cap at n_samples - 2 to satisfy k < N. Use random init to avoid eigsh entirely.
+        n_components = max(2, min(50, n_samples - 2)) if n_samples > 3 else 2
         n_neighbors = max(3, min(15, int(0.08 * n_samples)))
         n_neighbors = min(n_neighbors, max_neighbors)
         n_neighbors = max(2, n_neighbors)
@@ -62,7 +64,7 @@ def _reduce_dimensions(X: np.ndarray, purpose: str) -> np.ndarray:
     else:
         raise ValueError(f"Invalid purpose: {purpose}")
 
-    umap = UMAP(n_components=n_components, n_neighbors=n_neighbors, random_state=42)
+    umap = UMAP(n_components=n_components, n_neighbors=n_neighbors, random_state=42, init="random")
     return umap.fit_transform(X)
 
 
@@ -95,6 +97,20 @@ def _cluster_with_hdbscan(X: np.ndarray) -> tuple[np.ndarray, dict[int, np.ndarr
         centroids[int(cluster_id)] = X[mask].mean(axis=0)
 
     return cluster_ids, centroids
+
+
+_CLUSTER_LABEL_PROMPT = """\
+You name clusters of similar text items for a scatter-plot legend.
+
+Samples from one cluster:
+{samples}
+
+Reply with exactly ONE label for this cluster:
+- 1 to 3 words (short noun phrase describing the shared theme)
+- Plain text only: no markdown, bullets, numbering, asterisks, bold, quotes, or colons
+- No preamble, explanation, or multiple options — output the label alone
+
+Label:"""
 
 
 def _generate_cluster_labels(
@@ -145,7 +161,7 @@ def _generate_cluster_labels(
             continue
 
         combined_text = "\n".join(sample_text)
-        prompt = "Create a very short label for these items (1-2-3 words max): " + combined_text
+        prompt = _CLUSTER_LABEL_PROMPT.format(samples=combined_text)
 
         try:
             label = _model.generate(prompt)
@@ -269,7 +285,9 @@ def build_2d_graph(
     X = np.array([e.embedding for e in embeddings], dtype=np.float64)
 
     umap_50d = _reduce_dimensions(X, purpose="clustering")
-    umap_2d = _reduce_dimensions(X, purpose="visualization")
+    umap_2d = umap_50d if umap_50d.shape[1] == 2 else _reduce_dimensions(
+        umap_50d, purpose="visualization"
+        )
 
     cluster_ids, centroids = _cluster_with_hdbscan(umap_50d)
 
