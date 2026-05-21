@@ -4,10 +4,6 @@ Verifies that file information is rendered prominently in the system prompt
 and that the LLM receives clear instructions to use include_files=true.
 """
 
-from unittest.mock import MagicMock
-
-import pytest
-
 from rhesis.penelope.agent import PenelopeAgent
 from rhesis.penelope.prompts.system.system_assembly_jinja import get_system_prompt
 
