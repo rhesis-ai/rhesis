@@ -2,8 +2,19 @@
 
 import React, { useState } from 'react';
 import Box from '@mui/material/Box';
+import { usePathname } from 'next/navigation';
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from './sidebar-constants';
 import { GREYSCALE } from '@/styles/theme';
+
+/** Routes that use the full main column (no AppShell content padding). */
+const FULL_BLEED_PATH_PREFIXES = ['/architect'] as const;
+
+function isFullBleedRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return FULL_BLEED_PATH_PREFIXES.some(
+    prefix => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -38,6 +49,8 @@ export function useSidebarCollapse() {
 export function AppShell({ children, sidebar, topBar }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const toggle = () => setCollapsed(c => !c);
+  const pathname = usePathname();
+  const fullBleed = isFullBleedRoute(pathname);
 
   const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
 
@@ -102,7 +115,15 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
           <Box
             sx={{
               flex: 1,
-              p: 4,
+              minHeight: 0,
+              ...(fullBleed
+                ? {
+                    p: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                  }
+                : { p: 4 }),
             }}
           >
             {children}

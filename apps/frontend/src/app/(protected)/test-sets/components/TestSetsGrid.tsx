@@ -518,13 +518,17 @@ export default function TestSetsGrid({
       {
         field: 'name',
         headerName: 'Name',
-        flex: 1.5,
+        width: 200,
+        minWidth: 120,
+        resizable: true,
         filterable: true,
       },
       {
         field: 'behaviors',
         headerName: 'Behaviors',
-        flex: 1.0,
+        width: 160,
+        minWidth: 100,
+        resizable: true,
         renderCell: params => (
           <ChipContainer items={params.row.behaviors || []} />
         ),
@@ -532,7 +536,9 @@ export default function TestSetsGrid({
       {
         field: 'categories',
         headerName: 'Categories',
-        flex: 1.0,
+        width: 160,
+        minWidth: 100,
+        resizable: true,
         renderCell: params => (
           <ChipContainer items={params.row.categories || []} />
         ),
@@ -540,7 +546,9 @@ export default function TestSetsGrid({
       {
         field: 'testSetType',
         headerName: 'Type',
-        flex: 0.75,
+        width: 120,
+        minWidth: 90,
+        resizable: true,
         filterable: true,
         valueGetter: (_, row) => row.testSetType || '',
         renderCell: params =>
@@ -549,8 +557,9 @@ export default function TestSetsGrid({
       {
         field: 'created_at',
         headerName: 'Created',
-        flex: 0.8,
-        minWidth: 120,
+        width: 120,
+        minWidth: 100,
+        resizable: true,
         filterable: false,
         renderCell: params => (
           <Typography variant="body2" color="text.secondary">
@@ -561,13 +570,17 @@ export default function TestSetsGrid({
       {
         field: 'totalTests',
         headerName: 'Tests',
-        flex: 0.5,
+        width: 80,
+        minWidth: 60,
+        resizable: true,
         valueGetter: (_, row) => row.totalTests,
       },
       {
         field: 'creator',
         headerName: 'Creator',
-        flex: 0.75,
+        width: 160,
+        minWidth: 120,
+        resizable: true,
         sortable: true,
         filterable: true,
         valueGetter: (_, row) =>
@@ -598,6 +611,8 @@ export default function TestSetsGrid({
         field: 'counts.comments',
         headerName: 'Comments',
         width: 100,
+        minWidth: 80,
+        resizable: true,
         sortable: false,
         filterable: false,
         renderCell: params => {
@@ -615,6 +630,8 @@ export default function TestSetsGrid({
         field: 'counts.tasks',
         headerName: 'Tasks',
         width: 100,
+        minWidth: 80,
+        resizable: true,
         sortable: false,
         filterable: false,
         renderCell: params => {
@@ -632,6 +649,8 @@ export default function TestSetsGrid({
         field: 'sources',
         headerName: 'Sources',
         width: 80,
+        minWidth: 60,
+        resizable: true,
         sortable: false,
         filterable: false,
         align: 'center',
@@ -660,8 +679,9 @@ export default function TestSetsGrid({
       {
         field: 'tags',
         headerName: 'Tags',
-        flex: 1.5,
+        width: 180,
         minWidth: 140,
+        resizable: true,
         sortable: false,
         filterable: true,
         valueGetter: (_, row) =>

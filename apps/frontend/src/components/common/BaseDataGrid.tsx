@@ -151,6 +151,8 @@ interface BaseDataGridProps {
   toolbarSlot?: React.ComponentType;
   // Styling props
   disablePaperWrapper?: boolean;
+  /** Hide column resize handles (enabled by default). */
+  disableColumnResize?: boolean;
   // Initial state props
   initialState?: GridInitialState;
   // State persistence props
@@ -172,9 +174,6 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   },
   '& .MuiDataGrid-columnHeader': {
     fontWeight: 'bold',
-  },
-  '& .MuiDataGrid-columnSeparator': {
-    display: 'none',
   },
   '& .MuiDataGrid-cell': {
     display: 'flex',
@@ -374,6 +373,7 @@ export default function BaseDataGrid({
   enableQuickFilter = false,
   toolbarSlot,
   disablePaperWrapper = false,
+  disableColumnResize = false,
   initialState,
   persistState = false,
   storageKey,
@@ -801,11 +801,22 @@ export default function BaseDataGrid({
   if (!hideFooter) {
     resolvedSlots.footer = FigmaPaginationFooter;
   }
-  if (serverSideFiltering) {
-    resolvedSlots.toolbar = toolbarSlot ?? CustomToolbarWithFilters;
+  if (toolbarSlot) {
+    resolvedSlots.toolbar = toolbarSlot;
+  } else if (serverSideFiltering) {
+    resolvedSlots.toolbar = CustomToolbarWithFilters;
   } else if (enableQuickFilter) {
     resolvedSlots.toolbar = QuickFilterToolbar;
   }
+
+  const dataGridSx: SxProps<Theme> = [
+    disableColumnResize && {
+      '& .MuiDataGrid-columnSeparator': {
+        display: 'none',
+      },
+    },
+    _sx,
+  ].filter(Boolean) as SxProps<Theme>;
 
   return (
     <>
@@ -989,6 +1000,7 @@ export default function BaseDataGrid({
             disableVirtualization={false}
             loading={loading}
             slots={resolvedSlots}
+            sx={dataGridSx}
             onRowClick={
               enableEditing
                 ? undefined
@@ -1056,6 +1068,7 @@ export default function BaseDataGrid({
               disableVirtualization={false}
               loading={loading}
               slots={resolvedSlots}
+              sx={dataGridSx}
               onRowClick={
                 enableEditing
                   ? undefined

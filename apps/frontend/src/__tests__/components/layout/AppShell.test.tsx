@@ -2,7 +2,12 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { usePathname } from 'next/navigation';
 import { AppShell, SidebarCollapseContext } from '@/components/layout/AppShell';
+
+jest.mock('next/navigation', () => ({
+  usePathname: jest.fn(() => '/projects'),
+}));
 
 describe('AppShell', () => {
   it('renders without crashing', () => {
@@ -92,5 +97,31 @@ describe('AppShell', () => {
     expect(screen.getByTestId('collapsed-state')).toHaveTextContent(
       'collapsed'
     );
+  });
+
+  it('removes content padding on full-bleed routes', () => {
+    (usePathname as jest.Mock).mockReturnValue('/architect');
+
+    const { container } = render(
+      <AppShell sidebar={<div>Sidebar</div>}>
+        <div data-testid="page-content">Page Content</div>
+      </AppShell>
+    );
+
+    const contentWrapper = container.querySelector('main > div:last-child');
+    expect(contentWrapper).toHaveStyle({ padding: '0px' });
+  });
+
+  it('keeps default content padding on standard routes', () => {
+    (usePathname as jest.Mock).mockReturnValue('/projects');
+
+    const { container } = render(
+      <AppShell sidebar={<div>Sidebar</div>}>
+        <div>Content</div>
+      </AppShell>
+    );
+
+    const contentWrapper = container.querySelector('main > div:last-child');
+    expect(contentWrapper).toHaveStyle({ padding: '32px' });
   });
 });

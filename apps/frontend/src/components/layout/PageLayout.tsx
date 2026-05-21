@@ -31,11 +31,11 @@ export interface PageLayoutProps {
 
 /**
  * Standard page header + content wrapper.
- * Matches the Figma Overview Table View pattern (node 841:38312):
+ * Matches the Figma page header pattern (Top 841:38534, Section Text 841:38539):
  *
- *   [Breadcrumbs]          [Actions]
- *   [H4 Title]
- *   [Body L description]
+ *   [Breadcrumbs]                    (20px gap)
+ *   [H4 Title + Actions]             (56px min row height)
+ *   [Body L description]             (16px gap below title row)
  *
  *   [Content]
  */
@@ -121,7 +121,7 @@ export function PageLayout({
             </Breadcrumbs>
           )}
 
-          {/* Row 1: Title (left) + Actions (right) — always on same row */}
+          {/* Row 1: Title (left) + Actions (right) — Figma HL row is 56px tall */}
           {(title || actions) && (
             <Box
               sx={{
@@ -129,7 +129,8 @@ export function PageLayout({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 2,
-                mb: 0,
+                width: '100%',
+                minHeight: 56,
               }}
             >
               {title && (
@@ -164,11 +165,13 @@ export function PageLayout({
           {/* Row 2: Metadata strip */}
           {metadata && <Box sx={{ mt: 1 }}>{metadata}</Box>}
 
-          {/* Row 3: Description */}
+          {/* Row 3: Description — 16px below title row (Figma Section Text spacing) */}
           {description && (
             <Typography
               variant="bodyLReg"
               sx={{
+                mt: 2,
+                maxWidth: 800,
                 color: theme =>
                   theme.palette.mode === 'light'
                     ? GREYSCALE.light.body

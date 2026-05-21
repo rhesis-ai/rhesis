@@ -204,6 +204,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         field: 'title',
         headerName: 'Title',
         width: 300,
+        minWidth: 150,
+        resizable: true,
         renderCell: params => (
           <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
             {params.row.title}
@@ -214,6 +216,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         field: 'description',
         headerName: 'Description',
         width: 400,
+        minWidth: 150,
+        resizable: true,
         renderCell: params => (
           <Typography
             variant="body2"
@@ -232,6 +236,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         field: 'status',
         headerName: 'Status',
         width: 120,
+        minWidth: 90,
+        resizable: true,
         renderCell: params => {
           const getStatusColor = (
             status?: string
@@ -263,6 +269,8 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         field: 'assignee',
         headerName: 'Assignee',
         width: 150,
+        minWidth: 120,
+        resizable: true,
         renderCell: params => {
           if (!params.row.assignee?.name) {
             return null;

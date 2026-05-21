@@ -401,14 +401,18 @@ function TestRunsGrid({
       {
         field: 'name',
         headerName: 'Name',
-        flex: 1,
+        width: 180,
+        minWidth: 120,
+        resizable: true,
         filterable: true,
         valueGetter: (_, row) => row.name || '',
       },
       {
         field: 'test_configuration.test_set.name',
         headerName: 'Test Sets',
-        flex: 1,
+        width: 160,
+        minWidth: 100,
+        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           const testSet = row.test_configuration?.test_set;
@@ -418,7 +422,9 @@ function TestRunsGrid({
       {
         field: 'total_tests',
         headerName: 'Total Tests',
-        flex: 1,
+        width: 110,
+        minWidth: 80,
+        resizable: true,
         align: 'right',
         headerAlign: 'right',
         valueGetter: (_, row) => {
@@ -429,7 +435,9 @@ function TestRunsGrid({
       {
         field: 'test_set_type',
         headerName: 'Type',
-        flex: 1,
+        width: 120,
+        minWidth: 90,
+        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           return (
@@ -455,7 +463,9 @@ function TestRunsGrid({
       {
         field: 'status',
         headerName: 'Status',
-        flex: 1,
+        width: 120,
+        minWidth: 90,
+        resizable: true,
         renderCell: params => {
           const status = params.row.status?.name;
           if (!status) return null;
@@ -477,7 +487,9 @@ function TestRunsGrid({
       {
         field: 'user.name',
         headerName: 'Executor',
-        flex: 1,
+        width: 160,
+        minWidth: 120,
+        resizable: true,
         filterable: true,
         valueGetter: (_, row) => {
           const executor = row.user;
@@ -511,6 +523,8 @@ function TestRunsGrid({
         field: 'counts.comments',
         headerName: 'Comments',
         width: 100,
+        minWidth: 80,
+        resizable: true,
         sortable: false,
         filterable: false,
         renderCell: params => {
@@ -528,6 +542,8 @@ function TestRunsGrid({
         field: 'counts.tasks',
         headerName: 'Tasks',
         width: 100,
+        minWidth: 80,
+        resizable: true,
         sortable: false,
         filterable: false,
         renderCell: params => {
@@ -544,8 +560,9 @@ function TestRunsGrid({
       {
         field: 'tags',
         headerName: 'Tags',
-        flex: 1.5,
+        width: 180,
         minWidth: 140,
+        resizable: true,
         sortable: false,
         filterable: true,
         valueGetter: (_, row) => {

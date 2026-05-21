@@ -59,6 +59,8 @@ export default function ArchitectSidebar({
       <Box
         sx={{
           width: 48,
+          minHeight: '100%',
+          flexShrink: 0,
           borderRight: 1,
           borderColor: 'divider',
           display: 'flex',
@@ -87,6 +89,8 @@ export default function ArchitectSidebar({
     <Box
       sx={{
         width: 280,
+        minHeight: '100%',
+        flexShrink: 0,
         borderRight: 1,
         borderColor: 'divider',
         display: 'flex',
