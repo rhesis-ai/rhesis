@@ -1116,68 +1116,67 @@ export default function TestGenerationInterface({
 
                     {(isLoadingConfig || isLoadingSamples || isGenerating) && (
                       <Box>
-                        {[...Array(localTestSamples.length === 0 ? 3 : 1)].map(
-                          (_, i) => (
-                            <Card
-                              key={`skeleton-${i}`}
-                              elevation={0}
-                              sx={{
-                                mb: 2,
-                                borderRadius: theme => theme.shape.borderRadius,
-                                border: 1,
-                                borderColor: 'divider',
-                                bgcolor: 'background.paper',
-                              }}
+                        {(localTestSamples.length === 0
+                          ? ['initial-1', 'initial-2', 'initial-3']
+                          : ['loading']
+                        ).map(skeletonKey => (
+                          <Card
+                            key={`skeleton-${skeletonKey}`}
+                            elevation={0}
+                            sx={{
+                              mb: 2,
+                              borderRadius: theme => theme.shape.borderRadius,
+                              border: 1,
+                              borderColor: 'divider',
+                              bgcolor: 'background.paper',
+                            }}
+                          >
+                            <CardContent
+                              sx={{ p: 2, '&:last-child': { pb: 2 } }}
                             >
-                              <CardContent
-                                sx={{ p: 2, '&:last-child': { pb: 2 } }}
-                              >
-                                <Box
-                                  sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}
-                                >
-                                  <Skeleton
-                                    variant="rounded"
-                                    width="20%"
-                                    height={24}
-                                    sx={{
-                                      borderRadius: theme =>
-                                        theme.shape.borderRadius,
-                                    }}
-                                  />
-                                  <Skeleton
-                                    variant="rounded"
-                                    width="15%"
-                                    height={24}
-                                    sx={{
-                                      borderRadius: theme =>
-                                        theme.shape.borderRadius,
-                                    }}
-                                  />
-                                  <Skeleton
-                                    variant="rounded"
-                                    width="18%"
-                                    height={24}
-                                    sx={{
-                                      borderRadius: theme =>
-                                        theme.shape.borderRadius,
-                                    }}
-                                  />
-                                </Box>
+                              <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
                                 <Skeleton
                                   variant="rounded"
-                                  width="85%"
-                                  height={56}
+                                  width="20%"
+                                  height={24}
                                   sx={{
                                     borderRadius: theme =>
                                       theme.shape.borderRadius,
-                                    mb: 1,
                                   }}
                                 />
-                                <Skeleton variant="text" width="40%" />
-                              </CardContent>
-                            </Card>
-                          )
-                        )}
+                                <Skeleton
+                                  variant="rounded"
+                                  width="15%"
+                                  height={24}
+                                  sx={{
+                                    borderRadius: theme =>
+                                      theme.shape.borderRadius,
+                                  }}
+                                />
+                                <Skeleton
+                                  variant="rounded"
+                                  width="18%"
+                                  height={24}
+                                  sx={{
+                                    borderRadius: theme =>
+                                      theme.shape.borderRadius,
+                                  }}
+                                />
+                              </Box>
+                              <Skeleton
+                                variant="rounded"
+                                width="85%"
+                                height={56}
+                                sx={{
+                                  borderRadius: theme =>
+                                    theme.shape.borderRadius,
+                                  mb: 1,
+                                }}
+                              />
+                              <Skeleton variant="text" width="40%" />
+                            </CardContent>
+                          </Card>
+                        ))}
                       </Box>
                     )}
 
