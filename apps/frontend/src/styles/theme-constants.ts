@@ -12,6 +12,8 @@ export const GREYSCALE = {
     border: '#cdd2da',
     surface1: '#f7f8f9',
     surface2: '#eef0f3',
+    /** Figma Data Output Textfield fill (read-only ViewField) */
+    fieldSurface: '#f9f9fa',
   },
   dark: {
     title: '#e6edf3',
@@ -21,6 +23,8 @@ export const GREYSCALE = {
     border: '#30363d',
     surface1: '#161b22',
     surface2: '#0d1117',
+    /** Figma dark read-only field fill */
+    fieldSurface: '#2a2e36',
   },
 } as const;
 

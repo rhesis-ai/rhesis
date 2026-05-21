@@ -315,7 +315,7 @@ function TurnConfigEditor({
       {/* Value box — matches ViewField */}
       <Box
         sx={{
-          bgcolor: '#f9f9fa',
+          bgcolor: theme => theme.palette.greyscale.fieldSurface,
           borderRadius: '4px',
           pl: '16px',
           pr: '16px',

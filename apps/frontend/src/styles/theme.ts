@@ -509,6 +509,9 @@ const getDesignTokens = (mode: PaletteMode) => {
           root: {
             '& .MuiOutlinedInput-root': {
               borderRadius: 8,
+              ...(mode === 'dark' && {
+                backgroundColor: GREYSCALE.dark.fieldSurface,
+              }),
               '& fieldset': {
                 borderColor:
                   mode === 'light'
@@ -519,6 +522,10 @@ const getDesignTokens = (mode: PaletteMode) => {
                 borderColor: '#0080AF',
               },
             },
+            ...(mode === 'dark' && {
+              '& .MuiInputLabel-root': { color: GREYSCALE.dark.subtitle },
+              '& .MuiFormHelperText-root': { color: GREYSCALE.dark.subtitle },
+            }),
           },
         },
       },
@@ -526,10 +533,17 @@ const getDesignTokens = (mode: PaletteMode) => {
         styleOverrides: {
           root: {
             borderRadius: 8,
+            ...(mode === 'dark' && {
+              backgroundColor: GREYSCALE.dark.fieldSurface,
+              color: '#ffffff',
+            }),
           },
           notchedOutline: {
             borderColor:
               mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border,
+          },
+          input: {
+            ...(mode === 'dark' && { color: '#ffffff' }),
           },
         },
       },
@@ -661,6 +675,7 @@ declare module '@mui/material/styles' {
       border: string;
       surface1: string;
       surface2: string;
+      fieldSurface: string;
     };
   }
   interface PaletteOptions {
@@ -672,6 +687,7 @@ declare module '@mui/material/styles' {
       border?: string;
       surface1?: string;
       surface2?: string;
+      fieldSurface?: string;
     };
   }
 }

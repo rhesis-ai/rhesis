@@ -766,9 +766,7 @@ export function Sidebar() {
             paper: {
               sx: {
                 bgcolor: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.surface2
-                    : GREYSCALE.dark.surface2,
+                  theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
                 borderRadius: BORDER_RADIUS.lg,
                 boxShadow: ELEVATION.xs,
                 minWidth: 188,
@@ -800,14 +798,23 @@ export function Sidebar() {
             }}
           >
             <DarkModeOutlinedIcon
-              sx={{ fontSize: 24, color: GREYSCALE.light.body }}
+              sx={{
+                fontSize: 24,
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.body
+                    : '#ffffff',
+              }}
             />
             <Typography
               sx={{
                 fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
-                color: GREYSCALE.light.body,
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.body
+                    : '#ffffff',
               }}
             >
               {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
@@ -833,14 +840,23 @@ export function Sidebar() {
             }}
           >
             <ExitToAppOutlinedIcon
-              sx={{ fontSize: 24, color: GREYSCALE.light.body }}
+              sx={{
+                fontSize: 24,
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.body
+                    : '#ffffff',
+              }}
             />
             <Typography
               sx={{
                 fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
-                color: GREYSCALE.light.body,
+                color: theme =>
+                  theme.palette.mode === 'light'
+                    ? GREYSCALE.light.body
+                    : '#ffffff',
               }}
             >
               Sign Out

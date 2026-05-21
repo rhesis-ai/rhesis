@@ -223,6 +223,13 @@ function SortOnlyColumnMenu(props: GridColumnMenuProps) {
 const PaginationSizeContext = React.createContext<number[]>([10, 25, 50]);
 
 function FigmaPaginationFooter() {
+  const theme = useTheme();
+  const isLight = theme.palette.mode === 'light';
+  const textColor = isLight ? GREYSCALE.light.body : '#ffffff';
+  const mutedBorderColor = isLight
+    ? GREYSCALE.light.border
+    : GREYSCALE.dark.border;
+
   const apiRef = useGridApiContext();
   const paginationModel = useGridSelector(apiRef, gridPaginationModelSelector);
   const rowCount = useGridSelector(apiRef, gridRowCountSelector);
@@ -236,16 +243,16 @@ function FigmaPaginationFooter() {
 
   const navBtnSx = (active: boolean): SxProps<Theme> => ({
     border: '2px solid',
-    borderColor: active ? 'primary.main' : GREYSCALE.light.border,
+    borderColor: active ? 'primary.main' : mutedBorderColor,
     borderRadius: BORDER_RADIUS.sm,
     p: '9px',
     width: 38,
     height: 38,
     flexShrink: 0,
-    color: active ? 'primary.main' : GREYSCALE.light.border,
+    color: active ? 'primary.main' : mutedBorderColor,
     '&.Mui-disabled': {
-      borderColor: GREYSCALE.light.border,
-      color: GREYSCALE.light.border,
+      borderColor: mutedBorderColor,
+      color: mutedBorderColor,
       opacity: 1,
     },
     '&:hover': {
@@ -270,7 +277,7 @@ function FigmaPaginationFooter() {
           sx={{
             fontSize: 12,
             fontWeight: 600,
-            color: GREYSCALE.light.body,
+            color: textColor,
             whiteSpace: 'nowrap',
           }}
         >
@@ -286,7 +293,12 @@ function FigmaPaginationFooter() {
           }
           variant="standard"
           disableUnderline
-          sx={{ fontSize: 14, fontWeight: 700, color: GREYSCALE.light.body }}
+          sx={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: textColor,
+            '& .MuiSelect-icon': { color: textColor },
+          }}
         >
           {pageSizeOptions.map(opt => (
             <MenuItem key={opt} value={opt} sx={{ fontSize: 14 }}>
@@ -312,7 +324,7 @@ function FigmaPaginationFooter() {
           sx={{
             fontSize: 12,
             fontWeight: 600,
-            color: GREYSCALE.light.body,
+            color: textColor,
             whiteSpace: 'nowrap',
           }}
         >

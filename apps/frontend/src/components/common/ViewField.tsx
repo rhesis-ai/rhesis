@@ -1,6 +1,7 @@
 'use client';
 
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
+import { GREYSCALE } from '@/styles/theme';
 
 interface ViewFieldProps {
   label: string;
@@ -8,7 +9,7 @@ interface ViewFieldProps {
   helperText?: string;
   fullWidth?: boolean;
   multiline?: boolean;
-  /** Inner box background. Defaults to '#f9f9fa'. Pass 'transparent' for technical/code fields. */
+  /** Inner box background. Defaults to theme fieldSurface. Pass 'transparent' for technical/code fields. */
   bgcolor?: string;
   inputSx?: React.CSSProperties;
 }
@@ -24,9 +25,17 @@ export default function ViewField({
   value,
   helperText,
   multiline = false,
-  bgcolor = '#f9f9fa',
+  bgcolor,
   inputSx,
 }: ViewFieldProps) {
+  const theme = useTheme();
+  const isLight = theme.palette.mode === 'light';
+  const defaultBg = isLight
+    ? GREYSCALE.light.fieldSurface
+    : GREYSCALE.dark.fieldSurface;
+  const resolvedBg = bgcolor ?? defaultBg;
+  const valueColor = isLight ? GREYSCALE.light.body : '#ffffff';
+
   const displayValue =
     value !== null && value !== undefined && value !== '' ? String(value) : '—';
 
@@ -49,7 +58,7 @@ export default function ViewField({
       {/* Value box */}
       <Box
         sx={{
-          bgcolor,
+          bgcolor: resolvedBg,
           borderRadius: '4px',
           pl: '16px',
           pr: '12px',
@@ -62,7 +71,7 @@ export default function ViewField({
           sx={{
             fontSize: 16,
             lineHeight: '24px',
-            color: theme => theme.palette.greyscale.body,
+            color: valueColor,
             whiteSpace: multiline ? 'pre-wrap' : 'normal',
             wordBreak: 'break-word',
             ...inputSx,

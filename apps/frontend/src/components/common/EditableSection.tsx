@@ -9,6 +9,7 @@ import {
   Typography,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
+import { GREYSCALE, ELEVATION, BORDER_RADIUS } from '@/styles/theme';
 
 interface EditableSectionProps<T> {
   title: string;
@@ -102,9 +103,17 @@ export function EditableSection<T>({
       sx={{
         p: '30px',
         mb: 3,
-        border: '1px solid #cdd2da',
-        borderRadius: '12px',
-        boxShadow: '0px 2px 2px rgba(84, 90, 101, 0.25)',
+        border: theme =>
+          `1px solid ${
+            theme.palette.mode === 'light'
+              ? GREYSCALE.light.border
+              : GREYSCALE.dark.border
+          }`,
+        borderRadius: BORDER_RADIUS.md,
+        boxShadow: theme =>
+          theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
+        bgcolor: theme =>
+          theme.palette.mode === 'light' ? '#ffffff' : GREYSCALE.dark.surface1,
       }}
     >
       {/* Card header */}
