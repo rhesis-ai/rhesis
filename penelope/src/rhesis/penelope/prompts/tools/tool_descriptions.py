@@ -103,6 +103,19 @@ IMPORTANT NOTES:
   - New conversation: Omit conversation_id to start fresh
   - Conversations may expire after inactivity (typically 1 hour)
 
+⚠ File Attachments:
+  - When files are attached to this test, you MUST set include_files=true to
+    send them to the target. Files are NOT sent automatically.
+  - Default behavior: include files on your FIRST message unless the test
+    instructions specifically say to withhold them.
+  - Set include_files=true in the parameters to attach all available files.
+  - Set include_files=false or omit it to send a message without files.
+  - Example with files:
+    >>> send_message_to_target(
+    ...     message="Please review the attached document.",
+    ...     include_files=true
+    ... )
+
 ⚠ Error Handling:
   - If success=false, check the error field for details
   - Network errors will be retried automatically (up to 3 times)

@@ -245,6 +245,18 @@ class ToolCall(BaseModel):
                 },
                 {
                     "reasoning": (
+                        "Files are attached to this test. I need to send the "
+                        "document to the target on my first message so it can "
+                        "process the content."
+                    ),
+                    "tool_name": "send_message_to_target",
+                    "parameters": {
+                        "message": "Please review the attached document.",
+                        "include_files": True,
+                    },
+                },
+                {
+                    "reasoning": (
                         "I want to analyze the chatbot's previous response "
                         "for tone and professionalism."
                     ),
