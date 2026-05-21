@@ -3884,11 +3884,11 @@ def _build_trace_search_conditions(pattern: str):
         models.Trace.trace_id.ilike(pattern),
         models.Trace.span_name.ilike(pattern),
         models.Trace.status_message.ilike(pattern),
-        attrs[EndpointAttributes.ENDPOINT_NAME].astext.ilike(pattern),
-        attrs[EndpointAttributes.ENDPOINT_URL].astext.ilike(pattern),
-        attrs[EndpointAttributes.CONVERSATION_INPUT].astext.ilike(pattern),
-        attrs[EndpointAttributes.CONVERSATION_OUTPUT].astext.ilike(pattern),
-        attrs[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW].astext.ilike(pattern),
+        attrs[EndpointAttributes.ENDPOINT_NAME].as_string().ilike(pattern),
+        attrs[EndpointAttributes.ENDPOINT_URL].as_string().ilike(pattern),
+        attrs[EndpointAttributes.CONVERSATION_INPUT].as_string().ilike(pattern),
+        attrs[EndpointAttributes.CONVERSATION_OUTPUT].as_string().ilike(pattern),
+        attrs[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW].as_string().ilike(pattern),
     )
 
 
