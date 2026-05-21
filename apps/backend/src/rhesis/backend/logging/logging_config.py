@@ -3,6 +3,8 @@ import logging
 import os
 import re
 import sys
+from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -232,15 +234,13 @@ def set_logger():
     # default lastResort handler) so we control all output.
     root_logger.handlers.clear()
 
-    json_console_handler = logging.StreamHandler(stream=sys.stdout)
-    json_console_handler.setLevel(LOG_LEVEL)
-    json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
-    root_logger.addHandler(json_console_handler)
+    if ENVIRONMENT == "production":
+        json_console_handler = logging.StreamHandler(stream=sys.stdout)
+        json_console_handler.setLevel(LOG_LEVEL)
+        json_console_handler.setFormatter(RedactingFormatter(JsonLogFormatter()))
+        root_logger.addHandler(json_console_handler)
 
     if ENVIRONMENT in ("local", "development"):
-        from datetime import datetime
-        from pathlib import Path
-
         color_console_handler = logging.StreamHandler(stream=sys.stdout)
         color_console_handler.setLevel(LOG_LEVEL)
         color_console_handler.setFormatter(RedactingFormatter(_create_color_formatter()))
