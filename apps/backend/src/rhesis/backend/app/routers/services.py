@@ -30,6 +30,7 @@ from rhesis.backend.app.schemas.services import (
     TestConfigResponse,
     TestMCPConnectionRequest,
     TestMCPConnectionResponse,
+    TestPipelineRequest,
     TextResponse,
 )
 from rhesis.backend.app.services.activities import RecentActivitiesService
@@ -52,6 +53,9 @@ from rhesis.backend.app.services.mcp import (
     search_mcp,
 )
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
+from rhesis.backend.app.services.test_generation_pipeline import (
+    test_generation_pipeline_stream,
+)
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
 
 logger = logging.getLogger(__name__)
@@ -453,6 +457,40 @@ async def generate_text(prompt_request: PromptRequest):
         error_msg = str(e) if str(e) else "Unknown error"
         logger.error(f"Failed to generate text: {error_msg}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Failed to generate text: {error_msg}")
+
+
+@router.post("/generate/test_pipeline")
+async def test_pipeline_endpoint(
+    request: TestPipelineRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Stream config and test generation as NDJSON events."""
+    organization_id, _ = tenant_context
+    model_id_str = str(request.model_id) if request.model_id else None
+
+    async def _stream():
+        async for chunk in test_generation_pipeline_stream(
+            db=db,
+            user=current_user,
+            prompt=request.prompt,
+            organization_id=organization_id,
+            project_id=(
+                str(request.project_id) if request.project_id else None
+            ),
+            previous_messages=request.previous_messages,
+            test_type=request.test_type,
+            num_tests=request.num_tests,
+            sources=request.sources,
+            model_id=model_id_str,
+            config=request.config,
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        _stream(), media_type="application/x-ndjson"
+    )
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)

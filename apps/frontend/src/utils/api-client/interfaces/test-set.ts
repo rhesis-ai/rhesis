@@ -363,6 +363,55 @@ export interface TestSetGenerationRequest extends GenerateTestsRequest {
 /** @deprecated Use GenerateTestSetResponse instead */
 export type TestSetGenerationResponse = GenerateTestSetResponse;
 
+// ── Streaming test pipeline types ──
+
+export interface IterationMessage {
+  content: string;
+  timestamp: string;
+  chip_states?: Array<{
+    label: string;
+    description: string;
+    active: boolean;
+    category: string;
+  }>;
+}
+
+export interface TestPipelineConfig {
+  behaviors: Array<{ name: string; description: string; active: boolean }>;
+  topics: Array<{ name: string; description: string; active: boolean }>;
+  categories: Array<{ name: string; description: string; active: boolean }>;
+}
+
+export interface TestPipelineRequest {
+  prompt: string;
+  project_id?: string;
+  previous_messages?: IterationMessage[];
+  test_type?: string;
+  num_tests?: number;
+  sources?: SourceData[];
+  model_id?: string;
+  config?: TestPipelineConfig;
+}
+
+export type TestPipelineEvent =
+  | {
+      type: 'config_item';
+      category: 'behaviors' | 'topics' | 'categories';
+      name: string;
+      description: string;
+      active: boolean;
+    }
+  | { type: 'config_done'; total: number }
+  | {
+      type: 'test';
+      index: number;
+      test: Record<string, unknown>;
+      test_type: string;
+    }
+  | { type: 'tests_done'; total: number }
+  | { type: 'error'; phase: string; message: string }
+  | { type: 'done' };
+
 /** Summary of the most recent test run for a test set + endpoint combo. */
 export interface LastTestRunSummary {
   id: string;

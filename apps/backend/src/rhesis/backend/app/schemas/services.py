@@ -177,12 +177,6 @@ class GenerateEmbeddingRequest(BaseModel):
     text: str
 
 
-class TestConfigRequest(BaseModel):
-    prompt: str
-    project_id: Optional[UUID4] = None
-    previous_messages: Optional[List[IterationMessage]] = None
-
-
 class TestConfigItem(BaseModel):
     name: str
     description: str
@@ -192,6 +186,37 @@ class TestConfigItem(BaseModel):
 class TestConfigResponse(BaseModel):
     behaviors: List[TestConfigItem]
     topics: List[TestConfigItem]
+    categories: List[TestConfigItem]
+
+
+class TestPipelineRequest(BaseModel):
+    """Unified streaming request for config + test generation pipeline."""
+
+    prompt: str
+    project_id: Optional[UUID4] = None
+    previous_messages: Optional[List[IterationMessage]] = None
+    test_type: str = "single_turn"
+    num_tests: int = Field(default=5, ge=1, le=20)
+    sources: Optional[List[SourceData]] = None
+    model_id: Optional[UUID4] = None
+    config: Optional[TestConfigResponse] = None
+
+
+class TestConfigRequest(BaseModel):
+    prompt: str
+    project_id: Optional[UUID4] = None
+    previous_messages: Optional[List[IterationMessage]] = None
+
+
+class BehaviorsResponse(BaseModel):
+    behaviors: List[TestConfigItem]
+
+
+class TopicsResponse(BaseModel):
+    topics: List[TestConfigItem]
+
+
+class CategoriesResponse(BaseModel):
     categories: List[TestConfigItem]
 
 

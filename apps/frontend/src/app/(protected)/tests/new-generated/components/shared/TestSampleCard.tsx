@@ -13,6 +13,7 @@ import {
   Fade,
   Button,
   Collapse,
+  Skeleton,
 } from '@mui/material';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
@@ -352,13 +353,9 @@ export default function TestSampleCard({
                     }}
                   >
                     {sample.isLoadingResponse ? (
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                      >
-                        <CircularProgress size={16} />
-                        <Typography variant="body2" color="text.secondary">
-                          Loading response...
-                        </Typography>
+                      <Box sx={{ minWidth: theme => theme.spacing(30) }}>
+                        <Skeleton variant="text" width="90%" />
+                        <Skeleton variant="text" width="70%" />
                       </Box>
                     ) : sample.responseError ? (
                       <Typography variant="body2" color="error.main">
@@ -464,19 +461,9 @@ export default function TestSampleCard({
               }}
             >
               {sample.isLoadingConversation ? (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    px: 2,
-                    py: 1,
-                  }}
-                >
-                  <CircularProgress size={16} />
-                  <Typography variant="body2" color="text.secondary">
-                    Simulating conversation...
-                  </Typography>
+                <Box sx={{ px: 2, py: 1, minWidth: theme => theme.spacing(30) }}>
+                  <Skeleton variant="text" width="90%" />
+                  <Skeleton variant="text" width="60%" />
                 </Box>
               ) : sample.conversationError ? (
                 <Typography variant="body2" color="error.main">
