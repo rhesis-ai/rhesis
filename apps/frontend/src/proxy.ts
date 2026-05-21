@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from './auth';
-import { isPublicPath, ONBOARDING_PATH } from './constants/paths';
+import {
+  DEFAULT_AUTHENTICATED_PATH,
+  isPublicPath,
+  ONBOARDING_PATH,
+} from './constants/paths';
 import { getServerBackendUrl } from './utils/url-resolver';
 
 // Helper function to verify token with backend
@@ -195,7 +199,9 @@ export async function proxy(request: NextRequest) {
     }
 
     if (pathname === ONBOARDING_PATH && session?.user?.organization_id) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      return NextResponse.redirect(
+        new URL(DEFAULT_AUTHENTICATED_PATH, request.url)
+      );
     }
 
     return NextResponse.next();

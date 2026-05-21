@@ -115,7 +115,7 @@ class TestGetAuthorizationUrl:
             code_verifier="test-verifier",
             code_challenge="test-challenge",
             nonce="test-nonce",
-            return_to="/dashboard",
+            return_to="/architect",
         )
 
         assert "response_type=code" in url

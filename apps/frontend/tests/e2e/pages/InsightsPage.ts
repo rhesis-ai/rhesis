@@ -2,9 +2,9 @@ import { type Page, expect } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 /**
- * @deprecated Test Results overview moved to /insights. /test-results redirects.
+ * Page Object for the Insights page (/insights).
  */
-export class TestResultsPage extends BasePage {
+export class InsightsPage extends BasePage {
   constructor(page: Page) {
     super(page);
   }
@@ -22,13 +22,21 @@ export class TestResultsPage extends BasePage {
     await this.expectHeading(/insights/i);
   }
 
-  /**
-   * Assert the overview dashboard rendered (filters, charts, or data) — not
-   * just that <main> exists but that the page description text is visible.
-   */
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
     const mainContent = this.page.locator('main, [role="main"]').first();
     await expect(mainContent).toBeVisible({ timeout: 10_000 });
+
+    const bodyText = await this.page.locator('body').innerText();
+    expect(bodyText.trim().length).toBeGreaterThan(20);
+  }
+
+  async navigateTo(itemText: string) {
+    const navItem = this.page
+      .locator('nav')
+      .getByRole('link', { name: itemText });
+    await navItem.waitFor({ state: 'visible', timeout: 10_000 });
+    await navItem.scrollIntoViewIfNeeded();
+    await navItem.click();
   }
 }

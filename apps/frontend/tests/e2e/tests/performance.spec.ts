@@ -23,7 +23,8 @@ import {
  */
 
 const perfRoutes = [
-  { path: '/dashboard', name: 'Dashboard' },
+  { path: '/insights', name: 'Insights' },
+  { path: '/architect', name: 'Architect' },
   { path: '/projects', name: 'Projects' },
   { path: '/knowledge', name: 'Knowledge' },
   { path: '/behaviors', name: 'Behaviors' },

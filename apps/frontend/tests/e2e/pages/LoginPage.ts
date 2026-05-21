@@ -3,7 +3,7 @@ import { type Page, expect } from '@playwright/test';
 /**
  * Page Object for the landing/login page.
  *
- * In Quick Start mode the app auto-logs in and redirects to /dashboard,
+ * In Quick Start mode the app auto-logs in and redirects to /architect,
  * so the primary action here is simply navigating to "/" and waiting
  * for the redirect to complete.
  */
@@ -18,16 +18,16 @@ export class LoginPage {
   /**
    * Wait for the Quick Start auto-login to complete.
    * The app POSTs to /auth/local-login, signs in via NextAuth,
-   * and redirects to /dashboard.
+   * and redirects to /architect.
    */
   async waitForQuickStartLogin(timeoutMs = 30_000) {
-    await this.page.waitForURL('**/dashboard', { timeout: timeoutMs });
+    await this.page.waitForURL('**/architect', { timeout: timeoutMs });
   }
 
   /** Perform the full Quick Start login flow. */
   async loginViaQuickStart() {
     await this.goto();
     await this.waitForQuickStartLogin();
-    await expect(this.page).toHaveURL(/\/dashboard/);
+    await expect(this.page).toHaveURL(/\/architect/);
   }
 }

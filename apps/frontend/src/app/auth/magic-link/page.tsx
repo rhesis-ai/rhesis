@@ -62,7 +62,7 @@ export default function MagicLinkPage() {
           }
 
           const redirectTo = data.user?.organization_id
-            ? '/dashboard'
+            ? '/architect'
             : '/onboarding';
           window.location.href = redirectTo;
           return;

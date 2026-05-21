@@ -255,7 +255,7 @@ def _get_state_signing_key() -> bytes:
 def create_signed_state(
     org_id: str,
     nonce: str,
-    return_to: str = "/dashboard",
+    return_to: str = "/architect",
 ) -> str:
     """Create a signed, base64url-encoded state parameter.
 
@@ -476,7 +476,7 @@ class OIDCProvider(AuthProvider):
         code_verifier: str = "",
         code_challenge: str = "",
         nonce: str = "",
-        return_to: str = "/dashboard",
+        return_to: str = "/architect",
     ) -> str:
         """Build the IdP authorization URL with PKCE and signed state."""
         if not self.is_enabled:

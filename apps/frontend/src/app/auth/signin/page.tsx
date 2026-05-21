@@ -81,7 +81,7 @@ export default function SignIn() {
           }
 
           setStatus('Authentication successful, redirecting...');
-          const returnTo = searchParams.get('return_to') || '/dashboard';
+          const returnTo = searchParams.get('return_to') || '/architect';
           window.location.href = returnTo;
           return;
         }

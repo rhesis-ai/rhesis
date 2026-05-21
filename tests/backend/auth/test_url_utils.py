@@ -13,7 +13,7 @@ import pytest
 from rhesis.backend.app.auth.url_utils import build_redirect_url
 
 
-def _make_request(original_frontend=None, return_to="/dashboard"):
+def _make_request(original_frontend=None, return_to="/architect"):
     """Create a mock Request with session data."""
     session = {}
     if original_frontend:

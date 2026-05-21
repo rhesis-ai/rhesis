@@ -1,19 +1,16 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Box, useTheme } from '@mui/material';
+import { Box } from '@mui/material';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import TestResultsFilters from './TestResultsFilters';
 import TestResultsCharts from './TestResultsCharts';
 
-interface TestResultsDashboardProps {
+interface InsightsPageProps {
   sessionToken: string;
 }
 
-export default function TestResultsDashboard({
-  sessionToken,
-}: TestResultsDashboardProps) {
-  const _theme = useTheme();
+export default function InsightsPage({ sessionToken }: InsightsPageProps) {
   const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>({
     months: 1,
   });
@@ -38,15 +35,14 @@ export default function TestResultsDashboard({
         gap: 3,
       }}
     >
-      {/* Filters */}
       <TestResultsFilters
         onFiltersChange={handleFiltersChange}
         onSearchChange={handleSearchChange}
         initialFilters={filters}
         sessionToken={sessionToken}
+        searchPlaceholder="Search runs on Overview..."
       />
 
-      {/* Charts - Each chart makes its own API call in parallel */}
       <TestResultsCharts
         sessionToken={sessionToken}
         filters={filters}

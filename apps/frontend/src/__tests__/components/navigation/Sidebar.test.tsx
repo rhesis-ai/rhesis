@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 
 // ── module mocks (must be declared before importing the component) ─────────
 jest.mock('next/navigation', () => ({
-  usePathname: jest.fn(() => '/dashboard'),
+  usePathname: jest.fn(() => '/insights'),
 }));
 
 jest.mock('next-auth/react', () => ({
@@ -40,7 +40,7 @@ import type { NavigationItem } from '@/types/navigation';
 function setupMocks({
   navigation = [] as NavigationItem[],
   isSuperuser = false,
-  pathname = '/dashboard',
+  pathname = '/insights',
 } = {}) {
   (usePathname as jest.Mock).mockReturnValue(pathname);
   (useSession as jest.Mock).mockReturnValue({
@@ -88,7 +88,7 @@ describe('Sidebar', () => {
   // ── Fix 3 regression: requireSuperuser filtering ───────────────────────
   describe('requireSuperuser filtering', () => {
     const navigation: NavigationItem[] = [
-      { kind: 'page', segment: 'dashboard', title: 'Dashboard' },
+      { kind: 'page', segment: 'insights', title: 'Insights' },
       {
         kind: 'page',
         segment: 'metrics',
@@ -162,7 +162,7 @@ describe('Sidebar', () => {
   });
 
   it('falls back to "User" when session has no name', () => {
-    (usePathname as jest.Mock).mockReturnValue('/dashboard');
+    (usePathname as jest.Mock).mockReturnValue('/insights');
     (useSession as jest.Mock).mockReturnValue({
       data: { user: { email: 'test@example.com' } },
     });

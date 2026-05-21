@@ -41,7 +41,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
 /**
  * Path that triggers collapsed state for onboarding checklist
  */
-export const ONBOARDING_COLLAPSE_PATH = '/dashboard';
+export const ONBOARDING_COLLAPSE_PATH = '/architect';
 
 /**
  * Extended DriveStep with completion tracking

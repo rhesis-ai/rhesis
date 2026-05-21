@@ -10,7 +10,6 @@ import '../styles/fonts.css';
 // settings page, so registry state is populated wherever it is read.
 import '../ee_bootstrap';
 import {
-  DashboardIcon,
   ScienceIcon,
   AppsIcon,
   VpnKeyIcon,
@@ -77,12 +76,11 @@ async function getNavigationItems(
   }
 
   const navItems = [
-    // Dashboard — standalone, no section header
     {
       kind: 'page',
-      segment: 'dashboard',
-      title: 'Dashboard',
-      icon: <DashboardIcon key="dashboard-icon" />,
+      segment: 'insights',
+      title: 'Insights',
+      icon: <AssessmentIcon key="insights-icon" />,
     },
     {
       kind: 'page',
@@ -153,12 +151,6 @@ async function getNavigationItems(
     {
       kind: 'header',
       title: 'Improve',
-    },
-    {
-      kind: 'page',
-      segment: 'test-results',
-      title: 'Insights',
-      icon: <AssessmentIcon key="test-results-icon" />,
     },
     {
       kind: 'page',
@@ -261,7 +253,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   const branding: BrandingProps = {
     title: organizationName,
     logo: <ThemeAwareLogo />,
-    homeUrl: '/dashboard',
+    homeUrl: '/architect',
   };
 
   return (

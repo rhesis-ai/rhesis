@@ -8,7 +8,7 @@ import LatestResultsPieChart from './LatestResultsPieChart';
 import LatestTestRunsChart from './LatestTestRunsChart';
 import DimensionRadarChart from './DimensionRadarChart';
 import MetricTimelineChartsGrid from './MetricTimelineChartsGrid';
-import TestResultsSummary from './TestResultsSummary';
+import DashboardOverview from './dashboard/DashboardOverview';
 
 interface TestResultsChartsProps {
   sessionToken: string;
@@ -22,18 +22,23 @@ interface TabPanelProps {
   value: number;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
+function TabPanel(props: TabPanelProps & { keepMounted?: boolean }) {
+  const { children, value, index, keepMounted, ...other } = props;
+  const isActive = value === index;
 
   return (
     <div
       role="tabpanel"
-      hidden={value !== index}
+      hidden={!isActive}
       id={`charts-tabpanel-${index}`}
       aria-labelledby={`charts-tab-${index}`}
       {...other}
     >
-      {value === index && <Box>{children}</Box>}
+      {keepMounted ? (
+        <Box sx={{ display: isActive ? 'block' : 'none' }}>{children}</Box>
+      ) : (
+        isActive && <Box>{children}</Box>
+      )}
     </div>
   );
 }
@@ -75,9 +80,8 @@ export default function TestResultsCharts({
         <Tab label="Metrics" {...a11yProps(3)} />
       </Tabs>
 
-      <TabPanel value={value} index={0}>
-        {/* Summary Tab - Test Run Summary and Metadata */}
-        <TestResultsSummary
+      <TabPanel value={value} index={0} keepMounted>
+        <DashboardOverview
           sessionToken={sessionToken}
           filters={filters}
           searchValue={searchValue}

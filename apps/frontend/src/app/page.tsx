@@ -57,7 +57,7 @@ export default function LandingPage() {
                   session_token: data.session_token,
                   refresh_token: data.refresh_token || '',
                   redirect: true,
-                  callbackUrl: '/dashboard',
+                  callbackUrl: '/architect',
                 });
               } else {
                 console.error('Local auto-login failed');
@@ -113,7 +113,7 @@ export default function LandingPage() {
             const data = await response.json();
             if (data.authenticated && data.user) {
               setBackendSessionValid(true);
-              router.replace('/dashboard');
+              router.replace('/architect');
               return;
             }
           }

@@ -38,9 +38,12 @@ import {
   getTestRunStatusColor,
   getTestRunStatusIcon,
 } from '@/components/common/TestRunStatus';
+import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 
 interface TestRunPerformanceProps {
   sessionToken: string;
+  filters?: Partial<TestResultsStatsOptions>;
+  searchValue?: string;
   onLoadComplete?: () => void;
   limit?: number;
 }
@@ -56,6 +59,8 @@ const calculatePassRate = (testRun: TestRunWithStats): number => {
 
 export default function TestRunPerformance({
   sessionToken,
+  filters = {},
+  searchValue = '',
   onLoadComplete,
   limit: propLimit,
 }: TestRunPerformanceProps) {
@@ -86,12 +91,17 @@ export default function TestRunPerformance({
 
       const limit = propLimit ?? calculateLimit();
 
-      // Fetch test runs with proper details including test_set
+      const testSetId = filters.test_set_ids?.[0];
       const response = await testRunsClient.getTestRuns({
         skip: 0,
         limit: limit,
         sort_by: 'created_at',
         sort_order: 'desc',
+        ...(testSetId
+          ? {
+              filter: `test_configuration/test_set/id eq '${testSetId}'`,
+            }
+          : {}),
       });
 
       if (response.data.length === 0) {
@@ -123,11 +133,30 @@ export default function TestRunPerformance({
           stats: statsMap.get(testRun.id) || null,
         }));
 
-        setTestRuns(testRunsWithStats);
+        let runs = testRunsWithStats;
+        if (searchValue.trim()) {
+          const query = searchValue.trim().toLowerCase();
+          runs = runs.filter(run => {
+            const name = run.name?.toLowerCase() ?? '';
+            const testSetName =
+              run.test_configuration?.test_set?.name?.toLowerCase() ?? '';
+            return name.includes(query) || testSetName.includes(query);
+          });
+        }
+        setTestRuns(runs);
       } catch (error) {
         console.error('Failed to fetch test run stats:', error);
-        // Fallback: return runs without stats
-        setTestRuns(response.data.map(run => ({ ...run, stats: null })));
+        let runs = response.data.map(run => ({ ...run, stats: null }));
+        if (searchValue.trim()) {
+          const query = searchValue.trim().toLowerCase();
+          runs = runs.filter(run => {
+            const name = run.name?.toLowerCase() ?? '';
+            const testSetName =
+              run.test_configuration?.test_set?.name?.toLowerCase() ?? '';
+            return name.includes(query) || testSetName.includes(query);
+          });
+        }
+        setTestRuns(runs);
       }
 
       setError(null);
@@ -138,7 +167,14 @@ export default function TestRunPerformance({
       setLoading(false);
       onLoadComplete?.();
     }
-  }, [sessionToken, calculateLimit, propLimit, onLoadComplete]);
+  }, [
+    sessionToken,
+    calculateLimit,
+    propLimit,
+    onLoadComplete,
+    filters.test_set_ids,
+    searchValue,
+  ]);
 
   useEffect(() => {
     if (sessionToken) {

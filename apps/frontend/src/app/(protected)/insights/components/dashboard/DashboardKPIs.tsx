@@ -26,9 +26,11 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestStats } from '@/utils/api-client/interfaces/tests';
 import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
 import { TestSetStatsResponse } from '@/utils/api-client/interfaces/test-set';
+import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 
 interface DashboardKPIsProps {
   sessionToken: string;
+  filters?: Partial<TestResultsStatsOptions>;
   onLoadComplete?: () => void;
 }
 
@@ -226,6 +228,7 @@ const KPICard: React.FC<KPICardProps> = ({
 
 export default function DashboardKPIs({
   sessionToken,
+  filters = {},
   onLoadComplete,
 }: DashboardKPIsProps) {
   const theme = useTheme();
@@ -237,22 +240,29 @@ export default function DashboardKPIs({
     null
   );
 
+  const months = filters.months ?? 1;
+
   useEffect(() => {
     const fetchKPIs = async () => {
       try {
         setLoading(true);
         const clientFactory = new ApiClientFactory(sessionToken);
 
+        const testResultsOptions = {
+          mode: 'timeline' as const,
+          months,
+          ...(filters.test_set_ids?.length
+            ? { test_set_ids: filters.test_set_ids }
+            : {}),
+        };
+
         const [testStatsResponse, testResultsResponse, testSetStatsResponse] =
           await Promise.all([
-            clientFactory.getTestsClient().getTestStats({ months: 6 }),
+            clientFactory.getTestsClient().getTestStats({ months }),
             clientFactory
               .getTestResultsClient()
-              .getComprehensiveTestResultsStats({
-                mode: 'timeline',
-                months: 6,
-              }),
-            clientFactory.getTestSetsClient().getTestSetStats({ months: 6 }),
+              .getComprehensiveTestResultsStats(testResultsOptions),
+            clientFactory.getTestSetsClient().getTestSetStats({ months }),
           ]);
 
         setTestStats(testStatsResponse);
@@ -269,7 +279,7 @@ export default function DashboardKPIs({
     if (sessionToken) {
       fetchKPIs();
     }
-  }, [sessionToken, onLoadComplete]);
+  }, [sessionToken, months, filters.test_set_ids, onLoadComplete]);
 
   if (loading) {
     return (

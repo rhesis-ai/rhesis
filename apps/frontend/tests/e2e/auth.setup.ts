@@ -7,7 +7,7 @@ import { LoginPage } from './pages/LoginPage';
  *
  * Relies on Quick Start mode (NEXT_PUBLIC_QUICK_START=true) which
  * auto-logs in via the /auth/local-login endpoint and redirects
- * to /dashboard. The resulting browser state (cookies, localStorage)
+ * to /architect. The resulting browser state (cookies, localStorage)
  * is persisted to tests/e2e/.auth/user.json so every test project that
  * depends on "setup" starts already authenticated.
  */
@@ -16,7 +16,7 @@ setup('authenticate via Quick Start', async ({ page }) => {
   await loginPage.loginViaQuickStart();
 
   // Verify we landed on the dashboard
-  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page).toHaveURL(/\/architect/);
 
   // Mark the onboarding checklist as dismissed so it never overlays test
   // interactions. The checklist is a fixed-position overlay that intercepts

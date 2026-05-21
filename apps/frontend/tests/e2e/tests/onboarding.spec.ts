@@ -3,14 +3,14 @@ import { test, expect } from '@playwright/test';
 /**
  * Onboarding wizard tests.
  *
- * Covers: E1.1 (redirect to /dashboard for authenticated users with an org),
+ * Covers: E1.1 (redirect to /architect for authenticated users with an org),
  * E1.2 (onboarding page renders correct steps), E1.3 (form field validation
  * on Step 0), E1.4 (Invite Team step allows skipping), E1.5 (Finish step
  * shows review summary).
  *
  * The onboarding wizard is gated by Next.js middleware: any authenticated
  * user who already has an organisation_id is automatically redirected to
- * /dashboard when navigating to /onboarding. In the Quick Start test
+ * /architect when navigating to /onboarding. In the Quick Start test
  * environment the logged-in user always has an organisation, so the
  * redirect test always passes and the form-level tests use Playwright's
  * route interception to simulate a new-user session.
@@ -19,14 +19,14 @@ import { test, expect } from '@playwright/test';
  * Tests that only verify the redirect behaviour are tagged @crud.
  */
 test.describe('Onboarding wizard @crud', () => {
-  test('authenticated users with an existing org are redirected from /onboarding to /dashboard', async ({
+  test('authenticated users with an existing org are redirected from /onboarding to /architect', async ({
     page,
   }) => {
     await page.goto('/onboarding');
     await page.waitForLoadState('networkidle');
 
-    // The middleware redirects users who already have an org to /dashboard
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+    // The middleware redirects users who already have an org to /architect
+    await expect(page).toHaveURL(/\/architect/, { timeout: 15_000 });
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );

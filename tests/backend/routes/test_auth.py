@@ -275,7 +275,7 @@ class TestAuthLogin:
                 )
                 mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
-                client.get("/auth/login?return_to=/dashboard", follow_redirects=False)
+                client.get("/auth/login?return_to=/architect", follow_redirects=False)
 
                 mock_oauth.auth0.authorize_redirect.assert_called_once()
 
@@ -583,13 +583,13 @@ class TestAuthVerify:
                     "/auth/verify",
                     json={
                         "session_token": "valid_token",
-                        "return_to": "/dashboard",
+                        "return_to": "/architect",
                     },
                 )
 
                 assert response.status_code == status.HTTP_200_OK
                 data = response.json()
-                assert data["return_to"] == "/dashboard"
+                assert data["return_to"] == "/architect"
 
     def test_verify_invalid_token(self, client: TestClient):
         """Test verification of invalid JWT token"""

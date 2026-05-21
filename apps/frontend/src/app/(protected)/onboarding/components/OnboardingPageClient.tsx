@@ -255,7 +255,7 @@ export default function OnboardingPageClient({
               severity: 'success',
             });
             await new Promise(resolve => setTimeout(resolve, 1000));
-            window.location.href = '/dashboard';
+            window.location.href = '/architect';
             return;
           } else {
             throw new Error('Failed to initialize organization data');

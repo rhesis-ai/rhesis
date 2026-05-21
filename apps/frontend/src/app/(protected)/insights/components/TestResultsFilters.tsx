@@ -25,6 +25,7 @@ interface TestResultsFiltersProps {
   onSearchChange: (value: string) => void;
   initialFilters?: Partial<TestResultsStatsOptions>;
   sessionToken: string;
+  searchPlaceholder?: string;
 }
 
 const TIME_RANGES = [
@@ -39,6 +40,7 @@ export default function TestResultsFilters({
   onSearchChange,
   initialFilters = {},
   sessionToken,
+  searchPlaceholder = 'Search test results...',
 }: TestResultsFiltersProps) {
   const theme = useTheme();
   const [filters, setFilters] =
@@ -148,7 +150,7 @@ export default function TestResultsFilters({
             {/* Search Field */}
             <TextField
               size="small"
-              placeholder="Search test results..."
+              placeholder={searchPlaceholder}
               value={searchValue}
               onChange={e => handleSearchChange(e.target.value)}
               variant="outlined"

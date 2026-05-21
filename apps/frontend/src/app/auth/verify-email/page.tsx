@@ -131,7 +131,7 @@ export default function VerifyEmailPage() {
               </Typography>
               <Button
                 variant="contained"
-                href="/dashboard"
+                href="/architect"
                 fullWidth
                 sx={{
                   mt: 1,
