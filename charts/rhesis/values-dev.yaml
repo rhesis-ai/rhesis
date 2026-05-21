@@ -130,6 +130,31 @@ otelCollector:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
+workers:
+  - name: default
+    enabled: true
+    image:
+      repository: rhesis-worker
+      tag: ""
+    replicas: 1
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "100m"
+      limits:
+        # Same as backend: heavy ML imports (litellm, garak) OOMKill at 1Gi
+        memory: "2Gi"
+        cpu: "500m"
+    hpa:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+    env:
+      - name: CELERY_WORKER_CONCURRENCY
+        value: "2"
+
 telemetryProcessor:
   enabled: true
 
