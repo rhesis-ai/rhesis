@@ -84,7 +84,7 @@ export default function TypedValueEditor({
             );
           }}
           size="small"
-          inputProps={{ step: 1 }}
+          inputProps={{ step: 1, lang: 'en-US' }}
           helperText={helper}
         />
       );
@@ -103,7 +103,7 @@ export default function TypedValueEditor({
             );
           }}
           size="small"
-          inputProps={{ step: 'any' }}
+          inputProps={{ step: 'any', lang: 'en-US' }}
           helperText={helper}
         />
       );

@@ -539,7 +539,7 @@ export function DefaultValueEditor({
             );
           }}
           size="small"
-          inputProps={{ step: 1 }}
+          inputProps={{ step: 1, lang: 'en-US' }}
         />
       );
     }
@@ -560,7 +560,7 @@ export function DefaultValueEditor({
             );
           }}
           size="small"
-          inputProps={{ step: 'any' }}
+          inputProps={{ step: 'any', lang: 'en-US' }}
         />
       );
     }
