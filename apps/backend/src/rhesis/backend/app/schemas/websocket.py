@@ -65,6 +65,10 @@ class EventType(str, Enum):
     # so the user sees per-step progress instead of a bare "Working…".
     ARCHITECT_TASK_PROGRESS = "architect.task_progress"
 
+    # Preflight check events
+    PREFLIGHT_CHECK_UPDATE = "preflight.check_update"
+    PREFLIGHT_COMPLETE = "preflight.complete"
+
 
 class WebSocketMessage(BaseModel):
     """WebSocket message schema.

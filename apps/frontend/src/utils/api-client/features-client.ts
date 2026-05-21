@@ -1,4 +1,3 @@
-import { FeatureName } from '@/constants/features';
 import { BaseApiClient } from './base-client';
 
 export interface LicenseInfo {

@@ -164,12 +164,16 @@ class TestBuild2DGraph:
             _mock_embedding(entity_id=uids[1], vector=[1.0] * 8, searchable_text="b"),
             _mock_embedding(entity_id=uids[2], vector=[0.5] * 8, searchable_text="c"),
         ]
-        umap_50 = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 1.0]], dtype=np.float64)
+        # Clustering UMAP must be >2D so build_2d_graph runs the visualization pass.
+        umap_50 = np.array(
+            [[0.0, 0.0, 0.1], [1.0, 0.0, 0.2], [0.5, 1.0, 0.3]],
+            dtype=np.float64,
+        )
         umap_2 = np.array([[0.0, 0.0], [2.0, 0.0], [1.0, 3.0]], dtype=np.float64)
         mock_reduce.side_effect = [umap_50, umap_2]
         mock_cluster.return_value = (
             np.array([0, 0, -1]),
-            {0: np.array([0.33, 0.33])},
+            {0: np.array([0.33, 0.33, 0.15])},
         )
         mock_labels.return_value = {0: "Alpha"}
 
@@ -212,17 +216,21 @@ class TestBuild2DGraph:
             _mock_embedding(entity_id=uids[1], vector=[1.0] * 8),
             _mock_embedding(entity_id=uids[2], vector=[0.5] * 8),
         ]
-        umap_50 = np.array([[0.0, 0.0], [1.0, 0.0], [0.5, 1.0]], dtype=np.float64)
+        umap_50 = np.array(
+            [[0.0, 0.0, 0.1], [1.0, 0.0, 0.2], [0.5, 1.0, 0.3]],
+            dtype=np.float64,
+        )
         umap_2 = np.array([[0.0, 0.0], [2.0, 0.0], [1.0, 3.0]], dtype=np.float64)
         mock_reduce.side_effect = [umap_50, umap_2]
         mock_cluster.return_value = (
             np.array([0, 0, -1]),
-            {0: np.array([0.33, 0.33])},
+            {0: np.array([0.33, 0.33, 0.15])},
         )
 
         with patch.object(graph_builder, "fetch_embeddings", return_value=embs):
             graph = build_2d_graph(test_db, uids, user)
 
+        assert mock_reduce.call_count == 2
         assert len(graph.points) == 3
         assert len(graph.clusters) == 1
         assert graph.clusters[0].label == "Unlabeled"

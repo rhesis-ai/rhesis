@@ -35,12 +35,16 @@ import {
   Edit as EditIcon,
   Psychology as PsychologyIcon,
   Replay as ReplayIcon,
+  FlightTakeoff as FlightTakeoffIcon,
   Tune as TuneIcon,
 } from '@mui/icons-material';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 import Link from 'next/link';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import BaseTag from '@/components/common/BaseTag';
 import ModelSelector from '@/components/common/ModelSelector';
+import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDialog from '@/components/common/SelectExperimentsDialog';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -284,6 +288,21 @@ export default function RunDrawer(props: RunDrawerProps) {
   // ---- Tags ----
   const [tags, setTags] = useState<string[]>([]);
 
+  // ---- Preflight ----
+  const [preflightEnabled, setPreflightEnabled] = useState(false);
+  const [preflightDialogOpen, setPreflightDialogOpen] = useState(false);
+  const [preflightCorrelationId, setPreflightCorrelationId] = useState('');
+  const [preflightChecks, setPreflightChecks] = useState<
+    Array<{
+      check_id: string;
+      label: string;
+      applicable: boolean;
+      test_set_id?: string;
+      test_set_name?: string;
+      composite_key?: string;
+    }>
+  >([]);
+
   const apiFactory = useMemo(
     () => new ApiClientFactory(sessionToken),
     [sessionToken]
@@ -327,6 +346,9 @@ export default function RunDrawer(props: RunDrawerProps) {
     setSelectedTestSet(null);
     setSelectedSearchTestSets([]);
     setTestSetInput('');
+    setPreflightDialogOpen(false);
+    setPreflightCorrelationId('');
+    setPreflightChecks([]);
 
     if (cfg.projectEditable) {
       setSelectedProject(null);
@@ -723,7 +745,96 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Execute
   // -----------------------------------------------------------------------
 
-  const handleExecute = async () => {
+  const preflightRequestRef = useRef<{
+    testSetIds: string[];
+    endpointId: string;
+    correlationId: string;
+  } | null>(null);
+
+  const startPreflight = () => {
+    setError(undefined);
+    const testSetIds = resolveTestSetIds();
+    const endpointId = resolveEndpointId();
+    if (!endpointId || testSetIds.length === 0) return;
+
+    const correlationId = crypto.randomUUID();
+    setPreflightCorrelationId(correlationId);
+
+    preflightRequestRef.current = {
+      testSetIds,
+      endpointId,
+      correlationId,
+    };
+
+    setPreflightChecks([]);
+    setPreflightDialogOpen(true);
+  };
+
+  const firePreflightPost = useCallback(async () => {
+    const req = preflightRequestRef.current;
+    if (!req) return;
+
+    try {
+      const preflightClient = apiFactory.getPreflightClient();
+      const response = await preflightClient.runPreflightChecks({
+        test_set_ids: req.testSetIds,
+        endpoint_id: req.endpointId,
+        correlation_id: req.correlationId,
+        scoring_target: scoringTarget,
+        metric_mode: metricMode,
+        selected_metrics:
+          metricMode === 'define_custom'
+            ? selectedMetrics.map(m => ({
+                id: m.id,
+                name: m.name,
+                scope: m.scope,
+              }))
+            : undefined,
+        execution_model_id: selectedExecutionModelId || undefined,
+        evaluation_model_id: selectedEvaluationModelId || undefined,
+        mode: 'async',
+      });
+
+      setPreflightChecks(response.checks);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to start preflight checks'));
+      setPreflightDialogOpen(false);
+    }
+  }, [
+    apiFactory,
+    scoringTarget,
+    metricMode,
+    selectedMetrics,
+    selectedExecutionModelId,
+    selectedEvaluationModelId,
+  ]);
+
+  const handlePreflightProceed = () => {
+    setPreflightDialogOpen(false);
+    doExecute();
+  };
+
+  const handlePreflightCancel = () => {
+    setPreflightDialogOpen(false);
+  };
+
+  const handlePreflightRetry = () => {
+    const testSetIds = resolveTestSetIds();
+    const endpointId = resolveEndpointId();
+    if (!endpointId || testSetIds.length === 0) return;
+
+    const newCorrelationId = crypto.randomUUID();
+    setPreflightCorrelationId(newCorrelationId);
+    setPreflightChecks([]);
+
+    preflightRequestRef.current = {
+      testSetIds,
+      endpointId,
+      correlationId: newCorrelationId,
+    };
+  };
+
+  const doExecute = async () => {
     const testSetIds = resolveTestSetIds();
     const endpointId = resolveEndpointId();
     if (!endpointId || testSetIds.length === 0) return;
@@ -821,6 +932,14 @@ export default function RunDrawer(props: RunDrawerProps) {
     } finally {
       setExecuting(false);
     }
+  };
+
+  const handleExecute = async () => {
+    if (preflightEnabled) {
+      startPreflight();
+      return;
+    }
+    await doExecute();
   };
 
   // -----------------------------------------------------------------------
@@ -1595,6 +1714,34 @@ export default function RunDrawer(props: RunDrawerProps) {
 
           <Divider />
 
+          <FormControlLabel
+            control={
+              <Switch
+                checked={preflightEnabled}
+                onChange={e => setPreflightEnabled(e.target.checked)}
+                size="small"
+              />
+            }
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                <FlightTakeoffIcon
+                  fontSize="small"
+                  color={preflightEnabled ? 'primary' : 'disabled'}
+                  sx={{ mt: 0.25 }}
+                />
+                <Box>
+                  <Typography variant="body2">Run Preflight Checks</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Validate endpoint and model configuration before executing
+                  </Typography>
+                </Box>
+              </Box>
+            }
+            sx={{ ml: 0, mt: 1 }}
+          />
+
+          <Divider />
+
           {/* Tags */}
           <Typography variant="subtitle2" color="text.secondary">
             Test Run Tags
@@ -1613,6 +1760,17 @@ export default function RunDrawer(props: RunDrawerProps) {
             chipClassName={tagStyles.modalTag}
           />
         </Stack>
+      )}
+      {preflightDialogOpen && (
+        <PreflightDialog
+          open={preflightDialogOpen}
+          correlationId={preflightCorrelationId}
+          initialChecks={preflightChecks}
+          onStart={firePreflightPost}
+          onProceed={handlePreflightProceed}
+          onCancel={handlePreflightCancel}
+          onRetry={handlePreflightRetry}
+        />
       )}
     </BaseDrawer>
   );

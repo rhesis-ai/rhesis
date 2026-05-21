@@ -29,6 +29,7 @@ from .parameters import (
 from .parameters import (
     router as parameters_router,
 )
+from .preflight import router as preflight_router
 from .project import router as project_router
 from .prompt import router as prompt_router
 from .prompt_template import router as prompt_template_router
@@ -102,6 +103,7 @@ __all__ = [
     "file_import",
     "explorer",
     "architect",
+    "preflight",
 ]
 
 # Export all routers for use in main.py
@@ -134,6 +136,7 @@ routers = sorted(
         home_router,
         services_router,
         organization_router,
+        preflight_router,
         parameters_router,
         project_experiments_router,
         experiments_router,

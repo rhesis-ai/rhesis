@@ -2,6 +2,7 @@
 
 import { Box, Stack, Typography } from '@mui/material';
 import type { EmbeddingColorLegendEntry } from '@/utils/embedding/embeddingColorBy';
+import { getEmbeddingViewSurfaceBg } from '@/utils/embedding/embeddingViewSurface';
 
 interface EmbeddingColorLegendProps {
   entries: EmbeddingColorLegendEntry[];
@@ -24,7 +25,7 @@ export default function EmbeddingColorLegend({
         overflow: 'auto',
         p: 1,
         borderRadius: theme => theme.shape.borderRadius,
-        bgcolor: 'background.paper',
+        bgcolor: theme => getEmbeddingViewSurfaceBg(theme),
         border: 1,
         borderColor: 'divider',
         boxShadow: 1,

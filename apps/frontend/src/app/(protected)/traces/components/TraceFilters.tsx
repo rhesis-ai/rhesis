@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { TEST_TYPES } from '@/constants/test-types';
 import {
   Box,
@@ -64,6 +64,22 @@ export default function TraceFilters({
   );
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const [searchInput, setSearchInput] = useState(filters.search || '');
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const onFiltersChangeRef = useRef(onFiltersChange);
+  const filtersRef = useRef(filters);
+
+  useEffect(() => {
+    onFiltersChangeRef.current = onFiltersChange;
+    filtersRef.current = filters;
+  });
+
+  const cancelSearchDebounce = () => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = null;
+    }
+  };
 
   const handleFilterChange = (
     key: keyof TraceQueryParams,
@@ -86,6 +102,40 @@ export default function TraceFilters({
 
     onFiltersChange(newFilters);
   };
+
+  useEffect(() => {
+    setSearchInput(filters.search || '');
+  }, [filters.search]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchInput(value);
+    cancelSearchDebounce();
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      onFiltersChangeRef.current({
+        ...filtersRef.current,
+        search: undefined,
+        offset: 0,
+      });
+      return;
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      searchDebounceRef.current = null;
+      onFiltersChangeRef.current({
+        ...filtersRef.current,
+        search: trimmed,
+        offset: 0,
+      });
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      cancelSearchDebounce();
+    };
+  }, []);
 
   // Fetch projects and endpoints on mount
   useEffect(() => {
@@ -200,6 +250,8 @@ export default function TraceFilters({
   };
 
   const handleClearAllFilters = () => {
+    cancelSearchDebounce();
+    setSearchInput('');
     const clearedFilters: TraceQueryParams = {
       project_id: filters.project_id, // Keep project selection
       limit: filters.limit || 50,
@@ -279,12 +331,12 @@ export default function TraceFilters({
       });
     }
 
-    // Operation search
-    if (filters.span_name) {
+    // Quick search
+    if (filters.search) {
       chips.push({
-        key: 'span_name',
-        label: `Operation: ${filters.span_name}`,
-        value: filters.span_name,
+        key: 'search',
+        label: `Search: ${filters.search}`,
+        value: filters.search,
       });
     }
 
@@ -466,19 +518,28 @@ export default function TraceFilters({
           {/* Search */}
           <TextField
             size="small"
-            placeholder="Search operations..."
-            value={filters.span_name || ''}
-            onChange={e =>
-              handleFilterChange('span_name', e.target.value || undefined)
-            }
+            placeholder="Search traces…"
+            value={searchInput}
+            onChange={e => handleSearchChange(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
                   <SearchIcon fontSize="small" />
                 </InputAdornment>
               ),
+              endAdornment: searchInput ? (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    aria-label="Clear search"
+                    onClick={() => handleSearchChange('')}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
             }}
-            sx={{ minWidth: 200, flex: { xs: '1 1 100%', sm: '1 1 auto' } }}
+            sx={{ minWidth: 220, flex: { xs: '1 1 100%', sm: '1 1 auto' } }}
           />
         </Box>
 
@@ -735,6 +796,10 @@ export default function TraceFilters({
                 label={chip.label}
                 size="small"
                 onDelete={() => {
+                  if (chip.key === 'search') {
+                    handleSearchChange('');
+                    return;
+                  }
                   handleFilterChange(
                     chip.key as keyof TraceQueryParams,
                     undefined
@@ -934,8 +999,9 @@ export default function TraceFilters({
                 }}
               >
                 <LightbulbIcon sx={{ fontSize: 14 }} />
-                <strong>Pro tip:</strong> Use the search box to filter by
-                operation name (e.g., "ai.llm.invoke")
+                <strong>Pro tip:</strong> Search matches trace ID, operations
+                (e.g. &quot;rest&quot;, &quot;llm&quot;), endpoint names, and
+                conversation text
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Use Test Run filter to analyze traces from specific test

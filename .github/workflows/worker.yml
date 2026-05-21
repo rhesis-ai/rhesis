@@ -287,6 +287,7 @@ jobs:
             --from-literal=SQLALCHEMY_DB_HOST="${{ secrets.SQLALCHEMY_DB_HOST || '127.0.0.1' }}" \
             --from-literal=SQLALCHEMY_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --from-literal=DB_ENCRYPTION_KEY="${{ secrets.DB_ENCRYPTION_KEY }}" \
+            --from-literal=AUDIT_HASH_KEY="${{ secrets.AUDIT_HASH_KEY }}" \
             --from-literal=JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
             --from-literal=SESSION_SECRET_KEY="${{ secrets.SESSION_SECRET_KEY }}" \
             --from-literal=JWT_ALGORITHM="${{ secrets.JWT_ALGORITHM }}" \

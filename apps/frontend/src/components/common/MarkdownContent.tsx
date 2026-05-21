@@ -12,7 +12,7 @@ interface MarkdownContentProps {
   variant?: TypographyProps['variant'];
 }
 
-function isInternalPath(href: string | undefined): boolean {
+function isInternalPath(href: string | undefined): href is string {
   if (!href) return false;
   return href.startsWith('/') && !href.startsWith('//');
 }
@@ -40,7 +40,7 @@ function SmartLink({
 }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   if (isInternalPath(href)) {
     return (
-      <Link component={NextLink} href={href!} target="_blank" {...props}>
+      <Link component={NextLink} href={href} target="_blank" {...props}>
         {children}
       </Link>
     );

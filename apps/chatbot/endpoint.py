@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from rhesis.sdk import RhesisClient, endpoint, observe
 from rhesis.sdk.async_utils import run_sync
+from rhesis.sdk.models.defaults import parse_model_id
 from rhesis.sdk.models.factory import get_model
 
 # Output mode type
@@ -66,6 +67,18 @@ class IntentClassification(BaseModel):
     )
 
 
+def _resolve_model_id(model_id: str) -> str:
+    """Resolve Rhesis system model placeholders to the chatbot's configured default."""
+    provider, _ = parse_model_id(model_id)
+    if provider == "rhesis":
+        logger.info(
+            f"Rhesis system model '{model_id}' resolved to "
+            f"chatbot default: {DEFAULT_GENERATION_MODEL}"
+        )
+        return DEFAULT_GENERATION_MODEL
+    return model_id
+
+
 def get_llm_model():
     """Get the configured language model using SDK factory."""
     try:
@@ -90,7 +103,8 @@ class ResponseGenerator:
         """Initialize with SDK model and use case."""
         if model:
             try:
-                self.model = get_model(model)
+                resolved = _resolve_model_id(model)
+                self.model = get_model(resolved)
             except Exception as e:
                 logger.error(f"Failed to initialize language model {model}: {str(e)}")
                 raise ValueError(f"Could not initialize language model {model}: {str(e)}")

@@ -205,6 +205,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: DB_ENCRYPTION_KEY
+        - name: AUDIT_HASH_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: AUDIT_HASH_KEY
         - name: JWT_SECRET_KEY
           valueFrom:
             secretKeyRef:

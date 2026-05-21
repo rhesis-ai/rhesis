@@ -305,7 +305,7 @@ export default function VersionHistory({
                       size="small"
                       startIcon={<PromoteIcon />}
                       disabled={!canPromote}
-                      onClick={e => {
+                      onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         onPromoteVersion(version.version);
                       }}

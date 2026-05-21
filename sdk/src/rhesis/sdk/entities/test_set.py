@@ -18,6 +18,56 @@ from rhesis.sdk.enums import ExecutionMode, TestType
 from rhesis.sdk.errors import RhesisAPIError
 from rhesis.sdk.models.base import BaseLLM
 
+
+class CheckResult(BaseModel):
+    """Result of a single preflight check."""
+
+    check_id: str
+    label: str
+    status: str
+    message: Optional[str] = None
+    detail: Optional[str] = None
+
+    def __str__(self) -> str:
+        icon = {
+            "passed": "+",
+            "failed": "X",
+            "warning": "!",
+            "skipped": "-",
+        }.get(self.status, "?")
+        line = f"[{icon}] {self.label}: {self.status}"
+        if self.message:
+            line += f" - {self.message}"
+        return line
+
+
+class PreflightResult(BaseModel):
+    """Aggregate result of all preflight checks."""
+
+    checks: List[CheckResult]
+    summary: str
+    passed_count: int = 0
+    failed_count: int = 0
+    warnings_count: int = 0
+    skipped_count: int = 0
+
+    @property
+    def passed(self) -> bool:
+        return self.summary == "passed"
+
+    def __str__(self) -> str:
+        lines = ["Preflight Check Results", "=" * 40]
+        for c in self.checks:
+            lines.append(str(c))
+        lines.append("-" * 40)
+        lines.append(
+            f"Summary: {self.summary}  "
+            f"(passed={self.passed_count}, failed={self.failed_count}, "
+            f"warnings={self.warnings_count}, skipped={self.skipped_count})"
+        )
+        return "\n".join(lines)
+
+
 logger = logging.getLogger(__name__)
 
 ENDPOINT = Endpoints.TEST_SETS
@@ -260,6 +310,79 @@ class TestSet(BaseEntity):
         if environment is not None:
             body["environment"] = environment
         return body
+
+    # ------------------------------------------------------------------
+    # Preflight
+    # ------------------------------------------------------------------
+
+    @handle_http_errors
+    def preflight(
+        self,
+        endpoint: Endpoint,
+        *,
+        metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+        execution_model_id: Optional[str] = None,
+        evaluation_model_id: Optional[str] = None,
+    ) -> PreflightResult:
+        """Run preflight checks before executing.
+
+        Validates endpoint connectivity, model configuration,
+        and metric coverage. Blocks until all checks complete.
+
+        Args:
+            endpoint: The endpoint to validate against.
+            metrics: Optional custom metrics (same format as execute).
+            execution_model_id: Optional execution model override.
+            evaluation_model_id: Optional evaluation model override.
+
+        Returns:
+            PreflightResult with per-check statuses and an overall summary.
+
+        Raises:
+            RhesisAPIError: If the API request fails.
+
+        Example:
+            >>> result = test_set.preflight(endpoint)
+            >>> if result.passed:
+            ...     test_set.execute(endpoint)
+            >>> else:
+            ...     print(result)
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before running preflight")
+
+        body: Dict[str, Any] = {
+            "test_set_id": self.id,
+            "endpoint_id": str(endpoint.id),
+            "mode": "sync",
+        }
+
+        if metrics:
+            resolved = self._resolve_metrics(metrics)
+            body["selected_metrics"] = resolved
+            body["metric_mode"] = "define_custom"
+
+        if execution_model_id:
+            body["execution_model_id"] = execution_model_id
+        if evaluation_model_id:
+            body["evaluation_model_id"] = evaluation_model_id
+
+        client = APIClient()
+        response = client.send_request(
+            endpoint=Endpoints.PREFLIGHT_CHECKS,
+            method=Methods.POST,
+            data=body,
+        )
+
+        checks = [CheckResult(**c) for c in response.get("checks", [])]
+        return PreflightResult(
+            checks=checks,
+            summary=response.get("summary", "unknown"),
+            passed_count=response.get("passed", 0),
+            failed_count=response.get("failed", 0),
+            warnings_count=response.get("warnings", 0),
+            skipped_count=response.get("skipped", 0),
+        )
 
     # ------------------------------------------------------------------
     # Execution

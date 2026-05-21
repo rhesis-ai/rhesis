@@ -215,7 +215,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
     };
 
     fetchData();
-  }, [session, notifications]);
+  }, [session, notifications, testType]);
 
   const addNewRow = () => {
     const newTestCase: TestCase =

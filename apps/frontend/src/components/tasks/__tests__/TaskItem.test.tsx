@@ -48,6 +48,14 @@ function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider theme={lightTheme}>{ui}</ThemeProvider>);
 }
 
+function getIconButton(testId: string) {
+  const button = screen.getByTestId(testId).closest('button');
+  if (!button) {
+    throw new Error(`Expected ${testId} to be inside a button`);
+  }
+  return button;
+}
+
 describe('TaskItem', () => {
   it('renders the task title', () => {
     renderWithTheme(<TaskItem task={makeTask() as never} currentUserId="u1" />);
@@ -94,7 +102,7 @@ describe('TaskItem', () => {
       <TaskItem task={makeTask() as never} currentUserId="u1" onEdit={onEdit} />
     );
 
-    await user.click(screen.getByTestId('edit-icon').closest('button')!);
+    await user.click(getIconButton('edit-icon'));
     expect(onEdit).toHaveBeenCalledWith('task-1');
   });
 
@@ -110,7 +118,7 @@ describe('TaskItem', () => {
       />
     );
 
-    await user.click(screen.getByTestId('delete-icon').closest('button')!);
+    await user.click(getIconButton('delete-icon'));
     expect(onDelete).toHaveBeenCalledWith('task-1');
   });
 

@@ -41,6 +41,7 @@ class ChannelAuthorizer:
         "test_set:",
         "project:",
         "architect:",
+        "preflight:",
     ]
 
     # UUID regex pattern for validation

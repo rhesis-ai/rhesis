@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import BaseModel
@@ -121,6 +121,27 @@ class MultiTurnSynthesizer:
         ]
 
         return batch_tests
+
+    async def generate_stream(self, num_tests: int = 5) -> AsyncGenerator[Dict[str, Any], None]:
+        """Yield multi-turn test dicts one-by-one as they parse from the LLM."""
+        from rhesis.sdk.synthesizers.streaming import IncrementalJsonArrayParser
+
+        prompt_template = self.load_prompt_template(self.prompt_template_file)
+        template_context = {
+            "num_tests": num_tests,
+            "harmful": self.harmful,
+            **self.config.model_dump(),
+        }
+        prompt = prompt_template.render(template_context)
+        parser = IncrementalJsonArrayParser()
+
+        token_stream = self.model.generate_stream(prompt=prompt, schema=FlatTests)
+        async for chunk in token_stream:
+            for flat in parser.feed(chunk):
+                yield {
+                    **self._flat_test_to_nested(flat),
+                    "test_type": TestType.MULTI_TURN.value,
+                }
 
     def generate(self, num_tests: int = 5) -> TestSet:
         num_batches = num_tests // self.batch_size

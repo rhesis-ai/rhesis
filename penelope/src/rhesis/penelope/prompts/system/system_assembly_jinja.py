@@ -34,6 +34,7 @@ def get_system_prompt(
     restrictions: str = "",
     context: str = "",
     available_tools: str = "",
+    files_info: str = "",
     min_turns: int = None,
     max_turns: int = None,
 ) -> str:
@@ -47,6 +48,7 @@ def get_system_prompt(
         restrictions: Optional constraints on what NOT to do during testing
         context: Additional context or resources (documentation, data, etc.)
         available_tools: Description of available tools
+        files_info: Pre-rendered file attachment information block
         min_turns: Minimum turns before early stopping is allowed
         max_turns: Maximum number of turns for this test
 
@@ -70,6 +72,7 @@ def get_system_prompt(
     logger.info(f"Restrictions length: {len(restrictions) if restrictions else 0} chars")
     logger.info(f"Context length: {len(context) if context else 0} chars")
     logger.info(f"Available tools length: {len(available_tools) if available_tools else 0} chars")
+    logger.info(f"Files info length: {len(files_info) if files_info else 0} chars")
     logger.info(f"Turn budget: min_turns={min_turns}, max_turns={max_turns}")
 
     # Render the template
@@ -81,6 +84,7 @@ def get_system_prompt(
         restrictions=restrictions if restrictions else None,
         context=context if context else None,
         available_tools=available_tools if available_tools else None,
+        files_info=files_info if files_info else None,
         min_turns=min_turns,
         max_turns=max_turns,
     )
