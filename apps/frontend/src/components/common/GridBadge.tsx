@@ -8,10 +8,10 @@ export type GridBadgeSize = 'grid' | 'detail';
 
 const BADGE_SIZE_STYLES: Record<
   GridBadgeSize,
-  { fontSize: number; lineHeight: string }
+  { fontSize: string; lineHeight: string }
 > = {
-  grid: { fontSize: 12, lineHeight: '18px' },
-  detail: { fontSize: 14, lineHeight: '22px' },
+  grid: { fontSize: '12px', lineHeight: '18px' },
+  detail: { fontSize: '14px', lineHeight: '22px' },
 };
 
 /**
