@@ -1,9 +1,8 @@
 import React from 'react';
-import { Box, IconButton, Chip, Tooltip, Button } from '@mui/material';
+import { Box, Chip, Tooltip, Button } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import EditIcon from '@mui/icons-material/Edit';
 import WarningIcon from '@mui/icons-material/Warning';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SendIcon from '@mui/icons-material/Send';
@@ -18,8 +17,8 @@ interface ConnectedModelCardProps {
   userSettings?: UserSettings | null;
   isVerified?: boolean;
   validationStatus?: ValidationStatus;
-  /** Called when the edit icon is clicked — receives the originating mouse event for stopPropagation */
-  onEdit: (model: Model, e: React.MouseEvent) => void;
+  /** Opens the edit connection dialog when the card is clicked */
+  onCardClick?: (model: Model) => void;
   /** Called when delete is confirmed — EntityCard handles stopPropagation internally */
   onDelete: (model: Model) => void;
   onRequestAccess?: (model: Model) => void;
@@ -30,7 +29,7 @@ export function ConnectedModelCard({
   userSettings,
   isVerified = false,
   validationStatus,
-  onEdit,
+  onCardClick,
   onDelete,
   onRequestAccess,
 }: ConnectedModelCardProps) {
@@ -95,7 +94,10 @@ export function ConnectedModelCard({
 
   // Footer: Polyphemus access button + "Access Required" badge (only when restricted)
   const footer = showPolyphemusRestricted ? (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+      onClick={e => e.stopPropagation()}
+    >
       {onRequestAccess && (
         <Button
           variant="outlined"
@@ -125,31 +127,8 @@ export function ConnectedModelCard({
     </Box>
   ) : undefined;
 
-  // Top-right actions: warning indicator + edit button (edit hidden for restricted Polyphemus)
-  const hasTopActions = showValidationError || !showPolyphemusRestricted;
-  const topRightActions = hasTopActions ? (
-    <>
-      {showValidationError && (
-        <WarningIcon
-          sx={{ fontSize: 16, color: 'warning.main', flexShrink: 0 }}
-        />
-      )}
-      {!showPolyphemusRestricted && (
-        <IconButton
-          size="small"
-          onClick={e => onEdit(model, e)}
-          sx={{
-            padding: '2px',
-            '& .MuiSvgIcon-root': {
-              fontSize: theme.typography.caption?.fontSize ?? '0.75rem',
-              color: 'currentColor',
-            },
-          }}
-        >
-          <EditIcon fontSize="inherit" />
-        </IconButton>
-      )}
-    </>
+  const topRightActions = showValidationError ? (
+    <WarningIcon sx={{ fontSize: 16, color: 'warning.main', flexShrink: 0 }} />
   ) : undefined;
 
   const providerIcon = PROVIDER_ICONS[model.icon || 'custom'] ?? (
@@ -166,6 +145,11 @@ export function ConnectedModelCard({
       icon={providerIcon}
       title={model.name}
       description={model.description}
+      onClick={
+        !showPolyphemusRestricted && onCardClick
+          ? () => onCardClick(model)
+          : undefined
+      }
       onDelete={!model.is_protected ? () => onDelete(model) : undefined}
       topRightActions={topRightActions}
       chipSections={chipSections}

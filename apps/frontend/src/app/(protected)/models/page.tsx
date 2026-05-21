@@ -262,8 +262,7 @@ export default function ModelsPage() {
     return model;
   };
 
-  const handleEditClick = (model: Model, event: React.MouseEvent) => {
-    event.stopPropagation();
+  const handleCardClick = (model: Model) => {
     setModelToEdit(model);
     setSelectedProvider(model.provider_type || null);
     setSelectedModelType(model.model_type || 'language');
@@ -473,7 +472,7 @@ export default function ModelsPage() {
               userSettings={userSettings}
               isVerified={userSettings?.is_verified}
               validationStatus={modelValidationStatus.get(model.id)}
-              onEdit={handleEditClick}
+              onCardClick={handleCardClick}
               onDelete={handleDeleteClick}
               onRequestAccess={handleRequestPolyphemusAccess}
             />
