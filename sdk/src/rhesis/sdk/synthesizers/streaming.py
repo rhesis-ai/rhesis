@@ -21,6 +21,7 @@ class IncrementalJsonArrayParser:
         self._pos: int = 0
         self._in_array: bool = False
         self._brace_depth: int = 0
+        self._bracket_depth: int = 0
         self._in_string: bool = False
         self._escape_next: bool = False
         self._obj_start: int = -1
@@ -55,8 +56,11 @@ class IncrementalJsonArrayParser:
             if not self._in_array:
                 if c == "[":
                     self._in_array = True
+                    self._bracket_depth = 1
             else:
-                if c == "{":
+                if c == "[":
+                    self._bracket_depth += 1
+                elif c == "{":
                     if self._brace_depth == 0:
                         self._obj_start = self._pos
                     self._brace_depth += 1
@@ -73,8 +77,21 @@ class IncrementalJsonArrayParser:
                             )
                         self._obj_start = -1
                 elif c == "]":
-                    self._in_array = False
+                    self._bracket_depth -= 1
+                    if self._bracket_depth == 0:
+                        self._in_array = False
 
             self._pos += 1
+
+        # Trim consumed prefix to keep memory bounded
+        if self._obj_start >= 0:
+            trim_to = self._obj_start
+        else:
+            trim_to = self._pos
+        if trim_to > 0:
+            self._buffer = self._buffer[trim_to:]
+            if self._obj_start >= 0:
+                self._obj_start -= trim_to
+            self._pos -= trim_to
 
         return results

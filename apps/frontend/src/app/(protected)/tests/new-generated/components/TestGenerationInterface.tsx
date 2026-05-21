@@ -212,6 +212,13 @@ export default function TestGenerationInterface({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testSamples]);
 
+  // Notify parent whenever local samples change
+  useEffect(() => {
+    if (onSamplesUpdate) onSamplesUpdate(localTestSamples);
+    // onSamplesUpdate intentionally excluded to avoid re-triggering on callback identity change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localTestSamples]);
+
   // Load endpoint information when selectedEndpointId changes
   useEffect(() => {
     const loadEndpointInfo = async () => {
@@ -420,11 +427,6 @@ export default function TestGenerationInterface({
       }
       setProcessedSampleIds(newProcessedIds);
 
-      setLocalTestSamples(prev => {
-        if (onSamplesUpdate) onSamplesUpdate(prev);
-        return prev;
-      });
-
       setIsFetchingResponses(false);
     };
 
@@ -562,11 +564,6 @@ export default function TestGenerationInterface({
         }
 
         setProcessedSampleIds(prev => new Set(prev).add(sampleId));
-
-        setLocalTestSamples(prev => {
-          if (onSamplesUpdate) onSamplesUpdate(prev);
-          return prev;
-        });
       } catch (error) {
         const errorMsg =
           error instanceof Error ? error.message : 'Failed to fetch response';
@@ -588,7 +585,6 @@ export default function TestGenerationInterface({
       session?.session_token,
       localTestSamples,
       processedSampleIds,
-      onSamplesUpdate,
     ]
   );
 

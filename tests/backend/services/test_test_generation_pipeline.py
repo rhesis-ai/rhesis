@@ -18,6 +18,7 @@ from rhesis.backend.app.services.test_generation_pipeline import (
     _stream_config,
     test_generation_pipeline_stream,
 )
+from rhesis.sdk.synthesizers.streaming import IncrementalJsonArrayParser
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -50,11 +51,13 @@ def _streaming_llm(behaviors=None, topics=None, categories=None):
     ``categories`` arrays, streamed character-by-character so the
     ``IncrementalConfigParser`` can parse items incrementally.
     """
-    response = json.dumps({
-        "behaviors": behaviors or [],
-        "topics": topics or [],
-        "categories": categories or [],
-    })
+    response = json.dumps(
+        {
+            "behaviors": behaviors or [],
+            "topics": topics or [],
+            "categories": categories or [],
+        }
+    )
 
     async def _fake_stream(prompt, schema=None):
         for ch in response:
@@ -307,6 +310,55 @@ class TestStreamConfig:
 
 
 # ---------------------------------------------------------------------------
+# IncrementalJsonArrayParser
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.services
+class TestIncrementalJsonArrayParser:
+    def test_nested_arrays_do_not_break_parsing(self):
+        """Objects containing nested arrays must not prematurely close the top-level array."""
+        stream = json.dumps(
+            {
+                "tests": [
+                    {"name": "A", "tags": ["x", "y"]},
+                    {"name": "B", "tags": ["z"]},
+                ]
+            }
+        )
+        parser = IncrementalJsonArrayParser()
+        results = parser.feed(stream)
+        assert len(results) == 2
+        assert results[0]["name"] == "A"
+        assert results[0]["tags"] == ["x", "y"]
+        assert results[1]["name"] == "B"
+
+    def test_buffer_is_trimmed(self):
+        """After emitting objects the consumed buffer prefix should be trimmed."""
+        parser = IncrementalJsonArrayParser()
+        parser.feed('{"items": [{"a": 1}')
+        assert len(parser._buffer) < 25
+        parser.feed(', {"b": 2}]}')
+        assert len(parser._buffer) < 15
+
+    def test_strings_with_braces_and_brackets(self):
+        """Braces and brackets inside JSON strings must not affect parsing."""
+        stream = json.dumps(
+            {
+                "items": [
+                    {"val": "has { and [ and ] and }"},
+                    {"val": "ok"},
+                ]
+            }
+        )
+        parser = IncrementalJsonArrayParser()
+        results = parser.feed(stream)
+        assert len(results) == 2
+        assert results[0]["val"] == "has { and [ and ] and }"
+
+
+# ---------------------------------------------------------------------------
 # test_generation_pipeline_stream (end-to-end)
 # ---------------------------------------------------------------------------
 
@@ -439,7 +491,7 @@ class TestPipelineStream:
         mock_gen.assert_called_once()
 
     async def test_config_failure_aborts_pipeline(self):
-        """If config generation fails, pipeline emits error and done."""
+        """If config generation fails, pipeline skips Phase 2 entirely."""
         user = _make_user()
         mock_db = MagicMock()
 
@@ -471,6 +523,7 @@ class TestPipelineStream:
 
         types = [e["type"] for e in events]
         assert "error" in types
+        assert "test" not in types
         assert types[-1] == "done"
 
     async def test_test_generation_failure_reports_error(self):

@@ -81,9 +81,7 @@ def _fetch_db_context(
 ) -> Dict[str, Any]:
     """Fetch all DB data needed for config prompts (called once upfront)."""
     behaviors = crud.get_behaviors(db=db, organization_id=organization_id, skip=0, limit=100)
-    behavior_list = [
-        {"name": b.name, "description": b.description or ""} for b in behaviors
-    ]
+    behavior_list = [{"name": b.name, "description": b.description or ""} for b in behaviors]
 
     project_name = None
     project_description = None
@@ -151,9 +149,7 @@ async def _stream_config(
                 if not name:
                     continue
 
-                item = TestConfigItem(
-                    name=name, description=description, active=active
-                )
+                item = TestConfigItem(name=name, description=description, active=active)
                 if category in collected:
                     collected[category].append(item)
 
@@ -172,6 +168,9 @@ async def _stream_config(
             "phase": "config",
             "message": str(e),
         }
+        yield {"type": "config_done", "total": 0}
+        yield {"type": "_collected", "config": None}
+        return
 
     total = sum(len(v) for v in collected.values())
     yield {"type": "config_done", "total": total}
@@ -267,12 +266,14 @@ async def test_generation_pipeline_stream(
                 num_tests=num_tests,
                 model_id=model_id,
             ):
-                yield ndjson({
-                    "type": "test",
-                    "index": test_index,
-                    "test": test,
-                    "test_type": "multi_turn",
-                })
+                yield ndjson(
+                    {
+                        "type": "test",
+                        "index": test_index,
+                        "test": test,
+                        "test_type": "multi_turn",
+                    }
+                )
                 test_index += 1
                 tests_generated += 1
                 await anyio.sleep(0)
@@ -296,12 +297,14 @@ async def test_generation_pipeline_stream(
                 model_id=model_id,
             )
             for test in tests:
-                yield ndjson({
-                    "type": "test",
-                    "index": test_index,
-                    "test": test,
-                    "test_type": "single_turn",
-                })
+                yield ndjson(
+                    {
+                        "type": "test",
+                        "index": test_index,
+                        "test": test,
+                        "test_type": "single_turn",
+                    }
+                )
                 test_index += 1
                 tests_generated += 1
                 await anyio.sleep(0)
@@ -323,12 +326,14 @@ async def test_generation_pipeline_stream(
                 num_tests=num_tests,
                 model_id=model_id,
             ):
-                yield ndjson({
-                    "type": "test",
-                    "index": test_index,
-                    "test": test,
-                    "test_type": "single_turn",
-                })
+                yield ndjson(
+                    {
+                        "type": "test",
+                        "index": test_index,
+                        "test": test,
+                        "test_type": "single_turn",
+                    }
+                )
                 test_index += 1
                 tests_generated += 1
                 await anyio.sleep(0)
