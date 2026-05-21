@@ -64,9 +64,12 @@ locals {
     }
   ) : ""
 
-  # Render BIND9 rhesis.ai split-horizon zone file
-  bind9_rhesis_ai_zone_file = length(var.bind9_tsig_keys) > 0 ? templatefile(
-    "${path.module}/templates/rhesis.ai.zone.tpl", {}
+  # Read BIND9 rhesis.ai split-horizon zone file.
+  # Uses file() not templatefile() — the zone file has no Terraform variables,
+  # and templatefile() with empty {} does not convert $$ → $ escapes, leaving
+  # $$ORIGIN / $$TTL in the output which BIND9 rejects as syntax errors.
+  bind9_rhesis_ai_zone_file = length(var.bind9_tsig_keys) > 0 ? file(
+    "${path.module}/templates/rhesis.ai.zone.tpl"
   ) : ""
 
   # Render cloud-init configuration (use base64 for binary/structured files to avoid YAML parsing issues)
