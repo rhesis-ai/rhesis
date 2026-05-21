@@ -13,6 +13,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-21
+
+### Added
+- Added support for project-scoped parameters and versioned experiments.
+- Implemented `Parameters.get()` facade with context/env/label precedence.
+- Introduced new `Experiment` entity and `@endpoint` parameter kwarg injection.
+- Added `Experiment.run()` convenience method.
+- Added first-class `Experiment` object support to `TestSet.execute()`.
+- Added support for image source type and extraction using `SourceType.IMAGE` with `ImageExtractor` class.
+- Added file extraction to test execution and direct invocation.
+- Added Helm chart and Kubernetes cluster deployment support.
+- Added streaming upload endpoint (`POST /files`) with per-file (10 MB), per-entity (20 MB), and per-request (10 files) limits.
+- Added `FileReference` Pydantic type + `aread_bytes(client=...)` async fetch using `httpx`.
+
+### Changed
+- Renamed "Labels" to "Environments" for parameter routing.
+- Replaced the legacy `@endpoint(parameters=...)` kwarg-merging approach with a single `{{ params.model }}`, `{{ params.temperature }}`, etc. syntax in `request_mapping`.
+- Unified parameter injection via `{{ params.* }}` in request mappings.
+- Replaced content-hash version identifiers with sequential numbering (v1, v2, v3) for experiments.
+- Migrated file attachments from Postgres `bytea` column to a backend-agnostic object store (`fsspec` - GCS/S3/local).
+- Consolidated file extraction into `extract_with_vision_fallback`.
+- Updated SDK to align with renamed built-in environment and aggregated results schemas.
+- Updated chatbot to handle file extraction and set travel as default use case.
+- Refactored the frontend to unify 5 execution drawers into a single `RunDrawer` component.
+
+### Fixed
+- Fixed security vulnerabilities by bumping direct and transitive dependencies.
+- Fixed issue where experiment summary was not read from flat run attributes.
+- Fixed MUI component warnings and select value issues in the frontend.
+- Fixed experiment creation routing to project-scoped endpoint.
+- Fixed X-Total-Count header to reflect only visible experiments.
+- Fixed Vertex AI credentials handling to pass in-memory instead of temp files.
+- Fixed Turbopack CPU bug by using webpack for dev server.
+- Fixed race condition in the bind9 server startup.
+- Fixed OOM issue in the backend and permission issue in the frontend.
+- Fixed CNPG Cluster manifests having Helm placeholders in SQL.
+- Fixed migration failure.
+- Fixed issue where experiment schema tab state was not preserved.
+- Fixed issue where experiments were not shown in comparison dialog.
+- Fixed issue where defaults were not preserved for none params.
+- Fixed architectural layering and eliminated duplicate logic related to file handling.
+- Fixed issue where file handling was performed after stateless message building in invoke_endpoint.
+
+### Removed
+- Removed atexit cleanup, temp file creation, and GOOGLE_APPLICATION_CREDENTIALS side effects related to Vertex AI credentials.
+
+
 ## [0.7.1] - 2026-05-07
 
 ### Added

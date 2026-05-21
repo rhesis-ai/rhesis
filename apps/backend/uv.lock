@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-05-13T21:23:50.0574Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6501,7 +6501,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.7.1"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6751,7 +6751,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.7.1"
+version = "0.8.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },

@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-21
+
+### Added
+
+- **Parameter Management and Experiments:** Introduced project-scoped parameter schemas, versioned experiments, and label routing (now Environments). Includes a project-level parameter schema editor, experiment detail page with typed forms, version history diffs, and latest-results aggregations.
+- **Experiment Selection for Test Runs:** Added an experiment selector to execution drawers, allowing users to pin parameter values when running tests.
+- **Server-Side Experiment Management:** Implemented server-side filters, search, and inline editing for experiments.
+- **Experiment Chip in Test Run Comparison View:** Added a link to the experiment page in the Baseline Run and Current Run cards of the comparison view.
+- **Multi-Version Experiment Selection:** Enabled selecting multiple versions from the same experiment in the picker dialog for test runs.
+- **Parameters Tab on Experiment Detail:** Added a Parameters tab to the experiment detail page, reusing the ProjectParameters component.
+- **Interactive RHESIS_API_KEY Setup:** Added interactive detection and prompting for RHESIS_API_KEY on `rh start` if missing or a placeholder.
+- **File Handling Support:** Added support for image source type and extraction, allowing the system to handle image and document files as test inputs.
+- **Test Explorer User Guide:** Added documentation for the Test Explorer feature, including an overview, workflow, and scenarios.
+- **Architect Task Progress Events:** Added WebSocket events for live updates from background workers to the Architect chat session.
+- **Architect Task Progress UI:** Added a task progress trail to the Architect chat UI, providing live updates on background tasks.
+- **Adversarial Test Generation Notebook:** Added a Polyphemus adversarial test generation notebook example.
+
+### Changed
+
+- **Terminology Update:** Renamed "Labels" to "Environments" for parameter routing.
+- **Parameter Injection:** Unified parameter injection via `{{ params.* }}` in request mappings, replacing the legacy `@endpoint(parameters=...)` approach.
+- **Project UI Patterns:** Standardized project and experiment UI patterns.
+- **Execution Drawers:** Unified multiple execution drawers into a single RunDrawer component.
+- **Experiment Version IDs:** Replaced content-hash version identifiers with sequential numbering (v1, v2, v3).
+- **Test Clusters Panel:** Improved the Test Clusters panel hover UX and unified tests list and clusters in a tabbed panel.
+- **Architect Agent Plan Tracking:** Enhanced Architect agent plan tracking with progress summaries and improved mapping logic.
+- **Architect Agent Entity Resolution:** Implemented a typo-tolerant entity resolution ladder for the Architect agent.
+- **SSO Feature Gating:** Moved SSO into EE and added community boundary guard.
+- **API Base URL Resolution:** Resolved the frontend API base URL at runtime instead of build time.
+- **Default Embedding Model:** Set `rhesis/rhesis-embedding` as the default embedding model.
+- **Quick Start Mode:** Resolved QUICK_START at runtime instead of build time.
+- **Architect Task Progress Trail:** Unified exploration progress trail into streaming bubble.
+- **Architect Needs Confirmation:** Derived architect needs_confirmation from per-turn block state.
+
+### Fixed
+
+- **Security Vulnerabilities:** Fixed security vulnerabilities across all projects by bumping dependencies.
+- **MUI Component Warnings:** Resolved MUI component warnings and select value issues.
+- **Turbopack CPU Bug:** Used webpack for the dev server to avoid a turbopack CPU bug.
+- **Embedding Graph Poll Cancellation:** Restored embedding graph poll cancellation.
+- **Vertex AI Credentials:** Passed Vertex AI credentials in-memory instead of using temporary files.
+- **CNPG Service Account Name:** Fixed the CNPG service account name in Kubernetes deployments.
+- **OOM Issues:** Fixed OOM issues in the backend and permission issues in the frontend.
+- **DNS Resolution:** Resolved DNS issues inside the Kubernetes cluster.
+- **OIDC Metadata Resolution:** Resolved OIDC metadata outside the JWKS cache lock.
+- **Token Exchange Flow:** Wired end-to-end token-exchange flow.
+- **Rate Limiting:** Added post-parse limiter for body-keyed throttles.
+- **JTI Replay Protection:** Namespaced single-use JTI by issuer.
+- **Security Hardening:** Applied security review hardening for API clients.
+- **Refresh Token Security:** Required active user and uniform 401 on `/auth/refresh`.
+- **Auth Client Uniqueness:** Scoped auth_client uniqueness to live rows.
+- **Feature Gate Enforcement:** Enforced feature gate at runtime and required epoch on azp JWTs.
+- **PermissionError on Logs Dir:** Resolved PermissionError on logs directory during e2e startup.
+- **Event Loop Errors:** Always used background thread in `run_sync` to prevent event loop errors.
+- **Streaming Output Bleed:** Prevented streaming output bleed across Architect sessions.
+- **OTEL Exporter Batch Chunking:** Added batch chunking to OTEL exporter.
+- **Architect Agent UX:** Architect agent UX improvements and exploration progress trail.
+- **Architect Needs Confirmation:** Architect needs_confirmation derived from per-turn block state.
+- **Ghost Empty Bubbles:** Prevented ghost empty bubbles after multi-iteration resumed turn.
+- **Missing Mappings:** Required mappings in plan, prohibited mid-execution save_plan.
+- **Rate Limit IP Address:** Corrected `get_real_ip` index for X-Forwarded-For.
+- **EE Tests:** Ran EE tests correctly and fixed `/features` token auth.
+- **ORM Data Migrations:** Used raw SQL in ORM-based migrations to avoid column mismatch.
+- **TLS Pinning:** Fixed TLS pinning, redirect context, and slug dedup.
+- **File Handling:** Addressed architectural layering and eliminated duplicate logic in file handling.
+- **API Base URL:** Resolved frontend API base URL at runtime instead of build time.
+
+### Removed
+
+- **Legacy Parameter Approach:** Removed the legacy `@endpoint(parameters=...)` approach for parameter injection.
+- **Dead ExplorerClient Methods:** Removed dead ExplorerClient methods (validateTree, getTreeStats, path-based getTopic) and TreeValidation / TreeStats types.
+- **TaskProgressList Component:** Removed TaskProgressList component and taskProgressToToolStreams adapter.
+
 ## [0.7.1] - 2026-05-07
 
 ### Added
