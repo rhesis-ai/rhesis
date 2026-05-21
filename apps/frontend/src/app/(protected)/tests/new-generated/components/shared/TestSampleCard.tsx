@@ -461,7 +461,9 @@ export default function TestSampleCard({
               }}
             >
               {sample.isLoadingConversation ? (
-                <Box sx={{ px: 2, py: 1, minWidth: theme => theme.spacing(30) }}>
+                <Box
+                  sx={{ px: 2, py: 1, minWidth: theme => theme.spacing(30) }}
+                >
                   <Skeleton variant="text" width="90%" />
                   <Skeleton variant="text" width="60%" />
                 </Box>

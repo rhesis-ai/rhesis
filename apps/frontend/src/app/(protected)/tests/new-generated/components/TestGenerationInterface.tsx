@@ -341,7 +341,12 @@ export default function TestGenerationInterface({
             setLocalTestSamples(prev =>
               prev.map(s =>
                 s.id === sample.id
-                  ? { ...s, response: responseText, isLoadingResponse: false, responseError: undefined }
+                  ? {
+                      ...s,
+                      response: responseText,
+                      isLoadingResponse: false,
+                      responseError: undefined,
+                    }
                   : s
               )
             );
@@ -489,7 +494,8 @@ export default function TestGenerationInterface({
       const sample = localTestSamples.find(s => s.id === sampleId);
       if (!sample) return;
       if (processedSampleIds.has(sampleId) || sample.isLoadingResponse) return;
-      if (sample.testType === 'multi_turn' && sample.isLoadingConversation) return;
+      if (sample.testType === 'multi_turn' && sample.isLoadingConversation)
+        return;
 
       const apiFactory = new ApiClientFactory(session.session_token);
       const endpointsClient = apiFactory.getEndpointsClient();
@@ -500,8 +506,20 @@ export default function TestGenerationInterface({
         prev.map(s => {
           if (s.id !== sampleId) return s;
           return s.testType === 'single_turn'
-            ? { ...s, isLoadingResponse: true, response: undefined, responseError: undefined }
-            : { ...s, isLoadingConversation: true, response: undefined, responseError: undefined, conversation: undefined, conversationError: undefined };
+            ? {
+                ...s,
+                isLoadingResponse: true,
+                response: undefined,
+                responseError: undefined,
+              }
+            : {
+                ...s,
+                isLoadingConversation: true,
+                response: undefined,
+                responseError: undefined,
+                conversation: undefined,
+                conversationError: undefined,
+              };
         })
       );
 
@@ -516,7 +534,12 @@ export default function TestGenerationInterface({
           setLocalTestSamples(prev =>
             prev.map(s =>
               s.id === sampleId
-                ? { ...s, response: responseText, isLoadingResponse: false, responseError: undefined }
+                ? {
+                    ...s,
+                    response: responseText,
+                    isLoadingResponse: false,
+                    responseError: undefined,
+                  }
                 : s
             )
           );
@@ -572,8 +595,18 @@ export default function TestGenerationInterface({
           prev.map(s => {
             if (s.id !== sampleId) return s;
             return s.testType === 'single_turn'
-              ? { ...s, isLoadingResponse: false, responseError: errorMsg, response: undefined }
-              : { ...s, isLoadingConversation: false, conversationError: errorMsg, conversation: undefined };
+              ? {
+                  ...s,
+                  isLoadingResponse: false,
+                  responseError: errorMsg,
+                  response: undefined,
+                }
+              : {
+                  ...s,
+                  isLoadingConversation: false,
+                  conversationError: errorMsg,
+                  conversation: undefined,
+                };
           })
         );
 
@@ -666,7 +699,6 @@ export default function TestGenerationInterface({
                   position: 'relative',
                 }}
               >
-
                 {/* Behavior Testing */}
                 <Box sx={{ mb: 4 }}>
                   <Box
@@ -695,9 +727,24 @@ export default function TestGenerationInterface({
                   />
                   {isLoadingConfig && configChips.behavior.length === 0 && (
                     <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                      <Skeleton variant="rounded" width="30%" height={28} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
-                      <Skeleton variant="rounded" width="22%" height={28} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
-                      <Skeleton variant="rounded" width="35%" height={28} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
+                      <Skeleton
+                        variant="rounded"
+                        width="30%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="22%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="35%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
                     </Box>
                   )}
                 </Box>
@@ -730,9 +777,24 @@ export default function TestGenerationInterface({
                   />
                   {isLoadingConfig && configChips.topics.length === 0 && (
                     <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                      <Skeleton variant="rounded" width="25%" height={28} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
-                      <Skeleton variant="rounded" width="20%" height={28} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
-                      <Skeleton variant="rounded" width="28%" height={28} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
+                      <Skeleton
+                        variant="rounded"
+                        width="25%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="20%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="28%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
                     </Box>
                   )}
                 </Box>
@@ -765,8 +827,18 @@ export default function TestGenerationInterface({
                   />
                   {isLoadingConfig && configChips.category.length === 0 && (
                     <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                      <Skeleton variant="rounded" width="32%" height={28} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
-                      <Skeleton variant="rounded" width="22%" height={28} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
+                      <Skeleton
+                        variant="rounded"
+                        width="32%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
+                      <Skeleton
+                        variant="rounded"
+                        width="22%"
+                        height={28}
+                        sx={{ borderRadius: theme => theme.shape.borderRadius }}
+                      />
                     </Box>
                   )}
                 </Box>
@@ -992,7 +1064,11 @@ export default function TestGenerationInterface({
                     }}
                   >
                     <VisibilityIcon
-                      sx={{ fontSize: theme => theme.iconSizes.xlarge, opacity: 0.3, mb: 2 }}
+                      sx={{
+                        fontSize: theme => theme.iconSizes.xlarge,
+                        opacity: 0.3,
+                        mb: 2,
+                      }}
                     />
                     <Typography
                       variant="h6"
@@ -1040,56 +1116,92 @@ export default function TestGenerationInterface({
 
                     {(isLoadingConfig || isLoadingSamples || isGenerating) && (
                       <Box>
-                        {[...Array(localTestSamples.length === 0 ? 3 : 1)].map((_, i) => (
-                          <Card
-                            key={`skeleton-${i}`}
-                            elevation={0}
-                            sx={{
-                              mb: 2,
-                              borderRadius: theme => theme.shape.borderRadius,
-                              border: 1,
-                              borderColor: 'divider',
-                              bgcolor: 'background.paper',
-                            }}
-                          >
-                            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                              <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
-                                <Skeleton variant="rounded" width="20%" height={24} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
-                                <Skeleton variant="rounded" width="15%" height={24} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
-                                <Skeleton variant="rounded" width="18%" height={24} sx={{ borderRadius: theme => theme.shape.borderRadius }} />
-                              </Box>
-                              <Skeleton
-                                variant="rounded"
-                                width="85%"
-                                height={56}
-                                sx={{ borderRadius: theme => theme.shape.borderRadius, mb: 1 }}
-                              />
-                              <Skeleton variant="text" width="40%" />
-                            </CardContent>
-                          </Card>
-                        ))}
+                        {[...Array(localTestSamples.length === 0 ? 3 : 1)].map(
+                          (_, i) => (
+                            <Card
+                              key={`skeleton-${i}`}
+                              elevation={0}
+                              sx={{
+                                mb: 2,
+                                borderRadius: theme => theme.shape.borderRadius,
+                                border: 1,
+                                borderColor: 'divider',
+                                bgcolor: 'background.paper',
+                              }}
+                            >
+                              <CardContent
+                                sx={{ p: 2, '&:last-child': { pb: 2 } }}
+                              >
+                                <Box
+                                  sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}
+                                >
+                                  <Skeleton
+                                    variant="rounded"
+                                    width="20%"
+                                    height={24}
+                                    sx={{
+                                      borderRadius: theme =>
+                                        theme.shape.borderRadius,
+                                    }}
+                                  />
+                                  <Skeleton
+                                    variant="rounded"
+                                    width="15%"
+                                    height={24}
+                                    sx={{
+                                      borderRadius: theme =>
+                                        theme.shape.borderRadius,
+                                    }}
+                                  />
+                                  <Skeleton
+                                    variant="rounded"
+                                    width="18%"
+                                    height={24}
+                                    sx={{
+                                      borderRadius: theme =>
+                                        theme.shape.borderRadius,
+                                    }}
+                                  />
+                                </Box>
+                                <Skeleton
+                                  variant="rounded"
+                                  width="85%"
+                                  height={56}
+                                  sx={{
+                                    borderRadius: theme =>
+                                      theme.shape.borderRadius,
+                                    mb: 1,
+                                  }}
+                                />
+                                <Skeleton variant="text" width="40%" />
+                              </CardContent>
+                            </Card>
+                          )
+                        )}
                       </Box>
                     )}
 
                     {/* Load More Button */}
-                    {!isLoadingSamples && !isGenerating && localTestSamples.length > 0 && (
-                    <Box sx={{ textAlign: 'center', mt: 3 }}>
-                      <Button
-                        variant="outlined"
-                        startIcon={
-                          isLoadingMore ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <AutoFixHighIcon />
-                          )
-                        }
-                        onClick={onLoadMoreSamples}
-                        disabled={isLoadingMore}
-                      >
-                        {isLoadingMore ? 'Loading...' : 'Load More Samples'}
-                      </Button>
-                    </Box>
-                    )}
+                    {!isLoadingSamples &&
+                      !isGenerating &&
+                      localTestSamples.length > 0 && (
+                        <Box sx={{ textAlign: 'center', mt: 3 }}>
+                          <Button
+                            variant="outlined"
+                            startIcon={
+                              isLoadingMore ? (
+                                <CircularProgress size={16} />
+                              ) : (
+                                <AutoFixHighIcon />
+                              )
+                            }
+                            onClick={onLoadMoreSamples}
+                            disabled={isLoadingMore}
+                          >
+                            {isLoadingMore ? 'Loading...' : 'Load More Samples'}
+                          </Button>
+                        </Box>
+                      )}
                   </Box>
                 )}
               </CardContent>
@@ -1141,7 +1253,12 @@ export default function TestGenerationInterface({
               setFetchTrigger(prev => prev + 1);
               setShowEndpointModal(false);
             }}
-            disabled={!selectedEndpointId || localTestSamples.length === 0 || isFetchingResponses || isLoadingSamples}
+            disabled={
+              !selectedEndpointId ||
+              localTestSamples.length === 0 ||
+              isFetchingResponses ||
+              isLoadingSamples
+            }
           >
             {isFetchingResponses ? 'Getting...' : 'Get Responses'}
           </Button>

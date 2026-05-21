@@ -182,9 +182,7 @@ const generateSamplesForTestType = async (
   return [];
 };
 
-const mapCategoryToChipKey = (
-  category: string
-): keyof ConfigChips | null => {
+const mapCategoryToChipKey = (category: string): keyof ConfigChips | null => {
   switch (category) {
     case 'behaviors':
       return 'behavior';
@@ -457,8 +455,7 @@ export default function TestGenerationFlow({
       if (projectId) {
         try {
           const projectsClient = apiFactory.getProjectsClient();
-          const fetchedProject =
-            await projectsClient.getProject(projectId);
+          const fetchedProject = await projectsClient.getProject(projectId);
           setProject(fetchedProject);
         } catch (_error) {
           show('Failed to load project', { severity: 'warning' });
@@ -481,10 +478,9 @@ export default function TestGenerationFlow({
           { onEvent: handlePipelineEvent }
         );
       } catch (error) {
-        show(
-          getApiErrorMessage(error, 'Failed to generate configuration'),
-          { severity: 'error' }
-        );
+        show(getApiErrorMessage(error, 'Failed to generate configuration'), {
+          severity: 'error',
+        });
         setIsLoadingConfig(false);
         setIsLoadingSamples(false);
       }
