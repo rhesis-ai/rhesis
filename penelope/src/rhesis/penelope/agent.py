@@ -470,9 +470,7 @@ class PenelopeAgent:
             descriptions.append(entry)
 
         return (
-            "The following files are attached to this test:\n"
-            + "\n".join(descriptions)
-            + "\n\n"
+            "The following files are attached to this test:\n" + "\n".join(descriptions) + "\n\n"
             "**You MUST set `include_files=true`** in the `send_message_to_target` "
             "parameters to send these files to the target. Files are NOT sent "
             "automatically — they are only included when you explicitly request it.\n\n"
