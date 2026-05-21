@@ -175,6 +175,7 @@ class JsonLogFormatter(logging.Formatter):
         return json.dumps(
             {
                 "severity": record.levelname,
+                "module": record.name,
                 "message": record.getMessage(),
             }
         )
