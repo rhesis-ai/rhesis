@@ -540,9 +540,7 @@ class TestSetSynthesizer(ABC):
         prompt = self.prompt_template.render(**template_context)
         parser = IncrementalJsonArrayParser()
 
-        token_stream = self.model.generate_stream(
-            prompt=prompt, schema=FlatTests
-        )
+        token_stream = self.model.generate_stream(prompt=prompt, schema=FlatTests)
         async for chunk in token_stream:
             for flat in parser.feed(chunk):
                 yield {

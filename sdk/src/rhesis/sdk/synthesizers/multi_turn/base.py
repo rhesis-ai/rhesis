@@ -122,9 +122,7 @@ class MultiTurnSynthesizer:
 
         return batch_tests
 
-    async def generate_stream(
-        self, num_tests: int = 5
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    async def generate_stream(self, num_tests: int = 5) -> AsyncGenerator[Dict[str, Any], None]:
         """Yield multi-turn test dicts one-by-one as they parse from the LLM."""
         from rhesis.sdk.synthesizers.streaming import IncrementalJsonArrayParser
 
@@ -137,9 +135,7 @@ class MultiTurnSynthesizer:
         prompt = prompt_template.render(template_context)
         parser = IncrementalJsonArrayParser()
 
-        token_stream = self.model.generate_stream(
-            prompt=prompt, schema=FlatTests
-        )
+        token_stream = self.model.generate_stream(prompt=prompt, schema=FlatTests)
         async for chunk in token_stream:
             for flat in parser.feed(chunk):
                 yield {
