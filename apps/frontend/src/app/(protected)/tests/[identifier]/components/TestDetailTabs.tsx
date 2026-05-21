@@ -2,6 +2,7 @@
 
 import React, { useCallback } from 'react';
 import { Box, Tab, Tabs } from '@mui/material';
+import { GREYSCALE } from '@/styles/theme';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
@@ -78,6 +79,26 @@ export default function TestDetailTabs({
           value={activeTab}
           onChange={handleTabChange}
           aria-label="test detail tabs"
+          sx={{
+            '& .MuiTabs-flexContainer': { gap: 6 },
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontSize: 18,
+              fontWeight: 700,
+              lineHeight: '25px',
+              minHeight: 48,
+              px: 0,
+              py: 0.625,
+              color: '#b6bdc9',
+              '&.Mui-selected': {
+                color: GREYSCALE.light.title,
+              },
+            },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              backgroundColor: 'primary.main',
+            },
+          }}
         >
           <Tab
             label="Basic Information"

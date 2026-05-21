@@ -2,6 +2,7 @@
 
 import React, { useCallback } from 'react';
 import { Box, Tab, Tabs } from '@mui/material';
+import { GREYSCALE } from '@/styles/theme';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
@@ -47,7 +48,7 @@ interface TestSetDetailTabsProps {
 
 export default function TestSetDetailTabs({
   testSet,
-  testCount: _testCount,
+  testCount,
   sessionToken,
   currentUserId,
   currentUserName,
@@ -79,6 +80,26 @@ export default function TestSetDetailTabs({
           value={activeTab}
           onChange={handleTabChange}
           aria-label="test set detail tabs"
+          sx={{
+            '& .MuiTabs-flexContainer': { gap: 6 },
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontSize: 18,
+              fontWeight: 700,
+              lineHeight: '25px',
+              minHeight: 48,
+              px: 0,
+              py: 0.625,
+              color: '#b6bdc9',
+              '&.Mui-selected': {
+                color: GREYSCALE.light.title,
+              },
+            },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              backgroundColor: 'primary.main',
+            },
+          }}
         >
           <Tab
             label="Basic Information"
@@ -118,6 +139,7 @@ export default function TestSetDetailTabs({
           testSetId={testSet.id as string}
           sessionToken={sessionToken}
           testSetType={testSet.test_set_type?.type_value}
+          testCount={testCount}
         />
       </TabPanel>
 

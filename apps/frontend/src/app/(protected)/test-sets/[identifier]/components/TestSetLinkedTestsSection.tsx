@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Box, Button, Paper, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import TestSetTestsGrid from './TestSetTestsGrid';
@@ -9,21 +9,37 @@ import TestSelectionDialog from './TestSelectionDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+
+const paperSx = {
+  p: 3,
+  borderRadius: BORDER_RADIUS.md,
+  border: '1px solid',
+  borderColor: GREYSCALE.light.border,
+  boxShadow: ELEVATION.xs,
+};
 
 interface TestSetLinkedTestsSectionProps {
   testSetId: string;
   sessionToken: string;
   testSetType?: string;
+  testCount: number;
 }
 
 export default function TestSetLinkedTestsSection({
   testSetId,
   sessionToken,
   testSetType,
+  testCount: initialTestCount,
 }: TestSetLinkedTestsSectionProps) {
   const { show: showNotification } = useNotifications();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [totalCount, setTotalCount] = useState(initialTestCount);
+
+  useEffect(() => {
+    setTotalCount(initialTestCount);
+  }, [initialTestCount]);
 
   const handleRefresh = useCallback(() => {
     setRefreshKey(k => k + 1);
@@ -58,46 +74,84 @@ export default function TestSetLinkedTestsSection({
     }
   };
 
+  const isEmpty = totalCount === 0;
+
+  const assignButton = (
+    <Button
+      variant="outlined"
+      startIcon={<AddIcon />}
+      onClick={() => setDialogOpen(true)}
+    >
+      Assign
+    </Button>
+  );
+
   return (
     <>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PlaylistAddIcon sx={{ color: 'primary.main', fontSize: 24 }} />
-          <Typography
-            variant="h6"
-            sx={{ fontWeight: 600, color: 'primary.main' }}
+      {isEmpty ? (
+        <Paper elevation={0} sx={paperSx}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              py: 5,
+              gap: 2,
+              textAlign: 'center',
+            }}
           >
-            Tests
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={() => setDialogOpen(true)}
-          sx={{
-            fontWeight: 700,
-            borderWidth: 2,
-            '&:hover': { borderWidth: 2 },
-          }}
-        >
-          Assign tests
-        </Button>
-      </Box>
+            <PlaylistAddIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, color: 'primary.main' }}
+            >
+              No assigned entity yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Assign tests to this test set to group related cases together.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setDialogOpen(true)}
+            >
+              Assign entity
+            </Button>
+          </Box>
+        </Paper>
+      ) : (
+        <Paper elevation={0} sx={paperSx}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 3,
+            }}
+          >
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: 20,
+                lineHeight: '24px',
+                color: 'primary.main',
+              }}
+            >
+              Linked entity ({totalCount})
+            </Typography>
+            {assignButton}
+          </Box>
 
-      <TestSetTestsGrid
-        key={refreshKey}
-        testSetId={testSetId}
-        sessionToken={sessionToken}
-        testSetType={testSetType}
-        onRefresh={handleRefresh}
-      />
+          <TestSetTestsGrid
+            key={refreshKey}
+            testSetId={testSetId}
+            sessionToken={sessionToken}
+            testSetType={testSetType}
+            onRefresh={handleRefresh}
+            onTotalCountChange={setTotalCount}
+          />
+        </Paper>
+      )}
 
       <TestSelectionDialog
         open={dialogOpen}

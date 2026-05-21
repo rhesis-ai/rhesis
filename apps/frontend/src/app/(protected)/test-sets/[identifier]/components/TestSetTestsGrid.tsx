@@ -1,55 +1,129 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useContext,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
+  GridFilterModel,
   GridRowParams,
-  GridRowSelectionModel,
   GridPaginationModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { Typography, Box, Alert, Chip } from '@mui/material';
+import { Box, Alert } from '@mui/material';
 import BadgeChip from '@/components/common/BadgeChip';
+import { FilterButton } from '@/components/common/FilterButton';
+import { SearchPill } from '@/components/common/SearchPill';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import { TestSetsClient } from '@/utils/api-client/test-sets-client';
-import { useNotifications } from '@/components/common/NotificationContext';
-import DeleteIcon from '@mui/icons-material/Delete';
 import {
   getTestContentValue,
   renderTestContentCell,
 } from '@/app/(protected)/tests/components/test-grid-helpers';
 import { isMultiTurnTest } from '@/constants/test-types';
+import { combineTestFiltersToOData } from '@/utils/odata-filter';
+import TestFilterDrawer, {
+  type TestFilters,
+  EMPTY_TEST_FILTERS,
+  hasActiveTestFilters,
+} from '@/app/(protected)/tests/components/TestFilterDrawer';
+
+interface LinkedTestsToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
+}
+
+const LinkedTestsToolbarContext = React.createContext<LinkedTestsToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
+});
+
+function LinkedTestsUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    openFilterDrawer,
+    hasActiveDrawerFilters,
+  } = useContext(LinkedTestsToolbarContext);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        mb: 3,
+      }}
+    >
+      <FilterButton
+        onClick={openFilterDrawer}
+        hasActiveFilters={hasActiveDrawerFilters}
+      />
+
+      <SearchPill
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search tests…"
+        width={288}
+      />
+
+      <Box sx={{ flex: 1 }} />
+
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <GridToolbarColumnsButton />
+        <GridToolbarDensitySelector />
+        <GridToolbarExport />
+      </Box>
+    </Box>
+  );
+}
 
 interface TestSetTestsGridProps {
   sessionToken: string;
   testSetId: string;
   testSetType?: string;
   onRefresh?: () => void;
+  onTotalCountChange?: (count: number) => void;
 }
 
 export default function TestSetTestsGrid({
   sessionToken,
   testSetId,
   testSetType,
-  onRefresh,
+  onTotalCountChange,
 }: TestSetTestsGridProps) {
   const isMounted = useRef(true);
   const router = useRouter();
-  const notifications = useNotifications();
-  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
+  });
+  const [drawerFilters, setDrawerFilters] =
+    useState<TestFilters>(EMPTY_TEST_FILTERS);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [tests, setTests] = useState<TestDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
-    pageSize: 50,
+    pageSize: 10,
   });
 
-  // Data fetching function
   const fetchTests = useCallback(async () => {
     if (!sessionToken || !testSetId) return;
 
@@ -60,17 +134,23 @@ export default function TestSetTestsGrid({
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
+      const filterString = combineTestFiltersToOData(filterModel);
 
       const response = await testSetsClient.getTestSetTests(testSetId, {
         skip: paginationModel.page * paginationModel.pageSize,
         limit: paginationModel.pageSize,
         sort_by: 'topic',
         sort_order: 'asc',
+        ...(filterString && { $filter: filterString }),
       });
 
       if (isMounted.current) {
         setTests(response.data);
-        setTotalCount(response.pagination.totalCount);
+        const count = response.pagination.totalCount;
+        setTotalCount(count);
+        if (!filterString) {
+          onTotalCountChange?.(count);
+        }
         setError(null);
       }
     } catch (_error) {
@@ -83,7 +163,14 @@ export default function TestSetTestsGrid({
         setLoading(false);
       }
     }
-  }, [sessionToken, testSetId, paginationModel.page, paginationModel.pageSize]);
+  }, [
+    sessionToken,
+    testSetId,
+    paginationModel.page,
+    paginationModel.pageSize,
+    filterModel,
+    onTotalCountChange,
+  ]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -92,6 +179,75 @@ export default function TestSetTestsGrid({
       isMounted.current = false;
     };
   }, [fetchTests]);
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'quickFilter'
+      );
+      const items = searchQuery
+        ? [
+            ...otherItems,
+            { field: 'quickFilter', operator: 'contains', value: searchQuery },
+          ]
+        : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const DRAWER_FIELDS = [
+        'test_type.type_value',
+        'status.name',
+        'behavior.name',
+        'category.name',
+        'topic.name',
+      ];
+      const otherItems = prev.items.filter(
+        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      );
+      const drawerItems: GridFilterModel['items'] = [];
+      if (drawerFilters.testType) {
+        drawerItems.push({
+          field: 'test_type.type_value',
+          operator: 'equals',
+          value: drawerFilters.testType,
+        });
+      }
+      if (drawerFilters.status) {
+        drawerItems.push({
+          field: 'status.name',
+          operator: 'contains',
+          value: drawerFilters.status,
+        });
+      }
+      if (drawerFilters.behavior) {
+        drawerItems.push({
+          field: 'behavior.name',
+          operator: 'contains',
+          value: drawerFilters.behavior,
+        });
+      }
+      if (drawerFilters.category) {
+        drawerItems.push({
+          field: 'category.name',
+          operator: 'contains',
+          value: drawerFilters.category,
+        });
+      }
+      if (drawerFilters.topic) {
+        drawerItems.push({
+          field: 'topic.name',
+          operator: 'contains',
+          value: drawerFilters.topic,
+        });
+      }
+      return { ...prev, items: [...otherItems, ...drawerItems] };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [drawerFilters]);
 
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
@@ -146,7 +302,7 @@ export default function TestSetTestsGrid({
         field: 'test_type.type_value',
         headerName: 'Test Type',
         flex: 1,
-        valueGetter: (value, row) => row.test_type?.type_value || '',
+        valueGetter: (_value, row) => row.test_type?.type_value || '',
         renderCell: params => {
           const testType = params.row.test_type?.type_value;
           if (!testType) return null;
@@ -166,6 +322,10 @@ export default function TestSetTestsGrid({
             return null;
           }
 
+          const validTags = test.tags.filter(
+            (tag: Tag) => tag && tag.id && tag.name
+          );
+
           return (
             <Box
               sx={{
@@ -175,25 +335,11 @@ export default function TestSetTestsGrid({
                 overflow: 'hidden',
               }}
             >
-              {test.tags
-                .filter((tag: Tag) => tag && tag.id && tag.name)
-                .slice(0, 2)
-                .map((tag: Tag) => (
-                  <Chip
-                    key={tag.id}
-                    label={tag.name}
-                    size="small"
-                    variant="filled"
-                    color="primary"
-                  />
-                ))}
-              {test.tags.filter((tag: Tag) => tag && tag.id && tag.name)
-                .length > 2 && (
-                <Chip
-                  label={`+${test.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
-                  size="small"
-                  variant="outlined"
-                />
+              {validTags.slice(0, 2).map((tag: Tag) => (
+                <BadgeChip key={tag.id} label={tag.name} />
+              ))}
+              {validTags.length > 2 && (
+                <BadgeChip label={`+${validTags.length - 2}`} />
               )}
             </Box>
           );
@@ -203,7 +349,6 @@ export default function TestSetTestsGrid({
     [testSetType]
   );
 
-  // Handle row click to navigate to test details
   const handleRowClick = useCallback(
     (params: GridRowParams) => {
       const testId = params.id;
@@ -212,100 +357,22 @@ export default function TestSetTestsGrid({
     [router]
   );
 
-  // Handle row selection change
-  const handleSelectionChange = useCallback(
-    (newSelection: GridRowSelectionModel) => {
-      setSelectedRows(newSelection);
-    },
-    []
+  const toolbarContextValue = useMemo(
+    () => ({
+      searchQuery,
+      setSearchQuery,
+      openFilterDrawer: () => setFilterDrawerOpen(true),
+      hasActiveDrawerFilters: hasActiveTestFilters(drawerFilters),
+    }),
+    [searchQuery, drawerFilters]
   );
 
-  const _handleTestSaved = useCallback(() => {
-    if (sessionToken) {
-      fetchTests();
-      onRefresh?.();
-    }
-  }, [sessionToken, fetchTests, onRefresh]);
-
-  // Handle removing tests from test set
-  const handleRemoveTests = useCallback(async () => {
-    if (!sessionToken || !testSetId || selectedRows.length === 0) return;
-
-    try {
-      const testSetsClient = new TestSetsClient(sessionToken);
-      await testSetsClient.disassociateTestsFromTestSet(
-        testSetId,
-        selectedRows as string[]
-      );
-
-      notifications.show(
-        `Successfully removed ${selectedRows.length} ${selectedRows.length === 1 ? 'test' : 'tests'} from test set`,
-        {
-          severity: 'success',
-          autoHideDuration: 6000,
-        }
-      );
-
-      // Refresh the data
-      fetchTests();
-      onRefresh?.();
-    } catch (_error) {
-      notifications.show('Failed to remove tests from test set', {
-        severity: 'error',
-        autoHideDuration: 6000,
-      });
-    }
-  }, [
-    sessionToken,
-    testSetId,
-    selectedRows,
-    fetchTests,
-    onRefresh,
-    notifications,
-  ]);
-
-  // Dynamic action buttons based on selection
-  const getActionButtons = useCallback(() => {
-    const buttons = [];
-
-    if (selectedRows.length > 0) {
-      buttons.push({
-        label: `Remove ${selectedRows.length} ${selectedRows.length === 1 ? 'Test' : 'Tests'}`,
-        icon: <DeleteIcon />,
-        variant: 'outlined' as const,
-        color: 'error' as const,
-        onClick: handleRemoveTests,
-      });
-    }
-
-    return buttons;
-  }, [selectedRows.length, handleRemoveTests]);
-
   return (
-    <>
-      <Typography variant="h6" sx={{ mb: 1 }}>
-        Tests
-      </Typography>
-
+    <LinkedTestsToolbarContext.Provider value={toolbarContextValue}>
       {error && (
-        <Alert severity="error" sx={{ mb: 1 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
-      )}
-
-      {selectedRows.length > 0 && (
-        <Box
-          sx={{
-            mb: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} tests selected
-          </Typography>
-        </Box>
       )}
 
       <BaseDataGrid
@@ -315,17 +382,20 @@ export default function TestSetTestsGrid({
         getRowId={row => row.id}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
-        actionButtons={getActionButtons()}
-        checkboxSelection
-        disableRowSelectionOnClick
-        onRowSelectionModelChange={handleSelectionChange}
-        rowSelectionModel={selectedRows}
         onRowClick={handleRowClick}
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
+        toolbarSlot={LinkedTestsUnifiedToolbar}
       />
-    </>
+
+      <TestFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={setDrawerFilters}
+      />
+    </LinkedTestsToolbarContext.Provider>
   );
 }
