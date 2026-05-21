@@ -18,6 +18,7 @@ import {
 } from './components';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
 import type { ValidationStatus } from './types';
+import type { Organization } from '@/utils/api-client/interfaces/organization';
 
 export type { ValidationStatus } from './types';
 
@@ -43,7 +44,9 @@ export default function ModelsPage() {
     'language' | 'embedding'
   >('language');
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
-  const [organization, setOrganization] = useState<any>(null);
+  const [organization, setOrganization] = useState<Organization | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     async function loadData() {
@@ -346,7 +349,7 @@ export default function ModelsPage() {
     }
   };
 
-  const handleRequestPolyphemusAccess = (model: Model) => {
+  const handleRequestPolyphemusAccess = (_model: Model) => {
     setPolyphemusModalOpen(true);
   };
 

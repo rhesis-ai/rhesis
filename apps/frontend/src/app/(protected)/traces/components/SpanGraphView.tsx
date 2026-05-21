@@ -1199,7 +1199,6 @@ export default function SpanGraphView({
     effectiveSpans,
     theme.palette.info.main,
     theme.palette.warning.main,
-    activeTurn,
     isConversationTrace,
     rootSpans,
   ]);
@@ -1623,7 +1622,7 @@ export default function SpanGraphView({
             >
               All
             </Button>
-            {rootSpans!.map((span, i) => (
+            {rootSpans?.map((span, i) => (
               <Button
                 key={span.span_id}
                 onClick={() => setActiveTurn(i)}

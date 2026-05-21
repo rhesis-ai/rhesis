@@ -517,7 +517,7 @@ export default function TestGenerationFlow({
         setIsLoadingSamples(false);
       }
     },
-    [sessionToken, project, show, testType]
+    [sessionToken, project, selectedModelId, show, testType]
   );
 
   // Generate test samples

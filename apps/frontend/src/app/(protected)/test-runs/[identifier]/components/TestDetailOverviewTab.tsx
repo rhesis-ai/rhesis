@@ -316,7 +316,9 @@ export default function TestDetailOverviewTab({
             }}
           >
             {test.prompt_id && prompts[test.prompt_id]?.expected_response ? (
-              renderTextContent(prompts[test.prompt_id].expected_response!)
+              renderTextContent(
+                prompts[test.prompt_id]?.expected_response ?? ''
+              )
             ) : (
               <Typography
                 variant="body2"

@@ -31,7 +31,7 @@ import TestsTableView from './TestsTableView';
 import ComparisonView from './ComparisonView';
 import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
-import RunDrawer, { type RerunConfig } from '@/components/common/RunDrawer';
+import RunDrawer from '@/components/common/RunDrawer';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';

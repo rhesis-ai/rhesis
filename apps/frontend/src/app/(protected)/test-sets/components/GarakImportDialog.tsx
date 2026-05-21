@@ -385,7 +385,7 @@ export default function GarakImportDialog({
           prev
             ? {
                 ...prev,
-                currentTestCount: previewData!.total_tests,
+                currentTestCount: previewData?.total_tests ?? 0,
                 staticImported: staticProbes.length,
               }
             : prev

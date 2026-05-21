@@ -44,6 +44,13 @@ interface ProjectTraceMetricsProps {
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<void>;
 }
 
+function getTraceMetricIds(project: Project): string[] {
+  const traceMetrics = project.attributes?.trace_metrics;
+  return Array.isArray(traceMetrics)
+    ? traceMetrics.filter((id): id is string => typeof id === 'string')
+    : [];
+}
+
 const getBackendIcon = (backendType?: string) => {
   if (!backendType) return <StorageIcon fontSize="small" />;
 
@@ -123,7 +130,7 @@ export default function ProjectTraceMetrics({
 
   const handleAddMetric = async (metricId: UUID) => {
     try {
-      const currentMetricIds = project.attributes?.trace_metrics || [];
+      const currentMetricIds = getTraceMetricIds(project);
       if (currentMetricIds.includes(metricId)) {
         notifications.show('Metric is already added to this project', {
           severity: 'warning',
@@ -150,7 +157,7 @@ export default function ProjectTraceMetrics({
 
   const handleRemoveMetric = async (metricId: string) => {
     try {
-      const currentMetricIds = project.attributes?.trace_metrics || [];
+      const currentMetricIds = getTraceMetricIds(project);
       const newMetricIds = currentMetricIds.filter(
         (id: string) => id !== metricId
       );
@@ -178,7 +185,7 @@ export default function ProjectTraceMetrics({
 
     try {
       setDeleting(true);
-      const currentMetricIds = project.attributes?.trace_metrics || [];
+      const currentMetricIds = getTraceMetricIds(project);
       const newMetricIds = currentMetricIds.filter(
         (id: string) => !selectedRows.includes(id)
       );

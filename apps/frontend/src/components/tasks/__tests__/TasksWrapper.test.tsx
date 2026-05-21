@@ -18,12 +18,6 @@ jest.mock('@/hooks/useTasks', () => ({
   })),
 }));
 
-// Capture callbacks passed to TasksSection for testing
-let capturedOnCreate:
-  | ((data: Record<string, unknown>) => Promise<void>)
-  | null = null;
-let capturedOnDelete: ((id: string) => Promise<void>) | null = null;
-
 jest.mock('../TasksSection', () => ({
   TasksSection: ({
     onCreateTask,
@@ -32,8 +26,6 @@ jest.mock('../TasksSection', () => ({
     onCreateTask: (data: Record<string, unknown>) => Promise<void>;
     onDeleteTask: (id: string) => Promise<void>;
   }) => {
-    capturedOnCreate = onCreateTask;
-    capturedOnDelete = onDeleteTask;
     return (
       <div data-testid="tasks-section">
         <button onClick={() => onCreateTask({ title: 'New Task' })}>
@@ -60,8 +52,6 @@ const DEFAULT_PROPS = {
 describe('TasksWrapper', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    capturedOnCreate = null;
-    capturedOnDelete = null;
   });
 
   it('renders TasksSection', () => {

@@ -10,6 +10,14 @@ function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider theme={lightTheme}>{ui}</ThemeProvider>);
 }
 
+function getIconButton(testId: string) {
+  const button = screen.getByTestId(testId).closest('button');
+  if (!button) {
+    throw new Error(`Expected ${testId} to be inside a button`);
+  }
+  return button;
+}
+
 // Heavy dependencies mocked for isolation
 jest.mock('emoji-picker-react', () => ({
   __esModule: true,
@@ -134,7 +142,7 @@ describe('CommentItem', () => {
     const user = userEvent.setup();
     renderWithTheme(<CommentItem {...baseProps} />);
 
-    await user.click(screen.getByTestId('edit-icon').closest('button')!);
+    await user.click(getIconButton('edit-icon'));
 
     // Edit mode shows a textfield with the comment's content
     expect(screen.getByDisplayValue('Hello world')).toBeInTheDocument();
@@ -144,7 +152,7 @@ describe('CommentItem', () => {
     const user = userEvent.setup();
     renderWithTheme(<CommentItem {...baseProps} />);
 
-    await user.click(screen.getByTestId('edit-icon').closest('button')!);
+    await user.click(getIconButton('edit-icon'));
     await user.keyboard('{Escape}');
 
     expect(screen.getByText('Hello world')).toBeInTheDocument();
@@ -155,7 +163,7 @@ describe('CommentItem', () => {
     const user = userEvent.setup();
     renderWithTheme(<CommentItem {...baseProps} />);
 
-    await user.click(screen.getByTestId('delete-icon').closest('button')!);
+    await user.click(getIconButton('delete-icon'));
 
     expect(screen.getByTestId('delete-modal')).toBeInTheDocument();
   });
@@ -164,7 +172,7 @@ describe('CommentItem', () => {
     const user = userEvent.setup();
     renderWithTheme(<CommentItem {...baseProps} />);
 
-    await user.click(screen.getByTestId('delete-icon').closest('button')!);
+    await user.click(getIconButton('delete-icon'));
     await user.click(screen.getByRole('button', { name: 'confirm-delete' }));
 
     await waitFor(() => expect(baseProps.onDelete).toHaveBeenCalledWith('c1'));
@@ -174,7 +182,7 @@ describe('CommentItem', () => {
     const user = userEvent.setup();
     renderWithTheme(<CommentItem {...baseProps} />);
 
-    await user.click(screen.getByTestId('delete-icon').closest('button')!);
+    await user.click(getIconButton('delete-icon'));
     await user.click(screen.getByRole('button', { name: 'cancel-delete' }));
 
     expect(baseProps.onDelete).not.toHaveBeenCalled();
