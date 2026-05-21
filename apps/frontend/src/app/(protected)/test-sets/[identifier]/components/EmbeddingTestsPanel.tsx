@@ -382,7 +382,9 @@ export default function EmbeddingTestsPanel({
                 onClick={() => void computeGraph()}
                 disabled={isLoading || isComputing}
               >
-                {graph && hasPoints ? 'Recompute clusters' : 'Compute clusters'}
+                {graph && graph.points.length > 0
+                  ? 'Recompute clusters'
+                  : 'Compute clusters'}
               </Button>
             </Stack>
           </Stack>
@@ -443,23 +445,26 @@ export default function EmbeddingTestsPanel({
                 </Box>
               )}
 
-              {!isLoading && !isComputing && graph && !hasPoints && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    p: 2,
-                  }}
-                >
-                  <Alert severity="info" icon={<RefreshIcon />}>
-                    No tests could be embedded (empty content or missing
-                    embedding model). Add content to tests or configure an
-                    embedding model, then compute clusters again.
-                  </Alert>
-                </Box>
-              )}
+              {!isLoading &&
+                !isComputing &&
+                graph &&
+                graph.points.length === 0 && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%',
+                      p: 2,
+                    }}
+                  >
+                    <Alert severity="info" icon={<RefreshIcon />}>
+                      No tests could be embedded (empty content or missing
+                      embedding model). Add content to tests or configure an
+                      embedding model, then compute clusters again.
+                    </Alert>
+                  </Box>
+                )}
 
               {!isLoading && !isComputing && !graph && (
                 <Box
