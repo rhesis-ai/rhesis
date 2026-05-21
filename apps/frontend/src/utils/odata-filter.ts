@@ -1176,3 +1176,81 @@ export function buildEndpointListFilter(
   }
   return `(${parts.join(') and (')})`;
 }
+
+// ── Team member filters (organization team page) ─────────────────────────────
+
+export interface TeamFilters {
+  /** Joined vs pending invite — mapped to auth0_id OData checks */
+  memberStatus: '' | 'active' | 'invited';
+  /** Account enabled flag — null means no filter */
+  accountStatus: boolean | null;
+  email: string;
+  name: string;
+}
+
+export const EMPTY_TEAM_FILTERS: TeamFilters = {
+  memberStatus: '',
+  accountStatus: null,
+  email: '',
+  name: '',
+};
+
+export function hasActiveTeamFilters(f: TeamFilters): boolean {
+  return (
+    f.memberStatus !== '' ||
+    f.accountStatus !== null ||
+    f.email.trim() !== '' ||
+    f.name.trim() !== ''
+  );
+}
+
+/**
+ * Builds OData $filter for team member list queries (search pill + drawer).
+ */
+export function combineTeamFiltersToOData(
+  searchQuery: string,
+  drawerFilters: TeamFilters
+): string | undefined {
+  const parts: string[] = [];
+
+  const search = searchQuery.trim();
+  if (search) {
+    const q = escapeODataValue(search);
+    parts.push(
+      `(contains(email,'${q}') or contains(name,'${q}') or contains(given_name,'${q}') or contains(family_name,'${q}'))`
+    );
+  }
+
+  const email = drawerFilters.email.trim();
+  if (email) {
+    parts.push(`contains(email,'${escapeODataValue(email)}')`);
+  }
+
+  const name = drawerFilters.name.trim();
+  if (name) {
+    const n = escapeODataValue(name);
+    parts.push(
+      `(contains(name,'${n}') or contains(given_name,'${n}') or contains(family_name,'${n}'))`
+    );
+  }
+
+  if (drawerFilters.memberStatus === 'active') {
+    parts.push("auth0_id ne null and auth0_id ne ''");
+  } else if (drawerFilters.memberStatus === 'invited') {
+    parts.push("(auth0_id eq null or auth0_id eq '')");
+  }
+
+  if (drawerFilters.accountStatus === true) {
+    parts.push('is_active eq true');
+  } else if (drawerFilters.accountStatus === false) {
+    parts.push('is_active eq false');
+  }
+
+  if (parts.length === 0) {
+    return undefined;
+  }
+  if (parts.length === 1) {
+    return parts[0];
+  }
+  return parts.map(p => `(${p})`).join(' and ');
+}

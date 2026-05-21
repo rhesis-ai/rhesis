@@ -14,6 +14,8 @@ export class UsersClient extends BaseApiClient {
     options: {
       skip?: number;
       limit?: number;
+      /** OData filter expression (sent as `$filter` query param). */
+      $filter?: string;
     } = {}
   ): Promise<{ data: User[]; total: number }> {
     const queryParams = new URLSearchParams();
@@ -21,6 +23,7 @@ export class UsersClient extends BaseApiClient {
       queryParams.append('skip', options.skip.toString());
     if (options.limit !== undefined)
       queryParams.append('limit', options.limit.toString());
+    if (options.$filter) queryParams.append('$filter', options.$filter);
 
     const queryString = queryParams.toString();
     const url = queryString

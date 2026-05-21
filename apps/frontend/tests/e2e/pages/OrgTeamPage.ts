@@ -18,24 +18,38 @@ export class OrgTeamPage extends BasePage {
     await this.expectNoErrors();
   }
 
-  /**
-   * Assert the team invite form is rendered.
-   * The invite email input is always present regardless of member count.
-   */
-  async expectInviteFormVisible() {
+  /** Opens the invite team members drawer via the header FAB. */
+  async openInviteDrawer() {
     await this.page.waitForLoadState('networkidle');
-
-    const emailInput = this.page.locator('input[type="email"]').first();
-    const mainContent = this.page.locator('main, [role="main"]').first();
-
-    const hasEmail = await emailInput.isVisible().catch(() => false);
-    const hasMain = await mainContent.isVisible().catch(() => false);
-
-    expect(hasEmail || hasMain).toBeTruthy();
+    const fab = this.page.getByRole('button', { name: /invite team members/i });
+    const hasFab = await fab.isVisible({ timeout: 10_000 }).catch(() => false);
+    if (hasFab) {
+      await fab.click();
+      return;
+    }
+    await this.page
+      .locator('[data-tour="invite-team-button"]')
+      .click({ timeout: 10_000 });
   }
 
   /**
-   * Assert that either the team members grid or an empty state is shown.
+   * Assert the team invite form is rendered inside the invite drawer.
+   */
+  async expectInviteFormVisible() {
+    await this.openInviteDrawer();
+    await this.page.waitForLoadState('networkidle');
+
+    const emailInput = this.page.locator('input[type="email"]').first();
+    const drawerTitle = this.page.getByText(/invite team members/i).first();
+
+    const hasEmail = await emailInput.isVisible().catch(() => false);
+    const hasDrawer = await drawerTitle.isVisible().catch(() => false);
+
+    expect(hasEmail || hasDrawer).toBeTruthy();
+  }
+
+  /**
+   * Assert that the team members grid is shown.
    */
   async expectMembersAreaVisible() {
     await this.page.waitForLoadState('networkidle');

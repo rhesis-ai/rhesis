@@ -23,6 +23,8 @@ export interface BaseDrawerProps {
   saveDisabled?: boolean;
   error?: string;
   saveButtonText?: string;
+  /** Optional data-tour attribute for onboarding (save button). */
+  saveDataTour?: string;
   closeButtonText?: string;
   width?: number | string;
   showHeader?: boolean;
@@ -65,6 +67,7 @@ export default function BaseDrawer({
   saveDisabled = false,
   error,
   saveButtonText = 'Save Changes',
+  saveDataTour,
   closeButtonText = 'Cancel',
   width = 578,
   showHeader = true,
@@ -161,6 +164,7 @@ export default function BaseDrawer({
               variant="contained"
               onClick={onSave}
               disabled={loading || saveDisabled}
+              {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
               startIcon={
                 loading ? (
                   <CircularProgress size={16} color="inherit" />

@@ -1,15 +1,9 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Paper,
-  Typography,
-} from '@mui/material';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Box, Button, CircularProgress } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import { GREYSCALE, ELEVATION, BORDER_RADIUS } from '@/styles/theme';
+import { SectionCard } from '@/components/common/SectionCard';
 
 interface EditableSectionProps<T> {
   title: string;
@@ -37,6 +31,12 @@ export function EditableSection<T>({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<T>(initialValue);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setDraft(initialValue);
+    }
+  }, [initialValue, isEditing]);
 
   const dirty = isDirty(draft, initialValue);
 
@@ -98,45 +98,9 @@ export function EditableSection<T>({
   );
 
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: '30px',
-        mb: 3,
-        border: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        borderRadius: BORDER_RADIUS.md,
-        boxShadow: theme =>
-          theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
-        bgcolor: theme =>
-          theme.palette.mode === 'light' ? '#ffffff' : GREYSCALE.dark.surface1,
-      }}
-    >
-      {/* Card header */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 3,
-        }}
-      >
-        <Typography
-          variant="h6"
-          sx={{ fontWeight: 600, color: 'primary.main' }}
-        >
-          {title}
-        </Typography>
-        {actionButtons}
-      </Box>
-
-      {/* Card body */}
+    <SectionCard title={title} actions={actionButtons}>
       {children({ draft, setDraft, isEditing })}
-    </Paper>
+    </SectionCard>
   );
 }
 
