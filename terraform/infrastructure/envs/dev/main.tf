@@ -55,7 +55,7 @@ module "gke_dev" {
   wireguard_cidr         = local.cidrs.wireguard.network
   machine_type           = "e2-medium"
   min_node_count         = 1
-  max_node_count         = 2
+  max_node_count         = 3
   deletion_protection    = var.gke_deletion_protection
 
   # WireGuard server's Shared VPC NIC IP — MASQUERADE'd source for kubectl → GKE master traffic.
