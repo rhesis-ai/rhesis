@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: feat/seperate-dev-stg-prd-gcp-project
+    targetRevision: feat/separate-dev-stg-prd-gcp-project
     path: kubernetes/clusters/dev/external-dns
   destination:
     server: https://kubernetes.default.svc
