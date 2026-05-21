@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -111,19 +117,16 @@ export function PreflightDialog({
     };
   };
 
-  const upsertChecks = useCallback(
-    (items: PreflightCheckUpdatePayload[]) => {
-      setChecks(prev => {
-        const next = new Map(prev);
-        for (const item of items) {
-          const state = toCheckState(item);
-          next.set(state.composite_key, state);
-        }
-        return next;
-      });
-    },
-    []
-  );
+  const upsertChecks = useCallback((items: PreflightCheckUpdatePayload[]) => {
+    setChecks(prev => {
+      const next = new Map(prev);
+      for (const item of items) {
+        const state = toCheckState(item);
+        next.set(state.composite_key, state);
+      }
+      return next;
+    });
+  }, []);
 
   const handleCheckUpdate = useCallback(
     (msg: WebSocketMessage) => {
@@ -186,16 +189,19 @@ export function PreflightDialog({
       for (const c of initialChecks) {
         const key = c.composite_key || c.check_id;
         if (!next.has(key)) {
-          next.set(key, toCheckState({
-            check_id: c.check_id,
-            label: c.label,
-            status: c.applicable ? 'running' : 'skipped',
-            message: c.applicable ? undefined : 'Not applicable',
-            composite_key: key,
-            test_set_id: c.test_set_id,
-            test_set_name: c.test_set_name,
-            correlation_id: correlationId,
-          }));
+          next.set(
+            key,
+            toCheckState({
+              check_id: c.check_id,
+              label: c.label,
+              status: c.applicable ? 'running' : 'skipped',
+              message: c.applicable ? undefined : 'Not applicable',
+              composite_key: key,
+              test_set_id: c.test_set_id,
+              test_set_name: c.test_set_name,
+              correlation_id: correlationId,
+            })
+          );
         }
       }
       return next;
@@ -239,7 +245,10 @@ export function PreflightDialog({
 
   const { sharedChecks, testSetGroups } = useMemo(() => {
     if (!isMultiTestSet) {
-      return { sharedChecks: checkList, testSetGroups: [] as [string, CheckState[]][] };
+      return {
+        sharedChecks: checkList,
+        testSetGroups: [] as [string, CheckState[]][],
+      };
     }
 
     const shared: CheckState[] = [];
@@ -277,9 +286,7 @@ export function PreflightDialog({
     const expandable = hasDetail(check);
     const isExpanded = expanded.has(check.composite_key);
     const secondaryText =
-      check.message ||
-      DEFAULT_DESCRIPTIONS[check.check_id] ||
-      undefined;
+      check.message || DEFAULT_DESCRIPTIONS[check.check_id] || undefined;
 
     return (
       <React.Fragment key={check.composite_key}>
