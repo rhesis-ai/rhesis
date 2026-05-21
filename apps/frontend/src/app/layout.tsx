@@ -138,7 +138,7 @@ async function getNavigationItems(
     {
       kind: 'page',
       segment: 'test-sets',
-      title: 'Test Set',
+      title: 'Test Sets',
       icon: <CategoryIcon key="test-sets-icon" />,
     },
     // IMPROVE section — analysis and iteration
