@@ -803,9 +803,9 @@ async def run_preflight_checks_multi(
     results: List[PreflightCheckResult] = []
     tasks: list[tuple[str, asyncio.Task]] = []
     multi = len(test_sets) > 1
-    ts_name_map: dict[str, str] = {
-        str(ts_id): ts_name for ts_id, ts_name, _ in test_sets
-    } if multi else {}
+    ts_name_map: dict[str, str] = (
+        {str(ts_id): ts_name for ts_id, ts_name, _ in test_sets} if multi else {}
+    )
 
     endpoint = db.query(Endpoint).filter(Endpoint.id == endpoint_id).first()
     any_multi_turn = any(mt for _, _, mt in test_sets)
