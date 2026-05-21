@@ -9,6 +9,7 @@ import '../styles/fonts.css';
 // pulled into the client bundle via consumers like the organization
 // settings page, so registry state is populated wherever it is read.
 import '../ee_bootstrap';
+import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
 import {
   ScienceIcon,
   AppsIcon,
@@ -19,7 +20,6 @@ import {
   AutoGraphIcon,
   SmartToyIcon,
   EndpointsIcon,
-  TerminalIcon,
   TasksIcon,
   KnowledgeIcon,
   BehaviorsIcon,
@@ -194,7 +194,7 @@ async function getNavigationItems(
       kind: 'page',
       segment: 'mcp',
       title: 'MCP',
-      icon: <TerminalIcon key="mcp-icon" />,
+      icon: <ModelContextProtocolIcon key="mcp-icon" />,
       requireSuperuser: true,
     },
     {

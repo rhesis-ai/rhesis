@@ -3,11 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Alert, Paper } from '@mui/material';
 import UploadIcon from '@mui/icons-material/Upload';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { MenuBookIcon } from '@/components/icons';
+import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -100,7 +100,7 @@ export default function KnowledgeClientWrapper({
               onClick={() => setUploadDrawerOpen(true)}
             />
             <Fab
-              icon={<CloudDownloadIcon />}
+              icon={<ModelContextProtocolIcon />}
               tooltip="Import from MCP"
               aria-label="Import from MCP"
               onClick={() => setMcpImportDrawerOpen(true)}

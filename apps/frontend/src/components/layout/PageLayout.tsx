@@ -180,6 +180,7 @@ export function PageLayout({
                         gap: FAB_GROUP_GAP,
                         flexShrink: 0,
                         alignItems: 'center',
+                        overflow: 'visible',
                       }}
                     >
                       {actions}
