@@ -2,12 +2,11 @@
 
 import React from 'react';
 import Box from '@mui/material/Box';
-import Breadcrumbs from '@mui/material/Breadcrumbs';
 import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
 import NextLink from 'next/link';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import { GREYSCALE } from '@/styles/theme';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { GREYSCALE, FAB_GROUP_GAP } from '@/styles/theme-constants';
 
 export interface BreadcrumbItem {
   /** Display text (use `label` for new code; `title` accepted for Toolpad migration compat) */
@@ -24,20 +23,93 @@ export interface PageLayoutProps {
   breadcrumbs?: BreadcrumbItem[];
   /** Actions rendered top-right (e.g. FAB cluster) */
   actions?: React.ReactNode;
-  /** Optional metadata strip rendered below the title row (e.g. "created by / created on") */
+  /** Optional metadata strip rendered below the description (e.g. "created by / created on") */
   metadata?: React.ReactNode;
   children: React.ReactNode;
 }
 
+function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+  return (
+    <Box
+      component="nav"
+      aria-label="breadcrumb"
+      sx={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: '10px',
+      }}
+    >
+      {items.map((crumb, idx) => {
+        const isLast = idx === items.length - 1;
+        const text = crumb.label ?? crumb.title ?? '';
+        const link = crumb.href ?? crumb.path;
+        const showSeparator = idx < items.length - 1;
+        const crumbKey = link ? `${link}|${text}` : text;
+
+        return (
+          <Box
+            key={crumbKey}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {isLast || !link ? (
+              <Typography
+                variant="bodyMReg"
+                component="span"
+                sx={{
+                  color: theme =>
+                    theme.palette.mode === 'light'
+                      ? GREYSCALE.light.body
+                      : GREYSCALE.dark.body,
+                  fontWeight: 400,
+                }}
+              >
+                {text}
+              </Typography>
+            ) : (
+              <Link
+                component={NextLink}
+                href={link}
+                underline="hover"
+                sx={{
+                  color: theme =>
+                    theme.palette.mode === 'light'
+                      ? GREYSCALE.light.subtitle
+                      : GREYSCALE.dark.subtitle,
+                  fontSize: 14,
+                  lineHeight: '22px',
+                  fontWeight: 400,
+                }}
+              >
+                {text}
+              </Link>
+            )}
+            {showSeparator && (
+              <ChevronRightIcon
+                sx={{
+                  fontSize: 20,
+                  color: theme =>
+                    theme.palette.mode === 'light'
+                      ? GREYSCALE.light.subtitle
+                      : GREYSCALE.dark.subtitle,
+                }}
+                aria-hidden
+              />
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 /**
  * Standard page header + content wrapper.
- * Matches the Figma page header pattern (Top 841:38534, Section Text 841:38539):
- *
- *   [Breadcrumbs]                    (20px gap)
- *   [H4 Title + Actions]             (56px min row height)
- *   [Body L description]             (16px gap below title row)
- *
- *   [Content]
+ * Matches Figma Top 841:38534 and Section Text 841:38539.
  */
 export function PageLayout({
   title,
@@ -47,144 +119,102 @@ export function PageLayout({
   metadata,
   children,
 }: PageLayoutProps) {
-  const hasBreadcrumbs =
-    breadcrumbs &&
-    breadcrumbs.length > 0 &&
-    breadcrumbs.some(b => b.label ?? b.title);
+  const crumbItems =
+    breadcrumbs?.filter(b => (b.label ?? b.title)?.trim()) ?? [];
+  const hasBreadcrumbs = crumbItems.length > 0;
+  const hasHeader = hasBreadcrumbs || title || description || actions;
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Page header */}
-      {(hasBreadcrumbs || title || description || actions) && (
-        <Box sx={{ mb: 5 }}>
-          {/* Row 0: Breadcrumbs (only when present) */}
-          {hasBreadcrumbs && (
-            <Breadcrumbs
-              separator={
-                <NavigateNextIcon
-                  sx={{
-                    fontSize: 16,
-                    color: theme =>
-                      theme.palette.mode === 'light'
-                        ? GREYSCALE.light.subtitle
-                        : GREYSCALE.dark.subtitle,
-                  }}
-                />
-              }
-              aria-label="breadcrumb"
-              sx={{ mb: 2.5 }}
-            >
-              {breadcrumbs.map((crumb, idx) => {
-                const isLast = idx === breadcrumbs.length - 1;
-                const text = crumb.label ?? crumb.title ?? '';
-                const link = crumb.href ?? crumb.path;
-                if (isLast || !link) {
-                  return (
-                    <Typography
-                      key={text}
-                      variant="bodyMReg"
-                      sx={{
-                        color: isLast
-                          ? theme =>
-                              theme.palette.mode === 'light'
-                                ? GREYSCALE.light.body
-                                : GREYSCALE.dark.body
-                          : theme =>
-                              theme.palette.mode === 'light'
-                                ? GREYSCALE.light.subtitle
-                                : GREYSCALE.dark.subtitle,
-                        fontWeight: isLast ? 500 : 400,
-                      }}
-                    >
-                      {text}
-                    </Typography>
-                  );
-                }
-                return (
-                  <Link
-                    key={text}
-                    component={NextLink}
-                    href={link}
-                    underline="hover"
-                    sx={{
-                      color: theme =>
-                        theme.palette.mode === 'light'
-                          ? GREYSCALE.light.subtitle
-                          : GREYSCALE.dark.subtitle,
-                      fontWeight: 400,
-                    }}
-                  >
-                    {text}
-                  </Link>
-                );
-              })}
-            </Breadcrumbs>
-          )}
+      {hasHeader && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            mb: 5,
+          }}
+        >
+          {hasBreadcrumbs && <PageBreadcrumbs items={crumbItems} />}
 
-          {/* Row 1: Title (left) + Actions (right) — Figma HL row is 56px tall */}
-          {(title || actions) && (
+          {(title || description || actions || metadata) && (
             <Box
               sx={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 2,
+                flexDirection: 'column',
+                alignItems: 'flex-start',
                 width: '100%',
-                minHeight: 56,
               }}
             >
-              {title && (
-                <Typography
-                  variant="h4"
-                  component="h1"
-                  sx={{
-                    color: theme =>
-                      theme.palette.mode === 'light'
-                        ? GREYSCALE.light.title
-                        : GREYSCALE.dark.title,
-                  }}
-                >
-                  {title}
-                </Typography>
-              )}
-              {actions && (
+              {(title || actions) && (
                 <Box
                   sx={{
                     display: 'flex',
-                    gap: 2,
-                    flexShrink: 0,
                     alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    width: '100%',
+                    minHeight: 56,
                   }}
                 >
-                  {actions}
+                  {title && (
+                    <Typography
+                      variant="h4"
+                      component="h1"
+                      sx={{
+                        flex: '1 1 0',
+                        minWidth: 0,
+                        color: theme =>
+                          theme.palette.mode === 'light'
+                            ? GREYSCALE.light.title
+                            : GREYSCALE.dark.title,
+                      }}
+                    >
+                      {title}
+                    </Typography>
+                  )}
+                  {actions && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        gap: FAB_GROUP_GAP,
+                        flexShrink: 0,
+                        alignItems: 'center',
+                      }}
+                    >
+                      {actions}
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {description && (
+                <Typography
+                  variant="bodyLReg"
+                  component="p"
+                  sx={{
+                    mt: title || actions ? 0 : 0,
+                    maxWidth: 800,
+                    color: theme =>
+                      theme.palette.mode === 'light'
+                        ? GREYSCALE.light.body
+                        : GREYSCALE.dark.body,
+                  }}
+                >
+                  {description}
+                </Typography>
+              )}
+
+              {metadata && (
+                <Box sx={{ mt: description ? 1.5 : 0, width: '100%' }}>
+                  {metadata}
                 </Box>
               )}
             </Box>
           )}
-
-          {/* Row 2: Metadata strip */}
-          {metadata && <Box sx={{ mt: 1 }}>{metadata}</Box>}
-
-          {/* Row 3: Description — 16px below title row (Figma Section Text spacing) */}
-          {description && (
-            <Typography
-              variant="bodyLReg"
-              sx={{
-                mt: 2,
-                maxWidth: 800,
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : GREYSCALE.dark.body,
-              }}
-            >
-              {description}
-            </Typography>
-          )}
         </Box>
       )}
 
-      {/* Page content */}
       {children}
     </Box>
   );

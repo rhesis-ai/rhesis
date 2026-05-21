@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useCallback } from 'react';
-import { Box, Tab, Tabs } from '@mui/material';
-import { GREYSCALE } from '@/styles/theme';
+import { Box } from '@mui/material';
+import DetailTabNav from '@/components/common/DetailTabNav';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
@@ -59,7 +59,7 @@ export default function TestDetailTabs({
   const activeTab = tabIndexFromKey(searchParams.get('tab'));
 
   const handleTabChange = useCallback(
-    (_event: React.SyntheticEvent, newValue: number) => {
+    (newValue: number) => {
       const key = TAB_KEYS[newValue];
       const params = new URLSearchParams(searchParams.toString());
       params.set('tab', key);
@@ -68,55 +68,30 @@ export default function TestDetailTabs({
     [router, searchParams]
   );
 
+  const navTabs = TAB_KEYS.map((key, index) => ({
+    key,
+    label:
+      key === 'basic'
+        ? 'Basic Information'
+        : key === 'linked'
+          ? 'Linked entities'
+          : 'Tasks',
+    id: `test-detail-tab-${index}`,
+    'aria-controls': `test-detail-tabpanel-${index}`,
+  }));
+
   const handleTestUpdate = useCallback(() => {
     router.refresh();
   }, [router]);
 
   return (
     <Box>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          aria-label="test detail tabs"
-          sx={{
-            '& .MuiTabs-flexContainer': { gap: 6 },
-            '& .MuiTab-root': {
-              textTransform: 'none',
-              fontSize: 18,
-              fontWeight: 700,
-              lineHeight: '25px',
-              minHeight: 48,
-              px: 0,
-              py: 0.625,
-              color: '#b6bdc9',
-              '&.Mui-selected': {
-                color: GREYSCALE.light.title,
-              },
-            },
-            '& .MuiTabs-indicator': {
-              height: 3,
-              backgroundColor: 'primary.main',
-            },
-          }}
-        >
-          <Tab
-            label="Basic Information"
-            id="test-detail-tab-0"
-            aria-controls="test-detail-tabpanel-0"
-          />
-          <Tab
-            label="Linked entities"
-            id="test-detail-tab-1"
-            aria-controls="test-detail-tabpanel-1"
-          />
-          <Tab
-            label="Tasks"
-            id="test-detail-tab-2"
-            aria-controls="test-detail-tabpanel-2"
-          />
-        </Tabs>
-      </Box>
+      <DetailTabNav
+        tabs={navTabs}
+        activeIndex={activeTab}
+        onChange={handleTabChange}
+        aria-label="Test detail tabs"
+      />
 
       {/* Basic Information */}
       <TabPanel value={activeTab} index={0}>

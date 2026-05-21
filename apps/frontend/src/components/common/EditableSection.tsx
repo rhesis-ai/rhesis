@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Box, Button, CircularProgress } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
 import { SectionCard } from '@/components/common/SectionCard';
+import {
+  SectionEditButton,
+  SectionSaveCancelActions,
+} from '@/components/common/SectionCardActions';
 
 interface EditableSectionProps<T> {
   title: string;
@@ -62,39 +64,14 @@ export function EditableSection<T>({
   }, [dirty, isSaving, onSave, draft]);
 
   const actionButtons = isEditing ? (
-    <Box sx={{ display: 'flex', gap: '10px' }}>
-      <Button
-        size="small"
-        variant="outlined"
-        onClick={handleCancel}
-        disabled={isSaving}
-        sx={{ fontWeight: 700, borderWidth: 2, '&:hover': { borderWidth: 2 } }}
-      >
-        Cancel
-      </Button>
-      <Button
-        size="small"
-        variant="contained"
-        onClick={handleSave}
-        disabled={!dirty || isSaving}
-        startIcon={
-          isSaving ? <CircularProgress size={14} color="inherit" /> : undefined
-        }
-        sx={{ fontWeight: 700 }}
-      >
-        {isSaving ? 'Saving…' : 'Save'}
-      </Button>
-    </Box>
+    <SectionSaveCancelActions
+      onSave={handleSave}
+      onCancel={handleCancel}
+      isSaving={isSaving}
+      saveDisabled={!dirty}
+    />
   ) : (
-    <Button
-      size="small"
-      variant="outlined"
-      startIcon={<EditIcon />}
-      onClick={handleEdit}
-      sx={{ fontWeight: 700, borderWidth: 2, '&:hover': { borderWidth: 2 } }}
-    >
-      Edit
-    </Button>
+    <SectionEditButton onClick={handleEdit} />
   );
 
   return (
