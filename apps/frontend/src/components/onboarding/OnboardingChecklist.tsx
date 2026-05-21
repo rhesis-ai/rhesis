@@ -89,8 +89,8 @@ export default function OnboardingChecklist() {
               ? response
               : response?.data || [];
 
-            if (projects.length > 0) {
-              // Navigate to the first project's detail page
+            if (projects.length > 0 && step.tourId) {
+              // Navigate to the first project's detail page with tour
               router.push(`/projects/${projects[0].id}?tour=${step.tourId}`);
               return;
             }

@@ -9,15 +9,13 @@ import ProjectEndpoints from './components/ProjectEndpoints';
 import ProjectTraceMetrics from './components/ProjectTraceMetrics';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import {
   PageLayout,
   type BreadcrumbItem,
 } from '@/components/layout/PageLayout';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { useOnboardingTour } from '@/hooks/useOnboardingTour';
-
 interface ClientWrapperProps {
   project: Project;
   sessionToken: string;
@@ -31,12 +29,6 @@ export default function ClientWrapper({
 }: ClientWrapperProps) {
   const router = useRouter();
   const params = useParams<{ identifier: string }>();
-  const searchParams = useSearchParams();
-
-  // Enable onboarding tour if tour parameter is present
-  const tourId = searchParams.get('tour');
-  useOnboardingTour(tourId === 'endpoint' ? 'endpoint' : undefined);
-
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project>(project);
   const [isUpdating, setIsUpdating] = useState(false);
