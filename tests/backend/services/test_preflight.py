@@ -1,0 +1,440 @@
+"""Tests for preflight check service."""
+
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from uuid import uuid4
+
+import pytest
+
+from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
+from rhesis.backend.app.services.preflight import (
+    CHECK_BEHAVIOR_METRIC_COVERAGE,
+    CHECK_ENDPOINT_CONNECTIVITY,
+    CHECK_EVALUATION_MODEL,
+    CHECK_EXECUTION_MODEL,
+    CHECK_METRIC_FUNCTIONALITY,
+    CHECK_TEST_SET_NOT_EMPTY,
+    LABELS,
+    compute_summary,
+)
+from rhesis.backend.app.services.preflight.utils import (
+    _apply_test_set_fields,
+    _make_composite_key,
+    _make_result,
+)
+
+
+class TestConstants:
+    def test_all_checks_have_labels(self):
+        all_checks = [
+            CHECK_ENDPOINT_CONNECTIVITY,
+            CHECK_EVALUATION_MODEL,
+            CHECK_EXECUTION_MODEL,
+            CHECK_BEHAVIOR_METRIC_COVERAGE,
+            CHECK_METRIC_FUNCTIONALITY,
+            CHECK_TEST_SET_NOT_EMPTY,
+        ]
+        for check_id in all_checks:
+            assert check_id in LABELS, f"Missing label for {check_id}"
+            assert isinstance(LABELS[check_id], str)
+            assert len(LABELS[check_id]) > 0
+
+
+class TestCompositeKey:
+    def test_shared_check_no_test_set(self):
+        assert _make_composite_key(CHECK_ENDPOINT_CONNECTIVITY) == CHECK_ENDPOINT_CONNECTIVITY
+
+    def test_shared_check_ignores_test_set_id(self):
+        ts_id = str(uuid4())
+        assert _make_composite_key(CHECK_ENDPOINT_CONNECTIVITY, ts_id) == CHECK_ENDPOINT_CONNECTIVITY
+
+    def test_per_test_set_check_with_id(self):
+        ts_id = str(uuid4())
+        result = _make_composite_key(CHECK_TEST_SET_NOT_EMPTY, ts_id)
+        assert result == f"{CHECK_TEST_SET_NOT_EMPTY}:{ts_id}"
+
+    def test_per_test_set_check_without_id(self):
+        assert _make_composite_key(CHECK_TEST_SET_NOT_EMPTY) == CHECK_TEST_SET_NOT_EMPTY
+
+
+class TestMakeResult:
+    def test_basic_result(self):
+        result = _make_result(CHECK_ENDPOINT_CONNECTIVITY, PreflightCheckStatus.PASSED)
+        assert result.check_id == CHECK_ENDPOINT_CONNECTIVITY
+        assert result.label == LABELS[CHECK_ENDPOINT_CONNECTIVITY]
+        assert result.status == PreflightCheckStatus.PASSED
+        assert result.message is None
+        assert result.detail is None
+
+    def test_result_with_message_and_detail(self):
+        result = _make_result(
+            CHECK_EVALUATION_MODEL,
+            PreflightCheckStatus.FAILED,
+            "Model not configured",
+            "Set up an evaluation model in settings.",
+        )
+        assert result.status == PreflightCheckStatus.FAILED
+        assert result.message == "Model not configured"
+        assert result.detail == "Set up an evaluation model in settings."
+
+
+class TestApplyTestSetFields:
+    def test_no_test_set(self):
+        result = _make_result(CHECK_TEST_SET_NOT_EMPTY, PreflightCheckStatus.PASSED)
+        _apply_test_set_fields(result)
+        assert result.test_set_id is None
+        assert result.composite_key == CHECK_TEST_SET_NOT_EMPTY
+
+    def test_with_test_set(self):
+        ts_id = str(uuid4())
+        result = _make_result(CHECK_TEST_SET_NOT_EMPTY, PreflightCheckStatus.PASSED)
+        _apply_test_set_fields(result, ts_id, "My Test Set")
+        assert result.test_set_id == ts_id
+        assert result.test_set_name == "My Test Set"
+        assert result.composite_key == f"{CHECK_TEST_SET_NOT_EMPTY}:{ts_id}"
+
+
+class TestComputeSummary:
+    def test_all_passed(self):
+        results = [
+            _make_result(CHECK_ENDPOINT_CONNECTIVITY, PreflightCheckStatus.PASSED),
+            _make_result(CHECK_EVALUATION_MODEL, PreflightCheckStatus.PASSED),
+            _make_result(CHECK_TEST_SET_NOT_EMPTY, PreflightCheckStatus.PASSED),
+        ]
+        summary, passed, failed, warnings, skipped = compute_summary(results)
+        assert summary == "passed"
+        assert passed == 3
+        assert failed == 0
+        assert warnings == 0
+        assert skipped == 0
+
+    def test_failure_takes_precedence(self):
+        results = [
+            _make_result(CHECK_ENDPOINT_CONNECTIVITY, PreflightCheckStatus.PASSED),
+            _make_result(CHECK_EVALUATION_MODEL, PreflightCheckStatus.FAILED),
+            _make_result(CHECK_TEST_SET_NOT_EMPTY, PreflightCheckStatus.WARNING),
+        ]
+        summary, passed, failed, warnings, skipped = compute_summary(results)
+        assert summary == "failed"
+        assert passed == 1
+        assert failed == 1
+        assert warnings == 1
+
+    def test_warning_without_failure(self):
+        results = [
+            _make_result(CHECK_ENDPOINT_CONNECTIVITY, PreflightCheckStatus.PASSED),
+            _make_result(CHECK_BEHAVIOR_METRIC_COVERAGE, PreflightCheckStatus.WARNING),
+        ]
+        summary, passed, failed, warnings, skipped = compute_summary(results)
+        assert summary == "warning"
+        assert passed == 1
+        assert warnings == 1
+
+    def test_empty_results(self):
+        summary, passed, failed, warnings, skipped = compute_summary([])
+        assert summary == "passed"
+        assert passed == 0
+
+    def test_skipped_counts(self):
+        results = [
+            _make_result(CHECK_ENDPOINT_CONNECTIVITY, PreflightCheckStatus.SKIPPED),
+            _make_result(CHECK_EVALUATION_MODEL, PreflightCheckStatus.PASSED),
+        ]
+        summary, passed, failed, warnings, skipped = compute_summary(results)
+        assert summary == "passed"
+        assert skipped == 1
+        assert passed == 1
+
+
+class TestCheckTestSetNotEmpty:
+    @pytest.mark.asyncio
+    async def test_empty_test_set(self):
+        from rhesis.backend.app.services.preflight.checks import check_test_set_not_empty
+
+        ts_id = uuid4()
+        db = MagicMock()
+        query = db.query.return_value.filter.return_value
+        query.count.return_value = 0
+
+        result = await check_test_set_not_empty(db, ts_id, publish=False)
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "no tests" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_nonempty_test_set(self):
+        from rhesis.backend.app.services.preflight.checks import check_test_set_not_empty
+
+        ts_id = uuid4()
+        db = MagicMock()
+        query = db.query.return_value.filter.return_value
+        query.count.return_value = 42
+
+        result = await check_test_set_not_empty(db, ts_id, publish=False)
+        assert result.status == PreflightCheckStatus.PASSED
+        assert "42" in result.message
+
+    @pytest.mark.asyncio
+    async def test_db_error(self):
+        from rhesis.backend.app.services.preflight.checks import check_test_set_not_empty
+
+        ts_id = uuid4()
+        db = MagicMock()
+        db.query.side_effect = RuntimeError("connection lost")
+
+        result = await check_test_set_not_empty(db, ts_id, publish=False)
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "connection lost" in result.detail
+
+
+class TestCheckEvaluationModel:
+    MODEL_UTIL = (
+        "rhesis.backend.app.utils.user_model_utils.get_evaluation_model_with_override"
+    )
+
+    @pytest.mark.asyncio
+    async def test_model_passes(self):
+        from rhesis.backend.app.services.preflight.checks import check_evaluation_model
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+        user.settings.models.evaluation.model_id = None
+
+        mock_model = MagicMock()
+
+        with (
+            patch(self.MODEL_UTIL, return_value=mock_model),
+            patch(
+                "rhesis.backend.app.services.preflight.utils._verify_model_responds",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.checks._build_model_detail",
+                return_value="OpenAI / gpt-4o",
+            ),
+        ):
+            result = await check_evaluation_model(db, user, publish=False)
+
+        assert result.status == PreflightCheckStatus.PASSED
+        assert result.detail == "OpenAI / gpt-4o"
+
+    @pytest.mark.asyncio
+    async def test_model_timeout(self):
+        from rhesis.backend.app.services.preflight.checks import check_evaluation_model
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        with patch(self.MODEL_UTIL, side_effect=asyncio.TimeoutError()):
+            result = await check_evaluation_model(db, user, publish=False)
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "timed out" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_model_config_error(self):
+        from rhesis.backend.app.services.preflight.checks import check_evaluation_model
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        with patch(self.MODEL_UTIL, side_effect=ValueError("No API key configured")):
+            result = await check_evaluation_model(db, user, publish=False)
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "No API key configured" in result.detail
+
+
+class TestCheckEndpointConnectivity:
+    CONV_TRACKER = (
+        "rhesis.backend.app.services.invokers.conversation"
+        ".ConversationTracker.detect_stateless_mode"
+    )
+    CREATE_INVOKER = "rhesis.backend.app.services.invokers.create_invoker"
+
+    @pytest.mark.asyncio
+    async def test_successful_response(self):
+        from rhesis.backend.app.services.preflight.checks import (
+            check_endpoint_connectivity,
+        )
+
+        db = MagicMock()
+        endpoint = MagicMock()
+
+        mock_invoker = MagicMock()
+        mock_invoker.invoke = AsyncMock(return_value={"output": "Hello!"})
+
+        with (
+            patch(self.CONV_TRACKER, return_value=False),
+            patch(self.CREATE_INVOKER, return_value=mock_invoker),
+        ):
+            result = await check_endpoint_connectivity(db, endpoint, publish=False)
+
+        assert result.status == PreflightCheckStatus.PASSED
+        assert "Hello!" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_timeout(self):
+        from rhesis.backend.app.services.preflight.checks import (
+            check_endpoint_connectivity,
+        )
+
+        db = MagicMock()
+        endpoint = MagicMock()
+
+        mock_invoker = MagicMock()
+        mock_invoker.invoke = AsyncMock(side_effect=asyncio.TimeoutError())
+
+        with (
+            patch(self.CONV_TRACKER, return_value=False),
+            patch(self.CREATE_INVOKER, return_value=mock_invoker),
+        ):
+            result = await check_endpoint_connectivity(db, endpoint, publish=False)
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "timed out" in result.message.lower()
+
+
+class TestValidateMetricsLoadable:
+    MODEL_UTIL = (
+        "rhesis.backend.app.utils.user_model_utils.get_evaluation_model_with_override"
+    )
+    VALIDATE_CONFIGS = "rhesis.backend.metrics.metric_config.validate_metric_configs"
+    PREPARE_METRICS = "rhesis.backend.metrics.strategies.local.prepare_metrics"
+
+    @pytest.mark.asyncio
+    async def test_all_metrics_load(self):
+        from rhesis.backend.app.services.preflight.checks import _validate_metrics_loadable
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        metric1 = MagicMock()
+        metric1.name = "Accuracy"
+        metric2 = MagicMock()
+        metric2.name = "Relevance"
+
+        mock_model = MagicMock()
+        mock_tasks = [MagicMock(), MagicMock()]
+
+        with (
+            patch(self.VALIDATE_CONFIGS, return_value=(["cfg1", "cfg2"], {})),
+            patch(self.MODEL_UTIL, return_value=mock_model),
+            patch(self.PREPARE_METRICS, return_value=mock_tasks),
+        ):
+            result = await _validate_metrics_loadable(db, user, [metric1, metric2])
+
+        assert result.status == PreflightCheckStatus.PASSED
+        assert "2" in result.message
+        assert "Accuracy" in result.detail
+        assert "Relevance" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_some_metrics_invalid(self):
+        from rhesis.backend.app.services.preflight.checks import _validate_metrics_loadable
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        invalid_results = {
+            "InvalidMetric_0": {"error": "Unknown class_name: FooMetric"},
+        }
+
+        with patch(self.VALIDATE_CONFIGS, return_value=([], invalid_results)):
+            result = await _validate_metrics_loadable(db, user, [MagicMock()])
+
+        assert result.status == PreflightCheckStatus.WARNING
+        assert "failed to load" in result.message.lower()
+
+    @pytest.mark.asyncio
+    async def test_prepare_metrics_exception(self):
+        from rhesis.backend.app.services.preflight.checks import _validate_metrics_loadable
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        mock_model = MagicMock()
+
+        with (
+            patch(self.VALIDATE_CONFIGS, return_value=(["cfg1"], {})),
+            patch(self.MODEL_UTIL, return_value=mock_model),
+            patch(
+                self.PREPARE_METRICS,
+                side_effect=RuntimeError("Failed to create metric"),
+            ),
+        ):
+            result = await _validate_metrics_loadable(db, user, [MagicMock()])
+
+        assert result.status == PreflightCheckStatus.WARNING
+        assert "Failed to create metric" in result.detail
+
+
+class TestRunPreflightChecksMulti:
+    @pytest.mark.asyncio
+    async def test_reuse_skips_connectivity(self):
+        from rhesis.backend.app.services.preflight.orchestrator import (
+            run_preflight_checks_multi,
+        )
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+        ts_id = uuid4()
+
+        endpoint = MagicMock()
+        db.query.return_value.filter.return_value.first.return_value = endpoint
+
+        async def mock_check(*args, **kwargs):
+            return _make_result(args[0] if isinstance(args[0], str) else "check",
+                                PreflightCheckStatus.PASSED)
+
+        with (
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator"
+                ".check_evaluation_model",
+                new_callable=AsyncMock,
+                return_value=_make_result(
+                    CHECK_EVALUATION_MODEL, PreflightCheckStatus.PASSED
+                ),
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator"
+                ".check_test_set_not_empty",
+                new_callable=AsyncMock,
+                return_value=_make_result(
+                    CHECK_TEST_SET_NOT_EMPTY, PreflightCheckStatus.PASSED
+                ),
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator"
+                ".check_behavior_metric_coverage",
+                new_callable=AsyncMock,
+                return_value=_make_result(
+                    CHECK_BEHAVIOR_METRIC_COVERAGE, PreflightCheckStatus.PASSED
+                ),
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.orchestrator"
+                ".check_metric_functionality",
+                new_callable=AsyncMock,
+                return_value=_make_result(
+                    CHECK_METRIC_FUNCTIONALITY, PreflightCheckStatus.PASSED
+                ),
+            ),
+        ):
+            results = await run_preflight_checks_multi(
+                db=db,
+                user=user,
+                test_sets=[(ts_id, "Test Set", False)],
+                endpoint_id=uuid4(),
+                scoring_target="reuse",
+                publish=False,
+            )
+
+        statuses = {r.check_id: r.status for r in results}
+        assert statuses[CHECK_ENDPOINT_CONNECTIVITY] == PreflightCheckStatus.SKIPPED
