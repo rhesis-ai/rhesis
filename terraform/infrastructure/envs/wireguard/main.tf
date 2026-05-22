@@ -87,15 +87,11 @@ module "wireguard_server" {
   deletion_protection = var.wireguard_deletion_protection
   wireguard_peers     = var.wireguard_peers
 
-  # NIC count = 1 (wireguard) + enabled envs. GCP max NICs = vCPU count.
-  # e2-medium=2vCPU→2NICs (dev only), e2-standard-4=4vCPU→4NICs (dev+stg or more)
-  machine_type = local.stg_enabled || local.prd_enabled ? "e2-standard-4" : "e2-medium"
+  # dev uses Shared VPC cross-project NIC (private endpoint, already running — immutable).
+  # stg/prd use public endpoint locked to WireGuard VPN CIDR — no extra NIC needed.
+  # 2 NICs max (wireguard eth0 + dev eth1) → e2-medium (2 vCPU) is sufficient.
+  machine_type = "e2-medium"
 
-  # Shared VPC NIC in each enabled env's nodes subnet.
-  # Gives the WireGuard server a direct layer-3 path to the GKE master —
-  # bypassing the non-transitive VPC peering limitation (wireguard → dev → GKE master).
-  # Traffic from VPN clients is MASQUERADE'd to the NIC IP before leaving the VM,
-  # so GKE master sees source = wireguard_nic_ip (in extra_authorized_cidrs).
   env_nics = concat(
     local.dev_enabled ? [{
       subnet_self_link = data.terraform_remote_state.dev[0].outputs.nodes_subnet_self_link
@@ -106,16 +102,6 @@ module "wireguard_server" {
       service_cidr     = local.cidrs.dev.services
       node_cidr        = local.cidrs.dev.nodes
       vpc_name         = data.terraform_remote_state.dev[0].outputs.vpc_name
-    }] : [],
-    local.stg_enabled ? [{
-      subnet_self_link = data.terraform_remote_state.stg[0].outputs.nodes_subnet_self_link
-      network_ip       = local.cidrs.stg.wireguard_nic_ip
-      master_cidr      = local.cidrs.stg.master
-      environment      = "stg"
-      pod_cidr         = local.cidrs.stg.pods
-      service_cidr     = local.cidrs.stg.services
-      node_cidr        = local.cidrs.stg.nodes
-      vpc_name         = data.terraform_remote_state.stg[0].outputs.vpc_name
     }] : []
   )
 

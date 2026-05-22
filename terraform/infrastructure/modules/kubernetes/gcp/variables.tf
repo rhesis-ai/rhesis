@@ -86,6 +86,12 @@ variable "extra_authorized_cidrs" {
   default     = []
 }
 
+variable "enable_private_endpoint" {
+  description = "Disable public GKE master endpoint. false = public endpoint locked to master_authorized_networks."
+  type        = bool
+  default     = true
+}
+
 variable "release_channel" {
   description = "GKE release channel (STABLE, REGULAR, RAPID)"
   type        = string
