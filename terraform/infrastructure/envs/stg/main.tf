@@ -58,6 +58,10 @@ module "gke_stg" {
   max_node_count         = 3
   deletion_protection    = var.gke_deletion_protection
 
+  # stg/prd use public endpoint locked to WireGuard VPN CIDR (master_authorized_networks).
+  # dev keeps private endpoint via Shared VPC cross-project NIC (already running, immutable field).
+  enable_private_endpoint = false
+
   depends_on = [module.stg]
 }
 
@@ -102,37 +106,6 @@ module "ingress_stg" {
 
 # GCS buckets: managed by terraform/infrastructure (root) — not duplicated here.
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
-
-# ── Shared VPC: stg project is the host, rhesis-platform-admin is a service project ──────────
-# This allows the WireGuard server (in rhesis-platform-admin) to attach a second NIC
-# directly into the stg nodes subnet, bypassing GCP's non-transitive peering limitation
-# that would otherwise block WireGuard VPC → stg VPC → GKE master (3-hop peering).
-#
-# Subnet user grants are required for:
-#   - terraform-wireguard SA: creates the VM NIC during terraform apply
-#   - rhesis-platform-admin default compute SA: runtime access by the VM itself
-
-resource "google_compute_shared_vpc_host_project" "stg" {
-  project = var.project_id
-}
-
-resource "google_compute_subnetwork_iam_member" "wireguard_tf_sa_subnet_user" {
-  project    = var.project_id
-  region     = var.region
-  subnetwork = module.stg.subnet_self_links["nodes"]
-  role       = "roles/compute.networkUser"
-  member     = "serviceAccount:terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com"
-  depends_on = [google_compute_shared_vpc_host_project.stg]
-}
-
-resource "google_compute_subnetwork_iam_member" "wireguard_compute_sa_subnet_user" {
-  project    = var.project_id
-  region     = var.region
-  subnetwork = module.stg.subnet_self_links["nodes"]
-  role       = "roles/compute.networkUser"
-  member     = "serviceAccount:211583725977-compute@developer.gserviceaccount.com"
-  depends_on = [google_compute_shared_vpc_host_project.stg]
-}
 
 # Allow DNS (port 53) from GKE nodes/pods to the WireGuard server's BIND9 resolver.
 # Managed here (not in the wireguard module) because TF_SA_WIREGUARD lacks firewall
