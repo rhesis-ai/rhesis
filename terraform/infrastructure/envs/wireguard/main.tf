@@ -87,7 +87,9 @@ module "wireguard_server" {
   deletion_protection = var.wireguard_deletion_protection
   wireguard_peers     = var.wireguard_peers
 
-  machine_type = local.stg_enabled || local.prd_enabled ? "e2-standard-2" : "e2-medium"
+  # NIC count = 1 (wireguard) + enabled envs. GCP max NICs = vCPU count.
+  # e2-medium=2vCPU→2NICs (dev only), e2-standard-4=4vCPU→4NICs (dev+stg or more)
+  machine_type = local.stg_enabled || local.prd_enabled ? "e2-standard-4" : "e2-medium"
 
   # Shared VPC NIC in each enabled env's nodes subnet.
   # Gives the WireGuard server a direct layer-3 path to the GKE master —
