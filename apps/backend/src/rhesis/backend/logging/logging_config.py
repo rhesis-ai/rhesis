@@ -8,7 +8,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-if os.environ.get("SQLALCHEMY_DB_MODE") != "test":
+if os.environ.get("ENVIRONMENT") != "test":
     load_dotenv(override=True)
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")

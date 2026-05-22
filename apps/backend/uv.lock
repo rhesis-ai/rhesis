@@ -39,7 +39,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
+exclude-newer = "2026-05-15T15:17:48.752252Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6539,6 +6539,7 @@ dependencies = [
     { name = "psutil" },
     { name = "psycopg2-binary" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pyfiglet" },
     { name = "pyjwt" },
     { name = "python-dotenv" },
@@ -6644,6 +6645,7 @@ requires-dist = [
     { name = "psutil", specifier = "==5.9.5" },
     { name = "psycopg2-binary", specifier = "==2.9.9" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pyfiglet", specifier = "==1.0.2" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "python-dotenv" },

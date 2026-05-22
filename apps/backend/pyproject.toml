@@ -62,6 +62,7 @@ dependencies = [
     # --- MCP server bits (small) ---
     "mcp>=1.2.0",
     "google-cloud-storage>=3.8.0",
+    "pydantic-settings",
 ]
 
 [project.optional-dependencies]

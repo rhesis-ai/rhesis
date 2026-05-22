@@ -38,16 +38,10 @@ def setup_test_environment(
     original_env = {}
 
     try:
-        # Set SQLALCHEMY_DB_MODE to test
-        original_env["SQLALCHEMY_DB_MODE"] = os.environ.get("SQLALCHEMY_DB_MODE")
-        os.environ["SQLALCHEMY_DB_MODE"] = "test"
-
-        # Set test database URL if provided
+        # Set database URL if provided
         if test_db_url:
-            original_env["SQLALCHEMY_DATABASE_TEST_URL"] = os.environ.get(
-                "SQLALCHEMY_DATABASE_TEST_URL"
-            )
-            os.environ["SQLALCHEMY_DATABASE_TEST_URL"] = test_db_url
+            original_env["SQLALCHEMY_DATABASE_URL"] = os.environ.get("SQLALCHEMY_DATABASE_URL")
+            os.environ["SQLALCHEMY_DATABASE_URL"] = test_db_url
 
         # Set additional environment variables if provided
         if env_vars:
@@ -113,22 +107,13 @@ def verify_test_database_isolation() -> bool:
     Returns:
         bool: True if isolation is working correctly
     """
-    # Check that SQLALCHEMY_DB_MODE is set to test
-    if os.getenv("SQLALCHEMY_DB_MODE") != "test":
-        return False
-
-    # Check that we're using the test database URL
-    test_url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL")
-    if not test_url:
-        return False
-
-    # Ensure we're not accidentally using the production database
-    prod_url = os.getenv("SQLALCHEMY_DATABASE_URL")
-    if test_url == prod_url and prod_url and "test" not in prod_url.lower():
+    # Check that we're using a configured test database URL
+    database_url = os.getenv("SQLALCHEMY_DATABASE_URL")
+    if not database_url:
         return False
 
     # Ensure test URL contains 'test' (PostgreSQL requirement)
-    if "test" not in test_url.lower():
+    if "test" not in database_url.lower():
         return False
 
     return True
@@ -194,13 +179,11 @@ def assert_test_database_used():
     """
     from rhesis.backend.app.database import SQLALCHEMY_DATABASE_URL
 
-    assert os.getenv("SQLALCHEMY_DB_MODE") == "test", "SQLALCHEMY_DB_MODE should be 'test'"
+    configured_url = os.getenv("SQLALCHEMY_DATABASE_URL")
+    assert configured_url, "SQLALCHEMY_DATABASE_URL must be set"
 
-    test_url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL")
-    assert test_url, "SQLALCHEMY_DATABASE_TEST_URL must be set"
-
-    assert SQLALCHEMY_DATABASE_URL == test_url, (
-        f"Expected to use test database {test_url}, but using {SQLALCHEMY_DATABASE_URL}"
+    assert SQLALCHEMY_DATABASE_URL == configured_url, (
+        f"Expected to use configured database {configured_url}, but using {SQLALCHEMY_DATABASE_URL}"
     )
 
 
@@ -214,8 +197,7 @@ def get_test_database_stats() -> dict:
     from rhesis.backend.app.database import SQLALCHEMY_DATABASE_URL
 
     return {
-        "test_mode": os.getenv("SQLALCHEMY_DB_MODE"),
-        "test_db_url": os.getenv("SQLALCHEMY_DATABASE_TEST_URL"),
+        "configured_db_url": os.getenv("SQLALCHEMY_DATABASE_URL"),
         "actual_db_url": SQLALCHEMY_DATABASE_URL,
         "is_postgres": "postgresql" in SQLALCHEMY_DATABASE_URL.lower(),
         "is_cloud_sql": "/cloudsql/" in SQLALCHEMY_DATABASE_URL
