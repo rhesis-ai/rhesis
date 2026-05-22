@@ -11,6 +11,15 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.backend.app.auth.url_utils import build_redirect_url
+from rhesis.backend.app.config.settings import get_frontend_settings
+
+
+@pytest.fixture(autouse=True)
+def clean_frontend_settings(monkeypatch):
+    monkeypatch.delenv("FRONTEND_URL", raising=False)
+    get_frontend_settings.cache_clear()
+    yield
+    get_frontend_settings.cache_clear()
 
 
 def _make_request(original_frontend=None, return_to="/dashboard"):
@@ -64,11 +73,27 @@ class TestDomainValidation:
         "rhesis.backend.app.auth.token_utils.get_secret_key",
         return_value="test-secret",
     )
-    def test_accepts_exact_allowed_domain(self, _mock_key):
-        """app.rhesis.ai should be accepted."""
+    def test_accepts_exact_configured_domain(self, _mock_key, monkeypatch):
+        """The netloc derived from FRONTEND_URL should be accepted."""
+        monkeypatch.setenv("FRONTEND_URL", "https://app.rhesis.ai")
+        get_frontend_settings.cache_clear()
+
         request = _make_request(original_frontend="https://app.rhesis.ai")
         url = build_redirect_url(request, "token123")
         assert url.startswith("https://app.rhesis.ai/")
+
+    @patch(
+        "rhesis.backend.app.auth.token_utils.get_secret_key",
+        return_value="test-secret",
+    )
+    def test_custom_frontend_url_allows_one_deployment_domain(self, _mock_key, monkeypatch):
+        """Custom FRONTEND_URL should define the single accepted redirect domain."""
+        monkeypatch.setenv("FRONTEND_URL", "https://custom.example.com")
+        get_frontend_settings.cache_clear()
+
+        request = _make_request(original_frontend="https://custom.example.com")
+        url = build_redirect_url(request, "token123")
+        assert url.startswith("https://custom.example.com/")
 
     @patch(
         "rhesis.backend.app.auth.token_utils.get_secret_key",

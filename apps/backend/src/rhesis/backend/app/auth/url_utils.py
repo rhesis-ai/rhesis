@@ -1,6 +1,5 @@
 from urllib.parse import parse_qs, urlparse
 
-from rhesis.backend.app.auth.constants import FRONTEND_DOMAINS
 from rhesis.backend.app.auth.token_utils import create_auth_code
 from rhesis.backend.app.config.settings import get_frontend_settings
 
@@ -14,14 +13,13 @@ def build_redirect_url(request, session_token, refresh_token=None):
     """
     # Get the original frontend URL from session or fallback to env
     original_frontend = request.session.get("original_frontend")
-    frontend_url = get_frontend_settings().url
+    frontend_settings = get_frontend_settings()
+    frontend_url = frontend_settings.url
 
     if original_frontend:
         parsed_origin = urlparse(original_frontend)
-        # Exact hostname/netloc match to prevent open redirect
-        if parsed_origin.hostname == "localhost":
-            frontend_url = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
-        elif parsed_origin.netloc in FRONTEND_DOMAINS:
+        # Exact netloc match to prevent open redirects.
+        if parsed_origin.netloc == frontend_settings.allowed_domain:
             frontend_url = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
 
         # Clean up session

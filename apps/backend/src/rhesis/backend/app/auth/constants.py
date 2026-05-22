@@ -26,14 +26,6 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", 7))  
 # Auth Messages
 UNAUTHORIZED_MESSAGE = "Authentication required"
 
-# Frontend Configuration
-FRONTEND_DOMAINS = [
-    "app.rhesis.ai",
-    "dev-app.rhesis.ai",  # development environment
-    "localhost:3000",  # development
-]
-
-
 class AuthenticationMethod:
     SESSION = "session"
     BEARER = "bearer"

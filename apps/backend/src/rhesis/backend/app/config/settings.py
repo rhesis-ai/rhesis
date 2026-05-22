@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +19,14 @@ class FrontendSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [self.url.rstrip("/")]
+
+    @property
+    def allowed_domain(self) -> str:
+        return urlparse(self.url).netloc
 
 
 @lru_cache

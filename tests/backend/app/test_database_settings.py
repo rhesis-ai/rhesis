@@ -82,6 +82,8 @@ def test_frontend_settings_uses_local_default(clean_frontend_env):
     settings = FrontendSettings(_env_file=None)
 
     assert settings.url == "http://localhost:3000"
+    assert settings.cors_origins == ["http://localhost:3000"]
+    assert settings.allowed_domain == "localhost:3000"
 
 
 @pytest.mark.unit
@@ -91,6 +93,22 @@ def test_frontend_settings_loads_existing_environment_variables(clean_frontend_e
     settings = FrontendSettings(_env_file=None)
 
     assert settings.url == "https://frontend.example.com"
+    assert settings.cors_origins == ["https://frontend.example.com"]
+    assert settings.allowed_domain == "frontend.example.com"
+
+
+@pytest.mark.unit
+def test_frontend_settings_normalizes_cors_origin_trailing_slash(
+    clean_frontend_env,
+    monkeypatch,
+):
+    monkeypatch.setenv("FRONTEND_URL", "https://frontend.example.com/")
+
+    settings = FrontendSettings(_env_file=None)
+
+    assert settings.url == "https://frontend.example.com/"
+    assert settings.cors_origins == ["https://frontend.example.com"]
+    assert settings.allowed_domain == "frontend.example.com"
 
 
 @pytest.mark.unit
@@ -101,3 +119,5 @@ def test_get_frontend_settings_cache_clear_allows_env_overrides(clean_frontend_e
     get_frontend_settings.cache_clear()
 
     assert get_frontend_settings().url == "https://cached.example.com"
+    assert get_frontend_settings().cors_origins == ["https://cached.example.com"]
+    assert get_frontend_settings().allowed_domain == "cached.example.com"
