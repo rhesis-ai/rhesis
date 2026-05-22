@@ -838,7 +838,7 @@ small regardless of collection size.
 - Guard apply_select __dict__ fallback against _sa_instance_state and
   other private SQLAlchemy attrs
 - Log MCP secret-key lookup failures at ERROR instead of swallowing them
-- Align architect_monitor Redis fallback with broker configuration
+- Align architect_monitor Redis URL to BROKER_URL || REDIS_URL fallback
 - Reduce delegation token default TTL from 60m to 15m; update test
 
 * fix(security): prevent accidental secret leakage in logs
