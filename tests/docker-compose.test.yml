@@ -28,7 +28,6 @@ x-sdk-backend-config: &sdk-backend-config
   JWT_SECRET_KEY: your-jwt-secret-key
   SESSION_SECRET_KEY: test-session-secret-key
   LOG_LEVEL: DEBUG
-  RHESIS_CONNECTOR_DISABLED: true
 
 services:
   # ==========================================================================

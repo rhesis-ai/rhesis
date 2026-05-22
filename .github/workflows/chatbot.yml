@@ -237,7 +237,6 @@ jobs:
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
           WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
           CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }},
-          RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           EOF
           )"
 

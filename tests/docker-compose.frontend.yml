@@ -29,7 +29,6 @@ x-frontend-backend-config: &frontend-backend-config
   ENVIRONMENT: test
   BACKEND_ENV: local
   QUICK_START: true
-  RHESIS_CONNECTOR_DISABLED: true
 
 services:
   frontend-test-postgres:

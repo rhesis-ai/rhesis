@@ -46,22 +46,6 @@ Then initialize without explicit parameters:
 client = RhesisClient()  # Uses environment variables`}
 </CodeBlock>
 
-## Disabling Tracing
-
-To disable all tracing and connector functionality (useful for CI/CD or testing), set:
-
-<CodeBlock filename="terminal" language="bash">
-{`export RHESIS_CONNECTOR_DISABLED=true`}
-</CodeBlock>
-
-Accepted values: `true`, `1`, `yes`, `on` (case-insensitive)
-
-When disabled:
-- `@endpoint` and `@observe` decorators return functions unmodified
-- No telemetry initialization occurs
-- No network requests are made to Rhesis
-- All method calls become no-ops
-
 ## Batch Configuration
 
 Traces are batched for efficient export:

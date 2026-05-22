@@ -205,18 +205,6 @@ For more details on both kwarg-injection and context-resolved injection, see [Co
 - **Status sync**: Adding or modifying functions updates endpoints automatically.
   Removing a function marks its endpoint as `Inactive`.
 
-## Disabling the Connector
-
-To disable all connector functionality (useful for CI/CD or testing), set the
-environment variable:
-
-<CodeBlock filename="terminal" language="bash">
-{`export RHESIS_CONNECTOR_DISABLED=true`}
-</CodeBlock>
-
-When disabled, `@endpoint` decorators return functions unmodified and no
-WebSocket connection is established.
-
 ---
 
 <Callout type="default">

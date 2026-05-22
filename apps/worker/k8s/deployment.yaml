@@ -258,11 +258,6 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: LOCAL_STORAGE_PATH
-        - name: RHESIS_CONNECTOR_DISABLED
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: RHESIS_CONNECTOR_DISABLED
         - name: DEFAULT_POLYPHEMUS_URL
           valueFrom:
             secretKeyRef:
@@ -295,7 +290,7 @@ spec:
           timeoutSeconds: 30
           failureThreshold: 10
           successThreshold: 1
-      
+
       # Cloud SQL Auth Proxy sidecar
       - name: cloudsql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0
@@ -312,4 +307,4 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
-      restartPolicy: Always 
+      restartPolicy: Always
