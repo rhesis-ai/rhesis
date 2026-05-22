@@ -16,18 +16,11 @@ _TEST_DB_URL = (
 )
 
 _TEST_ENV_VARS = {
-    "SQLALCHEMY_DB_MODE": "test",
     "ENVIRONMENT": "test",
     "LOG_LEVEL": "WARNING",
     "RHESIS_CONNECTOR_DISABLED": "true",
     "RHESIS_PROJECT_ID": "12340000-0000-4000-8000-000000001234",
-    "SQLALCHEMY_DB_HOST": "localhost",
-    "SQLALCHEMY_DB_PORT": str(DATABASE_PORT),
-    "SQLALCHEMY_DB_NAME": "rhesis-test-db",
-    "SQLALCHEMY_DB_USER": "rhesis-user",
-    "SQLALCHEMY_DB_PASS": "your-secured-password",
-    "SQLALCHEMY_DB_DRIVER": "postgresql",
-    "SQLALCHEMY_DATABASE_TEST_URL": _TEST_DB_URL,
+    "SQLALCHEMY_DATABASE_URL": _TEST_DB_URL,
     "REDIS_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
     "BROKER_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
     "CELERY_RESULT_BACKEND": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1",
@@ -90,8 +83,7 @@ def run_migrations_once():
     )
 
     env = os.environ.copy()
-    env["SQLALCHEMY_DB_MODE"] = "test"
-    env["SQLALCHEMY_DATABASE_TEST_URL"] = _TEST_DB_URL
+    env["SQLALCHEMY_DATABASE_URL"] = _TEST_DB_URL
     env["DB_ENCRYPTION_KEY"] = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
 
     result = subprocess.run(

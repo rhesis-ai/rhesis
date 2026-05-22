@@ -33,10 +33,7 @@ def get_test_database_session() -> Session:
     Returns:
         Session: SQLAlchemy session configured for testing
     """
-    # Ensure we're in test mode
-    os.environ["SQLALCHEMY_DB_MODE"] = "test"
-
-    # Get database URL for test environment
+    # Get the configured database URL for the test environment
     database_url = get_database_url()
 
     # Create engine and session
@@ -258,7 +255,7 @@ def verify_test_environment() -> bool:
     Returns:
         bool: True if environment is properly configured
     """
-    required_env_vars = ["SQLALCHEMY_DB_MODE", "SQLALCHEMY_DATABASE_TEST_URL"]
+    required_env_vars = ["SQLALCHEMY_DATABASE_URL"]
 
     missing_vars = []
     for var in required_env_vars:
@@ -267,11 +264,6 @@ def verify_test_environment() -> bool:
 
     if missing_vars:
         print(f"❌ Missing required environment variables: {missing_vars}")
-        return False
-
-    # Verify database mode is set to test
-    if os.getenv("SQLALCHEMY_DB_MODE") != "test":
-        print(f"❌ SQLALCHEMY_DB_MODE is not set to 'test': {os.getenv('SQLALCHEMY_DB_MODE')}")
         return False
 
     print("✅ Test environment verification passed")
