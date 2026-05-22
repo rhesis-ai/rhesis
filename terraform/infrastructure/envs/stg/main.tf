@@ -116,12 +116,6 @@ resource "google_compute_shared_vpc_host_project" "stg" {
   project = var.project_id
 }
 
-resource "google_compute_shared_vpc_service_project" "platform_admin" {
-  host_project    = var.project_id
-  service_project = "rhesis-platform-admin"
-  depends_on      = [google_compute_shared_vpc_host_project.stg]
-}
-
 resource "google_compute_subnetwork_iam_member" "wireguard_tf_sa_subnet_user" {
   project    = var.project_id
   region     = var.region
