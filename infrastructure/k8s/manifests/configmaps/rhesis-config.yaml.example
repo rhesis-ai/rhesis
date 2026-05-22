@@ -77,7 +77,7 @@ data:
   # Redis connection settings (non-sensitive)
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
-  # Note: REDIS_URL, BROKER_URL, CELERY_RESULT_BACKEND are constructed from these + secrets
+  # Note: BROKER_URL and CELERY_RESULT_BACKEND are constructed from these + secrets
 
   # =============================================================================
   # 🌐 SERVICE CONFIGURATION

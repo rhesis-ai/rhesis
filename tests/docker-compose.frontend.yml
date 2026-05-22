@@ -17,7 +17,6 @@ x-frontend-database-config: &frontend-database-config
   SQLALCHEMY_DB_HOST: frontend-test-postgres
   DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac= # trufflehog:ignore
 x-frontend-redis-config: &frontend-redis-config
-  REDIS_URL: redis://:rhesis-redis-pass@frontend-test-redis:6379/0
   BROKER_URL: redis://:rhesis-redis-pass@frontend-test-redis:6379/0
   CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@frontend-test-redis:6379/1
 
