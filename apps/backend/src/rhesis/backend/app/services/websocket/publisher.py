@@ -7,12 +7,12 @@ to support use from both Celery workers and FastAPI endpoints.
 
 import json
 import logging
-import os
 from typing import Optional
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 
+from rhesis.backend.app.config.settings import get_redis_settings
 from rhesis.backend.app.schemas.websocket import (
     Target,
     WebSocketMessage,
@@ -165,18 +165,15 @@ _publisher: Optional[EventPublisher] = None
 def get_publisher() -> EventPublisher:
     """Get or create the event publisher singleton.
 
-    The publisher is lazily initialized using the REDIS_URL environment variable.
+    The publisher is lazily initialized using configured Redis settings.
 
     Returns:
         The EventPublisher singleton instance.
     """
     global _publisher
     if _publisher is None:
-        # Check BROKER_URL first for consistency with other Redis consumers, then REDIS_URL
-        redis_url = os.environ.get("BROKER_URL") or os.environ.get(
-            "REDIS_URL", "redis://localhost:6379/0"
-        )
-        _publisher = EventPublisher(redis_url)
+        broker_url = get_redis_settings().broker_url
+        _publisher = EventPublisher(broker_url)
     return _publisher
 
 

@@ -5,11 +5,22 @@ from rhesis.backend.app import database
 from rhesis.backend.app.config.settings import (
     DatabaseSettings,
     FrontendSettings,
+    ModelSettings,
+    RedisSettings,
     get_frontend_settings,
+    get_model_settings,
+    get_redis_settings,
 )
 
 DATABASE_ENV_VARS = ("SQLALCHEMY_DATABASE_URL",)
 FRONTEND_ENV_VARS = ("FRONTEND_URL",)
+REDIS_ENV_VARS = ("BROKER_URL", "BROKER_READ_URL", "CELERY_RESULT_BACKEND")
+MODEL_ENV_VARS = (
+    "DEFAULT_GENERATION_MODEL",
+    "DEFAULT_EVALUATION_MODEL",
+    "DEFAULT_EXECUTION_MODEL",
+    "DEFAULT_EMBEDDING_MODEL",
+)
 
 
 @pytest.fixture
@@ -25,6 +36,24 @@ def clean_frontend_env(monkeypatch):
     get_frontend_settings.cache_clear()
     yield
     get_frontend_settings.cache_clear()
+
+
+@pytest.fixture
+def clean_redis_env(monkeypatch):
+    for env_var in REDIS_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+    get_redis_settings.cache_clear()
+    yield
+    get_redis_settings.cache_clear()
+
+
+@pytest.fixture
+def clean_model_env(monkeypatch):
+    for env_var in MODEL_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+    get_model_settings.cache_clear()
+    yield
+    get_model_settings.cache_clear()
 
 
 @pytest.mark.unit
@@ -121,3 +150,70 @@ def test_get_frontend_settings_cache_clear_allows_env_overrides(clean_frontend_e
     assert get_frontend_settings().url == "https://cached.example.com"
     assert get_frontend_settings().cors_origins == ["https://cached.example.com"]
     assert get_frontend_settings().allowed_domain == "cached.example.com"
+
+
+@pytest.mark.unit
+def test_redis_settings_uses_local_defaults(clean_redis_env):
+    settings = RedisSettings(_env_file=None)
+
+    assert settings.broker_url == "redis://localhost:6379/0"
+    assert settings.broker_read_url is None
+    assert settings.result_backend == "redis://localhost:6379/1"
+
+
+@pytest.mark.unit
+def test_redis_settings_loads_existing_environment_variables(clean_redis_env, monkeypatch):
+    monkeypatch.setenv("BROKER_URL", "redis://redis.example.com:6379/0")
+    monkeypatch.setenv("BROKER_READ_URL", "redis://redis-read.example.com:6379/0")
+    monkeypatch.setenv("CELERY_RESULT_BACKEND", "redis://redis.example.com:6379/1")
+
+    settings = RedisSettings(_env_file=None)
+
+    assert settings.broker_url == "redis://redis.example.com:6379/0"
+    assert settings.broker_read_url == "redis://redis-read.example.com:6379/0"
+    assert settings.result_backend == "redis://redis.example.com:6379/1"
+
+
+@pytest.mark.unit
+def test_get_redis_settings_cache_clear_allows_env_overrides(clean_redis_env, monkeypatch):
+    assert get_redis_settings().broker_url == "redis://localhost:6379/0"
+
+    monkeypatch.setenv("BROKER_URL", "redis://cached.example.com:6379/0")
+    get_redis_settings.cache_clear()
+
+    assert get_redis_settings().broker_url == "redis://cached.example.com:6379/0"
+
+
+@pytest.mark.unit
+def test_model_settings_uses_system_defaults(clean_model_env):
+    settings = ModelSettings(_env_file=None)
+
+    assert settings.generation_model == "rhesis/rhesis-default"
+    assert settings.evaluation_model == "rhesis/rhesis-default"
+    assert settings.execution_model == "rhesis/rhesis-default"
+    assert settings.embedding_model == "rhesis/rhesis-embedding"
+
+
+@pytest.mark.unit
+def test_model_settings_loads_existing_environment_variables(clean_model_env, monkeypatch):
+    monkeypatch.setenv("DEFAULT_GENERATION_MODEL", "openai/gpt-4o")
+    monkeypatch.setenv("DEFAULT_EVALUATION_MODEL", "anthropic/claude-3-5-sonnet")
+    monkeypatch.setenv("DEFAULT_EXECUTION_MODEL", "gemini/gemini-2.0-flash")
+    monkeypatch.setenv("DEFAULT_EMBEDDING_MODEL", "openai/text-embedding-3-small")
+
+    settings = ModelSettings(_env_file=None)
+
+    assert settings.generation_model == "openai/gpt-4o"
+    assert settings.evaluation_model == "anthropic/claude-3-5-sonnet"
+    assert settings.execution_model == "gemini/gemini-2.0-flash"
+    assert settings.embedding_model == "openai/text-embedding-3-small"
+
+
+@pytest.mark.unit
+def test_get_model_settings_cache_clear_allows_env_overrides(clean_model_env, monkeypatch):
+    assert get_model_settings().generation_model == "rhesis/rhesis-default"
+
+    monkeypatch.setenv("DEFAULT_GENERATION_MODEL", "openai/gpt-4o-mini")
+    get_model_settings.cache_clear()
+
+    assert get_model_settings().generation_model == "openai/gpt-4o-mini"

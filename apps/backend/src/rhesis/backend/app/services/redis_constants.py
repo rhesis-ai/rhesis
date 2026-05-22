@@ -1,7 +1,7 @@
 """Redis database allocation registry.
 
 All Redis database numbers used by the application are defined here.
-The base Redis URL comes from BROKER_URL (default: redis://localhost:6379/0).
+The base Redis URL comes from RedisSettings.
 Each subsystem overrides the /db path suffix as needed.
 
 When BROKER_READ_URL is set, cache read operations (_get, _mget) are

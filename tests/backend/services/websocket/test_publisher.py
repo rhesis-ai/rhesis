@@ -209,23 +209,18 @@ class TestConvenienceFunctions:
 class TestGetPublisher:
     """Tests for get_publisher function."""
 
-    def test_get_publisher_creates_instance(self):
-        """Test that get_publisher creates a new instance using BROKER_URL."""
-        import os
-
+    @patch("rhesis.backend.app.services.websocket.publisher.get_redis_settings")
+    def test_get_publisher_creates_instance(self, mock_get_redis_settings):
+        """Test that get_publisher creates a new instance using Redis settings."""
         from rhesis.backend.app.services.websocket import publisher as publisher_module
 
         # Save original state
         original_publisher = publisher_module._publisher
-        original_broker = os.environ.get("BROKER_URL")
-        original_redis = os.environ.get("REDIS_URL")
 
         try:
-            # Reset singleton and set test env vars
+            # Reset singleton and set test Redis settings
             publisher_module._publisher = None
-            os.environ.pop("BROKER_URL", None)
-            os.environ.pop("REDIS_URL", None)
-            os.environ["BROKER_URL"] = "redis://test:6379/1"
+            mock_get_redis_settings.return_value = MagicMock(broker_url="redis://test:6379/1")
 
             publisher = get_publisher()
 
@@ -235,39 +230,27 @@ class TestGetPublisher:
         finally:
             # Restore original state
             publisher_module._publisher = original_publisher
-            os.environ.pop("BROKER_URL", None)
-            os.environ.pop("REDIS_URL", None)
-            if original_broker:
-                os.environ["BROKER_URL"] = original_broker
-            if original_redis:
-                os.environ["REDIS_URL"] = original_redis
 
-    def test_get_publisher_default_url(self):
-        """Test that get_publisher uses default URL when env vars not set."""
-        import os
-
+    @patch("rhesis.backend.app.services.websocket.publisher.get_redis_settings")
+    def test_get_publisher_uses_configured_url(self, mock_get_redis_settings):
+        """Test that get_publisher uses the configured Redis URL."""
         from rhesis.backend.app.services.websocket import publisher as publisher_module
 
         # Save original state
         original_publisher = publisher_module._publisher
-        original_broker = os.environ.get("BROKER_URL")
-        original_redis = os.environ.get("REDIS_URL")
 
         try:
-            # Reset singleton and clear env vars
+            # Reset singleton and set configured URL
             publisher_module._publisher = None
-            os.environ.pop("BROKER_URL", None)
-            os.environ.pop("REDIS_URL", None)
+            mock_get_redis_settings.return_value = MagicMock(
+                broker_url="redis://configured:6379/0"
+            )
 
             publisher = get_publisher()
-            assert publisher._redis_url == "redis://localhost:6379/0"
+            assert publisher._redis_url == "redis://configured:6379/0"
         finally:
             # Restore original state
             publisher_module._publisher = original_publisher
-            if original_broker:
-                os.environ["BROKER_URL"] = original_broker
-            if original_redis:
-                os.environ["REDIS_URL"] = original_redis
 
     @patch("rhesis.backend.app.services.websocket.publisher._publisher")
     def test_get_publisher_returns_singleton(self, mock_publisher):

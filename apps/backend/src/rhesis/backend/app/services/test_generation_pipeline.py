@@ -13,7 +13,7 @@ import jinja2
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     SourceData,
@@ -56,7 +56,7 @@ def _resolve_config_llm(db: Session, user: User):
     if use_fast_default:
         logger.info("User generation model is Polyphemus; using fast default for pipeline config")
         try:
-            return get_model(DEFAULT_GENERATION_MODEL)
+            return get_model(get_model_settings().generation_model)
         except ValueError:
             pass
 

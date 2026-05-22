@@ -2,7 +2,8 @@ import logging
 from typing import Any, List, Optional, Union
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, TestSetType
+from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
@@ -186,7 +187,7 @@ def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, Any]:
         user_id: User ID
 
     Returns:
-        Either the user's configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
+        Either the user's configured BaseLLM instance or the system generation model string
     """
     self.log_with_context("info", "Fetching user's configured generation model")
     with get_db_with_tenant_variables(org_id, user_id) as db:
@@ -203,10 +204,11 @@ def _get_model_for_user(self, org_id: str, user_id: str) -> Union[str, Any]:
             return model
         else:
             # Fallback to default if user not found
+            default_model = get_model_settings().generation_model
             self.log_with_context(
-                "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
+                "warning", "User not found, using default model", model=default_model
             )
-            return DEFAULT_GENERATION_MODEL
+            return default_model
 
 
 def _get_override_model(self, org_id: str, user_id: str, model_id: str) -> Union[str, Any]:
@@ -219,7 +221,7 @@ def _get_override_model(self, org_id: str, user_id: str, model_id: str) -> Union
         model_id: Model UUID to fetch
 
     Returns:
-        Either a configured BaseLLM instance or DEFAULT_GENERATION_MODEL string
+        Either a configured BaseLLM instance or the system generation model string
     """
     self.log_with_context("info", "Fetching per-request override model", model_id=model_id)
     with get_db_with_tenant_variables(org_id, user_id) as db:
@@ -237,10 +239,11 @@ def _get_override_model(self, org_id: str, user_id: str, model_id: str) -> Union
             )
             return model
         else:
+            default_model = get_model_settings().generation_model
             self.log_with_context(
-                "warning", "User not found, using default model", model=DEFAULT_GENERATION_MODEL
+                "warning", "User not found, using default model", model=default_model
             )
-            return DEFAULT_GENERATION_MODEL
+            return default_model
 
 
 def _build_task_result(

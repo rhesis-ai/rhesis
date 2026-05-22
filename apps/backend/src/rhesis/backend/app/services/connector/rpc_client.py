@@ -3,11 +3,12 @@
 import asyncio
 import json
 import logging
-import os
 import threading
 from typing import Any, Dict
 
 import redis.asyncio as redis
+
+from rhesis.backend.app.config.settings import get_redis_settings
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class SDKRpcClient:
             RuntimeError: If Redis connection fails
         """
         try:
-            redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
+            redis_url = get_redis_settings().broker_url
             logger.info("🔌 Initializing RPC client with Redis")
             self._redis = await redis.from_url(redis_url, decode_responses=True)
             logger.info("✅ RPC client connected to Redis successfully")

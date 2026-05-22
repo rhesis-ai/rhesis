@@ -1,10 +1,12 @@
-import os
+from rhesis.backend.app.config.settings import get_redis_settings
+
+redis_settings = get_redis_settings()
 
 # Worker-context config: retry aggressively to ensure task delivery
 CELERY_CONFIG = {
     # Redis configuration
-    "broker_url": os.getenv("BROKER_URL", "redis://localhost:6379/0"),
-    "result_backend": os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/1"),
+    "broker_url": redis_settings.broker_url,
+    "result_backend": redis_settings.result_backend,
     # Serialization
     "task_serializer": "json",
     "result_serializer": "json",

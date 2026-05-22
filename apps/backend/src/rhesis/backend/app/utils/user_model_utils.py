@@ -12,18 +12,29 @@ from typing import Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import (
-    DEFAULT_EMBEDDING_MODEL,
-    DEFAULT_EVALUATION_MODEL,
-    DEFAULT_EXECUTION_MODEL,
-    DEFAULT_GENERATION_MODEL,
-)
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
+
+
+def _default_generation_model() -> str:
+    return get_model_settings().generation_model
+
+
+def _default_evaluation_model() -> str:
+    return get_model_settings().evaluation_model
+
+
+def _default_execution_model() -> str:
+    return get_model_settings().execution_model
+
+
+def _default_embedding_model() -> str:
+    return get_model_settings().embedding_model
 
 
 def get_generation_model_with_override(
@@ -34,7 +45,7 @@ def get_generation_model_with_override(
 
     If model_id is provided, fetch and configure that specific model (with org-level
     security filtering). Otherwise fall back to the user's configured default or
-    the system DEFAULT_GENERATION_MODEL.
+    the system generation model setting.
 
     Args:
         db: Database session
@@ -50,7 +61,7 @@ def get_generation_model_with_override(
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_GENERATION_MODEL,
+            default_model=_default_generation_model(),
             user=user,
         )
     return get_user_generation_model(db, user)
@@ -58,7 +69,7 @@ def get_generation_model_with_override(
 
 def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
-    Get the user's configured default generation model or fall back to DEFAULT_GENERATION_MODEL.
+    Get the user's configured default generation model or fall back to the system setting.
 
     This function is used for test generation workflows where the user can specify
     their preferred language model via the Models page in the UI.
@@ -74,12 +85,12 @@ def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
         >>> model = get_user_generation_model(db, current_user)
         >>> synthesizer = ConfigSynthesizer(config=config, model=model)
     """
-    return _get_user_model(db, user, "generation", DEFAULT_GENERATION_MODEL)
+    return _get_user_model(db, user, "generation", _default_generation_model())
 
 
 def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
-    Get the user's configured default evaluation model or fall back to DEFAULT_EVALUATION_MODEL.
+    Get the user's configured default evaluation model or fall back to the system setting.
 
     This function is used for language-model-as-a-judge scenarios where metrics are evaluated
     using a language model. The user can specify their preferred model via the Models page.
@@ -95,12 +106,12 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
         >>> model = get_user_evaluation_model(db, current_user)
         >>> # Use model for metric evaluation
     """
-    return _get_user_model(db, user, "evaluation", DEFAULT_EVALUATION_MODEL)
+    return _get_user_model(db, user, "evaluation", _default_evaluation_model())
 
 
 def get_user_execution_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
-    Get the user's configured default execution model or fall back to DEFAULT_EXECUTION_MODEL.
+    Get the user's configured default execution model or fall back to the system setting.
 
     This function is used for multi-turn test execution (Penelope) where the user can
     specify their preferred language model for driving the conversation agent.
@@ -112,7 +123,7 @@ def get_user_execution_model(db: Session, user: User) -> Union[str, BaseLLM]:
     Returns:
         Either a string (provider name) or a configured BaseLLM instance
     """
-    return _get_user_model(db, user, "execution", DEFAULT_EXECUTION_MODEL)
+    return _get_user_model(db, user, "execution", _default_execution_model())
 
 
 def get_execution_model_with_override(
@@ -123,7 +134,7 @@ def get_execution_model_with_override(
 
     If model_id is provided, fetch and configure that specific model (with org-level
     security filtering). Otherwise fall back to the user's configured default or
-    the system DEFAULT_EXECUTION_MODEL.
+    the system execution model setting.
 
     Args:
         db: Database session
@@ -139,7 +150,7 @@ def get_execution_model_with_override(
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_EXECUTION_MODEL,
+            default_model=_default_execution_model(),
             user=user,
         )
     return get_user_execution_model(db, user)
@@ -153,7 +164,7 @@ def get_evaluation_model_with_override(
 
     If model_id is provided, fetch and configure that specific model (with org-level
     security filtering). Otherwise fall back to the user's configured default or
-    the system DEFAULT_EVALUATION_MODEL.
+    the system evaluation model setting.
 
     Args:
         db: Database session
@@ -169,7 +180,7 @@ def get_evaluation_model_with_override(
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_EVALUATION_MODEL,
+            default_model=_default_evaluation_model(),
             user=user,
         )
     return get_user_evaluation_model(db, user)
@@ -177,7 +188,7 @@ def get_evaluation_model_with_override(
 
 def get_user_embedding_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
-    Get the user's configured default embedding model or fall back to DEFAULT_EMBEDDING_MODEL.
+    Get the user's configured default embedding model or fall back to the system setting.
 
     This function is used for generating embeddings for semantic search and similarity
     matching. The user can specify their preferred embedding model via the Models page.
@@ -233,7 +244,7 @@ def validate_user_evaluation_model(db: Session, user: User) -> None:
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_EVALUATION_MODEL,
+            default_model=_default_evaluation_model(),
             user=user,
         )
         logger.info("[LLM_UTILS] ✓ Evaluation model validation successful")
@@ -279,7 +290,7 @@ def validate_user_generation_model(db: Session, user: User) -> None:
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_GENERATION_MODEL,
+            default_model=_default_generation_model(),
             user=user,
         )
         logger.info("[LLM_UTILS] ✓ Generation model validation successful")
@@ -322,7 +333,7 @@ def validate_user_execution_model(db: Session, user: User) -> None:
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_EXECUTION_MODEL,
+            default_model=_default_execution_model(),
             user=user,
         )
         logger.info("[LLM_UTILS] ✓ Execution model validation successful")
@@ -665,9 +676,10 @@ def _get_user_embedding_model_with_settings(db: Session, user: User):
     logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
 
     if not model_id:
+        default_embedding_model = _default_embedding_model()
         logger.info("[LLM_UTILS] No configured embedding model found in user settings")
-        logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {DEFAULT_EMBEDDING_MODEL}")
-        return DEFAULT_EMBEDDING_MODEL
+        logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {default_embedding_model}")
+        return default_embedding_model
 
     # Fetch and configure the user's embedder
     logger.info("[LLM_UTILS] User has configured embedding model, fetching from database...")
@@ -675,5 +687,5 @@ def _get_user_embedding_model_with_settings(db: Session, user: User):
         db=db,
         model_id=str(model_id),
         organization_id=str(user.organization_id),
-        default_model=DEFAULT_EMBEDDING_MODEL,
+        default_model=_default_embedding_model(),
     )

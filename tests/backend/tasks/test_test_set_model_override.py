@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.config.settings import get_model_settings
 
 
 def _make_mock_task():
@@ -58,7 +58,7 @@ class TestGetModelForUser:
 
         result = _get_model_for_user(task, "org-1", "user-1")
 
-        assert result == DEFAULT_GENERATION_MODEL
+        assert result == get_model_settings().generation_model
 
 
 @pytest.mark.unit
@@ -103,4 +103,4 @@ class TestGetOverrideModel:
 
         result = _get_override_model(task, "org-1", "user-1", "model-uuid-789")
 
-        assert result == DEFAULT_GENERATION_MODEL
+        assert result == get_model_settings().generation_model

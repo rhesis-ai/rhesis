@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.utils.user_model_utils import (
     get_user_evaluation_model,
     get_user_execution_model,
@@ -34,21 +34,23 @@ def get_evaluation_model(db: Session, user_id: str) -> Any:
         Model instance (string or BaseLLM)
     """
     try:
+        default_model = get_model_settings().evaluation_model
         user = crud.get_user_by_id(db, user_id)
         if user:
             return get_user_evaluation_model(db, user)
         else:
             logger.warning(
                 f"[MODEL_SELECTION] User {user_id} not found, using default: "
-                f"{DEFAULT_EVALUATION_MODEL}"
+                f"{default_model}"
             )
-            return DEFAULT_EVALUATION_MODEL
+            return default_model
     except Exception as e:
+        default_model = get_model_settings().evaluation_model
         logger.warning(
             f"[MODEL_SELECTION] Error fetching user model: {str(e)}, "
-            f"using default: {DEFAULT_EVALUATION_MODEL}"
+            f"using default: {default_model}"
         )
-        return DEFAULT_EVALUATION_MODEL
+        return default_model
 
 
 def get_execution_model(db: Session, user_id: str) -> Any:
@@ -65,18 +67,20 @@ def get_execution_model(db: Session, user_id: str) -> Any:
         Model instance (string or BaseLLM)
     """
     try:
+        default_model = get_model_settings().execution_model
         user = crud.get_user_by_id(db, user_id)
         if user:
             return get_user_execution_model(db, user)
         else:
             logger.warning(
                 f"[MODEL_SELECTION] User {user_id} not found, using default: "
-                f"{DEFAULT_EXECUTION_MODEL}"
+                f"{default_model}"
             )
-            return DEFAULT_EXECUTION_MODEL
+            return default_model
     except Exception as e:
+        default_model = get_model_settings().execution_model
         logger.warning(
             f"[MODEL_SELECTION] Error fetching user execution model: {str(e)}, "
-            f"using default: {DEFAULT_EXECUTION_MODEL}"
+            f"using default: {default_model}"
         )
-        return DEFAULT_EXECUTION_MODEL
+        return default_model

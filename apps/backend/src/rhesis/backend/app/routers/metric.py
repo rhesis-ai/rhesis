@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -79,7 +80,6 @@ def generate_metric(
     metric is persisted and returned.
     """
     from rhesis.backend.app.constants import (
-        DEFAULT_GENERATION_MODEL,
         MetricBackendType,
         MetricType,
     )
@@ -88,7 +88,7 @@ def generate_metric(
     organization_id, user_id = tenant_context
 
     try:
-        synthesizer = MetricSynthesizer(model=DEFAULT_GENERATION_MODEL)
+        synthesizer = MetricSynthesizer(model=get_model_settings().generation_model)
         generated = synthesizer.generate(request.prompt)
 
         metric_data = schemas.MetricCreate(**generated)
@@ -132,7 +132,6 @@ def improve_metric(
     The LLM reads the current metric fields and the edit prompt, then
     returns updated fields. The metric is updated in place.
     """
-    from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
     from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
 
     organization_id, user_id = tenant_context
@@ -169,7 +168,7 @@ def improve_metric(
             ),
         }
 
-        synthesizer = MetricSynthesizer(model=DEFAULT_GENERATION_MODEL)
+        synthesizer = MetricSynthesizer(model=get_model_settings().generation_model)
         improved = synthesizer.improve(existing, request.prompt)
 
         update_data = schemas.MetricUpdate(**improved)

@@ -47,7 +47,7 @@ def _suggestions_response_model(num_suggestions: int) -> type[BaseModel]:
 
 def _get_generation_model(db: Session, user_id: str):
     """Get the user's configured generation model for suggestion generation."""
-    from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+    from rhesis.backend.app.config.settings import get_model_settings
     from rhesis.backend.app.utils.user_model_utils import (
         get_user_generation_model,
     )
@@ -61,7 +61,7 @@ def _get_generation_model(db: Session, user_id: str):
 
     from rhesis.sdk.models.factory import get_model
 
-    return get_model(DEFAULT_GENERATION_MODEL)
+    return get_model(get_model_settings().generation_model)
 
 
 def _resolve_llm_model(model_or_provider: Any):

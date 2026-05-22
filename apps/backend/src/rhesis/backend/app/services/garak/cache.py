@@ -11,13 +11,13 @@ garak automatically invalidates the cache.
 
 import json
 import logging
-import os
 from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
 from urllib.parse import urlparse, urlunparse
 
 import redis.asyncio as redis
 
+from rhesis.backend.app.config.settings import get_redis_settings
 from rhesis.backend.app.services.redis_constants import RedisDatabase
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,8 @@ class GarakProbeCache:
             return
 
         try:
-            redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
+            redis_settings = get_redis_settings()
+            redis_url = redis_settings.broker_url
             parsed = urlparse(redis_url)
             cache_url = urlunparse(parsed._replace(path=f"/{RedisDatabase.GARAK_PROBE_CACHE}"))
             cls._redis_client = await redis.from_url(
@@ -81,7 +82,7 @@ class GarakProbeCache:
             logger.info("Garak probe cache: Redis connection established (db 2)")
 
             cls._redis_read_client = cls._redis_client
-            read_url_env = os.getenv("BROKER_READ_URL")
+            read_url_env = redis_settings.broker_read_url
             if read_url_env:
                 read_client = None
                 try:

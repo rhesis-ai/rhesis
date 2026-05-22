@@ -10,11 +10,11 @@ to any instance.
 import asyncio
 import json
 import logging
-import os
 from typing import TYPE_CHECKING, Optional
 
 from redis.asyncio import Redis as AsyncRedis
 
+from rhesis.backend.app.config.settings import get_redis_settings
 from rhesis.backend.app.schemas.websocket import (
     WebSocketMessage,
     deserialize_target,
@@ -55,15 +55,10 @@ class RedisSubscriber:
 
         Args:
             ws_manager: The WebSocketManager to forward events to.
-            redis_url: Redis connection URL. If not provided, uses REDIS_URL env var.
+            redis_url: Redis connection URL. If not provided, uses configured Redis settings.
         """
         self._ws_manager = ws_manager
-        # Check BROKER_URL first for consistency with other Redis consumers, then REDIS_URL
-        self._redis_url = (
-            redis_url
-            or os.environ.get("BROKER_URL")
-            or os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-        )
+        self._redis_url = redis_url or get_redis_settings().broker_url
         self._redis: Optional[AsyncRedis] = None
         self._listener_task: Optional[asyncio.Task] = None
         self._running = False

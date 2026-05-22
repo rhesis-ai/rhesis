@@ -101,20 +101,6 @@ SUCCESS_ASSOCIATIONS_REMOVED = "Successfully removed {count} test associations"
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_PRIORITY = 1
 
-# Model-related defaults
-# Can be overridden via environment variables for flexible deployment
-# Format: "provider/model_name" (e.g., "rhesis/rhesis-default")
-DEFAULT_GENERATION_MODEL = os.getenv(
-    "DEFAULT_GENERATION_MODEL", "rhesis/rhesis-default"
-)  # Default model for test generation
-DEFAULT_EVALUATION_MODEL = os.getenv(
-    "DEFAULT_EVALUATION_MODEL", "rhesis/rhesis-default"
-)  # Default model for evaluation (language-model-as-a-judge)
-DEFAULT_EXECUTION_MODEL = os.getenv(
-    "DEFAULT_EXECUTION_MODEL", "rhesis/rhesis-default"
-)  # Default model for multi-turn test execution (Penelope)
-DEFAULT_EMBEDDING_MODEL = os.getenv("DEFAULT_EMBEDDING_MODEL", "rhesis/rhesis-embedding")
-
 DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(
     os.getenv("DEFAULT_CONVERSATION_DEBOUNCE_SECONDS", "300")
 )  # Seconds to wait before evaluating conversation-level metrics
