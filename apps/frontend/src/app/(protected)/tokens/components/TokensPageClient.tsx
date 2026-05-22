@@ -14,7 +14,10 @@ import {
   Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar, {
+  ToolbarPillTabs,
+  directoryToolbarSx,
+} from '@/components/common/GridToolbar';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import TokensGrid from './TokensGrid';
 import CreateTokenModal from './CreateTokenModal';
@@ -30,7 +33,6 @@ import { Token, TokenResponse } from '@/utils/api-client/interfaces/token';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
-import { SearchPill } from '@/components/common/SearchPill';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { VpnKeyIcon } from '@/components/icons';
 
@@ -230,81 +232,27 @@ export default function TokensPageClient({
         </FabGroup>
       }
     >
-      {/* Toolbar — 3-col grid keeps pills truly centered */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          mb: 3,
-          gap: 2,
+      <GridToolbar
+        searchQuery={search}
+        onSearchChange={v => {
+          setSearch(v);
+          setPaginationModel(prev => ({ ...prev, page: 0 }));
         }}
-      >
-        {/* Left: Filter icon + Search pill */}
-        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <FilterButton
-            onClick={() => setFilterDrawerOpen(true)}
-            hasActiveFilters={hasActiveTokenFilters(drawerFilters)}
-          />
-
-          <SearchPill
-            value={search}
+        searchPlaceholder="Search tokens…"
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveTokenFilters(drawerFilters)}
+        sx={directoryToolbarSx}
+        middleContent={
+          <ToolbarPillTabs
+            tabs={STATUS_OPTIONS}
+            activeValue={statusFilter}
             onChange={v => {
-              setSearch(v);
+              setStatusFilter(v as TokenStatusFilter);
               setPaginationModel(prev => ({ ...prev, page: 0 }));
             }}
-            placeholder="Search tokens…"
           />
-        </Box>
-
-        {/* Center: Status pill tabs */}
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          {STATUS_OPTIONS.map(({ value, label }, idx) => {
-            const selected = statusFilter === value;
-            const isFirst = idx === 0;
-            const isLast = idx === STATUS_OPTIONS.length - 1;
-            return (
-              <Box
-                key={value}
-                component="button"
-                onClick={() => {
-                  setStatusFilter(value);
-                  setPaginationModel(prev => ({ ...prev, page: 0 }));
-                }}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  px: '16px',
-                  py: '8px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  lineHeight: '22px',
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: 'primary.main',
-                  borderLeft: isFirst ? '1px solid' : 'none',
-                  borderRight: isLast ? '1px solid' : 'none',
-                  borderRadius: isFirst
-                    ? '999px 0 0 999px'
-                    : isLast
-                      ? '0 999px 999px 0'
-                      : 0,
-                  bgcolor: selected ? 'primary.main' : 'transparent',
-                  color: selected ? '#fff' : 'primary.main',
-                  transition: 'background-color 0.15s, color 0.15s',
-                  '&:hover': {
-                    bgcolor: selected ? 'primary.dark' : 'rgba(0,128,175,0.06)',
-                  },
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {label}
-              </Box>
-            );
-          })}
-        </Box>
-      </Box>
+        }
+      />
 
       {/* Error state */}
       {error && (

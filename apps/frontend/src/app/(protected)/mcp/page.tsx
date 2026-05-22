@@ -3,10 +3,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Alert, CircularProgress, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar, {
+  directoryToolbarSx,
+} from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
-import { SearchPill } from '@/components/common/SearchPill';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -218,29 +219,14 @@ export default function MCPSPage() {
         </Alert>
       )}
 
-      {/* Toolbar — matches metrics/behaviors 3-col grid pattern */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          mb: 3,
-          gap: 2,
-        }}
-      >
-        {/* Left: Filter icon + Search pill */}
-        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <FilterButton
-            onClick={() => setFilterDrawerOpen(true)}
-            hasActiveFilters={hasActiveMCPFilters(filters)}
-          />
-          <SearchPill
-            value={searchQuery}
-            onChange={v => setSearchQuery(v)}
-            placeholder="Search MCP connections..."
-          />
-        </Box>
-      </Box>
+      <GridToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search MCP connections..."
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveMCPFilters(filters)}
+        sx={directoryToolbarSx}
+      />
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>

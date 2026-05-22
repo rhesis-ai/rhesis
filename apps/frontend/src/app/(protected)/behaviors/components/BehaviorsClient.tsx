@@ -7,7 +7,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import AddIcon from '@mui/icons-material/Add';
-import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import GridToolbar, {
+  ToolbarPillTabs,
+  directoryToolbarSx,
+} from '@/components/common/GridToolbar';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
@@ -443,7 +446,7 @@ export default function BehaviorsClient({
         searchPlaceholder="Search behaviors…"
         onFilterClick={() => setFilterDrawerOpen(true)}
         hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
-        sx={{ mb: 3, px: 0, borderBottom: 'none' }}
+        sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs
             tabs={metricOptions}

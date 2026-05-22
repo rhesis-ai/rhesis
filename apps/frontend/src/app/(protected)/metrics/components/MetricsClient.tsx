@@ -14,16 +14,7 @@ import type {
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 
-import MetricsDirectoryTab from './MetricsDirectoryTab';
-
-interface FilterState {
-  search: string;
-  backend: string[];
-  type: string[];
-  scoreType: string[];
-  metricScope: string[];
-  behavior: string[];
-}
+import MetricsDirectoryTab, { type FilterState } from './MetricsDirectoryTab';
 
 const initialFilterState: FilterState = {
   search: '',
@@ -31,7 +22,7 @@ const initialFilterState: FilterState = {
   type: [],
   scoreType: [],
   metricScope: [],
-  behavior: [],
+  behavior: '',
 };
 
 interface FilterOptions {

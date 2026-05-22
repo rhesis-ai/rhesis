@@ -10,78 +10,12 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
-import { GREYSCALE } from '@/styles/theme';
+import SubsectionHeader from '@/components/common/SubsectionHeader';
+import BorderedInfoCard from '@/components/common/BorderedInfoCard';
 
 interface DetailsDraft {
   name: string;
   description: string;
-}
-
-// ── Section divider (matches Figma node 1228:5851) ────────────────────────────
-
-interface SectionDividerProps {
-  headline: string;
-  description?: string;
-}
-
-function SectionDivider({ headline, description }: SectionDividerProps) {
-  return (
-    <Box sx={{ mb: '20px' }}>
-      <Typography
-        sx={{
-          fontSize: 18,
-          fontWeight: 700,
-          lineHeight: '25px',
-          color: 'text.primary',
-        }}
-      >
-        {headline}
-      </Typography>
-      {description && (
-        <Typography
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: theme => theme.palette.greyscale?.subtitle ?? '#7f8a9b',
-          }}
-        >
-          {description}
-        </Typography>
-      )}
-    </Box>
-  );
-}
-
-// ── Source document card ───────────────────────────────────────────────────────
-
-interface SourceCardProps {
-  name: string;
-  description: string;
-}
-
-function SourceCard({ name, description }: SourceCardProps) {
-  return (
-    <Box
-      sx={{
-        border: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        borderRadius: '8px',
-        p: 2,
-        mb: 1,
-      }}
-    >
-      <Typography sx={{ fontWeight: 600, fontSize: 14, mb: 0.5 }}>
-        {name}
-      </Typography>
-      <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
-        {description}
-      </Typography>
-    </Box>
-  );
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -182,7 +116,7 @@ export default function TestSetDetailsCard({
 
           {/* ── Behaviors ─────────────────────────────────────────────────── */}
           <Box>
-            <SectionDivider
+            <SubsectionHeader
               headline="Behaviors"
               description="The behaviors covered by tests in this set"
             />
@@ -191,7 +125,7 @@ export default function TestSetDetailsCard({
 
           {/* ── Topics ────────────────────────────────────────────────────── */}
           <Box>
-            <SectionDivider
+            <SubsectionHeader
               headline="Topics"
               description="The topics covered by tests in this set"
             />
@@ -200,7 +134,7 @@ export default function TestSetDetailsCard({
 
           {/* ── Categories ────────────────────────────────────────────────── */}
           <Box>
-            <SectionDivider
+            <SubsectionHeader
               headline="Categories"
               description="The categories covered by tests in this set"
             />
@@ -210,14 +144,14 @@ export default function TestSetDetailsCard({
           {/* ── Sources (conditional) ─────────────────────────────────────── */}
           {sources.length > 0 && (
             <Box>
-              <SectionDivider
+              <SubsectionHeader
                 headline="Sources"
                 description="Documents from which this test set was generated"
               />
               {sources.map((src, idx) => (
-                <SourceCard
+                <BorderedInfoCard
                   key={src.document ?? idx}
-                  name={src.name}
+                  title={src.name}
                   description={src.description}
                 />
               ))}

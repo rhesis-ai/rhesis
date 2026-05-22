@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * @deprecated Prefer SearchPill + FilterButton on list pages, or GridToolbar for grids.
+ */
+
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';

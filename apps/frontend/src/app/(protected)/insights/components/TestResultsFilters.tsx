@@ -10,12 +10,11 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Button,
-  TextField,
-  InputAdornment,
   Typography,
   useTheme,
 } from '@mui/material';
-import { Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material';
+import { Clear as ClearIcon } from '@mui/icons-material';
+import { SearchPill } from '@/components/common/SearchPill';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
@@ -147,21 +146,11 @@ export default function TestResultsFilters({
               flexWrap: 'wrap',
             }}
           >
-            {/* Search Field */}
-            <TextField
-              size="small"
-              placeholder={searchPlaceholder}
+            <SearchPill
               value={searchValue}
-              onChange={e => handleSearchChange(e.target.value)}
-              variant="outlined"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ minWidth: { xs: '100%', sm: 250 } }}
+              onChange={handleSearchChange}
+              placeholder={searchPlaceholder}
+              width={250}
             />
 
             {/* Time Range */}

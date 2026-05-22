@@ -1,9 +1,10 @@
 'use client';
 
-import { Box, Typography } from '@mui/material';
 import Link from 'next/link';
+import { Box } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import SectionCard from '@/components/common/SectionCard';
+import ViewField from '@/components/common/ViewField';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 
 function connectionTarget(
@@ -22,6 +23,7 @@ function formatLabel(value: string): string {
 
 export default function EndpointSummaryCard() {
   const { endpoint } = useEndpointDetailContext();
+  const target = connectionTarget(endpoint);
 
   return (
     <SectionCard title="Endpoint summary">
@@ -36,115 +38,68 @@ export default function EndpointSummaryCard() {
           gap: 2.5,
         }}
       >
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Connection type
-          </Typography>
-          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <GridBadge size="detail" label={endpoint.connection_type} />
-          </Box>
-        </Box>
+        <ViewField label="Connection type">
+          <GridBadge size="detail" label={endpoint.connection_type} />
+        </ViewField>
 
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="caption" color="text.secondary">
-            Target
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              mt: 0.5,
-              fontWeight: 500,
-              fontFamily:
-                endpoint.connection_type === 'SDK' ? 'monospace' : 'inherit',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-            title={connectionTarget(endpoint)}
-          >
-            {connectionTarget(endpoint)}
-          </Typography>
-        </Box>
+        <ViewField
+          label="Target"
+          inputSx={{
+            fontFamily:
+              endpoint.connection_type === 'SDK' ? 'monospace' : 'inherit',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          value={target}
+        />
 
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Environment
-          </Typography>
-          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <GridBadge
-              size="detail"
-              label={
-                endpoint.environment.charAt(0).toUpperCase() +
-                endpoint.environment.slice(1)
-              }
-            />
-          </Box>
-        </Box>
+        <ViewField label="Environment">
+          <GridBadge
+            size="detail"
+            label={
+              endpoint.environment.charAt(0).toUpperCase() +
+              endpoint.environment.slice(1)
+            }
+          />
+        </ViewField>
 
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Status
-          </Typography>
-          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <GridBadge
-              size="detail"
-              label={endpoint.status?.name ?? 'Unknown'}
-            />
-          </Box>
-        </Box>
+        <ViewField label="Status">
+          <GridBadge size="detail" label={endpoint.status?.name ?? 'Unknown'} />
+        </ViewField>
 
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Project
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            {endpoint.project_id ? (
-              <Link
-                href={`/projects/${endpoint.project_id}`}
-                style={{ color: 'inherit', fontWeight: 500 }}
-              >
-                {endpoint.project?.name || 'View project'}
-              </Link>
-            ) : (
-              'No project assigned'
-            )}
-          </Typography>
-        </Box>
+        <ViewField label="Project">
+          {endpoint.project_id ? (
+            <Link
+              href={`/projects/${endpoint.project_id}`}
+              style={{ color: 'inherit', fontWeight: 500 }}
+            >
+              {endpoint.project?.name || 'View project'}
+            </Link>
+          ) : (
+            'No project assigned'
+          )}
+        </ViewField>
 
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Tracing
-          </Typography>
-          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <GridBadge
-              size="detail"
-              label={endpoint.disable_tracing ? 'Disabled' : 'Enabled'}
-            />
-          </Box>
-        </Box>
+        <ViewField label="Tracing">
+          <GridBadge
+            size="detail"
+            label={endpoint.disable_tracing ? 'Disabled' : 'Enabled'}
+          />
+        </ViewField>
 
-        <Box>
-          <Typography variant="caption" color="text.secondary">
-            Config source
-          </Typography>
-          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            <GridBadge
-              size="detail"
-              label={formatLabel(endpoint.config_source)}
-            />
-          </Box>
-        </Box>
+        <ViewField label="Config source">
+          <GridBadge
+            size="detail"
+            label={formatLabel(endpoint.config_source)}
+          />
+        </ViewField>
 
-        {endpoint.connection_type === 'REST' && endpoint.method && (
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Method
-            </Typography>
-            <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              <GridBadge size="detail" label={endpoint.method} />
-            </Box>
-          </Box>
-        )}
+        {endpoint.connection_type === 'REST' && endpoint.method ? (
+          <ViewField label="Method">
+            <GridBadge size="detail" label={endpoint.method} />
+          </ViewField>
+        ) : null}
       </Box>
     </SectionCard>
   );

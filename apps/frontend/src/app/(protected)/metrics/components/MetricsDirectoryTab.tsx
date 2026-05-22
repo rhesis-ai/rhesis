@@ -7,13 +7,15 @@ import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 import TablePagination from '@mui/material/TablePagination';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar, {
+  PrimarySegmentedPills,
+  directoryToolbarSx,
+} from '@/components/common/GridToolbar';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
 import MetricFilterDrawer from './MetricFilterDrawer';
-import { SearchPill } from '@/components/common/SearchPill';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import MetricCard from './MetricCard';
@@ -495,97 +497,29 @@ export default function MetricsDirectoryTab({
         </FabGroup>
       }
     >
-      {/* Toolbar */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          mb: 3,
-          gap: 2,
-        }}
-      >
-        {/* Left: Filter icon + Search pill */}
-        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <FilterButton
-            aria-label="Advanced filters"
-            tooltip="Advanced filters"
-            onClick={() => setFilterDrawerOpen(true)}
-            hasActiveFilters={activeAdvancedFilterCount > 0}
+      <GridToolbar
+        searchQuery={filters.search}
+        onSearchChange={value => handleFilterChange('search', value)}
+        searchPlaceholder="Search metrics..."
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={activeAdvancedFilterCount > 0}
+        sx={directoryToolbarSx}
+        middleContent={
+          <PrimarySegmentedPills
+            mode="multi"
+            tabs={[
+              { value: '', label: 'All' },
+              ...filterOptions.backend.map(o => ({
+                value: o.type_value.toLowerCase(),
+                label: o.type_value,
+              })),
+            ]}
+            selectedValues={filters.backend}
+            onMultiChange={values => handleFilterChange('backend', values)}
+            clearValue=""
           />
-          <SearchPill
-            value={filters.search}
-            onChange={value => handleFilterChange('search', value)}
-            placeholder="Search metrics..."
-          />
-        </Box>
-
-        {/* Center: Backend filter pill tabs */}
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          {[
-            { value: '', label: 'All' },
-            ...filterOptions.backend.map(o => ({
-              value: o.type_value.toLowerCase(),
-              label: o.type_value,
-            })),
-          ].map(({ value, label }, idx, arr) => {
-            const isSelected =
-              value === ''
-                ? filters.backend.length === 0
-                : filters.backend.includes(value);
-            const isFirst = idx === 0;
-            const isLast = idx === arr.length - 1;
-            return (
-              <Box
-                key={value || 'all'}
-                component="button"
-                onClick={() => {
-                  if (value === '') {
-                    handleFilterChange('backend', []);
-                  } else {
-                    const isCurrentlySelected = filters.backend.includes(value);
-                    const newBackend = isCurrentlySelected
-                      ? filters.backend.filter(b => b !== value)
-                      : [...filters.backend, value];
-                    handleFilterChange('backend', newBackend);
-                  }
-                }}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  px: '16px',
-                  py: '8px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  lineHeight: '22px',
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: 'primary.main',
-                  borderLeft: isFirst ? '1px solid' : 'none',
-                  borderRight: isLast ? '1px solid' : 'none',
-                  borderRadius: isFirst
-                    ? '999px 0 0 999px'
-                    : isLast
-                      ? '0 999px 999px 0'
-                      : 0,
-                  bgcolor: isSelected ? 'primary.main' : 'transparent',
-                  color: isSelected ? '#fff' : 'primary.main',
-                  transition: 'background-color 0.15s, color 0.15s',
-                  '&:hover': {
-                    bgcolor: isSelected
-                      ? 'primary.dark'
-                      : theme => `${theme.palette.primary.main}0f`,
-                  },
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {label}
-              </Box>
-            );
-          })}
-        </Box>
-      </Box>
+        }
+      />
 
       {/* Advanced Filters Drawer */}
       <MetricFilterDrawer

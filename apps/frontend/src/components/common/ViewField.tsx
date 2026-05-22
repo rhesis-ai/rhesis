@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import { GREYSCALE } from '@/styles/theme';
 
@@ -12,6 +13,8 @@ interface ViewFieldProps {
   /** Inner box background. Defaults to theme fieldSurface. Pass 'transparent' for technical/code fields. */
   bgcolor?: string;
   inputSx?: React.CSSProperties;
+  /** Custom value content (badges, links). When set, `value` is ignored. */
+  children?: React.ReactNode;
 }
 
 /**
@@ -27,6 +30,7 @@ export default function ViewField({
   multiline = false,
   bgcolor,
   inputSx,
+  children,
 }: ViewFieldProps) {
   const theme = useTheme();
   const isLight = theme.palette.mode === 'light';
@@ -67,18 +71,20 @@ export default function ViewField({
           alignItems: multiline ? 'flex-start' : 'center',
         }}
       >
-        <Typography
-          sx={{
-            fontSize: 16,
-            lineHeight: '24px',
-            color: valueColor,
-            whiteSpace: multiline ? 'pre-wrap' : 'normal',
-            wordBreak: 'break-word',
-            ...inputSx,
-          }}
-        >
-          {displayValue}
-        </Typography>
+        {children ?? (
+          <Typography
+            sx={{
+              fontSize: 16,
+              lineHeight: '24px',
+              color: valueColor,
+              whiteSpace: multiline ? 'pre-wrap' : 'normal',
+              wordBreak: 'break-word',
+              ...inputSx,
+            }}
+          >
+            {displayValue}
+          </Typography>
+        )}
       </Box>
 
       {/* Helper text — greyscale.subtitle */}

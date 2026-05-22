@@ -7,7 +7,10 @@ import MenuItem from '@mui/material/MenuItem';
 import AddIcon from '@mui/icons-material/Add';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
-import { SearchPill } from '@/components/common/SearchPill';
+import GridToolbar, {
+  ToolbarPillTabs,
+  directoryToolbarSx,
+} from '@/components/common/GridToolbar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
@@ -21,7 +24,6 @@ import {
   ConnectedModelCard,
 } from './components';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
-import { BORDER_RADIUS } from '@/styles/theme';
 import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
@@ -374,72 +376,19 @@ export default function ModelsPage() {
         </Alert>
       )}
 
-      {/* Toolbar — 3-col grid mirroring metrics/behaviors */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          mb: 3,
-          gap: 2,
-        }}
-      >
-        {/* Left: Search pill */}
-        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <SearchPill
-            value={searchQuery}
-            onChange={v => setSearchQuery(v)}
-            placeholder="Search models..."
+      <GridToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search models..."
+        sx={directoryToolbarSx}
+        middleContent={
+          <ToolbarPillTabs
+            tabs={typeFilterOptions}
+            activeValue={modelTypeFilter}
+            onChange={v => setModelTypeFilter(v as ModelTypeFilter)}
           />
-        </Box>
-
-        {/* Center: Type filter pill tabs */}
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          {typeFilterOptions.map(({ value, label }, idx, arr) => {
-            const isSelected = modelTypeFilter === value;
-            const isFirst = idx === 0;
-            const isLast = idx === arr.length - 1;
-            return (
-              <Box
-                key={value}
-                component="button"
-                onClick={() => setModelTypeFilter(value)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  px: '16px',
-                  py: '8px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  lineHeight: '22px',
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: 'primary.main',
-                  borderLeft: isFirst ? '1px solid' : 'none',
-                  borderRight: isLast ? '1px solid' : 'none',
-                  borderRadius: isFirst
-                    ? `${BORDER_RADIUS.pill} 0 0 ${BORDER_RADIUS.pill}`
-                    : isLast
-                      ? `0 ${BORDER_RADIUS.pill} ${BORDER_RADIUS.pill} 0`
-                      : 0,
-                  bgcolor: isSelected ? 'primary.main' : 'transparent',
-                  color: isSelected ? '#fff' : 'primary.main',
-                  transition: 'background-color 0.15s, color 0.15s',
-                  '&:hover': {
-                    bgcolor: isSelected
-                      ? 'primary.dark'
-                      : theme => `${theme.palette.primary.main}0f`,
-                  },
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {label}
-              </Box>
-            );
-          })}
-        </Box>
-      </Box>
+        }
+      />
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
