@@ -109,6 +109,44 @@ def _determine_applicable_checks(
     return checks
 
 
+async def _publish_failure_complete(correlation_id: str, message: str) -> None:
+    """Publish a PREFLIGHT_COMPLETE event with failed summary."""
+    try:
+        from rhesis.backend.app.schemas.websocket import (
+            ChannelTarget,
+            EventType,
+            WebSocketMessage,
+        )
+        from rhesis.backend.app.services.websocket.publisher import (
+            publish_event_async,
+        )
+
+        await publish_event_async(
+            WebSocketMessage(
+                type=EventType.PREFLIGHT_COMPLETE,
+                payload={
+                    "correlation_id": correlation_id,
+                    "summary": "failed",
+                    "passed": 0,
+                    "failed": 1,
+                    "warnings": 0,
+                    "skipped": 0,
+                    "checks": [
+                        {
+                            "check_id": "preflight_timeout",
+                            "label": "Preflight Checks",
+                            "status": "failed",
+                            "message": message,
+                        }
+                    ],
+                },
+            ),
+            ChannelTarget(channel=f"preflight:{correlation_id}"),
+        )
+    except Exception:
+        logger.exception("Failed to publish failure COMPLETE event")
+
+
 async def _run_preflight_background(
     organization_id: str,
     user_id: str,
@@ -126,21 +164,30 @@ async def _run_preflight_background(
                 logger.error(f"Preflight background task: user {user_id} not found")
                 return
 
-            await run_preflight_checks_multi(
-                db=db,
-                user=user,
-                test_sets=test_sets,
-                endpoint_id=request.endpoint_id,
-                scoring_target=request.scoring_target,
-                metric_mode=request.metric_mode,
-                selected_metrics=request.selected_metrics,
-                execution_model_id=request.execution_model_id,
-                evaluation_model_id=request.evaluation_model_id,
-                correlation_id=correlation_id,
-                publish=True,
+            await asyncio.wait_for(
+                run_preflight_checks_multi(
+                    db=db,
+                    user=user,
+                    test_sets=test_sets,
+                    endpoint_id=request.endpoint_id,
+                    scoring_target=request.scoring_target,
+                    metric_mode=request.metric_mode,
+                    selected_metrics=request.selected_metrics,
+                    execution_model_id=request.execution_model_id,
+                    evaluation_model_id=request.evaluation_model_id,
+                    correlation_id=correlation_id,
+                    publish=True,
+                ),
+                timeout=120.0,
             )
+    except asyncio.TimeoutError:
+        logger.error("Preflight background task timed out (120s)")
+        await _publish_failure_complete(
+            correlation_id, "Preflight checks timed out after 120 seconds"
+        )
     except Exception:
         logger.exception("Preflight background task failed")
+        await _publish_failure_complete(correlation_id, "Preflight checks failed unexpectedly")
 
 
 @router.post("")
