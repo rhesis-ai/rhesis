@@ -5,8 +5,8 @@ import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { Tool } from '@/utils/api-client/interfaces/tool';
-import MCPToolSelectorDialog from './MCPToolSelectorDialog';
-import MCPImportDialog from './MCPImportDialog';
+import MCPToolSelectorPanel from './MCPToolSelectorPanel';
+import MCPImportPanel from './MCPImportPanel';
 
 interface MCPImportDrawerProps {
   open: boolean;
@@ -66,8 +66,7 @@ export default function MCPImportDrawer({
         titleIcon={<TerminalIcon color="primary" />}
         closeButtonText="Cancel"
       >
-        <MCPToolSelectorDialog
-          embedded
+        <MCPToolSelectorPanel
           open={open}
           onClose={handleClose}
           onSelectTool={handleSelectTool}
@@ -87,8 +86,7 @@ export default function MCPImportDrawer({
       closeButtonText="Cancel"
       showHeader={true}
     >
-      <MCPImportDialog
-        embedded
+      <MCPImportPanel
         open={open}
         onClose={handleClose}
         onBack={handleBack}

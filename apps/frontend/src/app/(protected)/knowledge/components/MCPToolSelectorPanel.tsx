@@ -2,14 +2,10 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
   Box,
   Typography,
   Alert,
   CircularProgress,
-  IconButton,
   List,
   ListItem,
   ListItemButton,
@@ -17,29 +13,25 @@ import {
   ListItemText,
   Divider,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import TerminalIcon from '@mui/icons-material/Terminal';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
 
-interface MCPToolSelectorDialogProps {
+interface MCPToolSelectorPanelProps {
   open: boolean;
   onClose: () => void;
   onSelectTool: (tool: Tool) => void;
   sessionToken: string;
-  /** When true, render content only (no Dialog wrapper) for use inside a drawer */
-  embedded?: boolean;
 }
 
-export default function MCPToolSelectorDialog({
+/** MCP tool picker body for use inside {@link MCPImportDrawer}. */
+export default function MCPToolSelectorPanel({
   open,
   onClose,
   onSelectTool,
   sessionToken,
-  embedded = false,
-}: MCPToolSelectorDialogProps) {
+}: MCPToolSelectorPanelProps) {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,8 +115,12 @@ export default function MCPToolSelectorDialog({
     return <SmartToyIcon />;
   };
 
-  const content = (
-    <Box sx={{ mt: embedded ? 0 : 1 }}>
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <Box sx={{ mt: 0 }}>
       {loading ? (
         <Box
           sx={{
@@ -172,26 +168,5 @@ export default function MCPToolSelectorDialog({
         </List>
       )}
     </Box>
-  );
-
-  if (embedded) {
-    return open ? content : null;
-  }
-
-  return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center" gap={1}>
-            <TerminalIcon />
-            <Typography variant="h6">Select MCP Tool</Typography>
-          </Box>
-          <IconButton onClick={handleClose} disabled={loading}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      <DialogContent>{content}</DialogContent>
-    </Dialog>
   );
 }

@@ -2,17 +2,12 @@
 
 import React, { useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   TextField,
   Box,
   Typography,
   Alert,
   CircularProgress,
-  IconButton,
   Checkbox,
   List,
   ListItem,
@@ -25,7 +20,6 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import SaveIcon from '@mui/icons-material/Save';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -51,26 +45,24 @@ interface UrlImportItem {
   title?: string;
 }
 
-interface MCPImportDialogProps {
+interface MCPImportPanelProps {
   open: boolean;
   onClose: () => void;
   onBack?: () => void;
   onSuccess?: () => void;
   sessionToken: string;
   tool?: Tool | null;
-  /** When true, render content only (no Dialog wrapper) for use inside a drawer */
-  embedded?: boolean;
 }
 
-export default function MCPImportDialog({
+/** Import-from-MCP form body for use inside {@link MCPImportDrawer}. */
+export default function MCPImportPanel({
   open,
   onClose,
   onBack,
   onSuccess,
   sessionToken,
   tool,
-  embedded = false,
-}: MCPImportDialogProps) {
+}: MCPImportPanelProps) {
   const theme = useTheme();
   const [importMode, setImportMode] = useState<ImportMode>('search');
   const [searchQuery, setSearchQuery] = useState('');
@@ -808,38 +800,15 @@ export default function MCPImportDialog({
     </>
   );
 
-  if (embedded) {
-    return open ? (
-      <Box
-        sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
-      >
-        {importContent}
-      </Box>
-    ) : null;
+  if (!open) {
+    return null;
   }
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="lg"
-      fullWidth
-      PaperProps={{
-        sx: { minHeight: '600px', maxHeight: '90vh' },
-      }}
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
     >
-      <DialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center" gap={1}>
-            <SearchIcon />
-            <Typography variant="h6">Import Sources</Typography>
-          </Box>
-          <IconButton onClick={handleClose} disabled={isProcessing}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      <DialogContent>{importContent}</DialogContent>
-    </Dialog>
+      {importContent}
+    </Box>
   );
 }
