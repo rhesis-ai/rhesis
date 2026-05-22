@@ -103,6 +103,70 @@ module "ingress_stg" {
 # GCS buckets: managed by terraform/infrastructure (root) — not duplicated here.
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
 
+# ── Shared VPC: stg project is the host, rhesis-platform-admin is a service project ──────────
+# This allows the WireGuard server (in rhesis-platform-admin) to attach a second NIC
+# directly into the stg nodes subnet, bypassing GCP's non-transitive peering limitation
+# that would otherwise block WireGuard VPC → stg VPC → GKE master (3-hop peering).
+#
+# Subnet user grants are required for:
+#   - terraform-wireguard SA: creates the VM NIC during terraform apply
+#   - rhesis-platform-admin default compute SA: runtime access by the VM itself
+
+resource "google_compute_shared_vpc_host_project" "stg" {
+  project = var.project_id
+}
+
+resource "google_compute_shared_vpc_service_project" "platform_admin" {
+  host_project    = var.project_id
+  service_project = "rhesis-platform-admin"
+  depends_on      = [google_compute_shared_vpc_host_project.stg]
+}
+
+resource "google_compute_subnetwork_iam_member" "wireguard_tf_sa_subnet_user" {
+  project    = var.project_id
+  region     = var.region
+  subnetwork = module.stg.subnet_self_links["nodes"]
+  role       = "roles/compute.networkUser"
+  member     = "serviceAccount:terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com"
+  depends_on = [google_compute_shared_vpc_host_project.stg]
+}
+
+resource "google_compute_subnetwork_iam_member" "wireguard_compute_sa_subnet_user" {
+  project    = var.project_id
+  region     = var.region
+  subnetwork = module.stg.subnet_self_links["nodes"]
+  role       = "roles/compute.networkUser"
+  member     = "serviceAccount:211583725977-compute@developer.gserviceaccount.com"
+  depends_on = [google_compute_shared_vpc_host_project.stg]
+}
+
+# Allow DNS (port 53) from GKE nodes/pods to the WireGuard server's BIND9 resolver.
+# Managed here (not in the wireguard module) because TF_SA_WIREGUARD lacks firewall
+# permissions in this project — TF_SA_STG already has them.
+resource "google_compute_firewall" "wireguard_dns" {
+  name     = "wireguard-allow-dns-stg"
+  network  = module.stg.vpc_name
+  project  = var.project_id
+  priority = 900
+
+  allow {
+    protocol = "tcp"
+    ports    = ["53"]
+  }
+  allow {
+    protocol = "udp"
+    ports    = ["53"]
+  }
+  allow {
+    protocol = "icmp"
+  }
+
+  source_ranges = [local.cidrs.stg.nodes, local.cidrs.stg.pods]
+  target_tags   = ["wireguard-server"]
+
+  depends_on = [module.stg]
+}
+
 # ── Return-side peering: stg VPC → wireguard VPC (cross-project) ────
 resource "google_compute_network_peering" "stg_to_wireguard" {
   name         = "peering-stg-to-wireguard"
