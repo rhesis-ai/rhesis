@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.services import local_function_registry
+from rhesis.backend.app.utils import observability as _observability  # noqa: F401
 from rhesis.sdk.decorators import endpoint
 
 from .agents import _get_agent_class
