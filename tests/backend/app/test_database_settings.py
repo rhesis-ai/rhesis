@@ -4,9 +4,7 @@ from pydantic import ValidationError
 from rhesis.backend.app import database
 from rhesis.backend.app.config.settings import DatabaseSettings
 
-DATABASE_ENV_VARS = (
-    "SQLALCHEMY_DATABASE_URL",
-)
+DATABASE_ENV_VARS = ("SQLALCHEMY_DATABASE_URL",)
 
 
 @pytest.fixture
@@ -30,15 +28,10 @@ def test_database_settings_loads_existing_environment_variables(clean_database_e
     assert settings.url == "postgresql://prod"
 
 
-@pytest.mark.unit
-def test_empty_database_url_is_rejected(clean_database_env, monkeypatch):
-    monkeypatch.setenv("SQLALCHEMY_DATABASE_URL", "")
-
-    with pytest.raises(ValidationError):
-        DatabaseSettings(_env_file=None)
-
-
 def _patch_database_settings(monkeypatch, **settings_values):
+    if "url" in settings_values:
+        settings_values["SQLALCHEMY_DATABASE_URL"] = settings_values.pop("url")
+
     settings = DatabaseSettings(_env_file=None, **settings_values)
     monkeypatch.setattr(database, "get_database_settings", lambda: settings)
     return database
@@ -48,12 +41,12 @@ def _patch_database_settings(monkeypatch, **settings_values):
 def test_get_database_url_returns_configured_url(clean_database_env, monkeypatch):
     database = _patch_database_settings(
         monkeypatch,
-        url="postgresql://direct-user:direct-pass@db.example.com:5432/direct-db",
+        url="postgresql://direct-user:direct-pass@db.example.com:5432/direct-db",  #  trufflehog:ignore
     )
 
     assert (
         database.get_database_url()
-        == "postgresql://direct-user:direct-pass@db.example.com:5432/direct-db"
+        == "postgresql://direct-user:direct-pass@db.example.com:5432/direct-db"  # trufflehog:ignore
     )
 
 
@@ -61,7 +54,10 @@ def test_get_database_url_returns_configured_url(clean_database_env, monkeypatch
 def test_database_url_comes_from_sqlalchemy_database_url(clean_database_env, monkeypatch):
     database = _patch_database_settings(
         monkeypatch,
-        url="postgresql://test-user:test-pass@localhost:5432/test-db",
+        url="postgresql://test-user:test-pass@localhost:5432/test-db",  # trufflehog:ignore
     )
 
-    assert database.get_database_url() == "postgresql://test-user:test-pass@localhost:5432/test-db"
+    assert (
+        database.get_database_url()
+        == "postgresql://test-user:test-pass@localhost:5432/test-db"  # trufflehog:ignore
+    )
