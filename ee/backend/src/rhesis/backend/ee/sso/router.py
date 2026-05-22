@@ -22,14 +22,15 @@ from pydantic import BaseModel, SecretStr
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
-from rhesis.backend.app.schemas.organization import SLUG_RE as _SLUG_RE
 from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
+from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
+from rhesis.backend.app.schemas.organization import SLUG_RE as _SLUG_RE
 from rhesis.backend.app.utils.rate_limit import limiter
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
 from rhesis.backend.ee.sso.encryption import sso_decrypt, sso_encrypt
@@ -50,8 +51,6 @@ from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_u
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["SSO"])
-
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 
 # =============================================================================
@@ -190,7 +189,7 @@ async def sso_callback(
     db: Session = Depends(get_db_session),
 ):
     """Handle OIDC callback after IdP authentication."""
-    error_redirect = f"{FRONTEND_URL}/auth/sso-error?error=login_failed"
+    error_redirect = f"{get_frontend_settings().url}/auth/sso-error?error=login_failed"
 
     if error:
         logger.warning("SSO callback received error from IdP: %s", error)
