@@ -22,13 +22,11 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { Box, Typography, Chip } from '@mui/material';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar from '@/components/common/GridToolbar';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { SearchPill } from '@/components/common/SearchPill';
-import { GREYSCALE } from '@/styles/theme';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import { ChatIcon } from '@/components/icons';
@@ -72,40 +70,20 @@ function SourcesUnifiedToolbar() {
   } = useContext(SourcesToolbarContext);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1,
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        minHeight: 52,
-      }}
-    >
-      <FilterButton
-        onClick={openFilterDrawer}
-        hasActiveFilters={hasActiveDrawerFilters}
-      />
-
-      <SearchPill
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search sources…"
-        width={240}
-      />
-
-      <Box sx={{ flex: 1 }} />
-
-      <GridToolbarColumnsButton />
-      <GridToolbarDensitySelector />
-      <GridToolbarExport />
-    </Box>
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search sources…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
   );
 }
 

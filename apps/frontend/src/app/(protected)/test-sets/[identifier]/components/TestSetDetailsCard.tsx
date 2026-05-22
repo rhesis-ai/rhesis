@@ -10,6 +10,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useRouter } from 'next/navigation';
+import { GREYSCALE } from '@/styles/theme';
 
 interface DetailsDraft {
   name: string;
@@ -62,7 +63,12 @@ function SourceCard({ name, description }: SourceCardProps) {
   return (
     <Box
       sx={{
-        border: '1px solid #cdd2da',
+        border: theme =>
+          `1px solid ${
+            theme.palette.mode === 'light'
+              ? GREYSCALE.light.border
+              : GREYSCALE.dark.border
+          }`,
         borderRadius: '8px',
         p: 2,
         mb: 1,

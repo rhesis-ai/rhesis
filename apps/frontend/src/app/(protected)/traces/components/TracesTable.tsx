@@ -12,26 +12,16 @@ import {
   TraceSummary,
   TRACE_METRICS_STATUS,
 } from '@/utils/api-client/interfaces/telemetry';
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  IconButton,
-  Stack,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
-import { SearchPill } from '@/components/common/SearchPill';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
 import TraceFilterDrawer, {
   type TraceDrawerFilters,
 } from './TraceFilterDrawer';
@@ -75,101 +65,32 @@ function TracesUnifiedToolbar() {
   } = useContext(TracesToolbarContext);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1,
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        minHeight: 52,
-      }}
-    >
-      <FilterButton
-        onClick={openFilterDrawer}
-        hasActiveFilters={hasActiveDrawerFilters}
-      />
-
-      <SearchPill
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search operations…"
-        width={240}
-      />
-
-      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <ButtonGroup
-          variant="outlined"
-          size="small"
-          sx={{
-            '& .MuiButtonGroup-grouped': {
-              borderRadius: 0,
-              '&:first-of-type': {
-                borderTopLeftRadius: BORDER_RADIUS.pill,
-                borderBottomLeftRadius: BORDER_RADIUS.pill,
-              },
-              '&:last-of-type': {
-                borderTopRightRadius: BORDER_RADIUS.pill,
-                borderBottomRightRadius: BORDER_RADIUS.pill,
-              },
-              borderColor: theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : GREYSCALE.dark.border,
-            },
-          }}
-        >
-          {PILL_TABS.map(tab => (
-            <Button
-              key={tab.value}
-              onClick={() => setTypeFilter(tab.value)}
-              sx={{
-                px: 2,
-                py: 0.5,
-                fontWeight: typeFilter === tab.value ? 600 : 400,
-                bgcolor:
-                  typeFilter === tab.value ? 'primary.dark' : 'transparent',
-                color:
-                  typeFilter === tab.value
-                    ? '#fff'
-                    : theme =>
-                        theme.palette.mode === 'light'
-                          ? GREYSCALE.light.body
-                          : GREYSCALE.dark.body,
-                '&:hover': {
-                  bgcolor:
-                    typeFilter === tab.value
-                      ? 'primary.dark'
-                      : theme =>
-                          theme.palette.mode === 'light'
-                            ? GREYSCALE.light.surface1
-                            : GREYSCALE.dark.surface1,
-                },
-              }}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </ButtonGroup>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <Tooltip title="Refresh">
-          <IconButton size="small" onClick={onRefresh} aria-label="Refresh">
-            <RefreshIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <GridToolbarColumnsButton />
-        <GridToolbarDensitySelector />
-        <GridToolbarExport />
-      </Box>
-    </Box>
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search operations…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      middleContent={
+        <ToolbarPillTabs
+          tabs={PILL_TABS}
+          activeValue={typeFilter}
+          onChange={setTypeFilter}
+        />
+      }
+      rightContent={
+        <>
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={onRefresh} aria-label="Refresh">
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
   );
 }
 

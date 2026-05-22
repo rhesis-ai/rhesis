@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import ListIcon from '@mui/icons-material/ListOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import {
   GridColDef,
   GridRowParams,
@@ -25,15 +25,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import {
-  Typography,
-  Box,
-  Alert,
-  Chip,
-  Button,
-  ButtonGroup,
-} from '@mui/material';
-import { SearchPill } from '@/components/common/SearchPill';
+import { Typography, Box, Alert, Chip } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
@@ -55,7 +47,7 @@ import {
   renderTestContentCell,
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+import { GREYSCALE } from '@/styles/theme';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -101,102 +93,39 @@ function TestsUnifiedToolbar() {
   } = useContext(TestsToolbarContext);
 
   return (
-    <Box
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search tests…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
       sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1,
         borderBottom: theme =>
           `1px solid ${
             theme.palette.mode === 'light'
-              ? GREYSCALE.light.tableBorder
-              : GREYSCALE.dark.tableBorder
+              ? GREYSCALE.light.border
+              : GREYSCALE.dark.border
           }`,
         bgcolor: theme =>
           theme.palette.mode === 'light'
-            ? GREYSCALE.light.tableSurface
-            : GREYSCALE.dark.tableSurface,
-        minHeight: 52,
+            ? GREYSCALE.light.surface1
+            : GREYSCALE.dark.surface1,
       }}
-    >
-      <FilterButton
-        onClick={openFilterDrawer}
-        hasActiveFilters={hasActiveDrawerFilters}
-      />
-
-      <SearchPill
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search tests…"
-        width={240}
-      />
-
-      {/* Center: tab pills */}
-      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <ButtonGroup
-          variant="outlined"
-          size="small"
-          sx={{
-            '& .MuiButtonGroup-grouped': {
-              borderRadius: 0, // reset intermediate button corners intentionally
-              '&:first-of-type': {
-                borderTopLeftRadius: BORDER_RADIUS.pill,
-                borderBottomLeftRadius: BORDER_RADIUS.pill,
-              },
-              '&:last-of-type': {
-                borderTopRightRadius: BORDER_RADIUS.pill,
-                borderBottomRightRadius: BORDER_RADIUS.pill,
-              },
-              borderColor: theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : GREYSCALE.dark.border,
-            },
-          }}
-        >
-          {PILL_TABS.map(tab => (
-            <Button
-              key={tab.value}
-              onClick={() => setTypeFilter(tab.value)}
-              sx={{
-                px: 2,
-                py: 0.5,
-                fontWeight: typeFilter === tab.value ? 600 : 400,
-                bgcolor:
-                  typeFilter === tab.value ? 'primary.dark' : 'transparent',
-                color:
-                  typeFilter === tab.value
-                    ? '#fff'
-                    : theme =>
-                        theme.palette.mode === 'light'
-                          ? GREYSCALE.light.body
-                          : GREYSCALE.dark.body,
-                '&:hover': {
-                  bgcolor:
-                    typeFilter === tab.value
-                      ? 'primary.dark'
-                      : theme =>
-                          theme.palette.mode === 'light'
-                            ? GREYSCALE.light.surface1
-                            : GREYSCALE.dark.surface1,
-                },
-              }}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </ButtonGroup>
-      </Box>
-
-      {/* Right: DataGrid toolbar buttons */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <GridToolbarColumnsButton />
-        <GridToolbarDensitySelector />
-        <GridToolbarExport />
-      </Box>
-    </Box>
+      middleContent={
+        <ToolbarPillTabs
+          tabs={PILL_TABS}
+          activeValue={typeFilter}
+          onChange={setTypeFilter}
+        />
+      }
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
   );
 }
 

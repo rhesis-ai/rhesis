@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { Box, Typography, useTheme, Alert } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar from '@/components/common/GridToolbar';
 import {
   GridColDef,
   GridPaginationModel,
@@ -36,7 +36,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { createEndpoint } from '@/actions/endpoints';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { SearchPill } from '@/components/common/SearchPill';
 import { buildEndpointListFilter } from '@/utils/odata-filter';
 import { GREYSCALE } from '@/styles/theme';
 import EndpointFilterDrawer, {
@@ -131,42 +130,20 @@ function EndpointsUnifiedToolbar() {
   } = useContext(EndpointsToolbarContext);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1,
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        minHeight: 52,
-      }}
-    >
-      <FilterButton
-        onClick={openFilterDrawer}
-        hasActiveFilters={hasActiveDrawerFilters}
-      />
-
-      <SearchPill
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search endpoints…"
-        width={240}
-      />
-
-      <Box sx={{ flex: 1 }} />
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <GridToolbarColumnsButton />
-        <GridToolbarDensitySelector />
-        <GridToolbarExport />
-      </Box>
-    </Box>
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search endpoints…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
   );
 }
 

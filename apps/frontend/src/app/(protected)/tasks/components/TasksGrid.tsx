@@ -22,28 +22,20 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Task } from '@/utils/api-client/interfaces/task';
-import {
-  Typography,
-  Box,
-  Alert,
-  Avatar,
-  Button,
-  ButtonGroup,
-} from '@mui/material';
-import { FilterButton } from '@/components/common/FilterButton';
+import { Typography, Box, Alert, Avatar } from '@mui/material';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTaskFiltersToOData } from '@/utils/odata-filter';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
-import { SearchPill } from '@/components/common/SearchPill';
-import { BORDER_RADIUS, GREYSCALE } from '@/styles/theme';
 import TaskFilterDrawer, {
   type TaskFilters,
   EMPTY_TASK_FILTERS,
   hasActiveTaskFilters,
 } from './TaskFilterDrawer';
+import { GREYSCALE } from '@/styles/theme';
 
 interface TasksGridProps {
   sessionToken: string;
@@ -88,96 +80,27 @@ function TasksUnifiedToolbar() {
   } = useContext(TasksToolbarContext);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1,
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        minHeight: 52,
-      }}
-    >
-      <FilterButton
-        onClick={openFilterDrawer}
-        hasActiveFilters={hasActiveDrawerFilters}
-      />
-
-      <SearchPill
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search tasks…"
-        width={240}
-      />
-
-      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <ButtonGroup
-          variant="outlined"
-          size="small"
-          sx={{
-            '& .MuiButtonGroup-grouped': {
-              borderRadius: 0,
-              '&:first-of-type': {
-                borderTopLeftRadius: BORDER_RADIUS.pill,
-                borderBottomLeftRadius: BORDER_RADIUS.pill,
-              },
-              '&:last-of-type': {
-                borderTopRightRadius: BORDER_RADIUS.pill,
-                borderBottomRightRadius: BORDER_RADIUS.pill,
-              },
-              borderColor: theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : GREYSCALE.dark.border,
-            },
-          }}
-        >
-          {STATUS_PILL_TABS.map(tab => (
-            <Button
-              key={tab.value}
-              onClick={() => setStatusFilter(tab.value)}
-              sx={{
-                px: 2,
-                py: 0.5,
-                fontWeight: statusFilter === tab.value ? 600 : 400,
-                bgcolor:
-                  statusFilter === tab.value ? 'primary.dark' : 'transparent',
-                color:
-                  statusFilter === tab.value
-                    ? '#fff'
-                    : theme =>
-                        theme.palette.mode === 'light'
-                          ? GREYSCALE.light.body
-                          : GREYSCALE.dark.body,
-                '&:hover': {
-                  bgcolor:
-                    statusFilter === tab.value
-                      ? 'primary.dark'
-                      : theme =>
-                          theme.palette.mode === 'light'
-                            ? GREYSCALE.light.surface1
-                            : GREYSCALE.dark.surface1,
-                },
-              }}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </ButtonGroup>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <GridToolbarColumnsButton />
-        <GridToolbarDensitySelector />
-        <GridToolbarExport />
-      </Box>
-    </Box>
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search tasks…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      middleContent={
+        <ToolbarPillTabs
+          tabs={[...STATUS_PILL_TABS]}
+          activeValue={statusFilter}
+          onChange={setStatusFilter}
+        />
+      }
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
   );
 }
 

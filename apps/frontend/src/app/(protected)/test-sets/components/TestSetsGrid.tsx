@@ -22,29 +22,19 @@ import { useRouter } from 'next/navigation';
 import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import {
-  Box,
-  Tooltip,
-  Typography,
-  Avatar,
-  Alert,
-  Button,
-  ButtonGroup,
-} from '@mui/material';
+import { Box, Tooltip, Typography, Avatar, Alert, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PersonIcon from '@mui/icons-material/Person';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
-import { SearchPill } from '@/components/common/SearchPill';
 import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
 import TestSetFilterDrawer, {
   type TestSetFilters,
   EMPTY_TEST_SET_FILTERS,
@@ -52,6 +42,7 @@ import TestSetFilterDrawer, {
 } from './TestSetFilterDrawer';
 import { TEST_TYPES } from '@/constants/test-types';
 import GridBadge from '@/components/common/GridBadge';
+import { GREYSCALE } from '@/styles/theme';
 
 interface TestSetsGridProps {
   sessionToken?: string;
@@ -96,98 +87,27 @@ function TestSetsUnifiedToolbar() {
   } = useContext(TestSetsToolbarContext);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1,
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        minHeight: 52,
-      }}
-    >
-      <FilterButton
-        onClick={openFilterDrawer}
-        hasActiveFilters={hasActiveDrawerFilters}
-      />
-
-      <SearchPill
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search test sets…"
-        width={240}
-      />
-
-      {/* Center: type pill tabs */}
-      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <ButtonGroup
-          variant="outlined"
-          size="small"
-          sx={{
-            '& .MuiButtonGroup-grouped': {
-              borderRadius: 0,
-              '&:first-of-type': {
-                borderTopLeftRadius: BORDER_RADIUS.pill,
-                borderBottomLeftRadius: BORDER_RADIUS.pill,
-              },
-              '&:last-of-type': {
-                borderTopRightRadius: BORDER_RADIUS.pill,
-                borderBottomRightRadius: BORDER_RADIUS.pill,
-              },
-              borderColor: theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : GREYSCALE.dark.border,
-            },
-          }}
-        >
-          {PILL_TABS.map(tab => (
-            <Button
-              key={tab.value}
-              onClick={() => setTypeFilter(tab.value)}
-              sx={{
-                px: 2,
-                py: 0.5,
-                fontWeight: typeFilter === tab.value ? 600 : 400,
-                bgcolor:
-                  typeFilter === tab.value ? 'primary.dark' : 'transparent',
-                color:
-                  typeFilter === tab.value
-                    ? '#fff'
-                    : theme =>
-                        theme.palette.mode === 'light'
-                          ? GREYSCALE.light.body
-                          : GREYSCALE.dark.body,
-                '&:hover': {
-                  bgcolor:
-                    typeFilter === tab.value
-                      ? 'primary.dark'
-                      : theme =>
-                          theme.palette.mode === 'light'
-                            ? GREYSCALE.light.surface1
-                            : GREYSCALE.dark.surface1,
-                },
-              }}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </ButtonGroup>
-      </Box>
-
-      {/* Right: DataGrid toolbar buttons */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <GridToolbarColumnsButton />
-        <GridToolbarDensitySelector />
-        <GridToolbarExport />
-      </Box>
-    </Box>
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search test sets…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      middleContent={
+        <ToolbarPillTabs
+          tabs={PILL_TABS}
+          activeValue={typeFilter}
+          onChange={setTypeFilter}
+        />
+      }
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
   );
 }
 

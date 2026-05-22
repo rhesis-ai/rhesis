@@ -10,7 +10,7 @@ import React, {
 } from 'react';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
 import {
@@ -24,16 +24,7 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import {
-  Typography,
-  Box,
-  Alert,
-  Avatar,
-  Chip,
-  Button,
-  ButtonGroup,
-} from '@mui/material';
-import { SearchPill } from '@/components/common/SearchPill';
+import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
@@ -47,7 +38,7 @@ import TestRunFilterDrawer, {
   EMPTY_TEST_RUN_FILTERS,
   hasActiveTestRunFilters,
 } from './TestRunFilterDrawer';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+import { GREYSCALE } from '@/styles/theme';
 
 // ── Status pill tabs ─────────────────────────────────────────────────────────
 
@@ -92,98 +83,27 @@ function TestRunsUnifiedToolbar() {
   } = useContext(TestRunsToolbarContext);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1,
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        minHeight: 52,
-      }}
-    >
-      <FilterButton
-        onClick={openFilterDrawer}
-        hasActiveFilters={hasActiveDrawerFilters}
-      />
-
-      <SearchPill
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search test runs…"
-        width={240}
-      />
-
-      {/* Center: status pill tabs */}
-      <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <ButtonGroup
-          variant="outlined"
-          size="small"
-          sx={{
-            '& .MuiButtonGroup-grouped': {
-              borderRadius: 0,
-              '&:first-of-type': {
-                borderTopLeftRadius: BORDER_RADIUS.pill,
-                borderBottomLeftRadius: BORDER_RADIUS.pill,
-              },
-              '&:last-of-type': {
-                borderTopRightRadius: BORDER_RADIUS.pill,
-                borderBottomRightRadius: BORDER_RADIUS.pill,
-              },
-              borderColor: theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : GREYSCALE.dark.border,
-            },
-          }}
-        >
-          {STATUS_TABS.map(tab => (
-            <Button
-              key={tab.value}
-              onClick={() => setStatusFilter(tab.value)}
-              sx={{
-                px: 2,
-                py: 0.5,
-                fontWeight: statusFilter === tab.value ? 600 : 400,
-                bgcolor:
-                  statusFilter === tab.value ? 'primary.dark' : 'transparent',
-                color:
-                  statusFilter === tab.value
-                    ? '#fff'
-                    : theme =>
-                        theme.palette.mode === 'light'
-                          ? GREYSCALE.light.body
-                          : GREYSCALE.dark.body,
-                '&:hover': {
-                  bgcolor:
-                    statusFilter === tab.value
-                      ? 'primary.dark'
-                      : theme =>
-                          theme.palette.mode === 'light'
-                            ? GREYSCALE.light.surface1
-                            : GREYSCALE.dark.surface1,
-                },
-              }}
-            >
-              {tab.label}
-            </Button>
-          ))}
-        </ButtonGroup>
-      </Box>
-
-      {/* Right: DataGrid toolbar buttons */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <GridToolbarColumnsButton />
-        <GridToolbarDensitySelector />
-        <GridToolbarExport />
-      </Box>
-    </Box>
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search test runs…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      middleContent={
+        <ToolbarPillTabs
+          tabs={STATUS_TABS}
+          activeValue={statusFilter}
+          onChange={setStatusFilter}
+        />
+      }
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
   );
 }
 

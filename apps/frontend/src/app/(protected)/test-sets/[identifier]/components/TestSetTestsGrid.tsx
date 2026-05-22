@@ -21,8 +21,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Box, Alert } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
-import { FilterButton } from '@/components/common/FilterButton';
-import { SearchPill } from '@/components/common/SearchPill';
+import GridToolbar from '@/components/common/GridToolbar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
@@ -62,34 +61,22 @@ function LinkedTestsUnifiedToolbar() {
   } = useContext(LinkedTestsToolbarContext);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        mb: 3,
-      }}
-    >
-      <FilterButton
-        onClick={openFilterDrawer}
-        hasActiveFilters={hasActiveDrawerFilters}
-      />
-
-      <SearchPill
-        value={searchQuery}
-        onChange={setSearchQuery}
-        placeholder="Search tests…"
-        width={288}
-      />
-
-      <Box sx={{ flex: 1 }} />
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <GridToolbarColumnsButton />
-        <GridToolbarDensitySelector />
-        <GridToolbarExport />
-      </Box>
-    </Box>
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search tests…"
+      searchWidth={288}
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      sx={{ mb: 3, px: 0, py: 0, borderBottom: 'none', minHeight: 'auto' }}
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
   );
 }
 

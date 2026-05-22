@@ -7,7 +7,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import AddIcon from '@mui/icons-material/Add';
-import { FilterButton } from '@/components/common/FilterButton';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
@@ -16,7 +16,6 @@ import BehaviorCard from './BehaviorCard';
 import BehaviorDrawer from './BehaviorDrawer';
 import BehaviorMetricsViewer from './BehaviorMetricsViewer';
 import { generateCopyName } from '@/utils/entity-helpers';
-import { SearchPill } from '@/components/common/SearchPill';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { PsychologyIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -438,75 +437,21 @@ export default function BehaviorsClient({
         </FabGroup>
       }
     >
-      {/* Figma Toolbar (841:38547) — 3-col grid keeps pills truly centered */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          mb: 3,
-          gap: 2,
-        }}
-      >
-        {/* Left: Filter icon + Search pill */}
-        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <FilterButton
-            onClick={() => setFilterDrawerOpen(true)}
-            hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
+      <GridToolbar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search behaviors…"
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
+        sx={{ mb: 3, px: 0, borderBottom: 'none' }}
+        middleContent={
+          <ToolbarPillTabs
+            tabs={metricOptions}
+            activeValue={metricCountFilter}
+            onChange={v => setMetricCountFilter(v as MetricFilter)}
           />
-
-          <SearchPill
-            value={searchQuery}
-            onChange={v => setSearchQuery(v)}
-            placeholder="Search behaviors…"
-          />
-        </Box>
-
-        {/* Center: Metric filter pill tabs */}
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          {metricOptions.map(({ value, label }, idx) => {
-            const selected = metricCountFilter === value;
-            const isFirst = idx === 0;
-            const isLast = idx === metricOptions.length - 1;
-            return (
-              <Box
-                key={value}
-                component="button"
-                onClick={() => setMetricCountFilter(value)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  px: '16px',
-                  py: '8px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  lineHeight: '22px',
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: 'primary.main',
-                  borderLeft: isFirst ? '1px solid' : 'none',
-                  borderRight: isLast ? '1px solid' : 'none',
-                  borderRadius: isFirst
-                    ? '999px 0 0 999px'
-                    : isLast
-                      ? '0 999px 999px 0'
-                      : 0,
-                  bgcolor: selected ? 'primary.main' : 'transparent',
-                  color: selected ? '#fff' : 'primary.main',
-                  transition: 'background-color 0.15s, color 0.15s',
-                  '&:hover': {
-                    bgcolor: selected ? 'primary.dark' : 'rgba(0,128,175,0.06)',
-                  },
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {label}
-              </Box>
-            );
-          })}
-        </Box>
-      </Box>
+        }
+      />
 
       {/* Error state */}
       {error && (
