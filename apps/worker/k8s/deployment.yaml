@@ -48,11 +48,6 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: SQLALCHEMY_DATABASE_URL
-        - name: SQLALCHEMY_DB_MODE
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: SQLALCHEMY_DB_MODE
         - name: SQLALCHEMY_DB_DRIVER
           valueFrom:
             secretKeyRef:

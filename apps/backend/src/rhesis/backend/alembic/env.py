@@ -107,10 +107,6 @@ def run_migrations_online():
         url = config.get_main_option("sqlalchemy.url")
         url = re.sub(r"\${(.+?)}", lambda m: url_tokens[m.group(1)], url)
 
-    # if we are running tests, use the test database instead
-    if os.getenv("SQLALCHEMY_DB_MODE") == "test":
-        url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL", "sqlite:///./test.db")
-
     connectable = create_engine(url)
 
     with connectable.connect() as connection:

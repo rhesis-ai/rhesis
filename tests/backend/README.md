@@ -81,11 +81,6 @@ export SQLALCHEMY_DATABASE_TEST_URL="postgresql://user:password@localhost:5432/r
 export SQLALCHEMY_DATABASE_TEST_URL="postgresql://user:password@localhost:5432/rhesis_test"
 ```
 
-#### 🛠️ Automatic Test Mode
-The test configuration automatically:
-1. Sets `SQLALCHEMY_DB_MODE=test` before importing backend modules
-2. Uses `SQLALCHEMY_DATABASE_TEST_URL` for all database connections
-3. Ensures complete isolation from your production/development database
 
 #### ⚙️ Backend conftest.py
 ```python

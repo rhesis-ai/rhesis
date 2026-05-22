@@ -32,7 +32,6 @@ function show_usage() {
   echo "  Note: All environments (dev, stg, prd, test) use environment-specific secrets"
   echo "  # Backend variables"
   echo "  SQLALCHEMY_DATABASE_URL       Full database URL"
-  echo "  SQLALCHEMY_DB_MODE            Database mode"
   echo "  SQLALCHEMY_DB_DRIVER          Database driver"
   echo "  SQLALCHEMY_DB_USER            Database user"
   echo "  SQLALCHEMY_DB_PASS            Database password"
@@ -230,7 +229,6 @@ function set_repo_secret() {
 SERVICE_VARS=(
   # Backend variables
   "SQLALCHEMY_DATABASE_URL"
-  "SQLALCHEMY_DB_MODE"
   "SQLALCHEMY_DB_DRIVER"
   "SQLALCHEMY_DB_USER"
   "SQLALCHEMY_DB_PASS"

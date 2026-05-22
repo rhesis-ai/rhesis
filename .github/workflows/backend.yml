@@ -549,7 +549,6 @@ jobs:
               --set-env-vars="$(cat <<EOF
           ENVIRONMENT=${{ env.ENVIRONMENT }},
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
-          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
           SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
           SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
@@ -634,7 +633,6 @@ jobs:
               --set-env-vars="$(cat <<EOF
           ENVIRONMENT=${{ env.ENVIRONMENT }},
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
-          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
           SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
           SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
@@ -839,7 +837,6 @@ jobs:
           PROJECT_ID=${{ env.PROJECT_ID }},
           ENVIRONMENT=${{ env.ENVIRONMENT }},
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
-          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
           SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
           SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
@@ -929,7 +926,6 @@ jobs:
           PROJECT_ID=${{ env.PROJECT_ID }},
           ENVIRONMENT=${{ env.ENVIRONMENT }},
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
-          SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
           SQLALCHEMY_DB_USER=${{ secrets.SQLALCHEMY_DB_USER }},
           SQLALCHEMY_DB_PASS=${{ secrets.SQLALCHEMY_DB_PASS }},
