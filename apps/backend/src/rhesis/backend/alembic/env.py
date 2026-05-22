@@ -85,16 +85,6 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
-    url_tokens = {
-        "SQLALCHEMY_DB_DRIVER": os.getenv("SQLALCHEMY_DB_DRIVER", ""),
-        "SQLALCHEMY_DB_USER": os.getenv("SQLALCHEMY_DB_USER", ""),
-        "SQLALCHEMY_DB_PASS": os.getenv("SQLALCHEMY_DB_PASS", ""),
-        "SQLALCHEMY_DB_HOST": os.getenv("SQLALCHEMY_DB_HOST", ""),
-        "SQLALCHEMY_DB_NAME": os.getenv("SQLALCHEMY_DB_NAME", ""),
-    }
-
-    # Prefer the full DATABASE_URL env var if set (works correctly in Docker, Cloud Run, etc.)
-    # Fall back to constructing the URL from individual components via alembic.ini placeholders
     url = os.environ["SQLALCHEMY_DATABASE_URL"]
 
     connectable = create_engine(url)
