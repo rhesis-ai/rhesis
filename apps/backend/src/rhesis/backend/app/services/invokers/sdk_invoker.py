@@ -533,13 +533,33 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Step 1: Validate and extract metadata
             function_name, project_id, environment = self._validate_and_extract_metadata()
 
-            # Step 2: Determine invocation context (RPC vs direct WebSocket)
-            use_rpc, context_type = self._determine_invocation_context(project_id, environment)
-            logger.info(f"SDK invocation context: {context_type}")
-
-            # Step 3: Prepare function kwargs
+            # Step 2: Prepare function kwargs
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
             function_kwargs = self._prepare_function_kwargs(function_name)
+
+            # Step 3: Local registry short-circuit — call backend-resident
+            # functions directly without a WebSocket round-trip.
+            from rhesis.backend.app.services.local_function_registry import registry
+
+            if function_name in registry:
+                logger.info(f"Invoking local backend function: {function_name}")
+                raw = await registry[function_name](
+                    organization_id=str(endpoint.organization_id),
+                    user_id=str(endpoint.user_id) if endpoint.user_id else None,
+                    db=db,
+                    **function_kwargs,
+                )
+                output = json.dumps(raw) if not isinstance(raw, str) else raw
+                mapped_response = self._map_sdk_response(
+                    {"status": "success", "output": output, "error": None, "duration_ms": 0},
+                    function_name,
+                )
+                self._ensure_conversation_field(mapped_response, conversation_field)
+                return mapped_response
+
+            # Step 4: Determine invocation context (RPC vs direct WebSocket)
+            use_rpc, context_type = self._determine_invocation_context(project_id, environment)
+            logger.info(f"SDK invocation context: {context_type}")
 
             # Strip any user-supplied _rhesis_* keys to prevent injection,
             # then set the internal flag if the endpoint has tracing disabled.
