@@ -109,6 +109,11 @@ module "wireguard_server" {
     for env, cidr in local.cidrs : env => cidr.network
     if env != "wireguard" && lookup(local.env_enabled, env, false)
   }
+
+  gke_public_endpoints = merge(
+    local.stg_enabled ? { stg = data.terraform_remote_state.stg[0].outputs.cluster_endpoint } : {},
+    local.prd_enabled ? { prd = data.terraform_remote_state.prd[0].outputs.cluster_endpoint } : {}
+  )
   master_cidrs = {
     for env, cidr in local.cidrs : env => cidr.master
     if env != "wireguard" && lookup(local.env_enabled, env, false)
