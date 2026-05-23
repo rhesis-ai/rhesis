@@ -16,9 +16,10 @@ locals {
     server_ip          = var.wireguard_tunnel_ip
     listen_port        = var.wireguard_port
     server_private_key = wireguard_asymmetric_key.server.private_key
-    peer_cidr          = var.wireguard_peer_cidr
-    peers              = local.wireguard_peers_with_keys
-    subnet_cidrs       = var.subnet_cidrs
+    peer_cidr             = var.wireguard_peer_cidr
+    peers                 = local.wireguard_peers_with_keys
+    subnet_cidrs          = var.subnet_cidrs
+    gke_public_endpoints  = var.gke_public_endpoints
   })
 
   # Routing setup script: resolves interface names by NIC IP at runtime
