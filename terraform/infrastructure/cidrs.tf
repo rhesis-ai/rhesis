@@ -5,7 +5,8 @@
 locals {
   cidrs = {
     wireguard = {
-      network = "10.0.0.0/24"
+      network     = "10.0.0.0/24"
+      external_ip = "34.158.188.156" # Reserved static IP (google_compute_address.wireguard)
     }
     dev = {
       network             = "10.2.0.0/15"

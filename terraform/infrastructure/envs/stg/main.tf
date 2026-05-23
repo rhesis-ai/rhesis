@@ -61,6 +61,7 @@ module "gke_stg" {
   # stg/prd use public endpoint locked to WireGuard VPN CIDR (master_authorized_networks).
   # dev keeps private endpoint via Shared VPC cross-project NIC (already running, immutable field).
   enable_private_endpoint = false
+  extra_authorized_cidrs  = ["${local.cidrs.wireguard.external_ip}/32"]
 
   depends_on = [module.stg]
 }
