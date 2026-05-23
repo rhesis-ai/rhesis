@@ -34,6 +34,27 @@ resource "google_compute_firewall" "wireguard_vpn" {
 }
 
 
+# Allow DNS from env VPC pods/nodes to BIND9 (for split-horizon DNS via VPC peering)
+resource "google_compute_firewall" "wireguard_dns_from_envs" {
+  name      = "wireguard-allow-dns-from-envs"
+  network   = var.vpc_name
+  project   = var.project_id
+  priority  = 900
+  direction = "INGRESS"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["53"]
+  }
+  allow {
+    protocol = "udp"
+    ports    = ["53"]
+  }
+
+  source_ranges = values(var.subnet_cidrs)
+  target_tags   = ["wireguard-server"]
+}
+
 # Allow egress to GKE masters
 resource "google_compute_firewall" "wireguard_to_masters" {
   name      = "wireguard-to-gke-masters"
