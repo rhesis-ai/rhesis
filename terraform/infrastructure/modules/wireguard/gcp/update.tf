@@ -87,15 +87,20 @@ resource "terraform_data" "wireguard_config_update" {
         sleep 10
       done
 
-      # Decode config, set permissions, reload WireGuard
+      # Decode config, set permissions, reload WireGuard.
+      # Run wg-quick down BEFORE overwriting the config so PostDown fires against
+      # the OLD rules (removing them cleanly). Then write new config and bring up.
+      # Using "systemctl restart" after overwriting causes PostDown to run with the
+      # NEW config — old iptables rules are never removed and accumulate on updates.
       gcloud_retry gcloud compute ssh wireguard-server \
         --zone="$ZONE" --project="$PROJECT" \
         --tunnel-through-iap \
         --command="sudo bash -c '\
+          wg-quick down wg0 || true && \
           base64 -d /tmp/wg0.b64 > /etc/wireguard/wg0.conf && \
           chmod 600 /etc/wireguard/wg0.conf && \
           rm /tmp/wg0.b64 && \
-          systemctl restart wg-quick@wg0 && \
+          wg-quick up wg0 && \
           echo \"WireGuard config updated and reloaded successfully\"'"
     EOT
   }
