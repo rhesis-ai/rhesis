@@ -720,7 +720,7 @@ def get_test_sets_for_test(
             lambda q: q.join(models.test.test_test_set_association).filter(
                 and_(
                     models.test.test_test_set_association.c.test_id == test_id,
-                    models.test.test_test_set_association.c.organization_id == organization_id
+                    models.test.test_test_set_association.c.organization_id == organization_id,
                 )
             )
         )
