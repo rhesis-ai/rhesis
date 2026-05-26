@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.models.user import User
 from rhesis.sdk.services.mcp import MCPAgent
 
@@ -74,7 +74,7 @@ async def run_mcp_authentication_test(
     # Load the authentication test prompt with provider context
     auth_prompt = jinja_env.get_template("mcp_test_auth_prompt.jinja2").render(provider=provider)
     agent = MCPAgent(
-        model=DEFAULT_GENERATION_MODEL,
+        model=get_model_settings().generation_model,
         mcp_client=client,
         system_prompt=auth_prompt,
         max_iterations=5,  # Keep it short for authentication test
@@ -153,7 +153,7 @@ async def create_jira_ticket_from_task(
 
     # 5. Use agent to create issue
     agent = MCPAgent(
-        model=DEFAULT_GENERATION_MODEL,
+        model=get_model_settings().generation_model,
         mcp_client=client,
         system_prompt=create_issue_prompt,
         max_iterations=5,

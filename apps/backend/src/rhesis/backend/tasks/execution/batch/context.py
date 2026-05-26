@@ -108,12 +108,13 @@ def prefetch_execution_context(
     execution_model = None
     evaluation_model = None
     try:
-        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+        from rhesis.backend.app.config.settings import get_model_settings
         from rhesis.backend.app.utils.user_model_utils import (
             get_evaluation_model_with_override,
             get_execution_model_with_override,
         )
 
+        model_settings = get_model_settings()
         override_execution_model_id = attrs.get("execution_model_id")
         override_evaluation_model_id = attrs.get("evaluation_model_id")
 
@@ -128,19 +129,20 @@ def prefetch_execution_context(
                 )
             else:
                 logger.warning(f"User {user_id} not found, using default models")
-                execution_model = DEFAULT_EXECUTION_MODEL
-                evaluation_model = DEFAULT_EVALUATION_MODEL
+                execution_model = model_settings.execution_model
+                evaluation_model = model_settings.evaluation_model
         else:
-            execution_model = DEFAULT_EXECUTION_MODEL
-            evaluation_model = DEFAULT_EVALUATION_MODEL
+            execution_model = model_settings.execution_model
+            evaluation_model = model_settings.evaluation_model
     except Exception as e:
-        from rhesis.backend.app.constants import DEFAULT_EVALUATION_MODEL, DEFAULT_EXECUTION_MODEL
+        from rhesis.backend.app.config.settings import get_model_settings
 
         logger.warning(f"Failed to resolve execution/evaluation models: {e}")
+        model_settings = get_model_settings()
         if execution_model is None:
-            execution_model = DEFAULT_EXECUTION_MODEL
+            execution_model = model_settings.execution_model
         if evaluation_model is None:
-            evaluation_model = DEFAULT_EVALUATION_MODEL
+            evaluation_model = model_settings.evaluation_model
 
     # Pre-fetch per-test data
     test_data: Dict[str, Any] = {}

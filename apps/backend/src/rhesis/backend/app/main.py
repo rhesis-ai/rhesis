@@ -29,6 +29,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES, TOKEN_ENABLED_ROUTES
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
+from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
@@ -378,17 +379,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://0.0.0.0:3000",
-        "http://frontend:3000",
-        "https://app.rhesis.ai",
-        "https://dev-app.rhesis.ai",
-        "https://dev-api.rhesis.ai",
-        "https://stg-app.rhesis.ai",
-        "https://stg-api.rhesis.ai",
-    ],
+    allow_origins=get_frontend_settings().cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

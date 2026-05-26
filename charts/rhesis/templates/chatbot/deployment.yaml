@@ -37,15 +37,10 @@ spec:
                 name: {{ include "rhesis.fullname" . }}-config
             - secretRef:
                 name: {{ .Values.existingSecret }}
+          {{ with .Values.chatbot.env }}
           env:
-            - name: REDIS_URL
-              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
-            {{- with .Values.chatbot.env }}
-            {{- range . }}
-            - name: {{ .name }}
-              value: {{ .value | quote }}
-            {{- end }}
-            {{- end }}
+{{ toYaml . | nindent 12 }}
+          {{ end }}
           resources:
             {{- toYaml .Values.chatbot.resources | nindent 12 }}
           livenessProbe:

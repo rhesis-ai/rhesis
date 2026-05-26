@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.backend.app.config.settings import get_redis_settings
 from rhesis.backend.app.services.cache import RedisBackedCache
 
 
@@ -199,6 +200,12 @@ class TestRedisBackedCacheWithMockRedis:
 @pytest.mark.unit
 class TestRedisBackedCacheReadReplica:
     """Tests for BROKER_READ_URL read replica routing."""
+
+    @pytest.fixture(autouse=True)
+    def clear_redis_settings_cache(self):
+        get_redis_settings.cache_clear()
+        yield
+        get_redis_settings.cache_clear()
 
     def test_separate_read_client_when_broker_read_url_set(self):
         write_client = MagicMock()

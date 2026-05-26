@@ -120,8 +120,8 @@ class HealthHandler(BaseHTTPRequestHandler):
                 "environment": {
                     "tls_detected": self._is_tls_connection(),
                     "broker_url_type": "rediss://" if self._is_tls_connection() else "redis://",
-                    "has_broker_url": bool(os.getenv("BROKER_URL")),
-                    "has_result_backend": bool(os.getenv("CELERY_RESULT_BACKEND")),
+                    "has_broker_url": bool(self._get_broker_url()),
+                    "has_result_backend": bool(self._get_result_backend()),
                     "python_path": sys.path[:3],  # First 3 entries
                     "working_directory": os.getcwd(),
                 },
@@ -368,10 +368,24 @@ class HealthHandler(BaseHTTPRequestHandler):
             logger.error(f"Error checking detailed Celery health: {e}")
             return False, {"message": f"Error checking detailed Celery health: {str(e)}"}
     
+    def _get_celery_app(self):
+        """Return the configured Celery app."""
+        import rhesis.backend.worker
+
+        return rhesis.backend.worker.app
+
+    def _get_broker_url(self):
+        """Return the broker URL from Celery configuration."""
+        return self._get_celery_app().conf.broker_url or ""
+
+    def _get_result_backend(self):
+        """Return the result backend URL from Celery configuration."""
+        return self._get_celery_app().conf.result_backend or ""
+
     def _is_tls_connection(self):
         """Check if we're using TLS connections (rediss://)"""
-        broker_url = os.getenv("BROKER_URL", "")
-        result_backend = os.getenv("CELERY_RESULT_BACKEND", "")
+        broker_url = self._get_broker_url()
+        result_backend = self._get_result_backend()
         return broker_url.startswith("rediss://") or result_backend.startswith("rediss://")
     
     def _test_redis_connection(self):
@@ -396,7 +410,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 
                 import redis
                 
-                broker_url = os.getenv("BROKER_URL", "")
+                broker_url = self._get_broker_url()
                 if not broker_url:
                     return "no_broker_url"
                 
@@ -452,8 +466,8 @@ class HealthHandler(BaseHTTPRequestHandler):
         try:
             import redis
             
-            broker_url = os.getenv("BROKER_URL", "")
-            result_backend = os.getenv("CELERY_RESULT_BACKEND", "")
+            broker_url = self._get_broker_url()
+            result_backend = self._get_result_backend()
             
             debug_info = {
                 "broker_url_present": bool(broker_url),

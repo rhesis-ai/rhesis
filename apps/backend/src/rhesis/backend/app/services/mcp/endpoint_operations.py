@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.utils.observability import get_test_context
 from rhesis.sdk.decorators import endpoint
 
@@ -83,7 +83,7 @@ async def search_mcp(
     # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
-        model=DEFAULT_GENERATION_MODEL,
+        model=get_model_settings().generation_model,
         mcp_client=client,
         system_prompt=search_prompt,
         max_iterations=10,
@@ -177,7 +177,7 @@ async def extract_mcp(
     # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
-        model=DEFAULT_GENERATION_MODEL,
+        model=get_model_settings().generation_model,
         mcp_client=client,
         system_prompt=extract_prompt,
         max_iterations=15,
@@ -260,7 +260,7 @@ async def query_mcp(
     # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
-        model=DEFAULT_GENERATION_MODEL,
+        model=get_model_settings().generation_model,
         mcp_client=client,
         system_prompt=system_prompt,
         max_iterations=max_iterations,

@@ -48,6 +48,7 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
     find_or_create_user_from_auth,
 )
+from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.constants import RHESIS_BASE_URL
 from rhesis.backend.app.dependencies import (
     get_db_session,
@@ -254,7 +255,7 @@ def _is_legacy_auth0_enabled() -> bool:
 
 def _get_frontend_url() -> str:
     """Get the frontend URL for building email links."""
-    return os.getenv("FRONTEND_URL", "http://localhost:3000")
+    return get_frontend_settings().url
 
 
 def _get_email_service():
@@ -1338,7 +1339,7 @@ async def logout(
 
     # Create response with cookie clearing headers
     accept_header = request.headers.get("accept", "")
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = get_frontend_settings().url
     frontend_env = os.getenv("FRONTEND_ENV", "development")
 
     # Check if this is an API call (from frontend middleware)

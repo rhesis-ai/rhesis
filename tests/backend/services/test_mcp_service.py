@@ -16,7 +16,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.mcp import (
     _get_mcp_client_from_params,
@@ -444,7 +444,7 @@ class TestSearchMCP:
         assert result[0]["title"] == "Test"
 
         mock_agent_class_impl.assert_called_once_with(
-            model=DEFAULT_GENERATION_MODEL,
+            model=get_model_settings().generation_model,
             mcp_client=mock_client,
             system_prompt="Search prompt",
             max_iterations=10,
@@ -570,7 +570,7 @@ class TestExtractMCP:
             item_id=None, item_url=item_url, provider="notion"
         )
         mock_agent_class_impl.assert_called_once_with(
-            model=DEFAULT_GENERATION_MODEL,
+            model=get_model_settings().generation_model,
             mcp_client=mock_client,
             system_prompt="Extract prompt",
             max_iterations=15,
@@ -623,7 +623,7 @@ class TestExtractMCP:
             item_id=item_id, item_url=None, provider="notion"
         )
         mock_agent_class_impl.assert_called_once_with(
-            model=DEFAULT_GENERATION_MODEL,
+            model=get_model_settings().generation_model,
             mcp_client=mock_client,
             system_prompt="Extract prompt",
             max_iterations=15,
@@ -693,7 +693,7 @@ class TestQueryMCP:
         assert result["success"] is True
         mock_template.render.assert_called_once()
         mock_agent_class_impl.assert_called_once_with(
-            model=DEFAULT_GENERATION_MODEL,
+            model=get_model_settings().generation_model,
             mcp_client=mock_client,
             system_prompt="Default query prompt",
             max_iterations=10,
@@ -731,7 +731,7 @@ class TestQueryMCP:
 
         # Assert
         mock_agent_class_impl.assert_called_once_with(
-            model=DEFAULT_GENERATION_MODEL,
+            model=get_model_settings().generation_model,
             mcp_client=mock_client,
             system_prompt=custom_prompt,
             max_iterations=10,
@@ -773,7 +773,7 @@ class TestQueryMCP:
 
         # Assert
         mock_agent_class_impl.assert_called_once_with(
-            model=DEFAULT_GENERATION_MODEL,
+            model=get_model_settings().generation_model,
             mcp_client=mock_client,
             system_prompt="Default query prompt",
             max_iterations=20,
@@ -823,7 +823,7 @@ class TestTestMCPAuthentication:
         assert result["message"] == "Auth successful"
         mock_get_client.assert_called_once_with(db, tool_id, org_id, None)
         mock_agent_class.assert_called_once_with(
-            model=DEFAULT_GENERATION_MODEL,
+            model=get_model_settings().generation_model,
             mcp_client=mock_client,
             system_prompt="Auth test prompt",
             max_iterations=5,

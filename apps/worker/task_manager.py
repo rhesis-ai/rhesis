@@ -30,7 +30,6 @@ Requirements:
 - Python environment with access to rhesis.backend.worker
 """
 
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -184,7 +183,7 @@ def main():
     command = sys.argv[1]
     task_id = sys.argv[2]
     
-    print(f"Environment loaded - BROKER_URL: {bool(os.getenv('BROKER_URL'))}")
+    print(f"Broker configured: {bool(celery_app.conf.broker_url)}")
     print(f"Timestamp: {datetime.now().isoformat()}")
     
     if command == "status":

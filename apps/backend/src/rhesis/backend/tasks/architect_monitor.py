@@ -20,11 +20,12 @@ Redis keys (all with a 2-hour TTL):
 
 import json
 import logging
-import os
 from typing import Any, Dict, List, Optional
 
 import redis as _redis_lib
 from celery.signals import task_postrun
+
+from rhesis.backend.app.config.settings import get_redis_settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def _get_redis() -> _redis_lib.Redis:
     """Return a Redis client reusing a shared connection pool."""
     global _redis_pool
     if _redis_pool is None:
-        url = os.getenv("BROKER_URL") or os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        url = get_redis_settings().broker_url
         _redis_pool = _redis_lib.ConnectionPool.from_url(url)
     return _redis_lib.Redis(connection_pool=_redis_pool)
 

@@ -7,11 +7,12 @@ still reference RedisDatabase for DB number allocation.
 """
 
 import logging
-import os
 import threading
 import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, urlunparse
+
+from rhesis.backend.app.config.settings import get_redis_settings
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,12 @@ class RedisBackedCache:
         return self._redis is not None
 
     def _build_redis_url(self, *, read: bool = False) -> str:
-        env_var = "BROKER_READ_URL" if read else "BROKER_URL"
-        redis_url = os.getenv(env_var) or os.getenv("BROKER_URL", "redis://localhost:6379/0")
+        redis_settings = get_redis_settings()
+        redis_url = (
+            redis_settings.broker_read_url
+            if read and redis_settings.broker_read_url
+            else redis_settings.broker_url
+        )
         parsed = urlparse(redis_url)
         return urlunparse(parsed._replace(path=f"/{self._redis_db}"))
 
@@ -68,7 +73,7 @@ class RedisBackedCache:
             )
 
             self._redis_read = self._redis
-            if os.getenv("BROKER_READ_URL"):
+            if get_redis_settings().broker_read_url:
                 read_client = None
                 try:
                     read_url = self._build_redis_url(read=True)

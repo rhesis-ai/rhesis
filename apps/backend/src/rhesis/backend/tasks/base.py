@@ -1,11 +1,11 @@
 import logging
-import os
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Optional, Tuple
 
 from celery import Task
 
+from rhesis.backend.app.config.settings import get_frontend_settings
 from rhesis.backend.app.database import (
     get_db_with_tenant_variables,
 )
@@ -379,7 +379,7 @@ class BaseTask(Task):
             self.log_with_context("debug", f"Final calculated execution time: {execution_time}")
 
             # Get frontend URL for links
-            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+            frontend_url = get_frontend_settings().url
             self.log_with_context("debug", f"Using frontend URL: {frontend_url}")
 
             # Check if email service is configured

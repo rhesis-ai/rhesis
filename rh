@@ -180,7 +180,6 @@ SQLALCHEMY_DB_NAME=rhesis-db
 DB_ENCRYPTION_KEY=${encryption_key}
 
 # Redis (dev ports)
-REDIS_URL=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/0
 BROKER_URL=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/0
 CELERY_RESULT_BACKEND=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/1
 
