@@ -194,8 +194,8 @@ services:
   # Frontend
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
       args:
         FRONTEND_ENV: ${FRONTEND_ENV:-local}
     environment:
