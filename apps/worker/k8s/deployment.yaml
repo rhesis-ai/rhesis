@@ -258,6 +258,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: LOCAL_STORAGE_PATH
+        - name: RHESIS_CONNECTOR_DISABLED
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: RHESIS_CONNECTOR_DISABLED
         - name: DEFAULT_POLYPHEMUS_URL
           valueFrom:
             secretKeyRef:

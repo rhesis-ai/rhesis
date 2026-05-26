@@ -237,12 +237,20 @@ def test_send_request_all_methods(mock_request):
     assert mock_request.call_count == len(Methods)
 
 
-def test_disabled_client():
-    """Test DisabledClient no-op behavior."""
-    from rhesis.sdk.clients.rhesis import DisabledClient
+def test_disabled_client(monkeypatch):
+    """Test that RHESIS_CONNECTOR_DISABLED=true creates a DisabledClient via from_environment()."""
+    monkeypatch.setenv("RHESIS_CONNECTOR_DISABLED", "true")
 
-    client = DisabledClient()
+    import importlib
 
+    import rhesis.sdk.clients.rhesis
+
+    importlib.reload(rhesis.sdk.clients.rhesis)
+    from rhesis.sdk.clients.rhesis import RhesisClient
+
+    client = RhesisClient.from_environment()
+
+    assert client.__class__.__name__ == "DisabledClient"
     assert client.is_disabled is True
     assert client.base_url == ""
     assert client.project_id is None
@@ -250,46 +258,13 @@ def test_disabled_client():
     assert client.some_method() is None
     assert client.register_endpoint("test", lambda: None, {}) is None
 
-
-def test_from_internal_environment_disabled_by_default(monkeypatch):
-    """RHESIS_INTERNAL_OBSERVABILITY unset or false returns DisabledClient."""
-    monkeypatch.delenv("RHESIS_INTERNAL_OBSERVABILITY", raising=False)
-
-    from rhesis.sdk.clients import DisabledClient, RhesisClient
-
-    client = RhesisClient.from_internal_environment()
-    assert isinstance(client, DisabledClient)
-    assert client.is_disabled is True
-
-    monkeypatch.setenv("RHESIS_INTERNAL_OBSERVABILITY", "false")
-    client = RhesisClient.from_internal_environment()
-    assert isinstance(client, DisabledClient)
-
-
-def test_from_internal_environment_enabled(monkeypatch):
-    """RHESIS_INTERNAL_OBSERVABILITY=true returns RhesisClient when credentials are set."""
-    monkeypatch.setenv("RHESIS_INTERNAL_OBSERVABILITY", "true")
-    monkeypatch.setenv("RHESIS_API_KEY", "test_key")
-    monkeypatch.setenv("RHESIS_BASE_URL", "http://localhost:8080")
-    monkeypatch.setenv("RHESIS_PROJECT_ID", "test_project")
-
-    import importlib
-
-    import rhesis.sdk.clients.rhesis
-
-    importlib.reload(rhesis.sdk.clients.rhesis)
-    from rhesis.sdk.clients import DisabledClient, RhesisClient
-
-    client = RhesisClient.from_internal_environment()
-    assert isinstance(client, RhesisClient)
-    assert not isinstance(client, DisabledClient)
-    assert client.project_id == "test_project"
-
+    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLED")
     importlib.reload(rhesis.sdk.clients.rhesis)
 
 
 def test_normal_client_when_connector_enabled(monkeypatch):
-    """Test that RhesisClient is created when credentials are provided."""
+    """Test that RhesisClient is created when connector is not disabled and credentials provided."""
+    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLED", raising=False)
     # Set required environment variables for RhesisClient
     monkeypatch.setenv("RHESIS_API_KEY", "test_key")
     monkeypatch.setenv("RHESIS_BASE_URL", "https://test.example.com")

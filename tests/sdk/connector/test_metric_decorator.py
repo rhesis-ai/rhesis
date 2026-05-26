@@ -132,8 +132,10 @@ class TestMetricConstants:
 class TestMetricDecoratorDisabled:
     """Tests for @metric when client is disabled."""
 
-    def test_disabled_client_returns_original_function(self):
+    def test_disabled_client_returns_original_function(self, monkeypatch):
         """When client is disabled, decorator returns the original function."""
+        monkeypatch.setenv("RHESIS_CONNECTOR_DISABLED", "true")
+
         from rhesis.sdk.clients.rhesis import DisabledClient
 
         DisabledClient()
@@ -148,8 +150,10 @@ class TestMetricDecoratorDisabled:
         result = my_metric(input="hello", output="world")
         assert result == {"score": 0.9}
 
-    def test_disabled_client_register_metric_is_noop(self):
+    def test_disabled_client_register_metric_is_noop(self, monkeypatch):
         """DisabledClient.register_metric is a no-op."""
+        monkeypatch.setenv("RHESIS_CONNECTOR_DISABLED", "true")
+
         from rhesis.sdk.clients.rhesis import DisabledClient
 
         client = DisabledClient()

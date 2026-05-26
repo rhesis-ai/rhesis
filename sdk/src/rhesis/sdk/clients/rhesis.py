@@ -7,18 +7,18 @@ logger = logging.getLogger(__name__)
 
 _TRUTHY = frozenset({"true", "1", "yes", "on"})
 
-
-def is_internal_observability_enabled() -> bool:
-    """Return True when RHESIS_INTERNAL_OBSERVABILITY is set to a truthy value."""
-    return os.getenv("RHESIS_INTERNAL_OBSERVABILITY", "false").lower() in _TRUTHY
+# Accept common truthy values: true, 1, yes, on (case-insensitive)
+CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLED", "false").lower() in _TRUTHY
 
 
 class DisabledClient:
     """
-    No-op client — the default "off" state for internal Rhesis observability.
+    No-op client used when RHESIS_CONNECTOR_DISABLED is enabled.
 
-    Returned when RHESIS_INTERNAL_OBSERVABILITY is false or unset. Accepts all
-    initialization parameters and method calls but performs no operations.
+    Accepts all initialization parameters and method calls but performs no operations.
+    Used to run without connector/observability overhead in CI and platform services.
+
+    Enabled with: RHESIS_CONNECTOR_DISABLED=true|1|yes|on (case-insensitive)
 
     When DisabledClient is active:
     - @endpoint and @observe decorators return the original function unmodified
@@ -149,51 +149,33 @@ class RhesisClient:
         self._register_as_default()
 
     @classmethod
-    def from_environment(cls) -> "RhesisClient":
+    def from_environment(cls) -> Union["RhesisClient", DisabledClient]:
         """
         Create a RhesisClient from environment variables.
 
         This is the recommended way to initialize the client in applications.
+        Returns a DisabledClient when RHESIS_CONNECTOR_DISABLED is set.
 
         Environment Variables:
-            RHESIS_PROJECT_ID: Required project ID
-            RHESIS_API_KEY: Required API key
+            RHESIS_CONNECTOR_DISABLED: Set to 'true' to disable the SDK
+            RHESIS_PROJECT_ID: Project ID for remote endpoint testing
+            RHESIS_API_KEY: API key
             RHESIS_ENVIRONMENT: Optional, defaults to 'development'
             RHESIS_BASE_URL: Optional, defaults to 'http://localhost:8080'
 
         Returns:
-            RhesisClient instance
+            RhesisClient or DisabledClient instance
         """
+        if CONNECTOR_DISABLED:
+            logger.info("Connector explicitly disabled (RHESIS_CONNECTOR_DISABLED=true)")
+            return DisabledClient()
+
         return cls(
             project_id=os.getenv("RHESIS_PROJECT_ID"),
             api_key=os.getenv("RHESIS_API_KEY"),
             environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
             base_url=os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
         )
-
-    @classmethod
-    def from_internal_environment(cls) -> Union["RhesisClient", DisabledClient]:
-        """
-        Create a client for internal Rhesis agent observability (backend MCP, etc.).
-
-        RHESIS_INTERNAL_OBSERVABILITY=false or unset → DisabledClient (decorators are
-        no-ops, no traces). RHESIS_INTERNAL_OBSERVABILITY=true → RhesisClient (traces
-        recorded). Accepts: true, 1, yes, on (case-insensitive).
-
-        Environment Variables (when enabled):
-            RHESIS_API_KEY: Required API key
-            RHESIS_PROJECT_ID: Optional project ID
-            RHESIS_ENVIRONMENT: Optional, defaults to 'development'
-            RHESIS_BASE_URL: Optional, defaults to 'http://localhost:8080'
-        """
-        if not is_internal_observability_enabled():
-            logger.info(
-                "Internal observability disabled (RHESIS_INTERNAL_OBSERVABILITY not enabled)"
-            )
-            return DisabledClient()
-
-        logger.info("Internal observability enabled")
-        return cls.from_environment()
 
     def _init_telemetry(self) -> None:
         """

@@ -75,6 +75,22 @@ The `environment` parameter determines where your endpoints and traces are regis
   Changes in `production` take effect immediately. Always test in `development` or `staging` first.
 </Callout>
 
+## Disabling the Client
+
+To disable all SDK functionality (useful for CI/CD or testing):
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_CONNECTOR_DISABLED=true`}
+</CodeBlock>
+
+Accepted values: `true`, `1`, `yes`, `on` (case-insensitive)
+
+When disabled:
+- `@endpoint` and `@observe` decorators return functions unmodified
+- No telemetry initialization occurs
+- No WebSocket connection is established
+- All SDK method calls become no-ops
+
 ## Usage Patterns
 
 ### Tracing Only

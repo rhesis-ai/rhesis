@@ -180,6 +180,26 @@ client = RhesisClient(
 
 </CodeBlock>
 
+## Disabling the Connector
+
+To disable all connector and tracing functionality (useful for CI/CD or testing), set:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_CONNECTOR_DISABLED=true`}
+</CodeBlock>
+
+Accepted values: `true`, `1`, `yes`, `on` (case-insensitive)
+
+When disabled:
+- `@endpoint` and `@observe` decorators return functions unmodified
+- No WebSocket connection is established
+- No telemetry or tracing occurs
+- All SDK method calls become no-ops
+
+<Callout type="info">
+  Use this in CI pipelines or test environments where you don't want connector overhead.
+</Callout>
+
 ## Platform Integration
 
 ### Viewing Endpoints

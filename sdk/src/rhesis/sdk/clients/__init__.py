@@ -1,11 +1,11 @@
 from .api import APIClient, Endpoints, HTTPStatus, Methods
-from .rhesis import DisabledClient, RhesisClient, is_internal_observability_enabled
+from .rhesis import CONNECTOR_DISABLED, DisabledClient, RhesisClient
 
 __all__ = [
     "APIClient",
+    "CONNECTOR_DISABLED",
     "DisabledClient",
     "RhesisClient",
-    "is_internal_observability_enabled",
     "HTTPStatus",
     "Methods",
     "Endpoints",

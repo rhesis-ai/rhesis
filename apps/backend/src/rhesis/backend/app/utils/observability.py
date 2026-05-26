@@ -6,12 +6,11 @@ from rhesis.sdk.clients import RhesisClient
 
 logger = logging.getLogger(__name__)
 
-# Tracer for internal Rhesis agent observability.
-# RHESIS_INTERNAL_OBSERVABILITY=false|unset → DisabledClient (no traces).
-# RHESIS_INTERNAL_OBSERVABILITY=true → RhesisClient (traces to Rhesis's own org).
-# Disabled by default — customer usage of internal agents is never traced.
+# SDK client for @endpoint / @observe on backend-resident agents (MCP, etc.).
+# RHESIS_CONNECTOR_DISABLED=true (default in compose) → DisabledClient (no SDK overhead).
+# RHESIS_CONNECTOR_DISABLED=false → RhesisClient (tracing when credentials are set).
 try:
-    internal_tracer = RhesisClient.from_internal_environment()
+    internal_tracer = RhesisClient.from_environment()
 except Exception as e:
     logger.debug(f"Failed to initialize internal tracer: {e}")
     internal_tracer = None

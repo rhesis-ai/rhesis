@@ -99,6 +99,7 @@ config:
 
   # Chatbot
   chatbotRateLimit: "1000"
+  rhesisConnectorDisabled: "true"
   rhesisProjectId: ""
 
   # OTel Collector → Telemetry Processor (in-cluster gRPC)
