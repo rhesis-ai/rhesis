@@ -75,6 +75,8 @@ def _resolve_llm_model(model_or_provider: Any):
 
 from rhesis.backend.app.services.streaming_utils import (
     IncrementalJsonArrayParser,
+)
+from rhesis.backend.app.services.streaming_utils import (
     ndjson as _ndjson,
 )
 

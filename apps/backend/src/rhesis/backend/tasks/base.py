@@ -1,5 +1,4 @@
 import logging
-import os
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Optional, Tuple

@@ -26,6 +26,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAYS", 7))  
 # Auth Messages
 UNAUTHORIZED_MESSAGE = "Authentication required"
 
+
 class AuthenticationMethod:
     SESSION = "session"
     BEARER = "bearer"

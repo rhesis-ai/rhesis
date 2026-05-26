@@ -1,7 +1,7 @@
 from functools import lru_cache
 from urllib.parse import urlparse
 
-from pydantic import Field
+from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,15 +18,16 @@ class FrontendSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
-    url: str = Field(default="http://localhost:3000", alias="FRONTEND_URL")
+    url: AnyHttpUrl = Field(alias="FRONTEND_URL")
 
     @property
     def cors_origins(self) -> list[str]:
-        return [self.url.rstrip("/")]
+        parsed_url = urlparse(str(self.url))
+        return [f"{parsed_url.scheme}://{parsed_url.netloc}"]
 
     @property
     def allowed_domain(self) -> str:
-        return urlparse(self.url).netloc
+        return urlparse(str(self.url)).netloc
 
 
 class RedisSettings(BaseSettings):
@@ -72,7 +73,7 @@ def get_database_settings() -> DatabaseSettings:
 
 @lru_cache
 def get_frontend_settings() -> FrontendSettings:
-    return FrontendSettings()
+    return FrontendSettings()  # pyright: ignore[reportCallIssue]
 
 
 @lru_cache

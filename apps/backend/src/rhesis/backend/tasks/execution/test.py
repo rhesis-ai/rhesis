@@ -40,15 +40,13 @@ def get_evaluation_model(db: Session, user_id: str) -> Any:
             return get_user_evaluation_model(db, user)
         else:
             logger.warning(
-                f"[MODEL_SELECTION] User {user_id} not found, using default: "
-                f"{default_model}"
+                f"[MODEL_SELECTION] User {user_id} not found, using default: {default_model}"
             )
             return default_model
     except Exception as e:
         default_model = get_model_settings().evaluation_model
         logger.warning(
-            f"[MODEL_SELECTION] Error fetching user model: {str(e)}, "
-            f"using default: {default_model}"
+            f"[MODEL_SELECTION] Error fetching user model: {str(e)}, using default: {default_model}"
         )
         return default_model
 
@@ -73,8 +71,7 @@ def get_execution_model(db: Session, user_id: str) -> Any:
             return get_user_execution_model(db, user)
         else:
             logger.warning(
-                f"[MODEL_SELECTION] User {user_id} not found, using default: "
-                f"{default_model}"
+                f"[MODEL_SELECTION] User {user_id} not found, using default: {default_model}"
             )
             return default_model
     except Exception as e:
