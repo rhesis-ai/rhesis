@@ -60,8 +60,8 @@ export default function OrganizationSettingsPage() {
   }, [fetchOrganization]);
 
   const breadcrumbs = [
-    { title: organizationName, path: '/organizations' },
-    { title: 'Organization Settings', path: '/organizations/settings' },
+    { label: organizationName, href: '/organizations' },
+    { label: 'Organization Settings', href: '/organizations/settings' },
   ];
 
   const pageHeader = {

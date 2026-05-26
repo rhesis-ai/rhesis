@@ -406,8 +406,8 @@ export default function SourcePreviewClientWrapper({
     <PageLayout
       title={displayTitle}
       breadcrumbs={[
-        { title: 'Knowledge', path: '/knowledge' },
-        { title: displayTitle, path: `/knowledge/${localSource.id}` },
+        { label: 'Knowledge', href: '/knowledge' },
+        { label: displayTitle, href: `/knowledge/${localSource.id}` },
       ]}
     >
       <Stack direction="column" spacing={3}>

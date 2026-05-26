@@ -48,11 +48,8 @@ export default async function ExplorerDetailPage({
       <PageLayout
         title={testSetName}
         breadcrumbs={[
-          {
-            title: 'Explorer',
-            path: '/explorer',
-          },
-          { title: testSetName, path: '' },
+          { label: 'Explorer', href: '/explorer' },
+          { label: testSetName },
         ]}
       >
         <ExplorerDetail

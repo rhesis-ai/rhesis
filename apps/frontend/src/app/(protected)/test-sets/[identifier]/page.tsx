@@ -79,8 +79,8 @@ export default async function TestSetPage({ params }: PageProps) {
 
   const title = testSet.name || `Test Set ${identifier}`;
   const breadcrumbs = [
-    { title: 'Test Sets', path: '/test-sets' },
-    { title, path: `/test-sets/${identifier}` },
+    { label: 'Test Sets', href: '/test-sets' },
+    { label: title, href: `/test-sets/${identifier}` },
   ];
 
   const isGarakTestSet =

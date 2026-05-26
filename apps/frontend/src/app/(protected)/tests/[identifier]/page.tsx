@@ -69,8 +69,8 @@ export default async function TestDetailPage({ params }: PageProps) {
     : test.id;
 
   const breadcrumbs = [
-    { title: 'Tests', path: '/tests' },
-    { title, path: `/tests/${identifier}` },
+    { label: 'Tests', href: '/tests' },
+    { label: title, href: `/tests/${identifier}` },
   ];
 
   const metadataStrip = (

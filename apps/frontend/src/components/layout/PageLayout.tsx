@@ -9,12 +9,10 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { FAB_GROUP_GAP } from '@/styles/theme-constants';
 
 export interface BreadcrumbItem {
-  /** Display text (use `label` for new code; `title` accepted for Toolpad migration compat) */
-  label?: string;
-  title?: string;
-  /** Navigation target (`href` preferred; `path` accepted for Toolpad migration compat) */
+  /** Display text for the breadcrumb. */
+  label: string;
+  /** Navigation target (omit for the current/last crumb). */
   href?: string;
-  path?: string;
 }
 
 export interface PageLayoutProps {
@@ -42,8 +40,8 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
     >
       {items.map((crumb, idx) => {
         const isLast = idx === items.length - 1;
-        const text = crumb.label ?? crumb.title ?? '';
-        const link = crumb.href ?? crumb.path;
+        const text = crumb.label;
+        const link = crumb.href;
         const showSeparator = idx < items.length - 1;
         const crumbKey = link ? `${link}|${text}` : text;
 
@@ -110,8 +108,7 @@ export function PageLayout({
   metadata,
   children,
 }: PageLayoutProps) {
-  const crumbItems =
-    breadcrumbs?.filter(b => (b.label ?? b.title)?.trim()) ?? [];
+  const crumbItems = breadcrumbs?.filter(b => b.label?.trim()) ?? [];
   const hasBreadcrumbs = crumbItems.length > 0;
   const hasHeader = hasBreadcrumbs || title || description || actions;
 

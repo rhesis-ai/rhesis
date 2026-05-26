@@ -43,6 +43,7 @@ export function useFilterDrawerDraft<T>(
 import {
   Box,
   Button,
+  ButtonBase,
   Collapse,
   Drawer,
   IconButton,
@@ -215,15 +216,15 @@ export function FilterSection({
         gap: '16px',
       }}
     >
-      <Box
+      <ButtonBase
+        onClick={() => setOpen(o => !o)}
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          cursor: 'pointer',
+          width: '100%',
           userSelect: 'none',
         }}
-        onClick={() => setOpen(o => !o)}
       >
         <Typography
           sx={{
@@ -244,7 +245,7 @@ export function FilterSection({
             sx={{ fontSize: 20, color: theme => theme.palette.greyscale.label }}
           />
         )}
-      </Box>
+      </ButtonBase>
       <Collapse in={open}>
         <Box sx={{ pb: '4px' }}>{children}</Box>
       </Collapse>

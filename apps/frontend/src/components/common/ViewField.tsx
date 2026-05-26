@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Box, Typography } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 
 interface ViewFieldProps {
   label: string;
@@ -11,7 +12,8 @@ interface ViewFieldProps {
   multiline?: boolean;
   /** Inner box background. Defaults to theme fieldSurface. Pass 'transparent' for technical/code fields. */
   bgcolor?: string;
-  inputSx?: React.CSSProperties;
+  /** Extra sx applied to the value Typography (supports theme callbacks). */
+  inputSx?: SxProps<Theme>;
   /** Custom value content (badges, links). When set, `value` is ignored. */
   children?: React.ReactNode;
 }
@@ -64,14 +66,16 @@ export default function ViewField({
       >
         {children ?? (
           <Typography
-            sx={{
-              fontSize: 16,
-              lineHeight: '24px',
-              color: theme => theme.palette.greyscale.body,
-              whiteSpace: multiline ? 'pre-wrap' : 'normal',
-              wordBreak: 'break-word',
-              ...inputSx,
-            }}
+            sx={[
+              {
+                fontSize: 16,
+                lineHeight: '24px',
+                color: theme => theme.palette.greyscale.body,
+                whiteSpace: multiline ? 'pre-wrap' : 'normal',
+                wordBreak: 'break-word',
+              },
+              ...(Array.isArray(inputSx) ? inputSx : inputSx ? [inputSx] : []),
+            ]}
           >
             {displayValue}
           </Typography>
