@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from typing import Any, Dict, Optional, Union
 
@@ -539,19 +540,31 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
             # Step 3: Local registry short-circuit — call backend-resident
             # functions directly without a WebSocket round-trip.
-            from rhesis.backend.app.services.local_function_registry import registry
+            from rhesis.backend.app.services.local_function_registry import (
+                ensure_local_functions_registered,
+                registry,
+            )
+
+            ensure_local_functions_registered()
 
             if function_name in registry:
                 logger.info(f"Invoking local backend function: {function_name}")
+                started = time.perf_counter()
                 raw = await registry[function_name](
                     organization_id=str(endpoint.organization_id),
                     user_id=str(endpoint.user_id) if endpoint.user_id else None,
                     db=db,
                     **function_kwargs,
                 )
+                duration_ms = int((time.perf_counter() - started) * 1000)
                 output = json.dumps(raw) if not isinstance(raw, str) else raw
                 mapped_response = self._map_sdk_response(
-                    {"status": "success", "output": output, "error": None, "duration_ms": 0},
+                    {
+                        "status": "success",
+                        "output": output,
+                        "error": None,
+                        "duration_ms": duration_ms,
+                    },
                     function_name,
                 )
                 self._ensure_conversation_field(mapped_response, conversation_field)
