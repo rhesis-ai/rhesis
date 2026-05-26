@@ -172,6 +172,7 @@ def environment_configurations():
         "local": {
             "BACKEND_ENV": "local",
             "LOCAL_STORAGE_PATH": "/tmp/local-test",
+            "STORAGE_SERVICE_URI": "file:///tmp/local-test",
         },
         "development": {
             "BACKEND_ENV": "development",
