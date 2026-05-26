@@ -105,7 +105,37 @@ module "ingress_stg" {
   depends_on = [module.stg]
 }
 
-# GCS buckets: managed by terraform/infrastructure (root) — not duplicated here.
+# ── GCS: file storage + CNPG backups ────────────────────────────────
+# Previously delegated to the root main.tf, but the root uses a single provider/project
+# which conflicts with the multi-project layout. Managed here instead.
+
+module "gcs_stg" {
+  source = "../../modules/storage-buckets/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+  location    = var.region
+
+  file_storage_bucket_name = var.file_storage_bucket_name
+  cnpg_backup_bucket_name  = var.cnpg_backup_bucket_name
+  force_destroy            = var.force_destroy
+  file_storage_iam_members = []
+  cnpg_backup_iam_members  = []
+}
+
+# CloudNativePG Barman: GSA + Workload Identity binding for WAL/base backups.
+# Secret IDs must match kubernetes/clusters/stg/rhesis/cnpg-gcs-externalsecret.yaml
+module "cnpg_barman_stg" {
+  source = "../../modules/cnpg-barman-sa-gcp"
+
+  project_id                 = var.project_id
+  environment                = "stg"
+  backup_bucket_name         = var.cnpg_backup_bucket_name
+  kubernetes_service_account = "rhesis-stg"
+
+  depends_on = [module.gcs_stg, module.gke_stg]
+}
+
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
 
 # Allow DNS (port 53) from GKE nodes/pods to the WireGuard server's BIND9 resolver.

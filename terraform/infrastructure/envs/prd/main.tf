@@ -100,7 +100,37 @@ module "ingress_prd" {
   depends_on = [module.prd]
 }
 
-# GCS buckets: managed by terraform/infrastructure (root) — not duplicated here.
+# ── GCS: file storage + CNPG backups ────────────────────────────────
+# Previously delegated to the root main.tf, but the root uses a single provider/project
+# which conflicts with the multi-project layout. Managed here instead.
+
+module "gcs_prd" {
+  source = "../../modules/storage-buckets/gcp"
+
+  project_id  = var.project_id
+  environment = "prd"
+  location    = var.region
+
+  file_storage_bucket_name = var.file_storage_bucket_name
+  cnpg_backup_bucket_name  = var.cnpg_backup_bucket_name
+  force_destroy            = var.force_destroy
+  file_storage_iam_members = []
+  cnpg_backup_iam_members  = []
+}
+
+# CloudNativePG Barman: GSA + Workload Identity binding for WAL/base backups.
+# Secret IDs must match kubernetes/clusters/prd/rhesis/cnpg-gcs-externalsecret.yaml
+module "cnpg_barman_prd" {
+  source = "../../modules/cnpg-barman-sa-gcp"
+
+  project_id                 = var.project_id
+  environment                = "prd"
+  backup_bucket_name         = var.cnpg_backup_bucket_name
+  kubernetes_service_account = "rhesis-prd"
+
+  depends_on = [module.gcs_prd, module.gke_prd]
+}
+
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
 
 # ── Return-side peering: prd VPC → wireguard VPC (cross-project) ────
