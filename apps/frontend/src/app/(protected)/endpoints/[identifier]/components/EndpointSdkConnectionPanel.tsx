@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import {
   Alert,
   Box,
@@ -9,12 +10,44 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import BaseTable from '@/components/common/BaseTable';
 import SectionCard from '@/components/common/SectionCard';
+import ViewField from '@/components/common/ViewField';
 import { getStatusColor } from '@/utils/status-colors';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 
+function formatParamType(type?: string): string {
+  if (!type) return '—';
+  return type
+    .replace(/<class '(.+?)'>/g, '$1')
+    .replace(/typing\./g, '')
+    .replace(/builtins\./g, '');
+}
+
+type ParameterRow = {
+  name: string;
+  type: string;
+  defaultValue: string;
+};
+
 export default function EndpointSdkConnectionPanel() {
   const { endpoint } = useEndpointDetailContext();
+
+  const parameterRows = useMemo((): ParameterRow[] => {
+    const parameters = endpoint.endpoint_metadata?.function_schema?.parameters;
+    if (!parameters) return [];
+    return Object.entries(parameters).map(([name, info]) => {
+      const paramInfo = info as { type?: string; default?: unknown };
+      return {
+        name,
+        type: formatParamType(paramInfo.type),
+        defaultValue:
+          paramInfo.default !== null && paramInfo.default !== undefined
+            ? String(paramInfo.default)
+            : '—',
+      };
+    });
+  }, [endpoint.endpoint_metadata?.function_schema?.parameters]);
 
   return (
     <SectionCard title="SDK connection">
@@ -24,24 +57,23 @@ export default function EndpointSdkConnectionPanel() {
             {/* Function Name */}
             {endpoint.endpoint_metadata.sdk_connection?.function_name && (
               <Grid size={{ xs: 12, md: 6 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Function Name
-                </Typography>
-                <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
-                  {endpoint.endpoint_metadata.sdk_connection.function_name}
-                </Typography>
+                <ViewField
+                  label="Function Name"
+                  value={
+                    endpoint.endpoint_metadata.sdk_connection.function_name
+                  }
+                  bgcolor="transparent"
+                  inputSx={{ fontFamily: 'monospace', fontWeight: 500 }}
+                />
               </Grid>
             )}
 
-            {/* Function Description */}
             {endpoint.endpoint_metadata.function_schema?.description && (
               <Grid size={{ xs: 12, md: 6 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Description
-                </Typography>
-                <Typography variant="body1">
-                  {endpoint.endpoint_metadata.function_schema.description}
-                </Typography>
+                <ViewField
+                  label="Description"
+                  value={endpoint.endpoint_metadata.function_schema.description}
+                />
               </Grid>
             )}
 
@@ -59,100 +91,54 @@ export default function EndpointSdkConnectionPanel() {
                   variant="outlined"
                   sx={{ p: 2, bgcolor: 'background.default' }}
                 >
-                  {Object.keys(
-                    endpoint.endpoint_metadata.function_schema.parameters
-                  ).length === 0 ? (
+                  {parameterRows.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
                       No parameters
                     </Typography>
                   ) : (
-                    <Box
-                      component="table"
-                      sx={{ width: '100%', borderCollapse: 'collapse' }}
-                    >
-                      <Box component="thead">
-                        <Box component="tr">
-                          <Box
-                            component="th"
-                            sx={{ textAlign: 'left', pb: 1, pr: 2 }}
-                          >
-                            <Typography variant="caption" fontWeight="bold">
-                              Parameter
-                            </Typography>
-                          </Box>
-                          <Box
-                            component="th"
-                            sx={{ textAlign: 'left', pb: 1, pr: 2 }}
-                          >
-                            <Typography variant="caption" fontWeight="bold">
-                              Type
-                            </Typography>
-                          </Box>
-                          <Box component="th" sx={{ textAlign: 'left', pb: 1 }}>
-                            <Typography variant="caption" fontWeight="bold">
-                              Default
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                      <Box component="tbody">
-                        {Object.entries(
-                          endpoint.endpoint_metadata.function_schema.parameters
-                        ).map(([param, info]: [string, unknown]) => {
-                          const paramInfo = info as {
-                            type?: string;
-                            default?: unknown;
-                          };
-                          return (
-                            <Box
-                              component="tr"
-                              key={param}
-                              sx={{
-                                borderTop: 1,
-                                borderColor: 'divider',
-                              }}
+                    <BaseTable<ParameterRow>
+                      columns={[
+                        {
+                          id: 'name',
+                          label: 'Parameter',
+                          render: row => (
+                            <Typography
+                              variant="body2"
+                              sx={{ fontFamily: 'monospace', fontWeight: 500 }}
                             >
-                              <Box component="td" sx={{ py: 1, pr: 2 }}>
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    fontFamily: 'monospace',
-                                    fontWeight: 500,
-                                  }}
-                                >
-                                  {param}
-                                </Typography>
-                              </Box>
-                              <Box component="td" sx={{ py: 1, pr: 2 }}>
-                                <Typography
-                                  variant="caption"
-                                  sx={{ fontFamily: 'monospace' }}
-                                  color="text.secondary"
-                                >
-                                  {paramInfo.type
-                                    ? paramInfo.type
-                                        .replace(/<class '(.+?)'>/g, '$1')
-                                        .replace(/typing\./g, '')
-                                        .replace(/builtins\./g, '')
-                                    : '—'}
-                                </Typography>
-                              </Box>
-                              <Box component="td" sx={{ py: 1 }}>
-                                <Typography
-                                  variant="caption"
-                                  sx={{ fontFamily: 'monospace' }}
-                                  color="text.secondary"
-                                >
-                                  {paramInfo.default !== null
-                                    ? String(paramInfo.default)
-                                    : '—'}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          );
-                        })}
-                      </Box>
-                    </Box>
+                              {row.name}
+                            </Typography>
+                          ),
+                        },
+                        {
+                          id: 'type',
+                          label: 'Type',
+                          render: row => (
+                            <Typography
+                              variant="caption"
+                              sx={{ fontFamily: 'monospace' }}
+                              color="text.secondary"
+                            >
+                              {row.type}
+                            </Typography>
+                          ),
+                        },
+                        {
+                          id: 'default',
+                          label: 'Default',
+                          render: row => (
+                            <Typography
+                              variant="caption"
+                              sx={{ fontFamily: 'monospace' }}
+                              color="text.secondary"
+                            >
+                              {row.defaultValue}
+                            </Typography>
+                          ),
+                        },
+                      ]}
+                      data={parameterRows}
+                    />
                   )}
                 </Paper>
               </Grid>

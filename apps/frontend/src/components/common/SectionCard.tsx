@@ -18,28 +18,33 @@ export interface SectionCardProps {
 }
 
 function cardSx(variant: SectionCardVariant) {
-  return {
+  const shared = {
     p: '30px',
     mb: 3,
     borderRadius: BORDER_RADIUS.md,
     boxShadow: (theme: Theme) =>
       theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
+  };
+
+  if (variant === 'danger') {
+    return {
+      ...shared,
+      border: '1px solid',
+      borderColor: 'error.light',
+      bgcolor: (theme: Theme) => alpha(theme.palette.error.main, 0.05),
+    };
+  }
+
+  return {
+    ...shared,
     bgcolor: (theme: Theme) =>
       theme.palette.mode === 'light' ? '#ffffff' : GREYSCALE.dark.surface1,
-    ...(variant === 'danger'
-      ? {
-          border: '1px solid',
-          borderColor: 'error.light',
-          bgcolor: (theme: Theme) => alpha(theme.palette.error.main, 0.05),
-        }
-      : {
-          border: (theme: Theme) =>
-            `1px solid ${
-              theme.palette.mode === 'light'
-                ? GREYSCALE.light.border
-                : GREYSCALE.dark.border
-            }`,
-        }),
+    border: (theme: Theme) =>
+      `1px solid ${
+        theme.palette.mode === 'light'
+          ? GREYSCALE.light.border
+          : GREYSCALE.dark.border
+      }`,
   };
 }
 

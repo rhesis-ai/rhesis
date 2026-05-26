@@ -22,8 +22,10 @@ import AddIcon from '@mui/icons-material/Add';
 import FolderIcon from '@mui/icons-material/Folder';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { Fab, FabGroup } from '@/components/common/Fab';
-import { FilterButton } from '@/components/common/FilterButton';
-import { SearchPill } from '@/components/common/SearchPill';
+import GridToolbar, {
+  ToolbarPillTabs,
+  directoryToolbarSx,
+} from '@/components/common/GridToolbar';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AppsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -235,82 +237,27 @@ export default function ProjectsClientWrapper({
         </FabGroup>
       }
     >
-      {/* Figma Toolbar (841:38547) — 3-col grid keeps pills truly centered */}
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          mb: 3,
-          gap: 2,
+      <GridToolbar
+        searchQuery={search}
+        onSearchChange={v => {
+          setSearch(v);
+          setPage(0);
         }}
-      >
-        {/* Left: Filter icon + Search pill */}
-        <Box sx={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <FilterButton
-            onClick={() => setFilterDrawerOpen(true)}
-            hasActiveFilters={hasActiveProjectFilters(activeFilters)}
-          />
-
-          {/* Search pill */}
-          <SearchPill
-            value={search}
+        searchPlaceholder="Search projects…"
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveProjectFilters(activeFilters)}
+        sx={directoryToolbarSx}
+        middleContent={
+          <ToolbarPillTabs
+            tabs={statusOptions}
+            activeValue={statusFilter}
             onChange={v => {
-              setSearch(v);
+              setStatusFilter(v as StatusFilter);
               setPage(0);
             }}
-            placeholder="Search projects…"
           />
-        </Box>
-
-        {/* Center: Status pill tabs — display:flex + margin:auto keeps them centered in the grid cell */}
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          {statusOptions.map(({ value, label }, idx) => {
-            const selected = statusFilter === value;
-            const isFirst = idx === 0;
-            const isLast = idx === statusOptions.length - 1;
-            return (
-              <Box
-                key={value}
-                component="button"
-                onClick={() => {
-                  setStatusFilter(value);
-                  setPage(0);
-                }}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  px: '16px',
-                  py: '8px',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  lineHeight: '22px',
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: 'primary.main',
-                  borderLeft: isFirst ? '1px solid' : 'none',
-                  borderRight: isLast ? '1px solid' : 'none',
-                  borderRadius: isFirst
-                    ? '999px 0 0 999px'
-                    : isLast
-                      ? '0 999px 999px 0'
-                      : 0,
-                  bgcolor: selected ? 'primary.main' : 'transparent',
-                  color: selected ? '#fff' : 'primary.main',
-                  transition: 'background-color 0.15s, color 0.15s',
-                  '&:hover': {
-                    bgcolor: selected ? 'primary.dark' : 'rgba(0,128,175,0.06)',
-                  },
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {label}
-              </Box>
-            );
-          })}
-        </Box>
-      </Box>
+        }
+      />
 
       {/* Loading state */}
       {isLoading && (

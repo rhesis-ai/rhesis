@@ -30,6 +30,21 @@ function parseJsonField(
   }
 }
 
+function parseStringRecordJsonField(
+  value: string,
+  fieldLabel: string,
+  notify: (msg: string) => void
+): Record<string, string> {
+  const parsed = parseJsonField(value, fieldLabel, notify);
+  for (const [key, entry] of Object.entries(parsed)) {
+    if (typeof entry !== 'string') {
+      notify(`${fieldLabel}: "${key}" must be a string value`);
+      throw new Error('validation');
+    }
+  }
+  return parsed as Record<string, string>;
+}
+
 export default function EndpointMappingsTab() {
   const { endpoint, editorTheme, editorWrapperStyle, saveFields } =
     useEndpointDetailContext();
@@ -60,7 +75,7 @@ export default function EndpointMappingsTab() {
           title="Request headers"
           initialValue={headersInitial}
           onSave={async draft => {
-            const parsed = parseJsonField(
+            const parsed = parseStringRecordJsonField(
               draft,
               'Request headers',
               notifyError

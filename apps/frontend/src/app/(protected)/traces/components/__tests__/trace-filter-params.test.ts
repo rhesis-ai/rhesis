@@ -1,4 +1,3 @@
-import { describe, expect, it } from 'vitest';
 import {
   buildTraceQueryParams,
   EMPTY_TRACE_DRAWER_FILTERS,
@@ -23,7 +22,7 @@ describe('trace-filter-params', () => {
 
     expect(params.project_id).toBe('proj-1');
     expect(params.trace_source).toBe('test');
-    expect(params.span_name).toBe('llm.invoke');
+    expect(params.search).toBe('llm.invoke');
     expect(params.trace_type).toBe('single_turn');
     expect(params.start_time_after).toBeDefined();
     expect(params.limit).toBe(50);
