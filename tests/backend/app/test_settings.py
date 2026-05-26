@@ -145,6 +145,30 @@ def test_database_settings_uses_admin_credentials_when_set(clean_database_env, m
 
 
 @pytest.mark.unit
+def test_database_settings_raises_if_app_user_without_pass(clean_database_env, monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_NAME", "testdb")
+    monkeypatch.setenv("APP_DB_USER", "app-user")
+
+    with pytest.raises(ValidationError, match="APP_DB_PASS"):
+        DatabaseSettings(_env_file=None)
+
+
+@pytest.mark.unit
+def test_database_settings_admin_only_for_migration(clean_database_env, monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_NAME", "testdb")
+    monkeypatch.setenv("ADMIN_DB_USER", "admin-user")
+    monkeypatch.setenv("ADMIN_DB_PASS", "admin-pass")  # trufflehog:ignore
+
+    settings = DatabaseSettings(_env_file=None)
+
+    assert settings.admin_url == "postgresql://admin-user:admin-pass@localhost:5432/testdb"  # trufflehog:ignore
+    with pytest.raises(ValueError, match="APP_DB_USER"):
+        _ = settings.app_url
+
+
+@pytest.mark.unit
 def test_database_settings_raises_if_admin_user_without_pass(clean_database_env, monkeypatch):
     for k, v in _BASE_DB_ENV.items():
         monkeypatch.setenv(k, v)

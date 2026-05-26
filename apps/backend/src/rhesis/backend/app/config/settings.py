@@ -11,6 +11,7 @@ class DatabaseSettings(BaseSettings):
     Runtime (app) URL uses APP_DB_USER / APP_DB_PASS.
     Migration (admin) URL uses ADMIN_DB_USER / ADMIN_DB_PASS, falling back to
     the app credentials when the admin vars are not set (single-role setups).
+    Migration-only jobs may omit APP_DB_* when ADMIN_DB_* is set.
     """
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
@@ -20,13 +21,15 @@ class DatabaseSettings(BaseSettings):
     port: int = Field(default=5432, alias="DB_PORT")
     name: str = Field(alias="DB_NAME")
 
-    app_user: str = Field(alias="APP_DB_USER")
-    app_password: str = Field(alias="APP_DB_PASS")
+    app_user: str | None = Field(default=None, alias="APP_DB_USER")
+    app_password: str | None = Field(default=None, alias="APP_DB_PASS")
     admin_user: str | None = Field(default=None, alias="ADMIN_DB_USER")
     admin_password: str | None = Field(default=None, alias="ADMIN_DB_PASS")
 
     @model_validator(mode="after")
-    def _validate_admin_credentials(self) -> "DatabaseSettings":
+    def _validate_credentials(self) -> "DatabaseSettings":
+        if self.app_user is not None and self.app_password is None:
+            raise ValueError("APP_DB_USER is set but APP_DB_PASS is missing")
         if self.admin_user is not None and self.admin_password is None:
             raise ValueError("ADMIN_DB_USER is set but ADMIN_DB_PASS is missing")
         return self
@@ -40,13 +43,19 @@ class DatabaseSettings(BaseSettings):
 
     @property
     def app_url(self) -> str:
+        if self.app_user is None or self.app_password is None:
+            raise ValueError("APP_DB_USER and APP_DB_PASS are required for runtime database access")
         return self._build_url(self.app_user, self.app_password)
 
     @property
     def admin_url(self) -> str:
         if self.admin_user is not None and self.admin_password is not None:
             return self._build_url(self.admin_user, self.admin_password)
-        return self._build_url(self.app_user, self.app_password)
+        if self.app_user is not None and self.app_password is not None:
+            return self._build_url(self.app_user, self.app_password)
+        raise ValueError(
+            "No database credentials configured (set ADMIN_DB_* or APP_DB_*)"
+        )
 
 
 class FrontendSettings(BaseSettings):
