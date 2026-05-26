@@ -9,6 +9,8 @@ import logging
 import os
 from typing import Optional
 
+from rhesis.backend.app.config.settings import get_application_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,10 +43,8 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
         >>> is_quick_start_enabled(hostname="api.rhesis.ai")
         False
     """
-    # 1. Check QUICK_START environment variable (default: false for safety)
-    quick_start_env = os.getenv("QUICK_START", "false").lower() == "true"
-
-    if not quick_start_env:
+    # 1. Check QUICK_START configuration (default: false for safety)
+    if not get_application_settings().quick_start:
         return False
 
     logger.debug("Quick Start environment variable set to 'true', validating deployment signals...")

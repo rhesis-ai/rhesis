@@ -85,6 +85,14 @@ class FrontendSettings(BaseSettings):
         return None
 
 
+class ApplicationSettings(BaseSettings):
+    """General application runtime configuration."""
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    quick_start: bool = Field(default=False, alias="QUICK_START")
+
+
 class AuthSettings(BaseSettings):
     """Authentication provider and session configuration."""
 
@@ -199,6 +207,11 @@ def get_database_settings() -> DatabaseSettings:
 @lru_cache
 def get_frontend_settings() -> FrontendSettings:
     return FrontendSettings()  # pyright: ignore[reportCallIssue]
+
+
+@lru_cache
+def get_application_settings() -> ApplicationSettings:
+    return ApplicationSettings()
 
 
 @lru_cache
