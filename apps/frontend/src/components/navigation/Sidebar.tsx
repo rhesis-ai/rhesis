@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useContext } from 'react';
-import NextLink from 'next/link';
 import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
@@ -11,12 +10,8 @@ import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
-import Collapse from '@mui/material/Collapse';
 import Popover from '@mui/material/Popover';
 import SvgIcon from '@mui/material/SvgIcon';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
@@ -30,13 +25,20 @@ import {
   SIDEBAR_WIDTH,
   SIDEBAR_COLLAPSED_WIDTH,
 } from '@/components/layout/sidebar-constants';
-import {
-  type NavigationItem,
-  type NavigationPageItem,
-  type NavigationLinkItem,
-  type NavigationHeaderItem,
-} from '@/types/navigation';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import {
+  type ExtendedUser,
+  type StandaloneGroup,
+  type SectionGroup,
+  type FooterLinksGroup,
+  filterNavItems,
+  groupNavItems,
+  collapsedNavGroupSx,
+  COLLAPSED_NAV_ITEM_SIZE,
+} from './sidebar-utils';
+import { NavItem } from './NavItem';
+import { NavLinkItem } from './NavLinkItem';
+import { NavSection } from './NavSection';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -64,381 +66,6 @@ function LeftPanelOpenIcon() {
     <SvgIcon viewBox="0 0 24 24" sx={{ transform: 'scaleX(-1)' }}>
       <path d={LEFT_PANEL_PATH} fill="currentColor" />
     </SvgIcon>
-  );
-}
-
-/** 40×40 icon hit target inside the 64px collapsed sidebar (12px rail padding each side). */
-const COLLAPSED_NAV_ITEM_SIZE = 40;
-const collapsedNavItemSx = {
-  justifyContent: 'center',
-  gap: 0,
-  p: '8px',
-  width: COLLAPSED_NAV_ITEM_SIZE,
-  height: COLLAPSED_NAV_ITEM_SIZE,
-  boxSizing: 'border-box' as const,
-  alignSelf: 'center',
-};
-const collapsedNavGroupSx = {
-  alignItems: 'center',
-};
-
-interface ExtendedUser {
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-  is_superuser?: boolean;
-}
-
-function isActive(pathname: string | null, fullPath: string): boolean {
-  if (!pathname) return false;
-  return pathname === fullPath || pathname.startsWith(`${fullPath}/`);
-}
-
-function filterNavItems(
-  items: NavigationItem[],
-  isSuperuser: boolean
-): NavigationItem[] {
-  return items.reduce<NavigationItem[]>((acc, item) => {
-    const needsSuperuser =
-      'requireSuperuser' in item &&
-      (item as { requireSuperuser?: boolean }).requireSuperuser;
-    if (needsSuperuser && !isSuperuser) return acc;
-    if (item.kind === 'page' && item.children && item.children.length > 0) {
-      acc.push({
-        ...item,
-        children: filterNavItems(item.children, isSuperuser),
-      } as NavigationPageItem);
-    } else {
-      acc.push(item);
-    }
-    return acc;
-  }, []);
-}
-
-// Group flat navigation array into typed sections for Figma-aligned rendering
-type StandaloneGroup = { type: 'standalone'; items: NavigationPageItem[] };
-type SectionGroup = {
-  type: 'section';
-  header: NavigationHeaderItem;
-  items: NavigationPageItem[];
-};
-type FooterLinksGroup = { type: 'footer-links'; items: NavigationLinkItem[] };
-type NavGroup = StandaloneGroup | SectionGroup | FooterLinksGroup;
-
-function groupNavItems(items: NavigationItem[]): NavGroup[] {
-  const groups: NavGroup[] = [];
-  let currentSection: {
-    header: NavigationHeaderItem;
-    items: NavigationPageItem[];
-  } | null = null;
-  const footerLinks: NavigationLinkItem[] = [];
-  let inFooter = false;
-
-  for (const item of items) {
-    if (item.kind === 'divider') {
-      if (currentSection) {
-        groups.push({
-          type: 'section',
-          header: currentSection.header,
-          items: currentSection.items,
-        });
-        currentSection = null;
-      }
-      inFooter = true;
-      continue;
-    }
-    if (inFooter) {
-      if (item.kind === 'link') footerLinks.push(item);
-      continue;
-    }
-    if (item.kind === 'header') {
-      if (currentSection) {
-        groups.push({
-          type: 'section',
-          header: currentSection.header,
-          items: currentSection.items,
-        });
-      }
-      currentSection = { header: item, items: [] };
-    } else if (item.kind === 'page') {
-      if (currentSection) {
-        currentSection.items.push(item);
-      } else {
-        const last = groups[groups.length - 1];
-        if (last?.type === 'standalone') {
-          last.items.push(item);
-        } else {
-          groups.push({ type: 'standalone', items: [item] });
-        }
-      }
-    }
-  }
-
-  if (currentSection) {
-    groups.push({
-      type: 'section',
-      header: currentSection.header,
-      items: currentSection.items,
-    });
-  }
-  if (footerLinks.length > 0) {
-    groups.push({ type: 'footer-links', items: footerLinks });
-  }
-
-  return groups;
-}
-
-// ─── NavItem ────────────────────────────────────────────────────────────────
-
-interface NavItemProps {
-  item: NavigationPageItem;
-  collapsed: boolean;
-  parentPath?: string;
-}
-
-function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
-  const pathname = usePathname();
-  const fullPath = parentPath
-    ? `${parentPath}/${item.segment}`
-    : `/${item.segment}`;
-  const active = isActive(pathname, fullPath);
-
-  const button = (
-    <Box
-      component={NextLink}
-      href={fullPath}
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        ...(collapsed
-          ? collapsedNavItemSx
-          : { gap: '10px', px: '14px', py: '8px' }),
-        borderRadius: BORDER_RADIUS.sm,
-        textDecoration: 'none',
-        cursor: 'pointer',
-        bgcolor: active ? 'primary.dark' : 'transparent',
-        '&:hover': {
-          bgcolor: active
-            ? 'primary.dark'
-            : theme => theme.palette.greyscale.surface1,
-        },
-        transition: 'background-color 0.15s ease',
-      }}
-    >
-      {item.icon && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexShrink: 0,
-            color: active
-              ? 'primary.contrastText'
-              : theme => theme.palette.greyscale.body,
-            '& svg': { width: 24, height: 24 },
-          }}
-        >
-          {item.icon}
-        </Box>
-      )}
-      {!collapsed && (
-        <>
-          <Typography
-            sx={{
-              fontSize: 14,
-              fontWeight: active ? 600 : 400,
-              lineHeight: '22px',
-              color: active
-                ? 'primary.contrastText'
-                : theme => theme.palette.greyscale.body,
-              whiteSpace: 'nowrap',
-              flex: 1,
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {item.title}
-          </Typography>
-          {item.action && <Box sx={{ flexShrink: 0 }}>{item.action}</Box>}
-        </>
-      )}
-    </Box>
-  );
-
-  return collapsed ? (
-    <Tooltip title={item.title} placement="right">
-      <Box component="span" sx={{ display: 'inline-flex' }}>
-        {button}
-      </Box>
-    </Tooltip>
-  ) : (
-    button
-  );
-}
-
-// ─── NavLinkItem ─────────────────────────────────────────────────────────────
-
-interface NavLinkItemProps {
-  item: NavigationLinkItem;
-  collapsed: boolean;
-}
-
-function NavLinkItem({ item, collapsed }: NavLinkItemProps) {
-  const button = (
-    <Box
-      component="a"
-      href={item.href}
-      target={item.external ? '_blank' : undefined}
-      rel={item.external ? 'noopener noreferrer' : undefined}
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        px: '14px',
-        py: '8px',
-        borderRadius: BORDER_RADIUS.sm,
-        textDecoration: 'none',
-        cursor: 'pointer',
-        '&:hover': {
-          bgcolor: theme => theme.palette.greyscale.surface1,
-        },
-        transition: 'background-color 0.15s ease',
-      }}
-    >
-      {item.icon && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexShrink: 0,
-            color: theme => theme.palette.greyscale.body,
-            '& svg': { width: 24, height: 24 },
-          }}
-        >
-          {item.icon}
-        </Box>
-      )}
-      {!collapsed && (
-        <>
-          <Typography
-            sx={{
-              fontSize: 14,
-              fontWeight: 400,
-              lineHeight: '22px',
-              color: theme => theme.palette.greyscale.body,
-              whiteSpace: 'nowrap',
-              flex: 1,
-            }}
-          >
-            {item.title}
-          </Typography>
-          {item.external && (
-            <OpenInNewIcon
-              sx={{
-                fontSize: 14,
-                color: theme => theme.palette.greyscale.subtitle,
-                flexShrink: 0,
-              }}
-            />
-          )}
-        </>
-      )}
-    </Box>
-  );
-
-  return collapsed ? (
-    <Tooltip title={item.title} placement="right">
-      {button}
-    </Tooltip>
-  ) : (
-    button
-  );
-}
-
-// ─── NavSection ──────────────────────────────────────────────────────────────
-
-interface NavSectionProps {
-  header: NavigationHeaderItem;
-  items: NavigationPageItem[];
-  collapsed: boolean;
-}
-
-function NavSection({ header, items, collapsed }: NavSectionProps) {
-  const isCollapsible = header.collapsible ?? false;
-  const [sectionOpen, setSectionOpen] = useState(
-    !(header.defaultCollapsed ?? false)
-  );
-  // Icon-only sidebar: always show section items (section headers are hidden).
-  const showItems = collapsed || !isCollapsible || sectionOpen;
-
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        ...(collapsed ? collapsedNavGroupSx : {}),
-      }}
-    >
-      {!collapsed && (
-        <ButtonBase
-          onClick={isCollapsible ? () => setSectionOpen(o => !o) : undefined}
-          tabIndex={isCollapsible ? 0 : -1}
-          disableRipple={!isCollapsible}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            px: '14px',
-            width: '100%',
-            cursor: isCollapsible ? 'pointer' : 'default',
-            userSelect: 'none',
-          }}
-        >
-          <Typography
-            sx={{
-              fontSize: 12,
-              fontWeight: 600,
-              lineHeight: '18px',
-              color: theme => theme.palette.greyscale.subtitle,
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-            }}
-          >
-            {header.title}
-          </Typography>
-          {isCollapsible && (
-            <Box
-              sx={{
-                color: theme => theme.palette.greyscale.subtitle,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              {sectionOpen ? (
-                <KeyboardArrowUpIcon sx={{ fontSize: 20 }} />
-              ) : (
-                <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />
-              )}
-            </Box>
-          )}
-        </ButtonBase>
-      )}
-
-      {/* Items — always visible when sidebar is collapsed, not collapsible, or toggled open */}
-      <Collapse in={showItems} timeout="auto">
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            ...(collapsed ? collapsedNavGroupSx : {}),
-          }}
-        >
-          {items.map(item => (
-            <NavItem key={item.segment} item={item} collapsed={collapsed} />
-          ))}
-        </Box>
-      </Collapse>
-    </Box>
   );
 }
 
