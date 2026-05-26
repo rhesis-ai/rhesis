@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
@@ -377,13 +379,16 @@ function NavSection({ header, items, collapsed }: NavSectionProps) {
       }}
     >
       {!collapsed && (
-        <Box
+        <ButtonBase
           onClick={isCollapsible ? () => setSectionOpen(o => !o) : undefined}
+          tabIndex={isCollapsible ? 0 : -1}
+          disableRipple={!isCollapsible}
           sx={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             px: '14px',
+            width: '100%',
             cursor: isCollapsible ? 'pointer' : 'default',
             userSelect: 'none',
           }}
@@ -415,7 +420,7 @@ function NavSection({ header, items, collapsed }: NavSectionProps) {
               )}
             </Box>
           )}
-        </Box>
+        </ButtonBase>
       )}
 
       {/* Items — always visible when sidebar is collapsed, not collapsible, or toggled open */}
@@ -532,8 +537,10 @@ export function Sidebar() {
               </IconButton>
             </Tooltip>
             <Tooltip title={orgName} placement="right">
-              <Box
+              <ButtonBase
                 onClick={e => setOrgMenuAnchor(e.currentTarget)}
+                aria-label={`Open organisation menu for ${orgName}`}
+                aria-haspopup="true"
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
@@ -541,7 +548,6 @@ export function Sidebar() {
                   width: 40,
                   height: 40,
                   flexShrink: 0,
-                  cursor: 'pointer',
                   borderRadius: BORDER_RADIUS.md,
                   '&:hover': {
                     bgcolor: theme => theme.palette.greyscale.surface2,
@@ -555,7 +561,7 @@ export function Sidebar() {
                   height={40}
                   priority
                 />
-              </Box>
+              </ButtonBase>
             </Tooltip>
           </Box>
         ) : (
@@ -568,8 +574,10 @@ export function Sidebar() {
             }}
           >
             {/* Brand block: logo + name — opens org menu */}
-            <Box
+            <ButtonBase
               onClick={e => setOrgMenuAnchor(e.currentTarget)}
+              aria-label={`Open organisation menu for ${orgName}`}
+              aria-haspopup="true"
               sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -578,7 +586,6 @@ export function Sidebar() {
                 minWidth: 0,
                 // Reclaim ~2 characters of width (chevron removed) before ellipsis
                 mr: '-2ch',
-                cursor: 'pointer',
                 borderRadius: BORDER_RADIUS.pill,
                 '&:hover': {
                   bgcolor: theme => theme.palette.greyscale.surface2,
@@ -619,7 +626,7 @@ export function Sidebar() {
               >
                 {orgName}
               </Typography>
-            </Box>
+            </ButtonBase>
             {/* Collapse toggle — inline, right of brand row */}
             <Tooltip title="Collapse sidebar" placement="right">
               <IconButton
@@ -663,18 +670,15 @@ export function Sidebar() {
             },
           }}
         >
-          <Box
+          <MenuItem
             onClick={() => {
               router.push('/organizations/settings');
               setOrgMenuAnchor(null);
             }}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
               gap: '10px',
               px: '14px',
               py: '8px',
-              cursor: 'pointer',
               '&:hover': {
                 bgcolor: theme => theme.palette.greyscale.border,
               },
@@ -696,19 +700,16 @@ export function Sidebar() {
             >
               Settings
             </Typography>
-          </Box>
-          <Box
+          </MenuItem>
+          <MenuItem
             onClick={() => {
               router.push('/organizations/team');
               setOrgMenuAnchor(null);
             }}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
               gap: '10px',
               px: '14px',
               py: '8px',
-              cursor: 'pointer',
               '&:hover': {
                 bgcolor: theme => theme.palette.greyscale.border,
               },
@@ -730,7 +731,7 @@ export function Sidebar() {
             >
               Team
             </Typography>
-          </Box>
+          </MenuItem>
         </Popover>
 
         {/* Main nav groups */}
@@ -800,8 +801,10 @@ export function Sidebar() {
         )}
 
         {/* User avatar block — clickable, opens user menu */}
-        <Box
+        <ButtonBase
           onClick={e => setMenuAnchor(e.currentTarget)}
+          aria-label="Open user menu"
+          aria-haspopup="true"
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -813,7 +816,6 @@ export function Sidebar() {
             alignSelf: collapsed ? 'center' : 'stretch',
             borderRadius: BORDER_RADIUS.pill,
             overflow: 'hidden',
-            cursor: 'pointer',
             '&:hover': {
               bgcolor: theme => theme.palette.greyscale.surface2,
             },
@@ -859,7 +861,7 @@ export function Sidebar() {
               </Typography>
             </Box>
           )}
-        </Box>
+        </ButtonBase>
 
         {/* ── User menu popover (Figma 860:40824) ── */}
         <Popover
@@ -883,18 +885,15 @@ export function Sidebar() {
           }}
         >
           {/* Dark Mode */}
-          <Box
+          <MenuItem
             onClick={() => {
               toggleColorMode();
               setMenuAnchor(null);
             }}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
               gap: '10px',
               px: '14px',
               py: '8px',
-              cursor: 'pointer',
               '&:hover': {
                 bgcolor: theme => theme.palette.greyscale.border,
               },
@@ -916,18 +915,15 @@ export function Sidebar() {
             >
               {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
             </Typography>
-          </Box>
+          </MenuItem>
 
           {/* Sign Out */}
-          <Box
+          <MenuItem
             onClick={() => handleSignOut()}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
               gap: '10px',
               px: '14px',
               py: '8px',
-              cursor: 'pointer',
               '&:hover': {
                 bgcolor: theme => theme.palette.greyscale.border,
               },
@@ -949,7 +945,7 @@ export function Sidebar() {
             >
               Sign Out
             </Typography>
-          </Box>
+          </MenuItem>
         </Popover>
       </Box>
     </Box>

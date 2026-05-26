@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
-import { Box, Typography, Avatar, IconButton } from '@mui/material';
+import { Box, ButtonBase, Typography, Avatar, IconButton } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import GridBadge from '@/components/common/GridBadge';
@@ -122,17 +122,22 @@ export default function EntityCard({
     : theme.palette.greyscale.border;
   const resolvedBorderColor = borderColorProp ?? defaultBorderColor;
   return (
-    <Box
+    <ButtonBase
+      component="div"
       onClick={onClick}
+      tabIndex={onClick ? 0 : -1}
+      disableRipple={!onClick}
       sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        textAlign: 'left',
         bgcolor: 'background.paper',
         border: `1px solid ${resolvedBorderColor}`,
         borderRadius: BORDER_RADIUS.md,
         p: '30px',
         boxShadow: ELEVATION.xs,
         position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
         gap: '20px',
         cursor: onClick ? 'pointer' : 'default',
         height: '100%',
@@ -335,6 +340,6 @@ export default function EntityCard({
 
       {/* Footer slot — model-specific content (status chip, action buttons) */}
       {footer && <Box>{footer}</Box>}
-    </Box>
+    </ButtonBase>
   );
 }
