@@ -85,6 +85,28 @@ class FrontendSettings(BaseSettings):
         return None
 
 
+class AuthSettings(BaseSettings):
+    """Authentication provider and session configuration."""
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    email_password_enabled: bool = Field(default=True, alias="AUTH_EMAIL_PASSWORD_ENABLED")
+    registration_enabled: bool = Field(default=True, alias="AUTH_REGISTRATION_ENABLED")
+    google_client_id: str | None = Field(default=None, alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str | None = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
+    github_client_id: str | None = Field(default=None, alias="GH_CLIENT_ID")
+    github_client_secret: str | None = Field(default=None, alias="GH_CLIENT_SECRET")
+    session_secret_key: str | None = Field(default=None, alias="SESSION_SECRET_KEY")
+
+    @property
+    def google_enabled(self) -> bool:
+        return bool(self.google_client_id and self.google_client_secret)
+
+    @property
+    def github_enabled(self) -> bool:
+        return bool(self.github_client_id and self.github_client_secret)
+
+
 class RedisSettings(BaseSettings):
     """Redis broker configuration."""
 
@@ -177,6 +199,11 @@ def get_database_settings() -> DatabaseSettings:
 @lru_cache
 def get_frontend_settings() -> FrontendSettings:
     return FrontendSettings()  # pyright: ignore[reportCallIssue]
+
+
+@lru_cache
+def get_auth_settings() -> AuthSettings:
+    return AuthSettings()
 
 
 @lru_cache

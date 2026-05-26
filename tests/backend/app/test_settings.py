@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from rhesis.backend.app import database
 from rhesis.backend.app.config.settings import (
     ApplicationSettings,
+    AuthSettings,
     DatabaseSettings,
     FrontendSettings,
     ModelSettings,
@@ -13,6 +14,7 @@ from rhesis.backend.app.config.settings import (
     SMTPSettings,
     StorageSettings,
     get_application_settings,
+    get_auth_settings,
     get_database_settings,
     get_frontend_settings,
     get_model_settings,
@@ -42,6 +44,15 @@ APPLICATION_ENV_VARS = (
     "GOOGLE_CLOUD_PROJECT",
     "K_SERVICE",
     "K_REVISION",
+)
+AUTH_ENV_VARS = (
+    "AUTH_EMAIL_PASSWORD_ENABLED",
+    "AUTH_REGISTRATION_ENABLED",
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "GH_CLIENT_ID",
+    "GH_CLIENT_SECRET",
+    "SESSION_SECRET_KEY",
 )
 REDIS_ENV_VARS = ("BROKER_URL", "BROKER_READ_URL", "CELERY_RESULT_BACKEND")
 STORAGE_ENV_VARS = ("STORAGE_SERVICE_URI", "STORAGE_SERVICE_ACCOUNT_KEY", "LOCAL_STORAGE_PATH")
@@ -86,6 +97,15 @@ def clean_application_env(monkeypatch):
     get_application_settings.cache_clear()
     yield
     get_application_settings.cache_clear()
+
+
+@pytest.fixture
+def clean_auth_env(monkeypatch):
+    for env_var in AUTH_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+    get_auth_settings.cache_clear()
+    yield
+    get_auth_settings.cache_clear()
 
 
 @pytest.fixture
@@ -322,6 +342,65 @@ def test_get_frontend_settings_cache_clear_allows_env_overrides(clean_frontend_e
     assert get_frontend_settings().url == "https://cached.example.com"
     assert get_frontend_settings().cors_origins == ["https://cached.example.com"]
     assert get_frontend_settings().allowed_domain == "cached.example.com"
+
+
+@pytest.mark.unit
+def test_auth_settings_uses_defaults(clean_auth_env):
+    settings = AuthSettings(_env_file=None)
+
+    assert settings.email_password_enabled is True
+    assert settings.registration_enabled is True
+    assert settings.google_client_id is None
+    assert settings.google_client_secret is None
+    assert settings.github_client_id is None
+    assert settings.github_client_secret is None
+    assert settings.session_secret_key is None
+    assert settings.google_enabled is False
+    assert settings.github_enabled is False
+
+
+@pytest.mark.unit
+def test_auth_settings_loads_existing_environment_variables(clean_auth_env, monkeypatch):
+    monkeypatch.setenv("AUTH_EMAIL_PASSWORD_ENABLED", "false")
+    monkeypatch.setenv("AUTH_REGISTRATION_ENABLED", "0")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "google-client-secret")
+    monkeypatch.setenv("GH_CLIENT_ID", "github-client-id")
+    monkeypatch.setenv("GH_CLIENT_SECRET", "github-client-secret")
+    monkeypatch.setenv("SESSION_SECRET_KEY", "session-secret-key")
+
+    settings = AuthSettings(_env_file=None)
+
+    assert settings.email_password_enabled is False
+    assert settings.registration_enabled is False
+    assert settings.google_client_id == "google-client-id"
+    assert settings.google_client_secret == "google-client-secret"
+    assert settings.github_client_id == "github-client-id"
+    assert settings.github_client_secret == "github-client-secret"
+    assert settings.session_secret_key == "session-secret-key"
+    assert settings.google_enabled is True
+    assert settings.github_enabled is True
+
+
+@pytest.mark.unit
+def test_auth_settings_oauth_enabled_requires_client_id_and_secret(clean_auth_env, monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client-id")
+    monkeypatch.setenv("GH_CLIENT_SECRET", "github-client-secret")
+
+    settings = AuthSettings(_env_file=None)
+
+    assert settings.google_enabled is False
+    assert settings.github_enabled is False
+
+
+@pytest.mark.unit
+def test_get_auth_settings_cache_clear_allows_env_overrides(clean_auth_env, monkeypatch):
+    assert get_auth_settings().session_secret_key is None
+
+    monkeypatch.setenv("SESSION_SECRET_KEY", "cached-session-secret-key")
+    get_auth_settings.cache_clear()
+
+    assert get_auth_settings().session_secret_key == "cached-session-secret-key"
 
 
 @pytest.mark.unit
