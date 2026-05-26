@@ -16,6 +16,7 @@ import {
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -245,47 +246,34 @@ export default function ExperimentsClientWrapper({
   );
 
   const actionButtons = useMemo(() => {
-    const buttons: {
-      label: string;
-      icon: React.ReactNode;
-      variant: 'text' | 'outlined' | 'contained';
-      color?:
-        | 'inherit'
-        | 'primary'
-        | 'secondary'
-        | 'success'
-        | 'error'
-        | 'info'
-        | 'warning';
-      onClick: () => void;
-      disabled?: boolean;
-    }[] = [
-      {
-        label: 'New Experiment',
-        icon: <AddIcon />,
-        variant: 'contained',
-        onClick: () => setCreateOpen(true),
-        disabled: projects.length === 0,
-      },
-    ];
+    if (selectedRows.length === 0) return [];
 
-    if (selectedRows.length > 0) {
-      buttons.push({
+    return [
+      {
         label: `Delete (${selectedRows.length})`,
         icon: <DeleteIcon />,
-        variant: 'outlined',
-        color: 'error',
+        variant: 'outlined' as const,
+        color: 'error' as const,
         onClick: () => setDeleteDialogOpen(true),
-      });
-    }
-
-    return buttons;
-  }, [projects.length, selectedRows.length]);
+      },
+    ];
+  }, [selectedRows.length]);
 
   return (
     <PageLayout
       title="Experiments"
       description="Experiments are named bundles of parameter values that can be pinned to test runs, ensuring reproducible and comparable executions across your project."
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="New Experiment"
+            aria-label="New Experiment"
+            onClick={() => setCreateOpen(true)}
+            disabled={projects.length === 0}
+          />
+        </FabGroup>
+      }
     >
       {!loading && experiments.length === 0 && !filterModel.items.length ? (
         <Paper
