@@ -18,6 +18,22 @@ handle_error() {
     exit 1
 }
 
+is_local_or_test_env() {
+    [ "${ENVIRONMENT:-}" = "local" ] || [ "${BACKEND_ENV:-}" = "local" ] \
+        || [ "${ENVIRONMENT:-}" = "test" ] || [ "${BACKEND_ENV:-}" = "test" ]
+}
+
+# In Docker, alembic is in .venv/bin (PATH). Locally, use `uv run alembic`.
+run_alembic() {
+    if command -v alembic &>/dev/null; then
+        alembic "$@"
+    elif command -v uv &>/dev/null; then
+        uv run alembic "$@"
+    else
+        alembic "$@"
+    fi
+}
+
 # Function to wait for database
 wait_for_database() {
     local max_attempts=30
@@ -39,6 +55,15 @@ wait_for_database() {
     handle_error "PostgreSQL did not become ready after $max_attempts attempts"
 }
 
+maybe_wait_for_database() {
+    if is_local_or_test_env; then
+        log "${BLUE}ℹ️  Skipping database wait (local/test environment)${NC}"
+        return 0
+    fi
+
+    wait_for_database
+}
+
 # Function to run migrations
 #
 # We use `psql` (not `alembic current`) to read the revision before and after
@@ -58,10 +83,10 @@ run_migrations() {
 
     log "${YELLOW}📦 Running migrations (from: ${before:-'fresh DB'})...${NC}"
 
-    if ! alembic upgrade head; then
+    if ! run_alembic upgrade head; then
         log "${RED}❌ alembic upgrade head failed — gathering diagnostics:${NC}"
-        alembic current || true
-        alembic history --verbose | tail -30 || true
+        run_alembic current || true
+        run_alembic history --verbose | tail -30 || true
         handle_error "alembic upgrade head command failed"
     fi
 
@@ -75,49 +100,38 @@ run_migrations() {
     fi
 }
 
-# Main execution
-main() {
-    log "${BLUE}🔄 Starting database migration process...${NC}"
-    
-    # Shared database coordinates
-    DB_HOST=${DB_HOST:-postgres}
-    DB_NAME=${DB_NAME:-rhesis-db}
-    export DB_PORT=${DB_PORT:-5432}
-    export DB_DRIVER=${DB_DRIVER:-postgresql}
-    export DB_HOST
-    export DB_NAME
-
-    # Migration credentials: ADMIN_DB_* with APP_DB_* fallback (single-role setups)
-    ADMIN_USER=${ADMIN_DB_USER:-${APP_DB_USER:-}}
-    ADMIN_PASS=${ADMIN_DB_PASS:-${APP_DB_PASS:-}}
-
-    # Ensure APP_DB_* are exported so alembic env.py can build its URL
-    export APP_DB_USER=${APP_DB_USER:-}
-    export APP_DB_PASS=${APP_DB_PASS:-}
-    export ADMIN_DB_USER="$ADMIN_USER"
-    export ADMIN_DB_PASS="$ADMIN_PASS"
-    
-    # Validate required environment variables
-    if [ -z "$ADMIN_USER" ] || [ -z "$ADMIN_PASS" ] || [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ]; then
-        handle_error "Required database environment variables are not set (DB_HOST, DB_NAME, APP_DB_USER/ADMIN_DB_USER, APP_DB_PASS/ADMIN_DB_PASS)"
+set_db_ownership() {
+    if is_local_or_test_env; then
+        log "${BLUE}ℹ️  Skipping database ownership (local/test environment)${NC}"
+        return 0
     fi
-    
-    log "${BLUE}📋 Database Configuration:${NC}"
-    log "  Host: $DB_HOST"
-    log "  Port: $DB_PORT"
-    log "  Admin user: $ADMIN_USER"
-    log "  Database: $DB_NAME"
-    
-    # Wait for database to be ready
-    wait_for_database
-    
-    # Set database ownership (optional, ignore failures)
+
     log "${YELLOW}🔧 Setting database ownership...${NC}"
-    if PGPASSWORD="$ADMIN_PASS" psql -h "$DB_HOST" -U "$ADMIN_USER" -d "$DB_NAME" -c "ALTER DATABASE $DB_NAME OWNER TO $ADMIN_USER;" 2>/dev/null; then
+    if PGPASSWORD="$ADMIN_PASS" psql -h "$DB_HOST" -U "$ADMIN_USER" -d "$DB_NAME" \
+        -c "ALTER DATABASE $DB_NAME OWNER TO $ADMIN_USER;" 2>/dev/null; then
         log "${GREEN}✅ Database ownership set successfully${NC}"
     else
         log "${YELLOW}⚠️  Database ownership already set or could not be changed${NC}"
     fi
+}
+
+# Main execution
+main() {
+    log "${BLUE}🔄 Starting database migration process...${NC}"
+
+    ADMIN_USER="${ADMIN_DB_USER:-$APP_DB_USER}"
+    ADMIN_PASS="${ADMIN_DB_PASS:-$APP_DB_PASS}"
+
+    log "${BLUE}📋 Database Configuration:${NC}"
+    log "  Host: $DB_HOST"
+    log "  Port: ${DB_PORT:-5432}"
+    log "  Admin user: $ADMIN_USER"
+    log "  Database: $DB_NAME"
+    
+    # Wait for database to be ready (skipped in local/test — Postgres started separately)
+    maybe_wait_for_database
+
+    set_db_ownership
     
     # Run migrations
     run_migrations

@@ -54,34 +54,10 @@ show_banner() {
 run_migrations() {
     log "${BLUE}🔄 Running database migrations...${NC}"
 
-    # Determine command prefix (uv run for local, direct for Docker)
-    local CMD_PREFIX=""
-    if use_uv_run; then
-        CMD_PREFIX="uv run "
-    fi
-
-    # Docker image layout: migrate.sh with DB wait + psql revision hints. Local dev:
-    # alembic directly (no pg_isready requirement).
-    if [ -d "/app/apps/backend/src/rhesis/backend" ]; then
-        log "${BLUE}📍 Running migrations via migrate.sh (Docker)${NC}"
-        if ./migrate.sh; then
-            log "${GREEN}✅ Database migrations completed successfully${NC}"
-        else
-            handle_error "Database migrations failed"
-        fi
+    if ./migrate.sh; then
+        log "${GREEN}✅ Database migrations completed successfully${NC}"
     else
-        # Local environment - run alembic directly
-        log "${BLUE}📍 Running migrations via alembic (local)${NC}"
-        cd src/rhesis/backend || handle_error "Could not navigate to backend directory"
-        
-        if ${CMD_PREFIX}alembic upgrade head; then
-            log "${GREEN}✅ Database migrations completed successfully${NC}"
-        else
-            handle_error "Database migrations failed"
-        fi
-        
-        # Return to original directory
-        cd - > /dev/null
+        handle_error "Database migrations failed"
     fi
 }
 
