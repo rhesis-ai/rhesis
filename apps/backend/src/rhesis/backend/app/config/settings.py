@@ -53,9 +53,7 @@ class DatabaseSettings(BaseSettings):
             return self._build_url(self.admin_user, self.admin_password)
         if self.app_user is not None and self.app_password is not None:
             return self._build_url(self.app_user, self.app_password)
-        raise ValueError(
-            "No database credentials configured (set ADMIN_DB_* or APP_DB_*)"
-        )
+        raise ValueError("No database credentials configured (set ADMIN_DB_* or APP_DB_*)")
 
 
 class FrontendSettings(BaseSettings):

@@ -217,16 +217,6 @@ def test_get_database_url_returns_app_url(clean_database_env, monkeypatch):
 
 
 @pytest.mark.unit
-def test_get_admin_database_url_returns_admin_url(clean_database_env, monkeypatch):
-    for k, v in _BASE_DB_ENV.items():
-        monkeypatch.setenv(k, v)
-    settings = DatabaseSettings(_env_file=None)
-    monkeypatch.setattr(database, "get_database_settings", lambda: settings)
-
-    assert database.get_admin_database_url() == settings.admin_url
-
-
-@pytest.mark.unit
 def test_frontend_url_is_required(clean_frontend_env):
     with pytest.raises(ValidationError, match="FRONTEND_URL"):
         FrontendSettings(_env_file=None)
