@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Box from '@mui/material/Box';
 import { usePathname } from 'next/navigation';
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from './sidebar-constants';
-import { GREYSCALE } from '@/styles/theme';
 
 /** Routes that use the full main column (no AppShell content padding). */
 const FULL_BLEED_PATH_PREFIXES = ['/architect'] as const;
@@ -77,10 +76,7 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
             overflow: 'hidden',
             transition: 'width 0.2s ease',
             zIndex: theme => theme.zIndex.drawer,
-            bgcolor: theme =>
-              theme.palette.mode === 'light'
-                ? GREYSCALE.light.surface1
-                : GREYSCALE.dark.surface1,
+            bgcolor: theme => theme.palette.greyscale.surface1,
           }}
         >
           {sidebar}

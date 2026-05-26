@@ -156,7 +156,9 @@ export default function ProjectEditDrawer({
         const usersClient = new UsersClient(sessionToken);
         const fetchedUsers = await usersClient.getUsers();
         setUsers(fetchedUsers.data);
-      } catch (_error) {}
+      } catch (error) {
+        console.error('Failed to fetch users for project edit drawer:', error);
+      }
     };
 
     if (open) {

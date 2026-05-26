@@ -177,7 +177,9 @@ export default function ModelsPage() {
       const usersClient = apiFactory.getUsersClient();
       const settings = await usersClient.getUserSettings();
       setUserSettings(settings);
-    } catch (_err) {}
+    } catch (error) {
+      console.error('Failed to refresh user settings:', error);
+    }
   };
 
   const validateModel = useCallback(

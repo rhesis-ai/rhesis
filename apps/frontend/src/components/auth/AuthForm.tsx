@@ -118,7 +118,10 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       try {
         const searchParams = new URLSearchParams(window.location.search);
         const org = searchParams.get('org');
-        let url = `${getClientApiBaseUrl()}/auth/providers`;
+        // Use the Next.js proxy route (/api/auth-config) so the browser makes a
+        // same-origin request — avoids CORS when the frontend runs on localhost
+        // against a remote backend (e.g. dev-api.rhesis.ai).
+        let url = '/api/auth-config';
         if (org) {
           url += `?org=${encodeURIComponent(org)}`;
         }

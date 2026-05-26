@@ -1,12 +1,12 @@
 import * as React from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
-import { GREYSCALE } from '@/styles/theme-constants';
+import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 
 import TestSetHeaderActions from './components/TestSetHeaderActions';
 import TestSetDetailTabs from './components/TestSetDetailTabs';
@@ -79,8 +79,8 @@ export default async function TestSetPage({ params }: PageProps) {
 
   const title = testSet.name || `Test Set ${identifier}`;
   const breadcrumbs = [
-    { title: 'Test Sets', path: '/test-sets' },
-    { title, path: `/test-sets/${identifier}` },
+    { label: 'Test Sets', href: '/test-sets' },
+    { label: title, href: `/test-sets/${identifier}` },
   ];
 
   const isGarakTestSet =
@@ -88,46 +88,17 @@ export default async function TestSetPage({ params }: PageProps) {
     testSet.attributes.source === 'garak';
 
   const metadataStrip = (
-    <Box sx={{ display: 'flex', gap: '30px' }}>
-      <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <Typography
-          variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
-        >
-          created by:
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: GREYSCALE.light.subtitle,
-          }}
-        >
-          {testSet.user?.name || '—'}
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <Typography
-          variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
-        >
-          created on:
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: GREYSCALE.light.subtitle,
-          }}
-        >
-          {testSet.created_at
+    <DetailMetadataStrip
+      items={[
+        { label: 'created by:', value: testSet.user?.name || '—' },
+        {
+          label: 'created on:',
+          value: testSet.created_at
             ? format(new Date(testSet.created_at), 'dd/MM/yyyy')
-            : '—'}
-        </Typography>
-      </Box>
-    </Box>
+            : '—',
+        },
+      ]}
+    />
   );
 
   const pageActions = (

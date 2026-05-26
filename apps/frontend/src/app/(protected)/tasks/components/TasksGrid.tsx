@@ -35,7 +35,6 @@ import TaskFilterDrawer, {
   EMPTY_TASK_FILTERS,
   hasActiveTaskFilters,
 } from './TaskFilterDrawer';
-import { GREYSCALE } from '@/styles/theme';
 
 interface TasksGridProps {
   sessionToken: string;
@@ -441,11 +440,7 @@ export default function TasksGrid({
               alignItems: 'center',
               gap: 2,
               borderBottom: theme =>
-                `1px solid ${
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.border
-                    : GREYSCALE.dark.border
-                }`,
+                `1px solid ${theme.palette.greyscale.border}`,
             }}
           >
             <Typography variant="subtitle1" color="primary">

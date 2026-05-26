@@ -2,7 +2,8 @@
 
 import * as React from 'react';
 import { Box, type BoxProps } from '@mui/material';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+import { BORDER_RADIUS } from '@/styles/theme';
+import type { Theme } from '@mui/material/styles';
 
 export type GridBadgeSize = 'grid' | 'detail';
 
@@ -43,14 +44,11 @@ export function GridBadge({
           px: '10px',
           py: '2px',
           borderRadius: BORDER_RADIUS.pill,
-          bgcolor: (theme: { palette: { mode: string } }) =>
+          bgcolor: (theme: Theme) =>
             theme.palette.mode === 'light'
               ? '#f3f4f6'
-              : GREYSCALE.dark.surface1,
-          color: (theme: { palette: { mode: string } }) =>
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.body
-              : GREYSCALE.dark.body,
+              : theme.palette.greyscale.surface1,
+          color: (theme: Theme) => theme.palette.greyscale.body,
           fontSize: sizeStyles.fontSize,
           lineHeight: sizeStyles.lineHeight,
           fontWeight: 400,
@@ -109,10 +107,7 @@ export function BadgeRow({
           component="span"
           sx={{
             fontSize: 14,
-            color: theme =>
-              theme.palette.mode === 'light'
-                ? GREYSCALE.light.subtitle
-                : GREYSCALE.dark.subtitle,
+            color: theme => theme.palette.greyscale.subtitle,
           }}
         >
           {emptyLabel}

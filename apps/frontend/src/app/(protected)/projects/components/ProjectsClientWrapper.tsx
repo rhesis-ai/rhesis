@@ -106,7 +106,8 @@ export default function ProjectsClientWrapper({
       const client = factory.getProjectsClient();
       await client.deleteProject(deleteTarget.id);
       setProjects(prev => prev.filter(p => p.id !== deleteTarget.id));
-    } catch {
+    } catch (error) {
+      console.error('Failed to delete project:', error);
     } finally {
       setDeleteTarget(null);
     }

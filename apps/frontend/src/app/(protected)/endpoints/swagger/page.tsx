@@ -6,8 +6,8 @@ import { PageLayout } from '@/components/layout/PageLayout';
 
 export default function SwaggerEndpointPage() {
   const breadcrumbs = [
-    { title: 'Endpoints', path: '/endpoints' },
-    { title: 'Import Swagger Endpoint' },
+    { label: 'Endpoints', href: '/endpoints' },
+    { label: 'Import Swagger Endpoint' },
   ];
 
   return (

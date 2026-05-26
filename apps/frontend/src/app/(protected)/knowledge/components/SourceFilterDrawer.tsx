@@ -6,6 +6,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 
@@ -54,18 +55,13 @@ export default function SourceFilterDrawer({
   filters,
   onApply,
 }: SourceFilterDrawerProps) {
-  const [draft, setDraft] = React.useState<SourceFilters>(filters);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
-
-  const handleReset = () => setDraft(EMPTY_SOURCE_FILTERS);
-
-  const handleApply = () => {
-    onApply(draft);
-    onClose();
-  };
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_SOURCE_FILTERS,
+    onApply,
+    onClose
+  );
 
   return (
     <FilterDrawerShell

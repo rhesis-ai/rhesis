@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
-import { Box, Typography, Avatar, IconButton } from '@mui/material';
+import { Box, ButtonBase, Typography, Avatar, IconButton } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
-import { GREYSCALE, BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import GridBadge from '@/components/common/GridBadge';
 
 export interface ChipData {
@@ -60,8 +60,8 @@ function getStatusChipStyles(
     return preset;
   }
   return {
-    bg: isDark ? GREYSCALE.dark.surface2 : CHIP_SURFACE_DEFAULT,
-    color: isDark ? GREYSCALE.dark.body : GREYSCALE.light.body,
+    bg: isDark ? '#0d1117' : CHIP_SURFACE_DEFAULT,
+    color: isDark ? '#c9d1d9' : '#2a2e36',
   };
 }
 
@@ -119,20 +119,25 @@ export default function EntityCard({
   const isDark = theme.palette.mode === 'dark';
   const defaultBorderColor = isDark
     ? theme.palette.divider
-    : GREYSCALE.light.border;
+    : theme.palette.greyscale.border;
   const resolvedBorderColor = borderColorProp ?? defaultBorderColor;
   return (
-    <Box
+    <ButtonBase
+      component="div"
       onClick={onClick}
+      tabIndex={onClick ? 0 : -1}
+      disableRipple={!onClick}
       sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        textAlign: 'left',
         bgcolor: 'background.paper',
         border: `1px solid ${resolvedBorderColor}`,
         borderRadius: BORDER_RADIUS.md,
         p: '30px',
         boxShadow: ELEVATION.xs,
         position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
         gap: '20px',
         cursor: onClick ? 'pointer' : 'default',
         height: '100%',
@@ -283,7 +288,7 @@ export default function EntityCard({
                   <Typography
                     sx={{
                       fontSize: 12,
-                      color: GREYSCALE.light.subtitle,
+                      color: theme => theme.palette.greyscale.subtitle,
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
                       lineHeight: '18px',
@@ -335,6 +340,6 @@ export default function EntityCard({
 
       {/* Footer slot — model-specific content (status chip, action buttons) */}
       {footer && <Box>{footer}</Box>}
-    </Box>
+    </ButtonBase>
   );
 }

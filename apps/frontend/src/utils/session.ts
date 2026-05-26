@@ -92,7 +92,9 @@ export async function clearAllSessionData() {
         sessionToken = decodeURIComponent(cookieValue);
       }
     }
-  } catch (_error) {}
+  } catch (error) {
+    console.error('Failed to extract session token during logout:', error);
+  }
 
   // Call backend logout with retry logic
   const maxRetries = 2;

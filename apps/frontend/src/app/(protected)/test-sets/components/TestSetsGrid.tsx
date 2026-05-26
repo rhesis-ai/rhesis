@@ -42,7 +42,6 @@ import TestSetFilterDrawer, {
 } from './TestSetFilterDrawer';
 import { TEST_TYPES } from '@/constants/test-types';
 import GridBadge from '@/components/common/GridBadge';
-import { GREYSCALE } from '@/styles/theme';
 
 interface TestSetsGridProps {
   sessionToken?: string;
@@ -663,11 +662,7 @@ export default function TestSetsGrid({
             alignItems: 'center',
             gap: 2,
             borderBottom: theme =>
-              `1px solid ${
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : GREYSCALE.dark.border
-              }`,
+              `1px solid ${theme.palette.greyscale.border}`,
           }}
         >
           <Typography variant="subtitle1" color="primary">

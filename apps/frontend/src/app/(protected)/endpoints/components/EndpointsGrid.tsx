@@ -37,7 +37,6 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { createEndpoint } from '@/actions/endpoints';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { buildEndpointListFilter } from '@/utils/odata-filter';
-import { GREYSCALE } from '@/styles/theme';
 import EndpointFilterDrawer, {
   type EndpointFilters,
   EMPTY_ENDPOINT_FILTERS,
@@ -538,11 +537,7 @@ export default function EndpointsGrid({
               alignItems: 'center',
               gap: 2,
               borderBottom: theme =>
-                `1px solid ${
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.border
-                    : GREYSCALE.dark.border
-                }`,
+                `1px solid ${theme.palette.greyscale.border}`,
             }}
           >
             <Typography variant="subtitle1" color="primary">

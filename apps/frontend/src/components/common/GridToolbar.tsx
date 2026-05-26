@@ -7,7 +7,7 @@ import ButtonGroup from '@mui/material/ButtonGroup';
 import { SxProps, Theme } from '@mui/material/styles';
 import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
-import { BORDER_RADIUS, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 export interface ToolbarPillTab {
   label: string;
@@ -74,10 +74,7 @@ export function ToolbarPillTabs({
               borderTopRightRadius: BORDER_RADIUS.pill,
               borderBottomRightRadius: BORDER_RADIUS.pill,
             },
-            borderColor: theme =>
-              theme.palette.mode === 'light'
-                ? GREYSCALE.light.border
-                : GREYSCALE.dark.border,
+            borderColor: theme => theme.palette.greyscale.border,
           },
         }}
       >
@@ -93,19 +90,13 @@ export function ToolbarPillTabs({
                 activeValue === tab.value ? 'primary.dark' : 'transparent',
               color:
                 activeValue === tab.value
-                  ? '#fff'
-                  : theme =>
-                      theme.palette.mode === 'light'
-                        ? GREYSCALE.light.body
-                        : GREYSCALE.dark.body,
+                  ? 'primary.contrastText'
+                  : theme => theme.palette.greyscale.body,
               '&:hover': {
                 bgcolor:
                   activeValue === tab.value
                     ? 'primary.dark'
-                    : theme =>
-                        theme.palette.mode === 'light'
-                          ? GREYSCALE.light.surface1
-                          : GREYSCALE.dark.surface1,
+                    : theme => theme.palette.greyscale.surface1,
               },
             }}
           >

@@ -1,7 +1,6 @@
 'use client';
 
 import { Box, Typography } from '@mui/material';
-import { GREYSCALE } from '@/styles/theme';
 
 interface BorderedInfoCardProps {
   title: string;
@@ -16,12 +15,7 @@ export default function BorderedInfoCard({
   return (
     <Box
       sx={{
-        border: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
+        border: theme => `1px solid ${theme.palette.greyscale.border}`,
         borderRadius: '8px',
         p: 2,
         mb: 1,

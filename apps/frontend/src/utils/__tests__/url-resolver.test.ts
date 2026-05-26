@@ -3,7 +3,6 @@ import {
   getClientApiBaseUrl,
   getServerBackendUrl,
   getBaseUrl,
-  shouldUseDevApiProxy,
 } from '../url-resolver';
 
 describe('resolveLocalhostUrl', () => {
@@ -30,53 +29,15 @@ describe('resolveLocalhostUrl', () => {
   });
 });
 
-describe('shouldUseDevApiProxy', () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv, NODE_ENV: 'development' };
-  });
-
-  afterAll(() => {
-    process.env = originalEnv;
-  });
-
-  it('returns true when API host differs from page host in development', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://dev-api.rhesis.ai';
-    expect(shouldUseDevApiProxy()).toBe(true);
-  });
-
-  it('returns false when API origin matches page origin', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost';
-    expect(shouldUseDevApiProxy()).toBe(false);
-  });
-
-  it('returns false for loopback API on a different port', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'http://127.0.0.1:8080';
-    expect(shouldUseDevApiProxy()).toBe(false);
-  });
-
-  it('returns false outside development', () => {
-    process.env.NODE_ENV = 'production';
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://dev-api.rhesis.ai';
-    expect(shouldUseDevApiProxy()).toBe(false);
-  });
-});
-
 describe('getClientApiBaseUrl', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    process.env = { ...originalEnv, NODE_ENV: 'development' };
+    process.env = { ...originalEnv };
   });
 
   afterAll(() => {
     process.env = originalEnv;
-  });
-
-  it('uses same-origin /api proxy when API host differs in development', () => {
-    process.env.NEXT_PUBLIC_API_BASE_URL = 'https://dev-api.rhesis.ai';
-    expect(getClientApiBaseUrl()).toBe('http://localhost/api');
   });
 
   it('uses NEXT_PUBLIC_API_BASE_URL when set', () => {

@@ -45,12 +45,9 @@ export default function SwaggerEndpointPage() {
   }
 
   const breadcrumbs = [
-    { title: 'Projects', path: '/projects' },
-    {
-      title: projectName || 'Project',
-      path: `/projects/${params.identifier}`,
-    },
-    { title: 'Add Swagger Endpoint' },
+    { label: 'Projects', href: '/projects' },
+    { label: projectName || 'Project', href: `/projects/${params.identifier}` },
+    { label: 'Add Swagger Endpoint' },
   ];
 
   return (

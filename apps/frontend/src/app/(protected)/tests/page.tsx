@@ -6,7 +6,6 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
-import AddIcon from '@mui/icons-material/Add';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
@@ -16,7 +15,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { ScienceIcon } from '@/components/icons';
 import TestsGrid from './components/TestsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
@@ -160,8 +159,7 @@ export default function TestsPage() {
               width: '100%',
               borderRadius: BORDER_RADIUS.md,
               boxShadow: ELEVATION.xs,
-              border: theme =>
-                `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
               overflow: 'hidden',
             }}
           >

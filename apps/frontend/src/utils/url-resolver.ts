@@ -19,51 +19,12 @@ export function resolveLocalhostUrl(url: string): string {
 }
 
 /**
- * In local dev, route browser API calls through the Next.js `/api` rewrite when
- * the configured API host differs from the page host (avoids CORS "Failed to fetch").
- */
-const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1']);
-
-export function shouldUseDevApiProxy(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-  if (process.env.NODE_ENV !== 'development') {
-    return false;
-  }
-  const configured = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (!configured) {
-    return false;
-  }
-  try {
-    const apiUrl = new URL(configured);
-    const pageUrl = new URL(window.location.href);
-    if (apiUrl.origin === pageUrl.origin) {
-      return false;
-    }
-    // Both on loopback (e.g. :3000 → :8080): keep direct URL; backend CORS may allow it.
-    if (
-      LOOPBACK_HOSTNAMES.has(apiUrl.hostname) &&
-      LOOPBACK_HOSTNAMES.has(pageUrl.hostname)
-    ) {
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Gets the API base URL for client-side requests with localhost resolution
  * Uses NEXT_PUBLIC_API_BASE_URL environment variable or falls back to default
  *
  * @returns Resolved API base URL
  */
 export function getClientApiBaseUrl(): string {
-  if (shouldUseDevApiProxy()) {
-    return `${window.location.origin}/api`;
-  }
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
   return resolveLocalhostUrl(baseUrl);

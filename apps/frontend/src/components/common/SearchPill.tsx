@@ -3,9 +3,8 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import InputBase from '@mui/material/InputBase';
-import IconButton from '@mui/material/IconButton';
 import SearchIcon from '@mui/icons-material/SearchOutlined';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 export interface SearchPillProps {
   value: string;
@@ -16,7 +15,7 @@ export interface SearchPillProps {
 
 /**
  * Figma-aligned pill-shaped search field.
- * Gray pill container + InputBase + teal circular search button.
+ * Gray pill container + InputBase + teal circular search icon (decorative).
  */
 export function SearchPill({
   value,
@@ -24,16 +23,15 @@ export function SearchPill({
   placeholder = 'Search…',
   width = 288,
 }: SearchPillProps) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
   return (
     <Box
       sx={{
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
-        bgcolor: theme =>
-          theme.palette.mode === 'light'
-            ? GREYSCALE.light.surface2
-            : theme.palette.action.hover,
+        bgcolor: theme => theme.palette.greyscale.surface2,
         borderRadius: '30px', // Intentional: elongated search pill shape
         height: 38,
         pl: '16px',
@@ -43,6 +41,7 @@ export function SearchPill({
       }}
     >
       <InputBase
+        inputRef={inputRef}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
@@ -50,27 +49,37 @@ export function SearchPill({
           flex: 1,
           fontSize: 14,
           '& input::placeholder': {
-            color: GREYSCALE.light.border,
+            color: theme => theme.palette.greyscale.border,
             opacity: 1,
           },
         }}
       />
-      <IconButton
-        aria-label="Search"
+      {/* Decorative icon button — clicking focuses the input */}
+      <Box
+        component="button"
+        type="button"
+        aria-hidden
+        tabIndex={-1}
+        onClick={() => inputRef.current?.focus()}
         sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           bgcolor: 'primary.main',
-          color: '#fff',
+          color: 'primary.contrastText',
           borderRadius: BORDER_RADIUS.pill,
+          border: 'none',
           p: '9px',
           width: 30,
           height: 30,
           flexShrink: 0,
+          cursor: 'pointer',
           '&:hover': { bgcolor: 'primary.dark' },
-          '& .MuiSvgIcon-root': { fontSize: 18 },
+          '& svg': { fontSize: 18 },
         }}
       >
-        <SearchIcon />
-      </IconButton>
+        <SearchIcon fontSize="small" />
+      </Box>
     </Box>
   );
 }

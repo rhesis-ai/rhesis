@@ -214,7 +214,9 @@ export async function getStatusesForTask(
           return [...allStatuses, additionalStatus];
         }
       }
-    } catch (_error) {}
+    } catch (error) {
+      console.error('Failed to fetch specific status for task:', error);
+    }
   }
 
   return allStatuses;
@@ -250,7 +252,9 @@ export async function getPrioritiesForTask(
           return [...allPriorities, additionalPriority];
         }
       }
-    } catch (_error) {}
+    } catch (error) {
+      console.error('Failed to fetch specific priority for task:', error);
+    }
   }
 
   return allPriorities;
