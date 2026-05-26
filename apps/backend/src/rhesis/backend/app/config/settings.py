@@ -98,6 +98,16 @@ class RedisSettings(BaseSettings):
     )
 
 
+class StorageSettings(BaseSettings):
+    """Object storage configuration."""
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    service_uri: str | None = Field(default="file:///app/storage", alias="STORAGE_SERVICE_URI")
+    service_account_key: str | None = Field(default=None, alias="STORAGE_SERVICE_ACCOUNT_KEY")
+    local_storage_path: str = Field(default="/tmp/rhesis-files", alias="LOCAL_STORAGE_PATH")
+
+
 class ModelSettings(BaseSettings):
     """Default model configuration."""
 
@@ -160,6 +170,11 @@ def get_frontend_settings() -> FrontendSettings:
 @lru_cache
 def get_redis_settings() -> RedisSettings:
     return RedisSettings()
+
+
+@lru_cache
+def get_storage_settings() -> StorageSettings:
+    return StorageSettings()
 
 
 @lru_cache

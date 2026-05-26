@@ -10,11 +10,13 @@ from rhesis.backend.app.config.settings import (
     FrontendSettings,
     ModelSettings,
     RedisSettings,
+    StorageSettings,
     get_application_settings,
     get_database_settings,
     get_frontend_settings,
     get_model_settings,
     get_redis_settings,
+    get_storage_settings,
 )
 
 DATABASE_ENV_VARS = (
@@ -39,6 +41,7 @@ APPLICATION_ENV_VARS = (
     "K_REVISION",
 )
 REDIS_ENV_VARS = ("BROKER_URL", "BROKER_READ_URL", "CELERY_RESULT_BACKEND")
+STORAGE_ENV_VARS = ("STORAGE_SERVICE_URI", "STORAGE_SERVICE_ACCOUNT_KEY", "LOCAL_STORAGE_PATH")
 MODEL_ENV_VARS = (
     "DEFAULT_GENERATION_MODEL",
     "DEFAULT_EVALUATION_MODEL",
@@ -88,6 +91,15 @@ def clean_redis_env(monkeypatch):
     get_redis_settings.cache_clear()
     yield
     get_redis_settings.cache_clear()
+
+
+@pytest.fixture
+def clean_storage_env(monkeypatch):
+    for env_var in STORAGE_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+    get_storage_settings.cache_clear()
+    yield
+    get_storage_settings.cache_clear()
 
 
 @pytest.fixture
@@ -163,7 +175,9 @@ def test_database_settings_admin_only_for_migration(clean_database_env, monkeypa
 
     settings = DatabaseSettings(_env_file=None)
 
-    assert settings.admin_url == "postgresql://admin-user:admin-pass@localhost:5432/testdb"  # trufflehog:ignore
+    assert (
+        settings.admin_url == "postgresql://admin-user:admin-pass@localhost:5432/testdb"
+    )  # trufflehog:ignore
     with pytest.raises(ValueError, match="APP_DB_USER"):
         _ = settings.app_url
 
@@ -299,6 +313,38 @@ def test_get_redis_settings_cache_clear_allows_env_overrides(clean_redis_env, mo
     get_redis_settings.cache_clear()
 
     assert get_redis_settings().broker_url == "redis://cached.example.com:6379/0"
+
+
+@pytest.mark.unit
+def test_storage_settings_uses_local_defaults(clean_storage_env):
+    settings = StorageSettings(_env_file=None)
+
+    assert settings.service_uri == "file:///app/storage"
+    assert settings.service_account_key is None
+    assert settings.local_storage_path == "/tmp/rhesis-files"
+
+
+@pytest.mark.unit
+def test_storage_settings_loads_existing_environment_variables(clean_storage_env, monkeypatch):
+    monkeypatch.setenv("STORAGE_SERVICE_URI", "gs://rhesis-files")
+    monkeypatch.setenv("STORAGE_SERVICE_ACCOUNT_KEY", "encoded-service-account")
+    monkeypatch.setenv("LOCAL_STORAGE_PATH", "/var/lib/rhesis-files")
+
+    settings = StorageSettings(_env_file=None)
+
+    assert settings.service_uri == "gs://rhesis-files"
+    assert settings.service_account_key == "encoded-service-account"
+    assert settings.local_storage_path == "/var/lib/rhesis-files"
+
+
+@pytest.mark.unit
+def test_get_storage_settings_cache_clear_allows_env_overrides(clean_storage_env, monkeypatch):
+    assert get_storage_settings().service_uri == "file:///app/storage"
+
+    monkeypatch.setenv("STORAGE_SERVICE_URI", "s3://rhesis-files")
+    get_storage_settings.cache_clear()
+
+    assert get_storage_settings().service_uri == "s3://rhesis-files"
 
 
 @pytest.mark.unit
