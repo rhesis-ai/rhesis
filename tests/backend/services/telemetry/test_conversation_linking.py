@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from rhesis.backend.app.config.settings import get_redis_settings
 from rhesis.backend.app.services.telemetry.conversation_linking import (
     _CACHE_TTL,
     ConversationLinkingCache,
@@ -33,6 +34,7 @@ from rhesis.backend.app.services.telemetry.conversation_linking import (
 @pytest.fixture(autouse=True)
 def clear_caches():
     """Ensure both in-memory caches are empty before and after each test."""
+    get_redis_settings.cache_clear()
     _cache._pending_links.clear()
     _cache._pending_outputs.clear()
     # Ensure module-level cache uses in-memory mode for unit tests
@@ -42,6 +44,7 @@ def clear_caches():
     _cache._pending_links.clear()
     _cache._pending_outputs.clear()
     _cache._redis = orig_redis
+    get_redis_settings.cache_clear()
 
 
 # ---------------------------------------------------------------
@@ -455,7 +458,10 @@ class TestConversationLinkingCacheInMemory:
     def test_initialize_without_redis(self):
         """Cache initializes in memory-only mode when Redis is unavailable."""
         cache = ConversationLinkingCache()
-        with patch.dict("os.environ", {"BROKER_URL": "redis://invalid:9999/0"}):
+        with (
+            patch.dict("os.environ", {"BROKER_URL": "redis://invalid:9999/0"}),
+            patch("redis.Redis.from_url", side_effect=ConnectionError("unavailable")),
+        ):
             cache.initialize()
 
         assert cache._initialized is True
