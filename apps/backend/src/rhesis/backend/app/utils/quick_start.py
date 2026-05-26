@@ -6,7 +6,6 @@ Quick Start is ONLY enabled when QUICK_START=true AND all signals confirm local 
 """
 
 import logging
-import os
 from typing import Optional
 
 from rhesis.backend.app.config.settings import get_application_settings
@@ -44,7 +43,8 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
         False
     """
     # 1. Check QUICK_START configuration (default: false for safety)
-    if not get_application_settings().quick_start:
+    application_settings = get_application_settings()
+    if not application_settings.quick_start:
         return False
 
     logger.debug("Quick Start environment variable set to 'true', validating deployment signals...")
@@ -103,9 +103,9 @@ def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dic
                 return False
 
     # 4. GOOGLE CLOUD ENVIRONMENT CHECKS - Fail if GCP env vars present
-    k_service = os.getenv("K_SERVICE")
-    k_revision = os.getenv("K_REVISION")
-    gcp_project = os.getenv("GCP_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT")
+    k_service = application_settings.cloud_run_service
+    k_revision = application_settings.cloud_run_revision
+    gcp_project = application_settings.gcp_project or application_settings.google_cloud_project
 
     if k_service:
         logger.warning(

@@ -297,25 +297,30 @@ def test_get_database_url_returns_app_url(clean_database_env, monkeypatch):
 
 @pytest.mark.unit
 def test_get_database_url_returns_configured_url(clean_database_env, monkeypatch):
-    database = _patch_database_settings(
-        monkeypatch,
-        url=(
-            "postgresql://direct-user:direct-pass@db.example.com/direct-db"  # trufflehog:ignore
-        ),
-    )
+    for k, v in _BASE_DB_ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("DB_HOST", "db.example.com")
+    monkeypatch.setenv("DB_NAME", "direct-db")
+    monkeypatch.setenv("APP_DB_USER", "direct-user")
+    monkeypatch.setenv("APP_DB_PASS", "direct-pass")  # trufflehog:ignore
+    settings = DatabaseSettings(_env_file=None)
+    monkeypatch.setattr(database, "get_database_settings", lambda: settings)
 
     assert (
         database.get_database_url()
-        == "postgresql://direct-user:direct-pass@db.example.com/direct-db"  # trufflehog:ignore
+        == "postgresql://direct-user:direct-pass@db.example.com:5432/direct-db"  # trufflehog:ignore
     )
 
 
 @pytest.mark.unit
-def test_database_url_comes_from_sqlalchemy_database_url(clean_database_env, monkeypatch):
-    database = _patch_database_settings(
-        monkeypatch,
-        url="postgresql://test-user:test-pass@localhost:5432/test-db",  # trufflehog:ignore
-    )
+def test_database_url_comes_from_component_env_vars(clean_database_env, monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_PORT", "5432")
+    monkeypatch.setenv("DB_NAME", "test-db")
+    monkeypatch.setenv("APP_DB_USER", "test-user")
+    monkeypatch.setenv("APP_DB_PASS", "test-pass")  # trufflehog:ignore
+    settings = DatabaseSettings(_env_file=None)
+    monkeypatch.setattr(database, "get_database_settings", lambda: settings)
 
     assert (
         database.get_database_url()
