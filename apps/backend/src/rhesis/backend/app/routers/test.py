@@ -267,11 +267,12 @@ def get_test_test_sets(
     limit: int = 10,
     sort_by: str = "created_at",
     sort_order: str = "desc",
+    filter: Optional[str] = None,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Get all test sets that contain the given test."""
+    """Get all test sets that contain the given test with optional filtering."""
     organization_id, user_id = tenant_context
     db_test = crud.get_test(db, test_id=test_id, organization_id=organization_id, user_id=user_id)
     if db_test is None:
@@ -286,6 +287,7 @@ def get_test_test_sets(
         sort_order=sort_order,
         organization_id=organization_id,
         user_id=user_id,
+        filter=filter,
     )
     response.headers["X-Total-Count"] = str(count)
     return items

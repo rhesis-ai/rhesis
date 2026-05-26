@@ -682,9 +682,10 @@ def get_test_sets_for_test(
     sort_order: str = "desc",
     organization_id: str = None,
     user_id: str = None,
+    filter: str | None = None,
 ) -> tuple[List[models.TestSet], int]:
     """
-    Get test sets that contain a given test with pagination and sorting.
+    Get test sets that contain a given test with pagination, sorting and filtering.
 
     Args:
         db: Database session
@@ -695,6 +696,7 @@ def get_test_sets_for_test(
         sort_order: Sort order (asc/desc)
         organization_id: Organization ID for tenant scoping
         user_id: User ID for tenant scoping
+        filter: OData filter string
 
     Returns:
         Tuple containing:
@@ -716,9 +718,13 @@ def get_test_sets_for_test(
         .with_visibility_filter()
         .with_custom_filter(
             lambda q: q.join(models.test.test_test_set_association).filter(
-                models.test.test_test_set_association.c.test_id == test_id
+                and_(
+                    models.test.test_test_set_association.c.test_id == test_id,
+                    models.test.test_test_set_association.c.organization_id == organization_id
+                )
             )
         )
+        .with_odata_filter(filter)
     )
 
     total_count = query_builder.count()
