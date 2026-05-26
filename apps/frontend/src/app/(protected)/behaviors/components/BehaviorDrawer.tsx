@@ -1,5 +1,13 @@
 import React from 'react';
-import { Typography, TextField, Button, Stack, Divider } from '@mui/material';
+import {
+  Typography,
+  TextField,
+  Button,
+  Stack,
+  Divider,
+  Autocomplete,
+  Chip,
+} from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -10,7 +18,9 @@ interface BehaviorDrawerProps {
   onClose: () => void;
   name: string;
   description: string;
-  onSave: (name: string, description: string) => void;
+  initialTagNames?: string[];
+  tagSuggestions?: string[];
+  onSave: (name: string, description: string, tagNames: string[]) => void;
   onDuplicate?: () => void;
   onDelete?: () => void;
   isNew?: boolean;
@@ -18,11 +28,16 @@ interface BehaviorDrawerProps {
   error?: string;
 }
 
+const sortedUnique = (values: string[]) =>
+  Array.from(new Set(values.filter(v => v.trim().length > 0))).sort();
+
 const BehaviorDrawer = ({
   open,
   onClose,
   name: initialName,
   description: initialDescription,
+  initialTagNames = [],
+  tagSuggestions = [],
   onSave,
   onDuplicate,
   onDelete,
@@ -33,16 +48,29 @@ const BehaviorDrawer = ({
   const [currentName, setCurrentName] = React.useState(initialName);
   const [currentDescription, setCurrentDescription] =
     React.useState(initialDescription);
+  const [currentTagNames, setCurrentTagNames] =
+    React.useState<string[]>(initialTagNames);
   const [validationError, setValidationError] = React.useState<string>('');
+
+  const initialTagsSorted = React.useMemo(
+    () => sortedUnique(initialTagNames),
+    [initialTagNames]
+  );
+  const currentTagsSorted = React.useMemo(
+    () => sortedUnique(currentTagNames),
+    [currentTagNames]
+  );
 
   const { hasChanges } = useFormChangeDetection({
     initialData: {
       name: initialName,
       description: initialDescription,
+      tags: initialTagsSorted.join('\u0001'),
     },
     currentData: {
       name: currentName,
       description: currentDescription,
+      tags: currentTagsSorted.join('\u0001'),
     },
   });
 
@@ -50,9 +78,10 @@ const BehaviorDrawer = ({
     if (open) {
       setCurrentName(initialName);
       setCurrentDescription(initialDescription);
+      setCurrentTagNames(initialTagNames);
       setValidationError('');
     }
-  }, [initialName, initialDescription, open]);
+  }, [initialName, initialDescription, initialTagNames, open]);
 
   const handleSaveInternal = () => {
     setValidationError('');
@@ -73,7 +102,11 @@ const BehaviorDrawer = ({
       return;
     }
 
-    onSave(trimmedName, currentDescription.trim());
+    onSave(
+      trimmedName,
+      currentDescription.trim(),
+      sortedUnique(currentTagNames)
+    );
   };
 
   const drawerTitle = isNew ? 'Add New Behavior' : 'Edit Behavior';
@@ -125,6 +158,40 @@ const BehaviorDrawer = ({
             variant="outlined"
             disabled={loading}
             helperText="Describe what this behavior measures and why it matters"
+          />
+
+          <Autocomplete
+            multiple
+            freeSolo
+            options={tagSuggestions}
+            value={currentTagNames}
+            onChange={(_event, value) => {
+              const normalized = value
+                .map(v => v.trim())
+                .filter(v => v.length > 0);
+              setCurrentTagNames(Array.from(new Set(normalized)));
+            }}
+            disabled={loading}
+            renderTags={(value: readonly string[], getTagProps) =>
+              value.map((option, index) => {
+                const { key, ...chipProps } = getTagProps({ index });
+                return (
+                  <Chip key={key} label={option} size="small" {...chipProps} />
+                );
+              })
+            }
+            renderInput={params => (
+              <TextField
+                {...params}
+                label="Tags"
+                placeholder={
+                  currentTagNames.length === 0
+                    ? 'Add tags to group behaviors (e.g. Marketing, US 1)'
+                    : ''
+                }
+                helperText="Press Enter to add. Reuse tags from other behaviors to group them."
+              />
+            )}
           />
         </Stack>
 

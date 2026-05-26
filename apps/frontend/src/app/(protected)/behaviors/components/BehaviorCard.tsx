@@ -55,6 +55,10 @@ export default function BehaviorCard({
   const metricsCount = behavior.metrics?.length || 0;
   const canDelete = metricsCount === 0;
 
+  const tags = behavior.tags ?? [];
+  const tagsCount = tags.length;
+  const MAX_VISIBLE_TAGS = 5;
+
   const chipSections: ChipSection[] = [
     {
       label: 'Metrics',
@@ -69,6 +73,25 @@ export default function BehaviorCard({
           : []),
       ],
       emptyText: 'No metrics assigned',
+    },
+    {
+      label: 'Tags',
+      chips: [
+        ...tags.slice(0, MAX_VISIBLE_TAGS).map(tag => ({
+          key: tag.id,
+          label: tag.name,
+          maxWidth: '150px',
+        })),
+        ...(tagsCount > MAX_VISIBLE_TAGS
+          ? [
+              {
+                key: 'more-tags',
+                label: `+${tagsCount - MAX_VISIBLE_TAGS} more`,
+              },
+            ]
+          : []),
+      ],
+      emptyText: 'No tags assigned',
     },
   ];
 
