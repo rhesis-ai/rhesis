@@ -193,15 +193,21 @@ export default function MultiFileUpload({
       <Paper
         elevation={0}
         sx={(theme: Theme) => ({
-          border: `2px dashed ${isDragOver ? theme.palette.primary.main : theme.palette.divider}`,
+          border: `1px dashed ${isDragOver ? theme.palette.primary.main : '#c1c7d1'}`,
+          borderRadius: '4px',
+          minHeight: 212,
+          width: '100%',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.6 : 1,
-          p: 2,
-          textAlign: 'center',
+          bgcolor: isDragOver ? 'primary.50' : 'transparent',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
           gap: 1,
+          p: 3,
+          textAlign: 'center',
+          transition: 'border-color 0.15s, background-color 0.15s',
         })}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -209,19 +215,29 @@ export default function MultiFileUpload({
         onClick={handleClick}
         component="div"
       >
-        <CloudUploadIcon
-          sx={(theme: Theme) => ({
-            fontSize: theme.spacing(3.5),
-            color: theme.palette.text.secondary,
-          })}
-        />
-        <Typography variant="body2">
+        <CloudUploadIcon sx={{ fontSize: 48, color: '#545a65' }} />
+        <Typography
+          sx={{
+            fontSize: 18,
+            fontWeight: 700,
+            lineHeight: '25px',
+            color: '#545a65',
+            textAlign: 'center',
+          }}
+        >
           {isDragOver
             ? 'Drop files here'
-            : 'Drag & drop or click to attach files'}
+            : 'Drag & Drop or click to attach files'}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Images, PDFs, or audio. Max {formatFileSize(maxFileSize)} per file.
+        <Typography
+          sx={{
+            fontSize: 14,
+            lineHeight: '22px',
+            color: '#545a65',
+            textAlign: 'center',
+          }}
+        >
+          Images, PDFs or audio. Max {formatFileSize(maxFileSize)} per file.
         </Typography>
       </Paper>
 

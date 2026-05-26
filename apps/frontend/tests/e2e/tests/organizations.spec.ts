@@ -9,7 +9,9 @@ test.describe('Organization Settings @sanity', () => {
     await settings.expectLoaded();
   });
 
-  test('org settings page shows overview heading', async ({ page }) => {
+  test('org settings page shows organization settings heading', async ({
+    page,
+  }) => {
     const settings = new OrgSettingsPage(page);
     await settings.goto();
     await settings.expectLoaded();

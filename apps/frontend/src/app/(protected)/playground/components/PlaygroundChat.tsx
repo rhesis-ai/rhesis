@@ -22,6 +22,7 @@ import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import Tooltip from '@mui/material/Tooltip';
 import { useSession } from 'next-auth/react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
+import { playgroundPanelSx } from './playgroundPanelSx';
 import { FileAttachment } from '@/utils/websocket';
 import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
@@ -225,13 +226,12 @@ export default function PlaygroundChat({
   return (
     <>
       <Paper
-        elevation={1}
+        elevation={0}
         sx={{
+          ...playgroundPanelSx,
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          borderRadius: theme => theme.shape.borderRadius,
-          overflow: 'hidden',
         }}
       >
         {/* Pane Header */}
@@ -453,11 +453,6 @@ export default function PlaygroundChat({
                       </Tooltip>
                     </InputAdornment>
                   ),
-                },
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: theme => theme.shape.borderRadius,
                 },
               }}
             />

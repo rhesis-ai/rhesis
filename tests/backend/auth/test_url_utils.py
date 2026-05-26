@@ -22,7 +22,7 @@ def clean_frontend_settings(monkeypatch):
     get_frontend_settings.cache_clear()
 
 
-def _make_request(original_frontend=None, return_to="/dashboard"):
+def _make_request(original_frontend=None, return_to="/architect"):
     """Create a mock Request with session data."""
     session = {}
     if original_frontend:

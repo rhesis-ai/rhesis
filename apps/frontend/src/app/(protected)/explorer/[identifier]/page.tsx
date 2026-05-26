@@ -2,7 +2,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import ExplorerDetail from './components/ExplorerDetail';
 
 interface ExplorerDetailPageProps {
@@ -45,11 +45,11 @@ export default async function ExplorerDetailPage({
     }
 
     return (
-      <PageContainer
+      <PageLayout
         title={testSetName}
         breadcrumbs={[
           {
-            title: 'Test explorer',
+            title: 'Explorer',
             path: '/explorer',
           },
           { title: testSetName, path: '' },
@@ -62,7 +62,7 @@ export default async function ExplorerDetailPage({
           testSetId={identifier}
           sessionToken={session.session_token}
         />
-      </PageContainer>
+      </PageLayout>
     );
   } catch (error) {
     const errorMessage = (error as Error).message;

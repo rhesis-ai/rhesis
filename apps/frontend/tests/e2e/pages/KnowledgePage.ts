@@ -28,31 +28,31 @@ export class KnowledgePage extends BasePage {
     return this.dataGrid.isVisible().catch(() => false);
   }
 
-  /** Open the "Upload Source" dialog/drawer. */
+  /** Open the "Upload Source" drawer. */
   async openUploadSourceDialog() {
     await this.uploadButton.click();
     await this.page
-      .getByRole('dialog')
+      .getByRole('presentation')
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
 
   /**
-   * Set the title field in the upload dialog.
+   * Set the title field in the upload drawer.
    * The title may be pre-filled from the filename — this clears and refills it.
    */
   async setSourceTitle(title: string) {
     const titleInput = this.page
-      .getByRole('dialog')
+      .getByRole('presentation')
       .getByRole('textbox', { name: /title/i })
       .first();
     await titleInput.clear();
     await titleInput.fill(title);
   }
 
-  /** Set the description field in the upload dialog. */
+  /** Set the description field in the upload drawer. */
   async setSourceDescription(description: string) {
     const descInput = this.page
-      .getByRole('dialog')
+      .getByRole('presentation')
       .getByRole('textbox', { name: /description/i });
     const visible = await descInput
       .isVisible({ timeout: 5_000 })
@@ -60,12 +60,12 @@ export class KnowledgePage extends BasePage {
     if (visible) await descInput.fill(description);
   }
 
-  /** Submit the upload dialog. */
+  /** Submit the upload drawer. */
   async submitUpload() {
     const submitBtn = this.page
-      .getByRole('dialog')
-      .getByRole('button', { name: /upload source|save|submit/i })
-      .first();
+      .getByRole('presentation')
+      .getByRole('button', { name: /upload source/i })
+      .last();
     await submitBtn.click();
   }
 

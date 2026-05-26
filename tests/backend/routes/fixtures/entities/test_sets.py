@@ -8,6 +8,7 @@ import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
 
 fake = Faker()
@@ -77,8 +78,15 @@ def db_test_set_with_tests(
     test_db.add(test_set)
     test_db.flush()
 
-    # Associate the test with the test set
-    test_set.tests.append(db_test)
+    # Associate via association table (TestSet.tests is viewonly; append does not persist)
+    test_db.execute(
+        test_test_set_association.insert().values(
+            test_id=db_test.id,
+            test_set_id=test_set.id,
+            organization_id=test_organization.id,
+            user_id=db_user.id,
+        )
+    )
     test_db.flush()
     test_db.refresh(test_set)
 

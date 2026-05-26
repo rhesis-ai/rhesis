@@ -133,19 +133,19 @@ def _validate_return_to(return_to: Optional[str]) -> str:
     from urllib.parse import unquote
 
     if not return_to:
-        return "/dashboard"
+        return "/architect"
 
     # Decode percent-encoding before running blocklist checks to prevent
     # bypasses via %2f%2f, %6Aavascript:, etc.
     decoded = unquote(unquote(return_to))
 
     if not decoded.startswith("/"):
-        return "/dashboard"
+        return "/architect"
 
     blocked = ["//", "javascript:", "data:", "http:", "https:", "\\"]
     for pattern in blocked:
         if pattern in decoded.lower():
-            return "/dashboard"
+            return "/architect"
 
     return decoded
 
@@ -207,7 +207,7 @@ async def sso_callback(
 
     org_id = state_payload.get("org_id", "")
     state_nonce = state_payload.get("nonce", "")
-    state_return_to = state_payload.get("return_to", "/dashboard")
+    state_return_to = state_payload.get("return_to", "/architect")
 
     # Cross-check org_id from state against session (defense in depth)
     session_org_id = request.session.get("sso_org_id", "")

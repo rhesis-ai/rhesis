@@ -15,7 +15,9 @@ import {
   GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -244,56 +246,47 @@ export default function ExperimentsClientWrapper({
   );
 
   const actionButtons = useMemo(() => {
-    const buttons: {
-      label: string;
-      icon: React.ReactNode;
-      variant: 'text' | 'outlined' | 'contained';
-      color?:
-        | 'inherit'
-        | 'primary'
-        | 'secondary'
-        | 'success'
-        | 'error'
-        | 'info'
-        | 'warning';
-      onClick: () => void;
-      disabled?: boolean;
-    }[] = [
-      {
-        label: 'New Experiment',
-        icon: <AddIcon />,
-        variant: 'contained',
-        onClick: () => setCreateOpen(true),
-        disabled: projects.length === 0,
-      },
-    ];
+    if (selectedRows.length === 0) return [];
 
-    if (selectedRows.length > 0) {
-      buttons.push({
+    return [
+      {
         label: `Delete (${selectedRows.length})`,
         icon: <DeleteIcon />,
-        variant: 'outlined',
-        color: 'error',
+        variant: 'outlined' as const,
+        color: 'error' as const,
         onClick: () => setDeleteDialogOpen(true),
-      });
-    }
-
-    return buttons;
-  }, [projects.length, selectedRows.length]);
+      },
+    ];
+  }, [selectedRows.length]);
 
   return (
-    <PageContainer title="Experiments" breadcrumbs={[]}>
-      <Box sx={{ mb: 3 }}>
-        <Typography color="text.secondary">
-          Experiments are named bundles of parameter values that can be pinned
-          to test runs, ensuring reproducible and comparable executions across
-          your project.
-        </Typography>
-      </Box>
+    <PageLayout
+      title="Experiments"
+      description="Experiments are named bundles of parameter values that can be pinned to test runs, ensuring reproducible and comparable executions across your project."
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="New Experiment"
+            aria-label="New Experiment"
+            onClick={() => setCreateOpen(true)}
+            disabled={projects.length === 0}
+          />
+        </FabGroup>
+      }
+    >
       {!loading && experiments.length === 0 && !filterModel.items.length ? (
         <Paper
-          elevation={2}
+          elevation={0}
           sx={{
+            borderRadius: BORDER_RADIUS.md,
+            border: theme =>
+              `1px solid ${
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : theme.palette.divider
+              }`,
+            boxShadow: ELEVATION.xs,
             p: theme => theme.spacing(6),
             display: 'flex',
             flexDirection: 'column',
@@ -330,7 +323,20 @@ export default function ExperimentsClientWrapper({
           </Button>
         </Paper>
       ) : (
-        <Paper elevation={2} sx={{ p: 2 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            borderRadius: BORDER_RADIUS.md,
+            border: theme =>
+              `1px solid ${
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : theme.palette.divider
+              }`,
+            boxShadow: ELEVATION.xs,
+          }}
+        >
           <BaseDataGrid
             rows={experiments}
             columns={columns}
@@ -385,6 +391,6 @@ export default function ExperimentsClientWrapper({
         message={`Are you sure you want to delete ${selectedRows.length} experiment${selectedRows.length > 1 ? 's' : ''}? This action cannot be undone.`}
         itemType="experiments"
       />
-    </PageContainer>
+    </PageLayout>
   );
 }

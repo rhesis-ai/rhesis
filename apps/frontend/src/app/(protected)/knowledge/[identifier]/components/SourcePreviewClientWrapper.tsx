@@ -16,7 +16,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -403,7 +403,7 @@ export default function SourcePreviewClientWrapper({
   }, [sessionToken, localSource, collectFieldValues, notifications]);
 
   return (
-    <PageContainer
+    <PageLayout
       title={displayTitle}
       breadcrumbs={[
         { title: 'Knowledge', path: '/knowledge' },
@@ -805,6 +805,6 @@ export default function SourcePreviewClientWrapper({
           />
         </Paper>
       </Stack>
-    </PageContainer>
+    </PageLayout>
   );
 }

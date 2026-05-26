@@ -239,119 +239,122 @@ export default function ProjectEditDrawer({
       loading={loading}
       onSave={handleSaveWrapper}
     >
-      <FormControl fullWidth>
-        <InputLabel>Owner</InputLabel>
-        <Select
-          value={users.length > 0 ? formData.owner_id || '' : ''}
-          label="Owner"
-          onChange={handleSelectChange('owner_id')}
-          renderValue={selected => {
-            const selectedUser = users.find(u => u.id === selected);
-            return selectedUser ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Avatar
-                  src={selectedUser.picture}
-                  alt={selectedUser.name || selectedUser.email}
-                  sx={{ width: 24, height: 24 }}
-                >
-                  <PersonIcon />
-                </Avatar>
-                <Typography>
-                  {selectedUser.name || selectedUser.email}
-                </Typography>
-              </Box>
-            ) : (
-              <Typography color="text.secondary">None</Typography>
-            );
+      {/* Single Stack so BaseDrawer's 40px content gap applies at section level */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+        <FormControl variant="outlined" fullWidth>
+          <InputLabel>Owner</InputLabel>
+          <Select
+            value={formData.owner_id}
+            label="Owner"
+            onChange={handleSelectChange('owner_id')}
+            renderValue={selected => {
+              const selectedUser = users.find(u => u.id === selected);
+              return selectedUser ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar
+                    src={selectedUser.picture}
+                    alt={selectedUser.name || selectedUser.email}
+                    sx={{ width: 24, height: 24 }}
+                  >
+                    <PersonIcon />
+                  </Avatar>
+                  <Typography>
+                    {selectedUser.name || selectedUser.email}
+                  </Typography>
+                </Box>
+              ) : null;
+            }}
+          >
+            {users.map(user => (
+              <MenuItem key={user.id} value={user.id}>
+                <ListItemAvatar>
+                  <Avatar
+                    src={user.picture}
+                    alt={user.name || user.email}
+                    sx={{ width: 32, height: 32 }}
+                  >
+                    <PersonIcon />
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={user.name || user.email}
+                  secondary={user.email}
+                />
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <IconSelector
+          selectedIcon={formData.icon}
+          onChange={handleIconChange}
+        />
+
+        <TextField
+          fullWidth
+          variant="outlined"
+          label="Project Name"
+          value={formData.name}
+          onChange={handleTextChange('name')}
+          required
+        />
+
+        <TextField
+          fullWidth
+          variant="outlined"
+          label="Description"
+          multiline
+          rows={4}
+          value={formData.description}
+          onChange={handleTextChange('description')}
+        />
+
+        {/* 2-column row: Environment + Use Case */}
+        <Box
+          sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}
+        >
+          <FormControl variant="outlined" fullWidth>
+            <InputLabel>Environment</InputLabel>
+            <Select
+              value={formData.environment}
+              label="Environment"
+              onChange={handleSelectChange('environment')}
+            >
+              <MenuItem value="development">Development</MenuItem>
+              <MenuItem value="staging">Staging</MenuItem>
+              <MenuItem value="production">Production</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl variant="outlined" fullWidth>
+            <InputLabel>Use Case</InputLabel>
+            <Select
+              value={formData.useCase}
+              label="Use Case"
+              onChange={handleSelectChange('useCase')}
+            >
+              <MenuItem value="chatbot">Chatbot</MenuItem>
+              <MenuItem value="assistant">Assistant</MenuItem>
+              <MenuItem value="advisor">Advisor</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
+
+        <TextField
+          fullWidth
+          variant="outlined"
+          label="Tags"
+          value={formData.tags.join(', ')}
+          onChange={e => {
+            const tags = e.target.value
+              .split(',')
+              .map(tag => tag.trim())
+              .filter(Boolean);
+            setFormData(prev => ({ ...prev, tags }));
           }}
-        >
-          {users.length === 0 ? (
-            <MenuItem value="" disabled>
-              Loading users...
-            </MenuItem>
-          ) : (
-            <MenuItem value="">
-              <em>None</em>
-            </MenuItem>
-          )}
-          {users.map(user => (
-            <MenuItem key={user.id} value={user.id}>
-              <ListItemAvatar>
-                <Avatar
-                  src={user.picture}
-                  alt={user.name || user.email}
-                  sx={{ width: 32, height: 32 }}
-                >
-                  <PersonIcon />
-                </Avatar>
-              </ListItemAvatar>
-              <ListItemText
-                primary={user.name || user.email}
-                secondary={user.email}
-              />
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      <IconSelector selectedIcon={formData.icon} onChange={handleIconChange} />
-
-      <TextField
-        fullWidth
-        label="Project Name"
-        value={formData.name}
-        onChange={handleTextChange('name')}
-        required
-      />
-
-      <TextField
-        fullWidth
-        label="Description"
-        multiline
-        rows={4}
-        value={formData.description}
-        onChange={handleTextChange('description')}
-      />
-
-      <FormControl fullWidth>
-        <InputLabel>Environment</InputLabel>
-        <Select
-          value={formData.environment}
-          label="Environment"
-          onChange={handleSelectChange('environment')}
-        >
-          <MenuItem value="development">Development</MenuItem>
-          <MenuItem value="staging">Staging</MenuItem>
-          <MenuItem value="production">Production</MenuItem>
-        </Select>
-      </FormControl>
-
-      <FormControl fullWidth>
-        <InputLabel>Use Case</InputLabel>
-        <Select
-          value={formData.useCase}
-          label="Use Case"
-          onChange={handleSelectChange('useCase')}
-        >
-          <MenuItem value="chatbot">Chatbot</MenuItem>
-          <MenuItem value="assistant">Assistant</MenuItem>
-          <MenuItem value="advisor">Advisor</MenuItem>
-        </Select>
-      </FormControl>
-
-      <TextField
-        fullWidth
-        label="Tags"
-        value={formData.tags.join(', ')}
-        onChange={e => {
-          const tags = e.target.value
-            .split(',')
-            .map(tag => tag.trim())
-            .filter(Boolean);
-          setFormData(prev => ({ ...prev, tags }));
-        }}
-        helperText="Separate tags with commas"
-      />
+          helperText="Separate tags with commas"
+        />
+      </Box>
     </BaseDrawer>
   );
 }

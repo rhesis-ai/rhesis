@@ -2,14 +2,10 @@
 
 import React, { useState } from 'react';
 import {
-  Chip,
   Box,
   IconButton,
   Tooltip,
-  Typography,
-  Button,
   Paper,
-  useTheme,
   CircularProgress,
 } from '@mui/material';
 import {
@@ -19,10 +15,10 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { DeleteIcon, VpnKeyIcon } from '@/components/icons';
+import { DeleteIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
-import AddIcon from '@mui/icons-material/Add';
+import GridBadge from '@/components/common/GridBadge';
 
 interface TokensGridProps {
   tokens: Token[];
@@ -32,7 +28,6 @@ interface TokensGridProps {
   ) => Promise<void>;
   onDeleteToken: (tokenId: string) => Promise<void>;
   loading: boolean;
-  onCreateToken?: () => void;
   totalCount: number;
   onPaginationModelChange?: (model: GridPaginationModel) => void;
   paginationModel?: GridPaginationModel;
@@ -43,7 +38,6 @@ export default function TokensGrid({
   onRefreshToken,
   onDeleteToken,
   loading,
-  onCreateToken,
   totalCount,
   onPaginationModelChange,
   paginationModel = {
@@ -51,7 +45,6 @@ export default function TokensGrid({
     pageSize: 10,
   },
 }: TokensGridProps) {
-  const _theme = useTheme();
   const [refreshModalOpen, setRefreshModalOpen] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
@@ -59,25 +52,6 @@ export default function TokensGrid({
     setSelectedTokenId(tokenId);
     setRefreshModalOpen(true);
   };
-
-  // Custom toolbar with right-aligned button
-  const customToolbar = (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'flex-end',
-        width: '100%',
-      }}
-    >
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={onCreateToken}
-      >
-        Create API Token
-      </Button>
-    </Box>
-  );
 
   const columns = [
     {
@@ -109,38 +83,17 @@ export default function TokensGrid({
       field: 'expires',
       headerName: 'Expires',
       flex: 1,
-      renderCell: (params: GridRenderCellParams) =>
-        params.row.expires_at ? (
-          <Chip
-            label={formatDistanceToNow(new Date(params.row.expires_at), {
-              addSuffix: true,
-            })}
-            size="small"
-            variant="outlined"
-            sx={{
-              borderColor:
-                new Date(params.row.expires_at) > new Date()
-                  ? 'success.light'
-                  : 'error.light',
-              color:
-                new Date(params.row.expires_at) > new Date()
-                  ? 'success.main'
-                  : 'error.main',
-              bgcolor: 'transparent',
-            }}
-          />
-        ) : (
-          <Chip
-            label="Never"
-            size="small"
-            variant="outlined"
-            sx={{
-              borderColor: 'success.light',
-              color: 'success.main',
-              bgcolor: 'transparent',
-            }}
-          />
-        ),
+      renderCell: (params: GridRenderCellParams) => (
+        <GridBadge
+          label={
+            params.row.expires_at
+              ? formatDistanceToNow(new Date(params.row.expires_at), {
+                  addSuffix: true,
+                })
+              : 'Never'
+          }
+        />
+      ),
     },
     {
       field: 'actions',
@@ -176,7 +129,7 @@ export default function TokensGrid({
     },
   ];
 
-  // Show loading state during initial load
+  // Initial load spinner — only when we don't have any rows yet.
   if (loading && tokens.length === 0) {
     return (
       <Paper
@@ -184,7 +137,6 @@ export default function TokensGrid({
         sx={{
           width: '100%',
           mb: 2,
-          textAlign: 'center',
           py: 8,
           px: 3,
           display: 'flex',
@@ -193,75 +145,6 @@ export default function TokensGrid({
         }}
       >
         <CircularProgress />
-      </Paper>
-    );
-  }
-
-  // Show empty state when not loading and no tokens exist
-  if (tokens.length === 0) {
-    return (
-      <Paper
-        elevation={2}
-        sx={{
-          width: '100%',
-          mb: 2,
-          textAlign: 'center',
-          py: 8,
-          px: 3,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 2,
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            mb: 2,
-          }}
-        >
-          <VpnKeyIcon
-            sx={{
-              fontSize: 60,
-              color: 'primary.main',
-              opacity: 0.7,
-            }}
-          />
-        </Box>
-
-        <Typography
-          variant="h5"
-          sx={{
-            color: 'text.primary',
-            fontWeight: 500,
-          }}
-        >
-          No API tokens yet
-        </Typography>
-
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{
-            maxWidth: 550,
-            mx: 'auto',
-          }}
-        >
-          Create your first API token to start interacting with the Rhesis API.
-          Tokens allow you to authenticate your applications and build powerful
-          integrations.
-        </Typography>
-
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onCreateToken}
-          size="large"
-          sx={{ mt: 2 }}
-        >
-          Create API Token
-        </Button>
       </Paper>
     );
   }
@@ -278,11 +161,10 @@ export default function TokensGrid({
             density="standard"
             paginationModel={paginationModel}
             onPaginationModelChange={onPaginationModelChange}
-            serverSidePagination={true}
+            serverSidePagination={false}
             totalRows={totalCount}
             pageSizeOptions={[10, 25, 50]}
             disablePaperWrapper={true}
-            customToolbarContent={customToolbar}
           />
         </Box>
       </Paper>

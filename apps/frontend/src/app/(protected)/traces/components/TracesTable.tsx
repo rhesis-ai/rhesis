@@ -1,19 +1,98 @@
 'use client';
 
-import { useMemo } from 'react';
-import { GridColDef } from '@mui/x-data-grid';
+import React, { useContext, useMemo } from 'react';
+import {
+  GridColDef,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   TraceSummary,
   TRACE_METRICS_STATUS,
 } from '@/utils/api-client/interfaces/telemetry';
-import { Box, Chip, Stack, Typography, Tooltip } from '@mui/material';
+import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import GridBadge from '@/components/common/GridBadge';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
+import TraceFilterDrawer, {
+  type TraceDrawerFilters,
+} from './TraceFilterDrawer';
+import { hasActiveTraceDrawerFilters } from './trace-filter-params';
+
+const PILL_TABS = [
+  { label: 'All', value: 'all' },
+  { label: 'Single Turn', value: 'single_turn' },
+  { label: 'Multi Turn', value: 'multi_turn' },
+];
+
+interface TracesToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  typeFilter: string;
+  setTypeFilter: (v: string) => void;
+  openFilterDrawer: () => void;
+  onRefresh: () => void;
+  hasActiveDrawerFilters: boolean;
+}
+
+const TracesToolbarContext = React.createContext<TracesToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  typeFilter: 'all',
+  setTypeFilter: () => {},
+  openFilterDrawer: () => {},
+  onRefresh: () => {},
+  hasActiveDrawerFilters: false,
+});
+
+function TracesUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    typeFilter,
+    setTypeFilter,
+    openFilterDrawer,
+    onRefresh,
+    hasActiveDrawerFilters,
+  } = useContext(TracesToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search operations…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      middleContent={
+        <ToolbarPillTabs
+          tabs={PILL_TABS}
+          activeValue={typeFilter}
+          onChange={setTypeFilter}
+        />
+      }
+      rightContent={
+        <>
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={onRefresh} aria-label="Refresh">
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
 
 interface TracesTableProps {
   traces: TraceSummary[];
@@ -24,6 +103,17 @@ interface TracesTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  typeFilter: string;
+  onTypeFilterChange: (value: string) => void;
+  drawerFilters: TraceDrawerFilters;
+  onApplyDrawerFilters: (filters: TraceDrawerFilters) => void;
+  filterDrawerOpen: boolean;
+  onFilterDrawerOpen: () => void;
+  onFilterDrawerClose: () => void;
+  onRefresh: () => void;
+  sessionToken: string;
 }
 
 export default function TracesTable({
@@ -35,13 +125,28 @@ export default function TracesTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
+  searchQuery,
+  onSearchQueryChange,
+  typeFilter,
+  onTypeFilterChange,
+  drawerFilters,
+  onApplyDrawerFilters,
+  filterDrawerOpen,
+  onFilterDrawerOpen,
+  onFilterDrawerClose,
+  onRefresh,
+  sessionToken,
 }: TracesTableProps) {
+  const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters);
+
   const columns: GridColDef[] = useMemo(
     () => [
       {
         field: 'trace_id',
         headerName: 'Trace ID',
         width: 140,
+        minWidth: 100,
+        resizable: true,
         renderCell: params => {
           const traceId = params.value as string;
           const truncated = `${traceId.slice(0, 8)}\u2026`;
@@ -78,8 +183,9 @@ export default function TracesTable({
       {
         field: 'root_operation',
         headerName: 'Operation',
-        flex: 1,
-        minWidth: 200,
+        width: 300,
+        minWidth: 120,
+        resizable: true,
         renderCell: params => (
           <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
             {params.value}
@@ -90,6 +196,8 @@ export default function TracesTable({
         field: 'endpoint_name',
         headerName: 'Endpoint',
         width: 180,
+        minWidth: 100,
+        resizable: true,
         renderCell: params => {
           const endpointName = params.value as string | undefined;
           if (!endpointName) {
@@ -116,6 +224,8 @@ export default function TracesTable({
         field: 'start_time',
         headerName: 'Started',
         width: 150,
+        minWidth: 100,
+        resizable: true,
         renderCell: params => {
           const timeAgo = formatDistanceToNowStrict(new Date(params.value), {
             addSuffix: true,
@@ -131,6 +241,8 @@ export default function TracesTable({
         field: 'duration_ms',
         headerName: 'Duration',
         width: 120,
+        minWidth: 80,
+        resizable: true,
         align: 'right',
         renderCell: params => {
           const ms = params.value as number;
@@ -141,12 +253,16 @@ export default function TracesTable({
         field: 'span_count',
         headerName: 'Spans',
         width: 80,
+        minWidth: 60,
+        resizable: true,
         align: 'center',
       },
       {
         field: 'trace_metrics_status',
         headerName: 'Evaluation',
         width: 140,
+        minWidth: 100,
+        resizable: true,
         renderCell: params => {
           const evalStatus = params.value as string | undefined;
           const row = params.row as TraceSummary;
@@ -163,13 +279,6 @@ export default function TracesTable({
               </Typography>
             );
           }
-          const color =
-            evalStatus === TRACE_METRICS_STATUS.PASS
-              ? 'success'
-              : evalStatus === TRACE_METRICS_STATUS.FAIL
-                ? 'error'
-                : 'warning';
-
           const reviewConflicts =
             hasReview &&
             lastReview?.status?.name &&
@@ -178,13 +287,7 @@ export default function TracesTable({
 
           return (
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <Chip
-                label={evalStatus}
-                color={color}
-                size="small"
-                variant="outlined"
-                sx={{ fontWeight: 500 }}
-              />
+              <GridBadge label={evalStatus} />
               {hasReview && (
                 <Tooltip
                   title={
@@ -212,25 +315,14 @@ export default function TracesTable({
         field: 'environment',
         headerName: 'Environment',
         width: 120,
+        minWidth: 90,
+        resizable: true,
         renderCell: params => {
           const env = params.value as string;
           if (!env) return null;
 
-          const color =
-            env === 'production'
-              ? 'error'
-              : env === 'staging'
-                ? 'warning'
-                : 'default';
-          return (
-            <Chip
-              label={env}
-              color={color}
-              size="small"
-              variant="outlined"
-              sx={{ fontWeight: 500 }}
-            />
-          );
+          const envLabel = env.charAt(0).toUpperCase() + env.slice(1);
+          return <GridBadge label={envLabel} />;
         },
       },
     ],
@@ -243,36 +335,70 @@ export default function TracesTable({
     onRowClick(params.row.trace_id, params.row.project_id);
   };
 
+  const toolbarContextValue = useMemo(
+    () => ({
+      searchQuery,
+      setSearchQuery: onSearchQueryChange,
+      typeFilter,
+      setTypeFilter: onTypeFilterChange,
+      openFilterDrawer: onFilterDrawerOpen,
+      onRefresh,
+      hasActiveDrawerFilters,
+    }),
+    [
+      searchQuery,
+      onSearchQueryChange,
+      typeFilter,
+      onTypeFilterChange,
+      onFilterDrawerOpen,
+      onRefresh,
+      hasActiveDrawerFilters,
+    ]
+  );
+
   return (
-    <BaseDataGrid
-      rows={traces}
-      columns={columns}
-      loading={loading}
-      getRowId={row => row.trace_id}
-      onRowClick={handleRowClick}
-      serverSidePagination
-      totalRows={totalCount}
-      paginationModel={{ page, pageSize }}
-      onPaginationModelChange={model => {
-        if (model.page !== page) {
-          onPageChange(model.page);
-        }
-        if (model.pageSize !== pageSize) {
-          onPageSizeChange(model.pageSize);
-        }
-      }}
-      pageSizeOptions={[25, 50, 100]}
-      disablePaperWrapper
-      showToolbar={false}
-      sx={{
-        '& .MuiDataGrid-row': {
-          cursor: 'pointer',
-        },
-        '& .MuiDataGrid-cell': {
-          borderBottom: 1,
-          borderColor: 'divider',
-        },
-      }}
-    />
+    <TracesToolbarContext.Provider value={toolbarContextValue}>
+      <BaseDataGrid
+        rows={traces}
+        columns={columns}
+        loading={loading}
+        getRowId={row => row.trace_id}
+        onRowClick={handleRowClick}
+        serverSidePagination
+        totalRows={totalCount}
+        paginationModel={{ page, pageSize }}
+        onPaginationModelChange={model => {
+          if (model.page !== page) {
+            onPageChange(model.page);
+          }
+          if (model.pageSize !== pageSize) {
+            onPageSizeChange(model.pageSize);
+          }
+        }}
+        pageSizeOptions={[25, 50, 100]}
+        disablePaperWrapper
+        showToolbar
+        toolbarSlot={TracesUnifiedToolbar}
+        persistState
+        storageKey="traces-grid"
+        sx={{
+          '& .MuiDataGrid-row': {
+            cursor: 'pointer',
+          },
+          '& .MuiDataGrid-cell': {
+            borderBottom: 1,
+            borderColor: 'divider',
+          },
+        }}
+      />
+
+      <TraceFilterDrawer
+        open={filterDrawerOpen}
+        onClose={onFilterDrawerClose}
+        filters={drawerFilters}
+        onApply={onApplyDrawerFilters}
+        sessionToken={sessionToken}
+      />
+    </TracesToolbarContext.Provider>
   );
 }

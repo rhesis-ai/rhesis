@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Paper, Typography, Button, Box, Alert } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -174,7 +174,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
   };
 
   return (
-    <PageContainer title={pageTitle} breadcrumbs={breadcrumbs}>
+    <PageLayout title={pageTitle} breadcrumbs={breadcrumbs}>
       {notFoundEntityData ? (
         // Not found entity UI (404)
         <NotFoundAlert
@@ -245,6 +245,6 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
           </Box>
         </Paper>
       )}
-    </PageContainer>
+    </PageLayout>
   );
 }

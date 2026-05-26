@@ -17,10 +17,17 @@ describe('EntityCard', () => {
     expect(screen.getByText('A helpful description')).toBeInTheDocument();
   });
 
-  it('renders the icon', () => {
+  it('renders the icon when provided', () => {
     render(<EntityCard {...defaultProps} />);
 
     expect(screen.getByTestId('icon')).toBeInTheDocument();
+  });
+
+  it('does not render an icon slot when icon is omitted', () => {
+    const { icon: _icon, ...propsWithoutIcon } = defaultProps;
+    render(<EntityCard {...propsWithoutIcon} />);
+
+    expect(screen.queryByTestId('icon')).not.toBeInTheDocument();
   });
 
   it('renders caption text when provided', () => {
@@ -86,5 +93,23 @@ describe('EntityCard', () => {
     render(<EntityCard {...defaultProps} chipSections={[{ chips: [] }]} />);
 
     expect(screen.getByText('My Entity')).toBeInTheDocument();
+  });
+
+  it('reserves min height for three description lines when text is short', () => {
+    render(<EntityCard {...defaultProps} description="Short text" />);
+
+    expect(screen.getByTestId('entity-card-description')).toHaveStyle({
+      minHeight: '66px',
+    });
+  });
+
+  it('reserves description height when description is omitted', () => {
+    const { description: _description, ...propsWithoutDescription } =
+      defaultProps;
+    render(<EntityCard {...propsWithoutDescription} />);
+
+    expect(screen.getByTestId('entity-card-description')).toHaveStyle({
+      minHeight: '66px',
+    });
   });
 });

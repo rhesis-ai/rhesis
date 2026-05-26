@@ -15,57 +15,61 @@ const { execSync } = require('child_process');
  */
 
 // Theme values extracted from apps/frontend/src/styles/theme.ts
+// These reflect the Figma design ground truth — update here when the design system changes.
 const THEME_VALUES = {
   colors: {
-    // Light mode colors
+    // Light mode — Figma primary palette (updated from #50B9E0 to #0080AF)
     light: {
-      primary: ['#50B9E0', '#97D5EE', '#2AA1CE'],
+      primary: ['#0080AF', '#33A6CB', '#005F82'],
       secondary: ['#FD6E12', '#FDD803', '#1A1A1A'],
-      background: ['#FFFFFF', '#F2F9FD', '#E4F2FA', '#C2E5F5', '#97D5EE'],
+      background: ['#FFFFFF', '#F2F9FD', '#E4F2FA', '#C2E5F5', '#33A6CB'],
       text: ['#3D3D3D', '#1A1A1A'],
       success: ['#2E7D32'],
       warning: ['#F57C00'],
-      error: ['#C62828']
+      error: ['#C62828'],
+      // GREYSCALE tokens — use GREYSCALE.light.* constants, not raw hex
+      greyscale: ['#1a1c20', '#2a2e36', '#545a65', '#7f8a9b', '#cdd2da', '#f7f8f9', '#eef0f3'],
     },
-    // Dark mode colors
+    // Dark mode
     dark: {
-      primary: ['#2AA1CE', '#3BC4F2'],
+      primary: ['#33A6CB', '#66C2DC', '#0080AF'],
       secondary: ['#FD6E12', '#F78166', '#58A6FF'],
       background: ['#0D1117', '#161B22', '#1F242B', '#2C2C2C'],
       text: ['#E6EDF3', '#A9B1BB'],
       success: ['#86EFAC'],
       warning: ['#FCD34D'],
-      error: ['#FCA5A5']
+      error: ['#FCA5A5'],
+      // GREYSCALE tokens — dark
+      greyscale: ['#e6edf3', '#c9d1d9', '#8b949e', '#30363d', '#161b22', '#0d1117'],
     },
     // Chart colors
-    chart: ['#50B9E0', '#FD6E12', '#2AA1CE', '#FDD803', '#97D5EE']
+    chart: ['#0080AF', '#FD6E12', '#33A6CB', '#FDD803', '#97D5EE'],
   },
 
   spacing: {
     // MUI default spacing multipliers (8px base)
     mui: [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96],
     // Custom spacing values from theme
-    custom: [16, 24, 32] // small, medium, large
+    custom: [16, 24, 32], // small, medium, large
   },
 
   typography: {
     // Font sizes that should use typography variants
     fontSizes: ['0.625rem', '0.75rem', '0.875rem', '1rem', '1.25rem', '1.5rem', '1.75rem', '2rem', '2.125rem'],
     // Font weights that should use typography variants
-    fontWeights: [300, 400, 500, 600, 700, 800]
+    fontWeights: [300, 400, 500, 600, 700, 800],
   },
 
   elevation: {
-    // Box shadow values that should use theme.elevation
+    // ELEVATION token values from theme.ts — use ELEVATION.xs/s/m/l/xl constants
     boxShadows: [
-      '0 2px 12px rgba(61, 61, 61, 0.15), 0 1px 4px rgba(61, 61, 61, 0.1)',
-      '0 4px 16px rgba(61, 61, 61, 0.18), 0 2px 6px rgba(61, 61, 61, 0.12)',
-      '0 8px 24px rgba(61, 61, 61, 0.25), 0 4px 12px rgba(61, 61, 61, 0.15)',
-      '0 4px 16px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2)',
-      '0 6px 20px rgba(0, 0, 0, 0.45), 0 3px 10px rgba(0, 0, 0, 0.25)',
-      '0 12px 32px rgba(0, 0, 0, 0.6), 0 6px 16px rgba(0, 0, 0, 0.3)'
-    ]
-  }
+      '0px 2px 4px rgba(84, 90, 101, 0.25)',
+      '0px 16px 32px -4px rgba(84, 90, 101, 0.10), 0px 4px 4px rgba(84, 90, 101, 0.04)',
+      '0px 24px 48px -8px rgba(84, 90, 101, 0.12), 0px 4px 4px rgba(84, 90, 101, 0.04)',
+      '0px 40px 80px -16px rgba(84, 90, 101, 0.18), 0px 4px 4px rgba(84, 90, 101, 0.04)',
+      '0px 56px 112px -20px rgba(0, 0, 0, 0.25), 0px 4px 4px rgba(84, 90, 101, 0.04)',
+    ],
+  },
 };
 
 // Regex patterns for detecting hardcoded values
@@ -85,8 +89,8 @@ const PATTERNS = {
   // Box shadows
   boxShadows: /boxShadow:\s*['"`]([^'"`]+)['"`]/g,
 
-  // Border radius values
-  borderRadius: /borderRadius:\s*['"`]?(\d+(?:\.\d+)?(?:px|rem|em)?)['"`]?/g,
+  // Border radius values — only flag px/rem/em, not 0 or percentage (those are geometric, not tokens)
+  borderRadius: /borderRadius:\s*['"`](\d+(?:\.\d+)?(?:px|rem|em))['"`]/g,
 
   // Emoji characters (Unicode emoji ranges)
   emojis: /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu
@@ -218,11 +222,11 @@ class StyleChecker {
       case 'boxShadow':
         return `Use theme.elevation.* instead of hardcoded boxShadow`;
 
-      case 'borderRadius':
-        if (value === '12px' || value === '12') {
-          return `This matches theme card borderRadius, consider using a theme value`;
-        }
-        return `Consider using consistent borderRadius values from theme`;
+      case 'borderRadius': {
+        const BR_MAP = { '4px': 'BORDER_RADIUS.xs', '8px': 'BORDER_RADIUS.sm', '12px': 'BORDER_RADIUS.md', '16px': 'BORDER_RADIUS.lg', '999px': 'BORDER_RADIUS.pill' };
+        if (BR_MAP[value]) return `Use ${BR_MAP[value]} from @/styles/theme instead of '${value}'`;
+        return `Consider using BORDER_RADIUS.xs/sm/md/lg/pill from @/styles/theme`;
+      }
 
       case 'emoji':
         return `Use MUI icons instead of emoji characters for better accessibility and theme consistency`;

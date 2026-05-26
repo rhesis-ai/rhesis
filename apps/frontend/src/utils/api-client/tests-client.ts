@@ -15,6 +15,7 @@ import {
   ConversationTestExtractionResponse,
   PriorityLevel,
 } from './interfaces/tests';
+import { TestSet } from './interfaces/test-set';
 import { StatsOptions } from './interfaces/common';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import {
@@ -231,6 +232,21 @@ export class TestsClient extends BaseApiClient {
         method: 'POST',
         body: JSON.stringify(request),
       }
+    );
+  }
+
+  async getLinkedTestSets(
+    testId: string,
+    params: PaginationParams = {
+      skip: 0,
+      limit: 50,
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    }
+  ): Promise<PaginatedResponse<TestSet>> {
+    return this.fetchPaginated<TestSet>(
+      `${API_ENDPOINTS.tests}/${testId}/test_sets`,
+      params as PaginationParams & Record<string, unknown>
     );
   }
 }

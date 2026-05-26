@@ -19,24 +19,43 @@ export class OrgSettingsPage extends BasePage {
   }
 
   async expectHeadingVisible() {
-    // The page renders a heading "Overview" inside PageContainer
-    await this.expectHeading(/overview/i);
+    await this.expectHeading(/organization settings/i);
+  }
+
+  /** Click Edit on the first settings card (Basic Information). */
+  async clickEditBasicInformation() {
+    const section = this.page
+      .locator('h6')
+      .filter({ hasText: /^Basic Information$/i })
+      .locator('..')
+      .locator('..');
+    await section.getByRole('button', { name: /^edit$/i }).click();
+  }
+
+  /** Click Edit on the Contact Information card. */
+  async clickEditContactInformation() {
+    const section = this.page
+      .locator('h6')
+      .filter({ hasText: /^Contact Information$/i })
+      .locator('..')
+      .locator('..');
+    await section.getByRole('button', { name: /^edit$/i }).click();
   }
 
   /**
    * Assert that the organization settings forms are rendered.
-   * The page always renders form inputs for name, slug, etc.
    */
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
 
-    // The settings page always shows at least one text input
-    const formInput = this.page.locator('input[type="text"]').first();
+    const basicSection = this.page
+      .getByRole('heading', { name: /basic information/i })
+      .first();
     const mainContent = this.page.locator('main, [role="main"]').first();
 
-    const hasInput = await formInput.isVisible().catch(() => false);
+    const hasSection = await basicSection.isVisible().catch(() => false);
     const hasMain = await mainContent.isVisible().catch(() => false);
 
-    expect(hasInput || hasMain).toBeTruthy();
+    expect(hasSection || hasMain).toBeTruthy();
   }
 }

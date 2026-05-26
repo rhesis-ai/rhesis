@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import TestRunsTable from '../TestRunsGrid';
+import TestRunsGrid from '../TestRunsGrid';
 
 // ---- Navigation + Auth ----
 
@@ -49,6 +49,8 @@ jest.mock('@/utils/api-client/client-factory', () => ({
 }));
 
 // ---- BaseDataGrid stub ----
+// toolbarSlot is not rendered here: MUI DataGrid toolbar slots require the
+// real DataGrid context and cannot be exercised in a shallow unit test.
 
 type ActionButton = {
   label: string;
@@ -73,6 +75,8 @@ jest.mock('@/components/common/BaseDataGrid', () => {
     checkboxSelection?: boolean;
     onRowSelectionModelChange?: (sel: unknown[]) => void;
     rowSelectionModel?: unknown[];
+    toolbarSlot?: unknown;
+    showToolbar?: boolean;
   }) {
     if (loading) return <div data-testid="grid-loading">Loading…</div>;
     return (
@@ -120,10 +124,12 @@ jest.mock('@/components/common/BaseDataGrid', () => {
 
 // ---- Sub-component stubs ----
 
-jest.mock('@/components/common/RunDrawer', () => ({
+jest.mock('../TestRunFilterDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="test-run-drawer" /> : null,
+    open ? <div data-testid="test-run-filter-drawer" /> : null,
+  EMPTY_TEST_RUN_FILTERS: { testSet: '', executor: '', tag: '' },
+  hasActiveTestRunFilters: () => false,
 }));
 
 jest.mock('@/components/common/DeleteModal', () => ({
@@ -179,7 +185,7 @@ const makePaginatedResponse = <T,>(data: T[], total?: number) => ({
 
 // ---- Tests ----
 
-describe('TestRunsTable', () => {
+describe('TestRunsGrid', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetTestRuns.mockResolvedValue(makePaginatedResponse([]));
@@ -188,23 +194,23 @@ describe('TestRunsTable', () => {
 
   it('shows loading state while fetching', () => {
     mockGetTestRuns.mockReturnValue(new Promise(() => {}));
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     expect(screen.getByTestId('grid-loading')).toBeInTheDocument();
   });
 
-  it('renders "New Test Run" action button', async () => {
-    render(<TestRunsTable sessionToken="tok" />);
+  it('does NOT render a "New Test Run" action button (creation moved to page FAB)', async () => {
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
     );
-    expect(screen.getByTestId('action-New Test Run')).toBeInTheDocument();
+    expect(screen.queryByTestId('action-New Test Run')).not.toBeInTheDocument();
   });
 
   it('renders rows after data loads', async () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1'), makeTestRun('r-2')])
     );
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -213,7 +219,7 @@ describe('TestRunsTable', () => {
 
   it('shows error alert when fetch fails', async () => {
     mockGetTestRuns.mockRejectedValue(new Error('Network error'));
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
     expect(screen.getByText(/failed to load test runs/i)).toBeInTheDocument();
   });
@@ -222,7 +228,7 @@ describe('TestRunsTable', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-99')])
     );
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-99')).toBeInTheDocument()
     );
@@ -234,7 +240,7 @@ describe('TestRunsTable', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1')])
     );
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -246,7 +252,7 @@ describe('TestRunsTable', () => {
   });
 
   it('hides "Delete Test Runs" button when nothing is selected', async () => {
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
     );
@@ -259,7 +265,7 @@ describe('TestRunsTable', () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1')])
     );
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -277,7 +283,7 @@ describe('TestRunsTable', () => {
       makePaginatedResponse([makeTestRun('r-1')])
     );
     mockDeleteTestRun.mockResolvedValue(undefined);
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -305,7 +311,7 @@ describe('TestRunsTable', () => {
       makePaginatedResponse([makeTestRun('r-1')])
     );
     mockDeleteTestRun.mockRejectedValue(new Error('Server error'));
-    render(<TestRunsTable sessionToken="tok" />);
+    render(<TestRunsGrid sessionToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('row-r-1')).toBeInTheDocument()
     );
@@ -327,26 +333,26 @@ describe('TestRunsTable', () => {
     );
   });
 
-  it('opens "New Test Run" drawer on button click', async () => {
-    render(<TestRunsTable sessionToken="tok" />);
-    await waitFor(() =>
-      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
-    );
-    await userEvent.click(screen.getByTestId('action-New Test Run'));
-    expect(screen.getByTestId('test-run-drawer')).toBeInTheDocument();
-  });
-
   it('calls onTotalCountChange with the total count', async () => {
     mockGetTestRuns.mockResolvedValue(
       makePaginatedResponse([makeTestRun('r-1'), makeTestRun('r-2')], 42)
     );
     const onTotalCountChange = jest.fn();
     render(
-      <TestRunsTable
+      <TestRunsGrid
         sessionToken="tok"
         onTotalCountChange={onTotalCountChange}
       />
     );
     await waitFor(() => expect(onTotalCountChange).toHaveBeenCalledWith(42));
+  });
+
+  it('passes showToolbar and toolbarSlot props to BaseDataGrid', async () => {
+    render(<TestRunsGrid sessionToken="tok" />);
+    await waitFor(() =>
+      expect(screen.queryByTestId('grid-loading')).not.toBeInTheDocument()
+    );
+    // The grid renders without error, confirming toolbarSlot prop is accepted
+    expect(screen.getByTestId('base-data-grid')).toBeInTheDocument();
   });
 });

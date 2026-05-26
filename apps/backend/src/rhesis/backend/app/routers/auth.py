@@ -435,7 +435,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
 
         # Capture values from pre-auth session before regeneration
         original_frontend = request.session.get("original_frontend")
-        return_to = request.session.get("return_to", "/dashboard")
+        return_to = request.session.get("return_to", "/architect")
 
         # Set up session and create tokens
         clear_user_logout(str(user.id))
@@ -1479,7 +1479,7 @@ async def demo_redirect(request: Request):
             request.session["original_frontend"] = origin
 
         callback_url = get_callback_url(request)
-        request.session["return_to"] = "/dashboard"
+        request.session["return_to"] = "/architect"
 
         if not os.getenv("AUTH0_DOMAIN"):
             raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")

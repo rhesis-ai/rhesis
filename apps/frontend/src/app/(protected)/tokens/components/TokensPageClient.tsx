@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
   Button,
@@ -13,14 +13,34 @@ import {
   IconButton,
   Alert,
 } from '@mui/material';
-import { GridPaginationModel } from '@mui/x-data-grid';
+import AddIcon from '@mui/icons-material/Add';
+import GridToolbar, {
+  ToolbarPillTabs,
+  directoryToolbarSx,
+} from '@/components/common/GridToolbar';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import TokensGrid from './TokensGrid';
 import CreateTokenModal from './CreateTokenModal';
+import TokenDisplay from './TokenDisplay';
+import TokenFilterDrawer, {
+  type TokenFilters,
+  type TokenStatusFilter,
+  EMPTY_TOKEN_FILTERS,
+  hasActiveTokenFilters,
+} from './TokenFilterDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Token, TokenResponse } from '@/utils/api-client/interfaces/token';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import TokenDisplay from './TokenDisplay';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { VpnKeyIcon } from '@/components/icons';
+
+const STATUS_OPTIONS: { value: TokenStatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'expired', label: 'Expired' },
+];
 
 interface TokensPageClientProps {
   sessionToken: string;
@@ -29,22 +49,33 @@ interface TokensPageClientProps {
 export default function TokensPageClient({
   sessionToken,
 }: TokensPageClientProps) {
+  // Data state
   const [tokens, setTokens] = useState<Token[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Modal/dialog state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newToken, setNewToken] = useState<TokenResponse | null>(null);
   const [refreshedToken, setRefreshedToken] = useState<TokenResponse | null>(
     null
   );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [deleteTokenId, setDeleteTokenId] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+
+  // Search & filter state
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<TokenStatusFilter>('all');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] =
+    useState<TokenFilters>(EMPTY_TOKEN_FILTERS);
+
+  // Pagination state (client-side)
+  const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 10,
   });
 
-  // Use a ref to store the tokens client to prevent recreation on each render
+  // Stable tokens client across renders
   const tokensClientRef = useRef(
     new ApiClientFactory(sessionToken).getTokensClient()
   );
@@ -53,26 +84,32 @@ export default function TokensPageClient({
     try {
       setLoading(true);
       setError(null);
-      const skip = paginationModel.page * paginationModel.pageSize;
+      // Pull a generous page so search/filter/pagination can work client-side.
+      // Tokens per user/org are typically far below 100.
       const response = await tokensClientRef.current.listTokens({
-        skip,
-        limit: paginationModel.pageSize,
+        skip: 0,
+        limit: 100,
         sort_by: 'created_at',
         sort_order: 'desc',
       });
-
       setTokens(response.data);
-      setTotalCount(response.pagination.totalCount);
-    } catch (error) {
-      setError((error as Error).message || 'Failed to load tokens');
+    } catch (err) {
+      setError((err as Error).message || 'Failed to load tokens');
       setTokens([]);
     } finally {
       setLoading(false);
     }
-  }, [paginationModel]);
+  }, []);
 
-  const handlePaginationModelChange = (newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
+  useEffect(() => {
+    loadTokens();
+  }, [loadTokens]);
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
+  const handleOpenCreateModal = () => {
+    setNewToken(null);
+    setIsCreateModalOpen(true);
   };
 
   const handleCreateToken = async (
@@ -84,26 +121,14 @@ export default function TokensPageClient({
         name,
         expiresInDays
       );
-      setNewToken({
-        ...response,
-        name,
-      });
+      setNewToken({ ...response, name });
       setIsCreateModalOpen(false);
       await loadTokens();
       return response;
-    } catch (error) {
-      setError((error as Error).message);
-      throw error;
+    } catch (err) {
+      setError((err as Error).message);
+      throw err;
     }
-  };
-
-  const handleCloseNewToken = () => {
-    setNewToken(null);
-  };
-
-  const handleOpenCreateModal = () => {
-    setNewToken(null);
-    setIsCreateModalOpen(true);
   };
 
   const handleRefreshToken = async (
@@ -115,10 +140,10 @@ export default function TokensPageClient({
         tokenId,
         expiresInDays
       );
-      await loadTokens(); // Reload tokens to get updated list
+      await loadTokens();
       setRefreshedToken(response);
-    } catch (error) {
-      setError((error as Error).message);
+    } catch (err) {
+      setError((err as Error).message);
     }
   };
 
@@ -127,42 +152,149 @@ export default function TokensPageClient({
   };
 
   const confirmDelete = async () => {
-    if (deleteTokenId) {
-      try {
-        await tokensClientRef.current.deleteToken(deleteTokenId);
-        await loadTokens();
-        setDeleteTokenId(null);
-      } catch (error) {
-        setError((error as Error).message);
-        setDeleteTokenId(null);
-      }
+    if (!deleteTokenId) return;
+    try {
+      await tokensClientRef.current.deleteToken(deleteTokenId);
+      await loadTokens();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setDeleteTokenId(null);
     }
   };
 
-  // Use useEffect with an empty dependency array to load tokens only once on mount
+  // ── Derived data ────────────────────────────────────────────────────────────
+
+  const isExpired = (token: Token) =>
+    Boolean(token.expires_at) && new Date(token.expires_at) <= new Date();
+
+  const filteredTokens = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return tokens.filter(token => {
+      // Search by name or obfuscated token
+      if (query) {
+        const nameMatch = token.name?.toLowerCase().includes(query);
+        const tokenMatch = token.token_obfuscated
+          ?.toLowerCase()
+          .includes(query);
+        if (!nameMatch && !tokenMatch) return false;
+      }
+
+      // Center pill: status filter
+      if (statusFilter === 'active' && isExpired(token)) return false;
+      if (statusFilter === 'expired' && !isExpired(token)) return false;
+
+      // Drawer: status (mirrors center pill, narrower)
+      if (drawerFilters.status === 'active' && isExpired(token)) return false;
+      if (drawerFilters.status === 'expired' && !isExpired(token)) return false;
+
+      // Drawer: usage
+      if (drawerFilters.usage === 'used' && !token.last_used_at) return false;
+      if (drawerFilters.usage === 'never_used' && token.last_used_at)
+        return false;
+
+      return true;
+    });
+  }, [tokens, search, statusFilter, drawerFilters]);
+
+  const hasActiveFilters =
+    search.trim() !== '' ||
+    statusFilter !== 'all' ||
+    hasActiveTokenFilters(drawerFilters);
+
+  // Clamp pagination when the filtered list shrinks
   useEffect(() => {
-    loadTokens();
-  }, [loadTokens]);
+    const lastPage = Math.max(
+      0,
+      Math.ceil(filteredTokens.length / paginationModel.pageSize) - 1
+    );
+    if (paginationModel.page > lastPage) {
+      setPaginationModel(prev => ({ ...prev, page: lastPage }));
+    }
+  }, [filteredTokens.length, paginationModel.page, paginationModel.pageSize]);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <Box>
+    <PageLayout
+      title="API Tokens"
+      description="Create API tokens to authenticate with the Rhesis SDK and programmatically manage your testing workflows from your code."
+      breadcrumbs={[]}
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="Create API token"
+            aria-label="Create API token"
+            onClick={handleOpenCreateModal}
+          />
+        </FabGroup>
+      }
+    >
+      <GridToolbar
+        searchQuery={search}
+        onSearchChange={v => {
+          setSearch(v);
+          setPaginationModel(prev => ({ ...prev, page: 0 }));
+        }}
+        searchPlaceholder="Search tokens…"
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveTokenFilters(drawerFilters)}
+        sx={directoryToolbarSx}
+        middleContent={
+          <ToolbarPillTabs
+            tabs={STATUS_OPTIONS}
+            activeValue={statusFilter}
+            onChange={v => {
+              setStatusFilter(v as TokenStatusFilter);
+              setPaginationModel(prev => ({ ...prev, page: 0 }));
+            }}
+          />
+        }
+      />
+
+      {/* Error state */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
-      <TokensGrid
-        tokens={tokens}
-        onRefreshToken={handleRefreshToken}
-        onDeleteToken={handleDeleteToken}
-        loading={loading}
-        onCreateToken={handleOpenCreateModal}
-        totalCount={totalCount}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-      />
+      {/* Empty state vs grid */}
+      {!loading && tokens.length === 0 ? (
+        <EntityEmptyState
+          icon={VpnKeyIcon}
+          title="No API tokens yet"
+          description="Create your first API token to start interacting with the Rhesis API. Tokens allow you to authenticate your applications and build powerful integrations."
+          actionLabel="Create API token"
+          onAction={handleOpenCreateModal}
+        />
+      ) : !loading && filteredTokens.length === 0 && hasActiveFilters ? (
+        <EntityEmptyState
+          icon={VpnKeyIcon}
+          title="No tokens match your filters"
+          description="Try adjusting your search or filters to find the tokens you're looking for."
+          actionLabel="Reset filters"
+          onAction={() => {
+            setSearch('');
+            setStatusFilter('all');
+            setDrawerFilters(EMPTY_TOKEN_FILTERS);
+          }}
+        />
+      ) : (
+        <TokensGrid
+          tokens={filteredTokens}
+          onRefreshToken={handleRefreshToken}
+          onDeleteToken={handleDeleteToken}
+          loading={loading}
+          totalCount={filteredTokens.length}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+        />
+      )}
 
+      {/* Modals & dialogs */}
       <CreateTokenModal
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -171,7 +303,7 @@ export default function TokensPageClient({
 
       <TokenDisplay
         open={newToken !== null}
-        onClose={handleCloseNewToken}
+        onClose={() => setNewToken(null)}
         token={newToken}
       />
 
@@ -201,9 +333,7 @@ export default function TokensPageClient({
               fullWidth
               value={refreshedToken?.access_token || ''}
               variant="outlined"
-              InputProps={{
-                readOnly: true,
-              }}
+              InputProps={{ readOnly: true }}
             />
             <IconButton
               onClick={async () => {
@@ -236,6 +366,16 @@ export default function TokensPageClient({
             : `Are you sure you want to delete this token? This action cannot be undone, and any applications using this token will no longer be able to authenticate.`
         }
       />
-    </Box>
+
+      <TokenFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={f => {
+          setDrawerFilters(f);
+          setPaginationModel(prev => ({ ...prev, page: 0 }));
+        }}
+      />
+    </PageLayout>
   );
 }

@@ -1,14 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Button } from '@mui/material';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
-import TestSetSelectionDialog from '../../components/TestSetSelectionDialog';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { TestSetsClient } from '@/utils/api-client/test-sets-client';
-import { useNotifications } from '@/components/common/NotificationContext';
 import TrialDrawer from '../../components/TrialDrawer';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { useRouter } from 'next/navigation';
 
 interface TestToTestSetProps {
   sessionToken: string;
@@ -21,82 +22,90 @@ export default function TestToTestSet({
   testId,
   parentButton,
 }: TestToTestSetProps) {
-  const [testSetDialogOpen, setTestSetDialogOpen] = React.useState(false);
-  const [trialDrawerOpen, setTrialDrawerOpen] = React.useState(false);
+  const router = useRouter();
   const notifications = useNotifications();
 
-  const handleTestSetSelect = async (testSet: TestSet) => {
-    if (!sessionToken) return;
-
-    try {
-      const testSetsClient = new TestSetsClient(sessionToken);
-      await testSetsClient.associateTestsWithTestSet(testSet.id, [testId]);
-
-      notifications.show(
-        `Successfully associated test with test set "${testSet.name}"`,
-        {
-          severity: 'success',
-          autoHideDuration: 6000,
-        }
-      );
-
-      setTestSetDialogOpen(false);
-    } catch (error) {
-      // Check if the error message contains our target string
-      const errorMessage = error instanceof Error ? error.message : '';
-      if (
-        errorMessage.includes(
-          'One or more tests are already associated with this test set'
-        )
-      ) {
-        notifications.show(
-          'One or more tests are already associated with this test set',
-          {
-            severity: 'warning',
-            autoHideDuration: 6000,
-          }
-        );
-      } else {
-        notifications.show('Failed to associate test with test set', {
-          severity: 'error',
-          autoHideDuration: 6000,
-        });
-      }
-    }
-  };
+  const [trialDrawerOpen, setTrialDrawerOpen] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isDuplicating, setIsDuplicating] = React.useState(false);
 
   const handleTrialSuccess = () => {
     setTrialDrawerOpen(false);
   };
 
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      await apiFactory.getTestsClient().deleteTest(testId);
+      notifications.show('Test deleted', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+      router.push('/tests');
+    } catch {
+      notifications.show('Failed to delete test', {
+        severity: 'error',
+        autoHideDuration: 6000,
+      });
+      setIsDeleting(false);
+    } finally {
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    setIsDuplicating(true);
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const testsClient = apiFactory.getTestsClient();
+      const original = await testsClient.getTest(testId);
+      const duplicate = await testsClient.createTest({
+        prompt_id: original.prompt_id,
+        behavior_id: original.behavior?.id,
+        topic_id: original.topic?.id,
+        category_id: original.category?.id,
+        priority: original.priority,
+        test_type_id: original.test_type?.id,
+      });
+      notifications.show('Test duplicated', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+      router.push(`/tests/${duplicate.id}`);
+    } catch {
+      notifications.show('Failed to duplicate test', {
+        severity: 'error',
+        autoHideDuration: 6000,
+      });
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
   return (
     <>
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+      <FabGroup>
         {parentButton}
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddToPhotosIcon />}
-          onClick={() => setTestSetDialogOpen(true)}
-        >
-          Assign to test set
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<PlayArrowIcon />}
+        <Fab
+          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+          tooltip="Delete test"
+          onClick={() => setDeleteDialogOpen(true)}
+          loading={isDeleting}
+        />
+        <Fab
+          icon={<FileCopyOutlinedIcon sx={{ fontSize: 28 }} />}
+          tooltip="Duplicate test"
+          onClick={handleDuplicate}
+          loading={isDuplicating}
+        />
+        <Fab
+          icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
+          tooltip="Run test"
           onClick={() => setTrialDrawerOpen(true)}
-        >
-          Run Test
-        </Button>
-      </Box>
-
-      <TestSetSelectionDialog
-        open={testSetDialogOpen}
-        onClose={() => setTestSetDialogOpen(false)}
-        onSelect={handleTestSetSelect}
-        sessionToken={sessionToken}
-      />
+        />
+      </FabGroup>
 
       <TrialDrawer
         open={trialDrawerOpen}
@@ -104,6 +113,15 @@ export default function TestToTestSet({
         sessionToken={sessionToken}
         testIds={[testId]}
         onSuccess={handleTrialSuccess}
+      />
+
+      <DeleteModal
+        open={deleteDialogOpen}
+        onClose={() => !isDeleting && setDeleteDialogOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        title="Delete test?"
+        message="This action cannot be undone. The test will be permanently removed."
       />
     </>
   );

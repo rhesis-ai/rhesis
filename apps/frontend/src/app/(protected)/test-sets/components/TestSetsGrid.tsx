@@ -1,48 +1,121 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useContext,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
   GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import { Box, Chip, Tooltip, Typography, Avatar } from '@mui/material';
+import { Box, Tooltip, Typography, Avatar, Alert, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import PersonIcon from '@mui/icons-material/Person';
+import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
-import AddIcon from '@mui/icons-material/Add';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import DeleteIcon from '@mui/icons-material/Delete';
-import PersonIcon from '@mui/icons-material/Person';
-import SecurityIcon from '@mui/icons-material/Security';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import TestSetDrawer from './TestSetDrawer';
 import RunDrawer from '@/components/common/RunDrawer';
-import GarakImportDialog from './GarakImportDialog';
-import FileImportDialog from './FileImportDialog';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
+import TestSetFilterDrawer, {
+  type TestSetFilters,
+  EMPTY_TEST_SET_FILTERS,
+  hasActiveTestSetFilters,
+} from './TestSetFilterDrawer';
+import { TEST_TYPES } from '@/constants/test-types';
+import GridBadge from '@/components/common/GridBadge';
+import { GREYSCALE } from '@/styles/theme';
 
 interface TestSetsGridProps {
-  testSets: TestSet[];
-  loading: boolean;
   sessionToken?: string;
-  initialTotalCount?: number;
+  refreshKey?: number;
+  onRefresh?: () => void;
 }
+
+// ─── Toolbar context ────────────────────────────────────────────────────────────
+
+interface TestSetsToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  typeFilter: string;
+  setTypeFilter: (v: string) => void;
+  openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
+}
+
+const TestSetsToolbarContext = React.createContext<TestSetsToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  typeFilter: 'all',
+  setTypeFilter: () => {},
+  openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
+});
+
+const PILL_TABS = [
+  { label: 'All', value: 'all' },
+  { label: 'Single Turn', value: TEST_TYPES.SINGLE_TURN },
+  { label: 'Multi Turn', value: TEST_TYPES.MULTI_TURN },
+];
+
+function TestSetsUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    typeFilter,
+    setTypeFilter,
+    openFilterDrawer,
+    hasActiveDrawerFilters,
+  } = useContext(TestSetsToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search test sets…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      middleContent={
+        <ToolbarPillTabs
+          tabs={PILL_TABS}
+          activeValue={typeFilter}
+          onChange={setTypeFilter}
+        />
+      }
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
+
+// ─── Helper: chip container for multi-value fields ──────────────────────────────
 
 const ChipContainer = ({ items }: { items: string[] }) => {
   if (items.length === 0) return '-';
 
-  // Simple approach: show first 2-3 chips and overflow
   const maxVisible = 3;
   const visibleItems = items.slice(0, maxVisible);
   const remainingCount = items.length - maxVisible;
@@ -58,11 +131,11 @@ const ChipContainer = ({ items }: { items: string[] }) => {
       }}
     >
       {visibleItems.map((item: string) => (
-        <Chip key={item} label={item} size="small" variant="outlined" />
+        <GridBadge key={item} label={item} />
       ))}
       {remainingCount > 0 && (
         <Tooltip title={items.slice(maxVisible).join(', ')} arrow>
-          <Chip label={`+${remainingCount}`} size="small" variant="outlined" />
+          <GridBadge label={`+${remainingCount}`} />
         </Tooltip>
       )}
     </Box>
@@ -70,18 +143,25 @@ const ChipContainer = ({ items }: { items: string[] }) => {
 };
 
 export default function TestSetsGrid({
-  testSets: initialTestSets,
-  loading: initialLoading,
-  sessionToken,
-  initialTotalCount,
+  sessionToken: sessionTokenProp,
+  refreshKey,
+  onRefresh,
 }: TestSetsGridProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const [loading, setLoading] = useState(initialLoading);
-  const [testSets, setTestSets] = useState<TestSet[]>(initialTestSets);
-  const [totalCount, setTotalCount] = useState<number>(
-    initialTotalCount || initialTestSets.length
-  );
+  const notifications = useNotifications();
+
+  const sessionToken = sessionTokenProp || session?.session_token || '';
+
+  // ── Search + type filter ────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+
+  // ── Core grid state ─────────────────────────────────────────────────────────
+  const [testSets, setTestSets] = useState<TestSet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -89,60 +169,145 @@ export default function TestSetsGrid({
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
   });
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+
+  // ── Drawer / dialog state (only what stays in the grid) ─────────────────────
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [garakImportDialogOpen, setGarakImportDialogOpen] = useState(false);
-  const [fileImportDialogOpen, setFileImportDialogOpen] = useState(false);
-  const notifications = useNotifications();
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] = useState<TestSetFilters>(
+    EMPTY_TEST_SET_FILTERS
+  );
 
-  // Set initial data from props
-  useEffect(() => {
-    if (initialTestSets.length > 0) {
-      setTestSets(initialTestSets);
-      setTotalCount(initialTotalCount || initialTestSets.length);
-    }
-  }, [initialTestSets, initialTotalCount]);
+  // ── Data fetching ────────────────────────────────────────────────────────────
 
   const fetchTestSets = useCallback(async () => {
-    if (!sessionToken && !session?.session_token) return;
+    if (!sessionToken) return;
 
     try {
       setLoading(true);
-
-      const token = sessionToken || session?.session_token;
-      if (!token) return;
-      const clientFactory = new ApiClientFactory(token);
+      const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
 
-      const skip = paginationModel.page * paginationModel.pageSize;
-      const limit = paginationModel.pageSize;
       const filterString = combineTestSetFiltersToOData(filterModel);
 
       const apiParams = {
-        skip,
-        limit,
+        skip: paginationModel.page * paginationModel.pageSize,
+        limit: paginationModel.pageSize,
         sort_by: 'created_at',
         sort_order: 'desc' as const,
         ...(filterString && { $filter: filterString }),
       };
 
       const response = await testSetsClient.getTestSets(apiParams);
-
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
-    } catch (_error) {
+      setError(null);
+    } catch {
+      setError('Failed to load test sets');
+      setTestSets([]);
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, session, paginationModel, filterModel]);
+  }, [sessionToken, paginationModel, filterModel]);
 
   useEffect(() => {
-    // Always fetch when pagination changes
     fetchTestSets();
-  }, [fetchTestSets, paginationModel.page, paginationModel.pageSize]);
+  }, [fetchTestSets]);
+
+  // Refetch when parent signals a refresh (after create/import)
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      fetchTestSets();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  // ── Sync searchQuery into filterModel ────────────────────────────────────────
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'quickFilter'
+      );
+      const items = searchQuery
+        ? [
+            ...otherItems,
+            { field: 'quickFilter', operator: 'contains', value: searchQuery },
+          ]
+        : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  // ── Sync typeFilter pill tab into filterModel ────────────────────────────────
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'testSetType'
+      );
+      const items =
+        typeFilter && typeFilter !== 'all'
+          ? [
+              ...otherItems,
+              {
+                field: 'testSetType',
+                operator: 'equals',
+                value: typeFilter,
+              },
+            ]
+          : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [typeFilter]);
+
+  // ── Sync drawer filters into filterModel ─────────────────────────────────────
+
+  useEffect(() => {
+    const DRAWER_FIELDS = ['testSetType', 'status.name', 'creator', 'tags'];
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      );
+      const drawerItems: typeof prev.items = [];
+      if (drawerFilters.testSetType) {
+        drawerItems.push({
+          field: 'testSetType',
+          operator: 'equals',
+          value: drawerFilters.testSetType,
+        });
+      }
+      if (drawerFilters.status) {
+        drawerItems.push({
+          field: 'status.name',
+          operator: 'contains',
+          value: drawerFilters.status,
+        });
+      }
+      if (drawerFilters.creator) {
+        drawerItems.push({
+          field: 'creator',
+          operator: 'contains',
+          value: drawerFilters.creator,
+        });
+      }
+      if (drawerFilters.tag) {
+        drawerItems.push({
+          field: 'tags',
+          operator: 'contains',
+          value: drawerFilters.tag,
+        });
+      }
+      return { ...prev, items: [...otherItems, ...drawerItems] };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [drawerFilters]);
+
+  // ── Pagination / filter handlers ─────────────────────────────────────────────
 
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
@@ -156,279 +321,49 @@ export default function TestSetsGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
-  // Process test sets for display
-  const processedTestSets = testSets.map(testSet => {
-    return {
-      id: testSet.id,
-      name: testSet.name,
-      testSetType: testSet.test_set_type?.type_value || 'Unknown',
-      behaviors: testSet.attributes?.metadata?.behaviors || [],
-      categories: testSet.attributes?.metadata?.categories || [],
-      totalTests: testSet.attributes?.metadata?.total_tests || 0,
-      creator: testSet.user,
-      counts: testSet.counts,
-      sources: testSet.attributes?.metadata?.sources || [],
-      tags: testSet.tags || [],
-      created_at: testSet.created_at,
-    };
-  });
+  // ── Row + selection handlers ─────────────────────────────────────────────────
 
-  const columns: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1.5,
-      filterable: true,
+  const handleRowClick = useCallback(
+    (params: GridRowParams) => {
+      router.push(`/test-sets/${params.id}`);
     },
-    {
-      field: 'behaviors',
-      headerName: 'Behaviors',
-      flex: 1.0,
-      renderCell: params => (
-        <ChipContainer items={params.row.behaviors || []} />
-      ),
+    [router]
+  );
+
+  const handleSelectionChange = useCallback(
+    (newSelection: GridRowSelectionModel) => {
+      setSelectedRows(newSelection);
     },
-    {
-      field: 'categories',
-      headerName: 'Categories',
-      flex: 1.0,
-      renderCell: params => (
-        <ChipContainer items={params.row.categories || []} />
-      ),
-    },
-    {
-      field: 'testSetType',
-      headerName: 'Type',
-      flex: 0.75,
-      filterable: true,
-      valueGetter: (_, row) => row.testSetType || '',
-      renderCell: params => (
-        <Chip label={params.value} size="small" variant="outlined" />
-      ),
-    },
-    {
-      field: 'created_at',
-      headerName: 'Created',
-      flex: 0.8,
-      minWidth: 120,
-      filterable: false,
-      renderCell: params => {
-        return (
-          <Typography variant="body2" color="text.secondary">
-            {formatDate(params.row.created_at)}
-          </Typography>
-        );
-      },
-    },
-    {
-      field: 'totalTests',
-      headerName: 'Tests',
-      flex: 0.5,
-      valueGetter: (_, row) => row.totalTests,
-    },
-    {
-      field: 'creator',
-      headerName: 'Creator',
-      flex: 0.75,
-      sortable: true,
-      filterable: true,
-      valueGetter: (_, row) =>
-        row.creator?.name ||
-        `${row.creator?.given_name || ''} ${row.creator?.family_name || ''}`.trim() ||
-        row.creator?.email ||
-        '',
-      renderCell: params => {
-        const creator = params.row.creator;
-        if (!creator) return '-';
+    []
+  );
 
-        const displayName =
-          creator.name ||
-          `${creator.given_name || ''} ${creator.family_name || ''}`.trim() ||
-          creator.email;
+  // ── Delete ───────────────────────────────────────────────────────────────────
 
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar src={creator.picture} sx={{ width: 24, height: 24 }}>
-              <PersonIcon />
-            </Avatar>
-            <Typography variant="body2">{displayName}</Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: 'counts.comments',
-      headerName: 'Comments',
-      width: 100,
-      sortable: false,
-      filterable: false,
-      renderCell: params => {
-        const count = params.row.counts?.comments || 0;
-        if (count === 0) return null;
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2">{count}</Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: 'counts.tasks',
-      headerName: 'Tasks',
-      width: 100,
-      sortable: false,
-      filterable: false,
-      renderCell: params => {
-        const count = params.row.counts?.tasks || 0;
-        if (count === 0) return null;
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2">{count}</Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: 'sources',
-      headerName: 'Sources',
-      width: 80,
-      sortable: false,
-      filterable: false,
-      align: 'center',
-      headerAlign: 'center',
-      renderCell: params => {
-        const sources = params.row.sources;
-        const count = sources?.length || 0;
-        if (count === 0) return null;
-        return (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 0.5,
-            }}
-          >
-            <InsertDriveFileOutlined
-              sx={{ fontSize: 16, color: 'text.secondary' }}
-            />
-            <Typography variant="body2">{count}</Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: 'tags',
-      headerName: 'Tags',
-      flex: 1.5,
-      minWidth: 140,
-      sortable: false,
-      filterable: true,
-      valueGetter: (_, row) =>
-        row.tags
-          ?.filter((tag: Tag) => tag?.name)
-          .map((tag: Tag) => tag.name)
-          .join(', ') ?? '',
-      renderCell: params => {
-        const testSet = params.row;
-        if (!testSet.tags || testSet.tags.length === 0) {
-          return null;
-        }
-
-        return (
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 0.5,
-              flexWrap: 'nowrap',
-              overflow: 'hidden',
-            }}
-          >
-            {testSet.tags
-              .filter((tag: Tag) => tag && tag.id && tag.name)
-              .slice(0, 2)
-              .map((tag: Tag) => (
-                <Chip
-                  key={tag.id}
-                  label={tag.name}
-                  size="small"
-                  variant="outlined"
-                />
-              ))}
-            {testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name)
-              .length > 2 && (
-              <Chip
-                label={`+${testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
-                size="small"
-                variant="outlined"
-              />
-            )}
-          </Box>
-        );
-      },
-    },
-  ];
-
-  const handleRowClick = (params: GridRowParams) => {
-    router.push(`/test-sets/${params.id}`);
-  };
-
-  const handleNewTestSet = () => {
-    setDrawerOpen(true);
-  };
-
-  const handleDrawerClose = () => {
-    setDrawerOpen(false);
-  };
-
-  const handleTestSetSaved = async () => {
-    fetchTestSets();
-  };
-
-  const handleSelectionChange = (newSelection: GridRowSelectionModel) => {
-    setSelectedRows(newSelection);
-  };
-
-  const handleRunTestSets = () => {
-    setTestRunDrawerOpen(true);
-  };
-
-  const handleTestRunSuccess = () => {
-    setTestRunDrawerOpen(false);
-    // Optionally refresh the test sets list if needed
-  };
-
-  const handleDeleteTestSets = () => {
+  const handleDeleteTestSets = useCallback(() => {
     setDeleteModalOpen(true);
-  };
+  }, []);
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (selectedRows.length === 0) return;
 
     try {
       setIsDeleting(true);
-      const token = sessionToken || session?.session_token;
-      if (!token) return;
-      const clientFactory = new ApiClientFactory(token);
+      const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
 
-      // Delete all selected test sets
       await Promise.all(
         selectedRows.map(id => testSetsClient.deleteTestSet(id as string))
       );
 
-      // Show success notification
       notifications.show(
         `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}`,
         { severity: 'success', autoHideDuration: 4000 }
       );
 
-      // Clear selection and refresh data
       setSelectedRows([]);
       fetchTestSets();
-    } catch (_error) {
+      onRefresh?.();
+    } catch {
       notifications.show('Failed to delete test sets', {
         severity: 'error',
         autoHideDuration: 6000,
@@ -437,103 +372,306 @@ export default function TestSetsGrid({
       setIsDeleting(false);
       setDeleteModalOpen(false);
     }
-  };
+  }, [selectedRows, sessionToken, notifications, fetchTestSets, onRefresh]);
 
-  const handleDeleteCancel = () => {
+  const handleDeleteCancel = useCallback(() => {
     setDeleteModalOpen(false);
-  };
+  }, []);
 
-  const handleFileImportSuccess = (_testSetId: string) => {
-    fetchTestSets();
-    notifications.show('Test set imported successfully from file', {
-      severity: 'success',
-    });
-  };
+  // ── Action buttons (selection-only) ─────────────────────────────────────────
 
-  const handleGarakImportSuccess = (testSetIds: string[]) => {
-    fetchTestSets();
-    const count = testSetIds.length;
-    notifications.show(
-      `${count} Garak ${count === 1 ? 'probe' : 'probes'} imported successfully`,
-      {
-        severity: 'success',
-        autoHideDuration: 6000,
-      }
-    );
-    // Navigate to the first test set if only one, otherwise stay on list
-    if (testSetIds.length === 1) {
-      router.push(`/test-sets/${testSetIds[0]}`);
-    }
-  };
+  const getActionButtons = useCallback(() => {
+    if (selectedRows.length === 0) return [];
 
-  const getActionButtons = () => {
-    const buttons: {
-      label: string;
-      icon: React.ReactNode;
-      variant: 'text' | 'outlined' | 'contained';
-      color?:
-        | 'inherit'
-        | 'primary'
-        | 'secondary'
-        | 'success'
-        | 'error'
-        | 'info'
-        | 'warning';
-      onClick: () => void;
-    }[] = [
+    return [
       {
-        label: 'New Test Set',
-        icon: <AddIcon />,
-        variant: 'contained' as const,
-        onClick: handleNewTestSet,
-      },
-      {
-        label: 'Import from File',
-        icon: <FileUploadIcon />,
-        variant: 'outlined' as const,
-        onClick: () => setFileImportDialogOpen(true),
-      },
-      {
-        label: 'Import from Garak',
-        icon: <SecurityIcon />,
-        variant: 'outlined' as const,
-        onClick: () => setGarakImportDialogOpen(true),
-      },
-    ];
-
-    if (selectedRows.length > 0) {
-      buttons.push({
         label: selectedRows.length > 1 ? 'Run Test Sets' : 'Run Test Set',
         icon: <PlayArrowIcon />,
         variant: 'contained' as const,
-        onClick: handleRunTestSets,
-      });
-
-      buttons.push({
+        onClick: () => setTestRunDrawerOpen(true),
+      },
+      {
         label: 'Delete Test Sets',
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
         color: 'error' as const,
         onClick: handleDeleteTestSets,
-      });
-    }
+      },
+    ];
+  }, [selectedRows.length, handleDeleteTestSets]);
 
-    return buttons;
-  };
+  // ── Column definitions ───────────────────────────────────────────────────────
+
+  const processedTestSets = useMemo(
+    () =>
+      testSets.map(testSet => ({
+        id: testSet.id,
+        name: testSet.name,
+        testSetType: testSet.test_set_type?.type_value || '',
+        behaviors: testSet.attributes?.metadata?.behaviors || [],
+        categories: testSet.attributes?.metadata?.categories || [],
+        totalTests: testSet.attributes?.metadata?.total_tests || 0,
+        creator: testSet.user,
+        counts: testSet.counts,
+        sources: testSet.attributes?.metadata?.sources || [],
+        tags: testSet.tags || [],
+        created_at: testSet.created_at,
+      })),
+    [testSets]
+  );
+
+  const columns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Name',
+        width: 200,
+        minWidth: 120,
+        resizable: true,
+        filterable: true,
+      },
+      {
+        field: 'behaviors',
+        headerName: 'Behaviors',
+        width: 160,
+        minWidth: 100,
+        resizable: true,
+        renderCell: params => (
+          <ChipContainer items={params.row.behaviors || []} />
+        ),
+      },
+      {
+        field: 'categories',
+        headerName: 'Categories',
+        width: 160,
+        minWidth: 100,
+        resizable: true,
+        renderCell: params => (
+          <ChipContainer items={params.row.categories || []} />
+        ),
+      },
+      {
+        field: 'testSetType',
+        headerName: 'Type',
+        width: 120,
+        minWidth: 90,
+        resizable: true,
+        filterable: true,
+        valueGetter: (_, row) => row.testSetType || '',
+        renderCell: params =>
+          params.value ? <GridBadge label={params.value} /> : null,
+      },
+      {
+        field: 'created_at',
+        headerName: 'Created',
+        width: 120,
+        minWidth: 100,
+        resizable: true,
+        filterable: false,
+        renderCell: params => (
+          <Typography variant="body2" color="text.secondary">
+            {formatDate(params.row.created_at)}
+          </Typography>
+        ),
+      },
+      {
+        field: 'totalTests',
+        headerName: 'Tests',
+        width: 80,
+        minWidth: 60,
+        resizable: true,
+        valueGetter: (_, row) => row.totalTests,
+      },
+      {
+        field: 'creator',
+        headerName: 'Creator',
+        width: 160,
+        minWidth: 120,
+        resizable: true,
+        sortable: true,
+        filterable: true,
+        valueGetter: (_, row) =>
+          row.creator?.name ||
+          `${row.creator?.given_name || ''} ${row.creator?.family_name || ''}`.trim() ||
+          row.creator?.email ||
+          '',
+        renderCell: params => {
+          const creator = params.row.creator;
+          if (!creator) return '-';
+
+          const displayName =
+            creator.name ||
+            `${creator.given_name || ''} ${creator.family_name || ''}`.trim() ||
+            creator.email;
+
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar src={creator.picture} sx={{ width: 24, height: 24 }}>
+                <PersonIcon />
+              </Avatar>
+              <Typography variant="body2">{displayName}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'counts.comments',
+        headerName: 'Comments',
+        width: 100,
+        minWidth: 80,
+        resizable: true,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const count = params.row.counts?.comments || 0;
+          if (count === 0) return null;
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'counts.tasks',
+        headerName: 'Tasks',
+        width: 100,
+        minWidth: 80,
+        resizable: true,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const count = params.row.counts?.tasks || 0;
+          if (count === 0) return null;
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'sources',
+        headerName: 'Sources',
+        width: 80,
+        minWidth: 60,
+        resizable: true,
+        sortable: false,
+        filterable: false,
+        align: 'center',
+        headerAlign: 'center',
+        renderCell: params => {
+          const sources = params.row.sources;
+          const count = sources?.length || 0;
+          if (count === 0) return null;
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+              }}
+            >
+              <InsertDriveFileOutlined
+                sx={{ fontSize: 16, color: 'text.secondary' }}
+              />
+              <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'tags',
+        headerName: 'Tags',
+        width: 180,
+        minWidth: 140,
+        resizable: true,
+        sortable: false,
+        filterable: true,
+        valueGetter: (_, row) =>
+          row.tags
+            ?.filter((tag: Tag) => tag?.name)
+            .map((tag: Tag) => tag.name)
+            .join(', ') ?? '',
+        renderCell: params => {
+          const testSet = params.row;
+          if (!testSet.tags || testSet.tags.length === 0) return null;
+
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                flexWrap: 'nowrap',
+                overflow: 'hidden',
+              }}
+            >
+              {testSet.tags
+                .filter((tag: Tag) => tag && tag.id && tag.name)
+                .slice(0, 2)
+                .map((tag: Tag) => (
+                  <Chip
+                    key={tag.id}
+                    label={tag.name}
+                    size="small"
+                    variant="filled"
+                    color="primary"
+                  />
+                ))}
+              {testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name)
+                .length > 2 && (
+                <Chip
+                  label={`+${testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
+                  size="small"
+                  variant="outlined"
+                />
+              )}
+            </Box>
+          );
+        },
+      },
+    ],
+    []
+  );
 
   return (
-    <>
+    <TestSetsToolbarContext.Provider
+      value={{
+        searchQuery,
+        setSearchQuery,
+        typeFilter,
+        setTypeFilter,
+        openFilterDrawer: () => setFilterDrawerOpen(true),
+        hasActiveDrawerFilters: hasActiveTestSetFilters(drawerFilters),
+      }}
+    >
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       {selectedRows.length > 0 && (
         <Box
           sx={{
-            mb: 2,
+            px: 2,
+            py: 1,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            gap: 2,
+            borderBottom: theme =>
+              `1px solid ${
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : GREYSCALE.dark.border
+              }`,
           }}
         >
           <Typography variant="subtitle1" color="primary">
-            {selectedRows.length} test sets selected
+            {selectedRows.length} selected
           </Typography>
         </Box>
       )}
@@ -558,6 +696,7 @@ export default function TestSetsGrid({
         serverSideFiltering={true}
         filterModel={filterModel}
         onFilterModelChange={handleFilterModelChange}
+        toolbarSlot={TestSetsUnifiedToolbar}
         disablePaperWrapper={true}
         persistState
         initialState={{
@@ -569,33 +708,16 @@ export default function TestSetsGrid({
         }}
       />
 
-      {(sessionToken || session?.session_token) && (
+      {/* Test Run Drawer */}
+      {sessionToken && (
         <>
-          <TestSetDrawer
-            open={drawerOpen}
-            onClose={handleDrawerClose}
-            sessionToken={sessionToken || session?.session_token || ''}
-            onSuccess={handleTestSetSaved}
-          />
           <RunDrawer
             mode="createFromGrid"
             open={testRunDrawerOpen}
             onClose={() => setTestRunDrawerOpen(false)}
-            sessionToken={sessionToken || session?.session_token || ''}
+            sessionToken={sessionToken}
             data={{ selectedTestSetIds: selectedRows as string[] }}
-            onSuccess={handleTestRunSuccess}
-          />
-          <FileImportDialog
-            open={fileImportDialogOpen}
-            onClose={() => setFileImportDialogOpen(false)}
-            sessionToken={sessionToken || session?.session_token || ''}
-            onSuccess={handleFileImportSuccess}
-          />
-          <GarakImportDialog
-            open={garakImportDialogOpen}
-            onClose={() => setGarakImportDialogOpen(false)}
-            sessionToken={sessionToken || session?.session_token || ''}
-            onSuccess={handleGarakImportSuccess}
+            onSuccess={() => setTestRunDrawerOpen(false)}
           />
           <DeleteModal
             open={deleteModalOpen}
@@ -608,6 +730,18 @@ export default function TestSetsGrid({
           />
         </>
       )}
-    </>
+
+      {/* Filter drawer */}
+      <TestSetFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={f => {
+          setDrawerFilters(f);
+          if (f.testSetType) setTypeFilter(f.testSetType);
+          else if (!drawerFilters.testSetType) setTypeFilter('all');
+        }}
+      />
+    </TestSetsToolbarContext.Provider>
   );
 }

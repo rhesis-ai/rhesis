@@ -5,35 +5,30 @@ import { confirmDeleteDialog } from '../helpers/CrudHelper';
 /**
  * CRUD interaction tests for Tasks.
  *
- * Covers: D4.3 (create task at /tasks/create), D4.5 (change status auto-save),
+ * Covers: D4.3 (create task via drawer on /tasks), D4.5 (change status auto-save),
  * D4.8 (select + bulk delete).
  */
 test.describe('Tasks — CRUD @crud', () => {
-  test('can create a task via /tasks/create', async ({ page }) => {
-    const UNIQUE_TITLE = `e2e-task-${Date.now()}`;
-
-    const tasksPage = new TasksPage(page);
-    await tasksPage.gotoCreate();
+  async function createTaskViaDrawer(
+    tasksPage: TasksPage,
+    page: import('@playwright/test').Page,
+    title: string
+  ): Promise<boolean> {
+    await tasksPage.goto();
+    await tasksPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    // Check we are on the create page — it should not be an error
-    await expect(page.locator('body')).not.toContainText(
-      'Internal Server Error'
-    );
-    await expect(page.locator('body')).not.toContainText('Application error');
+    await tasksPage.openCreateDrawer();
 
-    // Fill the title field
     const titleInput = page.getByRole('textbox', { name: /title/i }).first();
     const hasTitle = await titleInput
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
     if (!hasTitle) {
-      test.skip(true, 'Title input not found on /tasks/create — skipping');
-      return;
+      return false;
     }
-    await titleInput.fill(UNIQUE_TITLE);
+    await titleInput.fill(title);
 
-    // Fill description if available
     const descInput = page
       .getByRole('textbox', { name: /description/i })
       .first();
@@ -41,70 +36,70 @@ test.describe('Tasks — CRUD @crud', () => {
       await descInput.fill('Created by Playwright E2E test');
     }
 
-    // Submit
-    const saveBtn = page
-      .getByRole('button', { name: /save|create task|submit/i })
-      .first();
+    const saveBtn = page.getByRole('button', { name: /create task/i }).first();
     const hasSave = await saveBtn
       .isVisible({ timeout: 5_000 })
       .catch(() => false);
     if (!hasSave) {
-      test.skip(true, 'Save button not found on /tasks/create — skipping');
-      return;
+      return false;
     }
     await saveBtn.click();
 
-    // Wait for redirect away from /tasks/create (to the list or detail page).
-    // The plain pattern /\/tasks($|\/)/ would match /tasks/create immediately,
-    // causing the next goto('/tasks') to ERR_ABORTED during an ongoing redirect.
-    await page.waitForURL(url => !url.pathname.endsWith('/tasks/create'), {
-      timeout: 15_000,
-    });
+    await page.waitForLoadState('networkidle');
+    return true;
+  }
+
+  test('can create a task via the overview drawer', async ({ page }) => {
+    const UNIQUE_TITLE = `e2e-task-${Date.now()}`;
+    const tasksPage = new TasksPage(page);
+
+    const created = await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
+    if (!created) {
+      test.skip(true, 'Create drawer not available — skipping');
+      return;
+    }
+
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
+    await expect(page.locator('body')).not.toContainText('Application error');
   });
 
-  test('can change task status to In Progress on the detail page', async ({
+  test('legacy /tasks/create redirects and opens create flow', async ({
     page,
   }) => {
-    const UNIQUE_TITLE = `e2e-task-status-${Date.now()}`;
-
     const tasksPage = new TasksPage(page);
-
-    // --- Setup: create a task ---
     await tasksPage.gotoCreate();
-    await page.waitForLoadState('networkidle');
+
+    await expect(page).toHaveURL(/\/tasks/);
+    await expect(page).not.toHaveURL(/\/tasks\/create$/);
 
     const titleInput = page.getByRole('textbox', { name: /title/i }).first();
     const hasTitle = await titleInput
       .isVisible({ timeout: 10_000 })
       .catch(() => false);
     if (!hasTitle) {
-      test.skip(true, 'Title input not found — skipping status change test');
+      test.skip(true, 'Create drawer not opened after redirect — skipping');
       return;
     }
-    await titleInput.fill(UNIQUE_TITLE);
+  });
 
-    const saveBtn = page
-      .getByRole('button', { name: /save|create task|submit/i })
-      .first();
-    if (!(await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, 'Save button not found — skipping');
+  test('can change task status to In Progress on the detail page', async ({
+    page,
+  }) => {
+    const UNIQUE_TITLE = `e2e-task-status-${Date.now()}`;
+    const tasksPage = new TasksPage(page);
+
+    const created = await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
+    if (!created) {
+      test.skip(true, 'Could not create task — skipping status change test');
       return;
     }
-    await saveBtn.click();
-    await page.waitForURL(url => !url.pathname.endsWith('/tasks/create'), {
-      timeout: 15_000,
-    });
-    await page.waitForLoadState('networkidle');
 
-    // --- Navigate to the task detail page ---
     await tasksPage.goto();
     await tasksPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    // Click the row with our task title
     const taskRow = page.locator('[role="row"]', { hasText: UNIQUE_TITLE });
     const rowVisible = await taskRow
       .isVisible({ timeout: 10_000 })
@@ -118,7 +113,6 @@ test.describe('Tasks — CRUD @crud', () => {
     }
     await taskRow.click();
 
-    // On the detail page, find the Status dropdown
     await page.waitForURL(/\/tasks\/.+/, { timeout: 10_000 });
     await page.waitForLoadState('networkidle');
 
@@ -134,7 +128,6 @@ test.describe('Tasks — CRUD @crud', () => {
       return;
     }
 
-    // Change status to "In Progress"
     await statusSelect.click();
     const inProgressOption = page
       .getByRole('option', { name: /in progress/i })
@@ -149,7 +142,6 @@ test.describe('Tasks — CRUD @crud', () => {
     }
     await inProgressOption.click();
 
-    // The page should not crash after auto-save
     await page.waitForLoadState('networkidle');
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
@@ -158,49 +150,24 @@ test.describe('Tasks — CRUD @crud', () => {
 
   test('can bulk-delete tasks via the grid selection', async ({ page }) => {
     const UNIQUE_TITLE = `e2e-task-del-${Date.now()}`;
-
     const tasksPage = new TasksPage(page);
 
-    // --- Setup: create a task to delete ---
-    await tasksPage.gotoCreate();
-    await page.waitForLoadState('networkidle');
-
-    const titleInput = page.getByRole('textbox', { name: /title/i }).first();
-    const hasTitle = await titleInput
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasTitle) {
-      test.skip(true, 'Title input not found — skipping bulk delete test');
+    const created = await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
+    if (!created) {
+      test.skip(true, 'Could not create task — skipping bulk delete test');
       return;
     }
-    await titleInput.fill(UNIQUE_TITLE);
 
-    const saveBtn = page
-      .getByRole('button', { name: /save|create task|submit/i })
-      .first();
-    if (!(await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, 'Save button not found — skipping');
-      return;
-    }
-    await saveBtn.click();
-    await page.waitForURL(url => !url.pathname.endsWith('/tasks/create'), {
-      timeout: 15_000,
-    });
-
-    // Navigate to the tasks list
     await tasksPage.goto();
     await tasksPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    // Verify the task exists
     await expect(page.getByText(UNIQUE_TITLE).first()).toBeVisible({
       timeout: 15_000,
     });
 
-    // Select the row via its checkbox
     await tasksPage.selectRowByText(UNIQUE_TITLE);
 
-    // A delete button should appear in the toolbar
     const deleteBtn = page.getByRole('button', { name: /delete/i }).first();
     const hasDelete = await deleteBtn
       .isVisible({ timeout: 5_000 })
@@ -217,7 +184,6 @@ test.describe('Tasks — CRUD @crud', () => {
     await confirmDeleteDialog(page);
     await page.waitForLoadState('networkidle');
 
-    // The row should be gone
     const gone = await tasksPage.rowIsGone(UNIQUE_TITLE);
     expect(gone, `Expected task "${UNIQUE_TITLE}" to be removed`).toBeTruthy();
   });

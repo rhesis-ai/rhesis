@@ -164,7 +164,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     if (!checkTerms()) return;
 
     const searchParams = new URLSearchParams(window.location.search);
-    const returnTo = searchParams.get('return_to') || '/dashboard';
+    const returnTo = searchParams.get('return_to') || '/architect';
 
     if (provider.login_url) {
       const loginUrl = new URL(provider.login_url, getClientApiBaseUrl());
@@ -256,7 +256,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
         // Redirect to dashboard or return_to URL
         const searchParams = new URLSearchParams(window.location.search);
-        const returnTo = searchParams.get('return_to') || '/dashboard';
+        const returnTo = searchParams.get('return_to') || '/architect';
         window.location.href = returnTo;
       }
     } catch (err) {

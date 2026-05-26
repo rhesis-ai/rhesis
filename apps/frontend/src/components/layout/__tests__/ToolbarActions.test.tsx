@@ -3,10 +3,6 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ToolbarActions from '../ToolbarActions';
 
-jest.mock('@toolpad/core/Account', () => ({
-  Account: () => <div data-testid="account" />,
-}));
-
 jest.mock('@/components/common/ThemeToggle', () => ({
   __esModule: true,
   default: () => <button data-testid="theme-toggle">Theme</button>,
@@ -32,12 +28,6 @@ describe('ToolbarActions', () => {
     mockShouldShowGitInfo.mockReturnValue(false);
     render(<ToolbarActions />);
     expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
-  });
-
-  it('renders the Account component', () => {
-    mockShouldShowGitInfo.mockReturnValue(false);
-    render(<ToolbarActions />);
-    expect(screen.getByTestId('account')).toBeInTheDocument();
   });
 
   it('renders AppVersion when shouldShowGitInfo returns true', () => {

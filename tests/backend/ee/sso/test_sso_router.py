@@ -23,10 +23,10 @@ class TestValidateReturnTo:
         return _validate_return_to(val)
 
     def test_none_defaults_to_dashboard(self):
-        assert self._validate(None) == "/dashboard"
+        assert self._validate(None) == "/architect"
 
     def test_empty_defaults_to_dashboard(self):
-        assert self._validate("") == "/dashboard"
+        assert self._validate("") == "/architect"
 
     def test_valid_relative_path(self):
         assert self._validate("/settings") == "/settings"
@@ -35,28 +35,28 @@ class TestValidateReturnTo:
         assert self._validate("/org/settings/sso") == "/org/settings/sso"
 
     def test_absolute_http_blocked(self):
-        assert self._validate("http://evil.com") == "/dashboard"
+        assert self._validate("http://evil.com") == "/architect"
 
     def test_absolute_https_blocked(self):
-        assert self._validate("https://evil.com/foo") == "/dashboard"
+        assert self._validate("https://evil.com/foo") == "/architect"
 
     def test_protocol_relative_blocked(self):
-        assert self._validate("//evil.com") == "/dashboard"
+        assert self._validate("//evil.com") == "/architect"
 
     def test_javascript_scheme_blocked(self):
-        assert self._validate("javascript:alert(1)") == "/dashboard"
+        assert self._validate("javascript:alert(1)") == "/architect"
 
     def test_data_scheme_blocked(self):
-        assert self._validate("data:text/html,<h1>x</h1>") == "/dashboard"
+        assert self._validate("data:text/html,<h1>x</h1>") == "/architect"
 
     def test_backslash_blocked(self):
-        assert self._validate("\\\\evil.com") == "/dashboard"
+        assert self._validate("\\\\evil.com") == "/architect"
 
     def test_encoded_double_slash_blocked(self):
-        assert self._validate("/%2f/evil.com") == "/dashboard"
+        assert self._validate("/%2f/evil.com") == "/architect"
 
     def test_double_encoded_blocked(self):
-        assert self._validate("/%252f%252fevil.com") == "/dashboard"
+        assert self._validate("/%252f%252fevil.com") == "/architect"
 
 
 # ---------------------------------------------------------------------------

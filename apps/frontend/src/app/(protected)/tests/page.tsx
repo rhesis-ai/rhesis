@@ -6,10 +6,15 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import { useSession } from 'next-auth/react';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import AddIcon from '@mui/icons-material/Add';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { ScienceIcon } from '@/components/icons';
 import TestsGrid from './components/TestsGrid';
-import TestCharts from './components/TestCharts';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestTypeSelectionScreen from './new-generated/components/TestTypeSelectionScreen';
@@ -24,11 +29,10 @@ export default function TestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
-  const [_testCount, setTestCount] = React.useState(0);
+  const [testCount, setTestCount] = React.useState<number | null>(null);
   const [showTestTypeModal, setShowTestTypeModal] = React.useState(false);
   const [selectedTestType, setSelectedTestType] =
     React.useState<TestType | null>(null);
-  const [chartsLoaded, setChartsLoaded] = React.useState(false);
   const {
     markStepComplete: _markStepComplete,
     progress: _progress,
@@ -50,16 +54,15 @@ export default function TestsPage() {
   // Disable "Add Tests" button ONLY when user is actively on a tour OTHER than testCases
   const shouldDisableAddButton = activeTour !== null && !isOnTestCasesTour;
 
-  // Start tour only after charts are loaded
+  // Start tour after a short delay to ensure the page is rendered
   React.useEffect(() => {
-    if (tourParam === 'testCases' && chartsLoaded) {
-      // Small additional delay to ensure button is positioned correctly
+    if (tourParam === 'testCases') {
       const timeout = setTimeout(() => {
         startTour('testCases');
       }, 300);
       return () => clearTimeout(timeout);
     }
-  }, [tourParam, chartsLoaded, startTour]);
+  }, [tourParam, startTour]);
 
   // No auto-close logic needed - tour handles modal closing
 
@@ -98,10 +101,6 @@ export default function TestsPage() {
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
-  }, []);
-
-  const handleChartsLoaded = React.useCallback(() => {
-    setChartsLoaded(true);
   }, []);
 
   const handleOpenModal = React.useCallback(() => {
@@ -176,47 +175,79 @@ export default function TestsPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer title="Tests" breadcrumbs={[]}>
+      <PageLayout title="Tests" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   // Handle no session state
   if (!session?.session_token) {
     return (
-      <PageContainer title="Tests" breadcrumbs={[]}>
+      <PageLayout title="Tests" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">No session token available</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
     <>
-      <PageContainer title="Tests" breadcrumbs={[]}>
-        {/* Charts Section */}
-        <TestCharts
-          sessionToken={session.session_token}
-          key={`charts-${refreshKey}`}
-          onLoadComplete={handleChartsLoaded}
-        />
-
-        {/* Table Section */}
-        <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
-          <Box sx={{ p: 2 }}>
-            <TestsGrid
-              sessionToken={session.session_token}
-              onRefresh={handleRefresh}
-              onNewTest={handleOpenModal}
-              disableAddButton={shouldDisableAddButton}
+      <PageLayout
+        title="Tests"
+        description="Individual test cases that evaluate your AI endpoints for quality, safety, and reliability."
+        breadcrumbs={[]}
+        actions={
+          <FabGroup>
+            <Fab
+              icon={<DownloadOutlinedIcon />}
+              tooltip="Import tests"
+              onClick={() => {}}
             />
-          </Box>
-        </Paper>
-      </PageContainer>
+            <Fab
+              icon={<AddIcon />}
+              tooltip="New Test"
+              onClick={handleOpenModal}
+              disabled={shouldDisableAddButton}
+            />
+          </FabGroup>
+        }
+      >
+        {/* Table Section */}
+        <Box sx={{ mt: 2, mb: 2 }}>
+          {testCount === 0 ? (
+            <EntityEmptyState
+              icon={ScienceIcon}
+              title="No test yet"
+              description="Create your first test to start evaluating your AI endpoints. Tests let you measure quality, safety, and reliability across single-turn and multi-turn interactions."
+              actionLabel="Create test"
+              onAction={handleOpenModal}
+              actionDisabled={shouldDisableAddButton}
+            />
+          ) : (
+            <Paper
+              sx={{
+                width: '100%',
+                borderRadius: BORDER_RADIUS.md,
+                boxShadow: ELEVATION.xs,
+                border: theme =>
+                  `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+                overflow: 'hidden',
+              }}
+            >
+              <TestsGrid
+                sessionToken={session.session_token}
+                onRefresh={handleRefresh}
+                onNewTest={handleOpenModal}
+                disableAddButton={shouldDisableAddButton}
+              />
+            </Paper>
+          )}
+        </Box>
+      </PageLayout>
 
       {/* Test Creation Modals - Step 1: Test Type Selection */}
       {!selectedTestType && (

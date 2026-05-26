@@ -23,11 +23,13 @@ import {
   StandardTextFieldProps,
   InputLabelProps,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
+import { editableTagChipSx } from '@/components/common/editableTagChipSx';
 
 // Type definitions
 interface TaggableEntity {
@@ -376,10 +378,11 @@ export default function BaseTag({
   const _isTagInputDisabled =
     disabled || (maxTags !== undefined && localTags.length >= maxTags);
 
-  // Combine default and custom InputLabelProps
+  // Label always floats to the top border — the field contains chips and a
+  // text cursor, so the label must never overlap the content area.
   const inputLabelProps: InputLabelProps = {
     ...customInputLabelProps,
-    shrink: focused || !!inputValue || localTags.length > 0,
+    shrink: true,
   };
 
   return (
@@ -415,9 +418,10 @@ export default function BaseTag({
               key={option}
               label={option}
               color={chipColor}
-              variant="outlined"
               disabled={disabled}
               className={chipClassName || styles.baseTag}
+              sx={editableTagChipSx}
+              deleteIcon={<CloseIcon fontSize="small" />}
               onDelete={
                 !disabled && !disableEdition
                   ? () => handleDeleteTag(option)

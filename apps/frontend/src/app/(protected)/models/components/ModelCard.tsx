@@ -1,23 +1,12 @@
 import React from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  IconButton,
-  Chip,
-  Tooltip,
-  Button,
-} from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { Box, Chip, Tooltip, Button } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import EditIcon from '@mui/icons-material/Edit';
-import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import WarningIcon from '@mui/icons-material/Warning';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SendIcon from '@mui/icons-material/Send';
-import { DeleteIcon, AddIcon } from '@/components/icons';
+import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { PROVIDER_ICONS } from '@/config/model-providers';
@@ -28,8 +17,10 @@ interface ConnectedModelCardProps {
   userSettings?: UserSettings | null;
   isVerified?: boolean;
   validationStatus?: ValidationStatus;
-  onEdit: (model: Model, e: React.MouseEvent) => void;
-  onDelete: (model: Model, e: React.MouseEvent) => void;
+  /** Opens the edit connection dialog when the card is clicked */
+  onCardClick?: (model: Model) => void;
+  /** Called when delete is confirmed — EntityCard handles stopPropagation internally */
+  onDelete: (model: Model) => void;
   onRequestAccess?: (model: Model) => void;
 }
 
@@ -38,11 +29,12 @@ export function ConnectedModelCard({
   userSettings,
   isVerified = false,
   validationStatus,
-  onEdit,
+  onCardClick,
   onDelete,
   onRequestAccess,
 }: ConnectedModelCardProps) {
-  // Check if this model is set as default for generation, evaluation, or embedding
+  const theme = useTheme();
+
   const isGenerationDefault =
     userSettings?.models?.generation?.model_id === model.id;
   const isEvaluationDefault =
@@ -62,256 +54,108 @@ export function ConnectedModelCard({
     !validationStatus.isValid &&
     !validationStatus.isValidating;
 
-  // Check if this is the Polyphemus model
   const isPolyphemus =
     model.provider_type?.type_value === 'polyphemus' ||
     model.icon === 'polyphemus' ||
     model.name?.toLowerCase().includes('polyphemus');
 
-  // Determine Polyphemus access state
   const polyphemusAccess = userSettings?.polyphemus_access;
-
-  // Show restricted state for Polyphemus if not verified
   const showPolyphemusRestricted = isPolyphemus && !isVerified;
 
-  // Show "Request Submitted" if:
-  // - Request has been made (requested_at exists)
-  // - User is not yet verified
-  // - Either no revocation, OR request was made after revocation (user requested again)
   const hasRequestedAccess =
     !!polyphemusAccess?.requested_at &&
     !isVerified &&
     (!polyphemusAccess?.revoked_at ||
       polyphemusAccess.requested_at > polyphemusAccess.revoked_at);
 
-  const card = (
-    <Card
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        ...(showValidationError && {
-          borderColor: 'warning.main',
-          borderWidth: 1,
-          borderStyle: 'solid',
-        }),
-      }}
+  // Chip sections
+  const chipSections: ChipSection[] = [];
+
+  if (model.model_name) {
+    chipSections.push({
+      label: 'Model',
+      chips: [{ key: 'model-name', label: model.model_name }],
+    });
+  }
+
+  if (isAnyDefault) {
+    const defaultChips = [
+      isGenerationDefault ? { key: 'gen', label: 'Generation' } : null,
+      isEvaluationDefault ? { key: 'eval', label: 'Evaluation' } : null,
+      isExecutionDefault ? { key: 'exec', label: 'Execution' } : null,
+      isEmbeddingDefault ? { key: 'embed', label: 'Embedding' } : null,
+    ].filter((c): c is { key: string; label: string } => c !== null);
+
+    chipSections.push({
+      label: 'Default for',
+      chips: defaultChips,
+    });
+  }
+
+  // Footer: Polyphemus access button + "Access Required" badge (only when restricted)
+  const footer = showPolyphemusRestricted ? (
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+      onClick={e => e.stopPropagation()}
     >
-      <CardContent
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          pb: 2,
-          pt: 3,
-        }}
-      >
-        {/* Action buttons */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: theme => theme.spacing(1),
-            right: theme => theme.spacing(1),
-            display: 'flex',
-            gap: theme => theme.spacing(0.5),
-            zIndex: 1,
-          }}
+      {onRequestAccess && (
+        <Button
+          variant="outlined"
+          size="small"
+          fullWidth
+          disabled={hasRequestedAccess}
+          onClick={() => onRequestAccess(model)}
+          color={hasRequestedAccess ? 'info' : 'primary'}
+          startIcon={hasRequestedAccess ? <SendIcon /> : <VpnKeyIcon />}
         >
-          {/* Hide edit button for Polyphemus until access is granted */}
-          {!showPolyphemusRestricted && (
-            <IconButton
-              size="small"
-              onClick={e => onEdit(model, e)}
-              sx={{
-                padding: '2px',
-                '& .MuiSvgIcon-root': {
-                  fontSize: theme =>
-                    theme?.typography?.helperText?.fontSize || '0.75rem',
-                  color: 'currentColor',
-                },
-              }}
-            >
-              <EditIcon fontSize="inherit" />
-            </IconButton>
-          )}
-          {!model.is_protected && (
-            <IconButton
-              size="small"
-              onClick={e => onDelete(model, e)}
-              sx={{
-                padding: '2px',
-                '& .MuiSvgIcon-root': {
-                  fontSize: theme =>
-                    theme?.typography?.helperText?.fontSize || '0.75rem',
-                  color: 'currentColor',
-                },
-              }}
-            >
-              <DeleteIcon fontSize="inherit" />
-            </IconButton>
-          )}
-        </Box>
+          {hasRequestedAccess ? 'Request Submitted' : 'Request Access'}
+        </Button>
+      )}
 
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-            <Box
-              sx={{
-                mr: 1.5,
-                display: 'flex',
-                alignItems: 'center',
-                color: 'primary.main',
-              }}
-            >
-              {PROVIDER_ICONS[model.icon || 'custom'] || <SmartToyIcon />}
-            </Box>
-            <Typography
-              variant="subtitle1"
-              component="div"
-              sx={{
-                fontWeight: 500,
-                lineHeight: 1.2,
-              }}
-            >
-              {model.name}
-            </Typography>
-            {showValidationError && (
-              <WarningIcon
-                sx={{
-                  ml: 1,
-                  fontSize: theme => theme.iconSizes.small,
-                  color: 'warning.main',
-                }}
-              />
-            )}
-          </Box>
+      <Chip
+        icon={<CloseIcon />}
+        label="Access Required"
+        size="small"
+        variant="outlined"
+        sx={{
+          width: '100%',
+          color: 'warning.main',
+          borderColor: 'warning.main',
+          '& .MuiChip-icon': { color: 'warning.main', opacity: 0.7 },
+        }}
+      />
+    </Box>
+  ) : undefined;
 
-          {/* Model description and details */}
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 'auto', minHeight: '2.5em' }}
-          >
-            {model.description}
-          </Typography>
-        </Box>
+  const topRightActions = showValidationError ? (
+    <WarningIcon sx={{ fontSize: 16, color: 'warning.main', flexShrink: 0 }} />
+  ) : undefined;
 
-        <Box sx={{ mt: 2 }}>
-          {/* Default indicator */}
-          {isAnyDefault && (
-            <Typography
-              variant="caption"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                mb: 0.5,
-                fontWeight: 500,
-                color: 'primary.main',
-              }}
-            >
-              <BookmarkBorderIcon
-                sx={{
-                  fontSize: theme => theme?.typography?.caption?.fontSize,
-                }}
-              />
-              <Box component="span">
-                Default:{' '}
-                {[
-                  isGenerationDefault && 'Generation',
-                  isEvaluationDefault && 'Evaluation',
-                  isExecutionDefault && 'Execution',
-                  isEmbeddingDefault && (
-                    <Tooltip
-                      key="embedding-default"
-                      title="Platform-managed; cannot be changed in settings"
-                    >
-                      <Box component="span">Embedding</Box>
-                    </Tooltip>
-                  ),
-                ]
-                  .filter(Boolean)
-                  .map((part, index) => (
-                    <React.Fragment
-                      key={
-                        typeof part === 'string' ? part : 'embedding-default'
-                      }
-                    >
-                      {index > 0 && ' & '}
-                      {part}
-                    </React.Fragment>
-                  ))}
-              </Box>
-            </Typography>
-          )}
+  const providerIcon = PROVIDER_ICONS[model.icon || 'custom'] ?? (
+    <SmartToyIcon />
+  );
 
-          {/* Model name */}
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              display: 'block',
-              mb: 1.5,
-              minHeight: '1.5em',
-            }}
-          >
-            Model: {model.model_name}
-          </Typography>
+  // Resolve warning color to a real CSS value for EntityCard's border template string
+  const warningBorderColor = showValidationError
+    ? theme.palette.warning.main
+    : undefined;
 
-          {/* Request Access button for Polyphemus */}
-          {showPolyphemusRestricted && onRequestAccess && (
-            <Button
-              variant="outlined"
-              size="small"
-              fullWidth
-              disabled={hasRequestedAccess}
-              onClick={() => onRequestAccess(model)}
-              color={hasRequestedAccess ? 'info' : 'primary'}
-              startIcon={hasRequestedAccess ? <SendIcon /> : <VpnKeyIcon />}
-              sx={{ mb: 1.5 }}
-            >
-              {hasRequestedAccess ? 'Request Submitted' : 'Request Access'}
-            </Button>
-          )}
-
-          {/* Connected status or System badge */}
-          <Chip
-            icon={
-              showPolyphemusRestricted ? <CloseIcon /> : <CheckCircleIcon />
-            }
-            label={
-              showPolyphemusRestricted
-                ? 'Access Required'
-                : model.is_protected
-                  ? 'Rhesis Managed'
-                  : 'Connected'
-            }
-            size="small"
-            variant="outlined"
-            sx={{
-              width: '100%',
-              color: showPolyphemusRestricted
-                ? 'warning.main'
-                : 'text.secondary',
-              borderColor: showPolyphemusRestricted
-                ? 'warning.main'
-                : model.is_protected
-                  ? 'info.main'
-                  : 'divider',
-              '& .MuiChip-icon': {
-                color: showPolyphemusRestricted
-                  ? 'warning.main'
-                  : model.is_protected
-                    ? 'info.main'
-                    : 'primary.main',
-                opacity: 0.7,
-              },
-            }}
-          />
-        </Box>
-      </CardContent>
-    </Card>
+  const card = (
+    <EntityCard
+      icon={providerIcon}
+      title={model.name}
+      description={model.description}
+      onClick={
+        !showPolyphemusRestricted && onCardClick
+          ? () => onCardClick(model)
+          : undefined
+      }
+      onDelete={!model.is_protected ? () => onDelete(model) : undefined}
+      topRightActions={topRightActions}
+      chipSections={chipSections}
+      footer={footer}
+      borderColor={warningBorderColor}
+    />
   );
 
   if (showValidationError) {
@@ -324,107 +168,10 @@ export function ConnectedModelCard({
         placement="top"
         arrow
       >
-        {card}
+        <Box sx={{ height: '100%' }}>{card}</Box>
       </Tooltip>
     );
   }
 
   return card;
-}
-
-interface AddModelCardProps {
-  onClick: () => void;
-}
-
-export function AddModelCard({ onClick }: AddModelCardProps) {
-  return (
-    <Card
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        bgcolor: 'action.hover',
-        cursor: 'pointer',
-        transition: 'all 0.2s',
-        '&:hover': {
-          bgcolor: 'action.selected',
-          transform: 'translateY(-2px)',
-        },
-      }}
-      onClick={onClick}
-    >
-      <CardContent
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          pb: 2,
-          pt: 3,
-        }}
-      >
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-            <Box
-              sx={{
-                mr: 1.5,
-                display: 'flex',
-                alignItems: 'center',
-                color: 'primary.main',
-              }}
-            >
-              <AddIcon />
-            </Box>
-            <Typography
-              variant="subtitle1"
-              component="div"
-              sx={{
-                fontWeight: 500,
-                lineHeight: 1.2,
-              }}
-            >
-              Add Model
-            </Typography>
-          </Box>
-
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 'auto', minHeight: '2.5em' }}
-          >
-            Connect a new model
-          </Typography>
-        </Box>
-
-        <Box sx={{ mt: 2 }}>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              display: 'block',
-              mb: 1.5,
-              minHeight: '1.5em',
-            }}
-          >
-            {/* Empty space for alignment */}
-          </Typography>
-
-          <Chip
-            icon={<AddIcon />}
-            label="New"
-            size="small"
-            variant="outlined"
-            sx={{
-              width: '100%',
-              '& .MuiChip-icon': {
-                color: 'text.secondary',
-              },
-              borderColor: 'divider',
-              color: 'text.secondary',
-            }}
-          />
-        </Box>
-      </CardContent>
-    </Card>
-  );
 }

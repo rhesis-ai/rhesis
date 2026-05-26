@@ -25,8 +25,8 @@ def build_redirect_url(request, session_token, refresh_token=None):
         # Clean up session
         request.session.pop("original_frontend", None)
 
-    # Get return_to path from session or default to dashboard
-    return_to = request.session.get("return_to", "/dashboard")
+    # Get return_to path from session or default to architect
+    return_to = request.session.get("return_to", "/architect")
     request.session.pop("return_to", None)
 
     # Parse return_to if it's a full URL and extract just the path
