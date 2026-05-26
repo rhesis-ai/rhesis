@@ -7,6 +7,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -70,14 +71,16 @@ export default function EndpointFilterDrawer({
   hideProjectFilter = false,
 }: EndpointFilterDrawerProps) {
   const { data: session } = useSession();
-  const [draft, setDraft] = React.useState<EndpointFilters>(filters);
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_ENDPOINT_FILTERS,
+    onApply,
+    onClose
+  );
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [statuses, setStatuses] = React.useState<Status[]>([]);
   const [loadingOptions, setLoadingOptions] = React.useState(false);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
 
   React.useEffect(() => {
     const sessionToken = session?.session_token;
@@ -119,13 +122,6 @@ export default function EndpointFilterDrawer({
 
     loadOptions();
   }, [open, session?.session_token, hideProjectFilter]);
-
-  const handleReset = () => setDraft(EMPTY_ENDPOINT_FILTERS);
-
-  const handleApply = () => {
-    onApply(draft);
-    onClose();
-  };
 
   return (
     <FilterDrawerShell

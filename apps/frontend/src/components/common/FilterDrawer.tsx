@@ -1,6 +1,45 @@
 'use client';
 
 import * as React from 'react';
+
+// ── useFilterDrawerDraft ───────────────────────────────────────────────────────
+
+/**
+ * Manages the "draft" filter state that lives inside a filter drawer.
+ *
+ * Behaviour:
+ * - Draft is reset to `committed` whenever the drawer opens.
+ * - `handleReset` resets draft to `empty` (matches the "Reset" button).
+ * - `handleApply` commits the draft via `onApply` then closes the drawer.
+ */
+export function useFilterDrawerDraft<T>(
+  open: boolean,
+  committed: T,
+  empty: T,
+  onApply: (filters: T) => void,
+  onClose: () => void
+): {
+  draft: T;
+  setDraft: React.Dispatch<React.SetStateAction<T>>;
+  handleReset: () => void;
+  handleApply: () => void;
+} {
+  const [draft, setDraft] = React.useState<T>(committed);
+
+  React.useEffect(() => {
+    if (open) setDraft(committed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const handleReset = React.useCallback(() => setDraft(empty), [empty]);
+
+  const handleApply = React.useCallback(() => {
+    onApply(draft);
+    onClose();
+  }, [draft, onApply, onClose]);
+
+  return { draft, setDraft, handleReset, handleApply };
+}
 import {
   Box,
   Button,

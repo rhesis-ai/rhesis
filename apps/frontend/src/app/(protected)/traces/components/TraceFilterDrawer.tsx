@@ -13,6 +13,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -79,15 +80,17 @@ export default function TraceFilterDrawer({
   onApply,
   sessionToken,
 }: TraceFilterDrawerProps) {
-  const [draft, setDraft] = React.useState<TraceDrawerFilters>(filters);
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_TRACE_DRAWER_FILTERS,
+    onApply,
+    onClose
+  );
   const [projects, setProjects] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -123,13 +126,6 @@ export default function TraceFilterDrawer({
   const filteredEndpoints = draft.projectId
     ? endpoints.filter(e => e.project_id === draft.projectId)
     : endpoints;
-
-  const handleReset = () => setDraft(EMPTY_TRACE_DRAWER_FILTERS);
-
-  const handleApply = () => {
-    onApply(draft);
-    onClose();
-  };
 
   const setTimeRange = (range: TraceTimeRange) => {
     setDraft(prev => ({

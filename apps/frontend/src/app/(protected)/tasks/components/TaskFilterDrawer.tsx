@@ -7,6 +7,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import type { TaskStatus } from '@/types/tasks';
@@ -60,14 +61,16 @@ export default function TaskFilterDrawer({
   onApply,
 }: TaskFilterDrawerProps) {
   const { data: session } = useSession();
-  const [draft, setDraft] = React.useState<TaskFilters>(filters);
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_TASK_FILTERS,
+    onApply,
+    onClose
+  );
   const [priorities, setPriorities] = React.useState<Priority[]>([]);
   const [users, setUsers] = React.useState<User[]>([]);
   const [loadingOptions, setLoadingOptions] = React.useState(false);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
 
   React.useEffect(() => {
     const sessionToken = session?.session_token;
@@ -97,13 +100,6 @@ export default function TaskFilterDrawer({
 
     loadOptions();
   }, [open, session?.session_token]);
-
-  const handleReset = () => setDraft(EMPTY_TASK_FILTERS);
-
-  const handleApply = () => {
-    onApply(draft);
-    onClose();
-  };
 
   return (
     <FilterDrawerShell

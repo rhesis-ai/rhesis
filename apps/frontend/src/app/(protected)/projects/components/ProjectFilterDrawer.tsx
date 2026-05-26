@@ -6,6 +6,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 
 export interface ProjectFilters {
@@ -42,11 +43,13 @@ export default function ProjectFilterDrawer({
   filters,
   onApply,
 }: ProjectFilterDrawerProps) {
-  const [draft, setDraft] = React.useState<ProjectFilters>(filters);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_FILTERS,
+    onApply,
+    onClose
+  );
 
   const toggleEnvironment = (env: string) => {
     setDraft(prev => ({
@@ -55,13 +58,6 @@ export default function ProjectFilterDrawer({
         ? prev.environments.filter(e => e !== env)
         : [...prev.environments, env],
     }));
-  };
-
-  const handleReset = () => setDraft(EMPTY_FILTERS);
-
-  const handleApply = () => {
-    onApply(draft);
-    onClose();
   };
 
   return (
