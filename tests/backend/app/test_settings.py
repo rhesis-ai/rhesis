@@ -13,6 +13,7 @@ from rhesis.backend.app.config.settings import (
     RedisSettings,
     SMTPSettings,
     StorageSettings,
+    TelemetrySettings,
     get_application_settings,
     get_auth_settings,
     get_database_settings,
@@ -21,6 +22,7 @@ from rhesis.backend.app.config.settings import (
     get_redis_settings,
     get_smtp_settings,
     get_storage_settings,
+    get_telemetry_settings,
 )
 from rhesis.backend.notifications.email.smtp import SMTPService
 
@@ -62,6 +64,12 @@ MODEL_ENV_VARS = (
     "DEFAULT_EVALUATION_MODEL",
     "DEFAULT_EXECUTION_MODEL",
     "DEFAULT_EMBEDDING_MODEL",
+)
+TELEMETRY_ENV_VARS = (
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_SERVICE_NAME",
+    "OTEL_DEPLOYMENT_TYPE",
+    "OTEL_RHESIS_TELEMETRY_ENABLED",
 )
 
 _BASE_DB_ENV = {
@@ -142,6 +150,15 @@ def clean_model_env(monkeypatch):
     get_model_settings.cache_clear()
     yield
     get_model_settings.cache_clear()
+
+
+@pytest.fixture
+def clean_telemetry_env(monkeypatch):
+    for env_var in TELEMETRY_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+    get_telemetry_settings.cache_clear()
+    yield
+    get_telemetry_settings.cache_clear()
 
 
 @pytest.mark.unit
@@ -727,3 +744,44 @@ class TestLoopbackCorsRegex:
         # Other private ranges are not loopback.
         assert not compiled.match("http://10.0.0.1:3000")
         assert not compiled.match("http://192.168.1.1:3000")
+
+
+@pytest.mark.unit
+def test_telemetry_settings_uses_system_defaults(clean_telemetry_env):
+    settings = TelemetrySettings(_env_file=None)
+
+    assert settings.otlp_endpoint == "https://telemetry.rhesis.ai"
+    assert settings.service_name == "rhesis"
+    assert settings.deployment_type == "self-hosted"
+    assert settings.rhesis_telemetry_enabled is True
+
+
+@pytest.mark.unit
+def test_telemetry_settings_loads_existing_environment_variables(
+    clean_telemetry_env,
+    monkeypatch,
+):
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "https://otel.example.com")
+    monkeypatch.setenv("OTEL_SERVICE_NAME", "rhesis-worker")
+    monkeypatch.setenv("OTEL_DEPLOYMENT_TYPE", "cloud")
+    monkeypatch.setenv("OTEL_RHESIS_TELEMETRY_ENABLED", "false")
+
+    settings = TelemetrySettings(_env_file=None)
+
+    assert settings.otlp_endpoint == "https://otel.example.com"
+    assert settings.service_name == "rhesis-worker"
+    assert settings.deployment_type == "cloud"
+    assert settings.rhesis_telemetry_enabled is False
+
+
+@pytest.mark.unit
+def test_get_telemetry_settings_cache_clear_allows_env_overrides(
+    clean_telemetry_env,
+    monkeypatch,
+):
+    assert get_telemetry_settings().service_name == "rhesis"
+
+    monkeypatch.setenv("OTEL_SERVICE_NAME", "cached-rhesis")
+    get_telemetry_settings.cache_clear()
+
+    assert get_telemetry_settings().service_name == "cached-rhesis"

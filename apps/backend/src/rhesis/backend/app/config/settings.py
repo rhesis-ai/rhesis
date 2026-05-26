@@ -91,6 +91,41 @@ class ApplicationSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     quick_start: bool = Field(default=False, alias="QUICK_START")
+    environment: str = Field(
+        default="",
+        validation_alias=AliasChoices("ENVIRONMENT", "ENV"),
+    )
+    backend_env: str = Field(default="development", alias="BACKEND_ENV")
+    # Google Cloud-specific environment variables set by Google Cloud runtimes.
+    gcp_project: str | None = Field(default=None, alias="GCP_PROJECT")
+    google_cloud_project: str | None = Field(default=None, alias="GOOGLE_CLOUD_PROJECT")
+    cloud_run_service: str | None = Field(default=None, alias="K_SERVICE")
+    cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
+
+    @property
+    def is_production(self) -> bool:
+        return self.backend_env.lower() == "production" or self.environment.lower() == "production"
+
+    @property
+    def is_development(self) -> bool:
+        return not self.is_production
+
+
+class TelemetrySettings(BaseSettings):
+    """OpenTelemetry export and deployment metadata configuration."""
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    otlp_endpoint: str = Field(
+        default="https://telemetry.rhesis.ai",
+        alias="OTEL_EXPORTER_OTLP_ENDPOINT",
+    )
+    service_name: str = Field(default="rhesis", alias="OTEL_SERVICE_NAME")
+    deployment_type: str = Field(default="self-hosted", alias="OTEL_DEPLOYMENT_TYPE")
+    rhesis_telemetry_enabled: bool = Field(
+        default=True,
+        alias="OTEL_RHESIS_TELEMETRY_ENABLED",
+    )
 
 
 class AuthSettings(BaseSettings):
@@ -173,32 +208,6 @@ class ModelSettings(BaseSettings):
     )
 
 
-class ApplicationSettings(BaseSettings):
-    """General application runtime configuration."""
-
-    model_config = SettingsConfigDict(env_ignore_empty=True)
-
-    quick_start: bool = Field(default=False, alias="QUICK_START")
-    environment: str = Field(
-        default="",
-        validation_alias=AliasChoices("ENVIRONMENT", "ENV"),
-    )
-    backend_env: str = Field(default="development", alias="BACKEND_ENV")
-    # Google Cloud-specific environment variables set by Google Cloud runtimes.
-    gcp_project: str | None = Field(default=None, alias="GCP_PROJECT")
-    google_cloud_project: str | None = Field(default=None, alias="GOOGLE_CLOUD_PROJECT")
-    cloud_run_service: str | None = Field(default=None, alias="K_SERVICE")
-    cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
-
-    @property
-    def is_production(self) -> bool:
-        return self.backend_env.lower() == "production" or self.environment.lower() == "production"
-
-    @property
-    def is_development(self) -> bool:
-        return not self.is_production
-
-
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
     return DatabaseSettings()
@@ -240,5 +249,5 @@ def get_model_settings() -> ModelSettings:
 
 
 @lru_cache
-def get_application_settings() -> ApplicationSettings:
-    return ApplicationSettings()
+def get_telemetry_settings() -> TelemetrySettings:
+    return TelemetrySettings()
