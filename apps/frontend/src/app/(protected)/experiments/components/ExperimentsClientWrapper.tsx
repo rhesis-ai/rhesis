@@ -15,7 +15,8 @@ import {
   GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -282,18 +283,22 @@ export default function ExperimentsClientWrapper({
   }, [projects.length, selectedRows.length]);
 
   return (
-    <PageContainer title="Experiments" breadcrumbs={[]}>
-      <Box sx={{ mb: 3 }}>
-        <Typography color="text.secondary">
-          Experiments are named bundles of parameter values that can be pinned
-          to test runs, ensuring reproducible and comparable executions across
-          your project.
-        </Typography>
-      </Box>
+    <PageLayout
+      title="Experiments"
+      description="Experiments are named bundles of parameter values that can be pinned to test runs, ensuring reproducible and comparable executions across your project."
+    >
       {!loading && experiments.length === 0 && !filterModel.items.length ? (
         <Paper
-          elevation={2}
+          elevation={0}
           sx={{
+            borderRadius: BORDER_RADIUS.md,
+            border: theme =>
+              `1px solid ${
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : theme.palette.divider
+              }`,
+            boxShadow: ELEVATION.xs,
             p: theme => theme.spacing(6),
             display: 'flex',
             flexDirection: 'column',
@@ -330,7 +335,20 @@ export default function ExperimentsClientWrapper({
           </Button>
         </Paper>
       ) : (
-        <Paper elevation={2} sx={{ p: 2 }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            borderRadius: BORDER_RADIUS.md,
+            border: theme =>
+              `1px solid ${
+                theme.palette.mode === 'light'
+                  ? GREYSCALE.light.border
+                  : theme.palette.divider
+              }`,
+            boxShadow: ELEVATION.xs,
+          }}
+        >
           <BaseDataGrid
             rows={experiments}
             columns={columns}
@@ -385,6 +403,6 @@ export default function ExperimentsClientWrapper({
         message={`Are you sure you want to delete ${selectedRows.length} experiment${selectedRows.length > 1 ? 's' : ''}? This action cannot be undone.`}
         itemType="experiments"
       />
-    </PageContainer>
+    </PageLayout>
   );
 }

@@ -27,7 +27,10 @@ import CancelIcon from '@mui/icons-material/CancelOutlined';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PageContainer, Breadcrumb } from '@toolpad/core/PageContainer';
+import {
+  PageLayout,
+  type BreadcrumbItem,
+} from '@/components/layout/PageLayout';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ExperimentDetail,
@@ -494,40 +497,37 @@ export default function ExperimentDetailClient({
     }
   }, [apiFactory, editDescription, editName, experiment, notifications]);
 
-  const breadcrumbs: Breadcrumb[] = useMemo(() => {
+  const breadcrumbs: BreadcrumbItem[] = useMemo(() => {
     if (!experiment) return [];
     return [
-      { title: 'Experiments', path: '/experiments' },
-      {
-        title: experiment.name || 'Experiment',
-        path: `/experiments/${experiment.id}`,
-      },
+      { label: 'Experiments', href: '/experiments' },
+      { label: experiment.name || 'Experiment' },
     ];
   }, [experiment]);
 
   if (loading) {
     return (
-      <PageContainer title="Experiment" breadcrumbs={[]}>
+      <PageLayout title="Experiment" breadcrumbs={[]}>
         <Box sx={{ display: 'flex', alignItems: 'center', p: 3, gap: 2 }}>
           <CircularProgress size={20} />
           <Typography color="text.secondary">Loading experiment...</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (error || !experiment || !schema) {
     return (
-      <PageContainer title="Experiment" breadcrumbs={[]}>
+      <PageLayout title="Experiment" breadcrumbs={[]}>
         <Alert severity="error">{error ?? 'Experiment not found'}</Alert>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   const isShared = experiment.visibility === 'shared';
 
   return (
-    <PageContainer title={experiment.name} breadcrumbs={breadcrumbs}>
+    <PageLayout title={experiment.name} breadcrumbs={breadcrumbs}>
       <Box sx={{ flexGrow: 1, pt: 3 }}>
         <Grid container spacing={3}>
           <Grid size={12}>
@@ -1264,6 +1264,6 @@ export default function ExperimentDetailClient({
             : undefined
         }
       />
-    </PageContainer>
+    </PageLayout>
   );
 }

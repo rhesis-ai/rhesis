@@ -84,8 +84,6 @@ export { default as KeyboardArrowDownIcon } from '@mui/icons-material/KeyboardAr
 export { default as KeyboardArrowUpIcon } from '@mui/icons-material/KeyboardArrowUpOutlined';
 export { default as ClearIcon } from '@mui/icons-material/ClearOutlined';
 export { default as RefreshIcon } from '@mui/icons-material/RefreshOutlined';
-export { default as KeyboardArrowUpIcon } from '@mui/icons-material/KeyboardArrowUpOutlined';
-export { default as KeyboardArrowDownIcon } from '@mui/icons-material/KeyboardArrowDownOutlined';
 export { default as SendIcon } from '@mui/icons-material/SendOutlined';
 export { default as EmojiIcon } from '@mui/icons-material/EmojiEmotionsOutlined';
 export { default as VisibilityIcon } from '@mui/icons-material/VisibilityOutlined';
@@ -120,7 +118,6 @@ export { default as FactCheckIcon } from '@mui/icons-material/FactCheckOutlined'
 export { default as NumbersIcon } from '@mui/icons-material/NumbersOutlined';
 export { default as ToggleOnIcon } from '@mui/icons-material/ToggleOnOutlined';
 export { default as GradingIcon } from '@mui/icons-material/GradingOutlined';
-export { default as TuneIcon } from '@mui/icons-material/TuneOutlined';
 export { default as FileUploadIcon } from '@mui/icons-material/FileUploadOutlined';
 export { default as AnimationIcon } from '@mui/icons-material/AnimationOutlined';
 export { default as TestRunsIcon } from './TestRunsIcon';

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -40,6 +40,7 @@ import {
   getTestRunStatusIcon,
 } from '@/components/common/TestRunStatus';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
+import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
 
 interface TestRunPerformanceProps {
   sessionToken: string;
@@ -190,18 +191,39 @@ export default function TestRunPerformance({
     router.push('/test-runs');
   };
 
-  // Calculate dynamic container height
-  const containerHeight =
-    calculateLimit() > 6
-      ? `${Math.min(calculateLimit() * 90 + 150, (typeof window !== 'undefined' ? window.innerHeight : 800) - 364)}px`
-      : theme.spacing(87.5);
+  // Stable height on SSR/hydration when embedded with a fixed limit (e.g. insights)
+  const containerHeight = useMemo(() => {
+    if (propLimit != null) {
+      return theme.spacing(87.5);
+    }
+    if (typeof window === 'undefined') {
+      return theme.spacing(87.5);
+    }
+    const calculated = calculateLimit();
+    if (calculated > 6) {
+      return `${Math.min(calculated * 90 + 150, window.innerHeight - 364)}px`;
+    }
+    return theme.spacing(87.5);
+  }, [propLimit, theme, calculateLimit]);
+
+  const paperSx = {
+    p: theme.spacing(3),
+    height: containerHeight,
+    borderRadius: BORDER_RADIUS.md,
+    border: `1px solid ${
+      theme.palette.mode === 'light'
+        ? GREYSCALE.light.border
+        : theme.palette.divider
+    }`,
+    boxShadow: ELEVATION.xs,
+  };
 
   if (loading) {
     return (
       <Paper
+        elevation={0}
         sx={{
-          p: theme.spacing(3),
-          height: containerHeight,
+          ...paperSx,
           overflow: 'hidden',
         }}
       >
@@ -219,9 +241,7 @@ export default function TestRunPerformance({
   }
 
   return (
-    <Paper
-      sx={{ p: theme.spacing(3), height: containerHeight, overflow: 'auto' }}
-    >
+    <Paper elevation={0} sx={{ ...paperSx, overflow: 'auto' }}>
       <Box
         sx={{
           display: 'flex',
