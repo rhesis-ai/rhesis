@@ -51,6 +51,7 @@ import {
   GridCellParams,
   GridColumnMenu,
   type GridColumnMenuProps,
+  type GridToolbarProps,
 } from '@mui/x-data-grid';
 import type { SxProps, Theme } from '@mui/material/styles';
 import Link from 'next/link';

@@ -6,24 +6,11 @@ import EndpointDetailView from '../[identifier]/components/EndpointDetailView';
 
 interface EndpointDetailProps {
   endpoint: Endpoint;
-  sessionToken: string;
-  onUpdate?: (endpoint: Endpoint) => void;
-  onDelete?: () => void;
 }
 
-export default function EndpointDetail({
-  endpoint,
-  sessionToken,
-  onUpdate,
-  onDelete,
-}: EndpointDetailProps) {
+export default function EndpointDetail({ endpoint }: EndpointDetailProps) {
   return (
-    <EndpointDetailProvider
-      endpoint={endpoint}
-      sessionToken={sessionToken}
-      onUpdate={onUpdate}
-      onDelete={onDelete}
-    >
+    <EndpointDetailProvider endpoint={endpoint}>
       <EndpointDetailView />
     </EndpointDetailProvider>
   );

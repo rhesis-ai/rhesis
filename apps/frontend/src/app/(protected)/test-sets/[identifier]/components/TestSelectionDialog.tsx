@@ -87,8 +87,9 @@ export default function TestSelectionDialog({
   };
 
   const getOptionLabel = (option: TestDetail) => {
+    const goal = option.test_configuration?.goal;
     const content =
-      option.prompt?.content ?? option.test_configuration?.goal ?? '';
+      option.prompt?.content ?? (typeof goal === 'string' ? goal : '');
     return content.length > 80 ? `${content.substring(0, 80)}…` : content;
   };
 

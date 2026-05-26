@@ -84,6 +84,8 @@ interface TestSetTestsGridProps {
   sessionToken: string;
   testSetId: string;
   testSetType?: string;
+  /** When true, grid is rendered inside embedding atlas (spacing only). */
+  embedded?: boolean;
   onRefresh?: () => void;
   onTotalCountChange?: (count: number) => void;
 }

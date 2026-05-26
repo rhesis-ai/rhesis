@@ -391,8 +391,9 @@ export default function BehaviorsClient({
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
-        <EmptyStateMessage
-          title="Authentication Required"
+        <EntityEmptyState
+          icon={PsychologyIcon}
+          title="Authentication required"
           description="Please log in to view and manage your behaviors."
         />
       </PageLayout>

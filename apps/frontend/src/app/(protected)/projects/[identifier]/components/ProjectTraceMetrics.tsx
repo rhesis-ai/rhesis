@@ -39,6 +39,11 @@ interface ProjectTraceMetricsProps {
   onProjectUpdate: (updatedProject: Partial<Project>) => Promise<void>;
 }
 
+function getTraceMetricIds(project: Project): string[] {
+  const rawIds = project.attributes?.trace_metrics;
+  return Array.isArray(rawIds) ? rawIds.map(String) : [];
+}
+
 export default function ProjectTraceMetrics({
   project,
   sessionToken,

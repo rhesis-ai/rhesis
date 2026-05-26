@@ -1117,3 +1117,249 @@ export function combineExperimentFiltersToOData(
   const logicOp = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
   return `(${allExpressions.join(logicOp)})`;
 }
+
+/**
+ * Handles quick filter (global search) conversion to OData for endpoints
+ */
+export function convertEndpointQuickFilterToOData(
+  quickFilterValues: unknown[]
+): string {
+  if (!quickFilterValues || quickFilterValues.length === 0) {
+    return '';
+  }
+
+  const searchFields = [
+    'name',
+    'environment',
+    'connection_type',
+    'description',
+  ];
+
+  const quickFilterExpressions = quickFilterValues
+    .map(value => {
+      if (!value || value === '') return '';
+
+      const fieldConditions = searchFields.map(
+        field =>
+          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
+      );
+      return `(${fieldConditions.join(' or ')})`;
+    })
+    .filter(expr => expr !== '');
+
+  if (quickFilterExpressions.length === 0) {
+    return '';
+  }
+  if (quickFilterExpressions.length === 1) {
+    return quickFilterExpressions[0];
+  }
+  return `(${quickFilterExpressions.join(' and ')})`;
+}
+
+/**
+ * Converts a MUI DataGrid filter item to OData for endpoints.
+ */
+function convertEndpointFilterItemToOData(item: GridFilterItem): string {
+  const { field, operator, value } = item;
+
+  if (
+    !field ||
+    !operator ||
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
+    return '';
+  }
+
+  let odataField: string;
+  switch (field) {
+    case 'connectionType':
+      odataField = 'connection_type';
+      break;
+    case 'projectId':
+      odataField = 'project_id';
+      break;
+    case 'status':
+      odataField = 'status/name';
+      break;
+    case 'environment':
+      odataField = 'environment';
+      break;
+    default:
+      odataField = field.replace(/\./g, '/');
+  }
+
+  switch (operator) {
+    case 'contains':
+      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+
+    case 'equals':
+    case '=':
+    case 'is':
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
+      }
+      return `${odataField} eq '${escapeODataValue(value)}'`;
+
+    case 'not':
+    case '!=':
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
+      }
+      return `${odataField} ne '${escapeODataValue(value)}'`;
+
+    default:
+      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+  }
+}
+
+/**
+ * Combines regular filters and quick filters into a single OData expression for endpoints
+ */
+export function combineEndpointFiltersToOData(
+  filterModel: GridFilterModel
+): string {
+  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
+    return '';
+  }
+
+  const regularFilters: GridFilterItem[] = [];
+  const quickFilterValues: unknown[] = [];
+
+  filterModel.items.forEach(item => {
+    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
+      quickFilterValues.push(item.value);
+    } else {
+      regularFilters.push(item);
+    }
+  });
+
+  const regularFilterExpressions = regularFilters
+    .map(item => convertEndpointFilterItemToOData(item))
+    .filter(expr => expr !== '');
+
+  const quickFilterExpression =
+    quickFilterValues.length > 0
+      ? convertEndpointQuickFilterToOData(quickFilterValues)
+      : '';
+
+  const allExpressions = [...regularFilterExpressions];
+  if (quickFilterExpression) {
+    allExpressions.push(quickFilterExpression);
+  }
+
+  if (allExpressions.length === 0) {
+    return '';
+  }
+  if (allExpressions.length === 1) {
+    return allExpressions[0];
+  }
+  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
+  return `(${allExpressions.join(logicOperator)})`;
+}
+
+/**
+ * Builds the full OData filter for endpoint list queries, optionally scoped to a project.
+ */
+export function buildEndpointListFilter(
+  filterModel: GridFilterModel,
+  projectId?: string
+): string {
+  const parts: string[] = [];
+
+  if (projectId) {
+    parts.push(`project_id eq '${escapeODataValue(projectId)}'`);
+  }
+
+  const combined = combineEndpointFiltersToOData(filterModel);
+  if (combined) {
+    parts.push(combined);
+  }
+
+  if (parts.length === 0) {
+    return '';
+  }
+  if (parts.length === 1) {
+    return parts[0];
+  }
+  return `(${parts.join(') and (')})`;
+}
+
+// ── Team member filters (organization team page) ─────────────────────────────
+
+export interface TeamFilters {
+  /** Joined vs pending invite — mapped to auth0_id OData checks */
+  memberStatus: '' | 'active' | 'invited';
+  /** Account enabled flag — null means no filter */
+  accountStatus: boolean | null;
+  email: string;
+  name: string;
+}
+
+export const EMPTY_TEAM_FILTERS: TeamFilters = {
+  memberStatus: '',
+  accountStatus: null,
+  email: '',
+  name: '',
+};
+
+export function hasActiveTeamFilters(f: TeamFilters): boolean {
+  return (
+    f.memberStatus !== '' ||
+    f.accountStatus !== null ||
+    f.email.trim() !== '' ||
+    f.name.trim() !== ''
+  );
+}
+
+/**
+ * Builds OData $filter for team member list queries (search pill + drawer).
+ */
+export function combineTeamFiltersToOData(
+  searchQuery: string,
+  drawerFilters: TeamFilters
+): string | undefined {
+  const parts: string[] = [];
+
+  const search = searchQuery.trim();
+  if (search) {
+    const q = escapeODataValue(search);
+    parts.push(
+      `(contains(email,'${q}') or contains(name,'${q}') or contains(given_name,'${q}') or contains(family_name,'${q}'))`
+    );
+  }
+
+  const email = drawerFilters.email.trim();
+  if (email) {
+    parts.push(`contains(email,'${escapeODataValue(email)}')`);
+  }
+
+  const name = drawerFilters.name.trim();
+  if (name) {
+    const n = escapeODataValue(name);
+    parts.push(
+      `(contains(name,'${n}') or contains(given_name,'${n}') or contains(family_name,'${n}'))`
+    );
+  }
+
+  if (drawerFilters.memberStatus === 'active') {
+    parts.push("auth0_id ne null and auth0_id ne ''");
+  } else if (drawerFilters.memberStatus === 'invited') {
+    parts.push("(auth0_id eq null or auth0_id eq '')");
+  }
+
+  if (drawerFilters.accountStatus === true) {
+    parts.push('is_active eq true');
+  } else if (drawerFilters.accountStatus === false) {
+    parts.push('is_active eq false');
+  }
+
+  if (parts.length === 0) {
+    return undefined;
+  }
+  if (parts.length === 1) {
+    return parts[0];
+  }
+  return parts.map(p => `(${p})`).join(' and ');
+}

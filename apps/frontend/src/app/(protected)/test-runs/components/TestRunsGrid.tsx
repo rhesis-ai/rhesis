@@ -705,14 +705,6 @@ function TestRunsGrid({
     setCancelModalOpen(false);
   }, []);
 
-  const handleFilterModelChange = useCallback(
-    (newFilterModel: GridFilterModel) => {
-      setFilterModel(newFilterModel);
-      setPaginationModel(prev => ({ ...prev, page: 0 }));
-    },
-    []
-  );
-
   const handleRunKindFilterChange = useCallback((value: RunKindFilter) => {
     setRunKindFilter(value);
     setPaginationModel(prev => ({ ...prev, page: 0 }));
