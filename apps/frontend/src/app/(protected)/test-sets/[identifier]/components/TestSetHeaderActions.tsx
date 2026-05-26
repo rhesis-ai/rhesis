@@ -19,7 +19,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import { useRouter } from 'next/navigation';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import ExecuteTestSetDrawer from './ExecuteTestSetDrawer';
+import RunDrawer from '@/components/common/RunDrawer';
 import type { GarakSyncPreviewResponse } from '@/utils/api-client/garak-client';
 
 interface TestSetHeaderActionsProps {
@@ -172,11 +172,12 @@ export default function TestSetHeaderActions({
         )}
       </FabGroup>
 
-      <ExecuteTestSetDrawer
+      <RunDrawer
+        mode="executeTestSet"
         open={executeDrawerOpen}
         onClose={() => setExecuteDrawerOpen(false)}
-        testSetId={testSetId}
         sessionToken={sessionToken}
+        data={{ testSetId }}
       />
 
       <DeleteModal
