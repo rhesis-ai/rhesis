@@ -37,8 +37,8 @@ def _mock_rhesis_settings(base_url: str):
     return lambda: Mock(base_url=base_url)
 
 
-def _mock_application_settings(backend_env: str = "development"):
-    return lambda: Mock(backend_env=backend_env)
+def _mock_application_settings(backend_env: str = "development", environment: str = ""):
+    return lambda: Mock(backend_env=backend_env, environment=environment)
 
 
 # =============================================================================
@@ -1491,6 +1491,10 @@ class TestGetCallbackUrl:
         "rhesis.backend.app.routers.auth.get_rhesis_settings",
         new=_mock_rhesis_settings("https://api.rhesis.ai"),
     )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings(environment="local"),
+    )
     def test_environment_local_uses_localhost(self, mock_qs):
         """ENVIRONMENT=local returns http://localhost:{port}/auth/callback."""
         from rhesis.backend.app.routers.auth import get_callback_url
@@ -1553,6 +1557,10 @@ class TestGetCallbackUrl:
         "rhesis.backend.app.routers.auth.get_rhesis_settings",
         new=_mock_rhesis_settings("https://api.rhesis.ai"),
     )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings(environment="local"),
+    )
     def test_local_preserves_127_hostname(self, mock_qs):
         """Local mode via 127.0.0.1 preserves hostname for session cookies."""
         from rhesis.backend.app.routers.auth import get_callback_url
@@ -1573,6 +1581,10 @@ class TestGetCallbackUrl:
     @patch(
         "rhesis.backend.app.routers.auth.get_rhesis_settings",
         new=_mock_rhesis_settings("https://api.rhesis.ai"),
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings(environment="local"),
     )
     def test_local_rejects_non_local_hostname(self, mock_qs):
         """Misconfigured local mode with evil Host falls back to localhost."""

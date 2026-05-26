@@ -640,7 +640,7 @@ def test_application_settings_loads_existing_environment_variables(
     clean_application_env, monkeypatch
 ):
     monkeypatch.setenv("QUICK_START", "true")
-    monkeypatch.setenv("ENVIRONMENT", "staging")
+    monkeypatch.setenv("ENVIRONMENT", "Staging")
     monkeypatch.setenv("BACKEND_ENV", "Production")
     monkeypatch.setenv("GCP_PROJECT", "rhesis-prod")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "rhesis-prod-2")

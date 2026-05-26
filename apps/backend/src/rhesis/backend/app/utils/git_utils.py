@@ -45,11 +45,10 @@ def should_show_git_info() -> bool:
     Determine if git information should be shown based on environment.
     Returns True for non-production environments.
     """
-    backend_env = get_application_settings().backend_env
-    environment = os.getenv("ENVIRONMENT", "").lower()
+    settings = get_application_settings()
 
     # Don't show git info in production
-    return backend_env != "production" and environment != "production"
+    return settings.backend_env != "production" and settings.environment != "production"
 
 
 def get_version_info() -> dict:

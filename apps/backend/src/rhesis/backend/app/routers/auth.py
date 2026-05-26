@@ -208,9 +208,8 @@ def is_running_locally() -> bool:
         return True
 
     # Signal 3: Environment variables indicate local deployment
-    env = os.getenv("ENVIRONMENT", "").lower()
-    backend_env = get_application_settings().backend_env
-    if env == "local" or backend_env == "local":
+    settings = get_application_settings()
+    if settings.environment == "local" or settings.backend_env == "local":
         return True
 
     return False
