@@ -6,15 +6,24 @@ import EndpointDetailView from '../[identifier]/components/EndpointDetailView';
 
 interface EndpointDetailProps {
   endpoint: Endpoint;
+  sessionToken: string;
+  onUpdate?: (endpoint: Endpoint) => void;
+  onDelete?: () => void;
 }
 
-/**
- * @deprecated Prefer EndpointDetailProvider + EndpointDetailView on the detail page.
- * Kept for tests and legacy imports.
- */
-export default function EndpointDetail({ endpoint }: EndpointDetailProps) {
+export default function EndpointDetail({
+  endpoint,
+  sessionToken,
+  onUpdate,
+  onDelete,
+}: EndpointDetailProps) {
   return (
-    <EndpointDetailProvider endpoint={endpoint}>
+    <EndpointDetailProvider
+      endpoint={endpoint}
+      sessionToken={sessionToken}
+      onUpdate={onUpdate}
+      onDelete={onDelete}
+    >
       <EndpointDetailView />
     </EndpointDetailProvider>
   );

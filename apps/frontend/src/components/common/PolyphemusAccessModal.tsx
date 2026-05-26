@@ -13,7 +13,6 @@ import {
   Alert,
   Stack,
 } from '@mui/material';
-import WarningIcon from '@mui/icons-material/Warning';
 import Image from 'next/image';
 import { useNotifications } from './NotificationContext';
 import { Organization } from '@/utils/api-client/interfaces/organization';

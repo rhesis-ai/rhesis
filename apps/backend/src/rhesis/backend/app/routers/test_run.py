@@ -92,6 +92,11 @@ def read_test_runs(
         alias="$select",
         description="Comma-separated list of fields to return",
     ),
+    has_experiment: bool | None = Query(
+        None,
+        description="Filter by experiment association: true = only runs with an experiment, "
+        "false = only runs without, omit = all runs",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -104,6 +109,7 @@ def read_test_runs(
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
+        has_experiment=has_experiment,
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
     )

@@ -10,6 +10,7 @@ import React, {
 } from 'react';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
+import ListIcon from '@mui/icons-material/List';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
@@ -24,8 +25,21 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
-import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import {
+  Typography,
+  Box,
+  Alert,
+  Avatar,
+  Chip,
+  Button,
+  ButtonGroup,
+} from '@mui/material';
+import {
+  ChatIcon,
+  DescriptionIcon,
+  ScienceIcon,
+  BiotechIcon,
+} from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -39,6 +53,8 @@ import TestRunFilterDrawer, {
   hasActiveTestRunFilters,
 } from './TestRunFilterDrawer';
 import { GREYSCALE } from '@/styles/theme';
+
+type RunKindFilter = 'all' | 'tests' | 'experiments';
 
 // ── Status pill tabs ─────────────────────────────────────────────────────────
 
@@ -140,6 +156,7 @@ function TestRunsGrid({
   const [isDeleting, setIsDeleting] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 50,
@@ -170,12 +187,14 @@ function TestRunsGrid({
 
         const filterString = combineTestRunFiltersToOData(filterModel);
 
-        const apiParams = {
+        const apiParams: Parameters<typeof testRunsClient.getTestRuns>[0] = {
           skip,
           limit,
           sort_by: 'created_at',
           sort_order: 'desc' as const,
           ...(filterString && { filter: filterString }),
+          ...(runKindFilter === 'experiments' && { has_experiment: true }),
+          ...(runKindFilter === 'tests' && { has_experiment: false }),
         };
 
         const response = await testRunsClient.getTestRuns(apiParams);
@@ -197,7 +216,7 @@ function TestRunsGrid({
         }
       }
     },
-    [sessionToken, filterModel, onTotalCountChange]
+    [sessionToken, filterModel, runKindFilter, onTotalCountChange]
   );
 
   useEffect(() => {
@@ -208,7 +227,7 @@ function TestRunsGrid({
       isMounted.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionToken, paginationModel, filterModel]);
+  }, [sessionToken, paginationModel, filterModel, runKindFilter]);
 
   // Refetch when parent signals a refresh
   useEffect(() => {
@@ -369,6 +388,59 @@ function TestRunsGrid({
           if (!status) return null;
 
           return <GridBadge label={status} />;
+        },
+      },
+      {
+        field: 'experiment',
+        headerName: 'Experiment',
+        flex: 1,
+        sortable: false,
+        filterable: false,
+        valueGetter: (_, row) => {
+          if (!row.experiment_id) return '';
+          const name =
+            (row.attributes?.parameter_experiment_name as string) || '';
+          const ver = (row.attributes?.parameter_version as string) || '';
+          return `${name} ${ver}`.trim();
+        },
+        renderCell: params => {
+          if (!params.row.experiment_id) return null;
+          const name =
+            (params.row.attributes?.parameter_experiment_name as string) ||
+            undefined;
+          const version = params.row.attributes?.parameter_version as
+            | string
+            | undefined;
+
+          if (!name && !version) return null;
+
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+              }}
+            >
+              {name && (
+                <Typography
+                  variant="body2"
+                  sx={{ fontSize: theme => theme.typography.body2.fontSize }}
+                  noWrap
+                >
+                  {name}
+                </Typography>
+              )}
+              {version && (
+                <Chip
+                  label={version}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 20, '& .MuiChip-label': { px: 0.75 } }}
+                />
+              )}
+            </Box>
+          );
         },
       },
       {
@@ -633,7 +705,18 @@ function TestRunsGrid({
     setCancelModalOpen(false);
   }, []);
 
-  // ── Action buttons (selection-only) ──────────────────────────────────────
+  const handleFilterModelChange = useCallback(
+    (newFilterModel: GridFilterModel) => {
+      setFilterModel(newFilterModel);
+      setPaginationModel(prev => ({ ...prev, page: 0 }));
+    },
+    []
+  );
+
+  const handleRunKindFilterChange = useCallback((value: RunKindFilter) => {
+    setRunKindFilter(value);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
 
   const actionButtons = useMemo(() => {
     const buttons = [];
@@ -667,7 +750,34 @@ function TestRunsGrid({
     handleDeleteSelected,
   ]);
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const runKindToolbar = useMemo(
+    () => (
+      <ButtonGroup size="small" variant="outlined">
+        <Button
+          onClick={() => handleRunKindFilterChange('all')}
+          variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
+          startIcon={<ListIcon fontSize="small" />}
+        >
+          All
+        </Button>
+        <Button
+          onClick={() => handleRunKindFilterChange('tests')}
+          variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
+          startIcon={<ScienceIcon fontSize="small" />}
+        >
+          Tests
+        </Button>
+        <Button
+          onClick={() => handleRunKindFilterChange('experiments')}
+          variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
+          startIcon={<BiotechIcon fontSize="small" />}
+        >
+          Experiments
+        </Button>
+      </ButtonGroup>
+    ),
+    [runKindFilter, handleRunKindFilterChange]
+  );
 
   return (
     <TestRunsToolbarContext.Provider
@@ -727,6 +837,7 @@ function TestRunsGrid({
         checkboxSelection
         disableRowSelectionOnClick
         actionButtons={actionButtons}
+        gridToolbarExtra={runKindToolbar}
         disablePaperWrapper={true}
         showToolbar={true}
         toolbarSlot={TestRunsUnifiedToolbar}

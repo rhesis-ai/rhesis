@@ -9,6 +9,7 @@ import VerificationBanner from '@/components/auth/VerificationBanner';
 import { FeaturesProvider } from '@/contexts/FeaturesContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
+import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,8 +51,10 @@ export default function ProtectedLayout({
     <QueryClientProvider client={queryClient}>
       <AuthErrorBoundary>
         <FeaturesProvider>
-          {!isOnboarding && <VerificationBanner />}
-          {content}
+          <WebSocketProvider>
+            {!isOnboarding && <VerificationBanner />}
+            {content}
+          </WebSocketProvider>
         </FeaturesProvider>
       </AuthErrorBoundary>
     </QueryClientProvider>

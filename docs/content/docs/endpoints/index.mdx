@@ -1,3 +1,9 @@
+---
+title: Endpoints – Rhesis
+description: Configure and manage API endpoints that Rhesis tests execute against. Connect single-turn and multi-turn LLM applications for automated evaluation.
+keywords: [AI endpoint configuration, LLM API endpoint, test endpoint, AI application testing]
+---
+
 import { CodeBlock } from "@/components/CodeBlock";
 
 # Endpoints
@@ -47,6 +53,7 @@ These variables are available in your request body templates using Jinja2 syntax
 | `conversation_id` | No | Conversation tracking identifier for multi-turn endpoints (both stateful and stateless). Rhesis uses this to track conversations across turns. |
 | `messages` | No | Full conversation history as an array of message objects. Used for stateless endpoints that require the entire history with every request. |
 | `system_prompt` | No | System prompt text. Rhesis prepends it to the `messages` array and strips it from the final request body before sending. |
+| `params` | No | Resolved [experiment parameters](/docs/experiments) for the current test run. Access individual values with dot notation: `\{\{ params.model \}\}`, `\{\{ params.temperature \}\}`. Only populated when the test run is associated with an experiment; empty dict otherwise. See [Using Experiment Parameters](#using-experiment-parameters) below. |
 | `test_id` | No | Unique identifier of the test being executed. Only populated during test runs; renders as an empty string otherwise. Place it wherever your API expects it -- see [Test Execution Context](/platform/endpoints/mapping-examples#test-execution-context) for examples. |
 | `test_run_id` | No | Unique identifier of the current test run. Only populated during test runs; renders as an empty string otherwise. |
 | `test_configuration_id` | No | Unique identifier of the test configuration driving the run. Only populated during test runs; renders as an empty string otherwise. |
@@ -103,6 +110,64 @@ Request and response mappings tell Rhesis how to translate between its standard 
 </CodeBlock>
 
 For full details on template syntax, filters, and advanced mapping techniques, see [Single-Turn Endpoints](/docs/endpoints/single-turn).
+
+## Using Experiment Parameters
+
+When you run tests against an [experiment](/docs/experiments), Rhesis resolves the experiment's parameter values and makes them available in your request mapping under the `params` variable. This lets you drive model selection, temperature, system prompts, and any other configuration directly from the experiment -- without changing your endpoint definition.
+
+### Accessing parameters in request mappings
+
+Use Jinja2 dot notation to reference individual parameter values:
+
+<CodeBlock filename="request-mapping-with-params.json" language="json">
+  {`{
+  "model": "{{ params.model }}",
+  "messages": [
+    {
+      "role": "system",
+      "content": "{{ params.system_prompt }}"
+    },
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ],
+  "temperature": {{ params.temperature }},
+  "max_tokens": {{ params.max_tokens }}
+}`}
+</CodeBlock>
+
+<Callout type="info">
+  Numeric and boolean parameters (like `temperature` or `max_tokens`) should be
+  referenced **without quotes** so they render as JSON numbers or booleans rather
+  than strings.
+</Callout>
+
+When no experiment is associated with a test run, `params` is an empty object and unresolved references render as empty strings. You can use Jinja2 defaults to handle this gracefully:
+
+<CodeBlock filename="request-mapping-with-defaults.json" language="json">
+  {`{
+  "model": "{{ params.model | default('gpt-4') }}",
+  "temperature": {{ params.temperature | default(0.7) }}
+}`}
+</CodeBlock>
+
+### How it works
+
+Parameter injection follows the same flow for both REST and SDK connector endpoints:
+
+1. When a test run is created, the experiment's parameter values are **resolved once** and stored as an immutable snapshot on the test run.
+2. During execution, the snapshot is injected into the Jinja2 template context as `params`.
+3. The template renderer evaluates `\{\{ params.model \}\}` (or any other parameter name) against the snapshot.
+
+This means every test in a run uses the exact same parameter values, and those values are recorded alongside the test results for full reproducibility.
+
+### REST vs. SDK connector
+
+Both endpoint types receive the same resolved parameters:
+
+- **REST endpoints** access parameters through `\{\{ params.* \}\}` in request mappings, as shown above. Your external API receives the rendered values in the HTTP request body.
+- **SDK connector endpoints** can also receive parameters as direct keyword arguments via the `@endpoint` decorator's `parameters` option, or read them through `Parameters.get()`. See [Connector Injection](/docs/experiments/connector-injection) for details.
 
 ## Creating an Endpoint
 

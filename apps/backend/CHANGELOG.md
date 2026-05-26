@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-21
+
+### Added
+- **Parameter Management and Experiments:** Introduced project-scoped parameter schemas, versioned experiments, and environment-based routing for parameters. Includes backend, frontend, and SDK components for managing and utilizing parameters in test executions.
+- **Test Explorer:** Added a new Test Explorer feature for adaptive testing, including endpoints, schemas, and services for managing and generating test sets.
+- **RFC 8693 Token Exchange:** Implemented a per-organization API Clients feature, allowing external services to exchange Keycloak access tokens for Rhesis JWTs.
+- **Per-Organization OIDC SSO:** Added support for per-organization OIDC SSO with Keycloak, including provider configuration, user provisioning, and slug-based login URLs.
+- **Feature Gating:** Introduced a central FeatureRegistry for toggling capabilities via a license provider.
+- **Architect Task Progress Events:** Added WebSocket events for live updates from background workers to the architect chat session.
+- **Image Source Type and Extraction:** Added support for image source type and extraction, allowing the system to handle image files and extract relevant information.
+- **Org-Scoped Metric Dispatch for SDK:** Added connector registration and heartbeat for org-scoped metric dispatch, enabling metric sending from the SDK.
+- **Adversarial Test Generation Notebook:** Added an example notebook for polyphemus adversarial test generation.
+- **Interactive RHESIS_API_KEY Setup:** Added interactive detection and prompting for RHESIS_API_KEY on `rh start` if missing or a placeholder.
+
+### Changed
+- **Parameters:** Renamed "Labels" to "Environments" for parameter routing, aligning terminology with deployment workflows.
+- **Unified Parameter Injection:** Unified parameter injection via `{{ params.* }}` in request mappings, replacing the legacy `@endpoint(parameters=...)` approach.
+- **Project & Experiment UI Patterns:** Standardized UI patterns for project and experiment management, unifying project subsections and reworking the parameter schema editor.
+- **RunDrawer:** Unified multiple execution drawers into a single `RunDrawer` component for consistent feature parity across execution modes.
+- **Sequential Version IDs:** Replaced content-hash version identifiers with sequential numbering for experiments.
+- **Architect Agent Plan Tracking:** Enhanced architect agent plan tracking with per-category completion summaries and "ready / blocked" gates.
+- **Architect Task Progress UI:** Unified exploration progress trail into streaming bubble.
+- **EE Architecture:** Moved SSO and related functionalities into the EE package, implementing an open-core architecture.
+- **Test Set Filtering:** Streamlined test set filtering in `ImportExplorerTestSetDialog`.
+- **Default Embedding Model:** Set `rhesis/rhesis-embedding` as the default embedding model.
+- **Explorer:** Renamed adaptive testing to explorer and updated related endpoints.
+- **Architect Agent UX:** Improved Architect agent UX with exploration progress trail.
+- **Integrations Documentation:** Restructured integrations section to separate LLM providers from framework tracing.
+
+### Fixed
+- **Security Vulnerabilities:** Resolved 56 Dependabot alerts (12 HIGH, 44 MEDIUM) across Python and npm ecosystems by bumping dependencies.
+- **MUI Component Warnings:** Resolved MUI component warnings and select value issues in the frontend.
+- **Experiment Service and Router:** Hardened experiment service and router with improved error handling and data consistency.
+- **Experiment Creation:** Routed experiment creation to project-scoped endpoint.
+- **X-Total-Count Header:** Fixed `X-Total-Count` header to reflect visibility filtering in experiment listing.
+- **Redis Backend Stability:** Capped Redis connections and applied fail-fast Celery overrides to prevent cascading 504s on trace ingestion.
+- **OIDC Metadata Caching:** Resolved OIDC metadata caching deadlock.
+- **Token Exchange Flow:** Fixed end-to-end token-exchange flow with various bug fixes and security enhancements.
+- **Auth Refresh:** Required active user and uniform 401 on `/auth/refresh` to prevent token reuse by disabled users.
+- **Auth Client Uniqueness:** Scoped `auth_client` uniqueness to live rows using a partial unique index.
+- **SSO Routing and Authentication:** Resolved SSO routing, authentication, and dev localhost bypass issues.
+- **SSO Migrations:** Made SSO migrations idempotent.
+- **Features Provider:** Reset to loading state before each re-fetch in `FeaturesProvider`.
+- **GET /features:** Fixed issues with `require_current_user_or_token` and database session handling in the `/features` endpoint.
+- **Notifications:** Updated `notifications.show` calls to use options object.
+- **Self-Signed Certs:** Handled self-signed certificates and returned friendly error on provider failure in SSO.
+- **Streaming Output Bleed:** Prevented streaming output bleed across Architect sessions.
+- **PermissionError on Logs Dir:** Resolved `PermissionError` on logs directory during e2e startup.
+- **run_sync Event Loop Errors:** Always used background thread in `run_sync` to prevent event loop errors.
+- **Turn Evaluation and Enrichment Re-runs:** Skipped redundant turn evaluation and enrichment re-runs.
+- **OTEL Exporter Batch Chunking:** Fixed validation of `max_chunk_size` and documented partial-send semantics.
+- **Test Span Idempotency:** Set mock span idempotency attributes explicitly in tests.
+- **Test Searchable Text:** Resolved test searchable text when prompt not loaded.
+- **Embedding API:** Fixed empty test searchable text breaking embedding API.
+- **Generate Stream in Explorer:** Switched the explorer suggestion streaming path to use the provider-safe streaming API.
+- **File Storage Migrations:** Made file storage migrations idempotent.
+- **Rate Limit:** Corrected `get_real_ip` index for `X-Forwarded-For`.
+- **Embedding Model Migration:** Only selected id column in embedding model migration to avoid missing dimension column.
+- **Embedding_None TypeError:** Fixed embedding_None TypeError by deriving persisted dimension from vector length.
+- **Architect Agent UX:** Fixed Architect agent UX improvements and exploration progress trail.
+- **Architect Needs Confirmation:** Derived architect needs_confirmation from per-turn block state.
+- **Ghost Empty Bubbles:** Prevented ghost empty bubbles after multi-iteration resumed turn.
+- **Plan Requirements:** Required mappings in plan, prohibited mid-execution save_plan.
+- **Architect Task Progress:** Fixed Architect task progress and added tests.
+- **SSO TLS Pinning:** Fixed SSO TLS pinning, redirect context, slug dedup.
+- **Alembic:** Rebased SSO migrations onto embedding table revision.
+- **SQLAlchemy:** Avoided Organization ORM in metric_sync during old migrations.
+
+### Removed
+- **Legacy Parameter Injection:** Removed the legacy `@endpoint(parameters=...)` kwarg-merging approach for parameter injection.
+- **Dead ExplorerClient Methods:** Removed dead `ExplorerClient` methods (`validateTree`, `getTreeStats`, path-based `getTopic`) and `TreeValidation` / `TreeStats` types.
+- **Unused Code:** Removed dead code and clarified audit-hash docs.
+- **TaskProgressList Component:** Removed TaskProgressList component and taskProgressToToolStreams adapter.
+
+
 ## [0.7.1] - 2026-05-07
 
 ### Added

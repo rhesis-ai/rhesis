@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, cast, desc, func, or_, text
+from sqlalchemy import and_, cast, desc, func, or_, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
@@ -127,6 +127,30 @@ def delete_endpoint(
 ) -> Optional[models.Endpoint]:
     return delete_item(
         db, models.Endpoint, endpoint_id, organization_id=organization_id, user_id=user_id
+    )
+
+
+# Experiment CRUD
+def get_experiments(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    sort_order: str = "desc",
+    filter: str | None = None,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Experiment]:
+    return get_items_detail(
+        db,
+        models.Experiment,
+        skip,
+        limit,
+        sort_by,
+        sort_order,
+        filter,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
@@ -989,6 +1013,30 @@ def get_embeddings(
         filter,
         organization_id=organization_id,
         user_id=user_id,
+    )
+
+
+def get_active_embeddings_for_entities(
+    db: Session,
+    entity_ids: List[UUID],
+    entity_type: str,
+    organization_id: str = None,
+    user_id: str = None,
+) -> List[models.Embedding]:
+    from rhesis.backend.app.models.enums import EmbeddingStatus
+    from rhesis.backend.app.models.status import Status
+
+    return (
+        QueryBuilder(db, models.Embedding)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(
+            lambda q: q.filter(
+                models.Embedding.entity_id.in_(entity_ids),
+                models.Embedding.entity_type == entity_type,
+                models.Embedding.status.has(Status.name == EmbeddingStatus.ACTIVE.value),
+            )
+        )
+        .all()
     )
 
 
@@ -2207,9 +2255,25 @@ def get_test_runs(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
+    experiment_id: str | None = None,
+    parameter_version: str | None = None,
+    has_experiment: bool | None = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
+    def experiment_filter(q):
+        if experiment_id:
+            q = q.filter(models.TestRun.experiment_id == experiment_id)
+        if parameter_version:
+            q = q.filter(
+                models.TestRun.attributes["parameter_version"].astext == str(parameter_version)
+            )
+        if has_experiment is True:
+            q = q.filter(models.TestRun.experiment_id.isnot(None))
+        elif has_experiment is False:
+            q = q.filter(models.TestRun.experiment_id.is_(None))
+        return q
+
     return (
         QueryBuilder(db, models.TestRun)
         .with_optimized_loads(
@@ -2218,6 +2282,7 @@ def get_test_runs(
             nested_relationships=_TEST_RUN_NESTED_RELS,
         )
         .with_custom_filter(_defer_endpoint_last_token)
+        .with_custom_filter(experiment_filter)
         .with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_odata_filter(filter)
@@ -3858,6 +3923,30 @@ def get_span_by_id(
     )
 
 
+def _escape_like_pattern(term: str) -> str:
+    """Escape SQL LIKE wildcards in user-provided search text."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _build_trace_search_conditions(pattern: str):
+    """Case-insensitive substring match across common trace text fields."""
+    from rhesis.backend.app.services.invokers.tracing import EndpointAttributes
+
+    attrs = models.Trace.attributes
+
+    esc = "\\"
+    return or_(
+        models.Trace.trace_id.ilike(pattern, escape=esc),
+        models.Trace.span_name.ilike(pattern, escape=esc),
+        models.Trace.status_message.ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.ENDPOINT_NAME].as_string().ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.ENDPOINT_URL].as_string().ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.CONVERSATION_INPUT].as_string().ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.CONVERSATION_OUTPUT].as_string().ilike(pattern, escape=esc),
+        attrs[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW].as_string().ilike(pattern, escape=esc),
+    )
+
+
 def query_traces(
     db: Session,
     organization_id: str,
@@ -3867,6 +3956,7 @@ def query_traces(
     trace_source: TraceSource = TraceSource.ALL,
     trace_type: TraceType = TraceType.ALL,
     environment: Optional[str] = None,
+    search: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
     start_time_after: Optional[datetime] = None,
@@ -3902,7 +3992,6 @@ def query_traces(
     from uuid import UUID
 
     from fastapi import HTTPException
-    from sqlalchemy import select
     from sqlalchemy.orm import aliased, joinedload
 
     def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
@@ -4013,7 +4102,21 @@ def query_traces(
     if environment:
         query = query.filter(models.Trace.environment == environment)
 
-    if span_name:
+    if search and search.strip():
+        pattern = f"%{_escape_like_pattern(search.strip())}%"
+        search_filters = [
+            models.Trace.organization_id == org_uuid,
+            _build_trace_search_conditions(pattern),
+        ]
+        if project_id:
+            search_filters.append(models.Trace.project_id == project_id)
+
+        matching_trace_ids = (
+            db.query(models.Trace.trace_id).filter(*search_filters).distinct().subquery()
+        )
+        query = query.filter(models.Trace.trace_id.in_(select(matching_trace_ids.c.trace_id)))
+
+    elif span_name:
         query = query.filter(models.Trace.span_name == span_name)
 
     if status_code:

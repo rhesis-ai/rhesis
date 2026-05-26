@@ -13,6 +13,13 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.embedding import (
+    EmbeddingGraphComputeResponse,
+    EmbeddingGraphGetResponse,
+    EmbeddingGraphPendingResponse,
+    EmbeddingGraphReadyResponse,
+    Scatter2DGraph,
+)
 from rhesis.backend.app.services.source import (
     extract_source_content,
     get_source_file_content,
@@ -24,6 +31,7 @@ from rhesis.backend.app.services.source import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.tasks.embedding.graph import compute_source_graph_task
 
 router = APIRouter(
     prefix="/sources",
@@ -271,6 +279,47 @@ def read_source_with_content(
     if db_source is None:
         raise HTTPException(status_code=404, detail="Source not found")
     return db_source
+
+
+@router.post(
+    "/{source_id}/embeddings/compute-graph",
+    response_model=EmbeddingGraphComputeResponse,
+)
+def compute_source_embedding_graph(
+    source_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Queue background computation of a 2D embedding graph over this source's chunks."""
+    organization_id, user_id = tenant_context
+    db_source = crud.get_source(db, source_id, organization_id=organization_id, user_id=user_id)
+    if db_source is None:
+        raise HTTPException(status_code=404, detail="Source not found")
+    task = compute_source_graph_task.delay(str(source_id), user_id)
+    return EmbeddingGraphComputeResponse(status="pending", task_id=str(task.id))
+
+
+@router.get(
+    "/{source_id}/embeddings/graph",
+    response_model=EmbeddingGraphGetResponse,
+)
+def get_source_embedding_graph(
+    source_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Return the persisted embedding graph from ``source_metadata`` when available."""
+    organization_id, user_id = tenant_context
+    db_source = crud.get_source(db, source_id, organization_id=organization_id, user_id=user_id)
+    if db_source is None:
+        raise HTTPException(status_code=404, detail="Source not found")
+    meta = db_source.source_metadata or {}
+    graph = meta.get("graph")
+    if not graph:
+        return EmbeddingGraphPendingResponse(status="pending")
+    return EmbeddingGraphReadyResponse(status="ready", graph=Scatter2DGraph.model_validate(graph))
 
 
 @router.get("/{source_id}/file")

@@ -1861,18 +1861,6 @@ export default function ExplorerDetail({
     };
   }, [sessionToken]);
 
-  const handleGenerateOutputsOpen = (fromTable?: boolean) => {
-    if (fromTable && activeTab === 0 && selectedTopicForApi) {
-      setGenerateOutputsTopic(selectedTopicForApi);
-      setGenerateOutputsIncludeSubtopics(true);
-    } else {
-      setGenerateOutputsTopic(null);
-      setGenerateOutputsIncludeSubtopics(true);
-    }
-    setGenerateError(null);
-    setGenerateOutputsDialogOpen(true);
-  };
-
   const handleGenerateOutputsClose = () => {
     if (!generateSubmitting) {
       setGenerateOutputsDialogOpen(false);
@@ -1938,18 +1926,6 @@ export default function ExplorerDetail({
       includeSubtopics: true,
       closeDialog: false,
     });
-  };
-
-  const handleEvaluateOpen = (fromTable?: boolean) => {
-    if (fromTable && activeTab === 0 && selectedTopicForApi) {
-      setEvaluateTopic(selectedTopicForApi);
-      setEvaluateIncludeSubtopics(true);
-    } else {
-      setEvaluateTopic(null);
-      setEvaluateIncludeSubtopics(true);
-    }
-    setEvaluateError(null);
-    setEvaluateDialogOpen(true);
   };
 
   const handleEvaluateClose = () => {

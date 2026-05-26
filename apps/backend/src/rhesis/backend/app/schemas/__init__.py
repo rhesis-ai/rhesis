@@ -13,7 +13,16 @@ from .chunk import Chunk, ChunkBase, ChunkCreate, ChunkUpdate
 from .comment import Comment, CommentBase, CommentCreate, CommentUpdate
 from .demographic import Demographic, DemographicBase, DemographicCreate, DemographicUpdate
 from .dimension import Dimension, DimensionBase, DimensionCreate, DimensionUpdate
-from .embedding import Embedding, EmbeddingBase, EmbeddingCreate, EmbeddingUpdate
+from .embedding import (
+    Embedding,
+    EmbeddingBase,
+    EmbeddingCreate,
+    EmbeddingGraphComputeResponse,
+    EmbeddingGraphGetResponse,
+    EmbeddingGraphPendingResponse,
+    EmbeddingGraphReadyResponse,
+    EmbeddingUpdate,
+)
 from .emoji_reaction import CommentEmojis, EmojiReaction
 from .endpoint import (
     Endpoint,
@@ -35,6 +44,41 @@ from .metric import (
 )
 from .model import Model, ModelBase, ModelCreate, ModelRead, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
+from .parameters import (
+    ENVIRONMENT_NAME_MAX_LENGTH,
+    ENVIRONMENT_NAME_PATTERN,
+    BooleanValue,
+    BuiltInEnvironment,
+    EnumValue,
+    EnvironmentBindRequest,
+    EnvironmentPointer,
+    EnvironmentRegisterRequest,
+    ExperimentBase,
+    ExperimentCreate,
+    ExperimentDetail,
+    ExperimentRead,
+    ExperimentSummary,
+    ExperimentUpdate,
+    ExperimentVersion,
+    ExperimentVersionCreate,
+    IntegerValue,
+    ModelRefValue,
+    NumberValue,
+    ParameterField,
+    ParameterSchema,
+    ParameterType,
+    ParameterValue,
+    ProjectEnvironments,
+    ResolveResponse,
+    SecretRefValue,
+    StringValue,
+    TextValue,
+    canonical_hash,
+    canonical_schema_fingerprint,
+    canonical_version,
+    validate_environment_name,
+    validate_values_against_schema,
+)
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
 from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate, PromptView
 from .prompt_template import (
@@ -112,6 +156,7 @@ from .test_configuration import (
     TestConfiguration,
     TestConfigurationBase,
     TestConfigurationCreate,
+    TestConfigurationExecutionRequest,
     TestConfigurationUpdate,
 )
 from .test_context import TestContext, TestContextBase, TestContextCreate, TestContextUpdate
@@ -213,6 +258,7 @@ __all__ = [
     "TestConfigurationBase",
     "TestConfigurationCreate",
     "TestConfigurationUpdate",
+    "TestConfigurationExecutionRequest",
     "TestResult",
     "TestResultBase",
     "TestResultCreate",
@@ -267,6 +313,10 @@ __all__ = [
     "Embedding",
     "EmbeddingBase",
     "EmbeddingCreate",
+    "EmbeddingGraphComputeResponse",
+    "EmbeddingGraphGetResponse",
+    "EmbeddingGraphPendingResponse",
+    "EmbeddingGraphReadyResponse",
     "EmbeddingUpdate",
     "TypeLookup",
     "TypeLookupBase",
@@ -296,6 +346,40 @@ __all__ = [
     "ProjectBase",
     "ProjectCreate",
     "ProjectUpdate",
+    # Parameter management
+    "ParameterType",
+    "ParameterValue",
+    "ParameterField",
+    "ParameterSchema",
+    "TextValue",
+    "StringValue",
+    "IntegerValue",
+    "NumberValue",
+    "BooleanValue",
+    "EnumValue",
+    "ModelRefValue",
+    "SecretRefValue",
+    "ExperimentBase",
+    "ExperimentCreate",
+    "ExperimentDetail",
+    "ExperimentRead",
+    "ExperimentSummary",
+    "ExperimentUpdate",
+    "ExperimentVersion",
+    "ExperimentVersionCreate",
+    "BuiltInEnvironment",
+    "ENVIRONMENT_NAME_MAX_LENGTH",
+    "ENVIRONMENT_NAME_PATTERN",
+    "EnvironmentBindRequest",
+    "EnvironmentPointer",
+    "EnvironmentRegisterRequest",
+    "ProjectEnvironments",
+    "ResolveResponse",
+    "canonical_hash",
+    "canonical_schema_fingerprint",
+    "canonical_version",
+    "validate_environment_name",
+    "validate_values_against_schema",
     "Test",
     "TestBase",
     "TestCreate",

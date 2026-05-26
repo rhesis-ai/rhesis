@@ -382,6 +382,7 @@ export default function BehaviorsClient({
 
   const hasActiveFilters =
     searchQuery.trim() !== '' || metricCountFilter !== 'all';
+  const editingBehaviorId = !isNewBehavior ? editingBehavior?.id : null;
 
   const metricOptions: { value: MetricFilter; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -529,20 +530,19 @@ export default function BehaviorsClient({
           description={editingBehavior.description}
           onSave={handleSaveBehavior}
           onDuplicate={
-            !isNewBehavior && editingBehavior.id
+            editingBehaviorId
               ? () =>
                   handleDuplicateBehavior(
-                    editingBehavior.id!,
+                    editingBehaviorId,
                     editingBehavior.name,
                     editingBehavior.description
                   )
               : undefined
           }
           onDelete={
-            !isNewBehavior &&
-            editingBehavior.id &&
-            behaviors.find(b => b.id === editingBehavior.id)?.metrics
-              ?.length === 0
+            editingBehaviorId &&
+            behaviors.find(b => b.id === editingBehaviorId)?.metrics?.length ===
+              0
               ? handleDeleteBehavior
               : undefined
           }

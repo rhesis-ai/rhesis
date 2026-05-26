@@ -88,6 +88,7 @@ const meta: MetaRecord = {
     ),
   },
   projects: 'Projects',
+  experiments: 'Experiments',
   knowledge: 'Knowledge',
   behaviors: 'Behaviors',
   metrics: 'Metrics',

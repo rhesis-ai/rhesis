@@ -12,6 +12,7 @@ import '../ee_bootstrap';
 import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
 import {
   ScienceIcon,
+  BiotechIcon,
   AppsIcon,
   VpnKeyIcon,
   TestRunsIcon,
@@ -157,6 +158,12 @@ async function getNavigationItems(
       segment: 'test-runs',
       title: 'Test Runs',
       icon: <TestRunsIcon key="test-runs-icon" />,
+    },
+    {
+      kind: 'page',
+      segment: 'experiments',
+      title: 'Experiments',
+      icon: <BiotechIcon key="experiments-icon" />,
     },
     {
       kind: 'page',

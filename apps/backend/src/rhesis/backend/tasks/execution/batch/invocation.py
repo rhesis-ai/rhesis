@@ -98,6 +98,10 @@ async def _run_multi_turn(
 
     input_files = await load_input_files_lazy(ctx, test_id)
 
+    params = {}
+    if ctx.test_run and ctx.test_run.attributes:
+        params = ctx.test_run.attributes.get("parameters", {})
+
     target = BackendEndpointTarget(
         endpoint_id=str(ctx.endpoint.id),
         organization_id=ctx.organization_id,
@@ -107,6 +111,7 @@ async def _run_multi_turn(
         invoke_max_attempts=ctx.invoke_max_attempts,
         invoke_retry_min_wait=ctx.invoke_retry_min_wait,
         invoke_retry_max_wait=ctx.invoke_retry_max_wait,
+        params=params,
     )
 
     penelope_result = await penelope_agent.a_execute_test(
@@ -145,6 +150,11 @@ async def _run_single_turn(
     from rhesis.backend.tasks.execution.executors.results import process_endpoint_result
 
     input_data: Dict[str, Any] = {"input": prompt_content}
+
+    if ctx.test_run and ctx.test_run.attributes:
+        params = ctx.test_run.attributes.get("parameters", {})
+        if params:
+            input_data["params"] = params
 
     input_files = await load_input_files_lazy(ctx, test_id)
     if input_files:

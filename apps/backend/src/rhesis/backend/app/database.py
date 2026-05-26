@@ -1,17 +1,14 @@
 import logging
-import os
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Generator, Optional
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
+from rhesis.backend.app.config.settings import get_database_settings
+
 logger = logging.getLogger(__name__)
-
-
-load_dotenv()
 
 
 def _set_session_variables(db: Session, organization_id: str = "", user_id: str = ""):
@@ -45,39 +42,9 @@ def _set_session_variables(db: Session, organization_id: str = "", user_id: str 
 
 
 def get_database_url() -> str:
-    """Get the appropriate database URL based on the current mode."""
-    # In test mode, prioritize SQLALCHEMY_DATABASE_TEST_URL
-    if os.getenv("SQLALCHEMY_DB_MODE") == "test":
-        test_url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL")
-        if test_url:
-            return test_url
-
-    # For production/development, use SQLALCHEMY_DATABASE_URL if available
-    prod_url = os.getenv("SQLALCHEMY_DATABASE_URL")
-    if prod_url:
-        return prod_url
-
-    # Fallback: construct URL from individual components
-    return _construct_database_url(is_test=os.getenv("SQLALCHEMY_DB_MODE") == "test")
-
-
-def _construct_database_url(is_test: bool = False) -> str:
-    """Construct database URL from environment variables."""
-    user = os.getenv("SQLALCHEMY_DB_USER", "")
-    password = os.getenv("SQLALCHEMY_DB_PASS", "")
-    host = os.getenv("SQLALCHEMY_DB_HOST", "")
-    db_name = os.getenv("SQLALCHEMY_DB_NAME", "")
-
-    # Add -test suffix for test databases
-    if is_test:
-        db_name += "-test"
-
-    # Handle Cloud SQL Unix socket connections
-    if host.startswith(("/cloudsql", "/tmp/cloudsql")):
-        return f"postgresql://{user}:{password}@/{db_name}?host={host}"
-
-    # Default to localhost TCP connection
-    return f"postgresql://{user}:{password}@localhost:5432/{db_name}"
+    """Get the configured database URL."""
+    settings = get_database_settings()
+    return settings.url
 
 
 SQLALCHEMY_DATABASE_URL = get_database_url()

@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any, Dict
 
-from jinja2 import Environment
+from jinja2 import ChainableUndefined, Environment
 
 from .filters import FILE_FILTERS
 
@@ -15,7 +15,7 @@ class TemplateRenderer:
     """Handles template rendering using Jinja2."""
 
     def __init__(self):
-        self.env = Environment()
+        self.env = Environment(undefined=ChainableUndefined)
         self.env.filters.update(FILE_FILTERS)
 
     def render(self, template_data: Any, input_data: Dict[str, Any]) -> Any:
@@ -34,6 +34,7 @@ class TemplateRenderer:
         """
         # Create a copy to avoid modifying the original input_data
         render_context = input_data.copy()
+        render_context.setdefault("params", {})
 
         # Conversation field aliases: ensure a value provided under any
         # recognised name is available under ALL recognised names so
@@ -151,30 +152,44 @@ class TemplateRenderer:
         """
         import re
 
-        # Check if template is a simple variable reference: {{ var_name }}
-        simple_var_pattern = r"^\{\{\s*(\w+)\s*\}\}$"
+        # Check if template is a simple variable reference: {{ var_name }} or {{ var.name }}
+        simple_var_pattern = r"^\{\{\s*([A-Za-z0-9_.]+)\s*\}\}$"
         match = re.match(simple_var_pattern, original_template)
 
         if match:
-            var_name = match.group(1)
-            if var_name in render_context:
-                value = render_context[var_name]
+            var_path = match.group(1)
 
+            # Navigate dotted path to get value
+            parts = var_path.split(".")
+            value = render_context
+            found = True
+            for part in parts:
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                elif hasattr(value, part):
+                    value = getattr(value, part)
+                else:
+                    found = False
+                    break
+
+            if found:
                 # Check if value is a Pydantic model - convert to dict for serialization
                 if hasattr(value, "model_dump"):
                     logger.debug(
                         f"Converting Pydantic model {type(value).__name__} to dict "
-                        f"for template {{ {var_name} }}"
+                        f"for template {{ {var_path} }}"
                     )
                     return value.model_dump(exclude_none=True)
 
                 # If the value is a complex type, return it directly
                 if isinstance(value, (dict, list)):
-                    logger.debug(f"Preserving {type(value).__name__} for template {{ {var_name} }}")
+                    logger.debug(f"Preserving {type(value).__name__} for template {{ {var_path} }}")
                     return value
 
         # For non-simple templates, try to parse as JSON (e.g. filter output)
         filtered = self._filter_omit_markers(rendered_value)
+        if filtered.strip() == "None":
+            return None
         try:
             return json.loads(filtered)
         except (json.JSONDecodeError, TypeError):

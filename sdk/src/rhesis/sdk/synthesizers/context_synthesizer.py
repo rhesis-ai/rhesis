@@ -16,6 +16,7 @@ class ContextSynthesizer(TestSetSynthesizer):
         prompt: str,
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
+        harmful: bool = False,
     ):
         """
         Initialize the context synthesizer.
@@ -23,9 +24,10 @@ class ContextSynthesizer(TestSetSynthesizer):
             prompt: The generation prompt to use
             batch_size: Maximum number of tests to generate in a single LLM call
             model: The model to use for generation
+            harmful: If True, generate adversarial/harmful test cases
         """
 
-        super().__init__(batch_size=batch_size, model=model)
+        super().__init__(batch_size=batch_size, model=model, harmful=harmful)
         self.prompt = prompt
 
     def _get_template_context(self, **generate_kwargs):

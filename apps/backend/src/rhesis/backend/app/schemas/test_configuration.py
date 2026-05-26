@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import UUID4
+from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas import Base
 
@@ -29,3 +29,17 @@ class TestConfigurationUpdate(TestConfigurationBase):
 
 class TestConfiguration(TestConfigurationBase):
     pass
+
+
+class TestConfigurationExecutionRequest(BaseModel):
+    """Request model for test configuration execution."""
+
+    experiment_id: Optional[UUID4] = Field(
+        default=None,
+        description=(
+            "When set (optionally with version / environment), intent is stored on the "
+            "test configuration and resolved into a run snapshot at queue time."
+        ),
+    )
+    version: Optional[str] = None
+    environment: Optional[str] = None

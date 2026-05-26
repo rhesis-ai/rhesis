@@ -100,6 +100,8 @@ class TestExecutor:
                 continue
 
             value = inputs[name]
+            if value is None and param.default is not inspect.Parameter.empty:
+                continue
             # Let the serializer handle everything uniformly
             prepared[name] = serializer.load(value, param.annotation)
 

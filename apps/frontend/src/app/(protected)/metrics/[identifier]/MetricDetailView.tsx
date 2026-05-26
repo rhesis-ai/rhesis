@@ -550,16 +550,19 @@ export function MetricDetailView({
   // Returns a stable ref callback for each step ID so React doesn't
   // detach/reattach the ref on re-renders (which causes focus loss).
   const getStepRef = React.useCallback((stepId: string) => {
-    if (!stepRefCallbacks.current.has(stepId)) {
-      stepRefCallbacks.current.set(stepId, (el: HTMLTextAreaElement | null) => {
-        if (el) {
-          stepRefs.current.set(stepId, el);
-        } else {
-          stepRefs.current.delete(stepId);
-        }
-      });
+    const existingCallback = stepRefCallbacks.current.get(stepId);
+    if (existingCallback) {
+      return existingCallback;
     }
-    return stepRefCallbacks.current.get(stepId)!;
+    const callback = (el: HTMLTextAreaElement | null) => {
+      if (el) {
+        stepRefs.current.set(stepId, el);
+      } else {
+        stepRefs.current.delete(stepId);
+      }
+    };
+    stepRefCallbacks.current.set(stepId, callback);
+    return callback;
   }, []);
 
   // Helper function to populate refs with initial values when entering edit mode

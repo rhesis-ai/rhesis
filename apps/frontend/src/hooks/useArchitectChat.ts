@@ -609,7 +609,7 @@ export function useArchitectChat(
     );
 
     return () => unsubs.forEach(fn => fn());
-  }, [subscribe, sessionId]);
+  }, [reconcileDismissedPlan, subscribe, sessionId]);
 
   const sendMessage = useCallback(
     (message: string, attachments?: ChatAttachments) => {

@@ -108,6 +108,16 @@ const nextConfig = {
   // no aliases needed.
   transpilePackages: ['@rhesis/ee-frontend'],
 
+  // embedding-atlas pulls in Mosaic/DuckDB WASM; keep it off the server bundle.
+  // Do not also list these in transpilePackages — Turbopack rejects that conflict.
+  serverExternalPackages: [
+    'embedding-atlas',
+    '@uwdata/mosaic-core',
+    '@uwdata/mosaic-spec',
+    '@uwdata/mosaic-sql',
+    '@uwdata/vgplot',
+  ],
+
   // Turbopack configuration (development only — prod build uses webpack via
   // the --webpack flag in the build script).
   // root must be the repo root so Turbopack watches and resolves files inside
@@ -142,6 +152,15 @@ const nextConfig = {
   // Webpack configuration (used by both `next dev --webpack` fallback and
   // `next build --webpack` for production).
   webpack: (config, { dev, isServer }) => {
+    // Next sets module.generator.asset.filename globally; that breaks asset/inline
+    // (e.g. embedding-atlas inlines DuckDB WASM via new URL(data:application/wasm,...)).
+    if (config.module?.generator?.asset?.filename) {
+      config.module.generator['asset/resource'] = {
+        filename: config.module.generator.asset.filename,
+      };
+      delete config.module.generator.asset;
+    }
+
     config.module.rules.push({
       test: /\.md$/,
       type: 'asset/source',
@@ -156,9 +175,6 @@ const nextConfig = {
 
     // Development-specific optimizations
     if (dev) {
-      // Use faster source map option
-      config.devtool = 'eval-cheap-module-source-map';
-
       config.watchOptions = {
         poll: 500, // Reduced from 1000 for faster detection
         aggregateTimeout: 200, // Reduced from 300

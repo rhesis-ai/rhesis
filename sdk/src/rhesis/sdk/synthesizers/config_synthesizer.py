@@ -38,6 +38,7 @@ class ConfigSynthesizer(TestSetSynthesizer):
         model: Optional[Union[str, BaseLLM]] = None,
         sources: Optional[List[SourceSpecification]] = None,
         chunking_strategy: Optional[ChunkingStrategy] = None,
+        harmful: bool = False,
     ):
         """
         Initialize the ConfigSynthesizer.
@@ -47,6 +48,7 @@ class ConfigSynthesizer(TestSetSynthesizer):
             model: The model to use for generation
             sources: Optional list of source specifications to use
             chunking_strategy: Strategy for chunking source content
+            harmful: If True, generate adversarial/harmful test cases
         """
 
         super().__init__(
@@ -54,6 +56,7 @@ class ConfigSynthesizer(TestSetSynthesizer):
             model=model,
             sources=sources,
             chunking_strategy=chunking_strategy,
+            harmful=harmful,
         )
         self.config = config
 

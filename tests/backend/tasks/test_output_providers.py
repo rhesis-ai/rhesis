@@ -154,6 +154,178 @@ class TestSingleTurnOutput:
 
 
 # ============================================================================
+# _load_run_params + SingleTurnOutput parameter injection tests
+# ============================================================================
+
+
+class TestLoadRunParams:
+    """Tests for _load_run_params helper."""
+
+    def test_returns_empty_dict_when_no_context(self):
+        from rhesis.backend.tasks.execution.executors.output_providers import (
+            _load_run_params,
+        )
+
+        assert _load_run_params(MagicMock(), None) == {}
+
+    def test_returns_empty_dict_when_no_test_run_id(self):
+        from rhesis.backend.tasks.execution.executors.output_providers import (
+            _load_run_params,
+        )
+
+        assert _load_run_params(MagicMock(), {"test_id": "t1"}) == {}
+
+    def test_loads_params_from_test_run_attributes(self):
+        from rhesis.backend.tasks.execution.executors.output_providers import (
+            _load_run_params,
+        )
+
+        run_id = str(uuid4())
+        mock_run = MagicMock()
+        mock_run.attributes = {"parameters": {"model": "gpt-4o", "temperature": 0.9}}
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_run
+
+        result = _load_run_params(mock_db, {"test_run_id": run_id})
+
+        assert result == {"model": "gpt-4o", "temperature": 0.9}
+
+    def test_returns_empty_dict_when_run_has_no_params(self):
+        from rhesis.backend.tasks.execution.executors.output_providers import (
+            _load_run_params,
+        )
+
+        mock_run = MagicMock()
+        mock_run.attributes = {"parameter_experiment_id": "exp-1"}
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_run
+
+        result = _load_run_params(mock_db, {"test_run_id": str(uuid4())})
+
+        assert result == {}
+
+    def test_returns_empty_dict_when_run_not_found(self):
+        from rhesis.backend.tasks.execution.executors.output_providers import (
+            _load_run_params,
+        )
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+
+        result = _load_run_params(mock_db, {"test_run_id": str(uuid4())})
+
+        assert result == {}
+
+
+class TestSingleTurnOutputParamsInjection:
+    """Tests for parameter injection into SingleTurnOutput.get_output."""
+
+    @pytest.mark.asyncio
+    async def test_injects_params_into_input_data(self):
+        """Explicit params kwarg is forwarded as input_data['params']."""
+        mock_endpoint_service = AsyncMock()
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={"output": "ok"})
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.output_providers.get_endpoint_service",
+                return_value=mock_endpoint_service,
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.output_providers.process_endpoint_result",
+                return_value={"output": "ok"},
+            ),
+        ):
+            provider = SingleTurnOutput()
+            await provider.get_output(
+                db=MagicMock(),
+                endpoint_id="ep-1",
+                prompt_content="hello",
+                organization_id="org-1",
+                user_id="user-1",
+                params={"model": "gpt-4o", "temperature": 0.5},
+            )
+
+        call_kwargs = mock_endpoint_service.invoke_endpoint.call_args.kwargs
+        assert call_kwargs["input_data"]["params"] == {
+            "model": "gpt-4o",
+            "temperature": 0.5,
+        }
+        assert call_kwargs["input_data"]["input"] == "hello"
+
+    @pytest.mark.asyncio
+    async def test_loads_params_from_test_run_when_not_provided(self):
+        """When params kwarg is None, _load_run_params fetches from TestRun."""
+        mock_endpoint_service = AsyncMock()
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={"output": "ok"})
+
+        run_params = {"model": "claude-3", "max_tokens": 1024}
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.output_providers.get_endpoint_service",
+                return_value=mock_endpoint_service,
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.output_providers.process_endpoint_result",
+                return_value={"output": "ok"},
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.output_providers._load_run_params",
+                return_value=run_params,
+            ) as mock_load,
+        ):
+            provider = SingleTurnOutput()
+            ctx = {"test_run_id": "run-42", "test_id": "test-1"}
+            await provider.get_output(
+                db=MagicMock(),
+                endpoint_id="ep-1",
+                prompt_content="prompt",
+                organization_id="org-1",
+                user_id="user-1",
+                test_execution_context=ctx,
+            )
+
+        mock_load.assert_called_once()
+        call_kwargs = mock_endpoint_service.invoke_endpoint.call_args.kwargs
+        assert call_kwargs["input_data"]["params"] == run_params
+
+    @pytest.mark.asyncio
+    async def test_no_params_key_when_empty(self):
+        """input_data should NOT have a 'params' key when params is empty."""
+        mock_endpoint_service = AsyncMock()
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={"output": "ok"})
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.output_providers.get_endpoint_service",
+                return_value=mock_endpoint_service,
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.output_providers.process_endpoint_result",
+                return_value={"output": "ok"},
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.output_providers._load_run_params",
+                return_value={},
+            ),
+        ):
+            provider = SingleTurnOutput()
+            await provider.get_output(
+                db=MagicMock(),
+                endpoint_id="ep-1",
+                prompt_content="prompt",
+                organization_id="org-1",
+                user_id="user-1",
+            )
+
+        call_kwargs = mock_endpoint_service.invoke_endpoint.call_args.kwargs
+        assert "params" not in call_kwargs["input_data"]
+
+
+# ============================================================================
 # MultiTurnOutput tests
 # ============================================================================
 

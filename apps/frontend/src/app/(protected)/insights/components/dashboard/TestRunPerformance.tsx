@@ -19,6 +19,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import type { TestRunSummaryItem } from '@/utils/api-client/interfaces/test-results';
 
 // Extended interface to include stats
 interface TestRunWithStats extends TestRunDetail {
@@ -122,10 +123,9 @@ export default function TestRunPerformance({
 
         // Map stats back to test runs
         const statsMap = new Map(
-          (statsResponse.test_run_summary || []).map((summary: any) => [
-            summary.id,
-            summary.overall,
-          ])
+          (statsResponse.test_run_summary || []).map(
+            (summary: TestRunSummaryItem) => [summary.id, summary.overall]
+          )
         );
 
         const testRunsWithStats = response.data.map(testRun => ({

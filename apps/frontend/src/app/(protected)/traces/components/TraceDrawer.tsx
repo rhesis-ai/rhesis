@@ -41,6 +41,9 @@ import {
   toMentionId,
 } from '@/components/common/MentionTextInput';
 import { formatDuration } from '@/utils/format-duration';
+import ScienceIcon from '@mui/icons-material/Science';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+import { experimentHref } from '@/utils/experiment-links';
 
 interface TraceDrawerProps {
   open: boolean;
@@ -70,6 +73,11 @@ export default function TraceDrawer({
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [experimentInfo, setExperimentInfo] = useState<{
+    id: string;
+    name: string;
+    version: string;
+  } | null>(null);
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
 
@@ -280,6 +288,36 @@ export default function TraceDrawer({
       fetchTrace();
     }
   }, [open, traceId, projectId, fetchTrace]);
+
+  // Fetch experiment info from test run attributes
+  useEffect(() => {
+    const fetchExperimentInfo = async () => {
+      if (!trace?.test_run?.id || !sessionToken) {
+        setExperimentInfo(null);
+        return;
+      }
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const testRunsClient = clientFactory.getTestRunsClient();
+        const testRun = await testRunsClient.getTestRun(trace.test_run.id);
+        if (testRun?.experiment_id) {
+          const attrs = testRun.attributes as
+            | Record<string, unknown>
+            | undefined;
+          setExperimentInfo({
+            id: testRun.experiment_id,
+            name: (attrs?.parameter_experiment_name as string) || 'Unknown',
+            version: (attrs?.parameter_version as string) || '',
+          });
+        } else {
+          setExperimentInfo(null);
+        }
+      } catch {
+        setExperimentInfo(null);
+      }
+    };
+    fetchExperimentInfo();
+  }, [trace?.test_run?.id, sessionToken]);
 
   // Add keyboard shortcut for ESC key
   useEffect(() => {
@@ -516,6 +554,32 @@ export default function TraceDrawer({
                 size="small"
                 variant="outlined"
               />
+            )}
+
+            {/* Experiment (if test run had pinned parameters) */}
+            {experimentInfo && (
+              <>
+                <Chip
+                  icon={<ScienceIcon />}
+                  label={experimentInfo.name}
+                  component={Link}
+                  href={experimentHref(
+                    experimentInfo.id,
+                    experimentInfo.version
+                  )}
+                  target="_blank"
+                  clickable
+                  size="small"
+                  variant="outlined"
+                />
+                {experimentInfo.version && (
+                  <Chip
+                    label={shortVersion(experimentInfo.version)}
+                    size="small"
+                    variant="outlined"
+                  />
+                )}
+              </>
             )}
           </Box>
 

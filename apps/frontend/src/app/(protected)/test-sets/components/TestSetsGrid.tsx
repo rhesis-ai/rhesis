@@ -31,7 +31,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
-import TestRunDrawer from './TestRunDrawer';
+import RunDrawer from '@/components/common/RunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
@@ -711,11 +711,12 @@ export default function TestSetsGrid({
       {/* Test Run Drawer */}
       {sessionToken && (
         <>
-          <TestRunDrawer
+          <RunDrawer
+            mode="createFromGrid"
             open={testRunDrawerOpen}
             onClose={() => setTestRunDrawerOpen(false)}
             sessionToken={sessionToken}
-            selectedTestSetIds={selectedRows as string[]}
+            data={{ selectedTestSetIds: selectedRows as string[] }}
             onSuccess={() => setTestRunDrawerOpen(false)}
           />
           <DeleteModal

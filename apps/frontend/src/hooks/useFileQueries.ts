@@ -35,8 +35,11 @@ export function useFileMetadata(fileId: string | null, sessionToken: string) {
     queryKey: fileKeys.metadata(fileId ?? ''),
     enabled: !!fileId && !!sessionToken,
     queryFn: async () => {
+      if (!fileId) {
+        throw new Error('fileId is required to fetch file metadata');
+      }
       const client = new ApiClientFactory(sessionToken).getFilesClient();
-      return client.getFileMetadata(fileId!);
+      return client.getFileMetadata(fileId);
     },
   });
 }

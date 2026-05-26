@@ -20,6 +20,13 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas import services as services_schemas
+from rhesis.backend.app.schemas.embedding import (
+    EmbeddingGraphComputeResponse,
+    EmbeddingGraphGetResponse,
+    EmbeddingGraphPendingResponse,
+    EmbeddingGraphReadyResponse,
+    Scatter2DGraph,
+)
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -42,6 +49,7 @@ from rhesis.backend.app.utils.execution_validation import (
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
+from rhesis.backend.tasks.embedding.graph import compute_test_set_graph_task
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
@@ -521,6 +529,14 @@ async def execute_test_set(
             evaluation_model_id = test_configuration_attributes.evaluation_model_id
 
         organization_id, user_id = tenant_context
+        experiment_id = None
+        experiment_version = None
+        experiment_environment = None
+        if test_configuration_attributes:
+            experiment_id = test_configuration_attributes.experiment_id
+            experiment_version = test_configuration_attributes.version
+            experiment_environment = test_configuration_attributes.environment
+
         result = execute_test_set_on_endpoint(
             db=db,
             test_set_identifier=test_set_identifier,
@@ -533,6 +549,9 @@ async def execute_test_set(
             reference_test_run_id=reference_test_run_id,
             execution_model_id=execution_model_id,
             evaluation_model_id=evaluation_model_id,
+            experiment_id=experiment_id,
+            experiment_version=experiment_version,
+            experiment_environment=experiment_environment,
         )
         return result
 
@@ -831,3 +850,48 @@ def remove_metric_from_test_set(
         return db_test_set.metrics or []
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post(
+    "/{test_set_identifier}/embeddings/compute-graph",
+    response_model=EmbeddingGraphComputeResponse,
+)
+def compute_test_set_embedding_graph(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Queue embedding graph computation for a test set.
+
+    The worker generates missing test embeddings, then builds and stores the graph.
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+    task = compute_test_set_graph_task.delay(str(db_test_set.id), str(current_user.id))
+    return EmbeddingGraphComputeResponse(status="pending", task_id=str(task.id))
+
+
+# for pooling until task is ready
+@router.get(
+    "/{test_set_identifier}/embeddings/graph",
+    response_model=EmbeddingGraphGetResponse,
+)
+def get_test_set_embedding_graph(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get the embedding graph for a test set.
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+    attrs = db_test_set.attributes or {}
+    graph = attrs.get("graph")
+    if not graph:
+        return EmbeddingGraphPendingResponse(status="pending")
+
+    return EmbeddingGraphReadyResponse(status="ready", graph=Scatter2DGraph.model_validate(graph))

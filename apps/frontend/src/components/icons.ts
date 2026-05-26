@@ -1,7 +1,12 @@
 // Bundle MUI icon imports to optimize compile times - Using Outlined variants as default
 export { default as ScienceIcon } from '@mui/icons-material/ScienceOutlined';
+export { default as BiotechIcon } from '@mui/icons-material/BiotechOutlined';
+export { default as TuneIcon } from '@mui/icons-material/TuneOutlined';
+export { default as PublicIcon } from '@mui/icons-material/PublicOutlined';
+export { default as PublicOffIcon } from '@mui/icons-material/PublicOffOutlined';
 export { default as HorizontalSplitIcon } from '@mui/icons-material/HorizontalSplitOutlined';
 export { default as PlayArrowIcon } from '@mui/icons-material/PlayArrowOutlined';
+export { default as PromoteIcon } from '@mui/icons-material/RocketLaunchOutlined';
 export { default as EditIcon } from '@mui/icons-material/EditOutlined';
 export { default as SaveIcon } from '@mui/icons-material/SaveOutlined';
 export { default as CancelIcon } from '@mui/icons-material/CancelOutlined';
@@ -35,6 +40,8 @@ export { default as MenuBookIcon } from '@mui/icons-material/MenuBookOutlined';
 export { default as AssessmentIcon } from '@mui/icons-material/AssessmentOutlined';
 export { default as DescriptionIcon } from '@mui/icons-material/DescriptionOutlined';
 export { default as CategoryIcon } from '@mui/icons-material/CategoryOutlined';
+export { default as TextFieldsIcon } from '@mui/icons-material/TextFieldsOutlined';
+export { default as NotesIcon } from '@mui/icons-material/NotesOutlined';
 export { default as AutoGraphIcon } from '@mui/icons-material/AutoGraphOutlined';
 export { default as IntegrationInstructionsIcon } from '@mui/icons-material/IntegrationInstructionsOutlined';
 export { default as GridViewIcon } from '@mui/icons-material/GridViewOutlined';
@@ -77,6 +84,8 @@ export { default as KeyboardArrowDownIcon } from '@mui/icons-material/KeyboardAr
 export { default as KeyboardArrowUpIcon } from '@mui/icons-material/KeyboardArrowUpOutlined';
 export { default as ClearIcon } from '@mui/icons-material/ClearOutlined';
 export { default as RefreshIcon } from '@mui/icons-material/RefreshOutlined';
+export { default as KeyboardArrowUpIcon } from '@mui/icons-material/KeyboardArrowUpOutlined';
+export { default as KeyboardArrowDownIcon } from '@mui/icons-material/KeyboardArrowDownOutlined';
 export { default as SendIcon } from '@mui/icons-material/SendOutlined';
 export { default as EmojiIcon } from '@mui/icons-material/EmojiEmotionsOutlined';
 export { default as VisibilityIcon } from '@mui/icons-material/VisibilityOutlined';

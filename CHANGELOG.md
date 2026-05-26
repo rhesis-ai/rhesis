@@ -13,6 +13,55 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-21
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.8.0**
+- **Frontend 0.8.0**
+- **SDK 0.8.0**
+- **Polyphemus 0.3.0**
+
+### Summary of Changes
+
+**Backend v0.8.0:**
+- **Feature:** Introduces parameter management and experiments, allowing users to define project-scoped parameter schemas, versioned experiments, and environment-based parameter routing.
+- **Feature:** Adds Test Explorer, enabling users to build and evaluate test sets with enhanced capabilities.
+- **Feature:** Implements per-organization OIDC SSO with Keycloak support in the Enterprise Edition, including token exchange and API clients.
+- **Feature:** Migrates file storage from bytea to object storage (GCS/S3/local) for improved scalability and performance, especially for large uploads.
+- **Fix:** Addresses multiple security vulnerabilities and improves Redis backend stability.
+
+
+**Frontend v0.8.0:**
+- Implemented Parameter Management and Experiments: Added project parameters, environments, and experiments features, including a parameter schema editor, experiment detail page, and experiment selector for test execution.
+- Enhanced Test Explorer: Introduced a new Test Explorer feature with adaptive testing capabilities, including endpoints for creating, importing, and managing test sets, and improved UI for building and evaluating tests.
+- Improved Architect Agent UX: Enhanced the Architect agent with plan tracking, task progress events, and a typo-tolerant entity resolution ladder, along with UI improvements for task progress display and plan management.
+- Added File Handling Support: Added support for file handling across invocation paths, including image source type extraction, vision-based image description, and unified file content extraction.
+
+
+**SDK v0.8.0:**
+- Added project parameters and experiments with environment-based configuration, including a new `Parameters.get()` facade in the SDK.
+- Unified parameter injection via `{{ params.* }}` in request mappings, replacing the legacy `@endpoint(parameters=...)` approach.
+- Implemented file storage in object storage (GCS/S3/local) with streaming uploads, and added file handling support across invocation paths, including image and document extraction.
+- Resolved security vulnerabilities and updated dependencies across all projects.
+
+
+**Polyphemus v0.3.0:**
+- Security: Addressed multiple security vulnerabilities by updating direct and transitive dependencies.
+- Adversarial Hardening: Enhanced adversarial robustness by injecting a system primer on every request and hardening the primer to ban harmless outputs.
+- Dependency Management: Streamlined dependencies by splitting backend dependencies into core and optional extras, reducing the Polyphemus image size.
+- Bug Fix: Improved error handling by logging batch item failures instead of silently swallowing them.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.7.1] - 2026-05-07
 
 ### Platform Release

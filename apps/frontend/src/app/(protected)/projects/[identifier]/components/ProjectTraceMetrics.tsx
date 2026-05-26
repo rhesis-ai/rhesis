@@ -10,6 +10,7 @@ import {
   IconButton,
   Tooltip,
   Button,
+  Paper,
 } from '@mui/material';
 import {
   GridColDef,
@@ -104,7 +105,7 @@ export default function ProjectTraceMetrics({
 
   const handleAddMetric = async (metricId: UUID) => {
     try {
-      const currentMetricIds = project.attributes?.trace_metrics || [];
+      const currentMetricIds = getTraceMetricIds(project);
       if (currentMetricIds.includes(metricId)) {
         notifications.show('Metric is already added to this project', {
           severity: 'warning',
@@ -131,7 +132,7 @@ export default function ProjectTraceMetrics({
 
   const handleRemoveMetric = async (metricId: string) => {
     try {
-      const currentMetricIds = project.attributes?.trace_metrics || [];
+      const currentMetricIds = getTraceMetricIds(project);
       const newMetricIds = currentMetricIds.filter(
         (id: string) => id !== metricId
       );
@@ -159,7 +160,7 @@ export default function ProjectTraceMetrics({
 
     try {
       setDeleting(true);
-      const currentMetricIds = project.attributes?.trace_metrics || [];
+      const currentMetricIds = getTraceMetricIds(project);
       const newMetricIds = currentMetricIds.filter(
         (id: string) => !selectedRows.includes(id)
       );
@@ -389,7 +390,7 @@ export default function ProjectTraceMetrics({
           </Box>
         </Box>
       ) : (
-        <Box sx={{ height: 400, width: '100%' }}>
+        <Paper elevation={2} sx={{ p: 2 }}>
           <BaseDataGrid
             rows={metrics}
             columns={columns}
@@ -400,8 +401,9 @@ export default function ProjectTraceMetrics({
             onRowSelectionModelChange={handleRowSelectionModelChange}
             customToolbarContent={customToolbar}
             hideFooter
+            disablePaperWrapper
           />
-        </Box>
+        </Paper>
       )}
 
       <SelectMetricsDialog

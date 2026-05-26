@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 from logging.config import fileConfig
 
@@ -86,30 +85,7 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
-    url_tokens = {
-        "SQLALCHEMY_DB_DRIVER": os.getenv("SQLALCHEMY_DB_DRIVER", ""),
-        "SQLALCHEMY_DB_USER": os.getenv("SQLALCHEMY_DB_USER", ""),
-        "SQLALCHEMY_DB_PASS": os.getenv("SQLALCHEMY_DB_PASS", ""),
-        "SQLALCHEMY_DB_HOST": os.getenv("SQLALCHEMY_DB_HOST", ""),
-        "SQLALCHEMY_DB_NAME": os.getenv("SQLALCHEMY_DB_NAME", ""),
-    }
-
-    # Prefer the full DATABASE_URL env var if set (works correctly in Docker, Cloud Run, etc.)
-    # Fall back to constructing the URL from individual components via alembic.ini placeholders
-    if os.getenv("SQLALCHEMY_DATABASE_URL"):
-        url = os.environ["SQLALCHEMY_DATABASE_URL"]
-    elif os.getenv("SQLALCHEMY_DB_HOST", "").startswith(("/cloudsql", "/tmp/cloudsql")):
-        # Modify the connection string for local Unix socket
-        unix_socket = os.getenv("SQLALCHEMY_DB_HOST")
-        url = f"postgresql://{url_tokens['SQLALCHEMY_DB_USER']}:{url_tokens['SQLALCHEMY_DB_PASS']}@/{url_tokens['SQLALCHEMY_DB_NAME']}?host={unix_socket}"
-    else:
-        # Substitute ${VAR} placeholders in alembic.ini with env var values
-        url = config.get_main_option("sqlalchemy.url")
-        url = re.sub(r"\${(.+?)}", lambda m: url_tokens[m.group(1)], url)
-
-    # if we are running tests, use the test database instead
-    if os.getenv("SQLALCHEMY_DB_MODE") == "test":
-        url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL", "sqlite:///./test.db")
+    url = os.environ["SQLALCHEMY_DATABASE_URL"]
 
     connectable = create_engine(url)
 

@@ -12,8 +12,10 @@ from rhesis.sdk.decorators import (
     metric,
     observe,
 )
+from rhesis.sdk.decorators._state import get_parameters
 from rhesis.sdk.enums import ExecutionMode, TestType
 from rhesis.sdk.errors import RhesisAPIError
+from rhesis.sdk.parameters import Parameters
 
 try:
     __version__ = version("rhesis-sdk")
@@ -38,4 +40,6 @@ __all__ = [
     "create_observer",
     "ObserverBuilder",
     "bind_context",
+    "get_parameters",
+    "Parameters",
 ]

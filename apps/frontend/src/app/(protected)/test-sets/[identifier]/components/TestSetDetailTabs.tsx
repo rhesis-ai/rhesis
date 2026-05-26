@@ -9,6 +9,7 @@ import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrap
 import TestSetDetailsCard from './TestSetDetailsCard';
 import TestSetTagsMetricsCard from './TestSetTagsMetricsCard';
 import TestSetLinkedTestsSection from './TestSetLinkedTestsSection';
+import EmbeddingTestsPanel from './EmbeddingTestsPanel';
 
 const TAB_KEYS = ['basic', 'linked', 'tasks'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
@@ -116,6 +117,13 @@ export default function TestSetDetailTabs({
           testSetType={testSet.test_set_type?.type_value}
           testCount={testCount}
         />
+        <Box sx={{ mt: 3 }}>
+          <EmbeddingTestsPanel
+            testSetId={testSet.id as string}
+            sessionToken={sessionToken}
+            testSetType={testSet.test_set_type?.type_value}
+          />
+        </Box>
       </TabPanel>
 
       {/* Tasks */}

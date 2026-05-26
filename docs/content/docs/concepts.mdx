@@ -1,3 +1,9 @@
+---
+title: Core Concepts – Rhesis
+description: Understand the core concepts behind Rhesis — test sets, behaviors, metrics, endpoints, and the end-to-end AI testing workflow.
+keywords: [AI testing concepts, test sets, LLM behaviors, AI metrics, test workflow]
+---
+
 # Core Concepts
 
 This guide walks you through the core concepts of Rhesis.
@@ -75,6 +81,12 @@ Tests get tagged with behaviors that describe what you're evaluating—like Accu
 Each metric uses an LLM as a judge to evaluate test responses. It returns pass or fail results with optional numeric scoring and provides reasoning that explains the evaluation. This transparency helps you understand not just whether a test passed, but why.
 
 Metrics organize into behaviors like "Accuracy", "Safety", or "Compliance". When you run a test, all metrics within that test's behavior automatically evaluate the response. For example, an "Accuracy" behavior might include metrics for factual correctness, numerical accuracy, and citation validity. This grouping ensures comprehensive evaluation without manual configuration for each test.
+
+## Parameter Management
+
+The configuration of your AI system often involves more than just prompts—it includes model selection, temperature, retrieval strategies, and other variables. 
+
+Rhesis manages these through a **[Parameter Schema](/docs/experiments/parameter-schema)**, which defines the typed configuration "knobs" your project supports. You can then author **[Experiments](/docs/experiments)** that bundle specific values for these parameters into immutable *versions*. By using movable *environments* (like `default` or `production`), your application code and test runs can fetch the right configuration automatically without hardcoding version identifiers.
 
 ## Test Sets
 

@@ -182,7 +182,7 @@ export default function SuggestionsDialog({
 
   const [outputsLoading, setOutputsLoading] = useState(false);
   const [evaluateLoading, setEvaluateLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState<PipelineStep>(null);
+  const [, setCurrentStep] = useState<PipelineStep>(null);
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
   const [acceptAllInProgress, setAcceptAllInProgress] = useState(false);
   const hasStarted = useRef(false);

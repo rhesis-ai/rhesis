@@ -38,7 +38,6 @@ import {
 } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { createEndpoint } from '@/actions/endpoints';
-import { LoadingButton } from '@mui/lab';
 import AutoConfigureModal from './AutoConfigureModal';
 import {
   PlayArrowIcon,
@@ -436,7 +435,7 @@ export default function EndpointForm() {
                 </Button>
               </span>
             </Tooltip>
-            <LoadingButton
+            <Button
               type="submit"
               variant="contained"
               color="primary"
@@ -444,7 +443,7 @@ export default function EndpointForm() {
               disabled={(projects?.length || 0) === 0 && !loadingProjects}
             >
               Create Endpoint
-            </LoadingButton>
+            </Button>
           </Box>
         </Box>
 
@@ -686,7 +685,7 @@ export default function EndpointForm() {
                         }}
                       >
                         {loadingProjects ? (
-                          <MenuItem disabled>
+                          <MenuItem disabled value={formData.project_id || ''}>
                             <CircularProgress size={20} sx={{ mr: 1 }} />
                             Loading projects...
                           </MenuItem>
@@ -953,7 +952,7 @@ export default function EndpointForm() {
             </Grid>
 
             <Grid sx={{ mt: 2 }} size={12}>
-              <LoadingButton
+              <Button
                 variant="contained"
                 color="primary"
                 onClick={async () => {
@@ -1066,7 +1065,7 @@ export default function EndpointForm() {
                 startIcon={<PlayArrowIcon />}
               >
                 Test Endpoint
-              </LoadingButton>
+              </Button>
             </Grid>
 
             {testResponse && (

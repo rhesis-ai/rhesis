@@ -182,6 +182,7 @@ def delete_test_configuration(
 @router.post("/{test_configuration_id}/execute")
 def execute_test_configuration_endpoint(
     test_configuration_id: UUID,
+    execution_request: schemas.TestConfigurationExecutionRequest = None,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -201,6 +202,26 @@ def execute_test_configuration_endpoint(
         )
         if db_test_configuration is None:
             raise HTTPException(status_code=404, detail="Test configuration not found")
+
+        # Update test configuration with parameter references if provided
+        if execution_request:
+            parameters_ref = {}
+            if execution_request.experiment_id is not None:
+                parameters_ref["experiment_id"] = str(execution_request.experiment_id)
+            if execution_request.version and str(execution_request.version).strip():
+                parameters_ref["version"] = str(execution_request.version).strip()
+            if execution_request.environment is not None:
+                parameters_ref["environment"] = str(execution_request.environment)
+
+            if parameters_ref:
+                attrs = (
+                    dict(db_test_configuration.attributes)
+                    if db_test_configuration.attributes
+                    else {}
+                )
+                attrs["parameters_ref"] = parameters_ref
+                db_test_configuration.attributes = attrs
+                db.commit()
 
         # Pre-generate the Celery task ID so it can be stored in the test
         # run record before the task is dispatched.  This guarantees the

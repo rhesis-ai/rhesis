@@ -78,6 +78,89 @@ def get_test_statistics(test_run: TestRun, db) -> Tuple[int, int, int, int]:
     return total_tests, tests_passed, tests_failed, execution_errors
 
 
+def get_test_statistics_for_runs(
+    db,
+    test_run_ids,
+    organization_id: Optional[str] = None,
+) -> Dict[str, Dict[str, int]]:
+    """Aggregate per-run pass/fail/error counts in a single query.
+
+    Batched counterpart of :func:`get_test_statistics`. Used by list-style
+    endpoints (e.g. ``GET /experiments/{id}/results``) that need accurate
+    counts for many runs at once without paying the N+1 cost of one
+    query per run.
+
+    Counts are derived from ``test_result.status`` joined to ``status``,
+    classified through the same ``TEST_RESULT_STATUS_*`` frozensets the
+    single-run helper uses. This mirrors what the test run detail page
+    renders via ``getEffectiveTestResultStatus``'s priority-2 path
+    (backend status, which already reflects metric and turn overrides);
+    it does not apply per-result human review overrides, which are a
+    UI-side refinement.
+
+    Args:
+        db: Database session.
+        test_run_ids: Iterable of test_run IDs to aggregate. Strings or
+            UUIDs are both accepted; the result dict is keyed by the
+            stringified IDs for stable JSON consumption.
+        organization_id: Optional tenant filter; included when set to
+            mirror the single-run helper's behaviour.
+
+    Returns:
+        Dict mapping each ``str(test_run_id)`` to a dict with keys
+        ``total``, ``passed``, ``failed``, ``errors``. Runs absent from
+        the query (no test_results yet) get a zero-filled entry so the
+        caller can index unconditionally.
+    """
+    from sqlalchemy import func
+
+    from rhesis.backend.app import models
+    from rhesis.backend.app.constants import (
+        TEST_RESULT_STATUS_FAILED,
+        TEST_RESULT_STATUS_PASSED,
+    )
+
+    run_id_strs = [str(rid) for rid in test_run_ids]
+    stats: Dict[str, Dict[str, int]] = {
+        rid: {"total": 0, "passed": 0, "failed": 0, "errors": 0} for rid in run_id_strs
+    }
+    if not run_id_strs:
+        return stats
+
+    filters = [models.TestResult.test_run_id.in_(run_id_strs)]
+    if organization_id:
+        filters.append(models.TestResult.organization_id == organization_id)
+
+    rows = (
+        db.query(
+            models.TestResult.test_run_id.label("run_id"),
+            func.lower(models.Status.name).label("status_name"),
+            func.count(models.TestResult.id).label("count"),
+        )
+        .join(models.Status, models.TestResult.status_id == models.Status.id)
+        .filter(*filters)
+        .group_by(models.TestResult.test_run_id, func.lower(models.Status.name))
+        .all()
+    )
+
+    for run_id, status_name, count in rows:
+        bucket = stats.setdefault(
+            str(run_id),
+            {"total": 0, "passed": 0, "failed": 0, "errors": 0},
+        )
+        bucket["total"] += count
+        if status_name in TEST_RESULT_STATUS_PASSED:
+            bucket["passed"] += count
+        elif status_name in TEST_RESULT_STATUS_FAILED:
+            bucket["failed"] += count
+        else:
+            # Unknown / pending / cancelled all fall through to errors,
+            # matching get_test_statistics' classification.
+            bucket["errors"] += count
+
+    return stats
+
+
 def determine_overall_status(
     tests_passed: int, tests_failed: int, execution_errors: int, total_tests: int, logger_func
 ) -> Tuple[str, str, str]:

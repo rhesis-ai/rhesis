@@ -346,3 +346,134 @@ class TestMessagesListPassthrough:
             assert set(msg.keys()) == {"role", "content"}
             assert msg["role"] == messages[i]["role"]
             assert msg["content"] == messages[i]["content"]
+
+
+class TestTemplateRendererParams:
+    """Test experiment parameter injection via {{ params.* }} in templates."""
+
+    def test_params_dot_access_in_dict_template(self):
+        """params.model and params.temperature resolve from a nested dict."""
+        renderer = TemplateRenderer()
+        template = {
+            "model": "{{ params.model }}",
+            "temperature": "{{ params.temperature }}",
+            "messages": [{"role": "user", "content": "{{ input }}"}],
+        }
+        input_data = {
+            "input": "hello",
+            "params": {"model": "gpt-4o", "temperature": 0.9},
+        }
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] == "gpt-4o"
+        assert result["temperature"] == 0.9
+        assert result["messages"][0]["content"] == "hello"
+
+    def test_params_with_jinja_defaults(self):
+        """Jinja default filter works when params is an empty dict."""
+        renderer = TemplateRenderer()
+        template = {
+            "model": "{{ params.model | default('gpt-4') }}",
+            "temperature": "{{ params.temperature | default(0.7) }}",
+        }
+        input_data = {"params": {}}
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] == "gpt-4"
+        assert result["temperature"] == 0.7
+
+    def test_params_defaults_when_context_omits_params(self):
+        """Jinja default filter works when params is absent."""
+        renderer = TemplateRenderer()
+        template = {
+            "model": "{{ params.model | default('gpt-4') }}",
+            "temperature": "{{ params.temperature | default(0.7) }}",
+        }
+        input_data = {}
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] == "gpt-4"
+        assert result["temperature"] == 0.7
+
+    def test_params_partial_keys_use_defaults_for_missing(self):
+        """Missing keys within params resolve via Jinja default() filters."""
+        renderer = TemplateRenderer()
+        template = {
+            "model": "{{ params.model }}",
+            "temperature": "{{ params.temperature | default(0.7) }}",
+        }
+        input_data = {"params": {"model": "gpt-4o"}}
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] == "gpt-4o"
+        assert result["temperature"] == 0.7
+
+    def test_params_mixed_with_platform_variables(self):
+        """params.* coexists with input, test_id, and other platform vars."""
+        renderer = TemplateRenderer()
+        template = {
+            "prompt": "{{ input }}",
+            "model": "{{ params.model }}",
+            "system_prompt": "{{ params.system_prompt }}",
+            "test_id": "{{ test_id | default('') }}",
+        }
+        input_data = {
+            "input": "what is 2+2?",
+            "params": {"model": "claude-3", "system_prompt": "Be concise."},
+            "test_id": "test-123",
+        }
+
+        result = renderer.render(template, input_data)
+
+        assert result["prompt"] == "what is 2+2?"
+        assert result["model"] == "claude-3"
+        assert result["system_prompt"] == "Be concise."
+        assert result["test_id"] == "test-123"
+
+    def test_params_numeric_values_preserved_as_numbers(self):
+        """Numeric params render as JSON numbers, not strings."""
+        renderer = TemplateRenderer()
+        template = '{"temperature": {{ params.temperature }}, "max_tokens": {{ params.max_tokens }}}'
+        input_data = {"params": {"temperature": 0.5, "max_tokens": 2048}}
+
+        result = renderer.render(template, input_data)
+
+        assert isinstance(result, dict)
+        assert result["temperature"] == 0.5
+        assert result["max_tokens"] == 2048
+
+    def test_params_none_value_with_default(self):
+        """A param set to None can fall back to a default."""
+        renderer = TemplateRenderer()
+        template = {"model": "{{ params.model | default('fallback', true) }}"}
+        input_data = {"params": {"model": None}}
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] == "fallback"
+
+    def test_default_none_filter_renders_python_none(self):
+        """default(none) renders as None, not the string 'None'."""
+        renderer = TemplateRenderer()
+        template = {"model": "{{ params.model | default(none) }}"}
+        input_data = {"params": {}}
+
+        result = renderer.render(template, input_data)
+
+        assert result["model"] is None
+
+    def test_params_string_value_in_json_string_template(self):
+        """params.* works in a JSON-string template (not just dict templates)."""
+        renderer = TemplateRenderer()
+        template = '{"model": "{{ params.model }}", "query": "{{ input }}"}'
+        input_data = {"input": "hello", "params": {"model": "gpt-4o"}}
+
+        result = renderer.render(template, input_data)
+
+        assert isinstance(result, dict)
+        assert result["model"] == "gpt-4o"
+        assert result["query"] == "hello"

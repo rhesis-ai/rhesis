@@ -48,8 +48,10 @@ function makeTestRun(overrides: Record<string, unknown> = {}) {
   };
 }
 
+type TestRunFixture = ReturnType<typeof makeTestRun>;
+
 function mockApiClientFactory(
-  testRuns: unknown[] = [],
+  testRuns: TestRunFixture[] = [],
   withStatsError = false
 ) {
   const mockGetTestRuns = jest.fn().mockResolvedValue({
@@ -58,8 +60,14 @@ function mockApiClientFactory(
   });
 
   const testRunSummary = testRuns
-    .filter((run: any) => run.stats)
-    .map((run: any) => ({ id: run.id, overall: run.stats }));
+    .filter(
+      (
+        run
+      ): run is TestRunFixture & {
+        stats: NonNullable<TestRunFixture['stats']>;
+      } => Boolean(run.stats)
+    )
+    .map(run => ({ id: run.id, overall: run.stats }));
 
   const mockGetStats = withStatsError
     ? jest.fn().mockRejectedValue(new Error('Stats unavailable'))

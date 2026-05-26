@@ -566,6 +566,24 @@ const getDesignTokens = (mode: PaletteMode) => {
       line: ['#0080AF', '#FD6E12', '#33A6CB', '#FDD803'],
       pie: ['#33A6CB', '#0080AF', '#005F82'],
       status: ['#2E7D32', '#F57C00', '#C62828'],
+      categorical: [
+        '#50B9E0',
+        '#2AA1CE',
+        '#FD6E12',
+        '#FDD803',
+        '#97D5EE',
+        '#2E7D32',
+        '#F57C00',
+        '#C62828',
+        '#1A1A1A',
+        '#3D3D3D',
+        '#58A6FF',
+        '#F78166',
+        '#86EFAC',
+        '#FCD34D',
+        '#FCA5A5',
+        '#3BC4F2',
+      ],
     },
     elevation: {
       none: 0,
@@ -625,7 +643,12 @@ declare module '@mui/material/styles' {
     markdownH4Scale?: string;
   }
   interface Theme {
-    chartPalettes: { line: string[]; pie: string[]; status: string[] };
+    chartPalettes: {
+      line: string[];
+      pie: string[];
+      status: string[];
+      categorical: string[];
+    };
     elevation: {
       none: number;
       subtle: number;
@@ -642,7 +665,12 @@ declare module '@mui/material/styles' {
     iconSizes: { small: number; medium: number; large: number; xlarge: number };
   }
   interface ThemeOptions {
-    chartPalettes?: { line: string[]; pie: string[]; status: string[] };
+    chartPalettes?: {
+      line: string[];
+      pie: string[];
+      status: string[];
+      categorical: string[];
+    };
     elevation?: {
       none?: number;
       subtle?: number;

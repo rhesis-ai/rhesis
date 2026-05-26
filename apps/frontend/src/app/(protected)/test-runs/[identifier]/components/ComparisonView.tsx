@@ -37,23 +37,36 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchIcon from '@mui/icons-material/Search';
 import RemoveIcon from '@mui/icons-material/Remove';
 import ListIcon from '@mui/icons-material/List';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { experimentHref } from '@/utils/experiment-links';
 import { MetricStatusChip } from '@/components/common/StatusChip';
 import ConversationHistory from '@/components/common/ConversationHistory';
+import { BiotechIcon } from '@/components/icons';
+import { shortVersion } from '@/utils/api-client/interfaces/parameters';
+
+interface RunExperimentInfo {
+  experiment_id?: string;
+  parameter_version?: string;
+  experiment_name?: string;
+}
 
 interface ComparisonViewProps {
   currentTestRun: {
     id: string;
     name?: string;
     created_at: string;
-  };
+  } & RunExperimentInfo;
   currentTestResults: TestResultDetail[];
-  availableTestRuns: Array<{
-    id: string;
-    name?: string;
-    created_at: string;
-    pass_rate?: number;
-  }>;
+  availableTestRuns: Array<
+    {
+      id: string;
+      name?: string;
+      created_at: string;
+      pass_rate?: number;
+    } & RunExperimentInfo
+  >;
   onClose: () => void;
   onLoadBaseline: (testRunId: string) => Promise<TestResultDetail[]>;
   prompts: Record<string, { content: string; name?: string }>;
@@ -72,6 +85,54 @@ interface ComparisonTest {
   id: string;
   baseline?: TestResultDetail;
   current: TestResultDetail;
+}
+
+function ExperimentRunLink({
+  experimentId,
+  parameterVersion,
+  experimentName,
+}: {
+  experimentId?: string;
+  parameterVersion?: string;
+  experimentName?: string;
+}) {
+  if (!experimentId || !parameterVersion) return null;
+
+  return (
+    <Link
+      href={experimentHref(experimentId, parameterVersion)}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ textDecoration: 'none' }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          '&:hover .experiment-label': {
+            color: 'primary.main',
+            textDecoration: 'underline',
+          },
+        }}
+      >
+        <BiotechIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+        <Typography
+          variant="caption"
+          className="experiment-label"
+          color="text.secondary"
+        >
+          {experimentName || 'Experiment'}
+        </Typography>
+        <Chip
+          label={shortVersion(parameterVersion)}
+          size="small"
+          variant="outlined"
+        />
+        <OpenInNewIcon fontSize="inherit" sx={{ color: 'text.disabled' }} />
+      </Box>
+    </Link>
+  );
 }
 
 export default function ComparisonView({
@@ -581,6 +642,16 @@ export default function ComparisonView({
                         />
                       </Box>
                     )}
+                    {baselineRun.experiment_id &&
+                      baselineRun.parameter_version && (
+                        <Box sx={{ mt: 1 }}>
+                          <ExperimentRunLink
+                            experimentId={baselineRun.experiment_id}
+                            parameterVersion={baselineRun.parameter_version}
+                            experimentName={baselineRun.experiment_name}
+                          />
+                        </Box>
+                      )}
                   </>
                 )}
               </CardContent>
@@ -647,6 +718,16 @@ export default function ComparisonView({
                     </Typography>
                   )}
                 </Box>
+                {currentTestRun.experiment_id &&
+                  currentTestRun.parameter_version && (
+                    <Box sx={{ mt: 1 }}>
+                      <ExperimentRunLink
+                        experimentId={currentTestRun.experiment_id}
+                        parameterVersion={currentTestRun.parameter_version}
+                        experimentName={currentTestRun.experiment_name}
+                      />
+                    </Box>
+                  )}
               </CardContent>
             </Card>
           </Grid>
@@ -1044,6 +1125,11 @@ export default function ComparisonView({
                         ) : (
                           <Chip label="No data" size="small" color="default" />
                         )}
+                        <ExperimentRunLink
+                          experimentId={baselineRun?.experiment_id}
+                          parameterVersion={baselineRun?.parameter_version}
+                          experimentName={baselineRun?.experiment_name}
+                        />
                       </Box>
                       {selectedTest.baseline?.test_output
                         ?.conversation_summary ? (
@@ -1150,6 +1236,11 @@ export default function ComparisonView({
                               )}
                           </>
                         )}
+                        <ExperimentRunLink
+                          experimentId={currentTestRun.experiment_id}
+                          parameterVersion={currentTestRun.parameter_version}
+                          experimentName={currentTestRun.experiment_name}
+                        />
                       </Box>
                       {selectedTest.current.test_output
                         ?.conversation_summary ? (
@@ -1252,6 +1343,11 @@ export default function ComparisonView({
                         ) : (
                           <Chip label="No data" size="small" color="default" />
                         )}
+                        <ExperimentRunLink
+                          experimentId={baselineRun?.experiment_id}
+                          parameterVersion={baselineRun?.parameter_version}
+                          experimentName={baselineRun?.experiment_name}
+                        />
                       </Box>
 
                       {selectedTest.baseline && (
@@ -1578,6 +1674,11 @@ export default function ComparisonView({
                               )}
                           </>
                         )}
+                        <ExperimentRunLink
+                          experimentId={currentTestRun.experiment_id}
+                          parameterVersion={currentTestRun.parameter_version}
+                          experimentName={currentTestRun.experiment_name}
+                        />
                       </Box>
 
                       {/* Response */}

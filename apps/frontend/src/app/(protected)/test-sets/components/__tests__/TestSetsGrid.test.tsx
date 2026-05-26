@@ -118,7 +118,7 @@ jest.mock('@/components/common/BaseDataGrid', () => {
 
 // ---- Sub-component stubs ----
 
-jest.mock('../TestRunDrawer', () => ({
+jest.mock('@/components/common/RunDrawer', () => ({
   __esModule: true,
   default: ({ open }: { open: boolean }) =>
     open ? <div data-testid="test-run-drawer" /> : null,

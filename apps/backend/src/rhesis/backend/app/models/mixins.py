@@ -1,9 +1,8 @@
 import functools
 import logging
-import uuid
 from typing import Any
 
-from sqlalchemy import Column, ForeignKey, and_, event, text
+from sqlalchemy import Column, ForeignKey, and_, event
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
@@ -351,9 +350,11 @@ class EmbeddableMixin:
         return relationship(
             "Embedding",
             primaryjoin=(
+                # foreign() wraps entity_id, the referencing side, not the parent id. Works anyways
                 f"and_(Embedding.entity_id == foreign({cls.__name__}.id), "
                 f"Embedding.entity_type == '{cls.__name__}')"
             ),
+            # this likely overrides the foreign() above
             foreign_keys="[Embedding.entity_id]",
             viewonly=True,
             uselist=True,
