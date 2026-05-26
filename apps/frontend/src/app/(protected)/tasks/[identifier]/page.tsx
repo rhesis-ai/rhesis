@@ -546,7 +546,9 @@ export default function TaskDetailPage({ params }: PageProps) {
 
                   const finalUrl = `${baseUrl}${queryString}${commentHash}`;
                   router.push(finalUrl);
-                } catch (_error) {}
+                } catch (error) {
+                  console.error('Failed to navigate to linked entity:', error);
+                }
               }
             }}
             sx={{

@@ -101,7 +101,12 @@ export default function ProjectCreateDrawer({
         const client = new UsersClient(sessionToken);
         const result = await client.getUsers();
         setUsers(result.data);
-      } catch {}
+      } catch (error) {
+        console.error(
+          'Failed to fetch users for project create drawer:',
+          error
+        );
+      }
     };
     fetchUsers();
   }, [open, sessionToken]);
