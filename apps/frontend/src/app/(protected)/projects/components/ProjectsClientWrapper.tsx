@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Alert,
-  Paper,
   CircularProgress,
   TablePagination,
 } from '@mui/material';
@@ -19,8 +18,6 @@ import ProjectFilterDrawer, {
   hasActiveProjectFilters,
 } from './ProjectFilterDrawer';
 import AddIcon from '@mui/icons-material/Add';
-import FolderIcon from '@mui/icons-material/Folder';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import GridToolbar, {
   ToolbarPillTabs,
@@ -31,39 +28,9 @@ import { AppsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import styles from '@/styles/ProjectsClientWrapper.module.css';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-
-interface EmptyStateMessageProps {
-  title: string;
-  description: string;
-  icon?: React.ReactNode;
-}
-
-function EmptyStateMessage({
-  title,
-  description,
-  icon,
-}: EmptyStateMessageProps) {
-  return (
-    <Paper elevation={2} className={styles.emptyState}>
-      {icon || (
-        <Box className={styles.iconContainer}>
-          <FolderIcon className={styles.primaryIcon} />
-          <AutoAwesomeIcon className={styles.secondaryIcon} />
-        </Box>
-      )}
-      <Typography variant="h5" className={styles.title}>
-        {title}
-      </Typography>
-      <Typography variant="body1" className={styles.description}>
-        {description}
-      </Typography>
-    </Paper>
-  );
-}
 
 interface ProjectsClientWrapperProps {
   sessionToken: string;
@@ -177,11 +144,15 @@ export default function ProjectsClientWrapper({
     return searchMatch && statusMatch && drawerStatusMatch && envMatch;
   });
 
-  const hasActiveFilters = search !== '' || statusFilter !== 'all';
+  const hasActiveFilters =
+    search !== '' ||
+    statusFilter !== 'all' ||
+    hasActiveProjectFilters(activeFilters);
 
   const handleReset = () => {
     setSearch('');
     setStatusFilter('all');
+    setActiveFilters(EMPTY_FILTERS);
     setPage(0);
   };
 
@@ -205,8 +176,9 @@ export default function ProjectsClientWrapper({
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
-        <EmptyStateMessage
-          title="Authentication Required"
+        <EntityEmptyState
+          icon={AppsIcon}
+          title="Authentication required"
           description="Please log in to view and manage your projects."
         />
       </PageLayout>
@@ -287,9 +259,12 @@ export default function ProjectsClientWrapper({
         <>
           {filteredProjects.length === 0 ? (
             hasActiveFilters ? (
-              <EmptyStateMessage
+              <EntityEmptyState
+                icon={AppsIcon}
                 title="No projects match your filters"
                 description="Try adjusting your search or status filter to find the projects you're looking for."
+                actionLabel="Reset filters"
+                onAction={handleReset}
               />
             ) : (
               <EntityEmptyState

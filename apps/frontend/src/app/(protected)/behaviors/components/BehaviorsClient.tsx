@@ -5,7 +5,6 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
-import Paper from '@mui/material/Paper';
 import AddIcon from '@mui/icons-material/Add';
 import GridToolbar, {
   ToolbarPillTabs,
@@ -29,39 +28,6 @@ import BehaviorFilterDrawer, {
   EMPTY_BEHAVIOR_FILTERS,
   hasActiveBehaviorFilters,
 } from './BehaviorFilterDrawer';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
-
-interface EmptyStateMessageProps {
-  title: string;
-  description: string;
-}
-
-function EmptyStateMessage({ title, description }: EmptyStateMessageProps) {
-  return (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 4,
-        textAlign: 'center',
-        borderRadius: BORDER_RADIUS.md,
-        border: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        boxShadow: ELEVATION.xs,
-      }}
-    >
-      <Typography variant="h6" gutterBottom>
-        {title}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {description}
-      </Typography>
-    </Paper>
-  );
-}
 
 interface BehaviorsClientProps {
   sessionToken: string;
@@ -381,8 +347,16 @@ export default function BehaviorsClient({
   }, [behaviors, searchQuery, metricCountFilter, drawerFilters]);
 
   const hasActiveFilters =
-    searchQuery.trim() !== '' || metricCountFilter !== 'all';
+    searchQuery.trim() !== '' ||
+    metricCountFilter !== 'all' ||
+    hasActiveBehaviorFilters(drawerFilters);
   const editingBehaviorId = !isNewBehavior ? editingBehavior?.id : null;
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setMetricCountFilter('all');
+    setDrawerFilters(EMPTY_BEHAVIOR_FILTERS);
+  };
 
   const metricOptions: { value: MetricFilter; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -467,9 +441,12 @@ export default function BehaviorsClient({
       {/* Behaviors grid / empty states */}
       {filteredBehaviors.length === 0 ? (
         hasActiveFilters ? (
-          <EmptyStateMessage
+          <EntityEmptyState
+            icon={PsychologyIcon}
             title="No behaviors match your filters"
             description="Try adjusting your search or filter to find the behaviors you're looking for."
+            actionLabel="Reset filters"
+            onAction={handleResetFilters}
           />
         ) : (
           <EntityEmptyState
