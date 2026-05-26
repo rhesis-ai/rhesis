@@ -12,13 +12,12 @@ import {
   TraceSummary,
   TRACE_METRICS_STATUS,
 } from '@/utils/api-client/interfaces/telemetry';
-import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
@@ -39,7 +38,6 @@ interface TracesToolbarState {
   typeFilter: string;
   setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
-  onRefresh: () => void;
   hasActiveDrawerFilters: boolean;
 }
 
@@ -49,7 +47,6 @@ const TracesToolbarContext = React.createContext<TracesToolbarState>({
   typeFilter: 'all',
   setTypeFilter: () => {},
   openFilterDrawer: () => {},
-  onRefresh: () => {},
   hasActiveDrawerFilters: false,
 });
 
@@ -60,7 +57,6 @@ function TracesUnifiedToolbar() {
     typeFilter,
     setTypeFilter,
     openFilterDrawer,
-    onRefresh,
     hasActiveDrawerFilters,
   } = useContext(TracesToolbarContext);
 
@@ -80,11 +76,6 @@ function TracesUnifiedToolbar() {
       }
       rightContent={
         <>
-          <Tooltip title="Refresh">
-            <IconButton size="small" onClick={onRefresh} aria-label="Refresh">
-              <RefreshIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
           <GridToolbarColumnsButton />
           <GridToolbarDensitySelector />
           <GridToolbarExport />
@@ -112,7 +103,6 @@ interface TracesTableProps {
   filterDrawerOpen: boolean;
   onFilterDrawerOpen: () => void;
   onFilterDrawerClose: () => void;
-  onRefresh: () => void;
   sessionToken: string;
 }
 
@@ -134,7 +124,6 @@ export default function TracesTable({
   filterDrawerOpen,
   onFilterDrawerOpen,
   onFilterDrawerClose,
-  onRefresh,
   sessionToken,
 }: TracesTableProps) {
   const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters);
@@ -342,7 +331,6 @@ export default function TracesTable({
       typeFilter,
       setTypeFilter: onTypeFilterChange,
       openFilterDrawer: onFilterDrawerOpen,
-      onRefresh,
       hasActiveDrawerFilters,
     }),
     [
@@ -351,7 +339,6 @@ export default function TracesTable({
       typeFilter,
       onTypeFilterChange,
       onFilterDrawerOpen,
-      onRefresh,
       hasActiveDrawerFilters,
     ]
   );

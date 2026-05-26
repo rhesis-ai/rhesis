@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box, TextField } from '@mui/material';
+import { Box, FormControl, InputLabel, MenuItem, Select } from '@mui/material';
 import {
   FilterDrawerShell,
   FilterSection,
@@ -44,15 +44,14 @@ export interface MetricFilterOptions {
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
   metricScope: { value: string; label: string }[];
+  behavior: { id: string; name: string }[];
 }
 
-const textFieldSx = {
-  '& .MuiOutlinedInput-root': {
+const selectSx = {
+  borderRadius: BORDER_RADIUS.sm,
+  fontSize: 14,
+  '& .MuiOutlinedInput-notchedOutline': {
     borderRadius: BORDER_RADIUS.sm,
-    fontSize: 14,
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
   },
 };
 
@@ -157,17 +156,29 @@ export default function MetricFilterDrawer({
         </FilterSection>
       )}
 
-      <FilterSection title="Behavior">
-        <TextField
-          fullWidth
-          placeholder="Filter by behavior name…"
-          value={draft.behavior}
-          onChange={e =>
-            setDraft(prev => ({ ...prev, behavior: e.target.value }))
-          }
-          sx={textFieldSx}
-        />
-      </FilterSection>
+      {filterOptions.behavior.length > 0 && (
+        <FilterSection title="Behavior">
+          <FormControl fullWidth size="small">
+            <InputLabel id="metric-filter-behavior-label">Behavior</InputLabel>
+            <Select
+              labelId="metric-filter-behavior-label"
+              value={draft.behavior}
+              label="Behavior"
+              onChange={e =>
+                setDraft(prev => ({ ...prev, behavior: e.target.value }))
+              }
+              sx={selectSx}
+            >
+              <MenuItem value="">All behaviors</MenuItem>
+              {filterOptions.behavior.map(opt => (
+                <MenuItem key={opt.id} value={opt.name}>
+                  {opt.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </FilterSection>
+      )}
     </FilterDrawerShell>
   );
 }

@@ -213,7 +213,6 @@ export default function TracesClient({
         filterDrawerOpen={filterDrawerOpen}
         onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
         onFilterDrawerClose={() => setFilterDrawerOpen(false)}
-        onRefresh={handleRefresh}
         sessionToken={sessionToken}
       />
 

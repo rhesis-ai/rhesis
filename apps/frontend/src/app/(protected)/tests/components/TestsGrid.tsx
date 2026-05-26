@@ -99,18 +99,6 @@ function TestsUnifiedToolbar() {
       searchPlaceholder="Search tests…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
-      sx={{
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        bgcolor: theme =>
-          theme.palette.mode === 'light'
-            ? GREYSCALE.light.surface1
-            : GREYSCALE.dark.surface1,
-      }}
       middleContent={
         <ToolbarPillTabs
           tabs={PILL_TABS}
@@ -861,6 +849,7 @@ export default function TestsTable({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
+        sessionToken={sessionToken}
         onApply={f => {
           setDrawerFilters(f);
           // If drawer sets a test type, sync the pill tab too

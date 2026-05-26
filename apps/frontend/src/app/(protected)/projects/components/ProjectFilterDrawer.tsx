@@ -1,13 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Switch, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
 } from '@/components/common/FilterDrawer';
-import { GREYSCALE } from '@/styles/theme';
 
 export interface ProjectFilters {
   activeStatus: boolean | null;
@@ -73,41 +72,24 @@ export default function ProjectFilterDrawer({
       onApply={handleApply}
     >
       <FilterSection title="Status">
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {[
             { label: 'Active', value: true as const },
             { label: 'Inactive', value: false as const },
           ].map(({ label, value }) => (
             <Box
               key={label}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                height: 38,
-              }}
+              component="button"
+              type="button"
+              onClick={() =>
+                setDraft(prev => ({
+                  ...prev,
+                  activeStatus: prev.activeStatus === value ? null : value,
+                }))
+              }
+              sx={filterChipSx(draft.activeStatus === value)}
             >
-              <Typography sx={{ fontSize: 14, color: GREYSCALE.light.body }}>
-                {label}
-              </Typography>
-              <Switch
-                checked={draft.activeStatus === value}
-                onChange={e => {
-                  setDraft(prev => ({
-                    ...prev,
-                    activeStatus: e.target.checked ? value : null,
-                  }));
-                }}
-                size="small"
-                sx={{
-                  '& .MuiSwitch-switchBase.Mui-checked': {
-                    color: 'primary.main',
-                  },
-                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                    bgcolor: 'primary.main',
-                  },
-                }}
-              />
+              {label}
             </Box>
           ))}
         </Box>

@@ -4,7 +4,7 @@ import React from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import ButtonGroup from '@mui/material/ButtonGroup';
-import { SxProps, Theme, useTheme } from '@mui/material/styles';
+import { SxProps, Theme } from '@mui/material/styles';
 import { FilterButton } from '@/components/common/FilterButton';
 import { SearchPill } from '@/components/common/SearchPill';
 import { BORDER_RADIUS, GREYSCALE } from '@/styles/theme';
@@ -210,19 +210,12 @@ export function GridToolbar({
   rightContent,
   sx,
 }: GridToolbarProps) {
-  const theme = useTheme();
-
   const baseSx: SxProps<Theme> = {
     display: 'flex',
     alignItems: 'center',
     gap: 1.5,
     px: 2,
     py: 1,
-    borderBottom: `1px solid ${
-      theme.palette.mode === 'light'
-        ? GREYSCALE.light.border
-        : GREYSCALE.dark.border
-    }`,
     minHeight: 52,
   };
 

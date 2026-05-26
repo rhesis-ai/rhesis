@@ -19,7 +19,8 @@ import MetricFilterDrawer from './MetricFilterDrawer';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import MetricCard from './MetricCard';
-import MetricTypeDialog from './MetricTypeDialog';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 import {
   MetricDetail,
@@ -113,7 +114,10 @@ export default function MetricsDirectoryTab({
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
   const [selectedMetric, setSelectedMetric] =
     React.useState<MetricDetail | null>(null);
-  const [createMetricOpen, setCreateMetricOpen] = React.useState(false);
+  const [fabAnchorEl, setFabAnchorEl] = React.useState<null | HTMLElement>(
+    null
+  );
+  const fabMenuOpen = Boolean(fabAnchorEl);
   const [deleteMetricDialogOpen, setDeleteMetricDialogOpen] =
     React.useState(false);
   const [metricToDeleteCompletely, setMetricToDeleteCompletely] =
@@ -206,8 +210,8 @@ export default function MetricsDirectoryTab({
         .map(b => b.name || '');
       const behaviorMatch =
         behaviorFilter.trim() === '' ||
-        metricBehaviorNames.some(name =>
-          name.toLowerCase().includes(behaviorFilter.toLowerCase())
+        metricBehaviorNames.some(
+          name => name.toLowerCase() === behaviorFilter.toLowerCase()
         );
 
       return (
@@ -492,8 +496,32 @@ export default function MetricsDirectoryTab({
             icon={<AddIcon />}
             tooltip="Create metric"
             aria-label="Create metric"
-            onClick={() => setCreateMetricOpen(true)}
+            onClick={e => setFabAnchorEl(e.currentTarget)}
           />
+          <Menu
+            anchorEl={fabAnchorEl}
+            open={fabMenuOpen}
+            onClose={() => setFabAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem
+              onClick={() => {
+                setFabAnchorEl(null);
+                router.push('/metrics/new?type=custom-prompt');
+              }}
+            >
+              LLM judge
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setFabAnchorEl(null);
+                router.push('/metrics/new?type=custom-code');
+              }}
+            >
+              Code Evaluation
+            </MenuItem>
+          </Menu>
         </FabGroup>
       }
     >
@@ -536,6 +564,7 @@ export default function MetricsDirectoryTab({
           type: filterOptions.type,
           scoreType: filterOptions.scoreType,
           metricScope: filterOptions.metricScope,
+          behavior: filterOptions.behavior,
         }}
         onApply={drawerFilters => {
           setFilters(prev => ({
@@ -668,10 +697,6 @@ export default function MetricsDirectoryTab({
         excludeBehaviorIds={(selectedMetric?.behaviors || [])
           .filter(b => typeof b !== 'string' && b.id)
           .map(b => (typeof b !== 'string' ? b.id : (b as unknown as UUID)))}
-      />
-      <MetricTypeDialog
-        open={createMetricOpen}
-        onClose={() => setCreateMetricOpen(false)}
       />
     </PageLayout>
   );

@@ -195,7 +195,7 @@ export default function EntityCard({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'primary.dark',
+                color: 'text.primary',
                 flexShrink: 0,
                 '& .MuiSvgIcon-root': { fontSize: 20 },
               }}

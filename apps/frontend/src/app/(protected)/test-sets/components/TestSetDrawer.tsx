@@ -38,9 +38,6 @@ export default function TestSetDrawer({
   const [description, setDescription] = React.useState(
     testSet?.description || ''
   );
-  const [shortDescription, setShortDescription] = React.useState(
-    testSet?.short_description || ''
-  );
   const [testSetTypes, setTestSetTypes] = React.useState<TypeLookup[]>([]);
   const [selectedTestSetTypeId, setSelectedTestSetTypeId] = React.useState<
     string | undefined
@@ -52,7 +49,6 @@ export default function TestSetDrawer({
     if (open) {
       setName(testSet?.name || '');
       setDescription(testSet?.description || '');
-      setShortDescription(testSet?.short_description || '');
       if (testSet) {
         setSelectedTestSetTypeId(testSet.test_set_type_id);
       } else {
@@ -130,7 +126,6 @@ export default function TestSetDrawer({
       const testSetData = {
         name: trimmedName,
         description: description.trim(),
-        short_description: shortDescription.trim(),
         priority: 1,
         is_published: false,
         attributes: {},
@@ -197,14 +192,6 @@ export default function TestSetDrawer({
           </Select>
           {typeError && <FormHelperText>{typeError}</FormHelperText>}
         </FormControl>
-
-        <TextField
-          label="Short Description"
-          value={shortDescription}
-          onChange={e => setShortDescription(e.target.value)}
-          fullWidth
-          disabled={loading}
-        />
 
         <TextField
           label="Description"

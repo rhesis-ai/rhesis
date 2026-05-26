@@ -20,7 +20,7 @@ import GridToolbar, {
 } from '@/components/common/GridToolbar';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import TokensGrid from './TokensGrid';
-import CreateTokenModal from './CreateTokenModal';
+import CreateTokenDrawer from './CreateTokenDrawer';
 import TokenDisplay from './TokenDisplay';
 import TokenFilterDrawer, {
   type TokenFilters,
@@ -295,7 +295,7 @@ export default function TokensPageClient({
       )}
 
       {/* Modals & dialogs */}
-      <CreateTokenModal
+      <CreateTokenDrawer
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onCreateToken={handleCreateToken}

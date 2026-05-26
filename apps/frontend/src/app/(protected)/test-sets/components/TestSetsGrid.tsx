@@ -736,6 +736,7 @@ export default function TestSetsGrid({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
+        sessionToken={sessionToken}
         onApply={f => {
           setDrawerFilters(f);
           if (f.testSetType) setTypeFilter(f.testSetType);

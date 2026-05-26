@@ -24,6 +24,12 @@ import {
   ConnectionDialog,
   ConnectedModelCard,
 } from './components';
+import ModelFilterDrawer, {
+  EMPTY_MODEL_FILTERS,
+  hasActiveModelFilters,
+  type ModelFilters,
+} from './components/ModelFilterDrawer';
+import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
 import type { ValidationStatus } from './types';
 
@@ -59,6 +65,10 @@ export default function ModelsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [modelTypeFilter, setModelTypeFilter] =
     useState<ModelTypeFilter>('all');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] =
+    useState<ModelFilters>(EMPTY_MODEL_FILTERS);
+  const [statusOptions, setStatusOptions] = useState<string[]>([]);
 
   // FAB menu anchor
   const [fabAnchorEl, setFabAnchorEl] = useState<null | HTMLElement>(null);
@@ -108,6 +118,19 @@ export default function ModelsPage() {
           setConnectedModels(modelsResponse.data);
         } catch {
           // show empty state
+        }
+
+        try {
+          const statuses = await apiFactory.getStatusClient().getStatuses({
+            sort_by: 'name',
+            sort_order: 'asc',
+            entity_type: 'Model',
+          });
+          setStatusOptions(
+            filterUniqueValidOptions(statuses).map(status => status.name)
+          );
+        } catch {
+          // continue without status filter options
         }
       } catch (err) {
         setError(
@@ -340,7 +363,16 @@ export default function ModelsPage() {
       model.description?.toLowerCase().includes(q) ||
       model.model_name?.toLowerCase().includes(q);
 
-    return typeMatch && searchMatch;
+    const providerMatch =
+      drawerFilters.providers.length === 0 ||
+      (model.provider_type?.type_value &&
+        drawerFilters.providers.includes(model.provider_type.type_value));
+
+    const statusMatch =
+      drawerFilters.status === '' ||
+      model.status?.name?.toLowerCase() === drawerFilters.status.toLowerCase();
+
+    return typeMatch && searchMatch && providerMatch && statusMatch;
   });
 
   return (
@@ -381,6 +413,8 @@ export default function ModelsPage() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search models..."
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveModelFilters(drawerFilters)}
         sx={directoryToolbarSx}
         middleContent={
           <ToolbarPillTabs
@@ -429,6 +463,15 @@ export default function ModelsPage() {
           ))}
         </Box>
       )}
+
+      <ModelFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        providerOptions={providerTypes}
+        statusOptions={statusOptions}
+        onApply={setDrawerFilters}
+      />
 
       <ProviderSelectionDialog
         open={providerSelectionOpen}
