@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Box, Typography, useTheme } from '@mui/material';
-import { GREYSCALE } from '@/styles/theme';
+import { Box, Typography } from '@mui/material';
 
 interface ViewFieldProps {
   label: string;
@@ -32,14 +31,6 @@ export default function ViewField({
   inputSx,
   children,
 }: ViewFieldProps) {
-  const theme = useTheme();
-  const isLight = theme.palette.mode === 'light';
-  const defaultBg = isLight
-    ? GREYSCALE.light.fieldSurface
-    : GREYSCALE.dark.fieldSurface;
-  const resolvedBg = bgcolor ?? defaultBg;
-  const valueColor = isLight ? GREYSCALE.light.body : '#ffffff';
-
   const displayValue =
     value !== null && value !== undefined && value !== '' ? String(value) : '—';
 
@@ -62,7 +53,7 @@ export default function ViewField({
       {/* Value box */}
       <Box
         sx={{
-          bgcolor: resolvedBg,
+          bgcolor: bgcolor ?? (theme => theme.palette.greyscale.fieldSurface),
           borderRadius: '4px',
           pl: '16px',
           pr: '12px',
@@ -76,7 +67,7 @@ export default function ViewField({
             sx={{
               fontSize: 16,
               lineHeight: '24px',
-              color: valueColor,
+              color: theme => theme.palette.greyscale.body,
               whiteSpace: multiline ? 'pre-wrap' : 'normal',
               wordBreak: 'break-word',
               ...inputSx,

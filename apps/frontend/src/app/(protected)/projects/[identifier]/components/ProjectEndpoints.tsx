@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
 import EndpointsGrid from '@/app/(protected)/endpoints/components/EndpointsGrid';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface ProjectEndpointsProps {
   projectId: string;
@@ -34,8 +34,7 @@ export default function ProjectEndpoints({
         width: '100%',
         borderRadius: BORDER_RADIUS.md,
         boxShadow: ELEVATION.xs,
-        border: theme =>
-          `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+        border: theme => `1px solid ${theme.palette.greyscale.border}`,
         overflow: 'hidden',
       }}
     >

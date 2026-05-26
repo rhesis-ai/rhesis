@@ -52,7 +52,6 @@ import TestRunFilterDrawer, {
   EMPTY_TEST_RUN_FILTERS,
   hasActiveTestRunFilters,
 } from './TestRunFilterDrawer';
-import { GREYSCALE } from '@/styles/theme';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
 
@@ -797,11 +796,7 @@ function TestRunsGrid({
             alignItems: 'center',
             gap: 2,
             borderBottom: theme =>
-              `1px solid ${
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : GREYSCALE.dark.border
-              }`,
+              `1px solid ${theme.palette.greyscale.border}`,
           }}
         >
           <Typography variant="subtitle1" color="primary">

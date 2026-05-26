@@ -14,7 +14,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { ScienceIcon } from '@/components/icons';
 import TestsGrid from './components/TestsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestTypeSelectionScreen from './new-generated/components/TestTypeSelectionScreen';
@@ -233,8 +233,7 @@ export default function TestsPage() {
                 width: '100%',
                 borderRadius: BORDER_RADIUS.md,
                 boxShadow: ELEVATION.xs,
-                border: theme =>
-                  `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+                border: theme => `1px solid ${theme.palette.greyscale.border}`,
                 overflow: 'hidden',
               }}
             >

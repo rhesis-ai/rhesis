@@ -34,7 +34,7 @@ export function FilterButton({
       sx={{
         position: 'relative',
         bgcolor: 'primary.main',
-        color: '#fff',
+        color: 'primary.contrastText',
         borderRadius: BORDER_RADIUS.sm,
         width: 36,
         height: 36,

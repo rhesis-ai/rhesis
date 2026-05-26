@@ -34,7 +34,7 @@ import {
   type NavigationLinkItem,
   type NavigationHeaderItem,
 } from '@/types/navigation';
-import { GREYSCALE, BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -64,13 +64,6 @@ function LeftPanelOpenIcon() {
     </SvgIcon>
   );
 }
-
-// Figma design tokens (resolved from theme constants — no raw hex in this file)
-const NAV_BG_LIGHT = GREYSCALE.light.surface1;
-const NAV_BG_DARK = GREYSCALE.dark.surface1;
-const TITLE_COLOR = GREYSCALE.light.title;
-const BODY_COLOR = GREYSCALE.light.body;
-const SUBTITLE_COLOR = GREYSCALE.light.subtitle;
 
 /** 40×40 icon hit target inside the 64px collapsed sidebar (12px rail padding each side). */
 const COLLAPSED_NAV_ITEM_SIZE = 40;
@@ -225,10 +218,7 @@ function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
         '&:hover': {
           bgcolor: active
             ? 'primary.dark'
-            : theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.surface1
-                  : GREYSCALE.dark.surface1,
+            : theme => theme.palette.greyscale.surface1,
         },
         transition: 'background-color 0.15s ease',
       }}
@@ -239,11 +229,8 @@ function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
             display: 'flex',
             flexShrink: 0,
             color: active
-              ? '#fff'
-              : theme =>
-                  theme.palette.mode === 'light'
-                    ? BODY_COLOR
-                    : GREYSCALE.dark.body,
+              ? 'primary.contrastText'
+              : theme => theme.palette.greyscale.body,
             '& svg': { width: 24, height: 24 },
           }}
         >
@@ -258,11 +245,8 @@ function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
               fontWeight: active ? 600 : 400,
               lineHeight: '22px',
               color: active
-                ? '#fff'
-                : theme =>
-                    theme.palette.mode === 'light'
-                      ? BODY_COLOR
-                      : GREYSCALE.dark.body,
+                ? 'primary.contrastText'
+                : theme => theme.palette.greyscale.body,
               whiteSpace: 'nowrap',
               flex: 1,
               minWidth: 0,
@@ -313,10 +297,7 @@ function NavLinkItem({ item, collapsed }: NavLinkItemProps) {
         textDecoration: 'none',
         cursor: 'pointer',
         '&:hover': {
-          bgcolor: theme =>
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.surface1
-              : GREYSCALE.dark.surface1,
+          bgcolor: theme => theme.palette.greyscale.surface1,
         },
         transition: 'background-color 0.15s ease',
       }}
@@ -326,8 +307,7 @@ function NavLinkItem({ item, collapsed }: NavLinkItemProps) {
           sx={{
             display: 'flex',
             flexShrink: 0,
-            color: theme =>
-              theme.palette.mode === 'light' ? BODY_COLOR : GREYSCALE.dark.body,
+            color: theme => theme.palette.greyscale.body,
             '& svg': { width: 24, height: 24 },
           }}
         >
@@ -341,10 +321,7 @@ function NavLinkItem({ item, collapsed }: NavLinkItemProps) {
               fontSize: 14,
               fontWeight: 400,
               lineHeight: '22px',
-              color: theme =>
-                theme.palette.mode === 'light'
-                  ? BODY_COLOR
-                  : GREYSCALE.dark.body,
+              color: theme => theme.palette.greyscale.body,
               whiteSpace: 'nowrap',
               flex: 1,
             }}
@@ -353,7 +330,11 @@ function NavLinkItem({ item, collapsed }: NavLinkItemProps) {
           </Typography>
           {item.external && (
             <OpenInNewIcon
-              sx={{ fontSize: 14, color: SUBTITLE_COLOR, flexShrink: 0 }}
+              sx={{
+                fontSize: 14,
+                color: theme => theme.palette.greyscale.subtitle,
+                flexShrink: 0,
+              }}
             />
           )}
         </>
@@ -412,7 +393,7 @@ function NavSection({ header, items, collapsed }: NavSectionProps) {
               fontSize: 12,
               fontWeight: 600,
               lineHeight: '18px',
-              color: SUBTITLE_COLOR,
+              color: theme => theme.palette.greyscale.subtitle,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
             }}
@@ -422,7 +403,7 @@ function NavSection({ header, items, collapsed }: NavSectionProps) {
           {isCollapsible && (
             <Box
               sx={{
-                color: SUBTITLE_COLOR,
+                color: theme => theme.palette.greyscale.subtitle,
                 display: 'flex',
                 alignItems: 'center',
               }}
@@ -497,8 +478,7 @@ export function Sidebar() {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        bgcolor: theme =>
-          theme.palette.mode === 'light' ? NAV_BG_LIGHT : NAV_BG_DARK,
+        bgcolor: theme => theme.palette.greyscale.surface1,
         px: collapsed ? '12px' : '26px',
         py: '30px',
         transition: 'width 0.2s ease, padding 0.2s ease',
@@ -542,15 +522,9 @@ export function Sidebar() {
                 sx={{
                   p: '6px',
                   borderRadius: BORDER_RADIUS.md,
-                  color: theme =>
-                    theme.palette.mode === 'light'
-                      ? GREYSCALE.light.label
-                      : GREYSCALE.dark.label,
+                  color: theme => theme.palette.greyscale.label,
                   '&:hover': {
-                    bgcolor: theme =>
-                      theme.palette.mode === 'light'
-                        ? GREYSCALE.light.surface2
-                        : GREYSCALE.dark.surface1,
+                    bgcolor: theme => theme.palette.greyscale.surface2,
                   },
                 }}
               >
@@ -570,10 +544,7 @@ export function Sidebar() {
                   cursor: 'pointer',
                   borderRadius: BORDER_RADIUS.md,
                   '&:hover': {
-                    bgcolor: theme =>
-                      theme.palette.mode === 'light'
-                        ? GREYSCALE.light.surface2
-                        : GREYSCALE.dark.surface2,
+                    bgcolor: theme => theme.palette.greyscale.surface2,
                   },
                 }}
               >
@@ -610,10 +581,7 @@ export function Sidebar() {
                 cursor: 'pointer',
                 borderRadius: BORDER_RADIUS.pill,
                 '&:hover': {
-                  bgcolor: theme =>
-                    theme.palette.mode === 'light'
-                      ? GREYSCALE.light.surface2
-                      : GREYSCALE.dark.surface2,
+                  bgcolor: theme => theme.palette.greyscale.surface2,
                 },
                 transition: 'background-color 0.15s ease',
               }}
@@ -641,8 +609,7 @@ export function Sidebar() {
                   fontSize: 18,
                   fontWeight: 700,
                   lineHeight: '25px',
-                  color: theme =>
-                    theme.palette.mode === 'light' ? TITLE_COLOR : '#ffffff',
+                  color: theme => theme.palette.greyscale.title,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -663,15 +630,9 @@ export function Sidebar() {
                   flexShrink: 0,
                   p: '6px',
                   borderRadius: BORDER_RADIUS.md,
-                  color: theme =>
-                    theme.palette.mode === 'light'
-                      ? GREYSCALE.light.label
-                      : GREYSCALE.dark.label,
+                  color: theme => theme.palette.greyscale.label,
                   '&:hover': {
-                    bgcolor: theme =>
-                      theme.palette.mode === 'light'
-                        ? GREYSCALE.light.surface2
-                        : GREYSCALE.dark.surface1,
+                    bgcolor: theme => theme.palette.greyscale.surface2,
                   },
                 }}
               >
@@ -715,20 +676,14 @@ export function Sidebar() {
               py: '8px',
               cursor: 'pointer',
               '&:hover': {
-                bgcolor: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.border
-                    : GREYSCALE.dark.border,
+                bgcolor: theme => theme.palette.greyscale.border,
               },
             }}
           >
             <SettingsOutlinedIcon
               sx={{
                 fontSize: 24,
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : '#ffffff',
+                color: theme => theme.palette.greyscale.body,
               }}
             />
             <Typography
@@ -736,10 +691,7 @@ export function Sidebar() {
                 fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : '#ffffff',
+                color: theme => theme.palette.greyscale.body,
               }}
             >
               Settings
@@ -758,20 +710,14 @@ export function Sidebar() {
               py: '8px',
               cursor: 'pointer',
               '&:hover': {
-                bgcolor: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.border
-                    : GREYSCALE.dark.border,
+                bgcolor: theme => theme.palette.greyscale.border,
               },
             }}
           >
             <GroupOutlinedIcon
               sx={{
                 fontSize: 24,
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : '#ffffff',
+                color: theme => theme.palette.greyscale.body,
               }}
             />
             <Typography
@@ -779,10 +725,7 @@ export function Sidebar() {
                 fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : '#ffffff',
+                color: theme => theme.palette.greyscale.body,
               }}
             >
               Team
@@ -872,10 +815,7 @@ export function Sidebar() {
             overflow: 'hidden',
             cursor: 'pointer',
             '&:hover': {
-              bgcolor: theme =>
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.surface2
-                  : GREYSCALE.dark.surface2,
+              bgcolor: theme => theme.palette.greyscale.surface2,
             },
             transition: 'background-color 0.15s ease',
           }}
@@ -894,8 +834,7 @@ export function Sidebar() {
                   fontSize: 14,
                   fontWeight: 400,
                   lineHeight: '22px',
-                  color: theme =>
-                    theme.palette.mode === 'light' ? TITLE_COLOR : '#fff',
+                  color: theme => theme.palette.greyscale.title,
                   textDecoration: 'underline',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -910,7 +849,7 @@ export function Sidebar() {
                   fontSize: 12,
                   fontWeight: 400,
                   lineHeight: '18px',
-                  color: SUBTITLE_COLOR,
+                  color: theme => theme.palette.greyscale.subtitle,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -957,20 +896,14 @@ export function Sidebar() {
               py: '8px',
               cursor: 'pointer',
               '&:hover': {
-                bgcolor: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.border
-                    : GREYSCALE.dark.border,
+                bgcolor: theme => theme.palette.greyscale.border,
               },
             }}
           >
             <DarkModeOutlinedIcon
               sx={{
                 fontSize: 24,
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : '#ffffff',
+                color: theme => theme.palette.greyscale.body,
               }}
             />
             <Typography
@@ -978,10 +911,7 @@ export function Sidebar() {
                 fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : '#ffffff',
+                color: theme => theme.palette.greyscale.body,
               }}
             >
               {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
@@ -999,20 +929,14 @@ export function Sidebar() {
               py: '8px',
               cursor: 'pointer',
               '&:hover': {
-                bgcolor: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.border
-                    : GREYSCALE.dark.border,
+                bgcolor: theme => theme.palette.greyscale.border,
               },
             }}
           >
             <ExitToAppOutlinedIcon
               sx={{
                 fontSize: 24,
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : '#ffffff',
+                color: theme => theme.palette.greyscale.body,
               }}
             />
             <Typography
@@ -1020,10 +944,7 @@ export function Sidebar() {
                 fontSize: 14,
                 fontWeight: 700,
                 lineHeight: '22px',
-                color: theme =>
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.body
-                    : '#ffffff',
+                color: theme => theme.palette.greyscale.body,
               }}
             >
               Sign Out

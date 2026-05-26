@@ -13,7 +13,7 @@ import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { AccountTreeIcon } from '@/components/icons';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import type { ImportExplorerTestSetResponse } from '@/utils/api-client/interfaces/explorer';
@@ -127,8 +127,7 @@ export default function ExplorerClient() {
                 width: '100%',
                 borderRadius: BORDER_RADIUS.md,
                 boxShadow: ELEVATION.xs,
-                border: theme =>
-                  `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+                border: theme => `1px solid ${theme.palette.greyscale.border}`,
                 overflow: 'hidden',
               }}
             >

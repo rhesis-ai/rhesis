@@ -7,7 +7,6 @@ import {
   FilterSection,
   filterChipSx,
 } from '@/components/common/FilterDrawer';
-import { GREYSCALE } from '@/styles/theme';
 
 export interface ProjectFilters {
   activeStatus: boolean | null;
@@ -87,7 +86,12 @@ export default function ProjectFilterDrawer({
                 height: 38,
               }}
             >
-              <Typography sx={{ fontSize: 14, color: GREYSCALE.light.body }}>
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  color: theme => theme.palette.greyscale.body,
+                }}
+              >
                 {label}
               </Typography>
               <Switch

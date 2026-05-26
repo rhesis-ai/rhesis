@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Box, type BoxProps } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+import { BORDER_RADIUS } from '@/styles/theme';
 
 /** Rectangular tag surface — never pill-shaped (see GridBadge for badges). */
 export const tagSurfaceSx: SxProps<Theme> = {
@@ -16,9 +16,10 @@ export const tagSurfaceSx: SxProps<Theme> = {
   height: 26,
   maxWidth: 200,
   bgcolor: theme =>
-    theme.palette.mode === 'light' ? '#f3f4f6' : GREYSCALE.dark.surface1,
-  color: theme =>
-    theme.palette.mode === 'light' ? GREYSCALE.light.body : GREYSCALE.dark.body,
+    theme.palette.mode === 'light'
+      ? '#f3f4f6'
+      : theme.palette.greyscale.surface1,
+  color: theme => theme.palette.greyscale.body,
   fontSize: 14,
   lineHeight: '22px',
   fontWeight: 600,
@@ -86,10 +87,7 @@ export function TagRow({
           component="span"
           sx={{
             fontSize: 14,
-            color: theme =>
-              theme.palette.mode === 'light'
-                ? GREYSCALE.light.subtitle
-                : GREYSCALE.dark.subtitle,
+            color: theme => theme.palette.greyscale.subtitle,
           }}
         >
           {emptyLabel}

@@ -9,7 +9,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { MenuBookIcon } from '@/components/icons';
 import ModelContextProtocolIcon from '@/components/ModelContextProtocolIcon';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import SourcesGrid from './SourcesGrid';
 import UploadSourceDrawer from './UploadSourceDrawer';
@@ -123,8 +123,7 @@ export default function KnowledgeClientWrapper({
                 width: '100%',
                 borderRadius: BORDER_RADIUS.md,
                 boxShadow: ELEVATION.xs,
-                border: theme =>
-                  `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+                border: theme => `1px solid ${theme.palette.greyscale.border}`,
                 overflow: 'hidden',
                 position: 'relative',
               }}

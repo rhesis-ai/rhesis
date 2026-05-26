@@ -9,10 +9,11 @@ import {
   IconButton,
   Typography,
 } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { BACKDROP_COLORS, BORDER_RADIUS, GREYSCALE } from '@/styles/theme';
+import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
 
 // ── FilterDrawerShell ──────────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ export function FilterDrawerShell({
           sx={{
             fontSize: 22,
             fontWeight: 700,
-            color: GREYSCALE.light.title,
+            color: theme => theme.palette.greyscale.title,
             lineHeight: 1.1,
           }}
         >
@@ -84,7 +85,7 @@ export function FilterDrawerShell({
           size="small"
           onClick={onClose}
           aria-label="close"
-          sx={{ color: GREYSCALE.light.label }}
+          sx={{ color: theme => theme.palette.greyscale.label }}
         >
           <CloseIcon fontSize="small" />
         </IconButton>
@@ -168,7 +169,7 @@ export function FilterSection({
   return (
     <Box
       sx={{
-        borderTop: `1px solid ${GREYSCALE.light.border}`,
+        borderTop: theme => `1px solid ${theme.palette.greyscale.border}`,
         pt: '20px',
         display: 'flex',
         flexDirection: 'column',
@@ -189,7 +190,7 @@ export function FilterSection({
           sx={{
             fontSize: 18,
             fontWeight: 700,
-            color: GREYSCALE.light.title,
+            color: theme => theme.palette.greyscale.title,
             lineHeight: '25px',
           }}
         >
@@ -197,11 +198,11 @@ export function FilterSection({
         </Typography>
         {open ? (
           <KeyboardArrowUpIcon
-            sx={{ fontSize: 20, color: GREYSCALE.light.label }}
+            sx={{ fontSize: 20, color: theme => theme.palette.greyscale.label }}
           />
         ) : (
           <KeyboardArrowDownIcon
-            sx={{ fontSize: 20, color: GREYSCALE.light.label }}
+            sx={{ fontSize: 20, color: theme => theme.palette.greyscale.label }}
           />
         )}
       </Box>
@@ -218,17 +219,19 @@ export function FilterSection({
  * Returns MUI `sx` styles for a toggle-chip button inside a filter drawer.
  * Pass `true` when the option is currently selected.
  */
-export function filterChipSx(active: boolean): object {
-  return {
+export function filterChipSx(active: boolean): SxProps<Theme> {
+  return theme => ({
     display: 'inline-flex',
     alignItems: 'center',
     px: '12px',
     py: '6px',
     borderRadius: '999px',
     border: active ? '2px solid' : '1px solid',
-    borderColor: active ? 'primary.main' : GREYSCALE.light.border,
+    borderColor: active ? 'primary.main' : theme.palette.greyscale.border,
     bgcolor: active ? 'primary.main' : 'transparent',
-    color: active ? '#fff' : GREYSCALE.light.body,
+    color: active
+      ? theme.palette.primary.contrastText
+      : theme.palette.greyscale.body,
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: active ? 600 : 400,
@@ -237,7 +240,7 @@ export function filterChipSx(active: boolean): object {
     outline: 'none',
     '&:hover': {
       borderColor: 'primary.main',
-      color: active ? '#fff' : 'primary.main',
+      color: active ? theme.palette.primary.contrastText : 'primary.main',
     },
-  };
+  });
 }

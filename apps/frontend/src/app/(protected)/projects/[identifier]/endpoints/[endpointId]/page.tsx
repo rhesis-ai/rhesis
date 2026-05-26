@@ -3,7 +3,6 @@
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { GREYSCALE } from '@/styles/theme-constants';
 import { useEffect, useState } from 'react';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useSession } from 'next-auth/react';
@@ -120,7 +119,11 @@ export default function ProjectEndpointPage() {
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         <Typography
           variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: theme => theme.palette.greyscale.body,
+          }}
         >
           registered:
         </Typography>
@@ -129,7 +132,7 @@ export default function ProjectEndpointPage() {
           sx={{
             fontSize: 12,
             lineHeight: '18px',
-            color: GREYSCALE.light.title,
+            color: theme => theme.palette.greyscale.title,
           }}
         >
           {new Date(endpoint.endpoint_metadata.created_at).toLocaleString()}

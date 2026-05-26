@@ -9,13 +9,13 @@ import TestSelectionDialog from './TestSelectionDialog';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import type { Theme } from '@mui/material/styles';
 
 const paperSx = {
   p: 3,
   borderRadius: BORDER_RADIUS.md,
-  border: '1px solid',
-  borderColor: GREYSCALE.light.border,
+  border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
   boxShadow: ELEVATION.xs,
 };
 

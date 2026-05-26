@@ -6,7 +6,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
-import { GREYSCALE } from '@/styles/theme-constants';
 
 import TestSetHeaderActions from './components/TestSetHeaderActions';
 import TestSetDetailTabs from './components/TestSetDetailTabs';
@@ -92,7 +91,11 @@ export default async function TestSetPage({ params }: PageProps) {
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         <Typography
           variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: theme => theme.palette.greyscale.body,
+          }}
         >
           created by:
         </Typography>
@@ -101,7 +104,7 @@ export default async function TestSetPage({ params }: PageProps) {
           sx={{
             fontSize: 12,
             lineHeight: '18px',
-            color: GREYSCALE.light.subtitle,
+            color: theme => theme.palette.greyscale.subtitle,
           }}
         >
           {testSet.user?.name || '—'}
@@ -110,7 +113,11 @@ export default async function TestSetPage({ params }: PageProps) {
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         <Typography
           variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: theme => theme.palette.greyscale.body,
+          }}
         >
           created on:
         </Typography>
@@ -119,7 +126,7 @@ export default async function TestSetPage({ params }: PageProps) {
           sx={{
             fontSize: 12,
             lineHeight: '18px',
-            color: GREYSCALE.light.subtitle,
+            color: theme => theme.palette.greyscale.subtitle,
           }}
         >
           {testSet.created_at

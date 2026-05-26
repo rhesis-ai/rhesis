@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
 import NextLink from 'next/link';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { GREYSCALE, FAB_GROUP_GAP } from '@/styles/theme-constants';
+import { FAB_GROUP_GAP } from '@/styles/theme-constants';
 
 export interface BreadcrumbItem {
   /** Display text (use `label` for new code; `title` accepted for Toolpad migration compat) */
@@ -61,10 +61,7 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 variant="bodyMReg"
                 component="span"
                 sx={{
-                  color: theme =>
-                    theme.palette.mode === 'light'
-                      ? GREYSCALE.light.body
-                      : GREYSCALE.dark.body,
+                  color: theme => theme.palette.greyscale.body,
                   fontWeight: 400,
                 }}
               >
@@ -76,10 +73,7 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 href={link}
                 underline="hover"
                 sx={{
-                  color: theme =>
-                    theme.palette.mode === 'light'
-                      ? GREYSCALE.light.subtitle
-                      : GREYSCALE.dark.subtitle,
+                  color: theme => theme.palette.greyscale.subtitle,
                   fontSize: 14,
                   lineHeight: '22px',
                   fontWeight: 400,
@@ -92,10 +86,7 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
               <ChevronRightIcon
                 sx={{
                   fontSize: 20,
-                  color: theme =>
-                    theme.palette.mode === 'light'
-                      ? GREYSCALE.light.subtitle
-                      : GREYSCALE.dark.subtitle,
+                  color: theme => theme.palette.greyscale.subtitle,
                 }}
                 aria-hidden
               />
@@ -164,10 +155,7 @@ export function PageLayout({
                       sx={{
                         flex: '1 1 0',
                         minWidth: 0,
-                        color: theme =>
-                          theme.palette.mode === 'light'
-                            ? GREYSCALE.light.title
-                            : GREYSCALE.dark.title,
+                        color: theme => theme.palette.greyscale.title,
                       }}
                     >
                       {title}
@@ -196,10 +184,7 @@ export function PageLayout({
                   sx={{
                     mt: title || actions ? 0 : 0,
                     maxWidth: 800,
-                    color: theme =>
-                      theme.palette.mode === 'light'
-                        ? GREYSCALE.light.body
-                        : GREYSCALE.dark.body,
+                    color: theme => theme.palette.greyscale.body,
                   }}
                 >
                   {description}

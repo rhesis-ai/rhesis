@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
-import { GREYSCALE } from '@/styles/theme-constants';
 
 import TestToTestSet from './components/TestToTestSet';
 import TestDetailTabs from './components/TestDetailTabs';
@@ -78,7 +77,11 @@ export default async function TestDetailPage({ params }: PageProps) {
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         <Typography
           variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: theme => theme.palette.greyscale.body,
+          }}
         >
           created by:
         </Typography>
@@ -87,7 +90,7 @@ export default async function TestDetailPage({ params }: PageProps) {
           sx={{
             fontSize: 12,
             lineHeight: '18px',
-            color: GREYSCALE.light.subtitle,
+            color: theme => theme.palette.greyscale.subtitle,
           }}
         >
           {test.user?.name || '—'}
@@ -96,7 +99,11 @@ export default async function TestDetailPage({ params }: PageProps) {
       <Box sx={{ display: 'flex', gap: 0.5 }}>
         <Typography
           variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: theme => theme.palette.greyscale.body,
+          }}
         >
           created on:
         </Typography>
@@ -105,7 +112,7 @@ export default async function TestDetailPage({ params }: PageProps) {
           sx={{
             fontSize: 12,
             lineHeight: '18px',
-            color: GREYSCALE.light.subtitle,
+            color: theme => theme.palette.greyscale.subtitle,
           }}
         >
           {test.created_at

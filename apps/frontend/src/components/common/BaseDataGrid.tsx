@@ -60,7 +60,7 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useGridStateStorage } from '@/hooks/useGridStateStorage';
-import { GREYSCALE, BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface FilterOption {
   value: string;
@@ -196,10 +196,7 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
     display: 'flex',
     alignItems: 'center',
     overflow: 'hidden',
-    borderColor:
-      theme.palette.mode === 'light'
-        ? GREYSCALE.light.border
-        : theme.palette.divider,
+    borderColor: theme.palette.greyscale.border,
   },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
@@ -241,11 +238,8 @@ const PaginationSizeContext = React.createContext<number[]>([10, 25, 50]);
 
 function FigmaPaginationFooter() {
   const theme = useTheme();
-  const isLight = theme.palette.mode === 'light';
-  const textColor = isLight ? GREYSCALE.light.body : '#ffffff';
-  const mutedBorderColor = isLight
-    ? GREYSCALE.light.border
-    : GREYSCALE.dark.border;
+  const textColor = theme.palette.greyscale.body;
+  const mutedBorderColor = theme.palette.greyscale.border;
 
   const apiRef = useGridApiContext();
   const paginationModel = useGridSelector(apiRef, gridPaginationModelSelector);
@@ -1082,8 +1076,7 @@ export default function BaseDataGrid({
           sx={{
             width: '100%',
             borderRadius: BORDER_RADIUS.md,
-            border: theme =>
-              `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : theme.palette.divider}`,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
             boxShadow: ELEVATION.xs,
             overflow: 'hidden',
           }}

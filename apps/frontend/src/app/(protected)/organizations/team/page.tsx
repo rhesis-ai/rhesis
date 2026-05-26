@@ -8,7 +8,7 @@ import Paper from '@mui/material/Paper';
 import AddIcon from '@mui/icons-material/Add';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import TeamInviteDrawer from './components/TeamInviteDrawer';
 import TeamMembersGrid from './components/TeamMembersGrid';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
@@ -72,12 +72,7 @@ export default function TeamPage() {
               width: '100%',
               borderRadius: BORDER_RADIUS.md,
               boxShadow: ELEVATION.xs,
-              border: theme =>
-                `1px solid ${
-                  theme.palette.mode === 'light'
-                    ? GREYSCALE.light.border
-                    : GREYSCALE.dark.border
-                }`,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
               overflow: 'hidden',
             }}
           >

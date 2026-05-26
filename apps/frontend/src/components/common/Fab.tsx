@@ -11,7 +11,7 @@ export { FAB_GROUP_GAP };
 /** Shared FAB surface styles (56px circle, primary fill, elevation) */
 export const fabButtonSx = {
   bgcolor: 'primary.main',
-  color: '#fff',
+  color: 'primary.contrastText',
   width: 56,
   height: 56,
   boxShadow: ELEVATION.xs,
@@ -67,7 +67,8 @@ export function Fab({
   if (tooltip) {
     return (
       <Tooltip title={tooltip} placement="bottom">
-        {button}
+        {/* Span needed so tooltip fires on hover even when the FAB is disabled */}
+        <span style={{ display: 'inline-flex' }}>{button}</span>
       </Tooltip>
     );
   }

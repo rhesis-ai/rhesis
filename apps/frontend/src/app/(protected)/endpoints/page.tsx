@@ -13,7 +13,7 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { ApiIcon } from '@/components/icons';
 import EndpointsGrid from './components/EndpointsGrid';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function EndpointsPage() {
@@ -101,8 +101,7 @@ export default function EndpointsPage() {
               width: '100%',
               borderRadius: BORDER_RADIUS.md,
               boxShadow: ELEVATION.xs,
-              border: theme =>
-                `1px solid ${theme.palette.mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
               overflow: 'hidden',
             }}
           >
