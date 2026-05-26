@@ -10,14 +10,17 @@ from rhesis.backend.app.config.settings import (
     FrontendSettings,
     ModelSettings,
     RedisSettings,
+    SMTPSettings,
     StorageSettings,
     get_application_settings,
     get_database_settings,
     get_frontend_settings,
     get_model_settings,
     get_redis_settings,
+    get_smtp_settings,
     get_storage_settings,
 )
+from rhesis.backend.notifications.email.smtp import SMTPService
 
 DATABASE_ENV_VARS = (
     "DB_DRIVER",
@@ -42,6 +45,7 @@ APPLICATION_ENV_VARS = (
 )
 REDIS_ENV_VARS = ("BROKER_URL", "BROKER_READ_URL", "CELERY_RESULT_BACKEND")
 STORAGE_ENV_VARS = ("STORAGE_SERVICE_URI", "STORAGE_SERVICE_ACCOUNT_KEY", "LOCAL_STORAGE_PATH")
+SMTP_ENV_VARS = ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "FROM_EMAIL")
 MODEL_ENV_VARS = (
     "DEFAULT_GENERATION_MODEL",
     "DEFAULT_EVALUATION_MODEL",
@@ -100,6 +104,15 @@ def clean_storage_env(monkeypatch):
     get_storage_settings.cache_clear()
     yield
     get_storage_settings.cache_clear()
+
+
+@pytest.fixture
+def clean_smtp_env(monkeypatch):
+    for env_var in SMTP_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+    get_smtp_settings.cache_clear()
+    yield
+    get_smtp_settings.cache_clear()
 
 
 @pytest.fixture
@@ -231,6 +244,34 @@ def test_get_database_url_returns_app_url(clean_database_env, monkeypatch):
 
 
 @pytest.mark.unit
+def test_get_database_url_returns_configured_url(clean_database_env, monkeypatch):
+    database = _patch_database_settings(
+        monkeypatch,
+        url=(
+            "postgresql://direct-user:direct-pass@db.example.com/direct-db"  # trufflehog:ignore
+        ),
+    )
+
+    assert (
+        database.get_database_url()
+        == "postgresql://direct-user:direct-pass@db.example.com/direct-db"  # trufflehog:ignore
+    )
+
+
+@pytest.mark.unit
+def test_database_url_comes_from_sqlalchemy_database_url(clean_database_env, monkeypatch):
+    database = _patch_database_settings(
+        monkeypatch,
+        url="postgresql://test-user:test-pass@localhost:5432/test-db",  # trufflehog:ignore
+    )
+
+    assert (
+        database.get_database_url()
+        == "postgresql://test-user:test-pass@localhost:5432/test-db"  # trufflehog:ignore
+    )
+
+
+@pytest.mark.unit
 def test_frontend_url_is_required(clean_frontend_env):
     with pytest.raises(ValidationError, match="FRONTEND_URL"):
         FrontendSettings(_env_file=None)
@@ -345,6 +386,75 @@ def test_get_storage_settings_cache_clear_allows_env_overrides(clean_storage_env
     get_storage_settings.cache_clear()
 
     assert get_storage_settings().service_uri == "s3://rhesis-files"
+
+
+@pytest.mark.unit
+def test_smtp_settings_uses_defaults(clean_smtp_env):
+    settings = SMTPSettings(_env_file=None)
+
+    assert settings.host is None
+    assert settings.port == 587
+    assert settings.user is None
+    assert settings.password is None
+    assert settings.from_email == "engineering@rhesis.ai"
+
+
+@pytest.mark.unit
+def test_smtp_settings_loads_existing_environment_variables(clean_smtp_env, monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "465")
+    monkeypatch.setenv("SMTP_USER", "user@example.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", "noreply@example.com")
+
+    settings = SMTPSettings(_env_file=None)
+
+    assert settings.host == "smtp.example.com"
+    assert settings.port == 465
+    assert settings.user == "user@example.com"
+    assert settings.password == "smtp-password"
+    assert settings.from_email == "noreply@example.com"
+
+
+@pytest.mark.unit
+def test_get_smtp_settings_cache_clear_allows_env_overrides(clean_smtp_env, monkeypatch):
+    assert get_smtp_settings().host is None
+
+    monkeypatch.setenv("SMTP_HOST", "cached-smtp.example.com")
+    get_smtp_settings.cache_clear()
+
+    assert get_smtp_settings().host == "cached-smtp.example.com"
+
+
+@pytest.mark.unit
+def test_smtp_service_uses_settings_defaults(clean_smtp_env):
+    service = SMTPService()
+
+    assert service.smtp_host is None
+    assert service.smtp_port == 587
+    assert service.smtp_user is None
+    assert service.smtp_password is None
+    assert service.from_email == '"Harry from Rhesis AI" <engineering@rhesis.ai>'
+    assert service.is_configured is False
+
+
+@pytest.mark.unit
+def test_smtp_service_uses_configured_settings(clean_smtp_env, monkeypatch):
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "465")
+    monkeypatch.setenv("SMTP_USER", "user@example.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "smtp-password")
+    monkeypatch.setenv("FROM_EMAIL", '"Rhesis Notifications" <noreply@example.com>')
+    get_smtp_settings.cache_clear()
+
+    service = SMTPService()
+
+    assert service.smtp_host == "smtp.example.com"
+    assert service.smtp_port == 465
+    assert service.smtp_user == "user@example.com"
+    assert service.smtp_password == "smtp-password"
+    assert service.from_email == '"Rhesis Notifications" <noreply@example.com>'
+    assert service.is_configured is True
 
 
 @pytest.mark.unit

@@ -108,6 +108,18 @@ class StorageSettings(BaseSettings):
     local_storage_path: str = Field(default="/tmp/rhesis-files", alias="LOCAL_STORAGE_PATH")
 
 
+class SMTPSettings(BaseSettings):
+    """SMTP email delivery configuration."""
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    host: str | None = Field(default=None, alias="SMTP_HOST")
+    port: int = Field(default=587, alias="SMTP_PORT")
+    user: str | None = Field(default=None, alias="SMTP_USER")
+    password: str | None = Field(default=None, alias="SMTP_PASSWORD")
+    from_email: str = Field(default="engineering@rhesis.ai", alias="FROM_EMAIL")
+
+
 class ModelSettings(BaseSettings):
     """Default model configuration."""
 
@@ -175,6 +187,11 @@ def get_redis_settings() -> RedisSettings:
 @lru_cache
 def get_storage_settings() -> StorageSettings:
     return StorageSettings()
+
+
+@lru_cache
+def get_smtp_settings() -> SMTPSettings:
+    return SMTPSettings()
 
 
 @lru_cache
