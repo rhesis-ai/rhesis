@@ -115,6 +115,10 @@ class ApplicationSettings(BaseSettings):
     def is_development(self) -> bool:
         return not self.is_production
 
+    @property
+    def is_google_cloud(self) -> bool:
+        return bool(self.cloud_run_service or self.cloud_run_revision)
+
 
 class TelemetrySettings(BaseSettings):
     """OpenTelemetry export and deployment metadata configuration."""
@@ -131,6 +135,15 @@ class TelemetrySettings(BaseSettings):
         default=True,
         alias="OTEL_RHESIS_TELEMETRY_ENABLED",
     )
+
+
+class LoggingSettings(BaseSettings):
+    """Logging configuration and runtime environment detection."""
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    log_dir: str = Field(default="logs", alias="LOG_DIR")
 
 
 class AuthSettings(BaseSettings):
@@ -241,6 +254,11 @@ def get_frontend_settings() -> FrontendSettings:
 @lru_cache
 def get_application_settings() -> ApplicationSettings:
     return ApplicationSettings()
+
+
+@lru_cache
+def get_logging_settings() -> LoggingSettings:
+    return LoggingSettings()
 
 
 @lru_cache

@@ -1,10 +1,6 @@
 import os
 from enum import Enum
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 # Entity Types Enum - Unified for all entities including comments
 class EntityType(Enum):
