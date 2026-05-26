@@ -48,7 +48,11 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
     find_or_create_user_from_auth,
 )
-from rhesis.backend.app.config.settings import get_frontend_settings, get_rhesis_settings
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_frontend_settings,
+    get_rhesis_settings,
+)
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
@@ -205,7 +209,7 @@ def is_running_locally() -> bool:
 
     # Signal 3: Environment variables indicate local deployment
     env = os.getenv("ENVIRONMENT", "").lower()
-    backend_env = os.getenv("BACKEND_ENV", "").lower()
+    backend_env = get_application_settings().backend_env
     if env == "local" or backend_env == "local":
         return True
 

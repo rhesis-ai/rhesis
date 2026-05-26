@@ -37,6 +37,10 @@ def _mock_rhesis_settings(base_url: str):
     return lambda: Mock(base_url=base_url)
 
 
+def _mock_application_settings(backend_env: str = "development"):
+    return lambda: Mock(backend_env=backend_env)
+
+
 # =============================================================================
 # Provider-Agnostic Authentication Tests (New Native Auth System)
 # =============================================================================
@@ -1507,6 +1511,10 @@ class TestGetCallbackUrl:
     @patch(
         "rhesis.backend.app.routers.auth.get_rhesis_settings",
         new=_mock_rhesis_settings("https://api.rhesis.ai"),
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.get_application_settings",
+        new=_mock_application_settings("local"),
     )
     def test_backend_env_local_uses_localhost(self, mock_qs):
         """BACKEND_ENV=local returns http://localhost:{port}/auth/callback."""

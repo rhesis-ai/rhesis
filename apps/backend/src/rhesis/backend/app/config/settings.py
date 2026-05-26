@@ -102,6 +102,11 @@ class ApplicationSettings(BaseSettings):
     cloud_run_service: str | None = Field(default=None, alias="K_SERVICE")
     cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
 
+    @field_validator("backend_env")
+    @classmethod
+    def normalize_backend_env(cls, value: str) -> str:
+        return value.lower()
+
     @property
     def is_production(self) -> bool:
         return self.backend_env.lower() == "production" or self.environment.lower() == "production"
