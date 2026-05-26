@@ -26,7 +26,7 @@ wait_for_database() {
     log "${YELLOW}⏳ Waiting for PostgreSQL to be ready (max ${max_attempts} attempts)...${NC}"
     
     while [ $attempt -le $max_attempts ]; do
-        if pg_isready -h "$DB_HOST" -p 5432 -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
+        if pg_isready -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$ADMIN_USER" -d "$DB_NAME" >/dev/null 2>&1; then
             log "${GREEN}✅ PostgreSQL is ready! (attempt $attempt)${NC}"
             return 0
         fi
@@ -53,7 +53,7 @@ run_migrations() {
     cd "$backend_root/src/rhesis/backend" || handle_error "Could not navigate to backend directory"
 
     local before after
-    before=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
+    before=$(PGPASSWORD="$ADMIN_PASS" psql -h "$DB_HOST" -U "$ADMIN_USER" -d "$DB_NAME" \
         -tAc "SELECT version_num FROM alembic_version;" 2>/dev/null | tr -d '[:space:]' || echo "")
 
     log "${YELLOW}📦 Running migrations (from: ${before:-'fresh DB'})...${NC}"
@@ -65,7 +65,7 @@ run_migrations() {
         handle_error "alembic upgrade head command failed"
     fi
 
-    after=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" \
+    after=$(PGPASSWORD="$ADMIN_PASS" psql -h "$DB_HOST" -U "$ADMIN_USER" -d "$DB_NAME" \
         -tAc "SELECT version_num FROM alembic_version;" 2>/dev/null | tr -d '[:space:]' || echo "")
 
     if [ "$before" = "$after" ]; then
@@ -79,44 +79,41 @@ run_migrations() {
 main() {
     log "${BLUE}🔄 Starting database migration process...${NC}"
     
-    # Get database configuration from environment variables
-    DB_USER=${SQLALCHEMY_DB_USER:-rhesis-admin}
-    DB_PASS=${SQLALCHEMY_DB_PASS:-your-secured-password}
-    DB_HOST=${SQLALCHEMY_DB_HOST:-postgres}
-    DB_NAME=${SQLALCHEMY_DB_NAME:-rhesis-db}
+    # Shared database coordinates
+    DB_HOST=${DB_HOST:-postgres}
+    DB_NAME=${DB_NAME:-rhesis-db}
+    export DB_PORT=${DB_PORT:-5432}
+    export DB_DRIVER=${DB_DRIVER:-postgresql}
+    export DB_HOST
+    export DB_NAME
+
+    # Migration credentials: ADMIN_DB_* with APP_DB_* fallback (single-role setups)
+    ADMIN_USER=${ADMIN_DB_USER:-${APP_DB_USER:-}}
+    ADMIN_PASS=${ADMIN_DB_PASS:-${APP_DB_PASS:-}}
+
+    # Ensure APP_DB_* are exported so alembic env.py can build its URL
+    export APP_DB_USER=${APP_DB_USER:-}
+    export APP_DB_PASS=${APP_DB_PASS:-}
+    export ADMIN_DB_USER="$ADMIN_USER"
+    export ADMIN_DB_PASS="$ADMIN_PASS"
     
     # Validate required environment variables
-    if [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ]; then
-        handle_error "Required database environment variables are not set"
+    if [ -z "$ADMIN_USER" ] || [ -z "$ADMIN_PASS" ] || [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ]; then
+        handle_error "Required database environment variables are not set (DB_HOST, DB_NAME, APP_DB_USER/ADMIN_DB_USER, APP_DB_PASS/ADMIN_DB_PASS)"
     fi
     
     log "${BLUE}📋 Database Configuration:${NC}"
     log "  Host: $DB_HOST"
-    log "  User: $DB_USER"
+    log "  Port: $DB_PORT"
+    log "  Admin user: $ADMIN_USER"
     log "  Database: $DB_NAME"
-    
-    # Set environment variables for Alembic
-    export SQLALCHEMY_DB_DRIVER=${SQLALCHEMY_DB_DRIVER:-postgresql}
-    export SQLALCHEMY_DB_USER="$DB_USER"
-    export SQLALCHEMY_DB_PASS="$DB_PASS"
-    export SQLALCHEMY_DB_HOST="$DB_HOST"
-    export SQLALCHEMY_DB_NAME="$DB_NAME"
-    # Override DATABASE_URL so alembic env.py uses the migration (admin) user,
-    # not the app user that the deployment injects into SQLALCHEMY_DATABASE_URL.
-    # For Unix socket paths (Cloud SQL via /cloudsql/...), use the ?host= query
-    # parameter form; psycopg2 cannot parse a socket path in the host position.
-    if [[ "$DB_HOST" == /* ]]; then
-        export SQLALCHEMY_DATABASE_URL="${SQLALCHEMY_DB_DRIVER:-postgresql}://${DB_USER}:${DB_PASS}@/${DB_NAME}?host=${DB_HOST}"
-    else
-        export SQLALCHEMY_DATABASE_URL="${SQLALCHEMY_DB_DRIVER:-postgresql}://${DB_USER}:${DB_PASS}@${DB_HOST}:${SQLALCHEMY_DB_PORT:-5432}/${DB_NAME}"
-    fi
     
     # Wait for database to be ready
     wait_for_database
     
     # Set database ownership (optional, ignore failures)
     log "${YELLOW}🔧 Setting database ownership...${NC}"
-    if PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "ALTER DATABASE $DB_NAME OWNER TO $DB_USER;" 2>/dev/null; then
+    if PGPASSWORD="$ADMIN_PASS" psql -h "$DB_HOST" -U "$ADMIN_USER" -d "$DB_NAME" -c "ALTER DATABASE $DB_NAME OWNER TO $ADMIN_USER;" 2>/dev/null; then
         log "${GREEN}✅ Database ownership set successfully${NC}"
     else
         log "${YELLOW}⚠️  Database ownership already set or could not be changed${NC}"

@@ -170,13 +170,12 @@ $DEV_ENV_MARKER on $timestamp
 QUICK_START=true
 
 # Database (dev ports)
-SQLALCHEMY_DATABASE_URL=postgresql://rhesis-user:rhesis-password@localhost:${DEV_POSTGRES_PORT}/rhesis-db
-SQLALCHEMY_DB_DRIVER=postgresql
-SQLALCHEMY_DB_PORT=${DEV_POSTGRES_PORT}
-SQLALCHEMY_DB_USER=rhesis-user
-SQLALCHEMY_DB_PASS=rhesis-password
-SQLALCHEMY_DB_HOST=localhost:${DEV_POSTGRES_PORT}
-SQLALCHEMY_DB_NAME=rhesis-db
+DB_DRIVER=postgresql
+DB_HOST=localhost
+DB_PORT=${DEV_POSTGRES_PORT}
+DB_NAME=rhesis-db
+APP_DB_USER=rhesis-user
+APP_DB_PASS=rhesis-password
 DB_ENCRYPTION_KEY=${encryption_key}
 
 # Redis (dev ports)

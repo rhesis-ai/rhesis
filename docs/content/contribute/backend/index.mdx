@@ -27,7 +27,7 @@ Once the server is up, open interactive docs at `http://localhost:8080/docs`, or
 
 ## How the codebase is organized
 
-HTTP routes live under **`app/routers/`**, with Pydantic types in **`app/schemas/`** and SQLAlchemy models in **`app/models/`**. Shared database helpers sit in **`app/crud.py`**. Authentication and token handling are grouped under **`app/auth/`** (see [Authentication](/contribute/backend/authentication)). Celery-related code is split between **`tasks/`** (what runs in the worker), **`celery/`** (app wiring), and **`worker.py`** at the package root. Database migrations are Alembic revisions under **`src/rhesis/backend/alembic/`**; `start.sh` runs them for local development when `SQLALCHEMY_DB_HOST` is set.
+HTTP routes live under **`app/routers/`**, with Pydantic types in **`app/schemas/`** and SQLAlchemy models in **`app/models/`**. Shared database helpers sit in **`app/crud.py`**. Authentication and token handling are grouped under **`app/auth/`** (see [Authentication](/contribute/backend/authentication)). Celery-related code is split between **`tasks/`** (what runs in the worker), **`celery/`** (app wiring), and **`worker.py`** at the package root. Database migrations are Alembic revisions under **`src/rhesis/backend/alembic/`**; `start.sh` runs them for local development when `DB_HOST` is set.
 
 A trimmed view of `apps/backend`:
 
@@ -67,7 +67,7 @@ Formatting and linting use Ruff. The project’s conventions and exact commands 
 
 ## Configuration
 
-Secrets and connection strings are environment-driven. For a structured list of variables, see [Environment configuration](/contribute/backend/environment-config) and the central [Environment variables](/contribute/environment-variables) reference. Local **`./rh dev init`** output is a good template for values such as `SQLALCHEMY_DATABASE_URL`, Redis broker URLs, and `JWT_SECRET_KEY`.
+Secrets and connection strings are environment-driven. For a structured list of variables, see [Environment configuration](/contribute/backend/environment-config) and the central [Environment variables](/contribute/environment-variables) reference. Local **`./rh dev init`** output is a good template for values such as `APP_DB_PASS`, Redis broker URLs, and `JWT_SECRET_KEY`.
 
 ## Further reading
 

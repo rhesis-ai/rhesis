@@ -71,7 +71,11 @@ On Windows:
 3. Update the database connection string in `.env`:
 
 <CodeBlock filename=".env" language="bash">
-  {`SQLALCHEMY_DATABASE_URL=postgresql://username:password@localhost:5432/rhesis`}
+  {`DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=rhesis
+APP_DB_USER=username
+APP_DB_PASS=password`}
 </CodeBlock>
 
 4. Run database migrations:

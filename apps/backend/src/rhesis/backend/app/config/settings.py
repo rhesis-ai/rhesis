@@ -1,16 +1,52 @@
 from functools import lru_cache
-from urllib.parse import urlparse
+from urllib.parse import quote_plus, urlparse
 
-from pydantic import AliasChoices, AnyHttpUrl, Field, TypeAdapter, field_validator
+from pydantic import AliasChoices, AnyHttpUrl, Field, TypeAdapter, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class DatabaseSettings(BaseSettings):
-    """Database configuration loaded from SQLALCHEMY_DATABASE_URL."""
+    """Database configuration built from component environment variables.
+
+    Runtime (app) URL uses APP_DB_USER / APP_DB_PASS.
+    Migration (admin) URL uses ADMIN_DB_USER / ADMIN_DB_PASS, falling back to
+    the app credentials when the admin vars are not set (single-role setups).
+    """
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
-    url: str = Field(alias="SQLALCHEMY_DATABASE_URL")
+    driver: str = Field(default="postgresql", alias="DB_DRIVER")
+    host: str = Field(alias="DB_HOST")
+    port: int = Field(default=5432, alias="DB_PORT")
+    name: str = Field(alias="DB_NAME")
+
+    app_user: str = Field(alias="APP_DB_USER")
+    app_password: str = Field(alias="APP_DB_PASS")
+    admin_user: str | None = Field(default=None, alias="ADMIN_DB_USER")
+    admin_password: str | None = Field(default=None, alias="ADMIN_DB_PASS")
+
+    @model_validator(mode="after")
+    def _validate_admin_credentials(self) -> "DatabaseSettings":
+        if self.admin_user is not None and self.admin_password is None:
+            raise ValueError("ADMIN_DB_USER is set but ADMIN_DB_PASS is missing")
+        return self
+
+    def _build_url(self, user: str, password: str) -> str:
+        user_q = quote_plus(user)
+        pw_q = quote_plus(password)
+        if self.host.startswith("/"):
+            return f"{self.driver}://{user_q}:{pw_q}@/{self.name}?host={self.host}"
+        return f"{self.driver}://{user_q}:{pw_q}@{self.host}:{self.port}/{self.name}"
+
+    @property
+    def app_url(self) -> str:
+        return self._build_url(self.app_user, self.app_password)
+
+    @property
+    def admin_url(self) -> str:
+        if self.admin_user is not None and self.admin_password is not None:
+            return self._build_url(self.admin_user, self.admin_password)
+        return self._build_url(self.app_user, self.app_password)
 
 
 class FrontendSettings(BaseSettings):
@@ -106,7 +142,7 @@ class ApplicationSettings(BaseSettings):
 
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
-    return DatabaseSettings()  # pyright: ignore[reportCallIssue]
+    return DatabaseSettings()
 
 
 @lru_cache

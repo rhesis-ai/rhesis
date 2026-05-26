@@ -225,7 +225,7 @@ main() {
     # Run database migrations (only if database is configured and not skipped)
     if [ "${SKIP_MIGRATIONS:-false}" = "true" ]; then
         log "${YELLOW}⚠️  SKIP_MIGRATIONS is set, skipping migrations (handled by deployment pipeline)${NC}"
-    elif [ -n "${SQLALCHEMY_DB_HOST:-}" ]; then
+    elif [ -n "${DB_HOST:-}" ]; then
         run_migrations
     else
         log "${YELLOW}⚠️  No database configuration found, skipping migrations${NC}"
