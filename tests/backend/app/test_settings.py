@@ -107,12 +107,17 @@ def test_database_url_comes_from_sqlalchemy_database_url(clean_database_env, mon
 
 
 @pytest.mark.unit
-def test_frontend_settings_uses_local_default(clean_frontend_env):
-    settings = FrontendSettings(_env_file=None)
+def test_frontend_url_is_required(clean_frontend_env):
+    with pytest.raises(ValidationError, match="FRONTEND_URL"):
+        FrontendSettings(_env_file=None)
 
-    assert settings.url == "http://localhost:3000"
-    assert settings.cors_origins == ["http://localhost:3000"]
-    assert settings.allowed_domain == "localhost:3000"
+
+@pytest.mark.unit
+def test_frontend_settings_validates_url(clean_frontend_env, monkeypatch):
+    monkeypatch.setenv("FRONTEND_URL", "not-a-url")
+
+    with pytest.raises(ValidationError):
+        FrontendSettings(_env_file=None)
 
 
 @pytest.mark.unit
@@ -142,7 +147,9 @@ def test_frontend_settings_normalizes_cors_origin_trailing_slash(
 
 @pytest.mark.unit
 def test_get_frontend_settings_cache_clear_allows_env_overrides(clean_frontend_env, monkeypatch):
-    assert get_frontend_settings().url == "http://localhost:3000"
+    monkeypatch.setenv("FRONTEND_URL", "https://initial.example.com")
+
+    assert get_frontend_settings().url == "https://initial.example.com"
 
     monkeypatch.setenv("FRONTEND_URL", "https://cached.example.com")
     get_frontend_settings.cache_clear()

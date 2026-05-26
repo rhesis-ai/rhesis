@@ -16,7 +16,7 @@ from rhesis.backend.app.config.settings import get_frontend_settings
 
 @pytest.fixture(autouse=True)
 def clean_frontend_settings(monkeypatch):
-    monkeypatch.delenv("FRONTEND_URL", raising=False)
+    monkeypatch.setenv("FRONTEND_URL", "http://localhost:3000")
     get_frontend_settings.cache_clear()
     yield
     get_frontend_settings.cache_clear()

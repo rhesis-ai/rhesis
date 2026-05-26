@@ -1,7 +1,7 @@
 from functools import lru_cache
 from urllib.parse import urlparse
 
-from pydantic import AnyHttpUrl, Field
+from pydantic import AnyHttpUrl, Field, TypeAdapter, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,16 +18,22 @@ class FrontendSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
-    url: AnyHttpUrl = Field(alias="FRONTEND_URL")
+    url: str = Field(alias="FRONTEND_URL")
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        TypeAdapter(AnyHttpUrl).validate_python(value)
+        return value
 
     @property
     def cors_origins(self) -> list[str]:
-        parsed_url = urlparse(str(self.url))
+        parsed_url = urlparse(self.url)
         return [f"{parsed_url.scheme}://{parsed_url.netloc}"]
 
     @property
     def allowed_domain(self) -> str:
-        return urlparse(str(self.url)).netloc
+        return urlparse(self.url).netloc
 
 
 class RedisSettings(BaseSettings):
