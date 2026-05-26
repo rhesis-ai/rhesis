@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 import requests as _requests
+import time
+import uuid
 
 from rhesis.sdk import Parameters
 from rhesis.sdk.entities import Experiment, Project, Projects
@@ -31,6 +33,11 @@ _real_request = _requests.request
 # ------------------------------------------------------------------ #
 
 TEST_PROJECT_ID = "12340000-0000-4000-8000-000000001234"
+
+
+def _unique_project_name() -> str:
+    """Generate a unique project name for tests to avoid naming conflicts."""
+    return f"Test Project {uuid.uuid4().hex[:8]} {int(time.time() * 1000)}"
 
 
 def _test_schema() -> ParameterSchema:

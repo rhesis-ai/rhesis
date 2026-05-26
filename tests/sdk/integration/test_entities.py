@@ -1,4 +1,6 @@
 import pytest
+import time
+import uuid
 from requests import HTTPError
 
 from rhesis.sdk.entities.behavior import Behavior
@@ -10,6 +12,16 @@ from rhesis.sdk.entities.status import Status
 from rhesis.sdk.entities.test_configuration import TestConfiguration
 from rhesis.sdk.entities.test_run import TestRun
 from rhesis.sdk.entities.topic import Topic
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+
+def _unique_name(prefix: str) -> str:
+    """Generate a unique name for test entities to avoid naming conflicts."""
+    return f"{prefix} {uuid.uuid4().hex[:8]} {int(time.time() * 1000)}"
+
 
 # ============================================================================
 # Behavior Tests
@@ -193,15 +205,16 @@ def test_prompt_delete(db_cleanup):
 
 
 def test_project(db_cleanup):
+    project_name = _unique_name("Test Project")
     project = Project(
-        name="Test Project",
+        name=project_name,
         description="Test Project Description",
     )
 
     result = project.push()
 
     assert result["id"] is not None
-    assert result["name"] == "Test Project"
+    assert result["name"] == project_name
     assert result["description"] == "Test Project Description"
 
 
