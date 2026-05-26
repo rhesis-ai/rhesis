@@ -110,7 +110,7 @@ export function buildTraceQueryParams(
   if (drawer.testResultId) params.test_result_id = drawer.testResultId;
   if (drawer.testId) params.test_id = drawer.testId;
 
-  if (searchQuery.trim()) params.span_name = searchQuery.trim();
+  if (searchQuery.trim()) params.search = searchQuery.trim();
   if (typeFilter && typeFilter !== 'all') {
     params.trace_type = typeFilter as TraceType;
   }
