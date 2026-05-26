@@ -140,6 +140,12 @@ class AuthSettings(BaseSettings):
     github_client_id: str | None = Field(default=None, alias="GH_CLIENT_ID")
     github_client_secret: str | None = Field(default=None, alias="GH_CLIENT_SECRET")
     session_secret_key: str | None = Field(default=None, alias="SESSION_SECRET_KEY")
+    jwt_secret_key: str | None = Field(default=None, alias="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    jwt_access_token_expire_minutes: int = Field(
+        default=10080,
+        alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
+    )
 
     @property
     def google_enabled(self) -> bool:

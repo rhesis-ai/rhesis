@@ -57,6 +57,9 @@ AUTH_ENV_VARS = (
     "GH_CLIENT_ID",
     "GH_CLIENT_SECRET",
     "SESSION_SECRET_KEY",
+    "JWT_SECRET_KEY",
+    "JWT_ALGORITHM",
+    "JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
 )
 REDIS_ENV_VARS = ("BROKER_URL", "BROKER_READ_URL", "CELERY_RESULT_BACKEND")
 STORAGE_ENV_VARS = ("STORAGE_SERVICE_URI", "STORAGE_SERVICE_ACCOUNT_KEY", "LOCAL_STORAGE_PATH")
@@ -384,6 +387,9 @@ def test_auth_settings_uses_defaults(clean_auth_env):
     assert settings.github_client_id is None
     assert settings.github_client_secret is None
     assert settings.session_secret_key is None
+    assert settings.jwt_secret_key is None
+    assert settings.jwt_algorithm == "HS256"
+    assert settings.jwt_access_token_expire_minutes == 10080
     assert settings.google_enabled is False
     assert settings.github_enabled is False
 
@@ -397,6 +403,9 @@ def test_auth_settings_loads_existing_environment_variables(clean_auth_env, monk
     monkeypatch.setenv("GH_CLIENT_ID", "github-client-id")
     monkeypatch.setenv("GH_CLIENT_SECRET", "github-client-secret")
     monkeypatch.setenv("SESSION_SECRET_KEY", "session-secret-key")
+    monkeypatch.setenv("JWT_SECRET_KEY", "jwt-secret-key")
+    monkeypatch.setenv("JWT_ALGORITHM", "HS384")
+    monkeypatch.setenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 
     settings = AuthSettings(_env_file=None)
 
@@ -407,6 +416,9 @@ def test_auth_settings_loads_existing_environment_variables(clean_auth_env, monk
     assert settings.github_client_id == "github-client-id"
     assert settings.github_client_secret == "github-client-secret"
     assert settings.session_secret_key == "session-secret-key"
+    assert settings.jwt_secret_key == "jwt-secret-key"
+    assert settings.jwt_algorithm == "HS384"
+    assert settings.jwt_access_token_expire_minutes == 30
     assert settings.google_enabled is True
     assert settings.github_enabled is True
 
@@ -425,11 +437,16 @@ def test_auth_settings_oauth_enabled_requires_client_id_and_secret(clean_auth_en
 @pytest.mark.unit
 def test_get_auth_settings_cache_clear_allows_env_overrides(clean_auth_env, monkeypatch):
     assert get_auth_settings().session_secret_key is None
+    assert get_auth_settings().jwt_secret_key is None
 
     monkeypatch.setenv("SESSION_SECRET_KEY", "cached-session-secret-key")
+    monkeypatch.setenv("JWT_SECRET_KEY", "cached-jwt-secret-key")
+    monkeypatch.setenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "45")
     get_auth_settings.cache_clear()
 
     assert get_auth_settings().session_secret_key == "cached-session-secret-key"
+    assert get_auth_settings().jwt_secret_key == "cached-jwt-secret-key"
+    assert get_auth_settings().jwt_access_token_expire_minutes == 45
 
 
 @pytest.mark.unit
