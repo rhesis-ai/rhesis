@@ -20,6 +20,7 @@ _TEST_ENV_VARS = {
     "LOG_LEVEL": "WARNING",
     "RHESIS_CONNECTOR_DISABLED": "true",
     "RHESIS_PROJECT_ID": "12340000-0000-4000-8000-000000001234",
+    "FRONTEND_URL": "http://localhost:3000",
     "SQLALCHEMY_DATABASE_URL": _TEST_DB_URL,
     "BROKER_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
     "CELERY_RESULT_BACKEND": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1",
