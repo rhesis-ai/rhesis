@@ -76,6 +76,14 @@ const nextConfig = {
     // Use NEXT_PUBLIC_API_BASE_URL for client-side calls (browser-to-host)
     const backendUrl = process.env.BACKEND_URL || 'http://backend:8080';
     return [
+      // Proxy backend auth-config (providers, password policy) before the
+      // NextAuth exclusion so it reaches the backend, not NextAuth.js.
+      // Browser → /api/auth-config (same-origin, no CORS)
+      // Next.js → backendUrl/auth/providers (server-to-server, no CORS)
+      {
+        source: '/api/auth-config',
+        destination: `${backendUrl}/auth/providers`,
+      },
       // Exclude NextAuth.js routes from being proxied (keep them local)
       {
         source: '/api/auth/:path*',

@@ -1257,8 +1257,8 @@ export default function NewMetricPage() {
     <PageLayout
       title={getTitle()}
       breadcrumbs={[
-        { title: 'Metrics', path: '/metrics' },
-        { title: 'New Metric' },
+        { label: 'Metrics', href: '/metrics' },
+        { label: 'New Metric' },
       ]}
     >
       <Box sx={{ width: '100%' }}>

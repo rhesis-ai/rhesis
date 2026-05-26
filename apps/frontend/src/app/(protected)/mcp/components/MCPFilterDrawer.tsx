@@ -6,6 +6,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 
 export interface MCPFilters {
@@ -35,11 +36,13 @@ export default function MCPFilterDrawer({
   availableProviders,
   onApply,
 }: MCPFilterDrawerProps) {
-  const [draft, setDraft] = React.useState<MCPFilters>(filters);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_MCP_FILTERS,
+    onApply,
+    onClose
+  );
 
   const toggleProvider = (provider: string) => {
     setDraft(prev => ({
@@ -48,13 +51,6 @@ export default function MCPFilterDrawer({
         ? prev.providers.filter(p => p !== provider)
         : [...prev.providers, provider],
     }));
-  };
-
-  const handleReset = () => setDraft(EMPTY_MCP_FILTERS);
-
-  const handleApply = () => {
-    onApply(draft);
-    onClose();
   };
 
   const providerLabel = (p: string) =>

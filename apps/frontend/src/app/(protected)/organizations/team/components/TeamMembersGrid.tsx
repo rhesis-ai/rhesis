@@ -20,7 +20,6 @@ import PersonIcon from '@mui/icons-material/Person';
 import { DeleteIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import { GREYSCALE } from '@/styles/theme';
 import {
   combineTeamFiltersToOData,
   EMPTY_TEAM_FILTERS,
@@ -59,16 +58,8 @@ function TeamUnifiedToolbar() {
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
       sx={{
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        bgcolor: theme =>
-          theme.palette.mode === 'light'
-            ? GREYSCALE.light.surface1
-            : GREYSCALE.dark.surface1,
+        borderBottom: theme => `1px solid ${theme.palette.greyscale.border}`,
+        bgcolor: theme => theme.palette.greyscale.surface1,
       }}
       rightContent={
         <>

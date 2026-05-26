@@ -189,10 +189,10 @@ export default function TaskDetailPage({ params }: PageProps) {
       <PageLayout
         title={loadingTimeout ? 'Taking longer than expected...' : 'Loading...'}
         breadcrumbs={[
-          { title: 'Tasks', path: '/tasks' },
+          { label: 'Tasks', href: '/tasks' },
           {
-            title: loadingTimeout ? 'Slow Connection' : 'Loading...',
-            path: `/tasks/${taskId}`,
+            label: loadingTimeout ? 'Slow Connection' : 'Loading...',
+            href: `/tasks/${taskId}`,
           },
         ]}
       >
@@ -253,8 +253,8 @@ export default function TaskDetailPage({ params }: PageProps) {
       <PageLayout
         title="Error"
         breadcrumbs={[
-          { title: 'Tasks', path: '/tasks' },
-          { title: 'Error', path: `/tasks/${taskId}` },
+          { label: 'Tasks', href: '/tasks' },
+          { label: 'Error', href: `/tasks/${taskId}` },
         ]}
       >
         <Box sx={{ flexGrow: 1, pt: 3 }}>
@@ -330,8 +330,8 @@ export default function TaskDetailPage({ params }: PageProps) {
       <PageLayout
         title="Task Not Found"
         breadcrumbs={[
-          { title: 'Tasks', path: '/tasks' },
-          { title: 'Not Found', path: `/tasks/${taskId}` },
+          { label: 'Tasks', href: '/tasks' },
+          { label: 'Not Found', href: `/tasks/${taskId}` },
         ]}
       >
         <Box sx={{ flexGrow: 1, pt: 3 }}>
@@ -487,8 +487,8 @@ export default function TaskDetailPage({ params }: PageProps) {
   return (
     <PageLayout
       breadcrumbs={[
-        { title: 'Tasks', path: '/tasks' },
-        { title: editedTask?.title || task.title, path: `/tasks/${taskId}` },
+        { label: 'Tasks', href: '/tasks' },
+        { label: editedTask?.title || task.title, href: `/tasks/${taskId}` },
       ]}
     >
       {/* Title and Navigation Button in same row */}
@@ -546,7 +546,9 @@ export default function TaskDetailPage({ params }: PageProps) {
 
                   const finalUrl = `${baseUrl}${queryString}${commentHash}`;
                   router.push(finalUrl);
-                } catch (_error) {}
+                } catch (error) {
+                  console.error('Failed to navigate to linked entity:', error);
+                }
               }
             }}
             sx={{

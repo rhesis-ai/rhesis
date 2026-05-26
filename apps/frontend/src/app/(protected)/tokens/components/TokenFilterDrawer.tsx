@@ -6,6 +6,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 
 // ── Filter state ───────────────────────────────────────────────────────────────
@@ -54,18 +55,13 @@ export default function TokenFilterDrawer({
   filters,
   onApply,
 }: TokenFilterDrawerProps) {
-  const [draft, setDraft] = React.useState<TokenFilters>(filters);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
-
-  const handleReset = () => setDraft(EMPTY_TOKEN_FILTERS);
-
-  const handleApply = () => {
-    onApply(draft);
-    onClose();
-  };
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_TOKEN_FILTERS,
+    onApply,
+    onClose
+  );
 
   return (
     <FilterDrawerShell

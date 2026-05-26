@@ -69,8 +69,8 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
           });
         }
         setProjects(projectMap);
-      } catch {
-        // silent
+      } catch (err) {
+        console.error('[useEndpointDetail] Failed to load projects:', err);
       } finally {
         setLoadingProjects(false);
       }

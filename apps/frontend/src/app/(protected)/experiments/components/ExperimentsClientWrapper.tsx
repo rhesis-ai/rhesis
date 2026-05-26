@@ -17,7 +17,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
-import { BORDER_RADIUS, ELEVATION, GREYSCALE } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -280,12 +280,7 @@ export default function ExperimentsClientWrapper({
           elevation={0}
           sx={{
             borderRadius: BORDER_RADIUS.md,
-            border: theme =>
-              `1px solid ${
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : theme.palette.divider
-              }`,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
             boxShadow: ELEVATION.xs,
             p: theme => theme.spacing(6),
             display: 'flex',
@@ -328,12 +323,7 @@ export default function ExperimentsClientWrapper({
           sx={{
             p: 2,
             borderRadius: BORDER_RADIUS.md,
-            border: theme =>
-              `1px solid ${
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : theme.palette.divider
-              }`,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
             boxShadow: ELEVATION.xs,
           }}
         >

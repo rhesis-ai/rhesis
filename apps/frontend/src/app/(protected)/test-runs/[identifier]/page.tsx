@@ -171,8 +171,8 @@ export default async function TestRunPage({
   // Define title and breadcrumbs for PageContainer
   const title = testRun.name || `Test Run ${identifier}`;
   const breadcrumbs = [
-    { title: 'Test Runs', path: '/test-runs' },
-    { title, path: `/test-runs/${identifier}` },
+    { label: 'Test Runs', href: '/test-runs' },
+    { label: title, href: `/test-runs/${identifier}` },
   ];
 
   // All errors (404 not found, 410 deleted, etc.) are caught by the global error.tsx

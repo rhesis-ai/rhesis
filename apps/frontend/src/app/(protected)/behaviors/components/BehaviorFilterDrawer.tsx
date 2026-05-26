@@ -6,6 +6,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 
 export type MetricFilter = 'all' | 'has_metrics' | 'no_metrics';
@@ -41,18 +42,13 @@ export default function BehaviorFilterDrawer({
   filters,
   onApply,
 }: BehaviorFilterDrawerProps) {
-  const [draft, setDraft] = React.useState<BehaviorFilters>(filters);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
-
-  const handleReset = () => setDraft(EMPTY_BEHAVIOR_FILTERS);
-
-  const handleApply = () => {
-    onApply(draft);
-    onClose();
-  };
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_BEHAVIOR_FILTERS,
+    onApply,
+    onClose
+  );
 
   return (
     <FilterDrawerShell

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import { alpha, type Theme } from '@mui/material/styles';
-import { GREYSCALE, ELEVATION, BORDER_RADIUS } from '@/styles/theme';
+import { ELEVATION, BORDER_RADIUS } from '@/styles/theme';
 
 export type SectionCardVariant = 'default' | 'danger';
 
@@ -38,13 +38,10 @@ function cardSx(variant: SectionCardVariant) {
   return {
     ...shared,
     bgcolor: (theme: Theme) =>
-      theme.palette.mode === 'light' ? '#ffffff' : GREYSCALE.dark.surface1,
-    border: (theme: Theme) =>
-      `1px solid ${
-        theme.palette.mode === 'light'
-          ? GREYSCALE.light.border
-          : GREYSCALE.dark.border
-      }`,
+      theme.palette.mode === 'light'
+        ? '#ffffff'
+        : theme.palette.greyscale.surface1,
+    border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
   };
 }
 
@@ -101,12 +98,7 @@ export const overviewTablePaperSx = {
   width: '100%',
   borderRadius: BORDER_RADIUS.md,
   boxShadow: ELEVATION.xs,
-  border: (theme: Theme) =>
-    `1px solid ${
-      theme.palette.mode === 'light'
-        ? GREYSCALE.light.border
-        : GREYSCALE.dark.border
-    }`,
+  border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
   overflow: 'hidden' as const,
 };
 

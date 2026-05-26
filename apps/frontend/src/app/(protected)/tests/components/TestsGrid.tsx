@@ -47,7 +47,6 @@ import {
   renderTestContentCell,
 } from './test-grid-helpers';
 import { formatDate } from '@/utils/date';
-import { GREYSCALE } from '@/styles/theme';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -100,16 +99,8 @@ function TestsUnifiedToolbar() {
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
       sx={{
-        borderBottom: theme =>
-          `1px solid ${
-            theme.palette.mode === 'light'
-              ? GREYSCALE.light.border
-              : GREYSCALE.dark.border
-          }`,
-        bgcolor: theme =>
-          theme.palette.mode === 'light'
-            ? GREYSCALE.light.surface1
-            : GREYSCALE.dark.surface1,
+        borderBottom: theme => `1px solid ${theme.palette.greyscale.border}`,
+        bgcolor: theme => theme.palette.greyscale.surface1,
       }}
       middleContent={
         <ToolbarPillTabs
@@ -779,11 +770,7 @@ export default function TestsTable({
             alignItems: 'center',
             gap: 2,
             borderBottom: theme =>
-              `1px solid ${
-                theme.palette.mode === 'light'
-                  ? GREYSCALE.light.border
-                  : GREYSCALE.dark.border
-              }`,
+              `1px solid ${theme.palette.greyscale.border}`,
           }}
         >
           <Typography variant="subtitle1" color="primary">

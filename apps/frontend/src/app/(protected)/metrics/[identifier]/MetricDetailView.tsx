@@ -1789,8 +1789,8 @@ export function MetricDetailView({
     <PageLayout
       title={metric.name}
       breadcrumbs={[
-        { title: 'Metrics', path: '/metrics' },
-        { title: metric.name, path: `/metrics/${metricId}` },
+        { label: 'Metrics', href: '/metrics' },
+        { label: metric.name, href: `/metrics/${metricId}` },
       ]}
     >
       {detailBody}

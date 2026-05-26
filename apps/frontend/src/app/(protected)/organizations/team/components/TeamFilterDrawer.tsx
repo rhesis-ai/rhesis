@@ -6,6 +6,7 @@ import {
   FilterDrawerShell,
   FilterSection,
   filterChipSx,
+  useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { EMPTY_TEAM_FILTERS, type TeamFilters } from '@/utils/odata-filter';
@@ -36,11 +37,13 @@ export default function TeamFilterDrawer({
   filters,
   onApply,
 }: TeamFilterDrawerProps) {
-  const [draft, setDraft] = React.useState<TeamFilters>(filters);
-
-  React.useEffect(() => {
-    if (open) setDraft(filters);
-  }, [open, filters]);
+  const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
+    open,
+    filters,
+    EMPTY_TEAM_FILTERS,
+    onApply,
+    onClose
+  );
 
   const textFieldSx = {
     '& .MuiOutlinedInput-root': {
@@ -56,8 +59,8 @@ export default function TeamFilterDrawer({
     <FilterDrawerShell
       open={open}
       onClose={onClose}
-      onReset={() => setDraft(EMPTY_TEAM_FILTERS)}
-      onApply={() => onApply(draft)}
+      onReset={handleReset}
+      onApply={handleApply}
     >
       <FilterSection title="Member status">
         <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

@@ -83,6 +83,25 @@ export default [
       'react/jsx-uses-react': 'off',
       'react/jsx-uses-vars': 'error',
 
+      // Prevent dark-mode regressions: GREYSCALE.light.* and GREYSCALE.dark.*
+      // are raw static tokens; use theme.palette.greyscale.* in sx callbacks instead.
+      // Only src/styles/theme.ts and src/styles/theme-constants.ts are exempt.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='light']",
+          message:
+            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.light.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
+        },
+        {
+          selector:
+            "MemberExpression[object.object.name='GREYSCALE'][object.property.name='dark']",
+          message:
+            'Use theme.palette.greyscale.* in an sx callback instead of GREYSCALE.dark.* (dark-mode regression risk). Only src/styles/theme*.ts is exempt.',
+        },
+      ],
+
       // Open-core boundary guard.
       //
       // Core (apps/frontend/) must never statically import EE code. The
@@ -119,6 +138,13 @@ export default [
     files: ['src/ee_bootstrap.ts'],
     rules: {
       'no-restricted-imports': 'off',
+    },
+  },
+  {
+    // Theme definition files are allowed to reference GREYSCALE.light/dark directly.
+    files: ['src/styles/theme.ts', 'src/styles/theme-constants.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
     },
   },
 ];

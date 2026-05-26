@@ -136,7 +136,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
     // Get entity name for the list page
     const entityName = formatEntityName(pathSegments[0]);
 
-    const crumbs = [{ title: entityName, path: `/${pathSegments[0]}` }];
+    const crumbs = [{ label: entityName, href: `/${pathSegments[0]}` }];
 
     // If we're on a detail page, add the current item
     if (pathSegments.length > 1) {
@@ -158,8 +158,8 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
       }
 
       crumbs.push({
-        title: itemTitle,
-        path: typeof window !== 'undefined' ? window.location.pathname : '',
+        label: itemTitle,
+        href: typeof window !== 'undefined' ? window.location.pathname : '',
       });
     }
 

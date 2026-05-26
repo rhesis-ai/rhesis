@@ -1,10 +1,7 @@
 'use client';
 
+import * as React from 'react';
 import { Box, Typography } from '@mui/material';
-import { GREYSCALE } from '@/styles/theme-constants';
-
-/** Inactive tab label — Figma greyscale/text---icon/caption */
-const TAB_LABEL_INACTIVE = '#b6bdc9';
 
 export interface DetailTabNavItem {
   key: string;
@@ -23,6 +20,7 @@ export interface DetailTabNavProps {
 /**
  * Detail page tab navigation (Figma Tab_navi_menu 1435:39832).
  * Each tab: 18px bold label; active tab only gets a 3px underline.
+ * Keyboard: ArrowLeft/ArrowRight/Home/End move focus per ARIA tablist pattern.
  */
 export function DetailTabNav({
   tabs,
@@ -30,6 +28,23 @@ export function DetailTabNav({
   onChange,
   'aria-label': ariaLabel = 'Detail page tabs',
 }: DetailTabNavProps) {
+  const tabRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
+
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    let next: number | null = null;
+    if (e.key === 'ArrowRight') next = (index + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft')
+      next = (index - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = tabs.length - 1;
+
+    if (next !== null) {
+      e.preventDefault();
+      onChange(next);
+      tabRefs.current[next]?.focus();
+    }
+  };
+
   return (
     <Box
       role="tablist"
@@ -46,6 +61,9 @@ export function DetailTabNav({
         return (
           <Box
             key={tab.key}
+            ref={(el: HTMLButtonElement | null) => {
+              tabRefs.current[index] = el;
+            }}
             role="tab"
             id={tab.id}
             aria-selected={selected}
@@ -54,6 +72,7 @@ export function DetailTabNav({
             component="button"
             type="button"
             onClick={() => onChange(index)}
+            onKeyDown={e => handleKeyDown(e, index)}
             sx={{
               display: 'flex',
               flexDirection: 'column',
@@ -80,7 +99,10 @@ export function DetailTabNav({
                 fontSize: 18,
                 fontWeight: 700,
                 lineHeight: '25px',
-                color: selected ? GREYSCALE.light.title : TAB_LABEL_INACTIVE,
+                color: theme =>
+                  selected
+                    ? theme.palette.greyscale.title
+                    : theme.palette.greyscale.subtitle,
                 whiteSpace: 'nowrap',
               }}
             >
@@ -92,7 +114,7 @@ export function DetailTabNav({
                 sx={{
                   width: '100%',
                   height: '3px',
-                  bgcolor: GREYSCALE.light.title,
+                  bgcolor: theme => theme.palette.greyscale.title,
                   flexShrink: 0,
                 }}
               />

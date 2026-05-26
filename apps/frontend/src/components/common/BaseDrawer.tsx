@@ -9,7 +9,7 @@ import {
   Stack,
   CircularProgress,
 } from '@mui/material';
-import { BACKDROP_COLORS, BORDER_RADIUS, GREYSCALE } from '@/styles/theme';
+import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
 
 export interface BaseDrawerProps {
   open: boolean;
@@ -106,7 +106,7 @@ export default function BaseDrawer({
                 fontSize: 23,
                 fontWeight: 700,
                 lineHeight: '27.6px',
-                color: GREYSCALE.light.title,
+                color: theme => theme.palette.greyscale.title,
               }}
             >
               {title}
@@ -177,7 +177,7 @@ export default function BaseDrawer({
                 fontWeight: 700,
                 fontSize: 14,
                 '&.Mui-disabled': {
-                  bgcolor: GREYSCALE.light.border,
+                  bgcolor: theme => theme.palette.greyscale.border,
                   color: '#fff',
                 },
               }}

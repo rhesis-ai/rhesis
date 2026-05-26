@@ -132,14 +132,18 @@ export function TasksSection({
     if (onDeleteTask) {
       try {
         await onDeleteTask(taskId);
-      } catch (_error) {}
+      } catch (error) {
+        console.error('Failed to delete task:', error);
+      }
     }
   };
 
   const handleRowClick = (params: GridRowParams) => {
     try {
       router.push(`/tasks/${params.id}`);
-    } catch (_error) {}
+    } catch (error) {
+      console.error('Failed to navigate to task:', error);
+    }
   };
 
   const handleCreateTask = () => {

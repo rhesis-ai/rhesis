@@ -45,12 +45,9 @@ export default function NewEndpointPage() {
   }
 
   const breadcrumbs = [
-    { title: 'Projects', path: '/projects' },
-    {
-      title: projectName || 'Project',
-      path: `/projects/${params.identifier}`,
-    },
-    { title: 'Create New Endpoint' },
+    { label: 'Projects', href: '/projects' },
+    { label: projectName || 'Project', href: `/projects/${params.identifier}` },
+    { label: 'Create New Endpoint' },
   ];
 
   return (

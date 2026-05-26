@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Box, Button, CircularProgress, Typography } from '@mui/material';
+import { Box, Button, CircularProgress } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
-import { GREYSCALE } from '@/styles/theme-constants';
+import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 
 import TestToTestSet from './components/TestToTestSet';
 import TestDetailTabs from './components/TestDetailTabs';
@@ -69,51 +69,22 @@ export default async function TestDetailPage({ params }: PageProps) {
     : test.id;
 
   const breadcrumbs = [
-    { title: 'Tests', path: '/tests' },
-    { title, path: `/tests/${identifier}` },
+    { label: 'Tests', href: '/tests' },
+    { label: title, href: `/tests/${identifier}` },
   ];
 
   const metadataStrip = (
-    <Box sx={{ display: 'flex', gap: '30px' }}>
-      <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <Typography
-          variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
-        >
-          created by:
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: GREYSCALE.light.subtitle,
-          }}
-        >
-          {test.user?.name || '—'}
-        </Typography>
-      </Box>
-      <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <Typography
-          variant="caption"
-          sx={{ fontSize: 12, lineHeight: '18px', color: GREYSCALE.light.body }}
-        >
-          created on:
-        </Typography>
-        <Typography
-          variant="caption"
-          sx={{
-            fontSize: 12,
-            lineHeight: '18px',
-            color: GREYSCALE.light.subtitle,
-          }}
-        >
-          {test.created_at
+    <DetailMetadataStrip
+      items={[
+        { label: 'created by:', value: test.user?.name || '—' },
+        {
+          label: 'created on:',
+          value: test.created_at
             ? format(new Date(test.created_at), 'dd/MM/yyyy')
-            : '—'}
-        </Typography>
-      </Box>
-    </Box>
+            : '—',
+        },
+      ]}
+    />
   );
 
   const pageActions = (

@@ -8,7 +8,8 @@ import EntityCard, {
   type ChipSection,
 } from '@/components/common/EntityCard';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { GREYSCALE, BORDER_RADIUS } from '@/styles/theme';
+import { BORDER_RADIUS } from '@/styles/theme';
+import type { Theme } from '@mui/material/styles';
 
 // Project icon imports
 import WebIcon from '@mui/icons-material/Web';
@@ -80,7 +81,7 @@ function getProjectIcon(project: Project): React.ReactElement {
 export const ProjectCardSkeleton = () => (
   <Box
     sx={{
-      border: `1px solid ${GREYSCALE.light.border}`,
+      border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
       borderRadius: BORDER_RADIUS.md,
       p: '30px',
       display: 'flex',

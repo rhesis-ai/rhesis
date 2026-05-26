@@ -14,8 +14,8 @@ export default function GenerateTestsLayout({
     <PageLayout
       title="Generate Tests"
       breadcrumbs={[
-        { title: 'Tests', path: '/tests' },
-        { title: 'Generate Tests', path: '/tests/new-generated' },
+        { label: 'Tests', href: '/tests' },
+        { label: 'Generate Tests', href: '/tests/new-generated' },
       ]}
     >
       {children}

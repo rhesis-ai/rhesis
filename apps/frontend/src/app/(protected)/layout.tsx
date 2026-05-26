@@ -11,16 +11,6 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Sidebar } from '@/components/navigation/Sidebar';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60_000,
-      gcTime: 30 * 60_000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
 interface ExtendedUser {
   id: string;
   name?: string | null;
@@ -34,10 +24,24 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [queryClient] = React.useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 5 * 60_000,
+            gcTime: 30 * 60_000,
+            refetchOnWindowFocus: false,
+          },
+        },
+      })
+  );
   const { data: session } = useSession();
   const pathname = usePathname();
   const user = session?.user as ExtendedUser | undefined;
-  const isOnboarding = pathname?.startsWith('/onboarding');
+  const isOnboarding =
+    pathname === '/onboarding' ||
+    (pathname?.startsWith('/onboarding/') ?? false);
   const hasOrganization = !!user?.organization_id && !isOnboarding;
 
   const content = hasOrganization ? (
