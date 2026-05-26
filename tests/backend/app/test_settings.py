@@ -11,6 +11,7 @@ from rhesis.backend.app.config.settings import (
     FrontendSettings,
     ModelSettings,
     RedisSettings,
+    RhesisSettings,
     SMTPSettings,
     StorageSettings,
     TelemetrySettings,
@@ -20,6 +21,7 @@ from rhesis.backend.app.config.settings import (
     get_frontend_settings,
     get_model_settings,
     get_redis_settings,
+    get_rhesis_settings,
     get_smtp_settings,
     get_storage_settings,
     get_telemetry_settings,
@@ -65,6 +67,7 @@ MODEL_ENV_VARS = (
     "DEFAULT_EXECUTION_MODEL",
     "DEFAULT_EMBEDDING_MODEL",
 )
+RHESIS_ENV_VARS = ("RHESIS_BASE_URL", "RHESIS_API_KEY")
 TELEMETRY_ENV_VARS = (
     "OTEL_EXPORTER_OTLP_ENDPOINT",
     "OTEL_SERVICE_NAME",
@@ -150,6 +153,15 @@ def clean_model_env(monkeypatch):
     get_model_settings.cache_clear()
     yield
     get_model_settings.cache_clear()
+
+
+@pytest.fixture
+def clean_rhesis_env(monkeypatch):
+    for env_var in RHESIS_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+    get_rhesis_settings.cache_clear()
+    yield
+    get_rhesis_settings.cache_clear()
 
 
 @pytest.fixture
@@ -744,6 +756,38 @@ class TestLoopbackCorsRegex:
         # Other private ranges are not loopback.
         assert not compiled.match("http://10.0.0.1:3000")
         assert not compiled.match("http://192.168.1.1:3000")
+
+
+@pytest.mark.unit
+def test_rhesis_settings_uses_system_defaults(clean_rhesis_env):
+    settings = RhesisSettings(_env_file=None)
+
+    assert settings.base_url == "https://api.rhesis.ai"
+    assert settings.api_key is None
+
+
+@pytest.mark.unit
+def test_rhesis_settings_loads_existing_environment_variables(clean_rhesis_env, monkeypatch):
+    monkeypatch.setenv("RHESIS_BASE_URL", "https://api.example.com")
+    monkeypatch.setenv("RHESIS_API_KEY", "test-rhesis-api-key")
+
+    settings = RhesisSettings(_env_file=None)
+
+    assert settings.base_url == "https://api.example.com"
+    assert settings.api_key == "test-rhesis-api-key"
+
+
+@pytest.mark.unit
+def test_get_rhesis_settings_cache_clear_allows_env_overrides(clean_rhesis_env, monkeypatch):
+    assert get_rhesis_settings().base_url == "https://api.rhesis.ai"
+    assert get_rhesis_settings().api_key is None
+
+    monkeypatch.setenv("RHESIS_BASE_URL", "https://cached-api.example.com")
+    monkeypatch.setenv("RHESIS_API_KEY", "cached-rhesis-api-key")
+    get_rhesis_settings.cache_clear()
+
+    assert get_rhesis_settings().base_url == "https://cached-api.example.com"
+    assert get_rhesis_settings().api_key == "cached-rhesis-api-key"
 
 
 @pytest.mark.unit

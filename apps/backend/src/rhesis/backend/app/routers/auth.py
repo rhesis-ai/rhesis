@@ -48,8 +48,7 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
     find_or_create_user_from_auth,
 )
-from rhesis.backend.app.config.settings import get_frontend_settings
-from rhesis.backend.app.constants import RHESIS_BASE_URL
+from rhesis.backend.app.config.settings import get_frontend_settings, get_rhesis_settings
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
@@ -183,6 +182,10 @@ class RefreshTokenRequest(BaseModel):
 _LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
+def _get_rhesis_base_url() -> str:
+    return get_rhesis_settings().base_url
+
+
 def is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
 
@@ -196,7 +199,7 @@ def is_running_locally() -> bool:
         return True
 
     # Signal 2: RHESIS_BASE_URL points to a local address
-    parsed_host = urlparse(RHESIS_BASE_URL).hostname or ""
+    parsed_host = urlparse(_get_rhesis_base_url()).hostname or ""
     if parsed_host in _LOCAL_HOSTNAMES:
         return True
 
@@ -231,7 +234,7 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
         base_url = f"http://{hostname}:{port}"
     else:
         # Production: always use configured base URL
-        base_url = RHESIS_BASE_URL.rstrip("/")
+        base_url = _get_rhesis_base_url().rstrip("/")
 
     callback_url = f"{base_url}/auth/callback"
 

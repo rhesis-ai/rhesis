@@ -208,6 +208,15 @@ class ModelSettings(BaseSettings):
     )
 
 
+class RhesisSettings(BaseSettings):
+    """Rhesis platform API configuration."""
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    base_url: str = Field(default="https://api.rhesis.ai", alias="RHESIS_BASE_URL")
+    api_key: str | None = Field(default=None, alias="RHESIS_API_KEY")
+
+
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
     return DatabaseSettings()
@@ -246,6 +255,11 @@ def get_smtp_settings() -> SMTPSettings:
 @lru_cache
 def get_model_settings() -> ModelSettings:
     return ModelSettings()
+
+
+@lru_cache
+def get_rhesis_settings() -> RhesisSettings:
+    return RhesisSettings()
 
 
 @lru_cache

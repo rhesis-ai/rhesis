@@ -105,11 +105,6 @@ DEFAULT_CONVERSATION_DEBOUNCE_SECONDS = int(
     os.getenv("DEFAULT_CONVERSATION_DEBOUNCE_SECONDS", "300")
 )  # Seconds to wait before evaluating conversation-level metrics
 
-# Rhesis API configuration
-# Required for Rhesis system models to work
-RHESIS_API_KEY = os.getenv("RHESIS_API_KEY", "your-rhesis-api-key")
-RHESIS_BASE_URL = os.getenv("RHESIS_BASE_URL", "https://api.rhesis.ai")
-
 # Test Result Status Mappings
 # These define how test result status names map to passed/failed/error categories
 # All status names are lowercase for case-insensitive matching
