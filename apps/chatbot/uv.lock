@@ -12,7 +12,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-05-13T21:34:07.097453Z"
+exclude-newer = "2026-05-20T10:09:59.654239Z"
 exclude-newer-span = "P1W"
 
 [manifest]
@@ -3770,7 +3770,7 @@ requires-dist = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.7.1"
+version = "0.8.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
