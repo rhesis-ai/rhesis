@@ -1,12 +1,16 @@
+import re
+
 import pytest
 from pydantic import ValidationError
 
 from rhesis.backend.app import database
 from rhesis.backend.app.config.settings import (
+    ApplicationSettings,
     DatabaseSettings,
     FrontendSettings,
     ModelSettings,
     RedisSettings,
+    get_application_settings,
     get_frontend_settings,
     get_model_settings,
     get_redis_settings,
@@ -14,6 +18,16 @@ from rhesis.backend.app.config.settings import (
 
 DATABASE_ENV_VARS = ("SQLALCHEMY_DATABASE_URL",)
 FRONTEND_ENV_VARS = ("FRONTEND_URL",)
+APPLICATION_ENV_VARS = (
+    "QUICK_START",
+    "ENVIRONMENT",
+    "ENV",
+    "BACKEND_ENV",
+    "GCP_PROJECT",
+    "GOOGLE_CLOUD_PROJECT",
+    "K_SERVICE",
+    "K_REVISION",
+)
 REDIS_ENV_VARS = ("BROKER_URL", "BROKER_READ_URL", "CELERY_RESULT_BACKEND")
 MODEL_ENV_VARS = (
     "DEFAULT_GENERATION_MODEL",
@@ -36,6 +50,15 @@ def clean_frontend_env(monkeypatch):
     get_frontend_settings.cache_clear()
     yield
     get_frontend_settings.cache_clear()
+
+
+@pytest.fixture
+def clean_application_env(monkeypatch):
+    for env_var in APPLICATION_ENV_VARS:
+        monkeypatch.delenv(env_var, raising=False)
+    get_application_settings.cache_clear()
+    yield
+    get_application_settings.cache_clear()
 
 
 @pytest.fixture
@@ -224,3 +247,163 @@ def test_get_model_settings_cache_clear_allows_env_overrides(clean_model_env, mo
     get_model_settings.cache_clear()
 
     assert get_model_settings().generation_model == "openai/gpt-4o-mini"
+
+
+@pytest.mark.unit
+def test_application_settings_defaults(clean_application_env):
+    """All fields use their declared defaults when no env vars are set."""
+    settings = ApplicationSettings(_env_file=None)
+
+    assert settings.quick_start is False
+    assert settings.environment == ""
+    assert settings.backend_env == "development"
+    assert settings.gcp_project is None
+    assert settings.google_cloud_project is None
+    assert settings.cloud_run_service is None
+    assert settings.cloud_run_revision is None
+    # Default posture is non-production (dev-only affordances are on by
+    # default, matching utils/git_utils.should_show_git_info).
+    assert settings.is_production is False
+    assert settings.is_development is True
+
+
+@pytest.mark.unit
+def test_application_settings_loads_existing_environment_variables(
+    clean_application_env, monkeypatch
+):
+    monkeypatch.setenv("QUICK_START", "true")
+    monkeypatch.setenv("ENVIRONMENT", "staging")
+    monkeypatch.setenv("BACKEND_ENV", "production")
+    monkeypatch.setenv("GCP_PROJECT", "rhesis-prod")
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "rhesis-prod-2")
+    monkeypatch.setenv("K_SERVICE", "rhesis-backend")
+    monkeypatch.setenv("K_REVISION", "rhesis-backend-00042-abc")
+
+    settings = ApplicationSettings(_env_file=None)
+
+    assert settings.quick_start is True
+    assert settings.environment == "staging"
+    assert settings.backend_env == "production"
+    assert settings.gcp_project == "rhesis-prod"
+    assert settings.google_cloud_project == "rhesis-prod-2"
+    assert settings.cloud_run_service == "rhesis-backend"
+    assert settings.cloud_run_revision == "rhesis-backend-00042-abc"
+
+
+@pytest.mark.unit
+def test_application_settings_environment_alias_choice_env(clean_application_env, monkeypatch):
+    """ENVIRONMENT and ENV are equivalent aliases for the same field."""
+    monkeypatch.setenv("ENV", "production")
+
+    settings = ApplicationSettings(_env_file=None)
+
+    assert settings.environment == "production"
+    assert settings.is_production is True
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "backend_env,environment,expected_is_production",
+    [
+        # Either signal being production wins.
+        ("production", "", True),
+        ("development", "production", True),
+        ("PRODUCTION", "", True),
+        # Neither signal being production -> not production.
+        ("development", "", False),
+        ("local", "", False),
+        ("development", "staging", False),
+        ("", "", False),
+    ],
+)
+def test_application_settings_is_production_or_logic(
+    clean_application_env, monkeypatch, backend_env, environment, expected_is_production
+):
+    """is_production fires when EITHER backend_env or environment is production."""
+    if backend_env:
+        monkeypatch.setenv("BACKEND_ENV", backend_env)
+    if environment:
+        monkeypatch.setenv("ENVIRONMENT", environment)
+
+    settings = ApplicationSettings(_env_file=None)
+
+    assert settings.is_production is expected_is_production
+    assert settings.is_development is (not expected_is_production)
+
+
+@pytest.mark.unit
+def test_get_application_settings_cache_clear_allows_env_overrides(
+    clean_application_env, monkeypatch
+):
+    assert get_application_settings().is_development is True
+
+    monkeypatch.setenv("BACKEND_ENV", "production")
+    get_application_settings.cache_clear()
+
+    assert get_application_settings().is_development is False
+    assert get_application_settings().backend_env == "production"
+
+
+@pytest.mark.unit
+class TestLoopbackCorsRegex:
+    """``FrontendSettings.loopback_cors_regex`` returns a regex only on dev backends.
+
+    Mirrors the loopback redirect gate in ``auth/url_utils.py`` so that
+    a frontend dev server on the developer's loopback can call a remote
+    dev backend (FRONTEND_URL on a different host) without CORS blocking
+    XHR/fetch requests.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _frontend_url(self, clean_frontend_env, monkeypatch):
+        monkeypatch.setenv("FRONTEND_URL", "https://dev-app.rhesis.ai")
+
+    def test_returns_none_in_production(self, clean_application_env, monkeypatch):
+        monkeypatch.setenv("BACKEND_ENV", "production")
+        get_application_settings.cache_clear()
+
+        assert get_frontend_settings().loopback_cors_regex is None
+
+    def test_returns_none_when_environment_is_production(
+        self, clean_application_env, monkeypatch
+    ):
+        """ENVIRONMENT=production wins over BACKEND_ENV=development."""
+        monkeypatch.setenv("BACKEND_ENV", "development")
+        monkeypatch.setenv("ENVIRONMENT", "production")
+        get_application_settings.cache_clear()
+
+        assert get_frontend_settings().loopback_cors_regex is None
+
+    def test_returns_regex_in_development(self, clean_application_env, monkeypatch):
+        monkeypatch.setenv("BACKEND_ENV", "development")
+        get_application_settings.cache_clear()
+
+        regex = get_frontend_settings().loopback_cors_regex
+
+        assert regex is not None
+        compiled = re.compile(regex)
+        assert compiled.match("http://localhost:3000")
+        assert compiled.match("http://localhost:5173")
+        assert compiled.match("http://127.0.0.1:8080")
+        assert compiled.match("http://[::1]:5000")
+        assert compiled.match("http://localhost")  # default port
+
+    def test_regex_rejects_lookalikes(self, clean_application_env, monkeypatch):
+        """The regex must not match localhost-themed lookalike origins."""
+        monkeypatch.setenv("BACKEND_ENV", "development")
+        get_application_settings.cache_clear()
+
+        regex = get_frontend_settings().loopback_cors_regex
+        assert regex is not None
+        compiled = re.compile(regex)
+
+        # Substring/suffix attacks must not slip through.
+        assert not compiled.match("http://evil-localhost.com")
+        assert not compiled.match("http://localhost.attacker.com")
+        assert not compiled.match("http://127.0.0.1.attacker.com")
+        # https on loopback is not honoured (devs serving https locally
+        # would need to register their origin via FRONTEND_URL instead).
+        assert not compiled.match("https://localhost:3000")
+        # Other private ranges are not loopback.
+        assert not compiled.match("http://10.0.0.1:3000")
+        assert not compiled.match("http://192.168.1.1:3000")
