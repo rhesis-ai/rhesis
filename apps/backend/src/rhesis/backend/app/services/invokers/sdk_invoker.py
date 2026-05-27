@@ -110,6 +110,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         "files_metadata",
     }
 
+    def _strip_user_rhesis_keys(self, function_kwargs: Dict[str, Any]) -> None:
+        """Remove user-supplied _rhesis_* keys to prevent injection."""
+        for key in [k for k in function_kwargs if k.startswith("_rhesis_")]:
+            function_kwargs.pop(key)
+
     def _prepare_function_kwargs(self, function_name: str) -> Dict[str, Any]:
         """Prepare function kwargs from input data using request mapping.
 
@@ -548,14 +553,29 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             ensure_local_functions_registered()
 
             if function_name in registry:
+                from rhesis.sdk.telemetry.context import set_tracing_disabled
+
                 logger.info(f"Invoking local backend function: {function_name}")
+                self._strip_user_rhesis_keys(function_kwargs)
+
+                if endpoint.disable_tracing:
+                    set_tracing_disabled(True)
+
                 started = time.perf_counter()
-                raw = await registry[function_name](
-                    organization_id=str(endpoint.organization_id),
-                    user_id=str(endpoint.user_id) if endpoint.user_id else None,
-                    db=db,
-                    **function_kwargs,
-                )
+                try:
+                    raw = await asyncio.wait_for(
+                        registry[function_name](
+                            organization_id=str(endpoint.organization_id),
+                            user_id=str(endpoint.user_id) if endpoint.user_id else None,
+                            db=db,
+                            **function_kwargs,
+                        ),
+                        timeout=SDK_FUNCTION_TIMEOUT,
+                    )
+                finally:
+                    if endpoint.disable_tracing:
+                        set_tracing_disabled(False)
+
                 duration_ms = int((time.perf_counter() - started) * 1000)
                 output = json.dumps(raw) if not isinstance(raw, str) else raw
                 mapped_response = self._map_sdk_response(
@@ -576,9 +596,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
             # Strip any user-supplied _rhesis_* keys to prevent injection,
             # then set the internal flag if the endpoint has tracing disabled.
-            reserved = [k for k in function_kwargs if k.startswith("_rhesis_")]
-            for k in reserved:
-                function_kwargs.pop(k)
+            self._strip_user_rhesis_keys(function_kwargs)
             if endpoint.disable_tracing:
                 function_kwargs["_rhesis_disable_tracing"] = True
 
