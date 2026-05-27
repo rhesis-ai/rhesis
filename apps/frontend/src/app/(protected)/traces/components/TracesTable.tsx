@@ -172,7 +172,7 @@ export default function TracesTable({
       {
         field: 'root_operation',
         headerName: 'Operation',
-        width: 300,
+        width: 240,
         minWidth: 120,
         resizable: true,
         renderCell: params => (
@@ -180,6 +180,41 @@ export default function TracesTable({
             {params.value}
           </Typography>
         ),
+      },
+      {
+        field: 'conversation_input',
+        headerName: 'Input',
+        width: 320,
+        minWidth: 160,
+        resizable: true,
+        renderCell: params => {
+          const input = params.value as string | undefined;
+          if (!input) {
+            return (
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.disabled', fontStyle: 'italic' }}
+              >
+                —
+              </Typography>
+            );
+          }
+          return (
+            <Tooltip title={input}>
+              <Typography
+                variant="body2"
+                sx={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100%',
+                }}
+              >
+                {input}
+              </Typography>
+            </Tooltip>
+          );
+        },
       },
       {
         field: 'endpoint_name',
