@@ -32,9 +32,9 @@ variable "enabled_environments" {
 }
 
 variable "wireguard_deletion_protection" {
-  description = "Enable deletion protection for WireGuard server"
+  description = "Enable deletion protection for WireGuard server. Defaults to true — the VPN server is critical infrastructure and must not be accidentally destroyed."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "wireguard_peers" {
