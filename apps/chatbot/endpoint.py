@@ -156,24 +156,22 @@ class ResponseGenerator:
         return "".join(chunks)
 
     @observe()
-    def _build_conversation_prompt(
+    def _build_messages(
         self,
         prompt: str,
         conversation_history: List[dict] = None,
         file_contents: list[dict] | None = None,
-    ) -> str:
-        """Build the full prompt with file contents and conversation history."""
-        full_prompt = self.use_case_system_prompt + "\n\n"
+    ) -> List[dict]:
+        """Build structured messages for the LLM with proper role separation."""
+        messages = [{"role": "system", "content": self.use_case_system_prompt}]
 
-        # Add conversation history if provided
         if conversation_history:
             for msg in conversation_history:
                 if isinstance(msg, dict):
-                    role = "User" if msg.get("role") == "user" else "Assistant"
+                    role = msg.get("role", "user")
                     content = msg.get("content", "")
-                    full_prompt += f"{role}: {content}\n\n"
-                elif isinstance(msg, str):
-                    full_prompt += f"User: {msg}\n\n"
+                    if role in ("user", "assistant", "system") and content:
+                        messages.append({"role": role, "content": content})
 
         # Attach file contents to the current user message so the LLM clearly
         # associates them with this specific turn (not previous turns).
@@ -183,49 +181,73 @@ class ResponseGenerator:
             for fc in file_contents:
                 filename = fc.get("filename", "unknown")
                 content = fc.get("content", "")
-                file_block += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
+                file_block += (
+                    f"--- {filename} ---\n{content}\n"
+                    f"--- end of {filename} ---\n\n"
+                )
             current_user_content = (
-                f"[The user has attached the following file(s) with this message:]\n\n"
+                f"[The user has attached the following file(s) "
+                f"with this message:]\n\n"
                 f"{file_block}"
                 f"[User message:] {prompt}"
             )
 
-        full_prompt += f"User: {current_user_content}\n\nAssistant:"
-        return full_prompt
+        messages.append({"role": "user", "content": current_user_content})
+        return messages
 
     @observe.llm(
         provider=_provider,
         model=_model_name,
     )
-    async def _invoke_llm(self, full_prompt: str, mode: OutputMode = "text"):
-        """Invoke the language model to generate a response."""
-        # Vertex AI via LiteLLM has issues with streaming (CustomStreamWrapper)
-        # Use non-streaming response which works reliably
-        kwargs = {"stream": False, "temperature": self.temperature, "max_tokens": self.max_tokens}
+    async def _invoke_llm(self, messages: List[dict], mode: OutputMode = "text"):
+        """Invoke the language model with structured messages."""
+        from litellm import acompletion
+
+        kwargs = {
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
         if mode == "json":
-            kwargs["schema"] = ChatResponse
-        response = await self.model.a_generate(full_prompt, **kwargs)
+            kwargs["response_format"] = ChatResponse
+
+        if hasattr(self.model, "api_key") and self.model.api_key:
+            kwargs["api_key"] = self.model.api_key
+        if hasattr(self.model, "api_base") and self.model.api_base:
+            kwargs["api_base"] = self.model.api_base
+        if hasattr(self.model, "api_version") and self.model.api_version:
+            kwargs["api_version"] = self.model.api_version
+
+        response = await acompletion(
+            model=self.model.model_name,
+            messages=messages,
+            **kwargs,
+        )
         return response
 
     @observe()
     def _extract_response_content(self, response, mode: OutputMode = "text") -> str | dict:
         """Extract text content from LLM response."""
-        if mode == "json":
-            if isinstance(response, ChatResponse):
-                return response.model_dump()
-            if isinstance(response, dict):
-                return response
+        content = None
 
-        if isinstance(response, str):
-            return response
-
-        # Try to extract content from response object
+        # Extract content from response object (acompletion returns this)
         if hasattr(response, "choices") and len(response.choices) > 0:
             content = response.choices[0].message.content
-            return content if content else ""
+        elif isinstance(response, str):
+            content = response
+        elif isinstance(response, dict):
+            content = response
+        else:
+            content = str(response) if response else ""
 
-        # Fallback to string conversion
-        return str(response) if response else ""
+        if mode == "json" and isinstance(content, str):
+            try:
+                return json.loads(content)
+            except (json.JSONDecodeError, TypeError):
+                return {"response": content} if content else {}
+        if mode == "json" and isinstance(content, dict):
+            return content
+
+        return content if content else ""
 
     @observe()
     async def stream_assistant_response(
@@ -247,13 +269,13 @@ class ResponseGenerator:
                 JSON output.
         """
         try:
-            # Build the full prompt with conversation history and file contents
-            full_prompt = self._build_conversation_prompt(
+            # Build structured messages with conversation history and file contents
+            messages = self._build_messages(
                 prompt, conversation_history, file_contents
             )
 
             # Invoke LLM
-            response = await self._invoke_llm(full_prompt, mode=mode)
+            response = await self._invoke_llm(messages, mode=mode)
 
             # Extract and yield content
             content = self._extract_response_content(response, mode=mode)
