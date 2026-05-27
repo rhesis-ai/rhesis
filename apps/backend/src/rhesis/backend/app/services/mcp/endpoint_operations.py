@@ -4,10 +4,11 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy.orm import Session
-
 from rhesis.backend.app.config.settings import get_model_settings
-from rhesis.backend.app.services import local_function_registry
+from rhesis.backend.app.services.local_function_registry import (
+    LocalInvocationContext,
+    register_local,
+)
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
 from rhesis.sdk.agents.mcp import MCPAgent
 from rhesis.sdk.decorators import endpoint
@@ -28,7 +29,9 @@ logger = logging.getLogger(__name__)
     response_mapping={},
 )
 async def search_mcp(
-    query: str, tool_id: str, db: Session, organization_id: str, user_id: str
+    query: str,
+    tool_id: str,
+    ctx: LocalInvocationContext,
 ) -> List[Dict[str, str]]:
     """
     Search MCP server for items matching query.
@@ -40,9 +43,7 @@ async def search_mcp(
     Args:
         query: Natural language search query (e.g., "Find pages about authentication")
         tool_id: ID of the configured tool instance
-        db: Database session
-        organization_id: Organization ID for loading tools from database
-        user_id: User ID for retrieving default generation model
+        ctx: Invocation context containing organization_id, user_id, and db session
 
     Returns:
         List of dicts, each containing:
@@ -57,17 +58,15 @@ async def search_mcp(
         >>> results = await search_mcp(
         ...     "pages created last week",
         ...     "tool-uuid-123",
-        ...     db,
-        ...     org_id,
-        ...     user_id
+        ...     ctx,
         ... )
         >>> print(results[0]["title"])
     """
-    if not user_id:
+    if not ctx.user_id:
         raise ValueError("user_id is required")
 
     client, provider, repository_context = _get_mcp_tool_config(
-        db, tool_id, organization_id, user_id
+        ctx.db, tool_id, ctx.organization_id, ctx.user_id
     )
 
     search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render(
@@ -81,7 +80,10 @@ async def search_mcp(
         system_prompt=search_prompt,
         max_iterations=10,
         verbose=False,
-        event_handlers=get_agent_event_handlers(str(model)),
+        event_handlers=get_agent_event_handlers(
+            model_name=getattr(model, "model_name", None) or str(model),
+            agent_name="mcp-search",
+        ),
     )
 
     result = await agent.run_async(query)
@@ -97,7 +99,7 @@ async def search_mcp(
         raise ValueError(f"Agent returned invalid JSON: {str(e)}")
 
 
-local_function_registry.registry["search_mcp"] = search_mcp
+register_local(search_mcp)
 
 
 @endpoint(
@@ -110,12 +112,10 @@ local_function_registry.registry["search_mcp"] = search_mcp
     response_mapping={},
 )
 async def extract_mcp(
+    ctx: LocalInvocationContext,
     item_id: Optional[str] = None,
     item_url: Optional[str] = None,
     tool_id: str = None,
-    db: Session = None,
-    organization_id: str = None,
-    user_id: str = None,
 ) -> str:
     """
     Extract full content from an MCP item as markdown.
@@ -125,12 +125,10 @@ async def extract_mcp(
     including text, headings, lists, and nested blocks.
 
     Args:
+        ctx: Invocation context containing organization_id, user_id, and db session
         item_id: Item identifier (optional, use if URL is not available)
         item_url: Item URL (optional, preferred if available)
         tool_id: ID of the configured tool instance
-        db: Database session
-        organization_id: Organization ID for loading tools from database
-        user_id: User ID for retrieving default generation model
 
     Returns:
         Full item content formatted as markdown string
@@ -140,21 +138,19 @@ async def extract_mcp(
 
     Example:
         >>> content = await extract_mcp(
+        ...     ctx,
         ...     item_id="page-id-123",
         ...     tool_id="tool-uuid-123",
-        ...     db=db,
-        ...     organization_id=org_id,
-        ...     user_id=user_id
         ... )
         >>> print(content[:100])
     """
     if not item_id and not item_url:
         raise ValueError("Either 'item_id' or 'item_url' must be provided")
 
-    if not user_id:
+    if not ctx.user_id:
         raise ValueError("user_id is required")
 
-    client, provider, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+    client, provider, _ = _get_mcp_tool_config(ctx.db, tool_id, ctx.organization_id, ctx.user_id)
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
         item_id=item_id,
@@ -169,7 +165,10 @@ async def extract_mcp(
         system_prompt=extract_prompt,
         max_iterations=15,
         verbose=False,
-        event_handlers=get_agent_event_handlers(str(model)),
+        event_handlers=get_agent_event_handlers(
+            model_name=getattr(model, "model_name", None) or str(model),
+            agent_name="mcp-extract",
+        ),
     )
 
     item_reference = item_url if item_url else item_id
@@ -178,7 +177,7 @@ async def extract_mcp(
     return result.final_answer
 
 
-local_function_registry.registry["extract_mcp"] = extract_mcp
+register_local(extract_mcp)
 
 
 @endpoint(
@@ -192,9 +191,7 @@ local_function_registry.registry["extract_mcp"] = extract_mcp
 async def query_mcp(
     query: str,
     tool_id: str,
-    db: Session,
-    organization_id: str,
-    user_id: str,
+    ctx: LocalInvocationContext,
     system_prompt: Optional[str] = None,
     max_iterations: int = 10,
 ) -> Dict[str, Any]:
@@ -208,9 +205,7 @@ async def query_mcp(
     Args:
         query: Natural language task description
         tool_id: ID of the configured tool instance
-        db: Database session
-        organization_id: Organization ID for loading tools from database
-        user_id: User ID for retrieving default generation model
+        ctx: Invocation context containing organization_id, user_id, and db session
         system_prompt: Custom agent instructions (optional)
         max_iterations: Maximum reasoning steps (default: 10)
 
@@ -223,14 +218,15 @@ async def query_mcp(
     Example:
         >>> result = await query_mcp(
         ...     "Create a page titled 'Q1 Goals'",
-        ...     "tool-uuid-123", db, org_id, user_id
+        ...     "tool-uuid-123",
+        ...     ctx,
         ... )
     """
-    if not user_id:
+    if not ctx.user_id:
         raise ValueError("user_id is required")
 
     client, provider, repository_context = _get_mcp_tool_config(
-        db, tool_id, organization_id, user_id
+        ctx.db, tool_id, ctx.organization_id, ctx.user_id
     )
 
     if not system_prompt:
@@ -245,7 +241,10 @@ async def query_mcp(
         system_prompt=system_prompt,
         max_iterations=max_iterations,
         verbose=False,
-        event_handlers=get_agent_event_handlers(str(model)),
+        event_handlers=get_agent_event_handlers(
+            model_name=getattr(model, "model_name", None) or str(model),
+            agent_name="mcp-query",
+        ),
     )
 
     result = await agent.run_async(query)
@@ -253,4 +252,4 @@ async def query_mcp(
     return result.model_dump()
 
 
-local_function_registry.registry["query_mcp"] = query_mcp
+register_local(query_mcp)

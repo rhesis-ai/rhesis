@@ -262,6 +262,65 @@ class TestArchitectAgentRunTurn:
 
 
 @pytest.mark.unit
+class TestArchitectAgentLifecycleEvents:
+    """``chat_async`` must emit ``on_agent_end`` so handlers that
+    open spans / resources in ``on_agent_start`` (notably
+    ``TracingHandler``'s ``function.mcp_agent_run`` span) can close
+    them.  Skipping it leaks the OTel context token and leaves
+    iteration spans orphaned at the trace root.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        model = Mock(spec=BaseLLM)
+        return model
+
+    @pytest.mark.asyncio
+    async def test_chat_async_emits_agent_end_on_success(self, mock_model):
+        from rhesis.sdk.agents.events import AgentEventHandler
+
+        handler = Mock(spec=AgentEventHandler)
+        handler.on_agent_start = AsyncMock()
+        handler.on_agent_end = AsyncMock()
+
+        agent = _make_agent(mock_model)
+        agent._event_handlers = [handler]
+        mock_model.generate.return_value = _finish_dict("hello")
+
+        await agent.chat_async("hi")
+
+        handler.on_agent_start.assert_awaited_once()
+        handler.on_agent_end.assert_awaited_once()
+        result_kwarg = handler.on_agent_end.await_args.kwargs["result"]
+        assert result_kwarg.success is True
+        assert result_kwarg.final_answer == "hello"
+
+    @pytest.mark.asyncio
+    async def test_chat_async_emits_agent_end_on_exception(self, mock_model):
+        from rhesis.sdk.agents.events import AgentEventHandler
+
+        handler = Mock(spec=AgentEventHandler)
+        handler.on_agent_start = AsyncMock()
+        handler.on_agent_end = AsyncMock()
+
+        agent = _make_agent(mock_model)
+        agent._event_handlers = [handler]
+
+        async def _boom(*_a, **_k):
+            raise RuntimeError("kaboom")
+
+        agent._run_loop = _boom  # type: ignore[assignment]
+
+        with pytest.raises(RuntimeError, match="kaboom"):
+            await agent.chat_async("hi")
+
+        handler.on_agent_end.assert_awaited_once()
+        result_kwarg = handler.on_agent_end.await_args.kwargs["result"]
+        assert result_kwarg.success is False
+        assert "kaboom" in (result_kwarg.error or "")
+
+
+@pytest.mark.unit
 class TestArchitectAgentToolRouting:
     """Test tool execution routing (BaseTool vs MCPTool)."""
 

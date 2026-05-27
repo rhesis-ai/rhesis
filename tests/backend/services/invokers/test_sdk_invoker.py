@@ -215,3 +215,167 @@ class TestSdkEndpointInvokerLocalRegistry:
             result = await invoker.invoke()
 
         assert result.error_type == "sdk_timeout"
+
+    @pytest.mark.asyncio
+    async def test_local_invoke_threads_conversation_trace_id(self, local_endpoint):
+        """SDK telemetry ContextVars are set so the @endpoint tracer can reuse Turn 1's trace_id."""
+        from rhesis.sdk.telemetry.context import (
+            get_conversation_id,
+            get_conversation_mapped_input,
+            get_conversation_trace_id,
+        )
+
+        observed: dict[str, object] = {}
+
+        async def fake_fn(**kwargs):
+            observed["conv_id"] = get_conversation_id()
+            observed["conv_trace_id"] = get_conversation_trace_id()
+            observed["mapped_input"] = get_conversation_mapped_input()
+            return "ok"
+
+        local_endpoint.disable_tracing = False
+        local_endpoint.response_mapping = {
+            "output": "$.output",
+            "session_id": "$.session_id",
+        }
+        registry = {"test_local_fn": fake_fn}
+
+        existing_trace_id = "abcd1234" * 4  # 32 hex chars
+        context = InvocationContext(
+            db=object(),  # any non-None value -- crud is mocked below
+            endpoint=local_endpoint,
+            input_data={"input": "hi", "session_id": "conv-xyz"},
+        )
+        invoker = SdkEndpointInvoker(context)
+
+        with (
+            patch(
+                "rhesis.backend.app.services.local_function_registry.ensure_local_functions_registered"
+            ),
+            patch("rhesis.backend.app.services.local_function_registry.registry", registry),
+            patch(
+                "rhesis.backend.app.crud.get_trace_id_for_conversation",
+                return_value=existing_trace_id,
+            ),
+        ):
+            await invoker.invoke()
+
+        assert observed["conv_id"] == "conv-xyz"
+        assert observed["conv_trace_id"] == existing_trace_id
+        assert observed["mapped_input"] == "hi"
+
+    @pytest.mark.asyncio
+    async def test_local_invoke_propagates_root_trace_id(self, local_endpoint):
+        """Trace_id set by the function (simulating the SDK tracer) lands on the mapped response."""
+        from rhesis.sdk.telemetry.context import set_root_trace_id
+
+        synthetic_trace_id = "11" * 16  # 32 hex chars
+
+        async def fake_fn(**kwargs):
+            # Simulate what Tracer.trace_execution_async does for the root span.
+            set_root_trace_id(synthetic_trace_id)
+            return {"content": "hello", "session_id": "conv-xyz"}
+
+        local_endpoint.disable_tracing = False
+        local_endpoint.response_mapping = {
+            "output": "$.content",
+            "session_id": "$.session_id",
+        }
+        registry = {"test_local_fn": fake_fn}
+        context = InvocationContext(
+            db=None,
+            endpoint=local_endpoint,
+            input_data={"input": "hi"},
+        )
+        invoker = SdkEndpointInvoker(context)
+
+        with (
+            patch(
+                "rhesis.backend.app.services.local_function_registry.ensure_local_functions_registered"
+            ),
+            patch("rhesis.backend.app.services.local_function_registry.registry", registry),
+        ):
+            result = await invoker.invoke()
+
+        assert result["trace_id"] == synthetic_trace_id
+        assert result["output"] == "hello"
+        assert result["session_id"] == "conv-xyz"
+
+    @pytest.mark.asyncio
+    async def test_local_invoke_parks_output_and_files_when_tracing_enabled(self, local_endpoint):
+        """Local path parks mapped output and input files exactly like the WebSocket path."""
+        from rhesis.sdk.telemetry.context import set_root_trace_id
+
+        synthetic_trace_id = "22" * 16
+
+        async def fake_fn(**kwargs):
+            set_root_trace_id(synthetic_trace_id)
+            return {"content": "answer", "session_id": "conv-xyz"}
+
+        local_endpoint.disable_tracing = False
+        local_endpoint.response_mapping = {
+            "output": "$.content",
+            "session_id": "$.session_id",
+        }
+        registry = {"test_local_fn": fake_fn}
+        context = InvocationContext(
+            db=None,
+            endpoint=local_endpoint,
+            input_data={"input": "hi", "files": [{"id": "file-1"}]},
+        )
+        invoker = SdkEndpointInvoker(context)
+
+        with (
+            patch(
+                "rhesis.backend.app.services.local_function_registry.ensure_local_functions_registered"
+            ),
+            patch("rhesis.backend.app.services.local_function_registry.registry", registry),
+            patch(
+                "rhesis.backend.app.services.telemetry.conversation_linking.register_pending_output"
+            ) as mock_register_output,
+            patch(
+                "rhesis.backend.app.services.telemetry.conversation_linking.register_pending_files"
+            ) as mock_register_files,
+        ):
+            await invoker.invoke()
+
+        mock_register_output.assert_called_once()
+        assert mock_register_output.call_args.kwargs["trace_id"] == synthetic_trace_id
+        mock_register_files.assert_called_once()
+        assert mock_register_files.call_args.kwargs["trace_id"] == synthetic_trace_id
+
+    @pytest.mark.asyncio
+    async def test_local_invoke_skips_parking_when_tracing_disabled(self, local_endpoint):
+        """disable_tracing=True keeps the parking helpers silent."""
+        from rhesis.sdk.telemetry.context import set_root_trace_id
+
+        async def fake_fn(**kwargs):
+            set_root_trace_id("33" * 16)
+            return {"content": "x"}
+
+        local_endpoint.disable_tracing = True
+        local_endpoint.response_mapping = {"output": "$.content"}
+        registry = {"test_local_fn": fake_fn}
+        context = InvocationContext(
+            db=None,
+            endpoint=local_endpoint,
+            input_data={"input": "hi", "files": [{"id": "file-1"}]},
+        )
+        invoker = SdkEndpointInvoker(context)
+
+        with (
+            patch(
+                "rhesis.backend.app.services.local_function_registry.ensure_local_functions_registered"
+            ),
+            patch("rhesis.backend.app.services.local_function_registry.registry", registry),
+            patch(
+                "rhesis.backend.app.services.telemetry.conversation_linking.register_pending_output"
+            ) as mock_register_output,
+            patch(
+                "rhesis.backend.app.services.telemetry.conversation_linking.register_pending_files"
+            ) as mock_register_files,
+        ):
+            await invoker.invoke()
+
+        mock_register_output.assert_not_called()
+        mock_register_files.assert_not_called()
