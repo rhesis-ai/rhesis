@@ -2,13 +2,13 @@
 
 import json
 import logging
-import os
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_model_settings
-from rhesis.backend.app.utils.observability import get_test_context
+from rhesis.backend.app.services import local_function_registry
+from rhesis.backend.app.utils import observability as _observability  # noqa: F401
 from rhesis.sdk.decorators import endpoint
 
 from .agents import _get_agent_class
@@ -20,15 +20,9 @@ logger = logging.getLogger(__name__)
 
 @endpoint(
     name="search_mcp",
-    bind={
-        # DEVELOPMENT ONLY: get_test_context() provides test bindings for remote testing.
-        # Disabled by default in production (returns empty dict when env vars not set).
-        # Only used by Rhesis developers during development.
-        **get_test_context(),
-        "tool_id": os.getenv("RHESIS_TOOL_ID"),
-    },
     request_mapping={
         "query": "{{ input }}",
+        "tool_id": "{{ tool_id }}",
     },
     response_mapping={},
 )
@@ -71,7 +65,6 @@ async def search_mcp(
     if not user_id:
         raise ValueError("user_id is required")
 
-    # Load MCP client from database tool configuration
     client, provider, repository_context = _get_mcp_tool_config(
         db, tool_id, organization_id, user_id
     )
@@ -80,7 +73,6 @@ async def search_mcp(
         provider=provider, repository_context=repository_context
     )
 
-    # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
         model=get_model_settings().generation_model,
@@ -94,8 +86,6 @@ async def search_mcp(
 
     logger.info(f"Raw Agent output: {repr(result.final_answer)}")
 
-    # Parse response - agent returns list of items
-    # (Fatal errors raise exceptions before reaching here)
     try:
         parsed_results = json.loads(result.final_answer)
         if not isinstance(parsed_results, list):
@@ -105,18 +95,15 @@ async def search_mcp(
         raise ValueError(f"Agent returned invalid JSON: {str(e)}")
 
 
+local_function_registry.registry["search_mcp"] = search_mcp
+
+
 @endpoint(
     name="extract_mcp",
-    bind={
-        # DEVELOPMENT ONLY: get_test_context() provides test bindings for remote testing.
-        # Disabled by default in production (returns empty dict when env vars not set).
-        # Only used by Rhesis developers during development.
-        **get_test_context(),
-        "tool_id": os.getenv("RHESIS_TOOL_ID"),
-    },
     request_mapping={
-        "item_url": "{{ input }}",  # Map required 'input' field to item_url
-        "item_id": "{{ item_id }}",  # Optional custom field for item_id
+        "item_url": "{{ input }}",
+        "item_id": "{{ item_id }}",
+        "tool_id": "{{ tool_id }}",
     },
     response_mapping={},
 )
@@ -157,7 +144,7 @@ async def extract_mcp(
         ...     organization_id=org_id,
         ...     user_id=user_id
         ... )
-        >>> print(content[:100])  # First 100 chars
+        >>> print(content[:100])
     """
     if not item_id and not item_url:
         raise ValueError("Either 'item_id' or 'item_url' must be provided")
@@ -165,7 +152,6 @@ async def extract_mcp(
     if not user_id:
         raise ValueError("user_id is required")
 
-    # Load MCP client and provider from database tool configuration
     client, provider, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
@@ -174,7 +160,6 @@ async def extract_mcp(
         provider=provider,
     )
 
-    # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
         model=get_model_settings().generation_model,
@@ -184,26 +169,20 @@ async def extract_mcp(
         verbose=False,
     )
 
-    # Use URL if available, otherwise use ID for the prompt
     item_reference = item_url if item_url else item_id
     result = await agent.run_async(f"Extract content from item {item_reference}")
 
-    # Parse response - agent returns content as text
-    # (Fatal errors raise exceptions before reaching here)
     return result.final_answer
+
+
+local_function_registry.registry["extract_mcp"] = extract_mcp
 
 
 @endpoint(
     name="query_mcp",
-    bind={
-        # DEVELOPMENT ONLY: get_test_context() provides test bindings for remote testing.
-        # Disabled by default in production (returns empty dict when env vars not set).
-        # Only used by Rhesis developers during development.
-        **get_test_context(),
-        "tool_id": os.getenv("RHESIS_TOOL_ID"),
-    },
     request_mapping={
         "query": "{{ input }}",
+        "tool_id": "{{ tool_id }}",
     },
     response_mapping={},
 )
@@ -247,7 +226,6 @@ async def query_mcp(
     if not user_id:
         raise ValueError("user_id is required")
 
-    # Load MCP client from database tool configuration
     client, provider, repository_context = _get_mcp_tool_config(
         db, tool_id, organization_id, user_id
     )
@@ -257,7 +235,6 @@ async def query_mcp(
             provider=provider, repository_context=repository_context
         )
 
-    # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
     agent = AgentClass(
         model=get_model_settings().generation_model,
@@ -269,5 +246,7 @@ async def query_mcp(
 
     result = await agent.run_async(query)
 
-    # Agent now raises exceptions for errors, so if we get here, it succeeded
     return result.model_dump()
+
+
+local_function_registry.registry["query_mcp"] = query_mcp
