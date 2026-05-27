@@ -40,6 +40,12 @@ spec:
           env:
             - name: REDIS_URL
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: BROKER_URL
+                  optional: true
             {{- with .Values.chatbot.env }}
             {{- range . }}
             - name: {{ .name }}
