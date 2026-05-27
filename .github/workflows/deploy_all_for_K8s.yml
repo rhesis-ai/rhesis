@@ -1,0 +1,19 @@
+name: "[Built] All for K8s"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "build all for K8s"
