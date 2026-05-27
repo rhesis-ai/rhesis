@@ -12,8 +12,142 @@ on:
           - dev
           - stg
           - prd
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        default: ''
+        type: string
+
 jobs:
-  run:
+  build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment }}
+
     steps:
-      - run: echo "build all for K8s"
+      - uses: actions/checkout@v6
+
+      # GitHub Actions does not support dynamic secret names, so we map each
+      # environment explicitly and write the SA key to a temp file.
+      # Secrets needed: GCP_SA_KEY_DEV/STG/PRD (full JSON key) + TF_PROJECT_ID_DEV/STG/PRD
+      - name: Resolve GCP credentials
+        run: |
+          if [ "$ENVIRONMENT" = "dev" ]; then
+            echo '${{ secrets.GCP_SA_KEY_DEV }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_DEV }}" >> $GITHUB_ENV
+            echo "FRONTEND_ENV=development"                     >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_BASE_URL=https://dev-api.rhesis.ai" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_APP_URL=https://dev-app.rhesis.ai"      >> $GITHUB_ENV
+          elif [ "$ENVIRONMENT" = "stg" ]; then
+            echo '${{ secrets.GCP_SA_KEY_STG }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_STG }}" >> $GITHUB_ENV
+            echo "FRONTEND_ENV=staging"                         >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_BASE_URL=https://stg-api.rhesis.ai" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_APP_URL=https://stg-app.rhesis.ai"      >> $GITHUB_ENV
+          else
+            echo '${{ secrets.GCP_SA_KEY_PRD }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_PRD }}" >> $GITHUB_ENV
+            echo "FRONTEND_ENV=production"                      >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_APP_URL=https://app.rhesis.ai"      >> $GITHUB_ENV
+          fi
+
+      - name: Authenticate to Google Cloud
+        run: |
+          gcloud auth activate-service-account --key-file=sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/sa-key.json" >> $GITHUB_ENV
+
+      - name: Set registry and tag
+        run: |
+          REGISTRY="europe-west4-docker.pkg.dev/${{ env.PROJECT_ID }}/rhesis"
+          echo "REGISTRY=$REGISTRY" >> $GITHUB_ENV
+
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(echo "${{ github.sha }}" | cut -c1-8)
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+          echo "Registry: $REGISTRY"
+          echo "Tag:      $TAG"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west4-docker.pkg.dev --quiet
+
+      # ── Backend & Worker (same Dockerfile, different targets) ────────────────
+      - name: Build and push backend
+        run: |
+          docker build --platform linux/amd64 --target backend \
+            -t "$REGISTRY/rhesis-backend:$TAG" \
+            -t "$REGISTRY/rhesis-backend:latest" \
+            -f apps/backend/Dockerfile .
+          docker push "$REGISTRY/rhesis-backend:$TAG"
+          docker push "$REGISTRY/rhesis-backend:latest"
+
+      - name: Build and push worker
+        run: |
+          docker build --platform linux/amd64 --target worker \
+            -t "$REGISTRY/rhesis-worker:$TAG" \
+            -t "$REGISTRY/rhesis-worker:latest" \
+            -f apps/backend/Dockerfile .
+          docker push "$REGISTRY/rhesis-worker:$TAG"
+          docker push "$REGISTRY/rhesis-worker:latest"
+
+      # ── Frontend ─────────────────────────────────────────────────────────────
+      - name: Build and push frontend
+        run: |
+          docker build --platform linux/amd64 \
+            --build-arg FRONTEND_ENV="$FRONTEND_ENV" \
+            --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+            --build-arg NEXT_PUBLIC_APP_URL="$NEXT_PUBLIC_APP_URL" \
+            --build-arg NEXT_PUBLIC_QUICK_START=false \
+            -t "$REGISTRY/rhesis-frontend:$TAG" \
+            -t "$REGISTRY/rhesis-frontend:latest" \
+            -f apps/frontend/Dockerfile .
+          docker push "$REGISTRY/rhesis-frontend:$TAG"
+          docker push "$REGISTRY/rhesis-frontend:latest"
+
+      # ── Remaining services ───────────────────────────────────────────────────
+      - name: Build and push chatbot
+        run: |
+          docker build --platform linux/amd64 \
+            -t "$REGISTRY/rhesis-chatbot:$TAG" \
+            -t "$REGISTRY/rhesis-chatbot:latest" \
+            -f apps/chatbot/Dockerfile .
+          docker push "$REGISTRY/rhesis-chatbot:$TAG"
+          docker push "$REGISTRY/rhesis-chatbot:latest"
+
+      - name: Build and push polyphemus
+        run: |
+          docker build --platform linux/amd64 \
+            -t "$REGISTRY/rhesis-polyphemus:$TAG" \
+            -t "$REGISTRY/rhesis-polyphemus:latest" \
+            -f apps/polyphemus/Dockerfile .
+          docker push "$REGISTRY/rhesis-polyphemus:$TAG"
+          docker push "$REGISTRY/rhesis-polyphemus:latest"
+
+      - name: Build and push otel-collector
+        run: |
+          docker build --platform linux/amd64 \
+            -t "$REGISTRY/rhesis-otel-collector:$TAG" \
+            -t "$REGISTRY/rhesis-otel-collector:latest" \
+            -f apps/otel-collector/Dockerfile apps/otel-collector
+          docker push "$REGISTRY/rhesis-otel-collector:$TAG"
+          docker push "$REGISTRY/rhesis-otel-collector:latest"
+
+      - name: Build and push telemetry-processor
+        run: |
+          docker build --platform linux/amd64 \
+            -t "$REGISTRY/rhesis-telemetry-processor:$TAG" \
+            -t "$REGISTRY/rhesis-telemetry-processor:latest" \
+            -f apps/telemetry-processor/Dockerfile apps/telemetry-processor
+          docker push "$REGISTRY/rhesis-telemetry-processor:$TAG"
+          docker push "$REGISTRY/rhesis-telemetry-processor:latest"
+
+      - name: Cleanup SA key
+        if: always()
+        run: rm -f sa-key.json
