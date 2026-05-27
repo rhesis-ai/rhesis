@@ -1,10 +1,14 @@
 """Tests for SDK endpoint invoker."""
 
+import asyncio
 import inspect
+from unittest.mock import patch
 from uuid import uuid4
 
+import pytest
+
 from rhesis.backend.app.services.invokers.context import InvocationContext
-from rhesis.backend.app.services.invokers.sdk_invoker import SdkEndpointInvoker
+from rhesis.backend.app.services.invokers.sdk_invoker import SDK_FUNCTION_TIMEOUT, SdkEndpointInvoker
 
 
 class TestSdkEndpointInvoker:
@@ -117,3 +121,97 @@ class TestSdkEndpointInvoker:
 
         assert "params" not in kwargs
         assert kwargs["input"] == "hello"
+
+
+class TestSdkEndpointInvokerLocalRegistry:
+    """Local-registry invoke path: tracing opt-out and execution timeout."""
+
+    @pytest.fixture
+    def local_endpoint(self, sample_endpoint_sdk):
+        sample_endpoint_sdk.endpoint_metadata = {
+            "sdk_connection": {
+                "function_name": "test_local_fn",
+                "project_id": "test-project-id",
+                "environment": "development",
+            }
+        }
+        sample_endpoint_sdk.request_mapping = None
+        sample_endpoint_sdk.response_mapping = None
+        return sample_endpoint_sdk
+
+    @pytest.mark.asyncio
+    async def test_local_invoke_respects_disable_tracing(self, local_endpoint):
+        observed = []
+
+        async def test_local_fn(**kwargs):
+            from rhesis.sdk.telemetry.context import is_tracing_disabled
+
+            observed.append(is_tracing_disabled())
+            return "ok"
+
+        local_endpoint.disable_tracing = True
+        registry = {"test_local_fn": test_local_fn}
+        context = InvocationContext(db=None, endpoint=local_endpoint, input_data={"input": "hi"})
+        invoker = SdkEndpointInvoker(context)
+
+        with (
+            patch(
+                "rhesis.backend.app.services.local_function_registry.ensure_local_functions_registered"
+            ),
+            patch("rhesis.backend.app.services.local_function_registry.registry", registry),
+        ):
+            result = await invoker.invoke()
+
+        assert observed == [True]
+        assert result["output"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_local_invoke_strips_injected_rhesis_keys(self, local_endpoint):
+        received = {}
+
+        async def test_local_fn(**kwargs):
+            received.update(kwargs)
+            return "ok"
+
+        local_endpoint.disable_tracing = False
+        registry = {"test_local_fn": test_local_fn}
+        context = InvocationContext(
+            db=None,
+            endpoint=local_endpoint,
+            input_data={"input": "hi", "_rhesis_disable_tracing": True},
+        )
+        invoker = SdkEndpointInvoker(context)
+
+        with (
+            patch(
+                "rhesis.backend.app.services.local_function_registry.ensure_local_functions_registered"
+            ),
+            patch("rhesis.backend.app.services.local_function_registry.registry", registry),
+        ):
+            await invoker.invoke()
+
+        assert "_rhesis_disable_tracing" not in received
+
+    @pytest.mark.asyncio
+    async def test_local_invoke_times_out(self, local_endpoint, monkeypatch):
+        async def slow_fn(**kwargs):
+            await asyncio.sleep(SDK_FUNCTION_TIMEOUT + 5)
+            return "ok"
+
+        monkeypatch.setattr(
+            "rhesis.backend.app.services.invokers.sdk_invoker.SDK_FUNCTION_TIMEOUT",
+            0.05,
+        )
+        registry = {"test_local_fn": slow_fn}
+        context = InvocationContext(db=None, endpoint=local_endpoint, input_data={"input": "hi"})
+        invoker = SdkEndpointInvoker(context)
+
+        with (
+            patch(
+                "rhesis.backend.app.services.local_function_registry.ensure_local_functions_registered"
+            ),
+            patch("rhesis.backend.app.services.local_function_registry.registry", registry),
+        ):
+            result = await invoker.invoke()
+
+        assert result.error_type == "sdk_timeout"

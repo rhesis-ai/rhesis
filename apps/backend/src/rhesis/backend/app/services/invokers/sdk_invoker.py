@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from typing import Any, Dict, Optional, Union
 
@@ -108,6 +109,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         "params",
         "files_metadata",
     }
+
+    def _strip_user_rhesis_keys(self, function_kwargs: Dict[str, Any]) -> None:
+        """Remove user-supplied _rhesis_* keys to prevent injection."""
+        for key in [k for k in function_kwargs if k.startswith("_rhesis_")]:
+            function_kwargs.pop(key)
 
     def _prepare_function_kwargs(self, function_name: str) -> Dict[str, Any]:
         """Prepare function kwargs from input data using request mapping.
@@ -533,19 +539,64 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Step 1: Validate and extract metadata
             function_name, project_id, environment = self._validate_and_extract_metadata()
 
-            # Step 2: Determine invocation context (RPC vs direct WebSocket)
-            use_rpc, context_type = self._determine_invocation_context(project_id, environment)
-            logger.info(f"SDK invocation context: {context_type}")
-
-            # Step 3: Prepare function kwargs
+            # Step 2: Prepare function kwargs
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
             function_kwargs = self._prepare_function_kwargs(function_name)
 
+            # Step 3: Local registry short-circuit — call backend-resident
+            # functions directly without a WebSocket round-trip.
+            from rhesis.backend.app.services.local_function_registry import (
+                ensure_local_functions_registered,
+                registry,
+            )
+
+            ensure_local_functions_registered()
+
+            if function_name in registry:
+                from rhesis.sdk.telemetry.context import set_tracing_disabled
+
+                logger.info(f"Invoking local backend function: {function_name}")
+                self._strip_user_rhesis_keys(function_kwargs)
+
+                if endpoint.disable_tracing:
+                    set_tracing_disabled(True)
+
+                started = time.perf_counter()
+                try:
+                    raw = await asyncio.wait_for(
+                        registry[function_name](
+                            organization_id=str(endpoint.organization_id),
+                            user_id=str(endpoint.user_id) if endpoint.user_id else None,
+                            db=db,
+                            **function_kwargs,
+                        ),
+                        timeout=SDK_FUNCTION_TIMEOUT,
+                    )
+                finally:
+                    if endpoint.disable_tracing:
+                        set_tracing_disabled(False)
+
+                duration_ms = int((time.perf_counter() - started) * 1000)
+                output = json.dumps(raw) if not isinstance(raw, str) else raw
+                mapped_response = self._map_sdk_response(
+                    {
+                        "status": "success",
+                        "output": output,
+                        "error": None,
+                        "duration_ms": duration_ms,
+                    },
+                    function_name,
+                )
+                self._ensure_conversation_field(mapped_response, conversation_field)
+                return mapped_response
+
+            # Step 4: Determine invocation context (RPC vs direct WebSocket)
+            use_rpc, context_type = self._determine_invocation_context(project_id, environment)
+            logger.info(f"SDK invocation context: {context_type}")
+
             # Strip any user-supplied _rhesis_* keys to prevent injection,
             # then set the internal flag if the endpoint has tracing disabled.
-            reserved = [k for k in function_kwargs if k.startswith("_rhesis_")]
-            for k in reserved:
-                function_kwargs.pop(k)
+            self._strip_user_rhesis_keys(function_kwargs)
             if endpoint.disable_tracing:
                 function_kwargs["_rhesis_disable_tracing"] = True
 

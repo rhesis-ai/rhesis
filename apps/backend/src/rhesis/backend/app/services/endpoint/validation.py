@@ -12,6 +12,50 @@ from rhesis.backend.app.utils.crud_utils import get_or_create_status
 logger = logging.getLogger(__name__)
 
 
+def _validate_backend_local_mappings(
+    *,
+    endpoint: Endpoint,
+    function_name: str,
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, Any]:
+    """Validate backend-resident @endpoint functions without SDK WebSocket execution.
+
+    Functions in ``local_function_registry`` are invoked in-process by
+    ``SdkEndpointInvoker`` (db/org/user injected there). ``MappingValidator`` sends
+    tests over WebSocket with only request_mapping kwargs, which causes TypeError
+    for MCP helpers that require db, organization_id, and user_id.
+    """
+    from rhesis.backend.app.services.invokers.templating import TemplateRenderer
+
+    request_mapping = endpoint.request_mapping or {}
+    test_input = {
+        "input": "test message for validation",
+        "conversation_id": "test_session_123",
+        "context": ["test document"],
+        "metadata": {"test": True},
+        "tool_calls": [],
+        "tool_id": "00000000-0000-0000-0000-000000000000",
+        "organization_id": organization_id,
+        "user_id": user_id,
+    }
+
+    logger.info(
+        f"[{function_name}] Backend-local endpoint: validating request_mapping only "
+        "(skipping SDK WebSocket execution)"
+    )
+
+    try:
+        TemplateRenderer().render(request_mapping, test_input)
+        return {"success": True, "test_input": test_input, "test_output": None}
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Request mapping render failed: {e}",
+            "test_input": test_input,
+        }
+
+
 async def validate_and_update_status(
     db: Session,
     endpoint: Endpoint,
@@ -176,15 +220,30 @@ async def validate_and_update_status_async(
                 "status_set": "Error",
             }
 
-        # Validate the mappings with actual test
-        validation_result = await validator.validate_mappings(
-            project_id=project_id,
-            environment=environment,
-            function_name=function_name,
-            request_mapping=request_mapping,
-            response_mapping=response_mapping,
-            timeout=timeout,
+        # Backend-resident functions must not be validated via SDK WebSocket.
+        from rhesis.backend.app.services.local_function_registry import (
+            ensure_local_functions_registered,
+            registry,
         )
+
+        ensure_local_functions_registered()
+
+        if function_name in registry:
+            validation_result = _validate_backend_local_mappings(
+                endpoint=endpoint,
+                function_name=function_name,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+        else:
+            validation_result = await validator.validate_mappings(
+                project_id=project_id,
+                environment=environment,
+                function_name=function_name,
+                request_mapping=request_mapping,
+                response_mapping=response_mapping,
+                timeout=timeout,
+            )
 
         logger.info(f"[{function_name}] Async validation result: {validation_result}")
 
