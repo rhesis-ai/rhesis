@@ -15,9 +15,9 @@ def _get_agent_class():
     Returns:
         ObservableMCPAgent if RhesisClient is available and not disabled, otherwise MCPAgent
     """
-    from rhesis.backend.app.utils.observability import internal_tracer
+    from rhesis.backend.app.utils.observability import rhesis_client
 
-    if internal_tracer is not None and not getattr(internal_tracer, "is_disabled", False):
+    if rhesis_client is not None and not getattr(rhesis_client, "is_disabled", False):
         logger.info("Using ObservableMCPAgent for MCP operations (observability enabled)")
         return ObservableMCPAgent
     else:

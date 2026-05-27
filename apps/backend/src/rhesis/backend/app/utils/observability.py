@@ -6,11 +6,14 @@ from rhesis.sdk.clients import RhesisClient
 
 logger = logging.getLogger(__name__)
 
-# SDK client for @endpoint / @observe on backend-resident agents (MCP, etc.).
-# RHESIS_CONNECTOR_DISABLED=true (default in compose) → DisabledClient (no SDK overhead).
-# RHESIS_CONNECTOR_DISABLED=false → RhesisClient (tracing when credentials are set).
+# Initialize RhesisClient at module import time (required for @endpoint decorators)
 try:
-    internal_tracer = RhesisClient.from_environment()
+    rhesis_client = RhesisClient.from_environment()
+    if rhesis_client and not getattr(rhesis_client, "project_id", None):
+        logger.info("No project_id found, defaulting to DisabledClient")
+        from rhesis.sdk.clients import DisabledClient
+
+        rhesis_client = DisabledClient()
 except Exception as e:
-    logger.debug(f"Failed to initialize internal tracer: {e}")
-    internal_tracer = None
+    logger.debug(f"RhesisClient initialization deferred (will retry in lifespan): {e}")
+    rhesis_client = None
