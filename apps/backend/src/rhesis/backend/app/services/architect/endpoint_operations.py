@@ -250,13 +250,23 @@ async def persist_state(
     session_has_title: bool,
     user_message: str,
 ) -> None:
-    """Save assistant message and updated architect session state."""
+    """Save assistant message and updated architect session state.
+
+    Also stamps the conversation's root trace_id on ``agent_state`` so
+    subsequent turns can reuse it for coherent multi-turn tracing.
+    ``get_root_trace_id()`` returns the trace_id of the active root
+    span (set by the SDK tracer when this function is invoked via
+    ``@endpoint`` from either ``SdkEndpointInvoker`` or the Celery
+    architect task).  It is ``None`` only when tracing is disabled.
+    """
     from rhesis.backend.app import crud, schemas
+    from rhesis.sdk.telemetry.context import get_root_trace_id
 
     organization_id = ctx.organization_id
     user_id = ctx.user_id or ""
 
     snapshot = agent.dump_state()
+    root_trace_id = get_root_trace_id()
 
     with get_db_with_tenant_variables(organization_id, user_id) as db:
         crud.create_architect_message(
@@ -277,6 +287,13 @@ async def persist_state(
             "pending_tasks": snapshot.pending_tasks,
             "id_to_name": snapshot.id_to_name,
         }
+        if root_trace_id:
+            # Stored alongside agent snapshot fields (not consumed by
+            # ``ArchitectAgentStateSnapshot``).  ``architect_chat_task``
+            # reads this on Turn 2+ and binds it via
+            # ``conversation_telemetry_context`` so the SDK tracer reuses
+            # the same trace_id for the next turn's root span.
+            agent_state["conversation_trace_id"] = root_trace_id
 
         title_update = {}
         if not session_has_title and user_message:

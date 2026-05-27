@@ -6,6 +6,7 @@ via Redis pub/sub, and persists the final response + updated state.
 
 import logging
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from rhesis.backend.app.schemas.websocket import (
     ChannelTarget,
@@ -17,6 +18,43 @@ from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.worker import app
 
 logger = logging.getLogger(__name__)
+
+
+def _load_session_trace_id(
+    session_id: str,
+    organization_id: Optional[str],
+    user_id: Optional[str],
+) -> Optional[str]:
+    """Return the conversation root trace_id stamped by a prior turn.
+
+    ``architect_chat.persist_state`` stores the SDK tracer's root
+    trace_id under ``agent_state["conversation_trace_id"]`` on every
+    turn.  This helper reads it back so the next turn can bind it as
+    ``conversation_trace_id`` and produce one coherent trace per
+    session instead of one trace per turn.  Returns ``None`` for the
+    first turn of a session (no prior trace) and on any DB lookup
+    failure -- tracing is best-effort and must not break the chat.
+    """
+    if not session_id or not organization_id:
+        return None
+    try:
+        from rhesis.backend.app import crud
+        from rhesis.backend.app.database import get_db_with_tenant_variables
+
+        with get_db_with_tenant_variables(organization_id, user_id or "") as db:
+            session_row = crud.get_architect_session(
+                db,
+                session_id=UUID(session_id),
+                organization_id=organization_id,
+                user_id=user_id or "",
+            )
+            if session_row is None:
+                return None
+            agent_state = session_row.agent_state or {}
+            return agent_state.get("conversation_trace_id")
+    except Exception as exc:
+        logger.warning("Failed to load conversation_trace_id for %s: %s", session_id, exc)
+        return None
 
 
 @app.task(
@@ -61,22 +99,64 @@ def architect_chat_task(
             architect_chat,
         )
         from rhesis.backend.app.services.local_function_registry import LocalInvocationContext
+        from rhesis.backend.app.services.telemetry.local_invocation import (
+            conversation_telemetry_context,
+        )
 
         ctx = LocalInvocationContext(
             organization_id=org_id or "",
             user_id=user_id or None,
             db=None,
         )
-        result: ArchitectChatResult = asyncio.run(
-            architect_chat(
-                message=user_message,
-                ctx=ctx,
-                session_id=session_id,
-                attachments=attachments,
-                auto_approve=auto_approve,
-                persist_user_message=False,
-            )
-        )
+
+        # Load the prior turn's trace_id (if any) so the SDK tracer
+        # reuses it for this turn's root span -- giving the UI one
+        # coherent trace per architect session instead of one trace
+        # per turn.  ``architect_chat`` calls this Celery task path
+        # directly (no ``SdkEndpointInvoker``), so the conversation
+        # ContextVars must be bound here, just as the invoker does on
+        # the test-execution / playground paths.
+        prior_trace_id = _load_session_trace_id(session_id, org_id, user_id)
+
+        async def _run() -> ArchitectChatResult:
+            async with conversation_telemetry_context(
+                conversation_id=session_id,
+                conversation_trace_id=prior_trace_id,
+                mapped_input=user_message,
+            ):
+                return await architect_chat(
+                    message=user_message,
+                    ctx=ctx,
+                    session_id=session_id,
+                    attachments=attachments,
+                    auto_approve=auto_approve,
+                    persist_user_message=False,
+                )
+
+        result: ArchitectChatResult = asyncio.run(_run())
+
+        # Park the conversation output so the telemetry ingest pipeline
+        # can stamp ``rhesis.conversation.output`` on the root span.
+        # ``SdkEndpointInvoker`` does this automatically; the Celery path
+        # bypasses the invoker, so we replicate the same step here.
+        if result.content:
+            try:
+                from rhesis.sdk.telemetry.tracer import pop_result_trace_id
+                from rhesis.backend.app.services.telemetry.conversation_linking import (
+                    register_pending_output,
+                )
+
+                turn_trace_id = pop_result_trace_id(result)
+                if turn_trace_id:
+                    register_pending_output(
+                        trace_id=turn_trace_id,
+                        mapped_output=result.content,
+                    )
+                    logger.debug(
+                        "Parked conversation output for trace_id=%s", turn_trace_id
+                    )
+            except Exception as exc:
+                logger.warning("Failed to park conversation output: %s", exc)
 
         if result.pending_tasks:
             from rhesis.backend.tasks.architect_monitor import (

@@ -6,7 +6,6 @@ import logging
 import os
 import time
 import uuid
-from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, Union
 
 from fastapi import HTTPException
@@ -477,46 +476,24 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         return conversation_id
 
     @staticmethod
-    @asynccontextmanager
-    async def _local_telemetry_context(
+    def _local_telemetry_context(
         conv_id: Optional[str],
         conv_trace_id: Optional[str],
         mapped_input: str,
     ):
         """Thread conversation context into SDK telemetry ContextVars.
 
-        Mirrors what ``sdk/rhesis/sdk/connector/executor.py`` does around
-        the user function on the WebSocket path.  The SDK tracer reads
-        ``get_conversation_trace_id()`` and reuses it as the root span's
-        trace_id; without this, every local turn would generate a fresh
-        trace_id and the "link traces" tasks would never fire.
-
-        Resets ``_root_trace_id`` on enter so the inner ``@endpoint``
-        tracer treats this call as the root span.  Clears all four
-        ContextVars on exit so they do not leak into subsequent calls
-        sharing the same async Task.
+        Delegates to the shared
+        :func:`rhesis.backend.app.services.telemetry.local_invocation.conversation_telemetry_context`
+        helper so the Celery architect path (which also drives local
+        ``@endpoint`` functions outside the SDK invoker) stays in
+        lockstep with this code path when the contract changes.
         """
-        from rhesis.sdk.telemetry.context import (
-            set_conversation_id,
-            set_conversation_mapped_input,
-            set_conversation_trace_id,
-            set_root_trace_id,
+        from rhesis.backend.app.services.telemetry.local_invocation import (
+            conversation_telemetry_context,
         )
 
-        if conv_id:
-            set_conversation_id(conv_id)
-        if conv_trace_id:
-            set_conversation_trace_id(conv_trace_id)
-        if mapped_input:
-            set_conversation_mapped_input(mapped_input)
-        set_root_trace_id(None)
-        try:
-            yield
-        finally:
-            set_conversation_id(None)
-            set_conversation_trace_id(None)
-            set_conversation_mapped_input(None)
-            set_root_trace_id(None)
+        return conversation_telemetry_context(conv_id, conv_trace_id, mapped_input)
 
     def _park_mapped_output(
         self,
