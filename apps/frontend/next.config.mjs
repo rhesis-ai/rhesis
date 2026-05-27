@@ -70,20 +70,31 @@ const nextConfig = {
     };
   })(),
 
-  // API rewrites for cross-container communication
+  // API rewrites for cross-container communication.
+  //
+  // CAUTION: rewrites() is evaluated at *build* time and the returned
+  // `destination` strings are serialised into `.next/routes-manifest.json`.
+  // `process.env.BACKEND_URL` set on the Cloud Run revision at *runtime* is
+  // NOT picked up by these rewrites — the manifest is already baked.
+  // For routes that need the runtime backend URL, add a Route Handler under
+  // `src/app/api/.../route.ts` (which IS evaluated per request via
+  // `getServerBackendUrl()`) instead of adding a rewrite here.
+  // See `src/app/api/auth-config/route.ts` for the pattern.
   async rewrites() {
-    // Use BACKEND_URL for server-side calls (container-to-container)
-    // Use NEXT_PUBLIC_API_BASE_URL for client-side calls (browser-to-host)
     const backendUrl = process.env.BACKEND_URL || 'http://backend:8080';
+    if (
+      !process.env.BACKEND_URL ||
+      /^https?:\/\/backend(:|\/|$)/.test(backendUrl)
+    ) {
+      console.warn(
+        `[next.config] BACKEND_URL="${process.env.BACKEND_URL ?? ''}" at ` +
+          `build time. Any /api/* rewrites baked into routes-manifest.json ` +
+          `will point at "${backendUrl}" and be unreachable from Cloud Run ` +
+          `regardless of the runtime BACKEND_URL. Use a Route Handler for ` +
+          `runtime-resolved backend URLs.`
+      );
+    }
     return [
-      // Proxy backend auth-config (providers, password policy) before the
-      // NextAuth exclusion so it reaches the backend, not NextAuth.js.
-      // Browser → /api/auth-config (same-origin, no CORS)
-      // Next.js → backendUrl/auth/providers (server-to-server, no CORS)
-      {
-        source: '/api/auth-config',
-        destination: `${backendUrl}/auth/providers`,
-      },
       // Exclude NextAuth.js routes from being proxied (keep them local)
       {
         source: '/api/auth/:path*',
