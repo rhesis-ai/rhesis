@@ -200,9 +200,7 @@ class ResponseGenerator:
         model=_model_name,
     )
     async def _invoke_llm(self, messages: List[dict], mode: OutputMode = "text"):
-        """Invoke the language model with structured messages."""
-        from litellm import acompletion
-
+        """Invoke the language model with structured messages via SDK."""
         kwargs = {
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
@@ -210,15 +208,7 @@ class ResponseGenerator:
         if mode == "json":
             kwargs["response_format"] = ChatResponse
 
-        if hasattr(self.model, "api_key") and self.model.api_key:
-            kwargs["api_key"] = self.model.api_key
-        if hasattr(self.model, "api_base") and self.model.api_base:
-            kwargs["api_base"] = self.model.api_base
-        if hasattr(self.model, "api_version") and self.model.api_version:
-            kwargs["api_version"] = self.model.api_version
-
-        response = await acompletion(
-            model=self.model.model_name,
+        response = await self.model.a_generate(
             messages=messages,
             **kwargs,
         )
@@ -226,28 +216,25 @@ class ResponseGenerator:
 
     @observe()
     def _extract_response_content(self, response, mode: OutputMode = "text") -> str | dict:
-        """Extract text content from LLM response."""
-        content = None
+        """Extract text content from LLM response.
 
-        # Extract content from response object (acompletion returns this)
+        The SDK's ``a_generate`` returns a string (or dict when a schema
+        is provided), so this method normalises the value for the caller.
+        """
+        if isinstance(response, dict):
+            return response
+        if isinstance(response, str):
+            if mode == "json":
+                try:
+                    return json.loads(response)
+                except (json.JSONDecodeError, TypeError):
+                    return {"response": response} if response else {}
+            return response
+
+        # Fallback for unexpected types (e.g. raw litellm response objects)
         if hasattr(response, "choices") and len(response.choices) > 0:
-            content = response.choices[0].message.content
-        elif isinstance(response, str):
-            content = response
-        elif isinstance(response, dict):
-            content = response
-        else:
-            content = str(response) if response else ""
-
-        if mode == "json" and isinstance(content, str):
-            try:
-                return json.loads(content)
-            except (json.JSONDecodeError, TypeError):
-                return {"response": content} if content else {}
-        if mode == "json" and isinstance(content, dict):
-            return content
-
-        return content if content else ""
+            return response.choices[0].message.content or ""
+        return str(response) if response else ""
 
     @observe()
     async def stream_assistant_response(

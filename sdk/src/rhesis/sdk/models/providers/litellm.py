@@ -70,7 +70,7 @@ class LiteLLM(BaseLLM):
 
     async def a_generate(
         self,
-        prompt: str,
+        prompt: str = "",
         system_prompt: Optional[str] = None,
         schema: Optional[Union[Type[BaseModel], dict]] = None,
         stream: bool = False,
@@ -85,25 +85,32 @@ class LiteLLM(BaseLLM):
         through ``model.generate(...)`` which bridges via ``run_sync()``.
 
         Args:
-            prompt: The user prompt
-            system_prompt: Optional system prompt
+            prompt: The user prompt.  Optional when ``messages`` is provided.
+            system_prompt: Optional system prompt (ignored when ``messages``
+                is provided).
             schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
             stream: When True, return an async generator of token chunks.
                 Schema validation is skipped; the caller is responsible
                 for parsing and validating the accumulated output.
+            messages: Pre-built list of message dicts (keyword-only, via
+                ``**kwargs``).  When provided, ``prompt`` and
+                ``system_prompt`` are ignored.  Use this for multi-turn
+                conversations where the caller manages the message history.
 
         Returns:
             str or dict when stream=False; AsyncGenerator[str, None] when
             stream=True.
         """
-        messages = (
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ]
-            if system_prompt
-            else [{"role": "user", "content": prompt}]
-        )
+        messages = kwargs.pop("messages", None)
+        if messages is None:
+            messages = (
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ]
+                if system_prompt
+                else [{"role": "user", "content": prompt}]
+            )
 
         if stream:
             return self._a_generate_stream(messages, schema, *args, **kwargs)

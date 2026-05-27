@@ -298,7 +298,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
 
     async def a_generate(
         self,
-        prompt: str,
+        prompt: str = "",
         system_prompt: Optional[str] = None,
         schema: Optional[Union[Type[BaseModel], dict]] = None,
         *args,
@@ -312,11 +312,13 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         through ``model.generate(...)`` which bridges via ``run_sync()``.
 
         Args:
-            prompt: The text prompt
+            prompt: The text prompt.  Optional when ``messages`` is provided
+                via ``**kwargs``.
             system_prompt: Optional system prompt
             schema: Optional Pydantic schema for structured output
             *args: Additional positional arguments
-            **kwargs: Additional keyword arguments
+            **kwargs: Additional keyword arguments (including ``messages``
+                for multi-turn conversations)
 
         Returns:
             Generated text or dict (if schema provided)
