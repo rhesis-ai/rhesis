@@ -55,9 +55,7 @@ class TestLoadSessionTraceId:
         """The trace_id stamped by a prior ``persist_state`` call is
         returned verbatim so the next turn can bind it."""
         mock_db_ctx.return_value.__enter__.return_value = MagicMock()
-        mock_get_session.return_value = _make_session_row(
-            {"conversation_trace_id": "abc123"}
-        )
+        mock_get_session.return_value = _make_session_row({"conversation_trace_id": "abc123"})
 
         result = _load_session_trace_id("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "org", "user")
 
@@ -115,9 +113,7 @@ class TestLoadSessionTraceId:
     def test_swallows_db_errors(self, _mock_db):
         """Any unexpected error is logged and swallowed -- tracing is
         best-effort and must not break the chat."""
-        assert (
-            _load_session_trace_id("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "org", "user") is None
-        )
+        assert _load_session_trace_id("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "org", "user") is None
 
 
 # ── persist_state stamps conversation_trace_id ──────────────────────
@@ -149,8 +145,7 @@ async def test_persist_state_stamps_root_trace_id_on_agent_state():
             return_value="deadbeef" * 4,
         ),
         patch(
-            "rhesis.backend.app.services.architect.endpoint_operations."
-            "get_db_with_tenant_variables"
+            "rhesis.backend.app.services.architect.endpoint_operations.get_db_with_tenant_variables"
         ) as mock_db_ctx,
         patch("rhesis.backend.app.crud.create_architect_message"),
         patch("rhesis.backend.app.crud.update_architect_session") as mock_update,
@@ -194,8 +189,7 @@ async def test_persist_state_omits_trace_id_when_tracing_disabled():
     with (
         patch("rhesis.sdk.telemetry.context.get_root_trace_id", return_value=None),
         patch(
-            "rhesis.backend.app.services.architect.endpoint_operations."
-            "get_db_with_tenant_variables"
+            "rhesis.backend.app.services.architect.endpoint_operations.get_db_with_tenant_variables"
         ) as mock_db_ctx,
         patch("rhesis.backend.app.crud.create_architect_message"),
         patch("rhesis.backend.app.crud.update_architect_session") as mock_update,
@@ -340,10 +334,10 @@ def test_task_parks_conversation_output_when_trace_id_available():
         patch("rhesis.backend.tasks.architect.architect_chat_task.run"),
     ):
         # Simulate the parking logic directly (isolated from Celery infra).
-        from rhesis.sdk.telemetry.tracer import pop_result_trace_id
         from rhesis.backend.app.services.telemetry.conversation_linking import (
             register_pending_output,
         )
+        from rhesis.sdk.telemetry.tracer import pop_result_trace_id
 
         trace_id = pop_result_trace_id(fake_result)
         if trace_id:
