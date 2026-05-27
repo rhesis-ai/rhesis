@@ -1,22 +1,24 @@
 import asyncio
-import logging
 import os
 from typing import Optional, Union
 
-logger = logging.getLogger(__name__)
-
-_TRUTHY = frozenset({"true", "1", "yes", "on"})
-
+# Check if connector should be disabled
 # Accept common truthy values: true, 1, yes, on (case-insensitive)
-CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLED", "false").lower() in _TRUTHY
+CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLED", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+    "on",
+)
 
 
 class DisabledClient:
     """
-    No-op client used when RHESIS_CONNECTOR_DISABLED is enabled.
+    No-op client implementation used when RHESIS_CONNECTOR_DISABLED is enabled.
 
-    Accepts all initialization parameters and method calls but performs no operations.
-    Used to run without connector/observability overhead in CI and platform services.
+    This client accepts all initialization parameters and method calls but
+    performs no actual operations. It's used to allow code to run without
+    connector/observability overhead in test and CI environments.
 
     Enabled with: RHESIS_CONNECTOR_DISABLED=true|1|yes|on (case-insensitive)
 
@@ -154,18 +156,23 @@ class RhesisClient:
         Create a RhesisClient from environment variables.
 
         This is the recommended way to initialize the client in applications.
-        Returns a DisabledClient when RHESIS_CONNECTOR_DISABLED is set.
+        Returns a DisabledClient if RHESIS_CONNECTOR_DISABLED is set or if
+        required credentials (RHESIS_PROJECT_ID, RHESIS_API_KEY) are missing.
 
         Environment Variables:
-            RHESIS_CONNECTOR_DISABLED: Set to 'true' to disable the SDK
-            RHESIS_PROJECT_ID: Project ID for remote endpoint testing
-            RHESIS_API_KEY: API key
+            RHESIS_CONNECTOR_DISABLED: Set to 'true' to disable the connector
+            RHESIS_PROJECT_ID: Required project ID
+            RHESIS_API_KEY: Required API key
             RHESIS_ENVIRONMENT: Optional, defaults to 'development'
             RHESIS_BASE_URL: Optional, defaults to 'http://localhost:8080'
 
         Returns:
             RhesisClient or DisabledClient instance
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         if CONNECTOR_DISABLED:
             logger.info("Connector explicitly disabled (RHESIS_CONNECTOR_DISABLED=true)")
             return DisabledClient()
