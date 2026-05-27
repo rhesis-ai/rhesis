@@ -7,16 +7,3 @@
 # See CONTRIBUTING.md for the full contributor policy.
 
 ee/ @rhesis-ai/maintainers
-
-# ── Infrastructure: critical paths require senior review ─────────────
-#
-# WireGuard VPN server: loss of this VM cuts kubectl/DB access to ALL envs.
-# Any change to wireguard module, env config, or CI workflow must be
-# approved by a maintainer before merge AND before pipeline apply.
-terraform/infrastructure/modules/wireguard/    @rhesis-ai/maintainers
-terraform/infrastructure/envs/wireguard/       @rhesis-ai/maintainers
-.github/workflows/terraform-infrastructure.yml @rhesis-ai/maintainers
-
-# stg / prd infrastructure changes also require maintainer sign-off.
-terraform/infrastructure/envs/stg/            @rhesis-ai/maintainers
-terraform/infrastructure/envs/prd/            @rhesis-ai/maintainers
