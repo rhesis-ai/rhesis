@@ -1,20 +1,23 @@
 """Tests for the OTEL ``ai.tool.invoke`` / ``ai.llm.invoke`` spans
 emitted by the agent stack.
 
-Covers three sites:
+Span sources after the de-duplication refactor:
 
-1. ``ToolExecutor.execute_tool`` (``sdk/agents/mcp/executor.py``) for
-   external MCP tools.
-2. ``ArchitectAgent._execute_save_plan`` / ``_execute_await_task`` for
-   internal tools.
-3. ``BaseAgent._get_llm_action`` for each reasoning iteration.
+* ``ai.tool.invoke`` — emitted exclusively by ``TracingHandler``
+  (``on_tool_start`` / ``on_tool_end``), which fires for *every* tool
+  type (local, MCP, internal) from ``BaseAgent._execute_tools``.
+  ``ToolExecutor`` and the architect's internal-tool helpers no longer
+  open their own spans; this file only verifies their functional
+  behaviour (correct ``ToolResult``, correct exception types).
 
-The fixtures install an ``InMemorySpanExporter`` against the global
-tracer provider so we can assert the emitted spans without spinning up
-a real backend.  ``trace.get_tracer`` returns a ``ProxyTracer`` that
-defers to whatever provider is current at span-creation time, so
-modules that cache a tracer at import time (which is what the agent
-helpers do) still see the swapped provider.
+* ``ai.llm.invoke`` — emitted exclusively by the inline span inside
+  ``BaseAgent._get_llm_action``.  Tests below assert that shape.
+
+The ``span_exporter`` fixture installs an ``InMemorySpanExporter``
+against the global tracer provider so LLM span assertions don't need a
+real backend.  ``_rebind_module_tracers`` bypasses ``ProxyTracer``
+caching to ensure modules that captured a tracer at import time see the
+fresh provider.
 """
 
 from __future__ import annotations
@@ -52,10 +55,8 @@ def _rebind_module_tracers(provider: trace.TracerProvider) -> None:
     never re-resolves.  Bypass that by binding a real tracer from the
     fresh provider directly.
     """
-    from rhesis.sdk.agents import _tool_tracing as _tt
     from rhesis.sdk.agents import base as _ba
 
-    _tt._tracer = provider.get_tracer("rhesis.sdk.agents.tools")
     _ba._LLM_TRACER = provider.get_tracer("rhesis.sdk.agents.llm")
 
 
@@ -92,7 +93,9 @@ def _spans_named(exporter: InMemorySpanExporter, name: str) -> List[ReadableSpan
     return [s for s in exporter.get_finished_spans() if s.name == name]
 
 
-# ─── MCP ToolExecutor ────────────────────────────────────────────────
+# ─── MCP ToolExecutor — functional behaviour ─────────────────────────
+# Span-shape tests for MCP tools live in test_tracing_handler.py;
+# these tests only verify ToolExecutor's result / exception contract.
 
 
 def _make_mcp_result(text: str, *, is_error: bool = False) -> Mock:
@@ -114,9 +117,9 @@ def mcp_client() -> Mock:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_mcp_executor_emits_success_span(span_exporter, mcp_client) -> None:
-    """A successful MCP call produces one ``ai.tool.invoke`` span with
-    OK status and the dynamic tool name / type / input / output."""
+async def test_mcp_executor_returns_success_result(mcp_client) -> None:
+    """A successful MCP call returns a ToolResult with ``success=True``
+    and the extracted text content."""
     mcp_client.call_tool.return_value = _make_mcp_result("Found 3 results")
     executor = ToolExecutor(mcp_client)
 
@@ -125,28 +128,14 @@ async def test_mcp_executor_emits_success_span(span_exporter, mcp_client) -> Non
     )
 
     assert result.success is True
-
-    spans = _spans_named(span_exporter, "ai.tool.invoke")
-    assert len(spans) == 1
-    span = spans[0]
-    assert span.attributes["ai.tool.name"] == "search_pages"
-    assert span.attributes["ai.tool.type"] == "mcp"
-    assert span.attributes["ai.tool.success"] is True
-    assert span.attributes["ai.operation.type"] == "tool.invoke"
-    assert span.status.status_code == StatusCode.OK
-
-    event_names = [e.name for e in span.events]
-    assert "ai.tool.input" in event_names
-    assert "ai.tool.output" in event_names
-    input_event = next(e for e in span.events if e.name == "ai.tool.input")
-    assert json.loads(input_event.attributes["ai.tool.input"]) == {"query": "test"}
+    assert "Found 3 results" in result.content
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_mcp_executor_marks_recoverable_failure(span_exporter, mcp_client) -> None:
-    """A 4xx app-level error is recorded as a failed result with span
-    status ERROR — the agent retries, so no exception is raised."""
+async def test_mcp_executor_returns_failure_for_4xx(mcp_client) -> None:
+    """A 4xx app-level response is surfaced as a failed ``ToolResult``
+    without raising — the agent retries."""
     mcp_client.call_tool.return_value = _make_mcp_result(
         json.dumps({"status": 404, "detail": "not found"})
     )
@@ -155,20 +144,14 @@ async def test_mcp_executor_marks_recoverable_failure(span_exporter, mcp_client)
     result = await executor.execute_tool(ToolCall(tool_name="lookup", arguments={}))
 
     assert result.success is False
-
-    spans = _spans_named(span_exporter, "ai.tool.invoke")
-    assert len(spans) == 1
-    span = spans[0]
-    assert span.attributes["ai.tool.success"] is False
-    assert span.attributes["ai.error.type"] == "tool_failure"
-    assert span.status.status_code == StatusCode.ERROR
+    assert "404" in (result.error or "")
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_mcp_executor_marks_fatal_application_error(span_exporter, mcp_client) -> None:
-    """A 5xx app-level error raises ``MCPApplicationError`` AND records
-    the span as ERROR with the exception attached."""
+async def test_mcp_executor_raises_for_5xx(mcp_client) -> None:
+    """A 5xx app-level error raises ``MCPApplicationError`` so the
+    agent can decide whether to abort the turn."""
     mcp_client.call_tool.return_value = _make_mcp_result(
         json.dumps({"status": 500, "detail": "boom"})
     )
@@ -177,72 +160,47 @@ async def test_mcp_executor_marks_fatal_application_error(span_exporter, mcp_cli
     with pytest.raises(MCPApplicationError):
         await executor.execute_tool(ToolCall(tool_name="lookup", arguments={}))
 
-    spans = _spans_named(span_exporter, "ai.tool.invoke")
-    assert len(spans) == 1
-    span = spans[0]
-    assert span.attributes["ai.error.type"] == "mcp_application_error"
-    assert span.status.status_code == StatusCode.ERROR
-
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_mcp_executor_marks_connection_error(span_exporter, mcp_client) -> None:
-    """A connection failure is translated to ``MCPConnectionError`` and
-    the span records the original exception with the connection
-    ``ai.error.type``."""
+async def test_mcp_executor_raises_connection_error(mcp_client) -> None:
+    """A connection failure is translated to ``MCPConnectionError``."""
     mcp_client.call_tool.side_effect = ConnectionError("network down")
     executor = ToolExecutor(mcp_client)
 
     with pytest.raises(MCPConnectionError):
         await executor.execute_tool(ToolCall(tool_name="lookup", arguments={}))
 
-    spans = _spans_named(span_exporter, "ai.tool.invoke")
-    assert len(spans) == 1
-    span = spans[0]
-    assert span.attributes["ai.error.type"] == "mcp_connection_error"
-    assert span.status.status_code == StatusCode.ERROR
 
-
-# ─── Internal-tool tracing (architect) ───────────────────────────────
+# ─── Internal-tool behaviour (architect) ─────────────────────────────
+# Spans for internal tools come from TracingHandler; tests here only
+# assert ToolResult correctness.
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_internal_tool_await_task_emits_span(span_exporter) -> None:
-    """``ArchitectAgent._execute_await_task`` should emit an
-    ``ai.tool.invoke`` span with ``ai.tool.type == "internal"`` and the
-    canonical internal-tool name."""
-    # Imported here to avoid heavy import chain when the rest of the
-    # module is collected.
+async def test_internal_tool_await_task_succeeds(span_exporter) -> None:
+    """``_execute_await_task`` with valid ``task_ids`` returns success."""
     from rhesis.sdk.agents.architect.agent import ArchitectAgent
     from rhesis.sdk.agents.architect.config import ArchitectConfig
 
     model = Mock(spec=BaseLLM)
     agent = ArchitectAgent(model=model, tools=[], config=ArchitectConfig())
 
-    tool_call = ToolCall(
-        tool_name=InternalTool.AWAIT_TASK,
-        arguments={"task_ids": ["abc-123"], "message": "Hold on"},
+    result = await agent._execute_await_task(
+        ToolCall(
+            tool_name=InternalTool.AWAIT_TASK,
+            arguments={"task_ids": ["abc-123"], "message": "Hold on"},
+        )
     )
 
-    result = await agent._execute_await_task(tool_call)
-
     assert result.success is True
-
-    spans = _spans_named(span_exporter, "ai.tool.invoke")
-    assert len(spans) == 1
-    span = spans[0]
-    assert span.attributes["ai.tool.name"] == InternalTool.AWAIT_TASK
-    assert span.attributes["ai.tool.type"] == "internal"
-    assert span.attributes["ai.tool.success"] is True
-    assert span.status.status_code == StatusCode.OK
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_internal_tool_await_task_marks_failure(span_exporter) -> None:
-    """Missing ``task_ids`` should fail the await_task tool and mark
-    the span as ERROR with the ``tool_failure`` error type."""
+async def test_internal_tool_await_task_fails_without_task_ids(span_exporter) -> None:
+    """Missing ``task_ids`` must produce a failed ``ToolResult``."""
     from rhesis.sdk.agents.architect.agent import ArchitectAgent
     from rhesis.sdk.agents.architect.config import ArchitectConfig
 
@@ -254,13 +212,7 @@ async def test_internal_tool_await_task_marks_failure(span_exporter) -> None:
     )
 
     assert result.success is False
-
-    spans = _spans_named(span_exporter, "ai.tool.invoke")
-    assert len(spans) == 1
-    span = spans[0]
-    assert span.attributes["ai.tool.success"] is False
-    assert span.attributes["ai.error.type"] == "tool_failure"
-    assert span.status.status_code == StatusCode.ERROR
+    assert result.error
 
 
 # ─── LLM iteration tracing ───────────────────────────────────────────

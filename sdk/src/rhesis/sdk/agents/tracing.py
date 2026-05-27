@@ -149,7 +149,7 @@ class TracingHandler(AgentEventHandler):
 
     async def on_agent_end(self, *, result: Any, **kwargs: Any) -> None:
         # Drain any spans left open by mid-run errors
-        for slot in ("llm", "tool", "iteration"):
+        for slot in ("tool", "iteration"):
             self._close(slot)
         # Capture the final answer as an ``ai.agent.output`` event
         # before ending the agent span.
@@ -177,37 +177,11 @@ class TracingHandler(AgentEventHandler):
         )
 
     async def on_iteration_end(self, *, iteration: int, action: str, **kwargs: Any) -> None:
-        # The LLM span may still be open if _get_llm_action errored (on_error
-        # fires instead of on_llm_end), so drain it here before closing the
-        # iteration span.
-        self._close("llm")
         self._close("tool")
         self._close("iteration", attributes={"ai.agent.action": action})
 
-    # ── LLM lifecycle ───────────────────────────────────────────────
-
-    async def on_llm_start(self, *, iteration: int, **kwargs: Any) -> None:
-        self._open(
-            "llm",
-            "ai.llm.invoke",
-            {
-                "ai.operation.type": "llm.invoke",
-                "ai.model.name": self._model_name,
-                "ai.agent.iteration": iteration,
-            },
-        )
-
-    async def on_llm_end(self, *, action: Any, **kwargs: Any) -> None:
-        attrs: dict = {}
-        if action is not None:
-            attrs["ai.agent.reasoning"] = action.reasoning
-            attrs["ai.agent.action"] = action.action
-        self._close("llm", attributes=attrs)
-
     async def on_error(self, *, error: Exception, **kwargs: Any) -> None:
-        # Close any open sub-operation span and record the error on it.
-        # (BaseAgent emits on_error instead of on_llm_end when the LLM fails.)
-        self._close("llm", exc=error)
+        # Close any open tool span and record the error on it.
         self._close("tool", exc=error)
 
     # ── tool lifecycle ──────────────────────────────────────────────

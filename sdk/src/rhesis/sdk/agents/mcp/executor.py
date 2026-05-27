@@ -4,13 +4,6 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from opentelemetry import trace
-
-from rhesis.sdk.agents._tool_tracing import (
-    stamp_tool_exception,
-    stamp_tool_result,
-    tool_invoke_span,
-)
 from rhesis.sdk.agents.base import extract_mcp_content
 from rhesis.sdk.agents.mcp.client import MCPClient
 from rhesis.sdk.agents.mcp.exceptions import (
@@ -38,58 +31,46 @@ class ToolExecutor:
     async def execute_tool(self, tool_call: ToolCall) -> ToolResult:
         """Execute a tool and return its result.
 
-        Emits an ``ai.tool.invoke`` span per call, nesting under whatever
-        root span is active (e.g. ``function.architect_chat``).  Dynamic
-        attributes (tool name, success, error, input/output preview) are
-        stamped at runtime since they vary per call -- static decorator
-        attributes can't express that.
+        The ``ai.tool.invoke`` span is emitted by the ``TracingHandler``
+        event handler (``on_tool_start`` / ``on_tool_end``) that surrounds
+        every ``execute_tool`` call in ``BaseAgent._execute_tools``.
+        Keeping a single span source avoids duplicate child spans for all
+        tool types (local, MCP, internal).
 
         Raises:
             MCPConnectionError: If connection to MCP server fails
             MCPApplicationError: If tool returns fatal error
         """
-        with tool_invoke_span(
-            tool_call.tool_name,
-            tool_type="mcp",
-            arguments=tool_call.arguments,
-            span_kind=trace.SpanKind.CLIENT,
-        ) as span:
-            try:
-                result = await self._execute_tool_inner(tool_call)
-            except MCPApplicationError as exc:
-                stamp_tool_exception(span, exc, error_type="mcp_application_error")
-                raise
-            except (TimeoutError, ConnectionError, OSError) as exc:
-                stamp_tool_exception(span, exc, error_type="mcp_connection_error")
+        try:
+            return await self._execute_tool_inner(tool_call)
+        except MCPApplicationError:
+            raise
+        except (TimeoutError, ConnectionError, OSError) as exc:
+            raise MCPConnectionError(
+                f"Failed to connect to MCP server: {exc}",
+                original_error=exc,
+            ) from exc
+        except RuntimeError as exc:
+            error_msg = str(exc).lower()
+            if "not connected" in error_msg or "connection" in error_msg:
+                logger.error(f"Connection error: {exc}")
                 raise MCPConnectionError(
-                    f"Failed to connect to MCP server: {exc}",
+                    f"Connection error: {exc}",
                     original_error=exc,
                 ) from exc
-            except RuntimeError as exc:
-                error_msg = str(exc).lower()
-                if "not connected" in error_msg or "connection" in error_msg:
-                    stamp_tool_exception(span, exc, error_type="mcp_connection_error")
-                    logger.error(f"Connection error: {exc}")
-                    raise MCPConnectionError(
-                        f"Connection error: {exc}",
-                        original_error=exc,
-                    ) from exc
-                logger.warning(f"Tool {tool_call.tool_name} runtime error: {exc}")
-                result = ToolResult(
-                    tool_name=tool_call.tool_name,
-                    success=False,
-                    error=str(exc),
-                )
-            except Exception as exc:
-                logger.warning(f"Tool {tool_call.tool_name} failed with unexpected error: {exc}")
-                result = ToolResult(
-                    tool_name=tool_call.tool_name,
-                    success=False,
-                    error=str(exc),
-                )
-
-            stamp_tool_result(span, result)
-            return result
+            logger.warning(f"Tool {tool_call.tool_name} runtime error: {exc}")
+            return ToolResult(
+                tool_name=tool_call.tool_name,
+                success=False,
+                error=str(exc),
+            )
+        except Exception as exc:
+            logger.warning(f"Tool {tool_call.tool_name} failed with unexpected error: {exc}")
+            return ToolResult(
+                tool_name=tool_call.tool_name,
+                success=False,
+                error=str(exc),
+            )
 
     async def _execute_tool_inner(self, tool_call: ToolCall) -> ToolResult:
         """Core MCP invocation -- returns a ToolResult or raises a

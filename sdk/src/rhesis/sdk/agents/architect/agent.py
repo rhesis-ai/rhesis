@@ -12,7 +12,6 @@ from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
 from pydantic import ValidationError
 
-from rhesis.sdk.agents._tool_tracing import stamp_tool_result, tool_invoke_span
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.constants import (
     Action,
@@ -778,14 +777,7 @@ class ArchitectAgent(BaseAgent):
 
     async def _execute_save_plan(self, tool_call: ToolCall) -> ToolResult:
         """Parse LLM-provided plan data and store it."""
-        with tool_invoke_span(
-            InternalTool.SAVE_PLAN,
-            tool_type="internal",
-            arguments=tool_call.arguments,
-        ) as span:
-            result = await self._execute_save_plan_body(tool_call)
-            stamp_tool_result(span, result)
-            return result
+        return await self._execute_save_plan_body(tool_call)
 
     async def _execute_save_plan_body(self, tool_call: ToolCall) -> ToolResult:
         try:
@@ -973,14 +965,7 @@ class ArchitectAgent(BaseAgent):
 
     async def _execute_await_task(self, tool_call: ToolCall) -> ToolResult:
         """Pause the turn to wait for background tasks."""
-        with tool_invoke_span(
-            InternalTool.AWAIT_TASK,
-            tool_type="internal",
-            arguments=tool_call.arguments,
-        ) as span:
-            result = self._execute_await_task_body(tool_call)
-            stamp_tool_result(span, result)
-            return result
+        return self._execute_await_task_body(tool_call)
 
     def _execute_await_task_body(self, tool_call: ToolCall) -> ToolResult:
         task_ids = tool_call.arguments.get("task_ids", [])
