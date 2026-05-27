@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.services import local_function_registry
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
+from rhesis.sdk.agents.mcp import MCPAgent
 from rhesis.sdk.decorators import endpoint
 
-from .agents import _get_agent_class
+from .agents import get_agent_event_handlers
 from .config import _get_mcp_tool_config
 from .templates import jinja_env
 
@@ -73,13 +74,14 @@ async def search_mcp(
         provider=provider, repository_context=repository_context
     )
 
-    AgentClass = _get_agent_class()
-    agent = AgentClass(
-        model=get_model_settings().generation_model,
+    model = get_model_settings().generation_model
+    agent = MCPAgent(
+        model=model,
         mcp_client=client,
         system_prompt=search_prompt,
         max_iterations=10,
         verbose=False,
+        event_handlers=get_agent_event_handlers(str(model)),
     )
 
     result = await agent.run_async(query)
@@ -160,13 +162,14 @@ async def extract_mcp(
         provider=provider,
     )
 
-    AgentClass = _get_agent_class()
-    agent = AgentClass(
-        model=get_model_settings().generation_model,
+    model = get_model_settings().generation_model
+    agent = MCPAgent(
+        model=model,
         mcp_client=client,
         system_prompt=extract_prompt,
         max_iterations=15,
         verbose=False,
+        event_handlers=get_agent_event_handlers(str(model)),
     )
 
     item_reference = item_url if item_url else item_id
@@ -235,13 +238,14 @@ async def query_mcp(
             provider=provider, repository_context=repository_context
         )
 
-    AgentClass = _get_agent_class()
-    agent = AgentClass(
-        model=get_model_settings().generation_model,
+    model = get_model_settings().generation_model
+    agent = MCPAgent(
+        model=model,
         mcp_client=client,
         system_prompt=system_prompt,
         max_iterations=max_iterations,
         verbose=False,
+        event_handlers=get_agent_event_handlers(str(model)),
     )
 
     result = await agent.run_async(query)

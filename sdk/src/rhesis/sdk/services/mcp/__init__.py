@@ -14,7 +14,6 @@ from rhesis.sdk.agents.mcp.exceptions import (
     MCPValidationError,
 )
 from rhesis.sdk.agents.mcp.executor import ToolExecutor
-from rhesis.sdk.agents.mcp.observable_agent import ObservableMCPAgent
 from rhesis.sdk.agents.schemas import (
     AgentAction,
     AgentResult,
@@ -26,7 +25,6 @@ from rhesis.sdk.agents.schemas import (
 __all__ = [
     # Agent
     "MCPAgent",
-    "ObservableMCPAgent",
     # Client
     "MCPClient",
     "MCPClientFactory",

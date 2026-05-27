@@ -1,25 +1,26 @@
-"""MCP agent class selection."""
+"""Agent factory helpers for MCP operations."""
 
 import logging
+from typing import List
 
-from rhesis.sdk.services.mcp import MCPAgent
-from rhesis.sdk.services.mcp.observable_agent import ObservableMCPAgent
+from rhesis.sdk.agents.events import AgentEventHandler
 
 logger = logging.getLogger(__name__)
 
 
-def _get_agent_class():
-    """
-    Determine which agent class to use based on RhesisClient availability.
+def get_agent_event_handlers(model_name: str = "unknown") -> List[AgentEventHandler]:
+    """Return [TracingHandler] when observability is enabled, [] otherwise.
 
-    Returns:
-        ObservableMCPAgent if RhesisClient is available and not disabled, otherwise MCPAgent
+    Args:
+        model_name: LLM model identifier, recorded as ``ai.model.name`` on spans.
     """
     from rhesis.backend.app.utils.observability import rhesis_client
 
     if rhesis_client is not None and not getattr(rhesis_client, "is_disabled", False):
-        logger.info("Using ObservableMCPAgent for MCP operations (observability enabled)")
-        return ObservableMCPAgent
-    else:
-        logger.info("Using standard MCPAgent for MCP operations (observability disabled)")
-        return MCPAgent
+        from rhesis.sdk.agents.tracing import TracingHandler
+
+        logger.info("OTel tracing enabled for MCP agent")
+        return [TracingHandler(model_name=model_name)]
+
+    logger.info("OTel tracing disabled for MCP agent")
+    return []
