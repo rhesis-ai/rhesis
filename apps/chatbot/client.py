@@ -666,43 +666,39 @@ async def chat(
     )
     tool_calls = []
 
-    # Generate context using the instance
-    context_fragments = await response_generator.generate_context(message)
-    tool_calls.append(
-        {
-            "name": "generate_context",
-            "arguments": {"message": message},
-            "result": context_fragments,
-        }
-    )
+    async def _collect_response():
+        chunks = []
+        async for chunk in response_generator.stream_assistant_response(
+            message,
+            conversation_history=conversation_history,
+            file_contents=file_contents,
+            mode=output_mode,
+        ):
+            chunks.append(chunk)
+        return chunks
 
-    # Recognize intent from the current message
-    intent_result = await response_generator.recognize_intent(message)
-    tool_calls.append(
-        {
-            "name": "recognize_intent",
-            "arguments": {"message": message},
-            "result": intent_result,
-        }
+    context_fragments, intent_result, chunks = await asyncio.gather(
+        response_generator.generate_context(message),
+        response_generator.recognize_intent(message),
+        _collect_response(),
     )
-
-    # Get assistant response using the same instance
-    chunks = []
-    async for chunk in response_generator.stream_assistant_response(
-        message,
-        conversation_history=conversation_history,
-        file_contents=file_contents,
-        mode=output_mode,
-    ):
-        chunks.append(chunk)
 
     if output_mode == "json":
-        # In JSON mode, the generator yields dicts
         response_message = chunks[0] if chunks else {}
     else:
         response_message = "".join(chunks)
 
-    tool_calls.append(
+    tool_calls.extend([
+        {
+            "name": "generate_context",
+            "arguments": {"message": message},
+            "result": context_fragments,
+        },
+        {
+            "name": "recognize_intent",
+            "arguments": {"message": message},
+            "result": intent_result,
+        },
         {
             "name": "generate_response",
             "arguments": {
@@ -712,8 +708,8 @@ async def chat(
                 "history_length": len(conversation_history),
             },
             "result": {"length": len(str(response_message))},
-        }
-    )
+        },
+    ])
 
     # Persist the exchange in the session store
     sessions[session_id].messages.append({"role": "user", "content": message})
