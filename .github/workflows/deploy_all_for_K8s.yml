@@ -1,4 +1,4 @@
-name: "[Built] All for K8s"
+name: "[Deploy] All for K8s"
 
 on:
   workflow_dispatch:
