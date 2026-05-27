@@ -110,20 +110,20 @@ class ResponseGenerator:
                 raise ValueError(f"Could not initialize language model {model}: {str(e)}")
         else:
             self.model = get_llm_model()
-            
+
         self.use_case = use_case
         self.system_prompt_override = system_prompt_override
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.context_strategy = context_strategy
-        
+
         self.use_case_system_prompt = self._load_system_prompt()
 
     def _load_system_prompt(self) -> str:
-        """Load system prompt from override or from the corresponding .md file in use_cases folder."""
+        """Load system prompt from override or use_cases .md file."""
         if self.system_prompt_override and self.system_prompt_override.strip():
             return self.system_prompt_override.strip()
-            
+
         try:
             # Get the directory of the current script
             current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -181,10 +181,7 @@ class ResponseGenerator:
             for fc in file_contents:
                 filename = fc.get("filename", "unknown")
                 content = fc.get("content", "")
-                file_block += (
-                    f"--- {filename} ---\n{content}\n"
-                    f"--- end of {filename} ---\n\n"
-                )
+                file_block += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
             current_user_content = (
                 f"[The user has attached the following file(s) "
                 f"with this message:]\n\n"
@@ -200,26 +197,23 @@ class ResponseGenerator:
         model=_model_name,
     )
     async def _invoke_llm(self, messages: List[dict], mode: OutputMode = "text"):
-        """Invoke the language model with structured messages via SDK."""
+        """Invoke the language model via the SDK model's a_generate."""
         kwargs = {
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
         }
         if mode == "json":
-            kwargs["response_format"] = ChatResponse
+            kwargs["schema"] = ChatResponse
 
-        response = await self.model.a_generate(
-            messages=messages,
-            **kwargs,
-        )
-        return response
+        return await self.model.a_generate(messages=messages, **kwargs)
 
     @observe()
     def _extract_response_content(self, response, mode: OutputMode = "text") -> str | dict:
         """Extract text content from LLM response.
 
-        The SDK's ``a_generate`` returns a string (or dict when a schema
-        is provided), so this method normalises the value for the caller.
+        The SDK model's ``a_generate`` returns ``str`` (or ``dict`` when a
+        schema is provided), so this is mostly a pass-through with fallback
+        handling for edge cases.
         """
         if isinstance(response, dict):
             return response
@@ -230,10 +224,6 @@ class ResponseGenerator:
                 except (json.JSONDecodeError, TypeError):
                     return {"response": response} if response else {}
             return response
-
-        # Fallback for unexpected types (e.g. raw litellm response objects)
-        if hasattr(response, "choices") and len(response.choices) > 0:
-            return response.choices[0].message.content or ""
         return str(response) if response else ""
 
     @observe()
@@ -257,9 +247,7 @@ class ResponseGenerator:
         """
         try:
             # Build structured messages with conversation history and file contents
-            messages = self._build_messages(
-                prompt, conversation_history, file_contents
-            )
+            messages = self._build_messages(prompt, conversation_history, file_contents)
 
             # Invoke LLM
             response = await self._invoke_llm(messages, mode=mode)
@@ -320,11 +308,13 @@ class ResponseGenerator:
         """Generate context fragments for a prompt."""
         if self.context_strategy == "none":
             return []
-        
+
         # RAG implementation would go here
         if self.context_strategy == "rag":
             # For now fall back to heuristic
-            logger.info("RAG context strategy requested but not implemented yet, falling back to heuristic")
+            logger.info(
+                "RAG context strategy requested but not implemented yet, falling back to heuristic"
+            )
 
         try:
             # Build prompt
@@ -659,10 +649,10 @@ def _collect_stream_chunks(
     async def _collect() -> List[str]:
         chunks = []
         async for chunk in stream_assistant_response(
-            prompt=prompt, 
-            use_case=use_case, 
-            conversation_history=conversation_history, 
-            file_contents=file_contents, 
+            prompt=prompt,
+            use_case=use_case,
+            conversation_history=conversation_history,
+            file_contents=file_contents,
             mode=mode,
             system_prompt_override=system_prompt_override,
             model=model,
@@ -693,10 +683,10 @@ def stream_assistant_response_sync(
     Yields chunks after collecting them from the async implementation.
     """
     chunks = _collect_stream_chunks(
-        prompt=prompt, 
-        use_case=use_case, 
-        conversation_history=conversation_history, 
-        file_contents=file_contents, 
+        prompt=prompt,
+        use_case=use_case,
+        conversation_history=conversation_history,
+        file_contents=file_contents,
         mode=mode,
         system_prompt_override=system_prompt_override,
         model=model,

@@ -74,6 +74,7 @@ class LiteLLM(BaseLLM):
         system_prompt: Optional[str] = None,
         schema: Optional[Union[Type[BaseModel], dict]] = None,
         stream: bool = False,
+        messages: Optional[List[dict]] = None,
         *args,
         **kwargs,
     ) -> Union[str, dict, AsyncGenerator[str, None]]:
@@ -85,23 +86,20 @@ class LiteLLM(BaseLLM):
         through ``model.generate(...)`` which bridges via ``run_sync()``.
 
         Args:
-            prompt: The user prompt.  Optional when ``messages`` is provided.
+            prompt: The user prompt (ignored when ``messages`` is provided)
             system_prompt: Optional system prompt (ignored when ``messages``
-                is provided).
+                is provided)
             schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
             stream: When True, return an async generator of token chunks.
                 Schema validation is skipped; the caller is responsible
                 for parsing and validating the accumulated output.
-            messages: Pre-built list of message dicts (keyword-only, via
-                ``**kwargs``).  When provided, ``prompt`` and
-                ``system_prompt`` are ignored.  Use this for multi-turn
-                conversations where the caller manages the message history.
+            messages: Pre-built messages list for multi-turn conversations.
+                When provided, ``prompt`` and ``system_prompt`` are ignored.
 
         Returns:
             str or dict when stream=False; AsyncGenerator[str, None] when
             stream=True.
         """
-        messages = kwargs.pop("messages", None)
         if messages is None:
             messages = (
                 [

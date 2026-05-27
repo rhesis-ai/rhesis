@@ -312,8 +312,8 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         through ``model.generate(...)`` which bridges via ``run_sync()``.
 
         Args:
-            prompt: The text prompt.  Optional when ``messages`` is provided
-                via ``**kwargs``.
+            prompt: The text prompt (ignored when ``messages`` is provided
+                via ``**kwargs``)
             system_prompt: Optional system prompt
             schema: Optional Pydantic schema for structured output
             *args: Additional positional arguments
