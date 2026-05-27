@@ -98,9 +98,7 @@ export async function proxyToBackend(
     );
     return NextResponse.json(
       {
-        error: isTimeout
-          ? 'Backend request timed out'
-          : 'Backend unreachable',
+        error: isTimeout ? 'Backend request timed out' : 'Backend unreachable',
       },
       { status: isTimeout ? 504 : 502 }
     );
