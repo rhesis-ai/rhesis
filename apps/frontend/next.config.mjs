@@ -70,43 +70,15 @@ const nextConfig = {
     };
   })(),
 
-  // API rewrites for cross-container communication.
+  // API routing: all /api/* requests are handled by Route Handlers under
+  // src/app/api/ (see src/app/api/[...path]/route.ts for the catch-all
+  // proxy and src/utils/backend-proxy.ts for the shared logic). Route
+  // Handlers resolve BACKEND_URL at request time via getServerBackendUrl(),
+  // so one Docker image works across all environments without build args.
   //
-  // CAUTION: rewrites() is evaluated at *build* time and the returned
-  // `destination` strings are serialised into `.next/routes-manifest.json`.
-  // `process.env.BACKEND_URL` set on the Cloud Run revision at *runtime* is
-  // NOT picked up by these rewrites — the manifest is already baked.
-  // For routes that need the runtime backend URL, add a Route Handler under
-  // `src/app/api/.../route.ts` (which IS evaluated per request via
-  // `getServerBackendUrl()`) instead of adding a rewrite here.
-  // See `src/app/api/auth-config/route.ts` for the pattern.
-  async rewrites() {
-    const backendUrl = process.env.BACKEND_URL || 'http://backend:8080';
-    if (
-      !process.env.BACKEND_URL ||
-      /^https?:\/\/backend(:|\/|$)/.test(backendUrl)
-    ) {
-      console.warn(
-        `[next.config] BACKEND_URL="${process.env.BACKEND_URL ?? ''}" at ` +
-          `build time. Any /api/* rewrites baked into routes-manifest.json ` +
-          `will point at "${backendUrl}" and be unreachable from Cloud Run ` +
-          `regardless of the runtime BACKEND_URL. Use a Route Handler for ` +
-          `runtime-resolved backend URLs.`
-      );
-    }
-    return [
-      // Exclude NextAuth.js routes from being proxied (keep them local)
-      {
-        source: '/api/auth/:path*',
-        destination: '/api/auth/:path*',
-      },
-      // Proxy all other API calls to backend
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/:path*`,
-      },
-    ];
-  },
+  // DO NOT add rewrites() for /api/* paths — rewrite destinations are baked
+  // into .next/routes-manifest.json at build time and cannot be overridden
+  // by runtime environment variables.
 
   // Development-specific: configure on-demand entries to reduce caching
   ...(isDev && {
