@@ -10,7 +10,6 @@ This module tests the MCP service including:
 """
 
 import uuid
-from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -19,7 +18,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.services.local_function_registry import LocalInvocationContext
 from rhesis.backend.app.services.mcp import (
     _get_mcp_client_from_params,
     _get_mcp_tool_config,
@@ -37,21 +35,6 @@ from rhesis.sdk.services.mcp.exceptions import (
     MCPError,
     MCPValidationError,
 )
-
-
-def _make_ctx(
-    db: Any,
-    organization_id: str,
-    user_id: str,
-) -> LocalInvocationContext:
-    """Build the platform context that ``register_local`` endpoints now
-    expect in place of the legacy ``(db, organization_id, user_id)``
-    triple."""
-    return LocalInvocationContext(
-        organization_id=organization_id,
-        user_id=user_id,
-        db=db,
-    )
 
 
 @pytest.mark.unit
@@ -419,11 +402,11 @@ class TestSearchMCP:
     """Test search_mcp function"""
 
     @patch("rhesis.backend.app.services.mcp.config.crud")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.get_agent_event_handlers",
+    @patch("rhesis.backend.app.services.mcp.operations.get_agent_event_handlers",
            return_value=[])
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.operations.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.operations.jinja_env")
     async def test_search_success(
         self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
     ):
@@ -457,7 +440,7 @@ class TestSearchMCP:
         mock_mcp_agent.return_value = mock_agent
 
         # Execute
-        result = await search_mcp(query, tool_id, _make_ctx(db, org_id, user_id))
+        result = await search_mcp(query, tool_id, db, org_id, user_id)
 
         # Assert
         assert isinstance(result, dict)
@@ -475,11 +458,11 @@ class TestSearchMCP:
         mock_agent.run_async.assert_called_once_with(query)
 
     @patch("rhesis.backend.app.services.mcp.config.crud")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.get_agent_event_handlers",
+    @patch("rhesis.backend.app.services.mcp.operations.get_agent_event_handlers",
            return_value=[])
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.operations.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.operations.jinja_env")
     async def test_search_invalid_json(
         self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
     ):
@@ -502,16 +485,16 @@ class TestSearchMCP:
         mock_mcp_agent.return_value = mock_agent
 
         with pytest.raises(ValueError) as exc_info:
-            await search_mcp(query, tool_id, _make_ctx(db, org_id, user_id))
+            await search_mcp(query, tool_id, db, org_id, user_id)
 
         assert "invalid json" in str(exc_info.value).lower()
 
     @patch("rhesis.backend.app.services.mcp.config.crud")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.get_agent_event_handlers",
+    @patch("rhesis.backend.app.services.mcp.operations.get_agent_event_handlers",
            return_value=[])
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.operations.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.operations.jinja_env")
     async def test_search_non_list_format(
         self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
     ):
@@ -534,7 +517,7 @@ class TestSearchMCP:
         mock_mcp_agent.return_value = mock_agent
 
         with pytest.raises(ValueError) as exc_info:
-            await search_mcp(query, tool_id, _make_ctx(db, org_id, user_id))
+            await search_mcp(query, tool_id, db, org_id, user_id)
 
         assert "expected a list" in str(exc_info.value).lower()
 
@@ -546,11 +529,11 @@ class TestExtractMCP:
     """Test extract_mcp function"""
 
     @patch("rhesis.backend.app.services.mcp.config.crud")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.get_agent_event_handlers",
+    @patch("rhesis.backend.app.services.mcp.operations.get_agent_event_handlers",
            return_value=[])
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.operations.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.operations.jinja_env")
     async def test_extract_success_with_url(
         self, mock_jinja_env, mock_get_tool_config, mock_mcp_agent, mock_get_handlers, mock_crud
     ):
@@ -587,7 +570,9 @@ class TestExtractMCP:
 
         # Execute
         result = await extract_mcp(
-            _make_ctx(db, org_id, user_id),
+            db=db,
+            organization_id=org_id,
+            user_id=user_id,
             item_url=item_url,
             tool_id=tool_id,
         )
@@ -609,11 +594,11 @@ class TestExtractMCP:
         mock_agent.run_async.assert_called_once_with(f"Extract content from item {item_url}")
 
     @patch("rhesis.backend.app.services.mcp.config.crud")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.get_agent_event_handlers",
+    @patch("rhesis.backend.app.services.mcp.operations.get_agent_event_handlers",
            return_value=[])
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.operations.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.operations.jinja_env")
     async def test_extract_success_with_id(
         self, mock_jinja_env, mock_get_tool_config, mock_mcp_agent, mock_get_handlers, mock_crud
     ):
@@ -650,7 +635,9 @@ class TestExtractMCP:
 
         # Execute
         result = await extract_mcp(
-            _make_ctx(db, org_id, user_id),
+            db=db,
+            organization_id=org_id,
+            user_id=user_id,
             item_id=item_id,
             tool_id=tool_id,
         )
@@ -681,7 +668,9 @@ class TestExtractMCP:
 
         # Execute & Assert
         with pytest.raises(ValueError, match="Either 'item_id' or 'item_url' must be provided"):
-            await extract_mcp(_make_ctx(db, org_id, user_id), tool_id=tool_id)
+            await extract_mcp(
+                db=db, organization_id=org_id, user_id=user_id, tool_id=tool_id
+            )
 
 
 @pytest.mark.unit
@@ -691,11 +680,11 @@ class TestQueryMCP:
     """Test query_mcp function"""
 
     @patch("rhesis.backend.app.services.mcp.config.crud")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.get_agent_event_handlers",
+    @patch("rhesis.backend.app.services.mcp.operations.get_agent_event_handlers",
            return_value=[])
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.operations.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.operations.jinja_env")
     async def test_query_with_default_prompt(
         self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
     ):
@@ -724,7 +713,7 @@ class TestQueryMCP:
         mock_mcp_agent.return_value = mock_agent
 
         # Execute
-        result = await query_mcp(query, tool_id, _make_ctx(db, org_id, user_id))
+        result = await query_mcp(query, tool_id, db, org_id, user_id)
 
         # Assert
         assert isinstance(result, dict)
@@ -741,10 +730,10 @@ class TestQueryMCP:
         )
 
     @patch("rhesis.backend.app.services.mcp.config.crud")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.get_agent_event_handlers",
+    @patch("rhesis.backend.app.services.mcp.operations.get_agent_event_handlers",
            return_value=[])
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.operations.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.operations._get_mcp_tool_config")
     async def test_query_with_custom_prompt(
         self, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
     ):
@@ -769,7 +758,9 @@ class TestQueryMCP:
         await query_mcp(
             query,
             tool_id,
-            _make_ctx(db, org_id, user_id),
+            db,
+            org_id,
+            user_id,
             system_prompt=custom_prompt,
         )
 
@@ -784,11 +775,11 @@ class TestQueryMCP:
         )
 
     @patch("rhesis.backend.app.services.mcp.config.crud")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.get_agent_event_handlers",
+    @patch("rhesis.backend.app.services.mcp.operations.get_agent_event_handlers",
            return_value=[])
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp.endpoint_operations.jinja_env")
+    @patch("rhesis.backend.app.services.mcp.operations.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp.operations._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp.operations.jinja_env")
     async def test_query_with_custom_max_iterations(
         self, mock_jinja_env, mock_get_client, mock_mcp_agent, mock_get_handlers, mock_crud
     ):
@@ -816,7 +807,9 @@ class TestQueryMCP:
         await query_mcp(
             query,
             tool_id,
-            _make_ctx(db, org_id, user_id),
+            db,
+            org_id,
+            user_id,
             max_iterations=20,
         )
 

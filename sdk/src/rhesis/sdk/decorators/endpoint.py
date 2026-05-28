@@ -403,10 +403,6 @@ def endpoint(
                 finally:
                     cleanup_resources(cleanup_handlers)
 
-            # Expose the declared endpoint name so out-of-band registries
-            # (e.g. the backend's local_function_registry) can key on it
-            # instead of falling back to func.__name__.
-            wrapper.__endpoint_name__ = func_name
             _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
             return wrapper
 
@@ -428,7 +424,6 @@ def endpoint(
             finally:
                 cleanup_resources(cleanup_handlers)
 
-        wrapper.__endpoint_name__ = func_name
         _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
         return wrapper
 

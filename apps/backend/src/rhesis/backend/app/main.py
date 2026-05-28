@@ -142,15 +142,6 @@ async def lifespan(app: FastAPI):
 
     apply_web_context_overrides()
 
-    # Eagerly import backend-resident @endpoint functions before the SDK
-    # connector announces available functions, so startup sends a single
-    # complete registration instead of discovering local endpoints lazily.
-    from rhesis.backend.app.services.local_function_registry import (
-        ensure_local_functions_registered,
-    )
-
-    ensure_local_functions_registered()
-
     # Set anyio threadpool size for async-to-thread offloading.
     # Default is 40; 100 is a reasonable production value for 2 vCPU + concurrency 80.
     try:

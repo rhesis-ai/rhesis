@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 import os
-import time
 import uuid
 from typing import Any, Dict, Optional, Union
 
@@ -484,26 +483,6 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return conversation_id
 
-    @staticmethod
-    def _local_telemetry_context(
-        conv_id: Optional[str],
-        conv_trace_id: Optional[str],
-        mapped_input: str,
-    ):
-        """Thread conversation context into SDK telemetry ContextVars.
-
-        Delegates to the shared
-        :func:`rhesis.backend.app.services.telemetry.local_invocation.conversation_telemetry_context`
-        helper so the Celery architect path (which also drives local
-        ``@endpoint`` functions outside the SDK invoker) stays in
-        lockstep with this code path when the contract changes.
-        """
-        from rhesis.backend.app.services.telemetry.local_invocation import (
-            conversation_telemetry_context,
-        )
-
-        return conversation_telemetry_context(conv_id, conv_trace_id, mapped_input)
-
     def _park_mapped_output(
         self,
         result: Dict[str, Any],
@@ -597,136 +576,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
             function_kwargs = self._prepare_function_kwargs(function_name)
 
-            # Step 3: Local registry short-circuit — call backend-resident
-            # functions directly without a WebSocket round-trip.
-            from rhesis.backend.app.services.local_function_registry import (
-                ensure_local_functions_registered,
-                registry,
-            )
-
-            ensure_local_functions_registered()
-
-            if function_name in registry:
-                from rhesis.backend.app.database import get_db_with_tenant_variables
-                from rhesis.backend.app.services.local_function_registry import (
-                    LocalInvocationContext,
-                )
-                from rhesis.sdk.telemetry.context import (
-                    get_root_trace_id,
-                    set_tracing_disabled,
-                )
-
-                logger.info(f"Invoking local backend function: {function_name}")
-                self._strip_user_rhesis_keys(function_kwargs)
-
-                if endpoint.disable_tracing:
-                    set_tracing_disabled(True)
-
-                # In DB-free batch mode (deferred_trace=True) the caller passes
-                # db=None to avoid holding a long-lived session across the entire
-                # batch. Local backend functions however need a DB session to look
-                # up configuration (e.g. tool credentials). Create a short-lived
-                # scoped session when none is provided.
-                org_id_str = str(endpoint.organization_id)
-                user_id_str = str(endpoint.user_id) if endpoint.user_id else ""
-                _owned_db_ctx = None
-                effective_db = db
-                if effective_db is None:
-                    _owned_db_ctx = get_db_with_tenant_variables(org_id_str, user_id_str)
-                    effective_db = _owned_db_ctx.__enter__()
-
-                ctx = LocalInvocationContext(
-                    organization_id=org_id_str,
-                    user_id=str(endpoint.user_id) if endpoint.user_id else None,
-                    db=effective_db,
-                    endpoint_id=endpoint.id,
-                )
-
-                # Resolve conversation_id + existing trace_id so the SDK
-                # tracer (driven by the @endpoint decorator on the
-                # registered function) reuses the conversation's trace_id
-                # for every turn -- and so first-turn linking fires once
-                # the result dict carries trace_id back to the EndpointService.
-                conv_id, conv_trace_id, mapped_input = self._resolve_conversation_trace_context(
-                    conversation_field
-                )
-
-                actual_trace_id: Optional[str] = None
-                started = time.perf_counter()
-                _local_exc_info = (None, None, None)
-                try:
-                    async with self._local_telemetry_context(conv_id, conv_trace_id, mapped_input):
-                        raw = await asyncio.wait_for(
-                            registry[function_name](ctx=ctx, **function_kwargs),
-                            timeout=SDK_FUNCTION_TIMEOUT,
-                        )
-                        # Read inside the context manager: the SDK tracer
-                        # sets _root_trace_id during the call and the
-                        # finally block below clears it.
-                        actual_trace_id = get_root_trace_id()
-                except Exception:
-                    import sys
-
-                    _local_exc_info = sys.exc_info()
-                    raise
-                finally:
-                    if endpoint.disable_tracing:
-                        set_tracing_disabled(False)
-                    if _owned_db_ctx is not None:
-                        # Pass actual exception info so get_db() rolls back on
-                        # failure instead of committing a partial transaction.
-                        _owned_db_ctx.__exit__(*_local_exc_info)
-
-                duration_ms = int((time.perf_counter() - started) * 1000)
-                # Pass a dict to _map_sdk_response so the ResponseMapper can
-                # apply JSONPath/Jinja2 expressions without hitting
-                # `dict(json_string)` (which fails on single-char iteration).
-                # Pydantic models → model_dump(); plain dicts pass through;
-                # strings are parsed if valid JSON, kept as-is otherwise.
-                if hasattr(raw, "model_dump"):
-                    output = raw.model_dump()
-                elif isinstance(raw, dict):
-                    output = raw
-                elif isinstance(raw, str):
-                    try:
-                        output = json.loads(raw)
-                    except (json.JSONDecodeError, TypeError):
-                        output = raw
-                else:
-                    output = raw
-
-                # Build the canonical SDK-shaped result so _park_mapped_output /
-                # _park_input_files behave identically to the WebSocket path.
-                raw_result = {
-                    "status": "success",
-                    "output": output,
-                    "error": None,
-                    "duration_ms": duration_ms,
-                    "trace_id": actual_trace_id,
-                }
-                mapped_response = self._map_sdk_response(raw_result, function_name)
-                self._ensure_conversation_field(mapped_response, conversation_field)
-
-                if actual_trace_id:
-                    # Surface trace_id on the mapped response so
-                    # EndpointService.invoke_endpoint can call
-                    # _link_first_turn_trace() when conversation_id is
-                    # discovered in the response.
-                    mapped_response["trace_id"] = actual_trace_id
-
-                # Park mapped output and input files only when tracing is
-                # active; there are no spans to attach them to otherwise.
-                if not endpoint.disable_tracing and actual_trace_id:
-                    self._park_mapped_output(raw_result, mapped_response)
-                    self._park_input_files(raw_result)
-
-                logger.info(
-                    f"Local function {function_name} completed in {duration_ms}ms, "
-                    f"trace_id={actual_trace_id}"
-                )
-                return mapped_response
-
-            # Step 4: Determine invocation context (RPC vs direct WebSocket)
+            # Step 3: Determine invocation context (RPC vs direct WebSocket)
             use_rpc, context_type = self._determine_invocation_context(project_id, environment)
             logger.info(f"SDK invocation context: {context_type}")
 

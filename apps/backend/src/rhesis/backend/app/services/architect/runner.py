@@ -1,4 +1,10 @@
-"""Architect chat pipeline exposed as a backend-local SDK endpoint."""
+"""Architect chat orchestration pipeline.
+
+A plain backend module called by ``architect_chat_task`` (Celery).  Not
+an SDK endpoint -- the architect runtime is internal to the backend and
+is not exposed over the SDK connector.  External Rhesis deployments
+that want to test against an architect endpoint host their own.
+"""
 
 import asyncio
 import logging
@@ -11,27 +17,15 @@ from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.schemas.websocket import EventType
 from rhesis.backend.app.services.architect.attachments import process_attachments
 from rhesis.backend.app.services.architect.event_handler import WebSocketEventHandler
-from rhesis.backend.app.services.local_function_registry import (
-    LocalInvocationContext,
-    register_local,
-)
 from rhesis.backend.app.services.mcp.agents import get_agent_event_handlers
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
-from rhesis.sdk.decorators import endpoint, observe
+from rhesis.sdk.decorators import observe
 
 logger = logging.getLogger(__name__)
 
 
-# ── return type ──────────────────────────────────────────────────────────────
-
-
 class ArchitectChatResult(BaseModel):
-    """Typed result returned by one architect chat turn.
-
-    Both ``architect_chat_task`` (Celery) and ``SdkEndpointInvoker``
-    (local registry) consume this type; the ``@endpoint`` response_mapping
-    extracts the subset that external SDK callers need.
-    """
+    """Typed result returned by one architect chat turn."""
 
     content: str
     session_id: str
@@ -43,12 +37,10 @@ class ArchitectChatResult(BaseModel):
     pending_tasks: List[Dict[str, Any]]
 
 
-# ── pipeline helpers ─────────────────────────────────────────────────────────
-
-
 @observe()
 async def prepare_and_load_session(
-    ctx: LocalInvocationContext,
+    organization_id: str,
+    user_id: str,
     message: str,
     attachments: Optional[Dict[str, Any]],
     persist_user_message: bool,
@@ -62,12 +54,8 @@ async def prepare_and_load_session(
     """
     from rhesis.backend.app import crud, schemas
 
-    organization_id = ctx.organization_id
-    user_id = ctx.user_id or ""
-
     with get_db_with_tenant_variables(organization_id, user_id) as db:
         if session_id:
-            # get_architect_session_detail raises if not found via None check
             db_session = crud.get_architect_session_detail(
                 db,
                 session_id=UUID(session_id),
@@ -103,13 +91,12 @@ async def prepare_and_load_session(
             )
 
         if session_id:
-            # Existing session: full message history already loaded
             conversation_history = [
                 {"role": m.role, "content": m.content}
                 for m in db_session.messages
                 if m.role in ("user", "assistant", "system") and m.content
             ]
-            # Strip the last user message — it's the one being processed now
+            # Strip the last user message — it's the one being processed now.
             if conversation_history and conversation_history[-1]["role"] == "user":
                 conversation_history = conversation_history[:-1]
         else:
@@ -130,7 +117,8 @@ async def prepare_and_load_session(
 async def build_agent(
     session_data: Dict[str, Any],
     session_id: str,
-    ctx: LocalInvocationContext,
+    organization_id: str,
+    user_id: str,
     auto_approve: Optional[bool],
 ) -> tuple[Any, WebSocketEventHandler]:
     """Build the ArchitectAgent with tools and restore saved session state."""
@@ -142,9 +130,6 @@ async def build_agent(
     from rhesis.sdk.agents.architect.agent import ArchitectAgent
     from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
     from rhesis.sdk.agents.tools import ExploreEndpointTool
-
-    organization_id = ctx.organization_id
-    user_id = ctx.user_id or ""
 
     with get_db_with_tenant_variables(organization_id, user_id) as db:
         user = crud.get_user_by_id(db, user_id)
@@ -178,8 +163,6 @@ async def build_agent(
         agent_name="architect",
     )
 
-    # max_iterations comes from the snapshot so the agent is initialised with
-    # the correct value; restore_state then sets the remaining attributes.
     agent = ArchitectAgent(
         model=model,
         tools=[tool_provider, explore_tool],
@@ -197,7 +180,8 @@ async def build_agent(
 
 async def _handle_auto_resume(
     session_id: str,
-    ctx: LocalInvocationContext,
+    organization_id: str,
+    user_id: str,
     user_message: str,
     ws_handler: WebSocketEventHandler,
 ) -> None:
@@ -209,9 +193,6 @@ async def _handle_auto_resume(
         return
 
     from rhesis.backend.app import crud, schemas
-
-    organization_id = ctx.organization_id
-    user_id = ctx.user_id or ""
 
     with get_db_with_tenant_variables(organization_id, user_id) as db:
         crud.create_architect_message(
@@ -246,7 +227,8 @@ async def persist_state(
     agent: Any,
     response: str,
     session_id: str,
-    ctx: LocalInvocationContext,
+    organization_id: str,
+    user_id: str,
     session_has_title: bool,
     user_message: str,
 ) -> None:
@@ -254,16 +236,9 @@ async def persist_state(
 
     Also stamps the conversation's root trace_id on ``agent_state`` so
     subsequent turns can reuse it for coherent multi-turn tracing.
-    ``get_root_trace_id()`` returns the trace_id of the active root
-    span (set by the SDK tracer when this function is invoked via
-    ``@endpoint`` from either ``SdkEndpointInvoker`` or the Celery
-    architect task).  It is ``None`` only when tracing is disabled.
     """
     from rhesis.backend.app import crud, schemas
     from rhesis.sdk.telemetry.context import get_root_trace_id
-
-    organization_id = ctx.organization_id
-    user_id = ctx.user_id or ""
 
     snapshot = agent.dump_state()
     root_trace_id = get_root_trace_id()
@@ -288,11 +263,9 @@ async def persist_state(
             "id_to_name": snapshot.id_to_name,
         }
         if root_trace_id:
-            # Stored alongside agent snapshot fields (not consumed by
-            # ``ArchitectAgentStateSnapshot``).  ``architect_chat_task``
-            # reads this on Turn 2+ and binds it via
-            # ``conversation_telemetry_context`` so the SDK tracer reuses
-            # the same trace_id for the next turn's root span.
+            # Read on the next turn by ``architect_chat_task`` and bound via
+            # ``conversation_telemetry_context`` so the SDK tracer reuses the
+            # same trace_id, giving the UI one coherent trace per session.
             agent_state["conversation_trace_id"] = root_trace_id
 
         title_update = {}
@@ -356,26 +329,10 @@ def _make_target_factory(org_id: str, user_id: str):
     return factory
 
 
-# ── public endpoint ──────────────────────────────────────────────────────────
-
-
-@endpoint(
-    name="architect_chat",
-    request_mapping={
-        "message": "{{ input }}",
-        "session_id": "{{ session_id }}",
-    },
-    response_mapping={
-        "output": "$.content",
-        "session_id": "$.session_id",
-        "mode": "$.mode",
-        "needs_confirmation": "$.needs_confirmation",
-        "plan": "$.plan",
-    },
-)
-async def architect_chat(
+async def run_architect_turn(
     message: str,
-    ctx: LocalInvocationContext,
+    organization_id: str,
+    user_id: str,
     session_id: Optional[str] = None,
     attachments: Optional[Dict[str, Any]] = None,
     auto_approve: Optional[bool] = None,
@@ -383,25 +340,28 @@ async def architect_chat(
 ) -> ArchitectChatResult:
     """Process one architect chat turn.
 
-    ``ctx`` is injected by ``SdkEndpointInvoker`` when called via the local
-    registry, and constructed directly in ``architect_chat_task`` for the
-    Celery path.  Each pipeline step opens its own tenant-scoped DB session.
+    Called by ``architect_chat_task`` for production chats.  Each pipeline
+    step opens its own tenant-scoped DB session so a single turn never
+    holds a long-lived connection across LLM calls.
     """
-    if not ctx.user_id:
-        raise ValueError("user_id is required for architect_chat")
+    if not user_id:
+        raise ValueError("user_id is required for run_architect_turn")
 
     session_id, session_data = await prepare_and_load_session(
-        ctx, message, attachments, persist_user_message, session_id
+        organization_id, user_id, message, attachments, persist_user_message, session_id
     )
     processed_attachments = process_attachments(attachments)
-    agent, ws_handler = await build_agent(session_data, session_id, ctx, auto_approve)
-    await _handle_auto_resume(session_id, ctx, message, ws_handler)
+    agent, ws_handler = await build_agent(
+        session_data, session_id, organization_id, user_id, auto_approve
+    )
+    await _handle_auto_resume(session_id, organization_id, user_id, message, ws_handler)
     response = await run_chat(agent, message, processed_attachments)
     await persist_state(
         agent,
         response,
         session_id,
-        ctx,
+        organization_id,
+        user_id,
         session_data["session_has_title"],
         message,
     )
@@ -418,6 +378,3 @@ async def architect_chat(
         ),
         pending_tasks=agent.pending_tasks,
     )
-
-
-register_local(architect_chat)
