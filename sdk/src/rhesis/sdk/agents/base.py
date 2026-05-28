@@ -698,7 +698,7 @@ class BaseAgent:
             )
 
             try:
-                response = self.model.generate(
+                response = await self.model.a_generate(
                     prompt=prompt,
                     system_prompt=self.system_prompt,
                     schema=AgentAction,

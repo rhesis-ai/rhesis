@@ -235,7 +235,7 @@ async def test_llm_iteration_emits_span(span_exporter) -> None:
     model = Mock(spec=BaseLLM)
     model.PROVIDER = "openai"
     model.model_name = "gpt-test"
-    model.generate = Mock(return_value=_llm_finish_response())
+    model.a_generate = AsyncMock(return_value=_llm_finish_response())
 
     agent = BaseAgent(model=model, tools=[], verbose=False)
     action = await agent._get_llm_action("hello", iteration=3)
@@ -267,7 +267,7 @@ async def test_llm_iteration_marks_provider_error(span_exporter) -> None:
     model = Mock(spec=BaseLLM)
     model.PROVIDER = "openai"
     model.model_name = "gpt-test"
-    model.generate = Mock(return_value={"error": "rate limited"})
+    model.a_generate = AsyncMock(return_value={"error": "rate limited"})
 
     agent = BaseAgent(model=model, tools=[], verbose=False)
     action = await agent._get_llm_action("hello", iteration=1)
@@ -289,7 +289,7 @@ async def test_llm_iteration_marks_transport_error(span_exporter) -> None:
     model = Mock(spec=BaseLLM)
     model.PROVIDER = "openai"
     model.model_name = "gpt-test"
-    model.generate = Mock(side_effect=RuntimeError("connection reset"))
+    model.a_generate = AsyncMock(side_effect=RuntimeError("connection reset"))
 
     agent = BaseAgent(model=model, tools=[], verbose=False)
     action = await agent._get_llm_action("hello", iteration=1)
