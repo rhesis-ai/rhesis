@@ -152,9 +152,7 @@ def architect_chat_task(
                         trace_id=turn_trace_id,
                         mapped_output=result.content,
                     )
-                    logger.debug(
-                        "Parked conversation output for trace_id=%s", turn_trace_id
-                    )
+                    logger.debug("Parked conversation output for trace_id=%s", turn_trace_id)
             except Exception as exc:
                 logger.warning("Failed to park conversation output: %s", exc)
 

@@ -414,9 +414,7 @@ async def architect_chat(
         auto_approve_all=agent.auto_approve_all,
         awaiting_task=bool(agent.pending_tasks),
         plan=(
-            agent.plan.to_markdown()
-            if agent.plan and hasattr(agent.plan, "to_markdown")
-            else None
+            agent.plan.to_markdown() if agent.plan and hasattr(agent.plan, "to_markdown") else None
         ),
         pending_tasks=agent.pending_tasks,
     )

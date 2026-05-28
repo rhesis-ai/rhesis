@@ -453,8 +453,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Returns the resolved ``conversation_id`` (or ``None`` for first turn).
         """
         endpoint = self.context.endpoint
-        conversation_id, existing_trace_id, mapped_input = (
-            self._resolve_conversation_trace_context(conversation_field)
+        conversation_id, existing_trace_id, mapped_input = self._resolve_conversation_trace_context(
+            conversation_field
         )
 
         if conversation_id and endpoint.project_id:
@@ -624,16 +624,14 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 # registered function) reuses the conversation's trace_id
                 # for every turn -- and so first-turn linking fires once
                 # the result dict carries trace_id back to the EndpointService.
-                conv_id, conv_trace_id, mapped_input = (
-                    self._resolve_conversation_trace_context(conversation_field)
+                conv_id, conv_trace_id, mapped_input = self._resolve_conversation_trace_context(
+                    conversation_field
                 )
 
                 actual_trace_id: Optional[str] = None
                 started = time.perf_counter()
                 try:
-                    async with self._local_telemetry_context(
-                        conv_id, conv_trace_id, mapped_input
-                    ):
+                    async with self._local_telemetry_context(conv_id, conv_trace_id, mapped_input):
                         raw = await asyncio.wait_for(
                             registry[function_name](ctx=ctx, **function_kwargs),
                             timeout=SDK_FUNCTION_TIMEOUT,
