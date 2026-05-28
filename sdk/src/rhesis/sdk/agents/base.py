@@ -28,6 +28,7 @@ from rhesis.sdk.agents.schemas import (
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.sdk.telemetry.context import is_tracing_disabled
 from rhesis.telemetry.schemas import AIOperationType
 
 logger = logging.getLogger(__name__)
@@ -671,10 +672,15 @@ class BaseAgent:
 
         await _emit(self._event_handlers, "on_llm_start", iteration=iteration)
 
-        with _LLM_TRACER.start_as_current_span(
-            AIOperationType.LLM_INVOKE,
-            kind=trace.SpanKind.CLIENT,
-        ) as span:
+        _span_cm = (
+            trace.use_span(trace.NonRecordingSpan(trace.INVALID_SPAN_CONTEXT))
+            if is_tracing_disabled()
+            else _LLM_TRACER.start_as_current_span(
+                AIOperationType.LLM_INVOKE,
+                kind=trace.SpanKind.CLIENT,
+            )
+        )
+        with _span_cm as span:
             span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_LLM_INVOKE)
             provider = getattr(self.model, "PROVIDER", "") or type(self.model).__name__
             model_name = getattr(self.model, "model_name", "")
