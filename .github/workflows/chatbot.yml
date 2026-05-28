@@ -218,6 +218,8 @@ jobs:
             --timeout=120 \
             --max-instances=$MAX_INSTANCES \
             --min-instances=$MIN_INSTANCES \
+            --vpc-connector=${{ secrets.VPC_CONNECTOR_NAME }} \
+            --vpc-egress=private-ranges-only \
             --set-env-vars="$(cat <<EOF
           DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai/gemini-2.0-flash' }},
           GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
