@@ -446,6 +446,13 @@ class TestSearchMCP:
         mock_result = Mock()
         mock_result.final_answer = '[{"id": "1", "url": "http://example.com", "title": "Test"}]'
         mock_result.success = True
+        mock_result.model_dump.return_value = {
+            "final_answer": '[{"id": "1", "url": "http://example.com", "title": "Test"}]',
+            "execution_history": [],
+            "iterations_used": 1,
+            "max_iterations_reached": False,
+            "success": True,
+        }
         mock_agent.run_async = AsyncMock(return_value=mock_result)
         mock_mcp_agent.return_value = mock_agent
 
@@ -453,11 +460,9 @@ class TestSearchMCP:
         result = await search_mcp(query, tool_id, _make_ctx(db, org_id, user_id))
 
         # Assert
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert result[0]["id"] == "1"
-        assert result[0]["url"] == "http://example.com"
-        assert result[0]["title"] == "Test"
+        assert isinstance(result, dict)
+        assert result["final_answer"] == '[{"id": "1", "url": "http://example.com", "title": "Test"}]'
+        assert result["success"] is True
 
         mock_mcp_agent.assert_called_once_with(
             model=get_model_settings().generation_model,
@@ -570,6 +575,13 @@ class TestExtractMCP:
         mock_agent = Mock()
         mock_result = Mock()
         mock_result.final_answer = "# Extracted Content\n\nThis is the content."
+        mock_result.model_dump.return_value = {
+            "final_answer": "# Extracted Content\n\nThis is the content.",
+            "execution_history": [],
+            "iterations_used": 3,
+            "max_iterations_reached": False,
+            "success": True,
+        }
         mock_agent.run_async = AsyncMock(return_value=mock_result)
         mock_mcp_agent.return_value = mock_agent
 
@@ -581,7 +593,8 @@ class TestExtractMCP:
         )
 
         # Assert
-        assert result == "# Extracted Content\n\nThis is the content."
+        assert isinstance(result, dict)
+        assert result["final_answer"] == "# Extracted Content\n\nThis is the content."
         mock_template.render.assert_called_once_with(
             item_id=None, item_url=item_url, provider="notion"
         )
@@ -625,6 +638,13 @@ class TestExtractMCP:
         mock_agent = Mock()
         mock_result = Mock()
         mock_result.final_answer = "# Extracted Content\n\nThis is the content."
+        mock_result.model_dump.return_value = {
+            "final_answer": "# Extracted Content\n\nThis is the content.",
+            "execution_history": [],
+            "iterations_used": 3,
+            "max_iterations_reached": False,
+            "success": True,
+        }
         mock_agent.run_async = AsyncMock(return_value=mock_result)
         mock_mcp_agent.return_value = mock_agent
 
@@ -636,7 +656,8 @@ class TestExtractMCP:
         )
 
         # Assert
-        assert result == "# Extracted Content\n\nThis is the content."
+        assert isinstance(result, dict)
+        assert result["final_answer"] == "# Extracted Content\n\nThis is the content."
         mock_template.render.assert_called_once_with(
             item_id=item_id, item_url=None, provider="notion"
         )

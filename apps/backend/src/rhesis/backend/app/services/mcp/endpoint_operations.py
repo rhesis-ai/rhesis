@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.services.local_function_registry import (
@@ -24,15 +24,22 @@ logger = logging.getLogger(__name__)
     name="search_mcp",
     request_mapping={
         "query": "{{ input }}",
-        "tool_id": "{{ tool_id }}",
     },
-    response_mapping={},
+    response_mapping={
+        "output": "$.final_answer",
+        "tool_calls": "$.execution_history",
+        "metadata": {
+            "iterations_used": "$.iterations_used",
+            "max_iterations_reached": "$.max_iterations_reached",
+            "success": "$.success",
+        },
+    },
 )
 async def search_mcp(
     query: str,
     tool_id: str,
     ctx: LocalInvocationContext,
-) -> List[Dict[str, str]]:
+) -> Dict[str, Any]:
     """
     Search MCP server for items matching query.
 
@@ -94,9 +101,10 @@ async def search_mcp(
         parsed_results = json.loads(result.final_answer)
         if not isinstance(parsed_results, list):
             raise ValueError("Agent returned invalid format: expected a list of items")
-        return parsed_results
     except json.JSONDecodeError as e:
         raise ValueError(f"Agent returned invalid JSON: {str(e)}")
+
+    return result.model_dump()
 
 
 register_local(search_mcp)
@@ -107,16 +115,23 @@ register_local(search_mcp)
     request_mapping={
         "item_url": "{{ input }}",
         "item_id": "{{ item_id }}",
-        "tool_id": "{{ tool_id }}",
     },
-    response_mapping={},
+    response_mapping={
+        "output": "$.final_answer",
+        "tool_calls": "$.execution_history",
+        "metadata": {
+            "iterations_used": "$.iterations_used",
+            "max_iterations_reached": "$.max_iterations_reached",
+            "success": "$.success",
+        },
+    },
 )
 async def extract_mcp(
     ctx: LocalInvocationContext,
     item_id: Optional[str] = None,
     item_url: Optional[str] = None,
     tool_id: str = None,
-) -> str:
+) -> Dict[str, Any]:
     """
     Extract full content from an MCP item as markdown.
 
@@ -174,7 +189,7 @@ async def extract_mcp(
     item_reference = item_url if item_url else item_id
     result = await agent.run_async(f"Extract content from item {item_reference}")
 
-    return result.final_answer
+    return result.model_dump()
 
 
 register_local(extract_mcp)
@@ -184,7 +199,6 @@ register_local(extract_mcp)
     name="query_mcp",
     request_mapping={
         "query": "{{ input }}",
-        "tool_id": "{{ tool_id }}",
     },
     response_mapping={
         "output": "{{ final_answer }}",

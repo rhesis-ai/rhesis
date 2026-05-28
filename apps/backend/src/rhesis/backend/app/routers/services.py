@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import List
 
@@ -598,7 +599,8 @@ async def search_mcp_server(
     try:
         organization_id, user_id = tenant_context
         ctx = LocalInvocationContext(organization_id=organization_id, user_id=user_id, db=db)
-        return await search_mcp(request.query, request.tool_id, ctx=ctx)
+        result = await search_mcp(request.query, request.tool_id, ctx=ctx)
+        return json.loads(result["final_answer"])
     except Exception as e:
         raise handle_mcp_exception(e, "search")
 
@@ -642,13 +644,13 @@ async def extract_mcp_item(
     try:
         organization_id, user_id = tenant_context
         ctx = LocalInvocationContext(organization_id=organization_id, user_id=user_id, db=db)
-        content = await extract_mcp(
+        result = await extract_mcp(
             ctx=ctx,
             item_id=request.id,
             item_url=request.url,
             tool_id=request.tool_id,
         )
-        return {"content": content}
+        return {"content": result["final_answer"]}
     except Exception as e:
         raise handle_mcp_exception(e, "extract")
 
