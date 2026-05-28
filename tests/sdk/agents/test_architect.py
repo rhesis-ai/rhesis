@@ -60,7 +60,7 @@ def _make_agent(
 def _mock_model():
     """Create a mock BaseLLM with generate_stream support."""
     model = Mock(spec=BaseLLM)
-    model.generate = Mock(return_value={})
+    model.a_generate = AsyncMock(return_value={})
 
     async def _default_stream(prompt, system_prompt=None, **kw):
         # Fallback: yields the final_answer seed from the finish action
@@ -105,7 +105,7 @@ class TestArchitectAgentInheritance:
     @pytest.fixture
     def mock_model(self):
         model = Mock(spec=BaseLLM)
-        model.generate = Mock(return_value={})
+        model.a_generate = AsyncMock(return_value={})
         return model
 
     def test_is_subclass_of_base_agent(self, mock_model):
@@ -124,7 +124,7 @@ class TestArchitectAgentInit:
     @pytest.fixture
     def mock_model(self):
         model = Mock(spec=BaseLLM)
-        model.generate = Mock(return_value={})
+        model.a_generate = AsyncMock(return_value={})
         return model
 
     def test_default_parameters(self, mock_model):
@@ -208,7 +208,7 @@ class TestArchitectAgentRunTurn:
     @pytest.mark.asyncio
     async def test_finish_action_returns_answer(self, mock_model):
         agent = _make_agent(mock_model)
-        mock_model.generate.return_value = _finish_dict("hello")
+        mock_model.a_generate.return_value = _finish_dict("hello")
 
         response = await agent.chat_async("hi")
         assert response == "hello"
@@ -216,11 +216,11 @@ class TestArchitectAgentRunTurn:
     @pytest.mark.asyncio
     async def test_max_iterations_stops_loop(self, mock_model):
         agent = _make_agent(mock_model, max_iterations=2)
-        mock_model.generate.return_value = _tool_dict()
+        mock_model.a_generate.return_value = _tool_dict()
 
         response = await agent.chat_async("hi")
         assert "maximum number of internal iterations" in response
-        assert mock_model.generate.call_count == 2
+        assert mock_model.a_generate.call_count == 2
 
     @pytest.mark.asyncio
     async def test_max_tool_executions_stops_loop(self, mock_model):
@@ -232,7 +232,7 @@ class TestArchitectAgentRunTurn:
             max_iterations=100,
             max_tool_executions=2,
         )
-        mock_model.generate.return_value = _tool_dict()
+        mock_model.a_generate.return_value = _tool_dict()
 
         response = await agent.chat_async("go")
         assert "maximum number of tool calls" in response
@@ -245,7 +245,7 @@ class TestArchitectAgentRunTurn:
             max_iterations=100,
             timeout_seconds=0.0,
         )
-        mock_model.generate.return_value = _tool_dict()
+        mock_model.a_generate.return_value = _tool_dict()
 
         response = await agent.chat_async("go")
         assert "run out of time" in response
@@ -253,7 +253,7 @@ class TestArchitectAgentRunTurn:
     @pytest.mark.asyncio
     async def test_llm_error_returns_error_message(self, mock_model):
         agent = _make_agent(mock_model)
-        mock_model.generate.side_effect = ValueError("bad json")
+        mock_model.a_generate.side_effect = ValueError("bad json")
 
         response = await agent.chat_async("hi")
         # On LLM error, _run_loop returns the empty string from
@@ -285,7 +285,7 @@ class TestArchitectAgentLifecycleEvents:
 
         agent = _make_agent(mock_model)
         agent._event_handlers = [handler]
-        mock_model.generate.return_value = _finish_dict("hello")
+        mock_model.a_generate.return_value = _finish_dict("hello")
 
         await agent.chat_async("hi")
 
@@ -334,7 +334,7 @@ class TestArchitectAgentToolRouting:
         tool = DummyTool()
         agent = _make_agent(mock_model, tools=[tool])
 
-        mock_model.generate.side_effect = [
+        mock_model.a_generate.side_effect = [
             _tool_dict("dummy"),
             _finish_dict("done"),
         ]
@@ -348,7 +348,7 @@ class TestArchitectAgentToolRouting:
     async def test_unknown_tool_returns_error(self, mock_model):
         agent = _make_agent(mock_model)
 
-        mock_model.generate.side_effect = [
+        mock_model.a_generate.side_effect = [
             _tool_dict("nonexistent"),
             _finish_dict("done"),
         ]
@@ -418,7 +418,7 @@ class TestArchitectWriteGuard:
     @pytest.fixture
     def mock_model(self):
         model = Mock(spec=BaseLLM)
-        model.generate = Mock(return_value={})
+        model.a_generate = AsyncMock(return_value={})
         return model
 
     # -- _is_mutating --
@@ -556,7 +556,7 @@ class TestArchitectWriteGuard:
         agent._mutating_tools = frozenset({"create_metric"})
 
         # LLM returns a create_metric call
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             return_value={
                 "reasoning": "I'll create the metric",
                 "action": "call_tool",
@@ -607,7 +607,7 @@ class TestArchitectWriteGuard:
 
         agent = _make_agent(mock_model, tools=[ListMetricsTool()])
 
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             side_effect=[
                 {
                     "reasoning": "List existing metrics first",
@@ -638,7 +638,7 @@ class TestArchitectWriteGuard:
             yield "Here's what I'll create"
 
         # Turn 1: LLM tries to create -> gets blocked
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             return_value={
                 "reasoning": "Creating metric",
                 "action": "call_tool",
@@ -657,7 +657,7 @@ class TestArchitectWriteGuard:
 
         # Turn 2: Any user reply after needs_confirmation unlocks writes.
         # The LLM decides whether to proceed based on message content.
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             side_effect=[
                 {
                     "reasoning": "User confirmed, creating now",
@@ -690,7 +690,7 @@ class TestArchitectWriteGuard:
             yield "Plan"
 
         # Turn 1: blocked
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             return_value={
                 "reasoning": "Creating metric",
                 "action": "call_tool",
@@ -710,7 +710,7 @@ class TestArchitectWriteGuard:
         # Turn 2: User sends a change request. The LLM should NOT
         # call create_metric (it should present revised plan instead).
         # But the guard allows it — the LLM is responsible for intent.
-        mock_model.generate = Mock(return_value=_finish_dict("Updated plan"))
+        mock_model.a_generate = AsyncMock(return_value=_finish_dict("Updated plan"))
         mock_model.generate_stream = Mock(side_effect=fake_stream)
         await agent.chat_async("change the name to Response Tone")
         assert agent._creation_approved is False  # Reset after turn
@@ -727,7 +727,7 @@ class TestArchitectWriteGuard:
 
         # Turn 1: create_metric is blocked — confirming set should
         # include ALL mutating tools, not just the blocked batch.
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             return_value={
                 "reasoning": "Creating metric",
                 "action": "call_tool",
@@ -747,7 +747,7 @@ class TestArchitectWriteGuard:
 
         # Turn 2: LLM tries create_project — should be allowed because
         # plan-level approval covers all mutating tools.
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             side_effect=[
                 {
                     "reasoning": "Creating project",
@@ -777,7 +777,7 @@ class TestArchitectWriteGuard:
         # Simulate a confirmed turn
         agent._needs_confirmation = True
         agent._confirming_tools = frozenset({"create_metric"})
-        mock_model.generate = Mock(return_value=_finish_dict("Done"))
+        mock_model.a_generate = AsyncMock(return_value=_finish_dict("Done"))
         await agent.chat_async("Yes, go ahead.")
 
         assert agent._creation_approved is False
@@ -802,7 +802,7 @@ class TestArchitectWriteGuard:
         async def fake_stream(**kw):
             yield "Quick or comprehensive?"
 
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             return_value={
                 "reasoning": "Asking the user how thorough to be.",
                 "action": "finish",
@@ -854,7 +854,7 @@ class TestArchitectWriteGuard:
         async def fake_stream(**kw):
             yield "Here's what I learned about your endpoint."
 
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             return_value={
                 "reasoning": "Summarising the exploration findings.",
                 "action": "finish",
@@ -888,7 +888,7 @@ class TestArchitectWriteGuard:
         async def fake_stream(**kw):
             yield "Here's the metric I plan to create"
 
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             return_value={
                 "reasoning": "Creating metric",
                 "action": "call_tool",
@@ -976,7 +976,7 @@ class TestArchitectAutoApprove:
             yield "Created the metric"
 
         # LLM calls a mutating tool — should NOT be blocked
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             side_effect=[
                 {
                     "reasoning": "Creating metric",
@@ -1026,7 +1026,7 @@ class TestArchitectAutoApprove:
         async def fake_stream(**kw):
             yield "Plan"
 
-        mock_model.generate = Mock(
+        mock_model.a_generate = AsyncMock(
             return_value={
                 "reasoning": "Creating metric",
                 "action": "call_tool",
@@ -1057,7 +1057,7 @@ class TestArchitectDiscoveryState:
     @pytest.fixture
     def mock_model(self):
         model = Mock(spec=BaseLLM)
-        model.generate = Mock(return_value={})
+        model.a_generate = AsyncMock(return_value={})
         return model
 
     def test_default_discovery_state(self, mock_model):
@@ -1397,7 +1397,7 @@ class TestArchitectAwaitTask:
         """When await_task is called, the agent's turn should end."""
         agent = _make_agent(mock_model, max_iterations=5)
 
-        mock_model.generate.side_effect = [
+        mock_model.a_generate.side_effect = [
             _tool_dict("await_task", {
                 "task_ids": ["tid-1"],
                 "message": "Generating tests...",
@@ -1409,7 +1409,7 @@ class TestArchitectAwaitTask:
         response = await agent.chat_async("go ahead")
         assert "Generating tests..." in response
         assert len(agent.pending_tasks) == 1
-        assert mock_model.generate.call_count == 1
+        assert mock_model.a_generate.call_count == 1
         assert agent.needs_confirmation is False
 
     @pytest.mark.asyncio
@@ -1419,7 +1419,7 @@ class TestArchitectAwaitTask:
         agent._pending_tasks = [{"task_id": "old-task"}]
         agent._awaiting_task = True
 
-        mock_model.generate.side_effect = [_finish_dict("hello")]
+        mock_model.a_generate.side_effect = [_finish_dict("hello")]
 
         await agent.chat_async("new message")
         assert agent.pending_tasks == []
@@ -1450,7 +1450,7 @@ class TestArchitectAwaitTask:
         tool = DummyTool()
         agent = _make_agent(mock_model, tools=[tool], max_iterations=5)
 
-        mock_model.generate.side_effect = [
+        mock_model.a_generate.side_effect = [
             _tool_dict("dummy", {"x": "work"}),
             _tool_dict("await_task", {
                 "task_ids": ["tid-1"],
@@ -1461,7 +1461,7 @@ class TestArchitectAwaitTask:
         response = await agent.chat_async("do work then wait")
         assert "Now waiting..." in response
         assert len(agent.pending_tasks) == 1
-        assert mock_model.generate.call_count == 2
+        assert mock_model.a_generate.call_count == 2
 
 
 # ── deferred test set completion tests ───────────────────────────
@@ -1487,7 +1487,7 @@ class TestArchitectDeferredTestSetCompletion:
             metrics=[],
         )
 
-        mock_model.generate.side_effect = [
+        mock_model.a_generate.side_effect = [
             _tool_dict("generate_test_set", {"name": "Safety Tests"}),
             _tool_dict("await_task", {
                 "task_ids": ["tid-1"],
@@ -1522,7 +1522,7 @@ class TestArchitectDeferredTestSetCompletion:
             "Please continue with the next steps in the plan."
         )
 
-        mock_model.generate.side_effect = [_finish_dict("done")]
+        mock_model.a_generate.side_effect = [_finish_dict("done")]
 
         await agent.chat_async(msg)
         assert agent._plan.test_sets[0].completed is True
@@ -1548,7 +1548,7 @@ class TestArchitectDeferredTestSetCompletion:
             "(5 tests). test_set_id=ts-1\n"
         )
 
-        mock_model.generate.side_effect = [_finish_dict("done")]
+        mock_model.a_generate.side_effect = [_finish_dict("done")]
 
         await agent.chat_async(msg)
         assert agent._plan.test_sets[0].completed is True
@@ -3041,7 +3041,7 @@ class TestArchitectFormatAttachments:
     @pytest.fixture
     def mock_model(self):
         model = Mock(spec=BaseLLM)
-        model.generate = Mock(return_value={})
+        model.a_generate = AsyncMock(return_value={})
         return model
 
     def test_reads_extracted_text(self, mock_model):
