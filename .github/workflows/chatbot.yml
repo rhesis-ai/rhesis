@@ -205,16 +205,6 @@ jobs:
             echo "🛠️ Development configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           fi
 
-          # VPC connector — required to reach private Memorystore Redis in all envs.
-          # Set VPC_CONNECTOR_NAME as a GitHub environment secret (same pattern as backend).
-          VPC_ARGS=""
-          if [ -n "${{ secrets.VPC_CONNECTOR_NAME }}" ]; then
-            VPC_ARGS="--vpc-connector=${{ secrets.VPC_CONNECTOR_NAME }} --vpc-egress=private-ranges-only"
-            echo "🔒 VPC connector: ${{ secrets.VPC_CONNECTOR_NAME }} (private-ranges-only egress)"
-          else
-            echo "⚠️  VPC_CONNECTOR_NAME not set — Redis sessions will be unavailable"
-          fi
-
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:latest \
             --project=${{ env.PROJECT_ID }} \
@@ -228,7 +218,8 @@ jobs:
             --timeout=120 \
             --max-instances=$MAX_INSTANCES \
             --min-instances=$MIN_INSTANCES \
-            $VPC_ARGS \
+            --vpc-connector=${{ secrets.VPC_CONNECTOR_NAME }} \
+            --vpc-egress=private-ranges-only \
             --set-env-vars="$(cat <<EOF
           DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai/gemini-2.0-flash' }},
           GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
