@@ -337,6 +337,15 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             logger.warning(f"No response_mapping configured for {function_name}, using raw output")
             return {"output": raw_output}
 
+        # ResponseMapper expects a dict. Non-dict outputs (list from search_mcp,
+        # string from extract_mcp) cannot be field-mapped — wrap and return as-is.
+        if not isinstance(raw_output, dict):
+            logger.debug(
+                f"Raw output for {function_name} is {type(raw_output).__name__}, "
+                "skipping response_mapping"
+            )
+            return {"output": raw_output}
+
         return self.response_mapper.map_response(raw_output, response_mapping)
 
     def _ensure_conversation_field(

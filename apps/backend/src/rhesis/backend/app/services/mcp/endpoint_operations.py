@@ -186,7 +186,15 @@ register_local(extract_mcp)
         "query": "{{ input }}",
         "tool_id": "{{ tool_id }}",
     },
-    response_mapping={},
+    response_mapping={
+        "output": "{{ final_answer }}",
+        "tool_calls": "$.execution_history",
+        "metadata": {
+            "iterations_used": "$.iterations_used",
+            "max_iterations_reached": "$.max_iterations_reached",
+            "success": "$.success",
+        },
+    },
 )
 async def query_mcp(
     query: str,
