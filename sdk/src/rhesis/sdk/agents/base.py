@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import jinja2
+from opentelemetry import trace
 from pydantic import ValidationError
 
 from rhesis.sdk.agents.constants import Action, InternalTool
@@ -26,8 +27,17 @@ from rhesis.sdk.agents.schemas import (
 )
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
+from rhesis.sdk.telemetry.attributes import AIAttributes, AIEvents
+from rhesis.sdk.telemetry.context import is_tracing_disabled
+from rhesis.telemetry.schemas import AIOperationType
 
 logger = logging.getLogger(__name__)
+
+# Cap prompt/completion content stamped on LLM spans to keep the OTEL
+# exporter payload small.  Matches the tool-tracing cap.
+_MAX_LLM_CONTENT = 8000
+
+_LLM_TRACER = trace.get_tracer("rhesis.sdk.agents.llm")
 
 # Fields managed by the server — agents should never send these.
 _SERVER_MANAGED_FIELDS: frozenset[str] = frozenset(
@@ -662,72 +672,114 @@ class BaseAgent:
 
         await _emit(self._event_handlers, "on_llm_start", iteration=iteration)
 
-        try:
-            response = self.model.generate(
-                prompt=prompt,
-                system_prompt=self.system_prompt,
-                schema=AgentAction,
+        _span_cm = (
+            trace.use_span(trace.NonRecordingSpan(trace.INVALID_SPAN_CONTEXT))
+            if is_tracing_disabled()
+            else _LLM_TRACER.start_as_current_span(
+                AIOperationType.LLM_INVOKE,
+                kind=trace.SpanKind.CLIENT,
+            )
+        )
+        with _span_cm as span:
+            span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_LLM_INVOKE)
+            provider = getattr(self.model, "PROVIDER", "") or type(self.model).__name__
+            model_name = getattr(self.model, "model_name", "")
+            if provider:
+                span.set_attribute(AIAttributes.MODEL_PROVIDER, str(provider))
+            if model_name:
+                span.set_attribute(AIAttributes.MODEL_NAME, str(model_name))
+            span.set_attribute("agent.iteration", iteration)
+            span.add_event(
+                AIEvents.PROMPT,
+                {
+                    AIAttributes.PROMPT_ROLE: "user",
+                    AIAttributes.PROMPT_CONTENT: prompt[:_MAX_LLM_CONTENT],
+                },
             )
 
-            # Providers signal failure (HTTP error, no JSON in output, etc.)
-            # by returning ``{"error": "..."}`` instead of an ``AgentAction``
-            # payload. Most often this means the configured generation
-            # model can't reliably produce structured output. Surface a
-            # message that points the user at their model settings rather
-            # than letting it trip the AgentAction validator.
-            if (
-                isinstance(response, dict)
-                and "error" in response
-                and "reasoning" not in response
-                and "action" not in response
-            ):
-                provider_msg = str(response.get("error") or "LLM request failed")
+            try:
+                response = self.model.generate(
+                    prompt=prompt,
+                    system_prompt=self.system_prompt,
+                    schema=AgentAction,
+                )
+
+                # Providers signal failure (HTTP error, no JSON in output,
+                # etc.) by returning ``{"error": "..."}`` instead of an
+                # ``AgentAction`` payload. Most often this means the
+                # configured generation model can't reliably produce
+                # structured output. Surface a message that points the
+                # user at their model settings rather than letting it
+                # trip the AgentAction validator.
+                if (
+                    isinstance(response, dict)
+                    and "error" in response
+                    and "reasoning" not in response
+                    and "action" not in response
+                ):
+                    provider_msg = str(response.get("error") or "LLM request failed")
+                    logger.error(
+                        "[Agent] LLM provider returned error: %s",
+                        provider_msg,
+                    )
+                    span.set_attribute(AIAttributes.ERROR_TYPE, "provider_error")
+                    span.set_status(trace.Status(trace.StatusCode.ERROR, provider_msg))
+                    await _emit(
+                        self._event_handlers,
+                        "on_error",
+                        error=RuntimeError(_model_capability_message(provider_msg)),
+                    )
+                    return None
+
+                if isinstance(response, dict):
+                    action = AgentAction(**response)
+                else:
+                    action = AgentAction(**json.loads(response))
+                logger.info(
+                    f"[Agent] Iteration {iteration}: "
+                    f"Action={action.action}, "
+                    f"Reasoning='{action.reasoning[:100]}...'"
+                )
+                span.set_attribute("agent.action", str(action.action))
+                span.add_event(
+                    AIEvents.COMPLETION,
+                    {AIAttributes.COMPLETION_CONTENT: action.reasoning[:_MAX_LLM_CONTENT]},
+                )
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                await _emit(self._event_handlers, "on_llm_end", action=action)
+                return action
+            except (ValueError, TypeError, KeyError, ValidationError) as e:
+                # These arise when the LLM produces malformed or non-
+                # schema-compliant JSON (e.g. AgentAction(**response)
+                # fails because a required field is missing or has the
+                # wrong type, raising pydantic.ValidationError). That
+                # is a model capability issue, so surface the friendly
+                # hint.
                 logger.error(
-                    "[Agent] LLM provider returned error: %s",
-                    provider_msg,
+                    f"[Agent] Failed to parse LLM response: {e}",
+                    exc_info=True,
                 )
-                await _emit(
-                    self._event_handlers,
-                    "on_error",
-                    error=RuntimeError(_model_capability_message(provider_msg)),
-                )
+                span.set_attribute(AIAttributes.ERROR_TYPE, "schema_validation_error")
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                span.record_exception(e)
+                friendly = RuntimeError(_model_capability_message())
+                await _emit(self._event_handlers, "on_error", error=friendly)
                 return None
-
-            if isinstance(response, dict):
-                action = AgentAction(**response)
-            else:
-                action = AgentAction(**json.loads(response))
-            logger.info(
-                f"[Agent] Iteration {iteration}: "
-                f"Action={action.action}, "
-                f"Reasoning='{action.reasoning[:100]}...'"
-            )
-            await _emit(self._event_handlers, "on_llm_end", action=action)
-            return action
-        except (ValueError, TypeError, KeyError, ValidationError) as e:
-            # These arise when the LLM produces malformed or non-schema-
-            # compliant JSON (e.g. AgentAction(**response) fails because a
-            # required field is missing or has the wrong type, raising
-            # pydantic.ValidationError). That is a model capability issue,
-            # so surface the friendly hint.
-            logger.error(
-                f"[Agent] Failed to parse LLM response: {e}",
-                exc_info=True,
-            )
-            friendly = RuntimeError(_model_capability_message())
-            await _emit(self._event_handlers, "on_error", error=friendly)
-            return None
-        except Exception as e:
-            # Network errors, rate limits, timeouts, etc. — pass through
-            # the real exception so the user gets an actionable message
-            # rather than a misleading "model isn't capable" hint.
-            logger.error(
-                "[Agent] Unexpected error during LLM request: %s",
-                e,
-                exc_info=True,
-            )
-            await _emit(self._event_handlers, "on_error", error=e)
-            return None
+            except Exception as e:
+                # Network errors, rate limits, timeouts, etc. — pass
+                # through the real exception so the user gets an
+                # actionable message rather than a misleading "model
+                # isn't capable" hint.
+                logger.error(
+                    "[Agent] Unexpected error during LLM request: %s",
+                    e,
+                    exc_info=True,
+                )
+                span.set_attribute(AIAttributes.ERROR_TYPE, "transport_error")
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                span.record_exception(e)
+                await _emit(self._event_handlers, "on_error", error=e)
+                return None
 
     async def _handle_finish_action(
         self, action: AgentAction, iteration: int

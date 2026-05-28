@@ -135,3 +135,40 @@ def test_observe_decorator_captures_io(mock_client):
     assert call_args[0][2] == (5, 3)  # args
     assert call_args[0][3] == {"multiplier": 10}  # kwargs
     # trace_execution will capture I/O internally
+
+
+def test_observe_agent_sets_semantic_attributes(mock_client):
+    """``@observe.agent(name=...)`` should route to ``ai.agent.invoke``
+    and stamp ``ai.operation.type`` / ``ai.agent.name`` so the span
+    matches the langchain integration's agent shape."""
+
+    @observe.agent(name="researcher")
+    def run_agent(query: str) -> str:
+        return f"answer: {query}"
+
+    result = run_agent("hi")
+    assert result == "answer: hi"
+
+    call_args = mock_client._tracer.trace_execution.call_args
+    assert call_args[0][0] == "run_agent"  # function_name
+    assert call_args[0][4] == "ai.agent.invoke"  # span_name
+    extra_attrs = call_args[0][5]  # extra_attributes
+    assert extra_attrs["ai.operation.type"] == "agent.invoke"
+    assert extra_attrs["ai.agent.name"] == "researcher"
+
+
+def test_observe_agent_merges_extra_attributes(mock_client):
+    """Extra kwargs forwarded to ``observe.agent`` should land on the
+    span without clobbering the canonical agent attributes."""
+
+    @observe.agent(name="planner", **{"ai.model.name": "gpt-4o"})
+    def run_agent(query: str) -> str:
+        return query
+
+    run_agent("plan something")
+
+    call_args = mock_client._tracer.trace_execution.call_args
+    extra_attrs = call_args[0][5]
+    assert extra_attrs["ai.agent.name"] == "planner"
+    assert extra_attrs["ai.model.name"] == "gpt-4o"
+    assert extra_attrs["ai.operation.type"] == "agent.invoke"
