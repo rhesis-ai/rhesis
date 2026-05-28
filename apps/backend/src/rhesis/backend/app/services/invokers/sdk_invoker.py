@@ -337,6 +337,15 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             logger.warning(f"No response_mapping configured for {function_name}, using raw output")
             return {"output": raw_output}
 
+        # ResponseMapper expects a dict. Non-dict outputs (list from search_mcp,
+        # string from extract_mcp) cannot be field-mapped — wrap and return as-is.
+        if not isinstance(raw_output, dict):
+            logger.debug(
+                f"Raw output for {function_name} is {type(raw_output).__name__}, "
+                "skipping response_mapping"
+            )
+            return {"output": raw_output}
+
         return self.response_mapper.map_response(raw_output, response_mapping)
 
     def _ensure_conversation_field(
@@ -598,6 +607,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             ensure_local_functions_registered()
 
             if function_name in registry:
+                from rhesis.backend.app.database import get_db_with_tenant_variables
                 from rhesis.backend.app.services.local_function_registry import (
                     LocalInvocationContext,
                 )
@@ -612,10 +622,23 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 if endpoint.disable_tracing:
                     set_tracing_disabled(True)
 
+                # In DB-free batch mode (deferred_trace=True) the caller passes
+                # db=None to avoid holding a long-lived session across the entire
+                # batch. Local backend functions however need a DB session to look
+                # up configuration (e.g. tool credentials). Create a short-lived
+                # scoped session when none is provided.
+                org_id_str = str(endpoint.organization_id)
+                user_id_str = str(endpoint.user_id) if endpoint.user_id else ""
+                _owned_db_ctx = None
+                effective_db = db
+                if effective_db is None:
+                    _owned_db_ctx = get_db_with_tenant_variables(org_id_str, user_id_str)
+                    effective_db = _owned_db_ctx.__enter__()
+
                 ctx = LocalInvocationContext(
-                    organization_id=str(endpoint.organization_id),
+                    organization_id=org_id_str,
                     user_id=str(endpoint.user_id) if endpoint.user_id else None,
-                    db=db,
+                    db=effective_db,
                     endpoint_id=endpoint.id,
                 )
 
@@ -630,6 +653,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
                 actual_trace_id: Optional[str] = None
                 started = time.perf_counter()
+                _local_exc_info = (None, None, None)
                 try:
                     async with self._local_telemetry_context(conv_id, conv_trace_id, mapped_input):
                         raw = await asyncio.wait_for(
@@ -640,9 +664,18 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                         # sets _root_trace_id during the call and the
                         # finally block below clears it.
                         actual_trace_id = get_root_trace_id()
+                except Exception:
+                    import sys
+
+                    _local_exc_info = sys.exc_info()
+                    raise
                 finally:
                     if endpoint.disable_tracing:
                         set_tracing_disabled(False)
+                    if _owned_db_ctx is not None:
+                        # Pass actual exception info so get_db() rolls back on
+                        # failure instead of committing a partial transaction.
+                        _owned_db_ctx.__exit__(*_local_exc_info)
 
                 duration_ms = int((time.perf_counter() - started) * 1000)
                 # Pass a dict to _map_sdk_response so the ResponseMapper can
