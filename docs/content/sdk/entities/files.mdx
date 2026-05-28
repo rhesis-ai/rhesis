@@ -4,7 +4,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 Files are binary attachments (images, PDFs, audio) that can be associated with Tests and TestResults. They are managed through a dedicated upload API rather than the standard `push()` method.
 
-Note: As of version 0.8.0, file bytes are stored in object storage (GCS/S3) rather than Postgres. Downloads return a 302 redirect to a presigned URL; the SDK `File.download()` method follows the redirect transparently.
+Note: As of version 0.8.0, file bytes are stored in object storage (GCS/S3/local filesystem) rather than Postgres. Downloads return a 302 redirect to a presigned URL; the SDK `File.download()` method follows the redirect transparently.
 
 ## File
 
@@ -111,6 +111,44 @@ for f in files:
     path = f.download(directory="./downloads")
     print(f"Saved: {path}")`}
 </CodeBlock>
+
+For custom HTTP clients, follow redirects when calling `GET /files/{id}/content`. The API returns `ETag` headers, so clients can send `If-None-Match` on later reads to reuse cached content when the file has not changed.
+
+### Thumbnails
+
+Image-capable clients can request server-generated WebP thumbnails through the REST API:
+
+<CodeBlock filename="thumbnail.sh" language="bash">
+{`curl -L \
+  -H "Authorization: Bearer $RHESIS_API_KEY" \
+  "https://api.rhesis.ai/files/<file-id>/thumbnail?size=144" \
+  --output thumbnail.webp`}
+</CodeBlock>
+
+Supported thumbnail sizes are `72`, `144`, and `288` pixels. The endpoint also uses redirects and `ETag` caching.
+
+## File references during execution
+
+When a test with files runs against an SDK connector endpoint, the execution pipeline passes `FileReference` objects instead of raw bytes. Each reference includes metadata, pre-extracted text, and a signed URL for on-demand byte reads.
+
+<CodeBlock filename="connector_files.py" language="python">
+{`from rhesis.sdk import endpoint
+from rhesis.sdk.connector.types import FileReference
+
+@endpoint(
+    name="review-upload",
+    request_mapping={
+        "prompt": "{{ input }}",
+        "files": "{{ files }}",
+    },
+    response_mapping={"output": "$.answer"},
+)
+def review_upload(prompt: str, files: list[FileReference]) -> dict:
+    extracted = [file.extracted_text or "" for file in files]
+    return {"answer": answer_with_files(prompt, extracted)}`}
+</CodeBlock>
+
+See [Connector File Attachments](/sdk/connector/files) for raw byte reads with `read_bytes()` and `aread_bytes()`.
 
 ## Managing Files
 

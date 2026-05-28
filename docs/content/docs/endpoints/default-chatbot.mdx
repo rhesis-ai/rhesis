@@ -189,7 +189,7 @@ Delete a conversation session and its history.
 
 The default chatbot is a parameter-aware endpoint. It uses **[Parameters & Experiments](/docs/experiments/parameter-schema)** to manage its system prompt, use case, model, temperature, and output mode.
 
-In the Streamlit UI, you will see an **Experiment Pill** indicating which experiment and version is currently live (and which label was used to fetch it). This allows you to explore the parameter management workflow immediately: simply create a new experiment in the project, promote it to the `default` label, and watch the chatbot pick up the new behavior after the next TTL cache refresh.
+In the Streamlit UI, you will see an **Experiment Pill** indicating which experiment and version is currently live (and which environment was used to fetch it). This allows you to explore the parameter management workflow immediately: simply create a new experiment in the project, promote it to the `default` environment, and watch the chatbot pick up the new behavior after the next TTL cache refresh.
 
 During test execution, Rhesis resolves the selected experiment once and exposes
 its values to the endpoint request mapping as `params`. The chatbot endpoint
@@ -201,7 +201,7 @@ receive a nested `parameters` object.
   "message": "{{ input }}",
   "session_id": "{{ session_id }}",
   "system_prompt": "{{ params.system_prompt | default(none) }}",
-  "use_case": "{{ params.use_case | default('insurance') }}",
+  "use_case": "{{ params.use_case | default('travel') }}",
   "model": "{{ params.model | default(none) }}",
   "temperature": "{{ params.temperature | default(0.7) }}",
   "max_tokens": "{{ params.max_tokens | default(1024) }}",

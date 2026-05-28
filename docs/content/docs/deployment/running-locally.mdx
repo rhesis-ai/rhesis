@@ -57,7 +57,8 @@ cd rhesis
 
 # 4. (Optional) Enable test generation
 # Get your API key from https://app.rhesis.ai/
-# Edit .env.docker.local and update RHESIS_API_KEY=your-actual-key`}
+# ./rh start prompts for RHESIS_API_KEY when it is missing.
+# You can press Enter to skip and add it later.`}
 </CodeBlock>
 
 By default, `./rh start` uses **prebuilt container images** from GitHub Container Registry (GHCR), then starts the stack. Use `./rh start --build` when you need images built from the local Dockerfiles (for example, testing unreleased changes). `./rh restart --build` applies the same idea on restart.
@@ -67,6 +68,7 @@ The `./rh start` command automatically:
 - Generates a secure database encryption key
 - Creates `.env.docker.local` with all required configuration
 - Enables local authentication bypass (auto-login)
+- Prompts for `RHESIS_API_KEY` when it is missing or unset
 - Pulls (default) or builds (`--build`) images, then starts all services
 - Creates the database and runs migrations
 - Creates the default admin user (`Local Admin`)
@@ -152,8 +154,9 @@ By default, the system uses `rhesis/rhesis-default` as the AI model, which requi
 
 **Option 1: Use Rhesis API (Recommended)**
 
-1. Get your API key from https://app.rhesis.ai/
-2. Edit `.env.docker.local` and add:
+1. Get your API key from https://app.rhesis.ai/tokens
+2. Run `./rh start` in an interactive terminal and paste the key when prompted.
+3. If you skipped the prompt, edit `.env.docker.local` and add:
 
 <CodeBlock filename=".env.docker.local" language="bash">
 {`RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
