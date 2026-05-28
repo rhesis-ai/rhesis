@@ -188,7 +188,6 @@ jobs:
             MIN_INSTANCES="2"
             MAX_INSTANCES="20"
             CONCURRENCY="100"
-            VPC_CONNECTOR=""
             echo "🏭 Production configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
             MEMORY="4Gi"
@@ -196,7 +195,6 @@ jobs:
             MIN_INSTANCES="1"
             MAX_INSTANCES="10"
             CONCURRENCY="80"
-            VPC_CONNECTOR=""
             echo "🧪 Staging configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           else
             MEMORY="4Gi"
@@ -204,15 +202,17 @@ jobs:
             MIN_INSTANCES="1"
             MAX_INSTANCES="5"
             CONCURRENCY="50"
-            VPC_CONNECTOR="redis-connector"
             echo "🛠️ Development configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           fi
 
-          # Build VPC connector args (dev only — reaches private Memorystore Redis)
+          # VPC connector — required to reach private Memorystore Redis in all envs.
+          # Set VPC_CONNECTOR_NAME as a GitHub environment secret (same pattern as backend).
           VPC_ARGS=""
-          if [ -n "$VPC_CONNECTOR" ]; then
-            VPC_ARGS="--vpc-connector=${VPC_CONNECTOR} --vpc-egress=private-ranges-only"
-            echo "🔒 VPC connector: ${VPC_CONNECTOR} (private-ranges-only egress)"
+          if [ -n "${{ secrets.VPC_CONNECTOR_NAME }}" ]; then
+            VPC_ARGS="--vpc-connector=${{ secrets.VPC_CONNECTOR_NAME }} --vpc-egress=private-ranges-only"
+            echo "🔒 VPC connector: ${{ secrets.VPC_CONNECTOR_NAME }} (private-ranges-only egress)"
+          else
+            echo "⚠️  VPC_CONNECTOR_NAME not set — Redis sessions will be unavailable"
           fi
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
