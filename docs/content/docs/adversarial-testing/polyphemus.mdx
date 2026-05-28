@@ -18,6 +18,7 @@ Key properties:
 - Handles sensitive and policy-adjacent content for evaluation purposes
 - Maintains strong reasoning and language quality
 - Supports multi-turn conversations and structured output
+- Applies server-side adversarial request hardening so SDK, platform, and direct API calls follow the same generation policy
 
 ## Access
 
@@ -36,6 +37,12 @@ model = get_model("polyphemus")`}
 </CodeBlock>
 
 See [Using Polyphemus with the SDK](/adversarial-testing/sdk-usage) for full integration examples.
+
+<Callout type="info">
+  Polyphemus is not a drop-in raw model endpoint. The service adds an
+  adversarial primer before forwarding requests to the serving backend, and
+  structured-output generation receives additional adversarial instructions.
+</Callout>
 
 ## Environment Variables
 
