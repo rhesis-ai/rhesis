@@ -66,8 +66,36 @@ def _int_or_default(value: Any, default: int) -> int:
         return default
 
 
+def _env_defaults() -> dict:
+    """Return parameter defaults sourced entirely from environment variables."""
+    return {
+        "system_prompt": None,
+        "use_case": os.getenv("DEFAULT_USE_CASE", "insurance"),
+        "model": os.getenv("DEFAULT_GENERATION_MODEL"),
+        "temperature": float(os.getenv("DEFAULT_TEMPERATURE", "0.7")),
+        "max_tokens": int(os.getenv("DEFAULT_MAX_TOKENS", "1024")),
+        "output_mode": os.getenv("DEFAULT_OUTPUT_MODE", "text"),
+        "context_strategy": os.getenv("DEFAULT_CONTEXT_STRATEGY", "heuristic"),
+    }
+
+
 def _resolve_chatbot_params() -> dict:
-    """Resolve chatbot params; fall back to env defaults when SDK is unreachable."""
+    """Resolve chatbot params from the Rhesis SDK, falling back to env defaults.
+
+    Skips the SDK entirely when RHESIS_API_KEY is not configured so the
+    chatbot can operate as a standalone service with no Rhesis dependency.
+    """
+    from rhesis.sdk.config import get_api_key
+
+    try:
+        api_key = get_api_key()
+    except Exception:
+        api_key = None
+
+    if not api_key:
+        logger.debug("RHESIS_API_KEY not set; using env defaults for chatbot parameters")
+        return _env_defaults()
+
     try:
         params = Parameters.get(
             project=CHATBOT_PROJECT, environment=PARAMETERS_ENVIRONMENT
@@ -82,16 +110,8 @@ def _resolve_chatbot_params() -> dict:
             "context_strategy": params.get_enum("context_strategy", "heuristic"),
         }
     except Exception:
-        logger.exception("Falling back to env defaults: SDK Parameters.get() failed")
-        return {
-            "system_prompt": None,
-            "use_case": "insurance",
-            "model": os.getenv("DEFAULT_GENERATION_MODEL"), 
-            "temperature": 0.7, 
-            "max_tokens": 1024,
-            "output_mode": "text",
-            "context_strategy": "heuristic",
-        }
+        logger.warning("SDK Parameters.get() failed; using env defaults", exc_info=True)
+        return _env_defaults()
 
 # Configure logging
 logging.basicConfig(
@@ -505,7 +525,11 @@ async def chat(
     # ``{{ conversation_history | default(none) }}`` as the *string*
     # ``"None"`` rather than Python ``None``.
     if not isinstance(conversation_history, list):
-        conversation_history = await session_store.get(session_id)
+        try:
+            conversation_history = await session_store.get(session_id)
+        except Exception:
+            logger.warning("Session store unavailable; starting fresh conversation", exc_info=True)
+            conversation_history = []
 
     # Derive file_contents from enriched files when present (connector path).
     # Each file dict from the backend carries an ``extracted_text`` field set
@@ -581,13 +605,16 @@ async def chat(
 
     # Echo use case: return input directly without any LLM call
     if use_case == "echo":
-        await session_store.append(
-            session_id,
-            [
-                {"role": "user", "content": message},
-                {"role": "assistant", "content": message},
-            ],
-        )
+        try:
+            await session_store.append(
+                session_id,
+                [
+                    {"role": "user", "content": message},
+                    {"role": "assistant", "content": message},
+                ],
+            )
+        except Exception:
+            logger.warning("Failed to persist echo exchange to session store", exc_info=True)
         return ChatResponse(
             message=message,
             session_id=session_id,
@@ -654,13 +681,16 @@ async def chat(
     ])
 
     # Persist the exchange in the session store
-    await session_store.append(
-        session_id,
-        [
-            {"role": "user", "content": message},
-            {"role": "assistant", "content": response_message},
-        ],
-    )
+    try:
+        await session_store.append(
+            session_id,
+            [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": response_message},
+            ],
+        )
+    except Exception:
+        logger.warning("Failed to persist exchange to session store", exc_info=True)
 
     # Return Pydantic model
     return ChatResponse(
@@ -717,8 +747,11 @@ async def chat_endpoint(
             f"Message: {chat_request.message[:50]}..."
         )
         
-        # Resolve parameters from Rhesis (or fallback to env/defaults)
-        params = _resolve_chatbot_params()
+        # Resolve parameters from Rhesis (or fallback to env/defaults).
+        # Run in a thread executor because Parameters.get() uses synchronous
+        # requests and would otherwise block the async event loop.
+        loop = asyncio.get_event_loop()
+        params = await loop.run_in_executor(None, _resolve_chatbot_params)
         request_param_overrides = {
             "system_prompt": chat_request.system_prompt,
             "model": chat_request.model,
