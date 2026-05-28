@@ -291,20 +291,15 @@ class ArchitectAgent(BaseAgent):
                 # handler that inspects ``execution_history`` /
                 # ``success`` / ``error`` sees the same shape.
                 try:
-                    finished_ok = any(
-                        s.action == Action.FINISH for s in self._execution_history
-                    )
+                    finished_ok = any(s.action == Action.FINISH for s in self._execution_history)
                     success = agent_error is None and finished_ok
-                    error_msg: Optional[str] = (
-                        str(agent_error) if agent_error is not None else None
-                    )
+                    error_msg: Optional[str] = str(agent_error) if agent_error is not None else None
                     result = AgentResult(
                         final_answer=response,
                         execution_history=list(self._execution_history),
                         iterations_used=len(self._execution_history),
                         max_iterations_reached=(
-                            len(self._execution_history) >= self.max_iterations
-                            and not finished_ok
+                            len(self._execution_history) >= self.max_iterations and not finished_ok
                         ),
                         success=success,
                         error=error_msg,
