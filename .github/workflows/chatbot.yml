@@ -188,6 +188,7 @@ jobs:
             MIN_INSTANCES="2"
             MAX_INSTANCES="20"
             CONCURRENCY="100"
+            VPC_CONNECTOR=""
             echo "🏭 Production configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
             MEMORY="4Gi"
@@ -195,6 +196,7 @@ jobs:
             MIN_INSTANCES="1"
             MAX_INSTANCES="10"
             CONCURRENCY="80"
+            VPC_CONNECTOR=""
             echo "🧪 Staging configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           else
             MEMORY="4Gi"
@@ -202,7 +204,15 @@ jobs:
             MIN_INSTANCES="1"
             MAX_INSTANCES="5"
             CONCURRENCY="50"
+            VPC_CONNECTOR="redis-connector"
             echo "🛠️ Development configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
+          fi
+
+          # Build VPC connector args (dev only — reaches private Memorystore Redis)
+          VPC_ARGS=""
+          if [ -n "$VPC_CONNECTOR" ]; then
+            VPC_ARGS="--vpc-connector=${VPC_CONNECTOR} --vpc-egress=private-ranges-only"
+            echo "🔒 VPC connector: ${VPC_CONNECTOR} (private-ranges-only egress)"
           fi
 
           gcloud run deploy ${{ env.SERVICE_NAME }} \
@@ -218,6 +228,7 @@ jobs:
             --timeout=120 \
             --max-instances=$MAX_INSTANCES \
             --min-instances=$MIN_INSTANCES \
+            $VPC_ARGS \
             --set-env-vars="$(cat <<EOF
           DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai/gemini-2.0-flash' }},
           GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
