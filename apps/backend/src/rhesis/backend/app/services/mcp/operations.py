@@ -99,6 +99,7 @@ async def search_mcp(
     request_mapping={
         "item_url": "{{ input }}",
         "item_id": "{{ item_id }}",
+        "tool_id": "{{ tool_id }}",
     },
     response_mapping={
         "output": "$.final_answer",
@@ -132,9 +133,7 @@ async def extract_mcp(
         raise ValueError("user_id is required")
 
     with ctx.get_db() as db:
-        client, provider, _ = _get_mcp_tool_config(
-            db, tool_id, ctx.organization_id, ctx.user_id
-        )
+        client, provider, _ = _get_mcp_tool_config(db, tool_id, ctx.organization_id, ctx.user_id)
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
         item_id=item_id,

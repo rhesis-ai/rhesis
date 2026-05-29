@@ -423,13 +423,16 @@ class ConnectionManager:
             **(execute_extras or {}),
         )
 
+        # Bind before sending so a fast test_result reply can never slip
+        # through before the mismatch-check has the expected connection recorded.
+        self._pending_test_connections[test_run_id] = conn_id
         try:
             await websocket.send_json(message.model_dump())
-            # Bind this run to the connection that will return the result.
-            self._pending_test_connections[test_run_id] = conn_id
             logger.info(f"Sent test request to {key}: {function_name}")
             return True
         except Exception as e:
+            # Roll back the binding — the message was never delivered.
+            self._pending_test_connections.pop(test_run_id, None)
             logger.error(f"Error sending test request to {key}: {e}")
             return False
 
@@ -922,6 +925,10 @@ class ConnectionManager:
                         connection_id,
                     )
                     return None
+                # Release the binding immediately so the dict stays bounded
+                # even when cleanup_test_result() is never called (e.g.
+                # fire-and-forget callers of send_test_request).
+                self._pending_test_connections.pop(test_run_id, None)
                 self._resolve_test_result(test_run_id, message)
 
             await message_handler.handle_test_result_message(

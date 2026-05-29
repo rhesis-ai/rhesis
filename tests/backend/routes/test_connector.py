@@ -89,7 +89,7 @@ class TestConnectorHTTPEndpoints:
             patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
             patch("rhesis.backend.app.routers.connector.crud") as mock_crud,
         ):
-            mock_mgr.is_connected = AsyncMock(return_value=True)
+            mock_mgr.has_local_route = Mock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=True)
             mock_crud.get_project = Mock(return_value=_mock_project())
 
@@ -116,7 +116,7 @@ class TestConnectorHTTPEndpoints:
             patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
             patch("rhesis.backend.app.routers.connector.crud") as mock_crud,
         ):
-            mock_mgr.is_connected = AsyncMock(return_value=False)
+            mock_mgr.has_local_route = Mock(return_value=False)
             mock_crud.get_project = Mock(return_value=_mock_project())
 
             response = authenticated_client.post(
@@ -139,7 +139,7 @@ class TestConnectorHTTPEndpoints:
             patch("rhesis.backend.app.routers.connector.connection_manager") as mock_mgr,
             patch("rhesis.backend.app.routers.connector.crud") as mock_crud,
         ):
-            mock_mgr.is_connected = AsyncMock(return_value=True)
+            mock_mgr.has_local_route = Mock(return_value=True)
             mock_mgr.send_test_request = AsyncMock(return_value=False)
             mock_crud.get_project = Mock(return_value=_mock_project())
 
@@ -321,7 +321,7 @@ class TestConnectorIntegration:
             mock_crud.get_project = Mock(return_value=_mock_project())
 
             # Initially not connected
-            mock_mgr.is_connected = AsyncMock(return_value=False)
+            mock_mgr.has_local_route = Mock(return_value=False)
             mock_mgr.get_connection_status = Mock(
                 return_value=ConnectionStatus(
                     project_id=project_id,
@@ -351,7 +351,7 @@ class TestConnectorIntegration:
             assert response.status_code == status.HTTP_404_NOT_FOUND
 
             # Simulate connection
-            mock_mgr.is_connected = AsyncMock(return_value=True)
+            mock_mgr.has_local_route = Mock(return_value=True)
             mock_mgr.get_connection_status = Mock(
                 return_value=ConnectionStatus(
                     project_id=project_id,

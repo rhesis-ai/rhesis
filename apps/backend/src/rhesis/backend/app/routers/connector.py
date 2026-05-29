@@ -216,9 +216,10 @@ async def trigger_test(
             detail=f"Project {request.project_id} not found or not accessible",
         )
 
-    # Check if connected (checks local + Redis for multi-instance support)
-    is_connected = await connection_manager.is_connected(request.project_id, request.environment)
-    if not is_connected:
+    # Check for a LOCAL connection only — send_test_request() cannot route to
+    # remote instances.  is_connected() is Redis-aware and would return True for
+    # a project connected to a different backend pod, leading to a misleading 500.
+    if not connection_manager.has_local_route(request.project_id, request.environment):
         raise HTTPException(
             status_code=404,
             detail=f"Project {request.project_id} ({request.environment}) not connected",
