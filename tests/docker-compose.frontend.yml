@@ -8,13 +8,12 @@
 
 # Backend environment configuration
 x-frontend-database-config: &frontend-database-config
-  SQLALCHEMY_DB_NAME: rhesis-db
-  SQLALCHEMY_DB_USER: rhesis-user
-  SQLALCHEMY_DB_PASS: rhesis-password # trufflehog:ignore
-  SQLALCHEMY_DB_PORT: 5432
-  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:rhesis-password@frontend-test-postgres:5432/rhesis-db # trufflehog:ignore
-  SQLALCHEMY_DB_DRIVER: postgresql
-  SQLALCHEMY_DB_HOST: frontend-test-postgres
+  DB_NAME: rhesis-db
+  APP_DB_USER: rhesis-user
+  APP_DB_PASS: rhesis-password # trufflehog:ignore
+  DB_PORT: 5432
+  DB_DRIVER: postgresql
+  DB_HOST: frontend-test-postgres
   DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac= # trufflehog:ignore
 x-frontend-redis-config: &frontend-redis-config
   BROKER_URL: redis://:rhesis-redis-pass@frontend-test-redis:6379/0

@@ -1,13 +1,12 @@
 
 # Define configurations using YAML anchors
 x-common-database: &common-database
-  SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL:-postgresql://rhesis-user:rhesis-password@postgres:5432/rhesis-db}
-  SQLALCHEMY_DB_DRIVER: ${SQLALCHEMY_DB_DRIVER:-postgresql}
-  SQLALCHEMY_DB_PORT: ${SQLALCHEMY_DB_PORT:-5432}
-  SQLALCHEMY_DB_USER: ${SQLALCHEMY_DB_USER:-rhesis-user}
-  SQLALCHEMY_DB_PASS: ${SQLALCHEMY_DB_PASS:-rhesis-password}
-  SQLALCHEMY_DB_HOST: ${SQLALCHEMY_DB_HOST:-postgres}
-  SQLALCHEMY_DB_NAME: ${SQLALCHEMY_DB_NAME:-rhesis-db}
+  DB_DRIVER: ${DB_DRIVER:-postgresql}
+  DB_HOST: ${DB_HOST:-postgres}
+  DB_PORT: ${DB_PORT:-5432}
+  DB_NAME: ${DB_NAME:-rhesis-db}
+  APP_DB_USER: ${APP_DB_USER:-rhesis-user}
+  APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
   DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:-your-32-byte-base64-encryption-key}
 
 # Object storage configuration (local dev defaults to bind-mounted /app/storage)
@@ -91,16 +90,16 @@ services:
   postgres:
     image: mirror.gcr.io/pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: ${SQLALCHEMY_DB_NAME:-rhesis-db}
-      POSTGRES_USER: ${SQLALCHEMY_DB_USER:-rhesis-user}
-      POSTGRES_PASSWORD: ${SQLALCHEMY_DB_PASS:-rhesis-password}
+      POSTGRES_DB: ${DB_NAME:-rhesis-db}
+      POSTGRES_USER: ${APP_DB_USER:-rhesis-user}
+      POSTGRES_PASSWORD: ${APP_DB_PASS:-rhesis-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/backend/src/rhesis/backend/alembic/create_user.sql:/docker-entrypoint-initdb.d/01-create-user.sql
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${SQLALCHEMY_DB_USER:-rhesis-user} -d ${SQLALCHEMY_DB_NAME:-rhesis-db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-rhesis-user} -d ${DB_NAME:-rhesis-db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -168,7 +167,6 @@ services:
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
       CELERY_WORKER_LOGLEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
-      USE_TCP_DATABASE: ${USE_TCP_DATABASE:-true}
       ENABLE_FLOWER: ${ENABLE_FLOWER:-no}
     volumes:
       - rhesis-storage:/app/storage

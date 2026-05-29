@@ -11,12 +11,22 @@ from rhesis.backend.app.config.settings import (
     ModelSettings,
     RedisSettings,
     get_application_settings,
+    get_database_settings,
     get_frontend_settings,
     get_model_settings,
     get_redis_settings,
 )
 
-DATABASE_ENV_VARS = ("SQLALCHEMY_DATABASE_URL",)
+DATABASE_ENV_VARS = (
+    "DB_DRIVER",
+    "DB_HOST",
+    "DB_PORT",
+    "DB_NAME",
+    "APP_DB_USER",
+    "APP_DB_PASS",
+    "ADMIN_DB_USER",
+    "ADMIN_DB_PASS",
+)
 FRONTEND_ENV_VARS = ("FRONTEND_URL",)
 APPLICATION_ENV_VARS = (
     "QUICK_START",
@@ -36,11 +46,21 @@ MODEL_ENV_VARS = (
     "DEFAULT_EMBEDDING_MODEL",
 )
 
+_BASE_DB_ENV = {
+    "DB_HOST": "localhost",
+    "DB_NAME": "testdb",
+    "APP_DB_USER": "app-user",
+    "APP_DB_PASS": "app-pass",  # trufflehog:ignore
+}
+
 
 @pytest.fixture
 def clean_database_env(monkeypatch):
     for env_var in DATABASE_ENV_VARS:
         monkeypatch.delenv(env_var, raising=False)
+    get_database_settings.cache_clear()
+    yield
+    get_database_settings.cache_clear()
 
 
 @pytest.fixture
@@ -80,53 +100,120 @@ def clean_model_env(monkeypatch):
 
 
 @pytest.mark.unit
-def test_database_url_is_required(clean_database_env):
-    with pytest.raises(ValidationError, match="SQLALCHEMY_DATABASE_URL"):
+def test_database_app_credentials_are_required(clean_database_env):
+    with pytest.raises(ValidationError):
         DatabaseSettings(_env_file=None)
 
 
 @pytest.mark.unit
-def test_database_settings_loads_existing_environment_variables(clean_database_env, monkeypatch):
-    monkeypatch.setenv("SQLALCHEMY_DATABASE_URL", "postgresql://prod")
+def test_database_settings_builds_app_url(clean_database_env, monkeypatch):
+    for k, v in _BASE_DB_ENV.items():
+        monkeypatch.setenv(k, v)
 
     settings = DatabaseSettings(_env_file=None)
 
-    assert settings.url == "postgresql://prod"
+    assert (
+        settings.app_url == "postgresql://app-user:app-pass@localhost:5432/testdb"
+    )  # trufflehog:ignore
 
 
-def _patch_database_settings(monkeypatch, **settings_values):
-    if "url" in settings_values:
-        settings_values["SQLALCHEMY_DATABASE_URL"] = settings_values.pop("url")
+@pytest.mark.unit
+def test_database_settings_admin_falls_back_to_app(clean_database_env, monkeypatch):
+    for k, v in _BASE_DB_ENV.items():
+        monkeypatch.setenv(k, v)
 
-    settings = DatabaseSettings(_env_file=None, **settings_values)
+    settings = DatabaseSettings(_env_file=None)
+
+    assert settings.admin_url == settings.app_url
+
+
+@pytest.mark.unit
+def test_database_settings_uses_admin_credentials_when_set(clean_database_env, monkeypatch):
+    for k, v in _BASE_DB_ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("ADMIN_DB_USER", "admin-user")
+    monkeypatch.setenv("ADMIN_DB_PASS", "admin-pass")  # trufflehog:ignore
+
+    settings = DatabaseSettings(_env_file=None)
+
+    assert (
+        settings.admin_url == "postgresql://admin-user:admin-pass@localhost:5432/testdb"
+    )  # trufflehog:ignore
+    assert (
+        settings.app_url == "postgresql://app-user:app-pass@localhost:5432/testdb"
+    )  # trufflehog:ignore
+
+
+@pytest.mark.unit
+def test_database_settings_raises_if_app_user_without_pass(clean_database_env, monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_NAME", "testdb")
+    monkeypatch.setenv("APP_DB_USER", "app-user")
+
+    with pytest.raises(ValidationError, match="APP_DB_PASS"):
+        DatabaseSettings(_env_file=None)
+
+
+@pytest.mark.unit
+def test_database_settings_admin_only_for_migration(clean_database_env, monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_NAME", "testdb")
+    monkeypatch.setenv("ADMIN_DB_USER", "admin-user")
+    monkeypatch.setenv("ADMIN_DB_PASS", "admin-pass")  # trufflehog:ignore
+
+    settings = DatabaseSettings(_env_file=None)
+
+    assert settings.admin_url == "postgresql://admin-user:admin-pass@localhost:5432/testdb"  # trufflehog:ignore
+    with pytest.raises(ValueError, match="APP_DB_USER"):
+        _ = settings.app_url
+
+
+@pytest.mark.unit
+def test_database_settings_raises_if_admin_user_without_pass(clean_database_env, monkeypatch):
+    for k, v in _BASE_DB_ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("ADMIN_DB_USER", "admin-user")
+
+    with pytest.raises(ValidationError, match="ADMIN_DB_PASS"):
+        DatabaseSettings(_env_file=None)
+
+
+@pytest.mark.unit
+def test_database_settings_unix_socket_url(clean_database_env, monkeypatch):
+    monkeypatch.setenv("DB_HOST", "/cloudsql/project:region:instance")
+    monkeypatch.setenv("DB_NAME", "mydb")
+    monkeypatch.setenv("APP_DB_USER", "app-user")
+    monkeypatch.setenv("APP_DB_PASS", "app-pass")  # trufflehog:ignore
+
+    settings = DatabaseSettings(_env_file=None)
+
+    assert (
+        settings.app_url
+        == (
+            "postgresql://app-user:app-pass@/mydb?host=/cloudsql/project:region:instance"  # trufflehog:ignore
+        )
+    )
+
+
+@pytest.mark.unit
+def test_database_settings_url_encodes_special_chars(clean_database_env, monkeypatch):
+    for k, v in _BASE_DB_ENV.items():
+        monkeypatch.setenv(k, v)
+    monkeypatch.setenv("APP_DB_PASS", "p@ss:w/ord")  # trufflehog:ignore
+
+    settings = DatabaseSettings(_env_file=None)
+
+    assert "p%40ss%3Aw%2Ford" in settings.app_url
+
+
+@pytest.mark.unit
+def test_get_database_url_returns_app_url(clean_database_env, monkeypatch):
+    for k, v in _BASE_DB_ENV.items():
+        monkeypatch.setenv(k, v)
+    settings = DatabaseSettings(_env_file=None)
     monkeypatch.setattr(database, "get_database_settings", lambda: settings)
-    return database
 
-
-@pytest.mark.unit
-def test_get_database_url_returns_configured_url(clean_database_env, monkeypatch):
-    database = _patch_database_settings(
-        monkeypatch,
-        url="postgresql://direct-user:direct-pass@db.example.com:5432/direct-db",  #  trufflehog:ignore
-    )
-
-    assert (
-        database.get_database_url()
-        == "postgresql://direct-user:direct-pass@db.example.com:5432/direct-db"  # trufflehog:ignore
-    )
-
-
-@pytest.mark.unit
-def test_database_url_comes_from_sqlalchemy_database_url(clean_database_env, monkeypatch):
-    database = _patch_database_settings(
-        monkeypatch,
-        url="postgresql://test-user:test-pass@localhost:5432/test-db",  # trufflehog:ignore
-    )
-
-    assert (
-        database.get_database_url()
-        == "postgresql://test-user:test-pass@localhost:5432/test-db"  # trufflehog:ignore
-    )
+    assert database.get_database_url() == settings.app_url
 
 
 @pytest.mark.unit
@@ -364,9 +451,7 @@ class TestLoopbackCorsRegex:
 
         assert get_frontend_settings().loopback_cors_regex is None
 
-    def test_returns_none_when_environment_is_production(
-        self, clean_application_env, monkeypatch
-    ):
+    def test_returns_none_when_environment_is_production(self, clean_application_env, monkeypatch):
         """ENVIRONMENT=production wins over BACKEND_ENV=development."""
         monkeypatch.setenv("BACKEND_ENV", "development")
         monkeypatch.setenv("ENVIRONMENT", "production")

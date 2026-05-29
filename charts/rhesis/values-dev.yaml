@@ -17,7 +17,7 @@ config:
   environment: "development"
   logLevel: "DEBUG"
 
-  # Single source of truth for app DB name (ConfigMap SQLALCHEMY_DB_NAME) and Bitnami PostgreSQL.
+  # Single source of truth for app DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL.
   # Anchors reused under postgresql.auth / extraEnvVars below.
   dbName: &rhesis_db_name "rhesis-dev-db"
   dbUser: &rhesis_db_user "rhesis-admin"
@@ -165,8 +165,8 @@ postgresql:
     username: *rhesis_db_user
     existingSecret: "rhesis-app-secrets"
     secretKeys:
-      adminPasswordKey: "SQLALCHEMY_DB_PASS"
-      userPasswordKey: "SQLALCHEMY_DB_PASS"
+      adminPasswordKey: "APP_DB_PASS"
+      userPasswordKey: "APP_DB_PASS"
   primary:
     extraEnvVars:
       - name: POSTGRES_DB
