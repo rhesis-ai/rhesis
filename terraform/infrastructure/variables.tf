@@ -24,7 +24,7 @@ variable "enabled_environments" {
 variable "wireguard_deletion_protection" {
   description = "Enable deletion protection for WireGuard server"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "gke_deletion_protection" {

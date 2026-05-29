@@ -1,3 +1,8 @@
+output "project_id" {
+  description = "GCP project ID for this environment"
+  value       = var.project_id
+}
+
 output "vpc_id" {
   value = module.prd.vpc_id
 }
