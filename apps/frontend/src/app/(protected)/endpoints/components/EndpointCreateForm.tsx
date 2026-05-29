@@ -133,7 +133,7 @@ export default function EndpointCreateForm() {
       {/* Basic Info */}
       <SectionCard title="Basic info">
         <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               required
@@ -144,7 +144,7 @@ export default function EndpointCreateForm() {
               helperText={errors.name}
             />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               label="Description"
@@ -154,7 +154,7 @@ export default function EndpointCreateForm() {
               minRows={1}
             />
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth>
               <InputLabel>Environment</InputLabel>
               <Select
@@ -176,7 +176,7 @@ export default function EndpointCreateForm() {
             </FormControl>
           </Grid>
           {projects.length > 0 && (
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
                 <InputLabel>Project (optional)</InputLabel>
                 <Select
@@ -202,7 +202,7 @@ export default function EndpointCreateForm() {
       {/* Connection */}
       <SectionCard title="Connection">
         <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <FormControl fullWidth>
               <InputLabel>Type</InputLabel>
               <Select
@@ -226,7 +226,7 @@ export default function EndpointCreateForm() {
 
           {form.connection_type === 'REST' && (
             <>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
                   required
@@ -241,7 +241,7 @@ export default function EndpointCreateForm() {
                   error={!!errors.url}
                 />
               </Grid>
-              <Grid item xs={12} md={2}>
+              <Grid size={{ xs: 12, md: 2 }}>
                 <FormControl fullWidth>
                   <InputLabel>Method</InputLabel>
                   <Select
@@ -261,7 +261,7 @@ export default function EndpointCreateForm() {
           )}
 
           {form.connection_type === 'SDK' && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Typography variant="body2" color="text.secondary">
                 SDK endpoints are configured through the Rhesis SDK. Install the
                 SDK and use the <code>@endpoint</code> decorator to connect your
