@@ -4,7 +4,7 @@ import logging
 
 from fastapi import HTTPException
 
-from rhesis.sdk.services.mcp.exceptions import MCPApplicationError, MCPError
+from rhesis.sdk.agents.mcp.exceptions import MCPApplicationError, MCPError
 
 logger = logging.getLogger(__name__)
 
