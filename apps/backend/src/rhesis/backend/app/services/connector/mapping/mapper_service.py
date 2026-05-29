@@ -93,13 +93,11 @@ class MappingResult(BaseModel):
             "Includes details about matched fields, confidence factors, or generation method."
         ),
     )
-    sdk_decorator_mapping: Dict[str, Any] = Field(
-        default_factory=dict,
-        description=(
-            "Raw request_mapping from the @endpoint decorator before any user-override merging. "
-            "Stored in endpoint_metadata to detect future user edits on re-registration."
-        ),
-    )
+
+
+def _is_jinja_template(value: Any) -> bool:
+    """Return True when *value* is a Jinja2 template string (dynamic test input)."""
+    return isinstance(value, str) and "{{" in value
 
 
 class MappingService:
@@ -173,34 +171,31 @@ class MappingService:
                     final_response_mapping = auto_result["response_mapping"]
                     source = MappingSource.SDK_HYBRID
 
-            # Merge DB request mapping with the decorator mapping, distinguishing
-            # user edits from decorator updates via endpoint_metadata["sdk_decorator_mapping"]:
+            # Merge DB request mapping with the decorator mapping using template
+            # syntax as the discriminator:
             #
             # - Fields only in DB (not in decorator): always preserve (user-added in UI).
-            # - Fields in both: preserve DB value when it differs from the last decorator
-            #   default (user manually changed it). Let the new decorator value win when
-            #   the DB still matches the last SDK-registered value (pure decorator update).
+            # - Fields in both, DB value is a Jinja template: still a dynamic input,
+            #   let the decorator update it (covers legitimate decorator changes).
+            # - Fields in both, DB value is a literal (non-template): the user has
+            #   bound this field to a concrete value — preserve it unconditionally.
             if endpoint.request_mapping and final_request_mapping:
-                last_sdk_mapping = (endpoint.endpoint_metadata or {}).get(
-                    "sdk_decorator_mapping", {}
-                )
                 merged = dict(final_request_mapping)
                 preserved_keys = []
                 for k, db_val in endpoint.request_mapping.items():
                     if k not in merged:
-                        # Field exists only in DB — user added it via the UI.
+                        # Extra field only in DB — always preserve.
                         merged[k] = db_val
                         preserved_keys.append(k)
-                    elif db_val != last_sdk_mapping.get(k):
-                        # DB value differs from the last SDK default: the user has
-                        # manually overridden this field, so keep their value.
+                    elif not _is_jinja_template(db_val):
+                        # Concrete (non-template) value — the user has explicitly
+                        # bound this field; preserve their value.
                         merged[k] = db_val
                         preserved_keys.append(k)
-                    # else: DB matches the last SDK value → user hasn't touched it →
-                    # let the new decorator value take effect (handles decorator updates).
+                    # else: still a Jinja template → let the new decorator value win.
                 if preserved_keys:
                     logger.info(
-                        f"[{function_name}] Preserving user-customized request fields from DB: "
+                        f"[{function_name}] Preserving user-bound request fields from DB: "
                         f"{preserved_keys}"
                     )
                     final_request_mapping = merged
@@ -211,7 +206,6 @@ class MappingService:
                 source=source,
                 confidence=1.0,
                 should_update=True,
-                sdk_decorator_mapping=sdk_request or {},
                 reasoning=(
                     "Explicit mappings from @endpoint decorator"
                     + (
