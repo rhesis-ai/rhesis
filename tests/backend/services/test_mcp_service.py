@@ -28,6 +28,7 @@ from rhesis.backend.app.services.mcp import (
     run_mcp_authentication_test,
     search_mcp,
 )
+from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
@@ -35,6 +36,25 @@ from rhesis.sdk.services.mcp.exceptions import (
     MCPError,
     MCPValidationError,
 )
+
+
+def _make_ctx(org_id="test-org-id", user_id="test-user-id", db=None):
+    """Build an EndpointContext for tests, optionally with a db factory stub."""
+    if db is not None:
+
+        class _FakeCtxMgr:
+            def __enter__(self_):
+                return db
+
+            def __exit__(self_, *args):
+                pass
+
+        return EndpointContext(
+            organization_id=org_id,
+            user_id=user_id,
+            _db_factory=lambda o, u: _FakeCtxMgr(),
+        )
+    return EndpointContext(organization_id=org_id, user_id=user_id)
 
 
 @pytest.mark.unit
@@ -413,10 +433,9 @@ class TestSearchMCP:
         """Test successfully search and return list of results"""
         # Setup
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
         query = "Find pages about authentication"
         db = Mock(spec=Session)
+        ctx = _make_ctx(db=db)
 
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion", None)
@@ -440,7 +459,7 @@ class TestSearchMCP:
         mock_mcp_agent.return_value = mock_agent
 
         # Execute
-        result = await search_mcp(query, tool_id, db, org_id, user_id)
+        result = await search_mcp(query, tool_id, ctx)
 
         # Assert
         assert isinstance(result, dict)
@@ -468,10 +487,9 @@ class TestSearchMCP:
     ):
         """Test raises ValueError when agent returns invalid JSON"""
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
         query = "Find pages"
         db = Mock(spec=Session)
+        ctx = _make_ctx(db=db)
 
         mock_get_client.return_value = (Mock(), "notion", None)
         mock_template = Mock()
@@ -485,7 +503,7 @@ class TestSearchMCP:
         mock_mcp_agent.return_value = mock_agent
 
         with pytest.raises(ValueError) as exc_info:
-            await search_mcp(query, tool_id, db, org_id, user_id)
+            await search_mcp(query, tool_id, ctx)
 
         assert "invalid json" in str(exc_info.value).lower()
 
@@ -500,10 +518,9 @@ class TestSearchMCP:
     ):
         """Test raises ValueError when agent returns non-list format"""
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
         query = "Find pages"
         db = Mock(spec=Session)
+        ctx = _make_ctx(db=db)
 
         mock_get_client.return_value = (Mock(), "notion", None)
         mock_template = Mock()
@@ -517,7 +534,7 @@ class TestSearchMCP:
         mock_mcp_agent.return_value = mock_agent
 
         with pytest.raises(ValueError) as exc_info:
-            await search_mcp(query, tool_id, db, org_id, user_id)
+            await search_mcp(query, tool_id, ctx)
 
         assert "expected a list" in str(exc_info.value).lower()
 
@@ -541,9 +558,8 @@ class TestExtractMCP:
         # Setup
         item_url = "https://notion.so/page-123"
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
         db = Mock(spec=Session)
+        ctx = _make_ctx(db=db)
 
         mock_client = Mock()
         mock_client.connect = AsyncMock()
@@ -570,9 +586,7 @@ class TestExtractMCP:
 
         # Execute
         result = await extract_mcp(
-            db=db,
-            organization_id=org_id,
-            user_id=user_id,
+            ctx=ctx,
             item_url=item_url,
             tool_id=tool_id,
         )
@@ -606,9 +620,8 @@ class TestExtractMCP:
         # Setup
         item_id = "page-123"
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
         db = Mock(spec=Session)
+        ctx = _make_ctx(db=db)
 
         mock_client = Mock()
         mock_client.connect = AsyncMock()
@@ -635,9 +648,7 @@ class TestExtractMCP:
 
         # Execute
         result = await extract_mcp(
-            db=db,
-            organization_id=org_id,
-            user_id=user_id,
+            ctx=ctx,
             item_id=item_id,
             tool_id=tool_id,
         )
@@ -662,15 +673,11 @@ class TestExtractMCP:
         """Test that extract_mcp raises ValueError when neither id nor url is provided"""
         # Setup
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
-        db = Mock(spec=Session)
+        ctx = _make_ctx()
 
         # Execute & Assert
         with pytest.raises(ValueError, match="Either 'item_id' or 'item_url' must be provided"):
-            await extract_mcp(
-                db=db, organization_id=org_id, user_id=user_id, tool_id=tool_id
-            )
+            await extract_mcp(ctx=ctx, tool_id=tool_id)
 
 
 @pytest.mark.unit
@@ -690,10 +697,9 @@ class TestQueryMCP:
     ):
         """Test successfully execute query with default prompt"""
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
         query = "Create a page"
         db = Mock(spec=Session)
+        ctx = _make_ctx(db=db)
 
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion", None)
@@ -713,7 +719,7 @@ class TestQueryMCP:
         mock_mcp_agent.return_value = mock_agent
 
         # Execute
-        result = await query_mcp(query, tool_id, db, org_id, user_id)
+        result = await query_mcp(query, tool_id, ctx)
 
         # Assert
         assert isinstance(result, dict)
@@ -739,11 +745,10 @@ class TestQueryMCP:
     ):
         """Test successfully execute query with custom system_prompt"""
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
         query = "Create a page"
         custom_prompt = "Custom system prompt"
         db = Mock(spec=Session)
+        ctx = _make_ctx(db=db)
 
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion", None)
@@ -758,9 +763,7 @@ class TestQueryMCP:
         await query_mcp(
             query,
             tool_id,
-            db,
-            org_id,
-            user_id,
+            ctx,
             system_prompt=custom_prompt,
         )
 
@@ -785,10 +788,9 @@ class TestQueryMCP:
     ):
         """Test successfully execute query with custom max_iterations"""
         tool_id = "test-tool-id"
-        org_id = "test-org-id"
-        user_id = "test-user-id"
         query = "Create a page"
         db = Mock(spec=Session)
+        ctx = _make_ctx(db=db)
 
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion", None)
@@ -807,9 +809,7 @@ class TestQueryMCP:
         await query_mcp(
             query,
             tool_id,
-            db,
-            org_id,
-            user_id,
+            ctx,
             max_iterations=20,
         )
 

@@ -1,9 +1,10 @@
 """Architect chat orchestration pipeline.
 
-The ``@endpoint``-decorated ``architect_chat`` wrapper registers the
-function with the SDK connector so it can be invoked via the Playground
-and test runs.  The Celery task (``architect_chat_task``) calls the
-underlying ``run_architect_turn`` directly.
+The ``@endpoint``-decorated ``run_architect_turn`` registers the function
+with the SDK connector so it can be invoked via the Playground and test
+runs.  The Celery task (``architect_chat_task``) calls it directly,
+constructing an :class:`~rhesis.sdk.context.EndpointContext` to carry
+tenant identity.
 """
 
 import asyncio
@@ -19,6 +20,7 @@ from rhesis.backend.app.services.architect.attachments import process_attachment
 from rhesis.backend.app.services.architect.event_handler import WebSocketEventHandler
 from rhesis.backend.app.services.mcp.agents import get_agent_event_handlers
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
+from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.decorators import endpoint, observe
 
 logger = logging.getLogger(__name__)
@@ -345,8 +347,7 @@ def _make_target_factory(org_id: str, user_id: str):
 )
 async def run_architect_turn(
     message: str,
-    organization_id: str,
-    user_id: str,
+    ctx: EndpointContext,
     session_id: Optional[str] = None,
     attachments: Optional[Dict[str, Any]] = None,
     auto_approve: Optional[bool] = None,
@@ -357,7 +358,15 @@ async def run_architect_turn(
     Called directly by ``architect_chat_task`` (Celery) for the Architect
     screen, and invocable via the SDK connector (Playground / test runs)
     through the ``@endpoint`` registration.
+
+    Tenant identity is carried by ``ctx`` (:class:`EndpointContext`),
+    which the executor injects automatically when the function is
+    invoked via the connector.  Direct callers (Celery) construct it
+    explicitly.
     """
+    organization_id = ctx.organization_id
+    user_id = ctx.user_id
+
     if not user_id:
         raise ValueError("user_id is required for run_architect_turn")
 

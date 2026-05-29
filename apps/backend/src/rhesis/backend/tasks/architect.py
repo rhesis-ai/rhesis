@@ -130,12 +130,19 @@ def architect_chat_task(
     try:
         import asyncio
 
+        from rhesis.backend.app.database import get_db_with_tenant_variables
         from rhesis.backend.app.services.architect.runner import (
             ArchitectChatResult,
             run_architect_turn,
         )
+        from rhesis.sdk.context import EndpointContext
 
         prior_trace_id = _load_session_trace_id(session_id, org_id, user_id)
+        ctx = EndpointContext(
+            organization_id=org_id or "",
+            user_id=user_id or "",
+            _db_factory=get_db_with_tenant_variables,
+        )
 
         async def _run() -> ArchitectChatResult:
             async with _conversation_telemetry_context(
@@ -145,8 +152,7 @@ def architect_chat_task(
             ):
                 return await run_architect_turn(
                     message=user_message,
-                    organization_id=org_id or "",
-                    user_id=user_id or "",
+                    ctx=ctx,
                     session_id=session_id,
                     attachments=attachments,
                     auto_approve=auto_approve,
