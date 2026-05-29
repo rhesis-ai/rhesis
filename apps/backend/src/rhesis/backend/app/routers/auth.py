@@ -196,7 +196,7 @@ def is_running_locally() -> bool:
     Never uses any request-derived data. Uses three independent signals:
     1. Quick Start mode (QUICK_START=true + no GCP env vars)
     2. RHESIS_BASE_URL explicitly configured for localhost
-    3. ENVIRONMENT or BACKEND_ENV set to 'local'
+    3. BACKEND_ENV set to 'local'
     """
     # Signal 1: Quick Start mode (env-vars only, no request data)
     if is_quick_start_enabled():
@@ -207,9 +207,9 @@ def is_running_locally() -> bool:
     if parsed_host in _LOCAL_HOSTNAMES:
         return True
 
-    # Signal 3: Environment variables indicate local deployment
+    # Signal 3: BACKEND_ENV explicitly set to local
     settings = get_application_settings()
-    if settings.environment == "local" or settings.backend_env == "local":
+    if settings.backend_env == "local":
         return True
 
     return False

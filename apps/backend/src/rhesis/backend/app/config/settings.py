@@ -1,7 +1,8 @@
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import quote_plus, urlparse
 
-from pydantic import AliasChoices, AnyHttpUrl, Field, TypeAdapter, field_validator, model_validator
+from pydantic import AnyHttpUrl, Field, TypeAdapter, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -91,25 +92,23 @@ class ApplicationSettings(BaseSettings):
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     quick_start: bool = Field(default=False, alias="QUICK_START")
-    environment: str = Field(
-        default="",
-        validation_alias=AliasChoices("ENVIRONMENT", "ENV"),
+    backend_env: Literal["production", "development", "staging", "local"] = Field(
+        default="development", alias="BACKEND_ENV"
     )
-    backend_env: str = Field(default="development", alias="BACKEND_ENV")
     # Google Cloud-specific environment variables set by Google Cloud runtimes.
     gcp_project: str | None = Field(default=None, alias="GCP_PROJECT")
     google_cloud_project: str | None = Field(default=None, alias="GOOGLE_CLOUD_PROJECT")
     cloud_run_service: str | None = Field(default=None, alias="K_SERVICE")
     cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
 
-    @field_validator("environment", "backend_env")
+    @field_validator("backend_env", mode="before")
     @classmethod
     def normalize_environment_value(cls, value: str) -> str:
         return value.lower()
 
     @property
     def is_production(self) -> bool:
-        return self.backend_env.lower() == "production" or self.environment.lower() == "production"
+        return self.backend_env.lower() == "production"
 
     @property
     def is_development(self) -> bool:

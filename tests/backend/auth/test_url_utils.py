@@ -23,8 +23,6 @@ def clean_frontend_settings(monkeypatch):
     # Pin to production so the loopback dev gate is OFF by default; tests
     # that exercise the dev branch override BACKEND_ENV explicitly.
     monkeypatch.setenv("BACKEND_ENV", "production")
-    monkeypatch.delenv("ENVIRONMENT", raising=False)
-    monkeypatch.delenv("ENV", raising=False)
     get_frontend_settings.cache_clear()
     get_application_settings.cache_clear()
     yield
@@ -147,18 +145,17 @@ class TestLoopbackDevGate:
         "rhesis.backend.app.auth.token_utils.get_secret_key",
         return_value="test-secret",
     )
-    def test_rejects_loopback_when_environment_is_production(self, _mock_key, monkeypatch):
-        """ENVIRONMENT=production also rejects loopback (matches is_production OR-logic)."""
+    def test_accepts_loopback_when_only_environment_is_production(self, _mock_key, monkeypatch):
+        """ENVIRONMENT=production alone no longer gates loopback; only BACKEND_ENV drives it."""
         monkeypatch.setenv("FRONTEND_URL", "https://app.rhesis.ai")
         monkeypatch.setenv("BACKEND_ENV", "development")
-        monkeypatch.setenv("ENVIRONMENT", "production")
         get_frontend_settings.cache_clear()
         get_application_settings.cache_clear()
 
         request = _make_request(original_frontend="http://localhost:3000")
         url = build_redirect_url(request, "token123")
 
-        assert url.startswith("https://app.rhesis.ai/")
+        assert url.startswith("http://localhost:3000/")
 
     @patch(
         "rhesis.backend.app.auth.token_utils.get_secret_key",

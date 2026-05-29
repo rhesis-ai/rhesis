@@ -6,7 +6,6 @@ from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.ee.sso.http_client import (
     SSRFError,
     _pin_url_to_ip,
-    _resolve_and_validate,
     validate_endpoint_origin,
     validate_jwks_uri_origin,
     validate_url_safety,
@@ -36,27 +35,27 @@ class TestValidateUrlSafety:
             validate_url_safety("https://metadata.google.internal/path")
 
     def test_localhost_blocked_in_production(self, monkeypatch):
-        monkeypatch.setenv("ENVIRONMENT", "production")
+        monkeypatch.setenv("BACKEND_ENV", "production")
         get_application_settings.cache_clear()
 
         with pytest.raises(SSRFError):
             validate_url_safety("https://127.0.0.1/path")
 
     def test_localhost_name_blocked_in_production(self, monkeypatch):
-        monkeypatch.setenv("ENVIRONMENT", "production")
+        monkeypatch.setenv("BACKEND_ENV", "production")
         get_application_settings.cache_clear()
 
         with pytest.raises(SSRFError):
             validate_url_safety("https://localhost/path")
 
     def test_localhost_allowed_in_dev(self, monkeypatch):
-        monkeypatch.setenv("ENVIRONMENT", "development")
+        monkeypatch.setenv("BACKEND_ENV", "development")
         get_application_settings.cache_clear()
 
         validate_url_safety("http://localhost:8180/realms/dev")
 
     def test_localhost_ip_allowed_in_local(self, monkeypatch):
-        monkeypatch.setenv("ENVIRONMENT", "local")
+        monkeypatch.setenv("BACKEND_ENV", "local")
         get_application_settings.cache_clear()
 
         validate_url_safety("http://127.0.0.1:8180/realms/dev")
