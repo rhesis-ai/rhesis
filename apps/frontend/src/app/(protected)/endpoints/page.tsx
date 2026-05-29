@@ -6,21 +6,21 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { ApiIcon } from '@/components/icons';
 import EndpointsGrid from './components/EndpointsGrid';
+import EndpointCreateDrawer from './components/EndpointCreateDrawer';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function EndpointsPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
   const [refreshKey, setRefreshKey] = React.useState(0);
   const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
+  const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
 
   useDocumentTitle('Endpoints');
 
@@ -80,7 +80,7 @@ export default function EndpointsPage() {
           <Fab
             icon={<AddIcon />}
             tooltip="New Endpoint"
-            onClick={() => router.push('/endpoints/new')}
+            onClick={() => setCreateDrawerOpen(true)}
             data-tour="create-endpoint-button"
           />
         </FabGroup>
@@ -93,7 +93,7 @@ export default function EndpointsPage() {
             title="No endpoints yet"
             description="Create your first endpoint to connect your application under test and start running tests and evaluations."
             actionLabel="Create endpoint"
-            onAction={() => router.push('/endpoints/new')}
+            onAction={() => setCreateDrawerOpen(true)}
           />
         ) : (
           <Paper
@@ -113,6 +113,12 @@ export default function EndpointsPage() {
           </Paper>
         )}
       </Box>
+
+      <EndpointCreateDrawer
+        open={createDrawerOpen}
+        onClose={() => setCreateDrawerOpen(false)}
+        onCreated={handleRefresh}
+      />
     </PageLayout>
   );
 }
