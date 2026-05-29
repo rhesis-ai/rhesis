@@ -120,6 +120,42 @@ class QueryBuilder:
         self._maybe_warn_load_count()
         return self
 
+    def with_selectin_chain(self, *chain: str) -> "QueryBuilder":
+        """Eager-load a chain of relationships with nested ``selectinload``.
+
+        Use this for polymorphic one-to-many collections (e.g. TagsMixin) that
+        ``with_optimized_loads`` skips because they have no ``secondary`` table.
+        Each element resolves against the target model of the previous step, so
+        the full chain is batched into exactly two SELECT IN queries instead of
+        N + N*M lazy loads.
+
+        Example::
+
+            .with_selectin_chain("_tags_relationship", "tag")
+            # → selectinload(Model._tags_relationship).selectinload(TaggedItem.tag)
+        """
+        if not chain:
+            return self
+        current_model: type = self.model
+        load = None
+        for rel_name in chain:
+            attr = getattr(current_model, rel_name, None)
+            if attr is None:
+                raise ValueError(
+                    f"with_selectin_chain: {current_model.__name__!r} has no "
+                    f"relationship named {rel_name!r}"
+                )
+            load = selectinload(attr) if load is None else load.selectinload(attr)
+            rel_prop = inspect(current_model).relationships.get(rel_name)
+            if rel_prop is None:
+                break
+            current_model = rel_prop.mapper.class_
+        if load is not None:
+            self.query = self.query.options(load)
+            self._selectin_count += 1
+            self._maybe_warn_load_count()
+        return self
+
     def _maybe_warn_load_count(self) -> None:
         total = self._joined_count + self._selectin_count
         if total >= _MAX_EAGER_LOADS_WARN:
