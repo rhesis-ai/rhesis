@@ -298,9 +298,7 @@ def endpoint(
             from rhesis.sdk.context import EndpointContext as _EndpointContext
 
             _ctx_params = [
-                n
-                for n, p in func_sig.parameters.items()
-                if p.annotation is _EndpointContext
+                n for n, p in func_sig.parameters.items() if p.annotation is _EndpointContext
             ]
             if _ctx_params:
                 existing = enriched_metadata.get("_bound_params", [])

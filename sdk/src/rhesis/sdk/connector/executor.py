@@ -215,7 +215,10 @@ class TestExecutor:
             try:
                 # Prepare inputs: convert dicts to typed objects based on type hints
                 prepared_inputs = self._prepare_inputs(
-                    func, inputs, serializer, endpoint_context=endpoint_context,
+                    func,
+                    inputs,
+                    serializer,
+                    endpoint_context=endpoint_context,
                 )
 
                 # Execute function (sync or async)

@@ -347,7 +347,9 @@ class ConnectorManager:
 
                 endpoint_context = self._build_endpoint_context()
                 result = await self._executor.execute(
-                    func, function_name, inputs,
+                    func,
+                    function_name,
+                    inputs,
                     serializers=serializers,
                     endpoint_context=endpoint_context,
                 )
