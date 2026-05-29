@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import EndpointForm from '../components/EndpointForm';
+import EndpointCreateForm from '../components/EndpointCreateForm';
 import { PageLayout } from '@/components/layout/PageLayout';
 
 export default function NewEndpointPage() {
@@ -12,7 +12,7 @@ export default function NewEndpointPage() {
 
   return (
     <PageLayout title="Create New Endpoint" breadcrumbs={breadcrumbs}>
-      <EndpointForm />
+      <EndpointCreateForm />
     </PageLayout>
   );
 }

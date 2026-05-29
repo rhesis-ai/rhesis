@@ -10,8 +10,12 @@ export interface CreateEndpointResult {
   error?: string;
 }
 
+type CreateEndpointPayload = Omit<Endpoint, 'id'> & {
+  auth_token?: string;
+};
+
 export async function createEndpoint(
-  data: Omit<Endpoint, 'id'>
+  data: CreateEndpointPayload
 ): Promise<CreateEndpointResult> {
   try {
     const session = await auth();

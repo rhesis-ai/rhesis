@@ -969,9 +969,6 @@ export default function EndpointForm() {
                     if (!formData.method) {
                       throw new Error('Method is required');
                     }
-                    if (!formData.auth_token) {
-                      throw new Error('Auth token is required for testing');
-                    }
 
                     // Parse test input
                     let inputData;

@@ -1,11 +1,24 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Typography } from '@mui/material';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
+import { InfoIcon } from '@/components/icons';
 import { useNotifications } from '@/components/common/NotificationContext';
 import EditableSection from '@/components/common/EditableSection';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import JsonMonacoField from './JsonMonacoField';
+
+const DOCS_URL = 'https://docs.rhesis.ai/endpoints/request-response-mapping';
+
+function MappingHelp({ tooltip }: { tooltip: string }) {
+  return (
+    <Tooltip title={tooltip} placement="top">
+      <IconButton size="small" sx={{ ml: 0.5, color: 'text.secondary' }}>
+        <InfoIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
+}
 
 function parseJsonField(
   value: string,
@@ -113,15 +126,26 @@ export default function EndpointMappingsTab() {
         }}
       >
         {({ draft, setDraft, isEditing }) => (
-          <JsonMonacoField
-            editorKey="request-mapping"
-            height="360px"
-            theme={editorTheme}
-            wrapperSx={editorWrapperStyle}
-            readOnly={!isEditing}
-            value={draft}
-            onChange={setDraft}
-          />
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Maps Rhesis test fields to your endpoint&apos;s request body.
+                Use <code>{'{{ field }}'}</code> placeholders.
+              </Typography>
+              <MappingHelp
+                tooltip={`Maps prompt and context fields from Rhesis tests to your endpoint body. See ${DOCS_URL}`}
+              />
+            </Box>
+            <JsonMonacoField
+              editorKey="request-mapping"
+              height="360px"
+              theme={editorTheme}
+              wrapperSx={editorWrapperStyle}
+              readOnly={!isEditing}
+              value={draft}
+              onChange={setDraft}
+            />
+          </>
         )}
       </EditableSection>
 
@@ -134,15 +158,26 @@ export default function EndpointMappingsTab() {
         }}
       >
         {({ draft, setDraft, isEditing }) => (
-          <JsonMonacoField
-            editorKey="response-mapping"
-            height="280px"
-            theme={editorTheme}
-            wrapperSx={editorWrapperStyle}
-            readOnly={!isEditing}
-            value={draft}
-            onChange={setDraft}
-          />
+          <>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Maps your endpoint&apos;s response fields back to Rhesis. Must
+                include a <code>response</code> key.
+              </Typography>
+              <MappingHelp
+                tooltip={`Maps fields from your endpoint's JSON response to Rhesis result fields. See ${DOCS_URL}`}
+              />
+            </Box>
+            <JsonMonacoField
+              editorKey="response-mapping"
+              height="280px"
+              theme={editorTheme}
+              wrapperSx={editorWrapperStyle}
+              readOnly={!isEditing}
+              value={draft}
+              onChange={setDraft}
+            />
+          </>
         )}
       </EditableSection>
     </>
