@@ -93,6 +93,13 @@ class MappingResult(BaseModel):
             "Includes details about matched fields, confidence factors, or generation method."
         ),
     )
+    sdk_decorator_mapping: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Raw request_mapping from the @endpoint decorator before any user-override merging. "
+            "Stored in endpoint_metadata to detect future user edits on re-registration."
+        ),
+    )
 
 
 class MappingService:
@@ -166,21 +173,37 @@ class MappingService:
                     final_response_mapping = auto_result["response_mapping"]
                     source = MappingSource.SDK_HYBRID
 
-            # Preserve user-added fields from the existing DB mapping that are not
-            # present in the SDK decorator. This prevents manual edits (e.g. a
-            # hardcoded tool_id) from being erased every time the SDK reconnects.
+            # Merge DB request mapping with the decorator mapping, distinguishing
+            # user edits from decorator updates via endpoint_metadata["sdk_decorator_mapping"]:
+            #
+            # - Fields only in DB (not in decorator): always preserve (user-added in UI).
+            # - Fields in both: preserve DB value when it differs from the last decorator
+            #   default (user manually changed it). Let the new decorator value win when
+            #   the DB still matches the last SDK-registered value (pure decorator update).
             if endpoint.request_mapping and final_request_mapping:
-                extra_db_fields = {
-                    k: v
-                    for k, v in endpoint.request_mapping.items()
-                    if k not in final_request_mapping
-                }
-                if extra_db_fields:
+                last_sdk_mapping = (endpoint.endpoint_metadata or {}).get(
+                    "sdk_decorator_mapping", {}
+                )
+                merged = dict(final_request_mapping)
+                preserved_keys = []
+                for k, db_val in endpoint.request_mapping.items():
+                    if k not in merged:
+                        # Field exists only in DB — user added it via the UI.
+                        merged[k] = db_val
+                        preserved_keys.append(k)
+                    elif db_val != last_sdk_mapping.get(k):
+                        # DB value differs from the last SDK default: the user has
+                        # manually overridden this field, so keep their value.
+                        merged[k] = db_val
+                        preserved_keys.append(k)
+                    # else: DB matches the last SDK value → user hasn't touched it →
+                    # let the new decorator value take effect (handles decorator updates).
+                if preserved_keys:
                     logger.info(
-                        f"[{function_name}] Preserving user-added request fields from DB: "
-                        f"{list(extra_db_fields.keys())}"
+                        f"[{function_name}] Preserving user-customized request fields from DB: "
+                        f"{preserved_keys}"
                     )
-                    final_request_mapping = {**final_request_mapping, **extra_db_fields}
+                    final_request_mapping = merged
 
             return MappingResult(
                 request_mapping=final_request_mapping,
@@ -188,6 +211,7 @@ class MappingService:
                 source=source,
                 confidence=1.0,
                 should_update=True,
+                sdk_decorator_mapping=sdk_request or {},
                 reasoning=(
                     "Explicit mappings from @endpoint decorator"
                     + (

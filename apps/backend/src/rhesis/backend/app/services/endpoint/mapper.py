@@ -73,6 +73,15 @@ def generate_and_apply_mappings(
             "reasoning": mapping_result.reasoning,
             "generated_at": datetime.utcnow().isoformat(),
         }
+
+        # Snapshot the raw SDK decorator mapping so future re-registrations can
+        # distinguish a user override (DB differs from this snapshot) from a plain
+        # decorator update (DB equals this snapshot, new decorator value differs).
+        if mapping_result.sdk_decorator_mapping:
+            endpoint.endpoint_metadata["sdk_decorator_mapping"] = (
+                mapping_result.sdk_decorator_mapping
+            )
+
         flag_modified(endpoint, "endpoint_metadata")
 
         logger.info(
