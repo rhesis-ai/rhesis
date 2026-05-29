@@ -454,19 +454,15 @@ def get_items_detail(
                         are skipped by with_optimized_loads.
                         Format: [["_tags_relationship", "tag"], ...]
     """
-    builder = (
-        QueryBuilder(db, model)
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=nested_relationships,
-        )
+    builder = QueryBuilder(db, model).with_optimized_loads(
+        skip_many_to_many=False,
+        skip_one_to_many=True,
+        nested_relationships=nested_relationships,
     )
     for chain in selectin_chains or []:
         builder = builder.with_selectin_chain(*chain)
     return (
-        builder
-        .with_organization_filter(organization_id)
+        builder.with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
