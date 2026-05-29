@@ -148,7 +148,10 @@ class QueryBuilder:
             load = selectinload(attr) if load is None else load.selectinload(attr)
             rel_prop = inspect(current_model).relationships.get(rel_name)
             if rel_prop is None:
-                break
+                raise ValueError(
+                    f"with_selectin_chain: {current_model.__name__!r}.{rel_name!r} "
+                    f"is not a relationship"
+                )
             current_model = rel_prop.mapper.class_
         if load is not None:
             self.query = self.query.options(load)

@@ -144,18 +144,42 @@ export default function BehaviorsClient({
     setDrawerOpen(true);
   };
 
+  const normalizeTagName = (name: string) => name.trim().toLowerCase();
+
   /**
    * Diff initial vs. new tag names and apply assign/remove against TagsClient.
-   * Returns the updated tag list resolved from a fresh fetch.
+   * Compares on normalized names (trim + lowercase) while sending trimmed
+   * display values to the API.
    */
   const syncBehaviorTags = async (
     behaviorId: UUID,
     initialTags: Tag[],
     nextTagNames: string[]
   ): Promise<void> => {
-    const initialNames = initialTags.map(t => t.name);
-    const toRemove = initialTags.filter(t => !nextTagNames.includes(t.name));
-    const toAdd = nextTagNames.filter(n => !initialNames.includes(n));
+    const normalizedNext = new Set(
+      nextTagNames.map(normalizeTagName).filter(name => name.length > 0)
+    );
+    const normalizedInitial = new Map(
+      initialTags.map(tag => [normalizeTagName(tag.name), tag])
+    );
+
+    const toRemove = initialTags.filter(
+      tag => !normalizedNext.has(normalizeTagName(tag.name))
+    );
+
+    const seen = new Set<string>();
+    const toAdd = nextTagNames
+      .map(name => name.trim())
+      .filter(name => name.length > 0)
+      .filter(name => !normalizedInitial.has(normalizeTagName(name)))
+      .filter(name => {
+        const key = normalizeTagName(name);
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
 
     if (toRemove.length === 0 && toAdd.length === 0) {
       return;
@@ -163,21 +187,21 @@ export default function BehaviorsClient({
 
     const tagsClient = new TagsClient(sessionToken);
 
-    for (const tag of toRemove) {
-      await tagsClient.removeTagFromEntity(
-        EntityType.BEHAVIOR,
-        behaviorId,
-        tag.id
-      );
-    }
+    await Promise.all(
+      toRemove.map(tag =>
+        tagsClient.removeTagFromEntity(EntityType.BEHAVIOR, behaviorId, tag.id)
+      )
+    );
 
-    for (const name of toAdd) {
-      await tagsClient.assignTagToEntity(EntityType.BEHAVIOR, behaviorId, {
-        name,
-        organization_id: organizationId,
-        ...(userId ? { user_id: userId } : {}),
-      });
-    }
+    await Promise.all(
+      toAdd.map(name =>
+        tagsClient.assignTagToEntity(EntityType.BEHAVIOR, behaviorId, {
+          name,
+          organization_id: organizationId,
+          ...(userId ? { user_id: userId } : {}),
+        })
+      )
+    );
   };
 
   const handleSaveBehavior = async (
@@ -190,6 +214,7 @@ export default function BehaviorsClient({
       setDrawerError(undefined);
 
       const behaviorClient = new BehaviorClient(sessionToken);
+      let tagSyncFailed = false;
 
       if (isNewBehavior) {
         const created = await behaviorClient.createBehavior({
@@ -199,7 +224,11 @@ export default function BehaviorsClient({
         });
 
         if (tagNames.length > 0) {
-          await syncBehaviorTags(created.id, [], tagNames);
+          try {
+            await syncBehaviorTags(created.id, [], tagNames);
+          } catch {
+            tagSyncFailed = true;
+          }
         }
 
         const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
@@ -208,10 +237,15 @@ export default function BehaviorsClient({
 
         setBehaviors(prev => [...prev, createdWithMetrics]);
 
-        notifications.show('Behavior created successfully', {
-          severity: 'success',
-          autoHideDuration: 4000,
-        });
+        notifications.show(
+          tagSyncFailed
+            ? 'Behavior created, but some tags failed to sync'
+            : 'Behavior created successfully',
+          {
+            severity: tagSyncFailed ? 'warning' : 'success',
+            autoHideDuration: 4000,
+          }
+        );
       } else if (editingBehavior && editingBehavior.id) {
         const editingId = editingBehavior.id;
         const existing = behaviors.find(b => b.id === editingId);
@@ -220,9 +254,12 @@ export default function BehaviorsClient({
           description: description?.trim() || null,
         });
 
-        await syncBehaviorTags(editingId, existing?.tags ?? [], tagNames);
+        try {
+          await syncBehaviorTags(editingId, existing?.tags ?? [], tagNames);
+        } catch {
+          tagSyncFailed = true;
+        }
 
-        // Re-fetch to capture the new tags array reliably.
         const refreshed =
           await behaviorClient.getBehaviorWithMetrics(editingId);
 
@@ -239,10 +276,15 @@ export default function BehaviorsClient({
           )
         );
 
-        notifications.show('Behavior updated successfully', {
-          severity: 'success',
-          autoHideDuration: 4000,
-        });
+        notifications.show(
+          tagSyncFailed
+            ? 'Behavior updated, but some tags failed to sync'
+            : 'Behavior updated successfully',
+          {
+            severity: tagSyncFailed ? 'warning' : 'success',
+            autoHideDuration: 4000,
+          }
+        );
       }
 
       setDrawerOpen(false);
