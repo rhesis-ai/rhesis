@@ -116,6 +116,10 @@ module "ingress_dev" {
 #   - terraform-wireguard SA: creates the VM NIC during terraform apply
 #   - rhesis-platform-admin default compute SA: runtime access by the VM itself
 
+data "google_project" "platform_admin" {
+  project_id = "rhesis-platform-admin"
+}
+
 resource "google_compute_shared_vpc_host_project" "dev" {
   project = var.project_id
 }
@@ -140,7 +144,7 @@ resource "google_compute_subnetwork_iam_member" "wireguard_compute_sa_subnet_use
   region     = var.region
   subnetwork = module.dev.subnet_self_links["nodes"]
   role       = "roles/compute.networkUser"
-  member     = "serviceAccount:211583725977-compute@developer.gserviceaccount.com"
+  member     = "serviceAccount:${data.google_project.platform_admin.number}-compute@developer.gserviceaccount.com"
   depends_on = [google_compute_shared_vpc_host_project.dev]
 }
 

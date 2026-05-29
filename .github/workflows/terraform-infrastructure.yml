@@ -93,9 +93,9 @@ jobs:
         run: terraform plan -input=false -out=tfplan -no-color 2>&1 | tee plan.txt
         env:
           TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
-          TF_VAR_region: europe-west4
-          TF_VAR_enabled_environments: ${{ inputs.environment == 'admin' && inputs.wireguard_envs || '' }}
-          TF_VAR_wireguard_peers: ${{ inputs.environment == 'admin' && secrets.TF_WG_PEERS || '' }}
+          TF_VAR_region: ${{ secrets.TF_REGION }}
+          TF_VAR_enabled_environments: ${{ inputs.environment == 'admin' && inputs.wireguard_envs || '[]' }}
+          TF_VAR_wireguard_peers: ${{ inputs.environment == 'admin' && secrets.TF_WG_PEERS || '[]' }}
 
       - name: Post plan to PR
         if: github.event_name == 'pull_request'
@@ -127,6 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     # Required reviewers are enforced via GitHub Environment protection rules in repo settings.
     # Configure "Required reviewers" on the following Environments:
+    #   dev       → at least 1 reviewer (auto-applies on push to main; gate prevents unreviewed infra changes)
     #   stg       → at least 1 reviewer
     #   prd       → at least 1 reviewer
     #   wireguard → at least 1 reviewer (shown as "admin" in UI; VPN server; loss = all envs lose connectivity)
@@ -138,9 +139,7 @@ jobs:
     #     --no-deletion-protection --zone=**-***-a \
     #     --project=rhesis-p*******
     environment: ${{ needs.plan.outputs.target_env }}
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
 
     steps:
       - uses: actions/checkout@v4
@@ -194,6 +193,6 @@ jobs:
         run: terraform apply -input=false tfplan
         env:
           TF_VAR_project_id: ${{ steps.ctx.outputs.project_id }}
-          TF_VAR_region: europe-west4
-          TF_VAR_enabled_environments: ${{ needs.plan.outputs.target_env == 'wireguard' && inputs.wireguard_envs || '' }}
-          TF_VAR_wireguard_peers: ${{ needs.plan.outputs.target_env == 'wireguard' && secrets.TF_WG_PEERS || '' }}
+          TF_VAR_region: ${{ secrets.TF_REGION }}
+          TF_VAR_enabled_environments: ${{ needs.plan.outputs.target_env == 'wireguard' && inputs.wireguard_envs || '[]' }}
+          TF_VAR_wireguard_peers: ${{ needs.plan.outputs.target_env == 'wireguard' && secrets.TF_WG_PEERS || '[]' }}
