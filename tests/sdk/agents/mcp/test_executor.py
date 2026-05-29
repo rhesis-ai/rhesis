@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from rhesis.sdk.services.mcp.exceptions import MCPApplicationError, MCPConnectionError
-from rhesis.sdk.services.mcp.executor import ToolExecutor
-from rhesis.sdk.services.mcp.schemas import ToolCall, ToolResult
+from rhesis.sdk.agents.mcp.exceptions import MCPApplicationError, MCPConnectionError
+from rhesis.sdk.agents.mcp.executor import ToolExecutor
+from rhesis.sdk.agents.mcp.schemas import ToolCall, ToolResult
 
 
 @pytest.mark.unit

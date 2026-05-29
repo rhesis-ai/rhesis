@@ -29,7 +29,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES, TOKEN_ENABLED_ROUTES
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
-from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.app.config.settings import get_auth_settings, get_frontend_settings
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
@@ -403,7 +403,7 @@ app.add_middleware(
 )
 
 # Get session secret securely without default fallback in production
-session_secret = os.getenv("SESSION_SECRET_KEY")
+session_secret = get_auth_settings().session_secret_key
 
 from rhesis.backend.app.routers.auth import is_running_locally
 

@@ -340,7 +340,11 @@ class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandl
             # Create a real StorageService with local storage
             with patch.dict(
                 os.environ,
-                {"BACKEND_ENV": "local", "LOCAL_STORAGE_PATH": temp_dir},
+                {
+                    "BACKEND_ENV": "local",
+                    "LOCAL_STORAGE_PATH": temp_dir,
+                    "STORAGE_SERVICE_URI": f"file://{temp_dir}",
+                },
                 clear=True,
             ):
                 from rhesis.backend.app.services.storage_service import StorageService
@@ -390,7 +394,11 @@ class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandl
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.dict(
                 os.environ,
-                {"BACKEND_ENV": "local", "LOCAL_STORAGE_PATH": temp_dir},
+                {
+                    "BACKEND_ENV": "local",
+                    "LOCAL_STORAGE_PATH": temp_dir,
+                    "STORAGE_SERVICE_URI": f"file://{temp_dir}",
+                },
                 clear=True,
             ):
                 from rhesis.backend.app.services.storage_service import StorageService

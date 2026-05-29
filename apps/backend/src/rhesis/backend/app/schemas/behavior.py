@@ -1,8 +1,9 @@
-from typing import Optional
+from typing import List, Optional
 
-from pydantic import UUID4
+from pydantic import UUID4, Field
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.tag import Tag
 
 
 # Behavior schemas
@@ -23,4 +24,4 @@ class BehaviorUpdate(BehaviorBase):
 
 
 class Behavior(BehaviorBase):
-    pass
+    tags: List[Tag] = Field(default_factory=list)

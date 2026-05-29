@@ -47,8 +47,11 @@ elif ENVIRONMENT == "testing":
     # Testing settings
     DEBUG = True
     LOG_LEVEL = "DEBUG"
-    # Use in-memory database
-    SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+    # Use in-memory database (component env vars; settings.py builds the URL)
+    DB_HOST = "localhost"
+    DB_NAME = "test_db"
+    APP_DB_USER = "test_user"
+    APP_DB_PASS = "test_pass"
 else:
     # Development settings
     DEBUG = True
@@ -63,7 +66,10 @@ The application validates critical configuration at startup:
 {`def validate_config():
     """Validate that all required configuration is present."""
     required_vars = [
-        "SQLALCHEMY_DATABASE_URL",
+        "DB_HOST",
+        "DB_NAME",
+        "APP_DB_USER",
+        "APP_DB_PASS",
         "JWT_SECRET_KEY",
     ]
 
@@ -90,7 +96,7 @@ Example Docker Compose configuration:
     env_file:
       - ./apps/backend/.env.docker
     environment:
-      - SQLALCHEMY_DB_HOST=postgres
+      - DB_HOST=postgres
       - LOG_LEVEL=INFO`}
 </CodeBlock>
 

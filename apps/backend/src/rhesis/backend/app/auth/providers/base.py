@@ -75,7 +75,7 @@ class AuthProvider(ABC):
 
             @property
             def is_enabled(self) -> bool:
-                return bool(os.getenv("GOOGLE_CLIENT_ID"))
+                return get_auth_settings().google_enabled
 
             async def authenticate(self, request: Request, **kwargs) -> AuthUser:
                 # ... OAuth flow implementation ...

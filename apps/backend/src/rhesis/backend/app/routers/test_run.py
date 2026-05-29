@@ -644,10 +644,17 @@ async def get_test_run_traces(
             total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
             total_cost_eur = costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0)
 
+        conversation_input = None
+        if isinstance(trace.attributes, dict):
+            raw_input = trace.attributes.get("rhesis.conversation.input")
+            if raw_input is not None:
+                conversation_input = str(raw_input)
+
         summary = TraceSummary(
             trace_id=trace.trace_id,
             project_id=str(trace.project_id),
             environment=trace.environment,
+            conversation_input=conversation_input,
             start_time=trace.start_time,
             duration_ms=trace.duration_ms or 0.0,
             span_count=row.span_count,

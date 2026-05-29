@@ -2,14 +2,14 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import CreateTokenModal from '../CreateTokenModal';
+import CreateTokenDrawer from '../CreateTokenDrawer';
 
 const onClose = jest.fn();
 const onCreateToken = jest.fn();
 
-function renderModal(open = true) {
+function renderDrawer(open = true) {
   return render(
-    <CreateTokenModal
+    <CreateTokenDrawer
       open={open}
       onClose={onClose}
       onCreateToken={onCreateToken}
@@ -17,36 +17,36 @@ function renderModal(open = true) {
   );
 }
 
-describe('CreateTokenModal', () => {
+describe('CreateTokenDrawer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     onCreateToken.mockResolvedValue({ id: 'tok1', token: 'abc123' });
   });
 
-  it('renders the dialog when open=true', () => {
-    renderModal(true);
+  it('renders the drawer when open=true', () => {
+    renderDrawer(true);
     expect(screen.getByText('Create New Token')).toBeInTheDocument();
   });
 
-  it('does not render the dialog when open=false', () => {
-    renderModal(false);
-    expect(screen.queryByText('Create New Token')).not.toBeInTheDocument();
+  it('does not show the drawer panel when open=false', () => {
+    renderDrawer(false);
+    const drawer = document.querySelector('.MuiDrawer-root');
+    expect(drawer).not.toHaveClass('MuiModal-open');
   });
 
   it('renders the token name input', () => {
-    renderModal();
+    renderDrawer();
     expect(screen.getByLabelText(/token name/i)).toBeInTheDocument();
   });
 
   it('renders the expiration select with a default value', () => {
-    renderModal();
-    // Default value is "30 days" - verify the selected option text is visible
+    renderDrawer();
     expect(screen.getByText('30 days')).toBeInTheDocument();
   });
 
   it('calls onClose when Cancel is clicked', async () => {
     const user = userEvent.setup();
-    renderModal();
+    renderDrawer();
 
     await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onClose).toHaveBeenCalled();
@@ -54,7 +54,7 @@ describe('CreateTokenModal', () => {
 
   it('calls onCreateToken with name and 30 days when submitted', async () => {
     const user = userEvent.setup();
-    renderModal();
+    renderDrawer();
 
     await user.type(screen.getByLabelText(/token name/i), 'My Token');
     await user.click(screen.getByRole('button', { name: /create/i }));
@@ -64,9 +64,9 @@ describe('CreateTokenModal', () => {
     });
   });
 
-  it('clears the name input when the modal is opened again', async () => {
+  it('clears the name input when the drawer is opened again', async () => {
     const { rerender } = render(
-      <CreateTokenModal
+      <CreateTokenDrawer
         open={false}
         onClose={onClose}
         onCreateToken={onCreateToken}
@@ -74,7 +74,7 @@ describe('CreateTokenModal', () => {
     );
 
     rerender(
-      <CreateTokenModal
+      <CreateTokenDrawer
         open={true}
         onClose={onClose}
         onCreateToken={onCreateToken}
@@ -87,9 +87,8 @@ describe('CreateTokenModal', () => {
 
   it('calls onCreateToken with null days when "never" is selected', async () => {
     const user = userEvent.setup();
-    renderModal();
+    renderDrawer();
 
-    // The MUI Select displays the current value as visible text; click it to open the dropdown
     await user.click(screen.getByText('30 days'));
     await user.click(screen.getByRole('option', { name: /never expire/i }));
 

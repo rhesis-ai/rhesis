@@ -435,6 +435,7 @@ def get_items_detail(
     sort_order: str = "desc",
     filter: str | None = None,
     nested_relationships: dict = None,
+    selectin_chains: list | None = None,
     organization_id: str = None,
     user_id: str = None,
     secondary_sort_by: str | None = None,
@@ -448,15 +449,20 @@ def get_items_detail(
     Args:
         nested_relationships: Dict specifying nested relationships to load.
                             Format: {"relationship_name": ["nested_rel1", "nested_rel2"]}
+        selectin_chains: List of relationship-name chains to load with nested selectinload.
+                        Use for polymorphic one-to-many collections (e.g. TagsMixin) that
+                        are skipped by with_optimized_loads.
+                        Format: [["_tags_relationship", "tag"], ...]
     """
+    builder = QueryBuilder(db, model).with_optimized_loads(
+        skip_many_to_many=False,
+        skip_one_to_many=True,
+        nested_relationships=nested_relationships,
+    )
+    for chain in selectin_chains or []:
+        builder = builder.with_selectin_chain(*chain)
     return (
-        QueryBuilder(db, model)
-        .with_optimized_loads(
-            skip_many_to_many=False,
-            skip_one_to_many=True,
-            nested_relationships=nested_relationships,
-        )
-        .with_organization_filter(organization_id)
+        builder.with_organization_filter(organization_id)
         .with_visibility_filter()
         .with_odata_filter(filter)
         .with_pagination(skip, limit)

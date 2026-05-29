@@ -70,6 +70,7 @@ def bootstrap(app: "FastAPI") -> None:
     from rhesis.backend.app.auth.refresh_client_hook import (
         register_refresh_client_minter,
     )
+    from rhesis.backend.app.config.settings import get_application_settings
     from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
     from rhesis.backend.ee.api_clients.cache_headers import (
         TokenEndpointCacheHeadersMiddleware,
@@ -90,14 +91,9 @@ def bootstrap(app: "FastAPI") -> None:
     # email for hashed_email). Missing it would silently disable a
     # forensic capability; refuse to bootstrap rather than ship an
     # un-correlatable audit stream.
-    env = os.getenv("ENVIRONMENT", "").lower()
-    backend_env = os.getenv("BACKEND_ENV", "").lower()
-    is_dev = env in ("local", "test", "dev", "development") or backend_env in (
-        "local",
-        "test",
-        "dev",
-        "development",
-    )
+    settings = get_application_settings()
+    dev_environments = ("local", "test", "dev", "development")
+    is_dev = settings.environment in dev_environments or settings.backend_env in dev_environments
     if not is_dev:
         if not os.getenv("AUDIT_HASH_KEY"):
             raise RuntimeError(

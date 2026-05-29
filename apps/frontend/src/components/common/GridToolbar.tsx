@@ -207,7 +207,6 @@ export function GridToolbar({
     gap: 1.5,
     px: 2,
     py: 1,
-    borderBottom: theme => `1px solid ${theme.palette.greyscale.border}`,
     minHeight: 52,
   };
 

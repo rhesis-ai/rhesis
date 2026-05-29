@@ -384,6 +384,7 @@ export default function TestSetTestsGrid({
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={drawerFilters}
+        sessionToken={sessionToken}
         onApply={setDrawerFilters}
       />
     </LinkedTestsToolbarContext.Provider>

@@ -279,13 +279,12 @@ jobs:
             --from-literal=BROKER_URL="${{ secrets.BROKER_URL }}" \
             --from-literal=BROKER_READ_URL="${{ secrets.BROKER_READ_URL }}" \
             --from-literal=CELERY_RESULT_BACKEND="${{ secrets.CELERY_RESULT_BACKEND }}" \
-            --from-literal=SQLALCHEMY_DATABASE_URL="${{ secrets.SQLALCHEMY_DATABASE_URL }}" \
-            --from-literal=SQLALCHEMY_DB_MODE="${{ secrets.SQLALCHEMY_DB_MODE }}" \
-            --from-literal=SQLALCHEMY_DB_DRIVER="${{ secrets.SQLALCHEMY_DB_DRIVER }}" \
-            --from-literal=SQLALCHEMY_DB_USER="${{ secrets.SQLALCHEMY_DB_USER }}" \
-            --from-literal=SQLALCHEMY_DB_PASS="${{ secrets.SQLALCHEMY_DB_PASS }}" \
-            --from-literal=SQLALCHEMY_DB_HOST="${{ secrets.SQLALCHEMY_DB_HOST || '127.0.0.1' }}" \
-            --from-literal=SQLALCHEMY_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}" \
+            --from-literal=DB_DRIVER="${{ secrets.DB_DRIVER || 'postgresql' }}" \
+            --from-literal=DB_HOST="${{ secrets.DB_HOST || '127.0.0.1' }}" \
+            --from-literal=DB_PORT="${{ secrets.DB_PORT || '5432' }}" \
+            --from-literal=DB_NAME="${{ secrets.DB_NAME }}" \
+            --from-literal=APP_DB_USER="${{ secrets.APP_DB_USER }}" \
+            --from-literal=APP_DB_PASS="${{ secrets.APP_DB_PASS }}" \
             --from-literal=DB_ENCRYPTION_KEY="${{ secrets.DB_ENCRYPTION_KEY }}" \
             --from-literal=AUDIT_HASH_KEY="${{ secrets.AUDIT_HASH_KEY }}" \
             --from-literal=JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \

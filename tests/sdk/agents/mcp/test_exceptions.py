@@ -2,7 +2,7 @@
 
 import pytest
 
-from rhesis.sdk.services.mcp.exceptions import (
+from rhesis.sdk.agents.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
     MCPConnectionError,

@@ -11,12 +11,12 @@ rebinding attacks.
 
 import ipaddress
 import logging
-import os
 import socket
 from typing import List, Tuple
 from urllib.parse import urlparse, urlunparse
 
 import httpx
+from rhesis.backend.app.config.settings import get_application_settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ def is_dev_environment() -> bool:
     Used by SSO modules to relax localhost/HTTPS restrictions that are only
     appropriate for production deployments.
     """
-    return os.getenv("ENVIRONMENT", "").lower() in _DEV_ENVIRONMENTS
+    return get_application_settings().environment in _DEV_ENVIRONMENTS
 
 _BLOCKED_NETWORKS = [
     # RFC 1918 private address space -- VPCs, Kubernetes pods, Docker networks,

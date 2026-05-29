@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import {
   FilterDrawerShell,
   FilterSection,
@@ -13,14 +13,16 @@ export type MetricFilter = 'all' | 'has_metrics' | 'no_metrics';
 
 export interface BehaviorFilters {
   metricCount: MetricFilter;
+  tagNames: string[];
 }
 
 export const EMPTY_BEHAVIOR_FILTERS: BehaviorFilters = {
   metricCount: 'all',
+  tagNames: [],
 };
 
 export function hasActiveBehaviorFilters(f: BehaviorFilters): boolean {
-  return f.metricCount !== 'all';
+  return f.metricCount !== 'all' || f.tagNames.length > 0;
 }
 
 const METRIC_OPTIONS: { value: MetricFilter; label: string }[] = [
@@ -33,6 +35,8 @@ interface BehaviorFilterDrawerProps {
   open: boolean;
   onClose: () => void;
   filters: BehaviorFilters;
+  /** Unique tag names available across the loaded behaviors. */
+  availableTagNames?: string[];
   onApply: (filters: BehaviorFilters) => void;
 }
 
@@ -40,6 +44,7 @@ export default function BehaviorFilterDrawer({
   open,
   onClose,
   filters,
+  availableTagNames = [],
   onApply,
 }: BehaviorFilterDrawerProps) {
   const { draft, setDraft, handleReset, handleApply } = useFilterDrawerDraft(
@@ -49,6 +54,15 @@ export default function BehaviorFilterDrawer({
     onApply,
     onClose
   );
+
+  const toggleTag = (name: string) => {
+    setDraft(prev => {
+      const next = prev.tagNames.includes(name)
+        ? prev.tagNames.filter(n => n !== name)
+        : [...prev.tagNames, name];
+      return { ...prev, tagNames: next };
+    });
+  };
 
   return (
     <FilterDrawerShell
@@ -72,6 +86,28 @@ export default function BehaviorFilterDrawer({
             </Box>
           ))}
         </Box>
+      </FilterSection>
+
+      <FilterSection title="Tags">
+        {availableTagNames.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No tags yet. Add tags from the behavior edit drawer to group your
+            behaviors.
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {availableTagNames.map(name => (
+              <Box
+                key={name}
+                component="button"
+                onClick={() => toggleTag(name)}
+                sx={filterChipSx(draft.tagNames.includes(name))}
+              >
+                {name}
+              </Box>
+            ))}
+          </Box>
+        )}
       </FilterSection>
     </FilterDrawerShell>
   );

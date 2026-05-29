@@ -57,10 +57,6 @@ function TeamUnifiedToolbar() {
       searchPlaceholder="Search team members…"
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
-      sx={{
-        borderBottom: theme => `1px solid ${theme.palette.greyscale.border}`,
-        bgcolor: theme => theme.palette.greyscale.surface1,
-      }}
       rightContent={
         <>
           <GridToolbarColumnsButton />

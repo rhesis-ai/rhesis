@@ -28,14 +28,14 @@ from rhesis.backend.app.services.mcp import (
     run_mcp_authentication_test,
     search_mcp,
 )
-from rhesis.sdk.context import EndpointContext
-from rhesis.sdk.services.mcp.exceptions import (
+from rhesis.sdk.agents.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
     MCPConnectionError,
     MCPError,
     MCPValidationError,
 )
+from rhesis.sdk.context import EndpointContext
 
 
 def _make_ctx(org_id="test-org-id", user_id="test-user-id", db=None):
