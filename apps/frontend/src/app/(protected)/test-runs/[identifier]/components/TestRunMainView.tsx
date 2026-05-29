@@ -21,9 +21,20 @@ import {
   DialogActions,
   Button,
   TextField,
+  Grid,
+  Chip,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import { useRouter } from 'next/navigation';
+import ConstructionOutlinedIcon from '@mui/icons-material/ConstructionOutlined';
+import { useRouter, useSearchParams } from 'next/navigation';
+import DetailTabNav from '@/components/common/DetailTabNav';
+import { SectionCard } from '@/components/common/SectionCard';
+import ViewField from '@/components/common/ViewField';
+import { formatDate } from '@/utils/date';
+import {
+  getMetricsSourceLabel,
+  type ExecutionMetric,
+} from '@/utils/api-client/interfaces/test-configuration';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsList from './TestsList';
 import TestDetailPanel from './TestDetailPanel';
@@ -36,6 +47,33 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+
+const TAB_KEYS = ['results', 'configuration', 'logs'] as const;
+type TabKey = (typeof TAB_KEYS)[number];
+
+function tabIndexFromKey(key: string | null): number {
+  const idx = TAB_KEYS.indexOf(key as TabKey);
+  return idx >= 0 ? idx : 0;
+}
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel({ children, value, index }: TabPanelProps) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`test-run-tabpanel-${index}`}
+      aria-labelledby={`test-run-tab-${index}`}
+    >
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    </div>
+  );
+}
 
 interface TestRunMainViewProps {
   testRunId: string;
@@ -81,6 +119,19 @@ export default function TestRunMainView({
   const theme = useTheme();
   const notifications = useNotifications();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const activeTab = tabIndexFromKey(searchParams.get('tab'));
+
+  const handleTabChange = useCallback(
+    (newValue: number) => {
+      const key = TAB_KEYS[newValue];
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tab', key);
+      router.push(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRerunDrawerOpen, setIsRerunDrawerOpen] = useState(false);
@@ -629,6 +680,35 @@ export default function TestRunMainView({
     hasInitialSelection,
   ]);
 
+  const navTabs = [
+    {
+      key: 'results',
+      label: 'Results',
+      id: 'test-run-tab-0',
+      'aria-controls': 'test-run-tabpanel-0',
+    },
+    {
+      key: 'configuration',
+      label: 'Configuration',
+      id: 'test-run-tab-1',
+      'aria-controls': 'test-run-tabpanel-1',
+    },
+    {
+      key: 'logs',
+      label: 'Logs',
+      id: 'test-run-tab-2',
+      'aria-controls': 'test-run-tabpanel-2',
+    },
+  ];
+
+  const config = testRun.test_configuration;
+  const attrs = config?.attributes as Record<string, unknown> | undefined;
+  const execMetrics = (attrs?.metrics as ExecutionMetric[] | undefined) ?? [];
+  const startedAt = attrs?.started_at as string | undefined;
+  const completedAt = attrs?.completed_at as string | undefined;
+  const metricsSource = attrs?.metrics_source as string | undefined;
+  const executionMode = attrs?.execution_mode as string | undefined;
+
   return (
     <Box>
       {/* Title with rename pencil icon */}
@@ -686,223 +766,392 @@ export default function TestRunMainView({
         </DialogActions>
       </Dialog>
 
-      {/* Header with Summary Cards - only show when not in comparison mode */}
-      {!isComparisonMode && (
-        <TestRunHeader
-          testRun={testRun}
-          testResults={testResults}
-          loading={loading}
-          onRefresh={() => router.refresh()}
-        />
-      )}
+      {/* Tab navigation */}
+      <DetailTabNav
+        tabs={navTabs}
+        activeIndex={activeTab}
+        onChange={handleTabChange}
+        aria-label="Test run detail tabs"
+      />
 
-      {!isComparisonMode ? (
-        <>
-          {/* Filter Bar */}
-          <TestRunFilterBar
-            filter={filter}
-            onFilterChange={handleFilterChange}
-            availableBehaviors={behaviors}
-            availableMetrics={availableMetrics.map(name => ({ name }))}
-            onDownload={handleDownload}
-            onCompare={handleCompare}
-            isDownloading={isDownloading}
-            totalTests={testResults.length}
-            filteredTests={filteredTests.length}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onRerun={handleRerun}
-            isRerunning={isRerunDrawerOpen}
-            canRerun={!!testRun.test_configuration_id}
+      {/* Results Tab */}
+      <TabPanel value={activeTab} index={0}>
+        {/* Header with Summary Cards - only show when not in comparison mode */}
+        {!isComparisonMode && (
+          <TestRunHeader
+            testRun={testRun}
+            testResults={testResults}
+            loading={loading}
+            onRefresh={() => router.refresh()}
           />
+        )}
 
-          {/* Conditional Layout based on viewMode */}
-          {viewMode === 'split' ? (
-            <Paper
-              elevation={2}
-              sx={{
-                height: { xs: 900, md: 'calc(100vh - 240px)' },
-                minHeight: 900,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
-            >
-              {/* Content Area with Resizable Split View */}
-              <Box
-                ref={splitContainerRef}
+        {!isComparisonMode ? (
+          <>
+            {/* Filter Bar */}
+            <TestRunFilterBar
+              filter={filter}
+              onFilterChange={handleFilterChange}
+              availableBehaviors={behaviors}
+              availableMetrics={availableMetrics.map(name => ({ name }))}
+              onDownload={handleDownload}
+              onCompare={handleCompare}
+              isDownloading={isDownloading}
+              totalTests={testResults.length}
+              filteredTests={filteredTests.length}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onRerun={handleRerun}
+              isRerunning={isRerunDrawerOpen}
+              canRerun={!!testRun.test_configuration_id}
+            />
+
+            {/* Conditional Layout based on viewMode */}
+            {viewMode === 'split' ? (
+              <Paper
+                elevation={2}
                 sx={{
-                  flex: 1,
+                  height: { xs: 900, md: 'calc(100vh - 240px)' },
+                  minHeight: 900,
                   display: 'flex',
+                  flexDirection: 'column',
                   overflow: 'hidden',
-                  position: 'relative',
                 }}
               >
-                {/* Left: Tests List */}
+                {/* Content Area with Resizable Split View */}
                 <Box
-                  sx={{
-                    width: {
-                      xs: '100%',
-                      md: `${listWidthPercent}%`,
-                    },
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                  }}
-                >
-                  <TestsList
-                    tests={paginatedTests}
-                    selectedTestId={selectedTestId}
-                    onTestSelect={handleTestSelect}
-                    loading={loading}
-                    prompts={prompts}
-                    testSetType={
-                      testRun.test_configuration?.test_set?.test_set_type
-                        ?.type_value
-                    }
-                  />
-                </Box>
-
-                {/* Resize Handle */}
-                <Box
-                  onMouseDown={handleResizeStart}
-                  sx={{
-                    width: 6,
-                    flexShrink: 0,
-                    cursor: 'col-resize',
-                    display: { xs: 'none', md: 'flex' },
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    bgcolor: 'transparent',
-                    transition: 'background-color 0.15s',
-                    '&:hover, &:active': {
-                      bgcolor: 'action.hover',
-                    },
-                    '&::after': {
-                      content: '""',
-                      width: 2,
-                      height: 32,
-                      borderRadius: theme.shape.borderRadius,
-                      bgcolor: 'divider',
-                      transition: 'background-color 0.15s, height 0.15s',
-                    },
-                    '&:hover::after, &:active::after': {
-                      bgcolor: 'primary.main',
-                      height: 48,
-                    },
-                  }}
-                />
-
-                {/* Right: Test Detail Panel */}
-                <Box
+                  ref={splitContainerRef}
                   sx={{
                     flex: 1,
-                    minWidth: 0,
                     display: 'flex',
-                    flexDirection: 'column',
                     overflow: 'hidden',
+                    position: 'relative',
                   }}
                 >
-                  <TestDetailPanel
-                    test={selectedTest}
-                    loading={loading}
-                    prompts={prompts}
-                    behaviors={behaviors}
-                    testRunId={testRunId}
-                    sessionToken={sessionToken}
-                    onTestResultUpdate={handleTestResultUpdate}
-                    currentUserId={currentUserId}
-                    currentUserName={currentUserName}
-                    currentUserPicture={currentUserPicture}
-                    testSetType={
-                      testRun.test_configuration?.test_set?.test_set_type
-                        ?.type_value
-                    }
-                    project={testRun.test_configuration?.endpoint?.project}
-                    projectName={
-                      testRun.test_configuration?.endpoint?.project?.name
-                    }
-                    metricsSource={
-                      testRun.test_configuration?.attributes?.metrics_source
-                    }
+                  {/* Left: Tests List */}
+                  <Box
+                    sx={{
+                      width: {
+                        xs: '100%',
+                        md: `${listWidthPercent}%`,
+                      },
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <TestsList
+                      tests={paginatedTests}
+                      selectedTestId={selectedTestId}
+                      onTestSelect={handleTestSelect}
+                      loading={loading}
+                      prompts={prompts}
+                      testSetType={
+                        testRun.test_configuration?.test_set?.test_set_type
+                          ?.type_value
+                      }
+                    />
+                  </Box>
+
+                  {/* Resize Handle */}
+                  <Box
+                    onMouseDown={handleResizeStart}
+                    sx={{
+                      width: 6,
+                      flexShrink: 0,
+                      cursor: 'col-resize',
+                      display: { xs: 'none', md: 'flex' },
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      bgcolor: 'transparent',
+                      transition: 'background-color 0.15s',
+                      '&:hover, &:active': {
+                        bgcolor: 'action.hover',
+                      },
+                      '&::after': {
+                        content: '""',
+                        width: 2,
+                        height: 32,
+                        borderRadius: theme.shape.borderRadius,
+                        bgcolor: 'divider',
+                        transition: 'background-color 0.15s, height 0.15s',
+                      },
+                      '&:hover::after, &:active::after': {
+                        bgcolor: 'primary.main',
+                        height: 48,
+                      },
+                    }}
                   />
+
+                  {/* Right: Test Detail Panel */}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <TestDetailPanel
+                      test={selectedTest}
+                      loading={loading}
+                      prompts={prompts}
+                      behaviors={behaviors}
+                      testRunId={testRunId}
+                      sessionToken={sessionToken}
+                      onTestResultUpdate={handleTestResultUpdate}
+                      currentUserId={currentUserId}
+                      currentUserName={currentUserName}
+                      currentUserPicture={currentUserPicture}
+                      testSetType={
+                        testRun.test_configuration?.test_set?.test_set_type
+                          ?.type_value
+                      }
+                      project={testRun.test_configuration?.endpoint?.project}
+                      projectName={
+                        testRun.test_configuration?.endpoint?.project?.name
+                      }
+                      metricsSource={
+                        testRun.test_configuration?.attributes?.metrics_source
+                      }
+                    />
+                  </Box>
                 </Box>
-              </Box>
 
-              {/* Shared Pagination at Bottom */}
-              <TablePagination
-                rowsPerPageOptions={[10, 25, 50, 100]}
-                component="div"
-                count={filteredTests.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={handleChangePage}
-                onRowsPerPageChange={handleChangeRowsPerPage}
-                sx={{
-                  borderTop: 1,
-                  borderColor: 'divider',
-                  backgroundColor: theme.palette.background.paper,
-                  flexShrink: 0,
-                }}
+                {/* Shared Pagination at Bottom */}
+                <TablePagination
+                  rowsPerPageOptions={[10, 25, 50, 100]}
+                  component="div"
+                  count={filteredTests.length}
+                  rowsPerPage={rowsPerPage}
+                  page={page}
+                  onPageChange={handleChangePage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
+                  sx={{
+                    borderTop: 1,
+                    borderColor: 'divider',
+                    backgroundColor: theme.palette.background.paper,
+                    flexShrink: 0,
+                  }}
+                />
+              </Paper>
+            ) : (
+              <TestsTableView
+                tests={filteredTests}
+                prompts={prompts}
+                behaviors={behaviors}
+                testRunId={testRunId}
+                sessionToken={sessionToken}
+                loading={loading}
+                onTestResultUpdate={handleTestResultUpdate}
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                currentUserPicture={currentUserPicture}
+                initialSelectedTestId={initialSelectedTestId}
+                testSetType={
+                  testRun.test_configuration?.test_set?.test_set_type
+                    ?.type_value
+                }
+                project={testRun.test_configuration?.endpoint?.project}
+                projectName={
+                  testRun.test_configuration?.endpoint?.project?.name
+                }
+                metricsSource={
+                  testRun.test_configuration?.attributes?.metrics_source
+                }
               />
-            </Paper>
-          ) : (
-            <TestsTableView
-              tests={filteredTests}
-              prompts={prompts}
-              behaviors={behaviors}
-              testRunId={testRunId}
-              sessionToken={sessionToken}
-              loading={loading}
-              onTestResultUpdate={handleTestResultUpdate}
-              currentUserId={currentUserId}
-              currentUserName={currentUserName}
-              currentUserPicture={currentUserPicture}
-              initialSelectedTestId={initialSelectedTestId}
-              testSetType={
-                testRun.test_configuration?.test_set?.test_set_type?.type_value
-              }
-              project={testRun.test_configuration?.endpoint?.project}
-              projectName={testRun.test_configuration?.endpoint?.project?.name}
-              metricsSource={
-                testRun.test_configuration?.attributes?.metrics_source
-              }
-            />
-          )}
+            )}
 
-          {/* Test Run Tags - moved to bottom */}
-          <Paper elevation={2} sx={{ mt: 3, p: 2 }}>
-            <TestRunTags sessionToken={sessionToken} testRun={testRun} />
-          </Paper>
-        </>
-      ) : (
-        <ComparisonView
-          currentTestRun={{
-            ...testRunData,
-            experiment_id: testRun.experiment_id ?? undefined,
-            parameter_version:
-              typeof testRun.attributes?.parameter_version === 'string'
-                ? (testRun.attributes.parameter_version as string)
-                : undefined,
-            experiment_name:
-              typeof testRun.attributes?.parameter_experiment_name === 'string'
-                ? (testRun.attributes.parameter_experiment_name as string)
-                : undefined,
+            {/* Test Run Tags - moved to bottom */}
+            <Paper
+              elevation={0}
+              sx={{
+                mt: 3,
+                p: 2,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 2,
+              }}
+            >
+              <TestRunTags sessionToken={sessionToken} testRun={testRun} />
+            </Paper>
+          </>
+        ) : (
+          <ComparisonView
+            currentTestRun={{
+              ...testRunData,
+              experiment_id: testRun.experiment_id ?? undefined,
+              parameter_version:
+                typeof testRun.attributes?.parameter_version === 'string'
+                  ? (testRun.attributes.parameter_version as string)
+                  : undefined,
+              experiment_name:
+                typeof testRun.attributes?.parameter_experiment_name ===
+                'string'
+                  ? (testRun.attributes.parameter_experiment_name as string)
+                  : undefined,
+            }}
+            currentTestResults={testResults}
+            availableTestRuns={availableTestRuns}
+            onClose={() => setIsComparisonMode(false)}
+            onLoadBaseline={handleLoadBaseline}
+            prompts={prompts}
+            behaviors={behaviors}
+            testSetType={
+              testRun.test_configuration?.test_set?.test_set_type?.type_value
+            }
+            project={testRun.test_configuration?.endpoint?.project}
+            projectName={testRun.test_configuration?.endpoint?.project?.name}
+          />
+        )}
+      </TabPanel>
+
+      {/* Configuration Tab */}
+      <TabPanel value={activeTab} index={1}>
+        <SectionCard title="Run Details">
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <ViewField label="Status" value={testRun.status?.name ?? '—'} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <ViewField
+                label="Created"
+                value={formatDate(testRun.created_at)}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <ViewField
+                label="Started"
+                value={startedAt ? formatDate(startedAt) : '—'}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <ViewField
+                label="Completed"
+                value={completedAt ? formatDate(completedAt) : '—'}
+              />
+            </Grid>
+          </Grid>
+        </SectionCard>
+
+        {config?.test_set && (
+          <SectionCard title="Test Set">
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6}>
+                <ViewField label="Name" value={config.test_set.name} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <ViewField
+                  label="Type"
+                  value={config.test_set.test_set_type?.type_value ?? '—'}
+                />
+              </Grid>
+              {config.test_set.description && (
+                <Grid item xs={12}>
+                  <ViewField
+                    label="Description"
+                    value={config.test_set.description}
+                    multiline
+                  />
+                </Grid>
+              )}
+            </Grid>
+          </SectionCard>
+        )}
+
+        {config?.endpoint && (
+          <SectionCard title="Endpoint">
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6}>
+                <ViewField label="Name" value={config.endpoint.name} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <ViewField
+                  label="URL"
+                  value={config.endpoint.endpoint ?? '—'}
+                />
+              </Grid>
+              {config.endpoint.description && (
+                <Grid item xs={12}>
+                  <ViewField
+                    label="Description"
+                    value={config.endpoint.description}
+                    multiline
+                  />
+                </Grid>
+              )}
+            </Grid>
+          </SectionCard>
+        )}
+
+        <SectionCard title="Execution Settings">
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6}>
+              <ViewField label="Execution Mode" value={executionMode ?? '—'} />
+            </Grid>
+            {metricsSource && (
+              <Grid item xs={12} sm={6}>
+                <ViewField
+                  label="Metrics Source"
+                  value={getMetricsSourceLabel(metricsSource)}
+                />
+              </Grid>
+            )}
+            {execMetrics.length > 0 && (
+              <Grid item xs={12}>
+                <Typography
+                  sx={{
+                    fontSize: 14,
+                    color: theme => theme.palette.greyscale.subtitle,
+                    px: '14px',
+                    mb: '6px',
+                  }}
+                >
+                  Metrics
+                </Typography>
+                <Box
+                  sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, px: '14px' }}
+                >
+                  {execMetrics.map(m => (
+                    <Chip
+                      key={m.id}
+                      label={m.name}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              </Grid>
+            )}
+          </Grid>
+        </SectionCard>
+      </TabPanel>
+
+      {/* Logs Tab */}
+      <TabPanel value={activeTab} index={2}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            py: 10,
+            gap: 2,
+            color: 'text.secondary',
           }}
-          currentTestResults={testResults}
-          availableTestRuns={availableTestRuns}
-          onClose={() => setIsComparisonMode(false)}
-          onLoadBaseline={handleLoadBaseline}
-          prompts={prompts}
-          behaviors={behaviors}
-          testSetType={
-            testRun.test_configuration?.test_set?.test_set_type?.type_value
-          }
-          project={testRun.test_configuration?.endpoint?.project}
-          projectName={testRun.test_configuration?.endpoint?.project?.name}
-        />
-      )}
+        >
+          <ConstructionOutlinedIcon sx={{ fontSize: 48, opacity: 0.4 }} />
+          <Typography variant="h6" color="text.secondary">
+            Logs coming soon
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Execution logs will be available here once the backend endpoint is
+            ready.
+          </Typography>
+        </Box>
+      </TabPanel>
 
       {/* Re-run Test Run Drawer */}
       <RunDrawer

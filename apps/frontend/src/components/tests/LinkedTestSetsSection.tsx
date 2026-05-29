@@ -154,7 +154,10 @@ export default function LinkedTestSetsSection({
   return (
     <>
       {isEmpty ? (
-        <Paper elevation={1} sx={{ p: 3 }}>
+        <Paper
+          elevation={0}
+          sx={{ p: 3, border: 1, borderColor: 'divider', borderRadius: 2 }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -185,7 +188,10 @@ export default function LinkedTestSetsSection({
           </Box>
         </Paper>
       ) : (
-        <Paper elevation={1} sx={{ p: 3 }}>
+        <Paper
+          elevation={0}
+          sx={{ p: 3, border: 1, borderColor: 'divider', borderRadius: 2 }}
+        >
           <Box
             sx={{
               display: 'flex',
@@ -198,7 +204,7 @@ export default function LinkedTestSetsSection({
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}
             >
-              Linked entities ({totalCount})
+              Linked Test Sets ({totalCount})
             </Typography>
             <Button
               variant="outlined"

@@ -146,7 +146,11 @@ export default function ArchitectMessageBubble({
           borderRadius: theme =>
             `${(theme.shape.borderRadius as number) * 2}px`,
           border: isUser ? 'none' : 1,
-          borderColor: message.isError ? 'error.light' : 'divider',
+          borderColor: message.isError
+            ? 'error.light'
+            : showActions && !isUser
+              ? 'info.light'
+              : 'divider',
           position: 'relative',
           '&:hover .copy-btn': { opacity: 1 },
         }}
@@ -158,7 +162,7 @@ export default function ArchitectMessageBubble({
               <Box
                 sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
               >
-                <ThinkingDots size={5} color="text.secondary" />
+                <ThinkingDots size={8} color="text.secondary" />
                 <Typography variant="body2" color="text.secondary">
                   {showWaitingSpinner ? 'Executing' : 'Thinking'}
                   {streamingState.currentIteration
@@ -175,8 +179,16 @@ export default function ArchitectMessageBubble({
           </Box>
         )}
 
-        {/* Message content */}
-        <MarkdownContent content={message.content} variant="body2" />
+        {/* Message content — override link color for user bubbles so URLs are readable */}
+        <Box
+          sx={
+            isUser
+              ? { '& a': { color: 'primary.contrastText', opacity: 0.9 } }
+              : {}
+          }
+        >
+          <MarkdownContent content={message.content} variant="body2" />
+        </Box>
 
         {/* File attachment chips (user messages) */}
         {isUser && message.files && message.files.length > 0 && (

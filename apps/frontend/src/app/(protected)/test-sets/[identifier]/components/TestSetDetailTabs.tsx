@@ -76,7 +76,7 @@ export default function TestSetDetailTabs({
       key === 'basic'
         ? 'Basic Information'
         : key === 'linked'
-          ? 'Linked entities'
+          ? 'Linked Tests'
           : 'Tasks',
     id: `test-set-detail-tab-${index}`,
     'aria-controls': `test-set-detail-tabpanel-${index}`,
@@ -109,7 +109,7 @@ export default function TestSetDetailTabs({
         />
       </TabPanel>
 
-      {/* Linked entities */}
+      {/* Linked Tests */}
       <TabPanel value={activeTab} index={1}>
         <TestSetLinkedTestsSection
           testSetId={testSet.id as string}

@@ -11,6 +11,7 @@ import React, {
 import DeleteIcon from '@mui/icons-material/Delete';
 import StopCircleOutlinedIcon from '@mui/icons-material/StopCircleOutlined';
 import ListIcon from '@mui/icons-material/List';
+import { formatDate } from '@/utils/date';
 import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
 import GridBadge from '@/components/common/GridBadge';
 import TagLabel from '@/components/common/Tag';
@@ -54,6 +55,7 @@ import TestRunFilterDrawer, {
 } from './TestRunFilterDrawer';
 
 type RunKindFilter = 'all' | 'tests' | 'experiments';
+type TurnTypeFilter = 'all' | 'single-turn' | 'multi-turn';
 
 // ── Status pill tabs ─────────────────────────────────────────────────────────
 
@@ -156,6 +158,7 @@ function TestRunsGrid({
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [runKindFilter, setRunKindFilter] = useState<RunKindFilter>('all');
+  const [turnTypeFilter, setTurnTypeFilter] = useState<TurnTypeFilter>('all');
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 50,
@@ -186,12 +189,20 @@ function TestRunsGrid({
 
         const filterString = combineTestRunFiltersToOData(filterModel);
 
+        const turnTypeFilterStr =
+          turnTypeFilter !== 'all'
+            ? `test_configuration/test_set/test_set_type/type_value eq '${turnTypeFilter}'`
+            : '';
+        const combinedFilter = [filterString, turnTypeFilterStr]
+          .filter(Boolean)
+          .join(' and ');
+
         const apiParams: Parameters<typeof testRunsClient.getTestRuns>[0] = {
           skip,
           limit,
           sort_by: 'created_at',
           sort_order: 'desc' as const,
-          ...(filterString && { filter: filterString }),
+          ...(combinedFilter && { filter: combinedFilter }),
           ...(runKindFilter === 'experiments' && { has_experiment: true }),
           ...(runKindFilter === 'tests' && { has_experiment: false }),
         };
@@ -215,7 +226,13 @@ function TestRunsGrid({
         }
       }
     },
-    [sessionToken, filterModel, runKindFilter, onTotalCountChange]
+    [
+      sessionToken,
+      filterModel,
+      runKindFilter,
+      turnTypeFilter,
+      onTotalCountChange,
+    ]
   );
 
   useEffect(() => {
@@ -388,6 +405,25 @@ function TestRunsGrid({
 
           return <GridBadge label={status} />;
         },
+      },
+      {
+        field: 'completed_at',
+        headerName: 'Completed',
+        width: 160,
+        minWidth: 120,
+        resizable: true,
+        valueGetter: (_, row) =>
+          (row.attributes?.completed_at as string | undefined) ?? null,
+        renderCell: params =>
+          params.value ? (
+            <Typography variant="body2" noWrap>
+              {formatDate(params.value)}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.disabled">
+              —
+            </Typography>
+          ),
       },
       {
         field: 'experiment',
@@ -709,6 +745,11 @@ function TestRunsGrid({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
+  const handleTurnTypeFilterChange = useCallback((value: TurnTypeFilter) => {
+    setTurnTypeFilter(value);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
   const actionButtons = useMemo(() => {
     const buttons = [];
     const validSelectedRows = Array.isArray(selectedRows) ? selectedRows : [];
@@ -743,31 +784,61 @@ function TestRunsGrid({
 
   const runKindToolbar = useMemo(
     () => (
-      <ButtonGroup size="small" variant="outlined">
-        <Button
-          onClick={() => handleRunKindFilterChange('all')}
-          variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
-          startIcon={<ListIcon fontSize="small" />}
-        >
-          All
-        </Button>
-        <Button
-          onClick={() => handleRunKindFilterChange('tests')}
-          variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
-          startIcon={<ScienceIcon fontSize="small" />}
-        >
-          Tests
-        </Button>
-        <Button
-          onClick={() => handleRunKindFilterChange('experiments')}
-          variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
-          startIcon={<BiotechIcon fontSize="small" />}
-        >
-          Experiments
-        </Button>
-      </ButtonGroup>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <ButtonGroup size="small" variant="outlined">
+          <Button
+            onClick={() => handleRunKindFilterChange('all')}
+            variant={runKindFilter === 'all' ? 'contained' : 'outlined'}
+            startIcon={<ListIcon fontSize="small" />}
+          >
+            All
+          </Button>
+          <Button
+            onClick={() => handleRunKindFilterChange('tests')}
+            variant={runKindFilter === 'tests' ? 'contained' : 'outlined'}
+            startIcon={<ScienceIcon fontSize="small" />}
+          >
+            Tests
+          </Button>
+          <Button
+            onClick={() => handleRunKindFilterChange('experiments')}
+            variant={runKindFilter === 'experiments' ? 'contained' : 'outlined'}
+            startIcon={<BiotechIcon fontSize="small" />}
+          >
+            Experiments
+          </Button>
+        </ButtonGroup>
+
+        <ButtonGroup size="small" variant="outlined">
+          <Button
+            onClick={() => handleTurnTypeFilterChange('all')}
+            variant={turnTypeFilter === 'all' ? 'contained' : 'outlined'}
+          >
+            All turns
+          </Button>
+          <Button
+            onClick={() => handleTurnTypeFilterChange('single-turn')}
+            variant={
+              turnTypeFilter === 'single-turn' ? 'contained' : 'outlined'
+            }
+          >
+            Single-turn
+          </Button>
+          <Button
+            onClick={() => handleTurnTypeFilterChange('multi-turn')}
+            variant={turnTypeFilter === 'multi-turn' ? 'contained' : 'outlined'}
+          >
+            Multi-turn
+          </Button>
+        </ButtonGroup>
+      </Box>
     ),
-    [runKindFilter, handleRunKindFilterChange]
+    [
+      runKindFilter,
+      handleRunKindFilterChange,
+      turnTypeFilter,
+      handleTurnTypeFilterChange,
+    ]
   );
 
   return (

@@ -202,7 +202,6 @@ async function getNavigationItems(
       segment: 'mcp',
       title: 'MCP',
       icon: <ModelContextProtocolIcon key="mcp-icon" />,
-      requireSuperuser: true,
     },
     {
       kind: 'page',

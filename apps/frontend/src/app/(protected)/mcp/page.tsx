@@ -39,6 +39,8 @@ export default function MCPSPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionDrawerOpen, setConnectionDrawerOpen] = useState(false);
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+  const [toolToEdit, setToolToEdit] = useState<Tool | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toolToDelete, setToolToDelete] = useState<Tool | null>(null);
 
@@ -126,6 +128,11 @@ export default function MCPSPage() {
     notifications.show('MCP connection updated successfully', {
       severity: 'success',
     });
+  };
+
+  const handleEditClick = (tool: Tool) => {
+    setToolToEdit(tool);
+    setEditDrawerOpen(true);
   };
 
   const handleDeleteClick = (tool: Tool) => {
@@ -246,6 +253,7 @@ export default function MCPSPage() {
               key={tool.id}
               tool={tool}
               onDelete={handleDeleteClick}
+              onEdit={handleEditClick}
             />
           ))}
         </Box>
@@ -269,6 +277,20 @@ export default function MCPSPage() {
         tool={null}
         mode="create"
         onClose={() => setConnectionDrawerOpen(false)}
+        onConnect={handleConnect}
+        onUpdate={handleUpdate}
+      />
+
+      <MCPConnectionDrawer
+        open={editDrawerOpen}
+        providers={providerTypes}
+        mcpToolType={mcpToolType}
+        tool={toolToEdit}
+        mode="edit"
+        onClose={() => {
+          setEditDrawerOpen(false);
+          setToolToEdit(null);
+        }}
         onConnect={handleConnect}
         onUpdate={handleUpdate}
       />
