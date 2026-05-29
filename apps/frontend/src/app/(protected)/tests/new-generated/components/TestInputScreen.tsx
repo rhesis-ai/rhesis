@@ -12,6 +12,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -21,8 +23,11 @@ import ProjectSelector from './shared/ProjectSelector';
 import ActionBar from '@/components/common/ActionBar';
 import { SourceData } from '@/utils/api-client/interfaces/test-set';
 import { Model } from '@/utils/api-client/interfaces/model';
+import { TestType } from './shared/types';
 
 interface TestInputScreenProps {
+  testType?: TestType;
+  onTestTypeChange?: (type: TestType) => void;
   onContinue: (
     description: string,
     sources: SourceData[],
@@ -126,6 +131,8 @@ const SCAFFOLD_CATEGORIES = [
  * Collects user description and optional sources for test generation
  */
 export default function TestInputScreen({
+  testType = 'single_turn',
+  onTestTypeChange,
   onContinue,
   initialDescription = '',
   selectedSourceIds,
@@ -211,6 +218,31 @@ export default function TestInputScreen({
   return (
     <Box sx={{ flexGrow: 1 }}>
       <Paper sx={{ p: 3, mb: 4 }}>
+        {/* Test Type Selection */}
+        {onTestTypeChange && (
+          <Box sx={{ mb: 3 }}>
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              gutterBottom
+              sx={{ mb: 1 }}
+            >
+              Test type
+            </Typography>
+            <ToggleButtonGroup
+              value={testType}
+              exclusive
+              onChange={(_, val) => {
+                if (val) onTestTypeChange(val as TestType);
+              }}
+              size="small"
+            >
+              <ToggleButton value="single_turn">Single-Turn</ToggleButton>
+              <ToggleButton value="multi_turn">Multi-Turn</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        )}
+
         {/* Project Selection */}
         <Box sx={{ mb: 3 }}>
           <Typography
