@@ -95,7 +95,6 @@ export default function MCPToolSelectorPanel({
 
   const handleSelectTool = (tool: Tool) => {
     onSelectTool(tool);
-    handleClose();
   };
 
   const handleClose = () => {

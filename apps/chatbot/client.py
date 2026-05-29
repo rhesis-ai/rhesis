@@ -4,8 +4,11 @@ import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Import endpoint module first to initialize RhesisClient
 # This ensures only ONE tracer provider exists (critical for proper trace nesting)
@@ -14,6 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from notifications import send_rate_limit_alert
 from pydantic import BaseModel, field_validator
+from session_store import create_session_store
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -62,8 +66,36 @@ def _int_or_default(value: Any, default: int) -> int:
         return default
 
 
+def _env_defaults() -> dict:
+    """Return parameter defaults sourced entirely from environment variables."""
+    return {
+        "system_prompt": None,
+        "use_case": os.getenv("DEFAULT_USE_CASE", "insurance"),
+        "model": os.getenv("DEFAULT_GENERATION_MODEL"),
+        "temperature": float(os.getenv("DEFAULT_TEMPERATURE", "0.7")),
+        "max_tokens": int(os.getenv("DEFAULT_MAX_TOKENS", "1024")),
+        "output_mode": os.getenv("DEFAULT_OUTPUT_MODE", "text"),
+        "context_strategy": os.getenv("DEFAULT_CONTEXT_STRATEGY", "heuristic"),
+    }
+
+
 def _resolve_chatbot_params() -> dict:
-    """Resolve chatbot params; fall back to env defaults when SDK is unreachable."""
+    """Resolve chatbot params from the Rhesis SDK, falling back to env defaults.
+
+    Skips the SDK entirely when RHESIS_API_KEY is not configured so the
+    chatbot can operate as a standalone service with no Rhesis dependency.
+    """
+    from rhesis.sdk.config import get_api_key
+
+    try:
+        api_key = get_api_key()
+    except Exception:
+        api_key = None
+
+    if not api_key:
+        logger.debug("RHESIS_API_KEY not set; using env defaults for chatbot parameters")
+        return _env_defaults()
+
     try:
         params = Parameters.get(
             project=CHATBOT_PROJECT, environment=PARAMETERS_ENVIRONMENT
@@ -78,16 +110,8 @@ def _resolve_chatbot_params() -> dict:
             "context_strategy": params.get_enum("context_strategy", "heuristic"),
         }
     except Exception:
-        logger.exception("Falling back to env defaults: SDK Parameters.get() failed")
-        return {
-            "system_prompt": None,
-            "use_case": "insurance",
-            "model": os.getenv("DEFAULT_GENERATION_MODEL"), 
-            "temperature": 0.7, 
-            "max_tokens": 1024,
-            "output_mode": "text",
-            "context_strategy": "heuristic",
-        }
+        logger.warning("SDK Parameters.get() failed; using env defaults", exc_info=True)
+        return _env_defaults()
 
 # Configure logging
 logging.basicConfig(
@@ -113,9 +137,8 @@ CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY")
 
 # Session management configuration
 SESSION_TIMEOUT_HOURS = int(os.getenv("SESSION_TIMEOUT_HOURS", "24"))  # Default 24 hours
-SESSION_CLEANUP_INTERVAL_MINUTES = int(
-    os.getenv("SESSION_CLEANUP_INTERVAL_MINUTES", "60")
-)  # Default 60 minutes
+SESSION_TTL_SECONDS = SESSION_TIMEOUT_HOURS * 60 * 60
+session_store = create_session_store(ttl_seconds=SESSION_TTL_SECONDS)
 
 # HTTP Bearer token security
 security = HTTPBearer(auto_error=False)  # auto_error=False allows optional auth
@@ -147,76 +170,14 @@ def get_rate_limit_identifier(request: Request) -> str:
 limiter = Limiter(key_func=get_rate_limit_identifier)
 
 
-# Session storage with metadata
-class SessionData:
-    """Session data with metadata for garbage collection."""
-
-    def __init__(self, messages: List[dict] = None):
-        self.messages = messages or []
-        self.last_accessed = datetime.utcnow()
-        self.created_at = datetime.utcnow()
-
-    def update_access_time(self):
-        """Update the last accessed timestamp."""
-        self.last_accessed = datetime.utcnow()
-
-    def is_stale(self, timeout_hours: int) -> bool:
-        """Check if session is stale based on last access time."""
-        age = datetime.utcnow() - self.last_accessed
-        return age > timedelta(hours=timeout_hours)
-
-
-# Store chat sessions with metadata
-sessions: Dict[str, SessionData] = {}
-
-
-async def cleanup_stale_sessions():
-    """Background task to periodically clean up stale sessions."""
-    while True:
-        try:
-            await asyncio.sleep(SESSION_CLEANUP_INTERVAL_MINUTES * 60)
-
-            # Find stale sessions
-            stale_session_ids = [
-                session_id
-                for session_id, session_data in sessions.items()
-                if session_data.is_stale(SESSION_TIMEOUT_HOURS)
-            ]
-
-            # Remove stale sessions (pop avoids KeyError if already removed)
-            for session_id in stale_session_ids:
-                sessions.pop(session_id, None)
-
-            if stale_session_ids:
-                logger.info(
-                    f"🧹 Cleaned up {len(stale_session_ids)} stale sessions. "
-                    f"Active sessions: {len(sessions)}"
-                )
-            else:
-                logger.debug(f"🧹 Session cleanup: {len(sessions)} active sessions, 0 stale")
-
-        except Exception as e:
-            logger.error(f"❌ Error in session cleanup task: {e}")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager to run background tasks."""
-    # Start cleanup task
-    cleanup_task = asyncio.create_task(cleanup_stale_sessions())
-    logger.info(
-        f"🚀 Started session cleanup task (interval: {SESSION_CLEANUP_INTERVAL_MINUTES}min, "
-        f"timeout: {SESSION_TIMEOUT_HOURS}h)"
-    )
+    """Lifespan context manager for app startup and shutdown."""
+    logger.info("🚀 Chatbot session TTL configured for %sh", SESSION_TIMEOUT_HOURS)
 
     yield
 
-    # Cleanup on shutdown
-    cleanup_task.cancel()
-    try:
-        await cleanup_task
-    except asyncio.CancelledError:
-        logger.info("🛑 Session cleanup task cancelled")
+    await session_store.close()
 
 
 def verify_api_key(
@@ -558,17 +519,17 @@ async def chat(
 
     # Resolve session – reuse existing or create new
     session_id = session_id or str(uuid.uuid4())
-    if session_id not in sessions:
-        sessions[session_id] = SessionData()
-        logger.info(f"Created new session: {session_id}")
-    sessions[session_id].update_access_time()
 
     # Use explicit history if provided, otherwise fetch from session.
     # The isinstance guard is necessary because Jinja2 renders
     # ``{{ conversation_history | default(none) }}`` as the *string*
     # ``"None"`` rather than Python ``None``.
     if not isinstance(conversation_history, list):
-        conversation_history = sessions[session_id].messages.copy()
+        try:
+            conversation_history = await session_store.get(session_id)
+        except Exception:
+            logger.warning("Session store unavailable; starting fresh conversation", exc_info=True)
+            conversation_history = []
 
     # Derive file_contents from enriched files when present (connector path).
     # Each file dict from the backend carries an ``extracted_text`` field set
@@ -644,8 +605,16 @@ async def chat(
 
     # Echo use case: return input directly without any LLM call
     if use_case == "echo":
-        sessions[session_id].messages.append({"role": "user", "content": message})
-        sessions[session_id].messages.append({"role": "assistant", "content": message})
+        try:
+            await session_store.append(
+                session_id,
+                [
+                    {"role": "user", "content": message},
+                    {"role": "assistant", "content": message},
+                ],
+            )
+        except Exception:
+            logger.warning("Failed to persist echo exchange to session store", exc_info=True)
         return ChatResponse(
             message=message,
             session_id=session_id,
@@ -666,43 +635,39 @@ async def chat(
     )
     tool_calls = []
 
-    # Generate context using the instance
-    context_fragments = await response_generator.generate_context(message)
-    tool_calls.append(
-        {
-            "name": "generate_context",
-            "arguments": {"message": message},
-            "result": context_fragments,
-        }
-    )
+    async def _collect_response():
+        chunks = []
+        async for chunk in response_generator.stream_assistant_response(
+            message,
+            conversation_history=conversation_history,
+            file_contents=file_contents,
+            mode=output_mode,
+        ):
+            chunks.append(chunk)
+        return chunks
 
-    # Recognize intent from the current message
-    intent_result = await response_generator.recognize_intent(message)
-    tool_calls.append(
-        {
-            "name": "recognize_intent",
-            "arguments": {"message": message},
-            "result": intent_result,
-        }
+    context_fragments, intent_result, chunks = await asyncio.gather(
+        response_generator.generate_context(message),
+        response_generator.recognize_intent(message),
+        _collect_response(),
     )
-
-    # Get assistant response using the same instance
-    chunks = []
-    async for chunk in response_generator.stream_assistant_response(
-        message,
-        conversation_history=conversation_history,
-        file_contents=file_contents,
-        mode=output_mode,
-    ):
-        chunks.append(chunk)
 
     if output_mode == "json":
-        # In JSON mode, the generator yields dicts
         response_message = chunks[0] if chunks else {}
     else:
         response_message = "".join(chunks)
 
-    tool_calls.append(
+    tool_calls.extend([
+        {
+            "name": "generate_context",
+            "arguments": {"message": message},
+            "result": context_fragments,
+        },
+        {
+            "name": "recognize_intent",
+            "arguments": {"message": message},
+            "result": intent_result,
+        },
         {
             "name": "generate_response",
             "arguments": {
@@ -712,12 +677,20 @@ async def chat(
                 "history_length": len(conversation_history),
             },
             "result": {"length": len(str(response_message))},
-        }
-    )
+        },
+    ])
 
     # Persist the exchange in the session store
-    sessions[session_id].messages.append({"role": "user", "content": message})
-    sessions[session_id].messages.append({"role": "assistant", "content": response_message})
+    try:
+        await session_store.append(
+            session_id,
+            [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": response_message},
+            ],
+        )
+    except Exception:
+        logger.warning("Failed to persist exchange to session store", exc_info=True)
 
     # Return Pydantic model
     return ChatResponse(
@@ -774,8 +747,11 @@ async def chat_endpoint(
             f"Message: {chat_request.message[:50]}..."
         )
         
-        # Resolve parameters from Rhesis (or fallback to env/defaults)
-        params = _resolve_chatbot_params()
+        # Resolve parameters from Rhesis (or fallback to env/defaults).
+        # Run in a thread executor because Parameters.get() uses synchronous
+        # requests and would otherwise block the async event loop.
+        loop = asyncio.get_event_loop()
+        params = await loop.run_in_executor(None, _resolve_chatbot_params)
         request_param_overrides = {
             "system_prompt": chat_request.system_prompt,
             "model": chat_request.model,
@@ -838,16 +814,12 @@ async def chat_endpoint(
 async def get_session(
     request: Request, session_id: str, auth: dict = Depends(check_rate_limit_chatbot)
 ):
-    if session_id not in sessions:
+    if not await session_store.exists(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Update access time when retrieving session
-    sessions[session_id].update_access_time()
-
     return {
-        "messages": sessions[session_id].messages,
-        "created_at": sessions[session_id].created_at.isoformat(),
-        "last_accessed": sessions[session_id].last_accessed.isoformat(),
+        "messages": await session_store.get(session_id),
+        "ttl_hours": SESSION_TIMEOUT_HOURS,
     }
 
 
@@ -855,9 +827,8 @@ async def get_session(
 async def delete_session(
     request: Request, session_id: str, auth: dict = Depends(check_rate_limit_chatbot)
 ):
-    if session_id not in sessions:
+    if not await session_store.delete(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
-    del sessions[session_id]
     logger.info(f"🗑️ Manually deleted session: {session_id}")
     return {"message": "Session deleted"}
 

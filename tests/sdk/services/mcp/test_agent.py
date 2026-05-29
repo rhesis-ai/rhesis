@@ -36,7 +36,7 @@ class TestMCPAgent:
     def mock_model(self):
         """Create a mock LLM model"""
         model = Mock(spec=BaseLLM)
-        model.generate = Mock(return_value={})
+        model.a_generate = AsyncMock(return_value={})
         return model
 
     @pytest.fixture
@@ -108,7 +108,7 @@ class TestMCPAgent:
             action="finish",
             final_answer="The answer is 42",
         )
-        mock_model.generate.return_value = action.model_dump()
+        mock_model.a_generate.return_value = action.model_dump()
 
         result = await agent.run_async("What is the answer?")
 
@@ -149,7 +149,7 @@ class TestMCPAgent:
             "final_answer": "Results found",
         }
 
-        mock_model.generate.side_effect = [action1_dict, action2_dict]
+        mock_model.a_generate.side_effect = [action1_dict, action2_dict]
 
         result = await agent.run_async("Search for test")
 
@@ -177,13 +177,13 @@ class TestMCPAgent:
             "tool_calls": [{"tool_name": "test", "arguments": "{}"}],
             "final_answer": None,
         }
-        mock_model.generate.return_value = action_dict
+        mock_model.a_generate.return_value = action_dict
 
         with pytest.raises(MCPValidationError) as exc_info:
             await agent.run_async("Test query")
 
         assert "iterations" in str(exc_info.value).lower()
-        assert mock_model.generate.call_count == 2
+        assert mock_model.a_generate.call_count == 2
 
     @pytest.mark.asyncio
     async def test_run_async_connection_error(self, agent, mock_mcp_client, mock_model):
@@ -207,7 +207,7 @@ class TestMCPAgent:
             "tool_calls": [{"tool_name": "test", "arguments": "{}"}],
             "final_answer": None,
         }
-        mock_model.generate.return_value = action_dict
+        mock_model.a_generate.return_value = action_dict
 
         mock_executor.execute_tool.side_effect = MCPApplicationError(
             status_code=500, detail="Server error"
@@ -225,7 +225,7 @@ class TestMCPAgent:
         agent.executor = mock_executor
 
         # LLM returns invalid response
-        mock_model.generate.side_effect = ValueError("Parse error")
+        mock_model.a_generate.side_effect = ValueError("Parse error")
 
         result = await agent.run_async("Test query")
 
@@ -255,7 +255,7 @@ class TestMCPAgent:
             "final_answer": "Answer without tool",
         }
 
-        mock_model.generate.side_effect = [action1_dict, action2_dict]
+        mock_model.a_generate.side_effect = [action1_dict, action2_dict]
 
         # Tool returns failure (not exception)
         mock_executor.execute_tool = AsyncMock(

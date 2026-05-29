@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.models.user import User
-from rhesis.sdk.services.mcp import MCPAgent
+from rhesis.sdk.agents.mcp import MCPAgent
 
+from .agents import get_agent_event_handlers
 from .config import _get_mcp_client_from_params, _get_mcp_tool_config
 from .templates import jinja_env
 
@@ -73,12 +74,17 @@ async def run_mcp_authentication_test(
 
     # Load the authentication test prompt with provider context
     auth_prompt = jinja_env.get_template("mcp_test_auth_prompt.jinja2").render(provider=provider)
+    model = get_model_settings().generation_model
     agent = MCPAgent(
-        model=get_model_settings().generation_model,
+        model=model,
         mcp_client=client,
         system_prompt=auth_prompt,
         max_iterations=5,  # Keep it short for authentication test
         verbose=False,
+        event_handlers=get_agent_event_handlers(
+            model_name=getattr(model, "model_name", None) or str(model),
+            agent_name="mcp-auth-test",
+        ),
     )
 
     # Run agent with query to test authentication
@@ -152,12 +158,17 @@ async def create_jira_ticket_from_task(
     )
 
     # 5. Use agent to create issue
+    model = get_model_settings().generation_model
     agent = MCPAgent(
-        model=get_model_settings().generation_model,
+        model=model,
         mcp_client=client,
         system_prompt=create_issue_prompt,
         max_iterations=5,
         verbose=False,
+        event_handlers=get_agent_event_handlers(
+            model_name=getattr(model, "model_name", None) or str(model),
+            agent_name="mcp-jira-issue",
+        ),
     )
 
     query = "Create the Jira issue as specified"

@@ -1,9 +1,16 @@
 """Tests for SSOConfig Pydantic validation."""
 
-import os
-
 import pytest
 from pydantic import SecretStr
+
+from rhesis.backend.app.config.settings import get_application_settings
+
+
+@pytest.fixture(autouse=True)
+def clear_application_settings_cache():
+    get_application_settings.cache_clear()
+    yield
+    get_application_settings.cache_clear()
 
 
 class TestSSOConfigValidation:
@@ -23,6 +30,7 @@ class TestSSOConfigValidation:
         from rhesis.backend.ee.sso.schemas import SSOConfig
 
         monkeypatch.setenv("ENVIRONMENT", "production")
+        get_application_settings.cache_clear()
 
         with pytest.raises(ValueError, match="HTTPS"):
             SSOConfig(
@@ -35,6 +43,7 @@ class TestSSOConfigValidation:
         from rhesis.backend.ee.sso.schemas import SSOConfig
 
         monkeypatch.setenv("ENVIRONMENT", "local")
+        get_application_settings.cache_clear()
 
         config = SSOConfig(
             issuer_url="http://localhost:8080/realms/test",
@@ -133,6 +142,7 @@ class TestSSOConfigValidation:
         from rhesis.backend.ee.sso.schemas import SSOConfig
 
         monkeypatch.setenv("ENVIRONMENT", "production")
+        get_application_settings.cache_clear()
 
         with pytest.raises(ValueError, match="port 443"):
             SSOConfig(

@@ -9,11 +9,11 @@ data:
   # -------------------------------------------------------------------------
   # Database — host/name/user resolved from subchart or externalDatabase
   # -------------------------------------------------------------------------
-  SQLALCHEMY_DB_HOST: {{ include "rhesis.postgresql.host" . | quote }}
-  SQLALCHEMY_DB_DRIVER: {{ .Values.config.dbDriver | quote }}
-  SQLALCHEMY_DB_PORT: {{ .Values.config.dbPort | quote }}
-  SQLALCHEMY_DB_NAME: {{ .Values.config.dbName | quote }}
-  SQLALCHEMY_DB_USER: {{ .Values.config.dbUser | quote }}
+  DB_HOST: {{ include "rhesis.postgresql.host" . | quote }}
+  DB_DRIVER: {{ .Values.config.dbDriver | quote }}
+  DB_PORT: {{ .Values.config.dbPort | quote }}
+  DB_NAME: {{ .Values.config.dbName | quote }}
+  APP_DB_USER: {{ .Values.config.dbUser | quote }}
 
   # -------------------------------------------------------------------------
   # Redis / Valkey — host resolved from subchart or externalValkey

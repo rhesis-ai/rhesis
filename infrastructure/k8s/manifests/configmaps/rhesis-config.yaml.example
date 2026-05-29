@@ -64,12 +64,12 @@ data:
   # 🗄️ DATABASE INTERNAL CONFIGURATION
   # =============================================================================
   # Database connection settings (non-sensitive)
-  SQLALCHEMY_DB_HOST: "postgres"
-  SQLALCHEMY_DB_DRIVER: "postgresql"
-  SQLALCHEMY_DB_PORT: "5432"
-  SQLALCHEMY_DB_NAME: "rhesis-db"
-  SQLALCHEMY_DB_USER: "rhesis-user"
-  # Note: SQLALCHEMY_DATABASE_URL is constructed from these + secrets
+  DB_HOST: "postgres"
+  DB_DRIVER: "postgresql"
+  DB_PORT: "5432"
+  DB_NAME: "rhesis-db"
+  APP_DB_USER: "rhesis-user"
+  # Note: the application builds its database URL from these + APP_DB_PASS (secret)
 
   # =============================================================================
   # 🔴 REDIS INTERNAL CONFIGURATION

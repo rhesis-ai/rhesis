@@ -166,6 +166,22 @@ class MappingService:
                     final_response_mapping = auto_result["response_mapping"]
                     source = MappingSource.SDK_HYBRID
 
+            # Preserve user-added fields from the existing DB mapping that are not
+            # present in the SDK decorator. This prevents manual edits (e.g. a
+            # hardcoded tool_id) from being erased every time the SDK reconnects.
+            if endpoint.request_mapping and final_request_mapping:
+                extra_db_fields = {
+                    k: v
+                    for k, v in endpoint.request_mapping.items()
+                    if k not in final_request_mapping
+                }
+                if extra_db_fields:
+                    logger.info(
+                        f"[{function_name}] Preserving user-added request fields from DB: "
+                        f"{list(extra_db_fields.keys())}"
+                    )
+                    final_request_mapping = {**final_request_mapping, **extra_db_fields}
+
             return MappingResult(
                 request_mapping=final_request_mapping,
                 response_mapping=final_response_mapping,

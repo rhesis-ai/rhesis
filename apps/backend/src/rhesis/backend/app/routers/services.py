@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import List
 
@@ -44,6 +45,7 @@ from rhesis.backend.app.services.generation import (
     generate_tests,
 )
 from rhesis.backend.app.services.github import read_repo_contents
+from rhesis.backend.app.services.local_function_registry import LocalInvocationContext
 from rhesis.backend.app.services.mcp import (
     create_jira_ticket_from_task,
     extract_mcp,
@@ -596,7 +598,9 @@ async def search_mcp_server(
     """
     try:
         organization_id, user_id = tenant_context
-        return await search_mcp(request.query, request.tool_id, db, organization_id, user_id)
+        ctx = LocalInvocationContext(organization_id=organization_id, user_id=user_id, db=db)
+        result = await search_mcp(request.query, request.tool_id, ctx=ctx)
+        return json.loads(result["final_answer"])
     except Exception as e:
         raise handle_mcp_exception(e, "search")
 
@@ -639,15 +643,14 @@ async def extract_mcp_item(
     """
     try:
         organization_id, user_id = tenant_context
-        content = await extract_mcp(
+        ctx = LocalInvocationContext(organization_id=organization_id, user_id=user_id, db=db)
+        result = await extract_mcp(
+            ctx=ctx,
             item_id=request.id,
             item_url=request.url,
             tool_id=request.tool_id,
-            db=db,
-            organization_id=organization_id,
-            user_id=user_id,
         )
-        return {"content": content}
+        return {"content": result["final_answer"]}
     except Exception as e:
         raise handle_mcp_exception(e, "extract")
 
@@ -690,12 +693,11 @@ async def query_mcp_server(
     """
     try:
         organization_id, user_id = tenant_context
+        ctx = LocalInvocationContext(organization_id=organization_id, user_id=user_id, db=db)
         result = await query_mcp(
             query=request.query,
             tool_id=request.tool_id,
-            db=db,
-            organization_id=organization_id,
-            user_id=user_id,
+            ctx=ctx,
             system_prompt=request.system_prompt,
             max_iterations=request.max_iterations,
         )

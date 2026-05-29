@@ -10,7 +10,7 @@ using the `Base` object from the `database` module.
 import logging
 import os
 import time
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 # Initialize OpenTelemetry FIRST, before any OpenTelemetry imports
 from rhesis.backend.telemetry import initialize_telemetry
@@ -29,7 +29,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES, TOKEN_ENABLED_ROUTES
 from rhesis.backend.app.auth.user_utils import require_current_user, require_current_user_or_token
-from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.app.config.settings import get_auth_settings, get_frontend_settings
 from rhesis.backend.app.database import Base, engine, get_db
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
@@ -142,6 +142,15 @@ async def lifespan(app: FastAPI):
 
     apply_web_context_overrides()
 
+    # Eagerly import backend-resident @endpoint functions before the SDK
+    # connector announces available functions, so startup sends a single
+    # complete registration instead of discovering local endpoints lazily.
+    from rhesis.backend.app.services.local_function_registry import (
+        ensure_local_functions_registered,
+    )
+
+    ensure_local_functions_registered()
+
     # Set anyio threadpool size for async-to-thread offloading.
     # Default is 40; 100 is a reasonable production value for 2 vCPU + concurrency 80.
     try:
@@ -244,41 +253,55 @@ async def lifespan(app: FastAPI):
     # StreamableHTTPSessionManager.run() can only be called once per
     # instance, so create a fresh one each time the lifespan starts
     # (matters for test suites that restart the app multiple times).
-    mcp_ctx = None
-    mcp_server_obj = getattr(app.state, "mcp_server", None)
-    if mcp_server_obj is not None:
-        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-        from mcp.server.transport_security import TransportSecuritySettings
+    #
+    # Use ``AsyncExitStack`` (not manual ``__aenter__``/``__aexit__``)
+    # so the MCP context manager is entered and exited within a single
+    # ``async with`` frame. ``StreamableHTTPSessionManager.run()`` wraps
+    # an ``anyio.create_task_group()`` whose cancel scope is bound to the
+    # asyncio task that entered it. Splitting enter/exit across the
+    # ``yield`` of ``@asynccontextmanager`` makes the cleanup run via
+    # ``agen.athrow()`` from a different task on SIGINT, which trips
+    # anyio's "exit cancel scope in a different task" check.
+    async with AsyncExitStack() as stack:
+        mcp_server_obj = getattr(app.state, "mcp_server", None)
+        if mcp_server_obj is not None:
+            from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+            from mcp.server.transport_security import TransportSecuritySettings
 
-        fresh_sm = StreamableHTTPSessionManager(
-            app=mcp_server_obj,
-            stateless=True,
-            security_settings=TransportSecuritySettings(
-                enable_dns_rebinding_protection=False,
-            ),
-        )
-        app.state.mcp_session_manager = fresh_sm
-        mcp_ctx = fresh_sm.run()
-        await mcp_ctx.__aenter__()
-        logger.info("MCP session manager started")
+            fresh_sm = StreamableHTTPSessionManager(
+                app=mcp_server_obj,
+                stateless=True,
+                security_settings=TransportSecuritySettings(
+                    enable_dns_rebinding_protection=False,
+                ),
+            )
+            app.state.mcp_session_manager = fresh_sm
+            await stack.enter_async_context(fresh_sm.run())
+            logger.info("MCP session manager started")
 
-    yield  # Application is running
+        try:
+            yield  # Application is running
+        finally:
+            # Shutdown order: MCP first (via stack.aclose()), then Redis/Garak/WS.
+            # MCP is drained before Redis so any in-flight MCP frames that write
+            # to Redis complete cleanly.
+            # ``AsyncExitStack`` is used (not manual __aenter__/__aexit__) so
+            # the MCP cancel scope is exited from the same asyncio task that
+            # entered it, avoiding anyio's "exit cancel scope in a different
+            # task" check on SIGINT.
+            await stack.aclose()
 
-    # Shutdown MCP session manager
-    if mcp_ctx is not None:
-        await mcp_ctx.__aexit__(None, None, None)
+            # Shutdown: Clean up Redis connections
+            if redis_manager.is_available:
+                await redis_manager.close()
 
-    # Shutdown: Clean up Redis connections
-    if redis_manager.is_available:
-        await redis_manager.close()
+            # Close Garak cache Redis connection
+            await GarakProbeCache.close()
 
-    # Close Garak cache Redis connection
-    await GarakProbeCache.close()
+            # Stop WebSocket Redis subscriber
+            from rhesis.backend.app.services.websocket import stop_redis_subscriber
 
-    # Stop WebSocket Redis subscriber
-    from rhesis.backend.app.services.websocket import stop_redis_subscriber
-
-    await stop_redis_subscriber()
+            await stop_redis_subscriber()
 
 
 app = FastAPI(
@@ -377,9 +400,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 # Configure CORS
+_frontend_settings = get_frontend_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_frontend_settings().cors_origins,
+    allow_origins=_frontend_settings.cors_origins,
+    allow_origin_regex=_frontend_settings.loopback_cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -387,7 +412,7 @@ app.add_middleware(
 )
 
 # Get session secret securely without default fallback in production
-session_secret = os.getenv("SESSION_SECRET_KEY")
+session_secret = get_auth_settings().session_secret_key
 
 from rhesis.backend.app.routers.auth import is_running_locally
 

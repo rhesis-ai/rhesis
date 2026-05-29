@@ -704,7 +704,7 @@ def test_experiment_run_with_inline_parameters(mock_request, docker_compose_test
 
     # Verify the inline commit actually happened
     fetched = exp.get_version(exp.latest_version)
-    assert fetched["values"]["temperature"] == 0.99
+    assert fetched["values"]["temperature"]["value"] == 0.99
 
     exp.delete()
 
