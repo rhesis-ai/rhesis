@@ -33,14 +33,6 @@ x-common-auth: &common-auth
   # Session secret key (required)
   SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-your-session-secret-key-change-in-production}
 
-# Legacy Auth0 configuration (for migration period only)
-x-common-auth0: &common-auth0
-  AUTH_LEGACY_AUTH0_ENABLED: ${AUTH_LEGACY_AUTH0_ENABLED:-false}
-  AUTH0_DOMAIN: ${AUTH0_DOMAIN:-}
-  AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-}
-  AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:-}
-  AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET:-}
-  AUTH0_SECRET_KEY: ${AUTH0_SECRET_KEY:-}
 
 x-common-smtp: &common-smtp
   SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
@@ -131,7 +123,7 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
+      <<: [*common-database, *common-redis, *common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
     volumes:
       - rhesis-storage:/app/storage
@@ -162,7 +154,7 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
+      <<: [*common-database, *common-redis, *common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
       LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}

@@ -68,15 +68,13 @@ from typing import List, Mapping, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.constants import (
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_DAYS,
-)
+from rhesis.backend.app.auth.constants import REFRESH_TOKEN_EXPIRE_DAYS
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.token_utils import (
     RHESIS_TOKEN_AUDIENCE,
     create_session_token,
 )
+from rhesis.backend.app.config.settings import get_auth_settings
 from rhesis.backend.app.auth.used_token_store import (
     TokenStoreUnavailableError,
     claim_token_jti,
@@ -530,7 +528,7 @@ async def run_token_exchange(
 
     return TokenExchangeSuccess(
         access_token=access_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires_in=get_auth_settings().jwt_access_token_expire_minutes * 60,
         scope=resolved_scope_str,
         refresh_token=refresh_token,
         refresh_expires_in=refresh_expires_in,

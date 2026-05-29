@@ -11,7 +11,6 @@ Contains:
 
 import hashlib
 import logging
-import os
 import secrets
 from base64 import urlsafe_b64encode
 from typing import List, Optional
@@ -26,7 +25,7 @@ from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
-from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.app.config.settings import get_frontend_settings, get_rhesis_settings
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
@@ -162,7 +161,7 @@ def _get_sso_callback_url(request: Request) -> str:
     """Build the SSO callback URL."""
     from rhesis.backend.app.routers.auth import is_running_locally
 
-    rhesis_base_url = os.getenv("RHESIS_BASE_URL", "")
+    rhesis_base_url = get_rhesis_settings().base_url
 
     if is_running_locally() and not rhesis_base_url:
         base_url = str(request.base_url).rstrip("/")

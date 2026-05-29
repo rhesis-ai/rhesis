@@ -8,6 +8,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
@@ -470,9 +471,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
 
             # Build endpoint data
             # Handle URL environment variable replacement
+            backend_env = get_application_settings().backend_env
             url = item["url"]
             if "${BACKEND_ENV}" in url:
-                backend_env = os.getenv("BACKEND_ENV", "development")
                 # Map environment to chatbot subdomain
                 env_mapping = {
                     "development": "dev",
@@ -492,7 +493,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             # Handle environment variable replacement in environment field
             environment = item.get("environment", "development")
             if "${BACKEND_ENV}" in environment:
-                environment = os.getenv("BACKEND_ENV", "development")
+                environment = backend_env
 
             endpoint_data = {
                 "name": item["name"],
