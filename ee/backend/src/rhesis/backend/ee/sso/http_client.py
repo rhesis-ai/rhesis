@@ -26,7 +26,7 @@ _LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
 
 
 def is_dev_environment() -> bool:
-    """True when BACKEND_ENV is local, test, or development.
+    """True when BACKEND_ENV is local, development, or staging.
 
     Used by SSO modules to relax localhost/HTTPS restrictions that are only
     appropriate for production deployments.
@@ -96,7 +96,7 @@ def _resolve_and_validate(hostname: str) -> List[Tuple]:
     """Resolve hostname, validate all IPs against the blocklist, and return
     the raw getaddrinfo results for pinning into the transport.
 
-    In development environments (BACKEND_ENV=local/test/development), localhost
+    In development environments (BACKEND_ENV=local/development/staging), localhost
     is allowed through the blocklist so that local IdP instances (e.g. Keycloak
     on localhost:8180) can be reached.
 
