@@ -30,7 +30,7 @@ from rhesis.backend.app.services.mcp import (
     run_mcp_authentication_test,
     search_mcp,
 )
-from rhesis.sdk.services.mcp.exceptions import (
+from rhesis.sdk.agents.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
     MCPConnectionError,

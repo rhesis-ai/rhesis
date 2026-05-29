@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-from rhesis.sdk.services.mcp import MCPClientFactory
-from rhesis.sdk.services.mcp.exceptions import MCPConfigurationError
+from rhesis.sdk.agents.mcp import MCPClientFactory
+from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
 
 
 def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_id: str = None):

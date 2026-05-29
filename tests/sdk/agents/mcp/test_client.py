@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
-from rhesis.sdk.services.mcp.client import MCPClient, MCPClientFactory
+from rhesis.sdk.agents.mcp.client import MCPClient, MCPClientFactory
 
 
 @pytest.mark.unit
@@ -68,8 +68,8 @@ class TestMCPClient:
         mock_session.__aenter__ = AsyncMock()
         mock_session.initialize = AsyncMock()
 
-        with patch("rhesis.sdk.services.mcp.client.stdio_client", return_value=mock_context):
-            with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
+        with patch("rhesis.sdk.agents.mcp.client.stdio_client", return_value=mock_context):
+            with patch("rhesis.sdk.agents.mcp.client.ClientSession", return_value=mock_session):
                 await client.connect()
 
         assert client.session == mock_session
@@ -105,12 +105,12 @@ class TestMCPClient:
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("rhesis.sdk.services.mcp.client.httpx.AsyncClient", return_value=mock_client):
+        with patch("rhesis.sdk.agents.mcp.client.httpx.AsyncClient", return_value=mock_client):
             with patch(
-                "rhesis.sdk.services.mcp.client.streamablehttp_client", return_value=mock_context
+                "rhesis.sdk.agents.mcp.client.streamablehttp_client", return_value=mock_context
             ):
                 with patch(
-                    "rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session
+                    "rhesis.sdk.agents.mcp.client.ClientSession", return_value=mock_session
                 ):
                     await client.connect()
 
@@ -143,10 +143,10 @@ class TestMCPClient:
         mock_client.__aexit__ = AsyncMock(return_value=None)
         mock_client.get = AsyncMock(return_value=mock_response)
 
-        with patch("rhesis.sdk.services.mcp.client.httpx.AsyncClient", return_value=mock_client):
-            with patch("rhesis.sdk.services.mcp.client.sse_client", return_value=mock_context):
+        with patch("rhesis.sdk.agents.mcp.client.httpx.AsyncClient", return_value=mock_client):
+            with patch("rhesis.sdk.agents.mcp.client.sse_client", return_value=mock_context):
                 with patch(
-                    "rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session
+                    "rhesis.sdk.agents.mcp.client.ClientSession", return_value=mock_session
                 ):
                     await client.connect()
 
@@ -400,7 +400,7 @@ class TestMCPClientFactory:
             "mcpservers" in str(exc_info.value).lower() or "servers" in str(exc_info.value).lower()
         )
 
-    @patch("rhesis.sdk.services.mcp.client.Path")
+    @patch("rhesis.sdk.agents.mcp.client.Path")
     def test_from_provider(self, mock_path):
         """Test creating factory from provider name"""
         mock_template_file = Mock()
@@ -423,7 +423,7 @@ class TestMCPClientFactory:
         assert factory.config_dict is not None
         assert "mcpServers" in factory.config_dict
 
-    @patch("rhesis.sdk.services.mcp.client.Path")
+    @patch("rhesis.sdk.agents.mcp.client.Path")
     def test_from_provider_not_supported(self, mock_path):
         """Test creating factory from unsupported provider raises ValueError"""
         mock_template_file = Mock()

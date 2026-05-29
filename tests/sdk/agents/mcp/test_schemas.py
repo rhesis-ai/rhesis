@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from rhesis.sdk.services.mcp.schemas import (
+from rhesis.sdk.agents.mcp.schemas import (
     AgentAction,
     AgentResult,
     ExecutionStep,
@@ -38,12 +38,12 @@ class TestToolCall:
         assert tool_call.arguments == {}
 
     def test_tool_call_with_dict_arguments(self):
-        """Test ToolCall only accepts string arguments (not dict)"""
-        # After schema change, arguments must be a string
-        with pytest.raises(ValidationError) as exc_info:
-            ToolCall(tool_name="test", arguments={"key": "value"})
+        """Test ToolCall accepts dict arguments directly"""
+        # arguments is Dict[str, Any] with a BeforeValidator that also accepts
+        # JSON strings; passing a dict skips parsing and is stored as-is
+        tool_call = ToolCall(tool_name="test", arguments={"key": "value"})
 
-        assert "string_type" in str(exc_info.value)
+        assert tool_call.arguments == {"key": "value"}
 
     def test_tool_call_extra_fields_forbidden(self):
         """Test ToolCall rejects extra fields"""
