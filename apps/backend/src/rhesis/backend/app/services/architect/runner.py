@@ -1,9 +1,9 @@
 """Architect chat orchestration pipeline.
 
-A plain backend module called by ``architect_chat_task`` (Celery).  Not
-an SDK endpoint -- the architect runtime is internal to the backend and
-is not exposed over the SDK connector.  External Rhesis deployments
-that want to test against an architect endpoint host their own.
+The ``@endpoint``-decorated ``architect_chat`` wrapper registers the
+function with the SDK connector so it can be invoked via the Playground
+and test runs.  The Celery task (``architect_chat_task``) calls the
+underlying ``run_architect_turn`` directly.
 """
 
 import asyncio
@@ -19,7 +19,7 @@ from rhesis.backend.app.services.architect.attachments import process_attachment
 from rhesis.backend.app.services.architect.event_handler import WebSocketEventHandler
 from rhesis.backend.app.services.mcp.agents import get_agent_event_handlers
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
-from rhesis.sdk.decorators import observe
+from rhesis.sdk.decorators import endpoint, observe
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +329,20 @@ def _make_target_factory(org_id: str, user_id: str):
     return factory
 
 
+@endpoint(
+    name="architect_chat",
+    request_mapping={
+        "message": "{{ input }}",
+        "session_id": "{{ session_id }}",
+    },
+    response_mapping={
+        "output": "$.content",
+        "session_id": "$.session_id",
+        "mode": "$.mode",
+        "needs_confirmation": "$.needs_confirmation",
+        "plan": "$.plan",
+    },
+)
 async def run_architect_turn(
     message: str,
     organization_id: str,
@@ -340,9 +354,9 @@ async def run_architect_turn(
 ) -> ArchitectChatResult:
     """Process one architect chat turn.
 
-    Called by ``architect_chat_task`` for production chats.  Each pipeline
-    step opens its own tenant-scoped DB session so a single turn never
-    holds a long-lived connection across LLM calls.
+    Called directly by ``architect_chat_task`` (Celery) for the Architect
+    screen, and invocable via the SDK connector (Playground / test runs)
+    through the ``@endpoint`` registration.
     """
     if not user_id:
         raise ValueError("user_id is required for run_architect_turn")

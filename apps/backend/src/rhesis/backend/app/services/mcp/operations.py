@@ -1,9 +1,9 @@
 """MCP search, extract, and query operations.
 
-Plain backend helpers reachable via ``/mcp/*`` HTTP routes (see
-``app/routers/services.py``).  Not SDK endpoints -- the platform does
-not expose them over the SDK connector and they are not invoked as test
-targets in this codebase.
+Each function is decorated with ``@endpoint`` so the SDK connector
+can register it for remote invocation (Playground / test runs).
+The ``/mcp/*`` HTTP routes in ``app/routers/services.py`` call the
+functions directly.
 """
 
 import json
@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
 from rhesis.sdk.agents.mcp import MCPAgent
+from rhesis.sdk.decorators import endpoint
 
 from .agents import get_agent_event_handlers
 from .config import _get_mcp_tool_config
@@ -23,6 +24,21 @@ from .templates import jinja_env
 logger = logging.getLogger(__name__)
 
 
+@endpoint(
+    name="search_mcp",
+    request_mapping={
+        "query": "{{ input }}",
+    },
+    response_mapping={
+        "output": "$.final_answer",
+        "tool_calls": "$.execution_history",
+        "metadata": {
+            "iterations_used": "$.iterations_used",
+            "max_iterations_reached": "$.max_iterations_reached",
+            "success": "$.success",
+        },
+    },
+)
 async def search_mcp(
     query: str,
     tool_id: str,
@@ -78,6 +94,22 @@ async def search_mcp(
     return result.model_dump()
 
 
+@endpoint(
+    name="extract_mcp",
+    request_mapping={
+        "item_url": "{{ input }}",
+        "item_id": "{{ item_id }}",
+    },
+    response_mapping={
+        "output": "$.final_answer",
+        "tool_calls": "$.execution_history",
+        "metadata": {
+            "iterations_used": "$.iterations_used",
+            "max_iterations_reached": "$.max_iterations_reached",
+            "success": "$.success",
+        },
+    },
+)
 async def extract_mcp(
     db: Session,
     organization_id: str,
@@ -128,6 +160,21 @@ async def extract_mcp(
     return result.model_dump()
 
 
+@endpoint(
+    name="query_mcp",
+    request_mapping={
+        "query": "{{ input }}",
+    },
+    response_mapping={
+        "output": "{{ final_answer }}",
+        "tool_calls": "$.execution_history",
+        "metadata": {
+            "iterations_used": "$.iterations_used",
+            "max_iterations_reached": "$.max_iterations_reached",
+            "success": "$.success",
+        },
+    },
+)
 async def query_mcp(
     query: str,
     tool_id: str,
