@@ -17,10 +17,10 @@ config:
   environment: "development"
   logLevel: "DEBUG"
 
-  # Single source of truth for app DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL.
-  # Anchors reused under postgresql.auth / extraEnvVars below.
+  # App DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL bootstrap database.
   dbName: &rhesis_db_name "rhesis-dev-db"
-  dbUser: &rhesis_db_user "rhesis-admin"
+  # Runtime app user — credentials from ESO (APP_DB_USER / APP_DB_PASS).
+  dbUser: "rhesis-user"
 
   # Frontend
   nextPublicApiBaseUrl: "https://dev-api.rhesis.ai"
@@ -201,15 +201,21 @@ postgresql:
     pullPolicy: IfNotPresent
   auth:
     database: *rhesis_db_name
-    username: *rhesis_db_user
+    # Bootstrap superuser / migration owner (ADMIN_DB_* in ESO).
+    username: &rhesis_admin_user "rhesis-admin"
     existingSecret: "rhesis-app-secrets"
     secretKeys:
-      adminPasswordKey: "APP_DB_PASS"
+      adminPasswordKey: "ADMIN_DB_PASS"
       userPasswordKey: "APP_DB_PASS"
   primary:
     extraEnvVars:
       - name: POSTGRES_DB
         value: *rhesis_db_name
+      - name: APP_DB_PASS
+        valueFrom:
+          secretKeyRef:
+            name: rhesis-app-secrets
+            key: APP_DB_PASS
       - name: ANALYTICS_DB_PASS
         valueFrom:
           secretKeyRef:
@@ -239,6 +245,24 @@ postgresql:
             CREATE ROLE "rhesis-analytics-user" LOGIN PASSWORD '$ANALYTICS_DB_PASS';
             CREATE DATABASE "rhesis-analytics-dev-db" OWNER "rhesis-analytics-user";
             GRANT CONNECT ON DATABASE "rhesis-analytics-dev-db" TO "rhesis-admin";
+          EOSQL
+        init-app-user.sh: |
+          #!/bin/bash
+          # Application runtime role (APP_DB_USER / APP_DB_PASS). Mirrors stg/prd CNPG grants.
+          # Runs as rhesis-admin during first-time PVC init only.
+          set -e
+          psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" <<-EOSQL
+            CREATE ROLE "rhesis-user" LOGIN PASSWORD '$APP_DB_PASS';
+          EOSQL
+          psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+            GRANT CONNECT ON DATABASE "$POSTGRES_DB" TO "rhesis-user";
+            GRANT USAGE ON SCHEMA public TO "rhesis-user";
+            GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
+            GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
+            ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public
+              GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON TABLES TO "rhesis-user";
+            ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public
+              GRANT USAGE, SELECT ON SEQUENCES TO "rhesis-user";
           EOSQL
     podSecurityContext:
       enabled: true
