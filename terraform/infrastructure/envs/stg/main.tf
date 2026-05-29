@@ -25,6 +25,18 @@ provider "google" {
   region  = var.region
 }
 
+# Read WireGuard server's reserved external IP from its Terraform state.
+# Avoids hardcoding the IP in cidrs.tf — if the VM is ever recreated the
+# google_compute_address resource retains the same address, and this reference
+# automatically picks up any change after a wireguard apply.
+data "terraform_remote_state" "wireguard" {
+  backend = "gcs"
+  config = {
+    bucket = var.state_bucket
+    prefix = "terraform/infrastructure/envs/wireguard"
+  }
+}
+
 module "stg" {
   source = "../../modules/network/gcp"
 
@@ -60,8 +72,10 @@ module "gke_stg" {
 
   # stg/prd use public endpoint locked to WireGuard VPN CIDR (master_authorized_networks).
   # dev keeps private endpoint via Shared VPC cross-project NIC (already running, immutable field).
+  # WireGuard external IP is read from wireguard env remote state (google_compute_address.wireguard)
+  # so it tracks automatically if the reserved address ever changes after a wireguard apply.
   enable_private_endpoint = false
-  extra_authorized_cidrs  = ["${local.cidrs.wireguard.external_ip}/32"]
+  extra_authorized_cidrs  = ["${data.terraform_remote_state.wireguard.outputs.wireguard_public_ip}/32"]
 
   depends_on = [module.stg]
 }

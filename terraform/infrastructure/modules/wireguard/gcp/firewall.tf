@@ -35,6 +35,11 @@ resource "google_compute_firewall" "wireguard_vpn" {
 
 
 # Allow DNS from env VPC pods/nodes to BIND9 (for split-horizon DNS via VPC peering)
+# source_ranges uses the full network CIDR for each enabled environment (var.subnet_cidrs),
+# not the narrower nodes+pods CIDRs used in per-env firewall rules (e.g. envs/dev/main.tf).
+# This is intentional: the wireguard module has no visibility into per-env subnet breakdowns,
+# and traffic is VPC-internal only (not public internet). If least-privilege is required,
+# pass a flattened list of node+pod CIDRs per environment instead of the network CIDRs.
 resource "google_compute_firewall" "wireguard_dns_from_envs" {
   name      = "wireguard-allow-dns-from-envs"
   network   = var.vpc_name

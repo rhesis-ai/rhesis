@@ -25,6 +25,18 @@ provider "google" {
   region  = var.region
 }
 
+# Read WireGuard server's reserved external IP from its Terraform state.
+# Avoids hardcoding the IP in cidrs.tf — if the VM is ever recreated the
+# google_compute_address resource retains the same address, and this reference
+# automatically picks up any change after a wireguard apply.
+data "terraform_remote_state" "wireguard" {
+  backend = "gcs"
+  config = {
+    bucket = var.state_bucket
+    prefix = "terraform/infrastructure/envs/wireguard"
+  }
+}
+
 module "prd" {
   source = "../../modules/network/gcp"
 
@@ -57,6 +69,13 @@ module "gke_prd" {
   min_node_count         = 2
   max_node_count         = 5
   deletion_protection    = var.gke_deletion_protection
+
+  # stg/prd use public endpoint locked to WireGuard VPN CIDR (master_authorized_networks).
+  # dev keeps private endpoint via Shared VPC cross-project NIC (already running, immutable field).
+  # WireGuard external IP is read from wireguard env remote state (google_compute_address.wireguard)
+  # so it tracks automatically if the reserved address ever changes after a wireguard apply.
+  enable_private_endpoint = false
+  extra_authorized_cidrs  = ["${data.terraform_remote_state.wireguard.outputs.wireguard_public_ip}/32"]
 
   depends_on = [module.prd]
 }
@@ -132,6 +151,33 @@ module "cnpg_barman_prd" {
 }
 
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
+
+# Allow DNS (port 53) from GKE nodes/pods to the WireGuard server's BIND9 resolver.
+# Managed here (not in the wireguard module) because TF_SA_WIREGUARD lacks firewall
+# permissions in this project — TF_SA_PRD already has them.
+resource "google_compute_firewall" "wireguard_dns" {
+  name     = "wireguard-allow-dns-prd"
+  network  = module.prd.vpc_name
+  project  = var.project_id
+  priority = 900
+
+  allow {
+    protocol = "tcp"
+    ports    = ["53"]
+  }
+  allow {
+    protocol = "udp"
+    ports    = ["53"]
+  }
+  allow {
+    protocol = "icmp"
+  }
+
+  source_ranges = [local.cidrs.prd.nodes, local.cidrs.prd.pods]
+  target_tags   = ["wireguard-server"]
+
+  depends_on = [module.prd]
+}
 
 # ── Return-side peering: prd VPC → wireguard VPC (cross-project) ────
 resource "google_compute_network_peering" "prd_to_wireguard" {

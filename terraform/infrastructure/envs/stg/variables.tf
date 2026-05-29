@@ -32,3 +32,9 @@ variable "force_destroy" {
   default     = false
 }
 
+variable "state_bucket" {
+  description = "GCS bucket holding all env Terraform states (used to read wireguard remote state)"
+  type        = string
+  default     = "rhesis-platform-admin-tfstate"
+}
+
