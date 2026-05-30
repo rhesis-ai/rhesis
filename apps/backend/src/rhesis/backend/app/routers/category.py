@@ -88,7 +88,7 @@ def read_categories(
     return results
 
 
-@router.get("/{category_id}")
+@router.get("/{category_id}", response_model=CategoryDetailSchema)
 def read_category(
     category_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

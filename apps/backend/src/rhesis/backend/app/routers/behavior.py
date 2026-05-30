@@ -97,7 +97,7 @@ def read_behaviors(
     return results
 
 
-@router.get("/{behavior_id}")
+@router.get("/{behavior_id}", response_model=BehaviorWithMetricsSchema)
 def read_behavior(
     behavior_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
