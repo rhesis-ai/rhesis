@@ -83,6 +83,14 @@ backend:
     failureThreshold: 90
 
 frontend:
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "128Mi"
+    limits:
+      # Next.js SSR needs burst CPU for page renders; 200m caused 10-30% throttling.
+      cpu: "1000m"
+      memory: "256Mi"
   ingress:
     enabled: true
     host: "dev-app.rhesis.ai"
@@ -114,10 +122,10 @@ chatbot:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 # Analytics DB — same Bitnami PostgreSQL subchart, different database name.
-# Mirrors the stg/prd CNPG pattern: database owned by rhesis-analytics-user.
+# Mirrors the stg/prd CNPG pattern: database owned by rhesis-****-user.
 # ANALYTICS_DB_HOST/PORT rendered by ConfigMap helper (same subchart service).
 # ANALYTICS_DB_USER / ANALYTICS_DB_PASS come from rhesis-app-secrets (ESO):
-#   dev-rhesis-analytics-db-user → rhesis-analytics-user
+#   dev-rhesis-analytics-db-user → rhesis-****-user
 #   dev-rhesis-analytics-db-pass → <password>
 externalAnalyticsDatabase:
   name: "rhesis-analytics-dev-db"
