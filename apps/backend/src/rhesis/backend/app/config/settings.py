@@ -14,7 +14,7 @@ class DatabaseSettings(BaseSettings):
     Migration-only jobs may omit APP_DB_* when ADMIN_DB_* is set.
     """
 
-    model_config = SettingsConfigDict(env_ignore_empty=True)
+    model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
 
     driver: str = Field(default="postgresql", alias="DB_DRIVER")
     host: str = Field(alias="DB_HOST")
