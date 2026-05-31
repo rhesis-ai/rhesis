@@ -76,6 +76,19 @@ load_env_file() {
         set -a
         source .env
         set +a
+
+        # Backwards compatibility: map legacy SQLALCHEMY_DB_* names to the
+        # current DB_* / APP_DB_* names expected by DatabaseSettings.
+        # Users with .env files created before the settings refactor continue
+        # to work without having to manually update their local config.
+        export DB_HOST="${DB_HOST:-${SQLALCHEMY_DB_HOST:-}}"
+        export DB_NAME="${DB_NAME:-${SQLALCHEMY_DB_NAME:-}}"
+        export DB_PORT="${DB_PORT:-${SQLALCHEMY_DB_PORT:-}}"
+        export APP_DB_USER="${APP_DB_USER:-${SQLALCHEMY_DB_USER:-}}"
+        export APP_DB_PASS="${APP_DB_PASS:-${SQLALCHEMY_DB_PASS:-}}"
+        export ADMIN_DB_USER="${ADMIN_DB_USER:-${SQLALCHEMY_DB_ADMIN_USER:-}}"
+        export ADMIN_DB_PASS="${ADMIN_DB_PASS:-${SQLALCHEMY_DB_ADMIN_PASS:-}}"
+
         log "${GREEN}✅ Environment loaded${NC}"
     fi
 }
