@@ -1,0 +1,124 @@
+name: "[K8s] Build and Push"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        type: string
+        default: ''
+      image:
+        description: 'Image name without registry prefix (e.g. rhesis-backend)'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Path to Dockerfile'
+        required: true
+        type: string
+      context:
+        description: 'Docker build context'
+        required: false
+        type: string
+        default: '.'
+      target:
+        description: 'Docker build target (optional)'
+        required: false
+        type: string
+        default: ''
+      frontend:
+        description: 'Apply frontend build args from environment'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # GitHub Actions does not support dynamic secret names, so we map each
+      # environment explicitly and write the SA key to a temp file.
+      # Secrets needed: GCP_SA_KEY_DEV/STG/PRD (full JSON key) + TF_PROJECT_ID_DEV/STG/PRD
+      - name: Resolve GCP credentials
+        run: |
+          if [ "$ENVIRONMENT" = "dev" ]; then
+            echo '${{ secrets.GCP_SA_KEY_DEV }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_DEV }}" >> $GITHUB_ENV
+            echo "FRONTEND_ENV=development" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_BASE_URL=https://dev-api.rhesis.ai" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_APP_URL=https://dev-app.rhesis.ai" >> $GITHUB_ENV
+          elif [ "$ENVIRONMENT" = "stg" ]; then
+            echo '${{ secrets.GCP_SA_KEY_STG }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_STG }}" >> $GITHUB_ENV
+            echo "FRONTEND_ENV=staging" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_BASE_URL=https://stg-api.rhesis.ai" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_APP_URL=https://stg-app.rhesis.ai" >> $GITHUB_ENV
+          else
+            echo '${{ secrets.GCP_SA_KEY_PRD }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_PRD }}" >> $GITHUB_ENV
+            echo "FRONTEND_ENV=production" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_API_BASE_URL=https://api.rhesis.ai" >> $GITHUB_ENV
+            echo "NEXT_PUBLIC_APP_URL=https://app.rhesis.ai" >> $GITHUB_ENV
+          fi
+
+      - name: Authenticate to Google Cloud
+        run: |
+          gcloud auth activate-service-account --key-file=sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/sa-key.json" >> $GITHUB_ENV
+
+      - name: Set registry and tag
+        run: |
+          REGISTRY="europe-west4-docker.pkg.dev/${{ env.PROJECT_ID }}/rhesis"
+          echo "REGISTRY=$REGISTRY" >> $GITHUB_ENV
+
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(echo "${{ github.sha }}" | cut -c1-8)
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+          echo "Registry: $REGISTRY"
+          echo "Tag:      $TAG"
+          echo "Image:    ${{ inputs.image }}"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west4-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        run: |
+          BUILD_ARGS=()
+          if [ "${{ inputs.frontend }}" = "true" ]; then
+            BUILD_ARGS+=(--build-arg "FRONTEND_ENV=$FRONTEND_ENV")
+            BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL")
+            BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL")
+            BUILD_ARGS+=(--build-arg "NEXT_PUBLIC_QUICK_START=false")
+          fi
+
+          TARGET_ARGS=()
+          if [ -n "${{ inputs.target }}" ]; then
+            TARGET_ARGS=(--target "${{ inputs.target }}")
+          fi
+
+          docker build --platform linux/amd64 "${TARGET_ARGS[@]}" "${BUILD_ARGS[@]}" \
+            -t "$REGISTRY/${{ inputs.image }}:$TAG" \
+            -t "$REGISTRY/${{ inputs.image }}:latest" \
+            -f "${{ inputs.dockerfile }}" "${{ inputs.context }}"
+          docker push "$REGISTRY/${{ inputs.image }}:$TAG"
+          docker push "$REGISTRY/${{ inputs.image }}:latest"
+
+      - name: Cleanup SA key
+        if: always()
+        run: rm -f sa-key.json
