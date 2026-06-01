@@ -41,12 +41,24 @@ jobs:
         with:
           environment: ${{ inputs.environment || github.event.inputs.environment }}
 
-  build:
+  gate:
     needs: validate-inputs
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Approve deploy
+        run: echo "Deploy approved for ${{ github.event.inputs.environment }}"
+
+  build:
+    needs: [validate-inputs, gate]
+    if: |
+      always() &&
+      needs.validate-inputs.result == 'success' &&
+      (needs.gate.result == 'success' || needs.gate.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
 
     env:
       ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
@@ -57,6 +69,7 @@ jobs:
 
       - name: Resolve GCP credentials
         run: |
+          trap 'rm -f sa-key.json' ERR
           if [ "$ENVIRONMENT" = "dev" ]; then
             echo '${{ secrets.GCP_SA_KEY_DEV }}' > sa-key.json
             echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_DEV }}" >> $GITHUB_ENV

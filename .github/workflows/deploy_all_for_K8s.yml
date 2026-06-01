@@ -18,8 +18,22 @@ on:
         default: ''
         type: string
 
+concurrency:
+  group: k8s-deploy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Approve deploy all K8s services
+        run: |
+          echo "Deploying all K8s services to ${{ github.event.inputs.environment }}"
+          echo "Tag override: ${{ github.event.inputs.tag || '(short git SHA)' }}"
+
   backend-deploy:
+    needs: gate
     uses: ./.github/workflows/backend-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
@@ -27,6 +41,7 @@ jobs:
     secrets: inherit
 
   worker-deploy:
+    needs: gate
     uses: ./.github/workflows/worker-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
@@ -34,6 +49,7 @@ jobs:
     secrets: inherit
 
   frontend-deploy:
+    needs: gate
     uses: ./.github/workflows/frontend-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
@@ -41,6 +57,7 @@ jobs:
     secrets: inherit
 
   docs-deploy:
+    needs: gate
     uses: ./.github/workflows/docs-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
@@ -48,6 +65,7 @@ jobs:
     secrets: inherit
 
   chatbot-deploy:
+    needs: gate
     uses: ./.github/workflows/chatbot-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
@@ -55,6 +73,7 @@ jobs:
     secrets: inherit
 
   polyphemus-deploy:
+    needs: gate
     uses: ./.github/workflows/polyphemus-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
@@ -62,6 +81,7 @@ jobs:
     secrets: inherit
 
   otel-collector-deploy:
+    needs: gate
     uses: ./.github/workflows/otel-collector-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
@@ -69,6 +89,7 @@ jobs:
     secrets: inherit
 
   telemetry-processor-deploy:
+    needs: gate
     uses: ./.github/workflows/telemetry-processor-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
