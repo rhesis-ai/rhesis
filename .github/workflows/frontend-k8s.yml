@@ -53,7 +53,6 @@ jobs:
       ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       IMAGE: rhesis-frontend
       DOCKERFILE: apps/frontend/Dockerfile
-      DOCKER_CONTEXT: .
 
     steps:
       - uses: actions/checkout@v6
@@ -112,7 +111,7 @@ jobs:
             --build-arg NEXT_PUBLIC_QUICK_START=false \
             -t "$REGISTRY/$IMAGE:$TAG" \
             -t "$REGISTRY/$IMAGE:latest" \
-            -f "$DOCKERFILE" "$DOCKER_CONTEXT"
+            -f "$DOCKERFILE" .
           echo "Built $REGISTRY/$IMAGE:$TAG"
 
       - name: Push Container
