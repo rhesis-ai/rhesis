@@ -40,6 +40,13 @@ jobs:
       tag: ${{ github.event.inputs.tag }}
     secrets: inherit
 
+  docs-deploy:
+    uses: ./.github/workflows/docs-k8s.yml
+    with:
+      environment: ${{ github.event.inputs.environment }}
+      tag: ${{ github.event.inputs.tag }}
+    secrets: inherit
+
   chatbot-deploy:
     uses: ./.github/workflows/chatbot-k8s.yml
     with:
