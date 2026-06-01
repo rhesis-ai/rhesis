@@ -29,7 +29,7 @@ class TestSSOConfigValidation:
     def test_http_issuer_rejected_in_production(self, monkeypatch):
         from rhesis.backend.ee.sso.schemas import SSOConfig
 
-        monkeypatch.setenv("ENVIRONMENT", "production")
+        monkeypatch.setenv("BACKEND_ENV", "production")
         get_application_settings.cache_clear()
 
         with pytest.raises(ValueError, match="HTTPS"):
@@ -42,7 +42,7 @@ class TestSSOConfigValidation:
     def test_http_localhost_allowed_in_local(self, monkeypatch):
         from rhesis.backend.ee.sso.schemas import SSOConfig
 
-        monkeypatch.setenv("ENVIRONMENT", "local")
+        monkeypatch.setenv("BACKEND_ENV", "local")
         get_application_settings.cache_clear()
 
         config = SSOConfig(
@@ -141,7 +141,7 @@ class TestSSOConfigValidation:
     def test_non_443_port_rejected_in_production(self, monkeypatch):
         from rhesis.backend.ee.sso.schemas import SSOConfig
 
-        monkeypatch.setenv("ENVIRONMENT", "production")
+        monkeypatch.setenv("BACKEND_ENV", "production")
         get_application_settings.cache_clear()
 
         with pytest.raises(ValueError, match="port 443"):

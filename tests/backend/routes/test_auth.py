@@ -37,8 +37,8 @@ def _mock_rhesis_settings(base_url: str):
     return lambda: Mock(base_url=base_url)
 
 
-def _mock_application_settings(backend_env: str = "development", environment: str = ""):
-    return lambda: Mock(backend_env=backend_env, environment=environment)
+def _mock_application_settings(backend_env: str = "development"):
+    return lambda: Mock(backend_env=backend_env)
 
 
 # =============================================================================
@@ -1480,7 +1480,7 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
-        {"ENVIRONMENT": "local"},
+        {"BACKEND_ENV": "local"},
         clear=False,
     )
     @patch(
@@ -1493,10 +1493,10 @@ class TestGetCallbackUrl:
     )
     @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings(environment="local"),
+        new=_mock_application_settings("local"),
     )
     def test_environment_local_uses_localhost(self, mock_qs):
-        """ENVIRONMENT=local returns http://localhost:{port}/auth/callback."""
+        """BACKEND_ENV=local returns http://localhost:{port}/auth/callback."""
         from rhesis.backend.app.routers.auth import get_callback_url
 
         request = _make_mock_request(host="localhost", port=9090)
@@ -1546,7 +1546,7 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
-        {"ENVIRONMENT": "local"},
+        {"BACKEND_ENV": "local"},
         clear=False,
     )
     @patch(
@@ -1559,7 +1559,7 @@ class TestGetCallbackUrl:
     )
     @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings(environment="local"),
+        new=_mock_application_settings("local"),
     )
     def test_local_preserves_127_hostname(self, mock_qs):
         """Local mode via 127.0.0.1 preserves hostname for session cookies."""
@@ -1571,7 +1571,7 @@ class TestGetCallbackUrl:
 
     @patch.dict(
         os.environ,
-        {"ENVIRONMENT": "local"},
+        {"BACKEND_ENV": "local"},
         clear=False,
     )
     @patch(
@@ -1584,7 +1584,7 @@ class TestGetCallbackUrl:
     )
     @patch(
         "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings(environment="local"),
+        new=_mock_application_settings("local"),
     )
     def test_local_rejects_non_local_hostname(self, mock_qs):
         """Misconfigured local mode with evil Host falls back to localhost."""

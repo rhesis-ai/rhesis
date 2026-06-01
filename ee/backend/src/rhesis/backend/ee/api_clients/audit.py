@@ -80,8 +80,8 @@ def _is_dev_environment() -> bool:
     that do not exercise SSO.
     """
     settings = get_application_settings()
-    dev_environments = ("local", "test", "dev", "development")
-    return settings.environment in dev_environments or settings.backend_env in dev_environments
+    dev_environments = ("local", "development", "staging")
+    return settings.backend_env in dev_environments
 
 
 def _get_audit_hash_key() -> Optional[bytes]:
