@@ -23,6 +23,7 @@ Create Date: 2026-01-25
 from typing import Sequence, Union
 
 from alembic import op
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -43,21 +44,33 @@ def upgrade() -> None:
     score_type and updates them using the existing CRUD infrastructure.
     """
     bind = op.get_bind()
+
+    # Use raw SQL for the initial check so this migration does not SELECT columns
+    # that may not exist yet at this point in the migration chain (e.g. project_id).
+    # On a fresh install there are no Garak metrics, so we return early here.
+    # On an existing install that already has Garak metrics the project_id column
+    # is already present, so the ORM path below is safe.
+    has_garak = bind.execute(
+        text(
+            "SELECT EXISTS(SELECT 1 FROM metric "
+            "WHERE class_name = 'GarakDetectorMetric' AND deleted_at IS NULL)"
+        )
+    ).scalar()
+    if not has_garak:
+        print("   No GarakDetectorMetric metrics found.")
+        return
+
     session = Session(bind=bind)
 
     try:
         print("\n🔧 Fixing Garak metrics with missing fields...")
 
-        # Find all Garak detector metrics (dynamically created by importer)
+        # project_id column is guaranteed to exist at this point (see comment above)
         garak_metrics = (
             session.query(models.Metric)
             .filter(models.Metric.class_name == "GarakDetectorMetric")
             .all()
         )
-
-        if not garak_metrics:
-            print("   No GarakDetectorMetric metrics found.")
-            return
 
         print(f"   Found {len(garak_metrics)} GarakDetectorMetric(s)")
 
