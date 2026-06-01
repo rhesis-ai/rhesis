@@ -109,7 +109,9 @@ async def create_user(
         # Create the user (crud function will automatically exclude send_invite)
         created_user = crud.create_user(db=db, user=user)
 
-    # Enrol the new/re-invited user in every project in the organization
+    # Enrol the new/re-invited user in every project in the organization.
+    # enroll_user_in_project stages rows without flushing; we flush once after
+    # the loop to avoid N round-trips to Postgres.
     if current_user.organization_id:
         org_projects = (
             db.query(models.Project)
@@ -123,6 +125,8 @@ async def create_user(
                 project.id,
                 current_user.organization_id,
             )
+        if org_projects:
+            db.flush()
 
     # Send invitation email if requested
     if send_invite and email_service.is_configured:

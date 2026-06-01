@@ -58,20 +58,20 @@ logger = logging.getLogger(__name__)
 # Tables that should never be auto-filtered (queried before any tenant context)
 EXEMPT_TABLES = frozenset({"user", "organization", "token"})
 
+# Guard against duplicate listener registration (e.g. test reloads, hot-reload)
+_listeners_registered: bool = False
+
 
 def _inject_filter(query: Query, condition) -> Query:
     """
     Append a WHERE condition to a Query, even when LIMIT or OFFSET is already set.
 
     SQLAlchemy's public Query.filter() raises InvalidRequestError when called after
-    .limit() or .offset(). We bypass that Python-level guard by writing directly to
-    _where_criteria, which is exactly what filter() does internally minus the check.
-    The resulting SQL is correct: WHERE always precedes LIMIT/OFFSET.
+    .limit() or .offset(). We use the supported enable_assertions(False) path to
+    bypass that Python-level guard without touching private internals. The resulting
+    SQL is correct: WHERE always precedes LIMIT/OFFSET in the generated statement.
     """
-    if hasattr(condition, "__clause_element__"):
-        condition = condition.__clause_element__()
-    query._where_criteria = query._where_criteria + (condition,)
-    return query
+    return query.enable_assertions(False).filter(condition)
 
 
 def _kill_switch_active() -> bool:
@@ -84,8 +84,13 @@ def setup_scope_listeners():
     Register auto-filter and auto-stamp event listeners.
 
     Called once at import time from models/__init__.py.
-    No-ops if RHESIS_DISABLE_SCOPE_LISTENER=1 is set.
+    No-ops if RHESIS_DISABLE_SCOPE_LISTENER=1 is set or if already registered.
     """
+    global _listeners_registered
+
+    if _listeners_registered:
+        return
+
     if _kill_switch_active():
         logger.warning(
             "Scope listeners DISABLED via RHESIS_DISABLE_SCOPE_LISTENER. "
@@ -194,4 +199,5 @@ def setup_scope_listeners():
             if "project_id" in col_names and getattr(target, "project_id", None) is None:
                 target.project_id = scope.project_id
 
+    _listeners_registered = True
     logger.info("Scope event listeners registered (auto-filter + auto-stamp)")

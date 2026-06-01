@@ -100,13 +100,21 @@ def get_project_context(
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="Invalid X-Project-Id format")
 
-    # Validate membership — use a bare session (no tenant scope bound yet)
+    # Validate membership using a tenant-scoped session so RLS GUCs are set
+    # before querying project_membership (which has tenant_isolation RLS).
     from rhesis.backend.app.models.project_membership import ProjectMembership
 
-    with get_db() as db:
+    org_id = str(current_user.organization_id) if current_user.organization_id else ""
+    user_id_str = str(current_user.id) if current_user.id else ""
+
+    with get_db_with_tenant_variables(org_id, user_id_str, "") as db:
         membership = (
             db.query(ProjectMembership)
-            .filter_by(project_id=project_id, user_id=current_user.id)
+            .filter_by(
+                project_id=project_id,
+                user_id=current_user.id,
+                organization_id=current_user.organization_id,
+            )
             .first()
         )
     if not membership:

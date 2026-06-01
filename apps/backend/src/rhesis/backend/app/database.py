@@ -3,12 +3,22 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Generator, Optional
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from rhesis.backend.app.config.settings import get_database_settings
 
 logger = logging.getLogger(__name__)
+
+
+_TENANT_VARS_KEY = "_tenant_vars"
+
+_SET_CONFIG_SQL = text("""
+    SELECT
+        set_config('app.current_organization', :org_id, true),
+        set_config('app.current_user', :user_id, true),
+        set_config('app.current_project', :project_id, true)
+""")
 
 
 def _set_session_variables(
@@ -20,8 +30,10 @@ def _set_session_variables(
     Always executes the SET call — the cost of a single ``set_config``
     round-trip is negligible compared to any query that follows.
 
-    Uses is_local=true (transaction-scoped) so variables are automatically
-    cleared when the transaction ends, preventing connection-pool leakage.
+    Uses is_local=true (transaction-scoped). Variables survive within a
+    transaction but are cleared by db.commit(). The Session.after_begin
+    listener (_reapply_tenant_vars) re-applies them at the start of every
+    new transaction so that mid-request commits do not break RLS.
 
     Args:
         db: SQLAlchemy session
@@ -29,25 +41,38 @@ def _set_session_variables(
         user_id: User ID (defaults to empty string)
         project_id: Project ID (defaults to empty string)
     """
+    vars = {"org_id": organization_id, "user_id": user_id, "project_id": project_id}
+    # Persist in session.info so after_begin can re-apply after each commit.
+    db.info[_TENANT_VARS_KEY] = vars
     try:
-        db.execute(
-            text("""
-                SELECT
-                    set_config('app.current_organization', :org_id, true),
-                    set_config('app.current_user', :user_id, true),
-                    set_config('app.current_project', :project_id, true)
-            """),
-            {"org_id": organization_id, "user_id": user_id, "project_id": project_id},
-        )
-
+        db.execute(_SET_CONFIG_SQL, vars)
         logger.debug(
             f"Session variables set: org={organization_id}, user={user_id}, project={project_id}"
         )
-
     except Exception as e:
         logger.debug(f"Session variables set with potential creation: {e}")
         if "unrecognized configuration parameter" not in str(e).lower():
             raise
+
+
+@event.listens_for(Session, "after_begin")
+def _reapply_tenant_vars(session: Session, transaction, connection) -> None:
+    """
+    Re-apply RLS GUCs at the start of every new transaction.
+
+    set_config(..., is_local=true) is transaction-scoped: values are cleared
+    when a transaction ends (commit or rollback). This listener re-applies
+    the stored tenant vars so that code that calls db.commit() mid-request
+    (e.g. Celery tasks, nested CRUD helpers) continues to be RLS-filtered
+    on subsequent queries within the same session.
+    """
+    vars = session.info.get(_TENANT_VARS_KEY)
+    if not vars:
+        return
+    try:
+        connection.execute(_SET_CONFIG_SQL, vars)
+    except Exception as e:
+        logger.debug(f"_reapply_tenant_vars failed (non-fatal): {e}")
 
 
 def get_database_url() -> str:
@@ -120,6 +145,9 @@ def reset_session_context(db: Session):
     and handles cases where variables might not have been initialized.
     """
     try:
+        # Clear stored vars first so after_begin does not re-apply them after reset.
+        db.info.pop(_TENANT_VARS_KEY, None)
+
         # Reset to empty strings (not NULL) to prevent errors
         # Empty strings are safer than NULL for current_setting() calls
         _set_session_variables(db)

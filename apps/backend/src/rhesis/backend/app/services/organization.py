@@ -31,7 +31,13 @@ def enroll_user_in_project(
     project_id: uuid.UUID,
     organization_id: uuid.UUID,
 ) -> None:
-    """Create a ProjectMembership for the user if one does not already exist."""
+    """
+    Stage a ProjectMembership for the user if one does not already exist.
+
+    Does NOT flush; the caller is responsible for flushing / committing so that
+    bulk-enrollment loops (e.g. enrolling a new user in all org projects) do not
+    issue one round-trip per project.
+    """
     exists = (
         db.query(models.ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
     )
@@ -43,7 +49,6 @@ def enroll_user_in_project(
                 organization_id=organization_id,
             )
         )
-        db.flush()
 
 
 def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[str, str]:
