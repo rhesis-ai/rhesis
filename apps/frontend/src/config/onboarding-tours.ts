@@ -17,9 +17,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     id: 'endpointSetup',
     title: 'Set up an endpoint',
     description: 'Connect to your AI service endpoint',
-    targetPath: '/endpoints?tour=endpoint',
-    tourId: 'endpoint',
-    requiresProjects: true,
+    targetPath: '/endpoints',
   },
   {
     id: 'testCasesCreated',
@@ -41,7 +39,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
 /**
  * Path that triggers collapsed state for onboarding checklist
  */
-export const ONBOARDING_COLLAPSE_PATH = '/dashboard';
+export const ONBOARDING_COLLAPSE_PATH = '/architect';
 
 /**
  * Extended DriveStep with completion tracking
@@ -190,7 +188,8 @@ export function getTourSteps(tourId: string): DriveStepWithCompletion[] {
     case 'project':
       return projectTourSteps;
     case 'endpoint':
-      return endpointTourSteps;
+      // Endpoint guided tour deactivated
+      return [];
     case 'invite':
       return inviteUsersTourSteps;
     case 'testCases':

@@ -27,7 +27,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloseIcon from '@mui/icons-material/Close';
 import BaseTag from '@/components/common/BaseTag';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -939,7 +939,7 @@ export function MetricDetailView({
       );
     }
     return (
-      <PageContainer title="Loading...">
+      <PageLayout title="Loading...">
         <Box
           sx={{
             display: 'flex',
@@ -950,7 +950,7 @@ export function MetricDetailView({
         >
           <Typography>Loading metric details...</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
@@ -978,7 +978,7 @@ export function MetricDetailView({
       );
     }
     return (
-      <PageContainer title="Error">
+      <PageLayout title="Error">
         <Box
           sx={{
             display: 'flex',
@@ -989,7 +989,7 @@ export function MetricDetailView({
         >
           <Typography color="error">Failed to load metric details</Typography>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
@@ -1786,14 +1786,14 @@ export function MetricDetailView({
   }
 
   return (
-    <PageContainer
+    <PageLayout
       title={metric.name}
       breadcrumbs={[
-        { title: 'Metrics', path: '/metrics' },
-        { title: metric.name, path: `/metrics/${metricId}` },
+        { label: 'Metrics', href: '/metrics' },
+        { label: metric.name, href: `/metrics/${metricId}` },
       ]}
     >
       {detailBody}
-    </PageContainer>
+    </PageLayout>
   );
 }

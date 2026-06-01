@@ -9,12 +9,20 @@ from .mixins import (
     CountsMixin,
     OrganizationAndUserMixin,
     ProjectMixin,
+    TagsMixin,
     TasksMixin,
 )
 
 
 class Behavior(
-    Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin, CommentsMixin, TasksMixin, CountsMixin
+    Base,
+    ActivityTrackableMixin,
+    ProjectMixin,
+    OrganizationAndUserMixin,
+    TagsMixin,
+    CommentsMixin,
+    TasksMixin,
+    CountsMixin,
 ):
     __tablename__ = "behavior"
     name = Column(String, nullable=False)

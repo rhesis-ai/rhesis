@@ -1,90 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Alert,
-  Box,
-  CircularProgress,
-  Typography,
-} from '@mui/material';
-import { alpha, type Theme } from '@mui/material/styles';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { Alert, Box, CircularProgress } from '@mui/material';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Organization } from '@/utils/api-client/interfaces/organization';
-import OrganizationDetailsForm from './components/OrganizationDetailsForm';
-import ContactInformationForm from './components/ContactInformationForm';
-import DangerZone from './components/DangerZone';
 import { OrgSettingsProvider } from '@/contexts/OrgSettingsContext';
-import { getOrgSettingsSections } from '@/lib/extension-registries';
-
-/**
- * Visual container for one settings section.
- *
- * Each section renders as a card-styled `Accordion` so the operator can
- * collapse the noisier sections (SSO, API Clients, Danger Zone) and
- * focus on what they're editing. Sections start collapsed by default;
- * the page opts the most-edited card (Basic Information) into being
- * expanded on first load.
- */
-function SettingsSection({
-  title,
-  titleColor,
-  borderColor,
-  background,
-  defaultExpanded = false,
-  children,
-}: {
-  title: string;
-  titleColor?: string;
-  borderColor?: string;
-  background?: string | ((theme: Theme) => string);
-  defaultExpanded?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Accordion
-      defaultExpanded={defaultExpanded}
-      disableGutters
-      elevation={1}
-      sx={{
-        mb: 3,
-        borderRadius: theme => theme.shape.borderRadius,
-        border: borderColor ? '1px solid' : undefined,
-        borderColor,
-        backgroundColor: background,
-        '&:before': { display: 'none' },
-        '&.Mui-expanded': { mb: 3 },
-      }}
-    >
-      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 3, py: 1 }}>
-        <Typography variant="h6" sx={{ color: titleColor }}>
-          {title}
-        </Typography>
-      </AccordionSummary>
-      <AccordionDetails sx={{ px: 3, pb: 3, pt: 0 }}>
-        {children}
-      </AccordionDetails>
-    </Accordion>
-  );
-}
+import OrganizationSettingsTabs from './components/OrganizationSettingsTabs';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Registrations happen at module load via apps/frontend/src/ee_bootstrap.ts,
-  // so by the time this client component renders the list is complete.
-  // The registry returns a stable, frozen reference so this read does
-  // not churn React identity across renders.
-  const extensionSections = getOrgSettingsSections();
 
   const organizationName = organization?.name || 'Organization';
 
@@ -130,62 +60,49 @@ export default function OrganizationSettingsPage() {
   }, [fetchOrganization]);
 
   const breadcrumbs = [
-    { title: organizationName, path: '/organizations' },
-    { title: 'Organization Settings', path: '/organizations/settings' },
+    { label: organizationName, href: '/organizations' },
+    { label: 'Organization Settings', href: '/organizations/settings' },
   ];
+
+  const pageHeader = {
+    title: 'Organization Settings',
+    description:
+      "Manage your organization's profile, contact details, and security settings.",
+    breadcrumbs,
+  };
 
   if (initialLoading) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout {...pageHeader}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (error) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout {...pageHeader}>
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (!organization) {
     return (
-      <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
+      <PageLayout {...pageHeader}>
         <Alert severity="warning" sx={{ mb: 3 }}>
           No organization found. Please contact support.
         </Alert>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Overview" breadcrumbs={breadcrumbs}>
-      <SettingsSection title="Basic Information" defaultExpanded>
-        <OrganizationDetailsForm
-          organization={organization}
-          sessionToken={session?.session_token || ''}
-          onUpdate={handleUpdate}
-        />
-      </SettingsSection>
-
-      <SettingsSection title="Contact Information">
-        <ContactInformationForm
-          organization={organization}
-          sessionToken={session?.session_token || ''}
-          onUpdate={handleUpdate}
-        />
-      </SettingsSection>
-
-      {/* EE-registered sections (e.g. SSO) -- discovered via the
-          extension registry rather than imported by name. Sections
-          read context they need from `useOrgSettings()` and apply
-          their own `<FeatureGate>` wrapping; the page just composes. */}
+    <PageLayout {...pageHeader}>
       <OrgSettingsProvider
         value={{
           organization,
@@ -193,27 +110,12 @@ export default function OrganizationSettingsPage() {
           onUpdate: handleUpdate,
         }}
       >
-        {extensionSections.map(section => {
-          const Section = section.component;
-          return (
-            <SettingsSection key={section.id} title={section.title}>
-              <Section />
-            </SettingsSection>
-          );
-        })}
-      </OrgSettingsProvider>
-
-      <SettingsSection
-        title="Danger Zone"
-        titleColor="error.main"
-        borderColor="error.light"
-        background={theme => alpha(theme.palette.error.main, 0.05)}
-      >
-        <DangerZone
+        <OrganizationSettingsTabs
           organization={organization}
           sessionToken={session?.session_token || ''}
+          onUpdate={handleUpdate}
         />
-      </SettingsSection>
-    </PageContainer>
+      </OrgSettingsProvider>
+    </PageLayout>
   );
 }

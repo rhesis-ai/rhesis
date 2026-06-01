@@ -111,6 +111,19 @@ export default function ModelSelector({
     }
   }, [sessionToken, purpose]);
 
+  const selectedModel = models.find(m => m.id === value);
+
+  const effectiveHelperText = (() => {
+    const parts: string[] = [];
+    if (helperText) parts.push(helperText);
+    if (value === '') {
+      if (defaultModelName) parts.push(`Currently: ${defaultModelName}`);
+    } else if (selectedModel?.description) {
+      parts.push(selectedModel.description);
+    }
+    return parts.join(' — ') || undefined;
+  })();
+
   return (
     <Box>
       <FormControl fullWidth disabled={disabled}>
@@ -120,12 +133,31 @@ export default function ModelSelector({
           label={label}
           onChange={e => onChange(e.target.value as string)}
           displayEmpty
+          renderValue={selectedValue => {
+            if (selectedValue === '') {
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <SettingsSuggestIcon fontSize="small" />
+                  <Typography variant="body2">Default model</Typography>
+                </Box>
+              );
+            }
+            const model = models.find(m => m.id === selectedValue);
+            return (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ProviderIcon icon={model?.icon} />
+                <Typography variant="body2">
+                  {model?.name ?? (selectedValue as string)}
+                </Typography>
+              </Box>
+            );
+          }}
         >
           <MenuItem value="">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <SettingsSuggestIcon fontSize="small" />
               <Box>
-                <Typography variant="body1">Default model</Typography>
+                <Typography variant="body2">Default model</Typography>
                 <Typography variant="caption" color="text.secondary">
                   {defaultModelName
                     ? `Currently: ${defaultModelName}`
@@ -138,7 +170,7 @@ export default function ModelSelector({
             <MenuItem disabled>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CircularProgress size={theme.iconSizes?.small ?? 20} />
-                <Typography variant="body1">Loading models...</Typography>
+                <Typography variant="body2">Loading models...</Typography>
               </Box>
             </MenuItem>
           ) : (
@@ -147,7 +179,7 @@ export default function ModelSelector({
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <ProviderIcon icon={model.icon} />
                   <Box>
-                    <Typography variant="body1">{model.name}</Typography>
+                    <Typography variant="body2">{model.name}</Typography>
                     {model.description && (
                       <Typography variant="caption" color="text.secondary">
                         {model.description}
@@ -160,13 +192,13 @@ export default function ModelSelector({
           )}
         </Select>
       </FormControl>
-      {helperText && (
+      {effectiveHelperText && (
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ mt: 0.5, display: 'block' }}
         >
-          {helperText}
+          {effectiveHelperText}
         </Typography>
       )}
     </Box>

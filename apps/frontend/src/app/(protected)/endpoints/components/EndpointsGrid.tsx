@@ -1,12 +1,28 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Chip, Paper, Box, Button, Typography, useTheme } from '@mui/material';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useContext,
+  useMemo,
+} from 'react';
+import { Box, Typography, useTheme, Alert } from '@mui/material';
+import GridBadge from '@/components/common/GridBadge';
+import GridToolbar from '@/components/common/GridToolbar';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowSelectionModel,
+  GridFilterModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import {
-  AddIcon,
   DeleteIcon,
   ContentCopyIcon,
   SmartToyIcon,
@@ -15,20 +31,17 @@ import {
   StorageIcon,
   CodeIcon,
 } from '@/components/icons';
-import {
-  GridColDef,
-  GridPaginationModel,
-  GridRowSelectionModel,
-} from '@mui/x-data-grid';
-import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { createEndpoint } from '@/actions/endpoints';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { useOnboarding } from '@/contexts/OnboardingContext';
-import { useSearchParams } from 'next/navigation';
-import { getStatusColor } from '@/utils/status-colors';
+import { buildEndpointListFilter } from '@/utils/odata-filter';
+import EndpointFilterDrawer, {
+  type EndpointFilters,
+  EMPTY_ENDPOINT_FILTERS,
+  hasActiveEndpointFilters,
+} from './EndpointFilterDrawer';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import CloudIcon from '@mui/icons-material/Cloud';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -45,7 +58,6 @@ import SchoolIcon from '@mui/icons-material/School';
 import ScienceIcon from '@mui/icons-material/Science';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 
-// Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
   SmartToy: SmartToyIcon,
   Devices: DevicesIcon,
@@ -69,146 +81,284 @@ const ICON_MAP: Record<string, React.ComponentType> = {
   AccountTree: AccountTreeIcon,
 };
 
-// Get appropriate icon based on project type or use case
 const getProjectIcon = (project: Project | undefined) => {
   if (!project) {
     return <SmartToyIcon />;
   }
-
-  // Check if a specific project icon was selected during creation
   if (project.icon && ICON_MAP[project.icon]) {
     const IconComponent = ICON_MAP[project.icon];
     return <IconComponent />;
   }
-
-  // Fall back to a default icon
   return <SmartToyIcon />;
 };
 
-interface EndpointGridProps {
-  endpoints: Endpoint[];
-  loading?: boolean;
-  totalCount?: number;
-  onPaginationModelChange?: (model: GridPaginationModel) => void;
-  paginationModel?: GridPaginationModel;
-  onEndpointDeleted?: () => void;
+interface EndpointsGridProps {
+  sessionToken?: string;
+  refreshKey?: number;
+  onRefresh?: () => void;
   projectId?: string;
 }
 
-export default function EndpointGrid({
-  endpoints,
-  loading = false,
-  totalCount = 0,
-  onPaginationModelChange,
-  paginationModel = {
+interface EndpointsToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
+}
+
+const DRAWER_FILTER_FIELDS = [
+  'connectionType',
+  'environment',
+  'projectId',
+  'status',
+] as const;
+
+const EndpointsToolbarContext = React.createContext<EndpointsToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
+});
+
+function EndpointsUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    openFilterDrawer,
+    hasActiveDrawerFilters,
+  } = useContext(EndpointsToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search endpoints…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
+
+export default function EndpointsGrid({
+  sessionToken: sessionTokenProp,
+  refreshKey,
+  onRefresh,
+  projectId,
+}: EndpointsGridProps) {
+  const theme = useTheme();
+  const { data: session } = useSession();
+  const notifications = useNotifications();
+
+  const sessionToken = sessionTokenProp || session?.session_token || '';
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
     page: 0,
     pageSize: 10,
-  },
-  onEndpointDeleted,
-  projectId,
-}: EndpointGridProps) {
-  const theme = useTheme();
-  const searchParams = useSearchParams();
+  });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
+  });
   const [projects, setProjects] = useState<Record<string, Project>>({});
-  const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
-  const { data: session } = useSession();
-  const notifications = useNotifications();
-  const {
-    progress: _progress,
-    isComplete: _isComplete,
-    activeTour,
-  } = useOnboarding();
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] = useState<EndpointFilters>(
+    EMPTY_ENDPOINT_FILTERS
+  );
 
-  // Check if user is currently on the endpoint tour
-  const isOnEndpointTour =
-    searchParams.get('tour') === 'endpoint' || activeTour === 'endpoint';
+  const fetchEndpoints = useCallback(async () => {
+    if (!sessionToken) return;
 
-  // Disable buttons ONLY when user is actively on a tour OTHER than endpoint
-  const shouldDisableButtons = activeTour !== null && !isOnEndpointTour;
+    try {
+      setLoading(true);
+      const filterString = buildEndpointListFilter(filterModel, projectId);
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const endpointsClient = apiFactory.getEndpointsClient();
+      const response = await endpointsClient.getEndpoints({
+        skip: paginationModel.page * paginationModel.pageSize,
+        limit: paginationModel.pageSize,
+        sort_by: 'created_at',
+        sort_order: 'desc',
+        ...(filterString && { $filter: filterString }),
+      });
 
-  // Fetch projects when component mounts
+      setEndpoints(response.data);
+      setTotalCount(response.pagination.totalCount);
+      setError(null);
+    } catch {
+      setError('Failed to load endpoints');
+      setEndpoints([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionToken, paginationModel, filterModel, projectId]);
+
+  useEffect(() => {
+    fetchEndpoints();
+  }, [fetchEndpoints]);
+
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) {
+      fetchEndpoints();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'quickFilter'
+      );
+      const items = searchQuery
+        ? [
+            ...otherItems,
+            { field: 'quickFilter', operator: 'contains', value: searchQuery },
+          ]
+        : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item =>
+          !DRAWER_FILTER_FIELDS.includes(
+            item.field as (typeof DRAWER_FILTER_FIELDS)[number]
+          )
+      );
+      const drawerItems: typeof prev.items = [];
+
+      if (drawerFilters.connectionType) {
+        drawerItems.push({
+          field: 'connectionType',
+          operator: 'equals',
+          value: drawerFilters.connectionType,
+        });
+      }
+      if (drawerFilters.environment) {
+        drawerItems.push({
+          field: 'environment',
+          operator: 'equals',
+          value: drawerFilters.environment,
+        });
+      }
+      if (drawerFilters.projectId && !projectId) {
+        drawerItems.push({
+          field: 'projectId',
+          operator: 'equals',
+          value: drawerFilters.projectId,
+        });
+      }
+      if (drawerFilters.status) {
+        drawerItems.push({
+          field: 'status',
+          operator: 'equals',
+          value: drawerFilters.status,
+        });
+      }
+
+      return { ...prev, items: [...otherItems, ...drawerItems] };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [drawerFilters, projectId]);
+
   useEffect(() => {
     const fetchProjects = async () => {
       try {
         setLoadingProjects(true);
-        const sessionToken = session?.session_token || '';
+        if (!sessionToken) return;
 
-        if (sessionToken) {
-          const client = new ApiClientFactory(sessionToken).getProjectsClient();
-          const response = await client.getProjects();
+        const client = new ApiClientFactory(sessionToken).getProjectsClient();
+        const response = await client.getProjects();
+        const projectMap: Record<string, Project> = {};
+        const projectsArray = Array.isArray(response)
+          ? response
+          : response?.data;
 
-          // Create a map for faster lookups
-          const projectMap: Record<string, Project> = {};
-
-          // Handle both paginated response and direct array
-          const projectsArray = Array.isArray(response)
-            ? response
-            : response?.data;
-
-          if (Array.isArray(projectsArray)) {
-            projectsArray.forEach((project: Project) => {
-              if (project && project.id) {
-                projectMap[project.id] = project;
-              }
-            });
-          }
-
-          setProjects(projectMap);
+        if (Array.isArray(projectsArray)) {
+          projectsArray.forEach((project: Project) => {
+            if (project?.id) {
+              projectMap[project.id] = project;
+            }
+          });
         }
+        setProjects(projectMap);
       } catch {
-        // Error handled silently
+        // Projects are optional for display
       } finally {
         setLoadingProjects(false);
       }
     };
 
-    if (session) {
+    if (sessionToken) {
       fetchProjects();
     }
-  }, [session]);
+  }, [sessionToken]);
 
-  // Handle row selection
   const handleRowSelectionModelChange = (
     newSelection: GridRowSelectionModel
   ) => {
     setSelectedRows(newSelection);
   };
 
-  // Handle delete endpoints
+  const handleFilterModelChange = useCallback((model: GridFilterModel) => {
+    setFilterModel(model);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
+
+  const handlePaginationModelChange = useCallback(
+    (newModel: GridPaginationModel) => {
+      setPaginationModel(newModel);
+    },
+    []
+  );
+
+  const handleRefresh = useCallback(() => {
+    fetchEndpoints();
+    onRefresh?.();
+  }, [fetchEndpoints, onRefresh]);
+
   const handleDeleteEndpoints = async () => {
-    if (!session?.session_token || selectedRows.length === 0) return;
+    if (!sessionToken || selectedRows.length === 0) return;
 
     try {
       setDeleting(true);
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const endpointsClient = apiFactory.getEndpointsClient();
+      const endpointsClient = new ApiClientFactory(
+        sessionToken
+      ).getEndpointsClient();
 
-      // Delete all selected endpoints
       await Promise.all(
         selectedRows.map(id => endpointsClient.deleteEndpoint(id as string))
       );
 
-      // Clear selection and close dialog
       setSelectedRows([]);
       setDeleteDialogOpen(false);
-
-      // Refresh the data
-      if (onEndpointDeleted) {
-        onEndpointDeleted();
-      }
+      handleRefresh();
     } catch {
-      // Error handled silently
+      notifications.show('Failed to delete endpoints', { severity: 'error' });
     } finally {
       setDeleting(false);
     }
   };
 
-  // Handle duplicate endpoints
-  const handleDuplicateEndpoints = async () => {
+  const handleDuplicateEndpoints = useCallback(async () => {
     if (selectedRows.length === 0) return;
 
     try {
@@ -219,7 +369,6 @@ export default function EndpointGrid({
         const source = endpoints.find(ep => ep.id === rowId);
         if (!source) continue;
 
-        // Strip server-managed fields
         const {
           id: _id,
           status: _status,
@@ -232,7 +381,6 @@ export default function EndpointGrid({
           ...rest
         } = source as Endpoint & Record<string, unknown>;
 
-        // Determine the next copy name
         const copyMatch = source.name.match(
           /^(.*?)\s*\(Copy(?:\s+(\d+))?\)\s*$/
         );
@@ -261,7 +409,7 @@ export default function EndpointGrid({
           { severity: 'success' }
         );
         setSelectedRows([]);
-        onEndpointDeleted?.(); // reuse the refresh callback
+        handleRefresh();
       }
     } catch {
       notifications.show('Failed to duplicate endpoints', {
@@ -270,161 +418,139 @@ export default function EndpointGrid({
     } finally {
       setDuplicating(false);
     }
-  };
+  }, [selectedRows, endpoints, notifications, handleRefresh]);
 
-  // Custom toolbar with right-aligned buttons
-  const customToolbar = (
-    <Box
-      sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        width: '100%',
-        gap: 2,
-      }}
-    >
-      {/* Action buttons - shown when rows are selected */}
-      {selectedRows.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<ContentCopyIcon />}
-            onClick={handleDuplicateEndpoints}
-            disabled={duplicating}
-          >
-            {duplicating
-              ? 'Duplicating...'
-              : `Duplicate ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}`}
-          </Button>
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteDialogOpen(true)}
-            disabled={deleting}
-          >
-            Delete {selectedRows.length} endpoint
-            {selectedRows.length > 1 ? 's' : ''}
-          </Button>
-        </Box>
-      )}
+  const getActionButtons = useCallback(() => {
+    if (selectedRows.length === 0) return [];
 
-      {/* Spacer to push buttons to the right when no selection */}
-      <Box sx={{ flexGrow: 1 }} />
+    return [
+      {
+        label: duplicating
+          ? 'Duplicating...'
+          : `Duplicate ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}`,
+        icon: <ContentCopyIcon />,
+        variant: 'outlined' as const,
+        onClick: handleDuplicateEndpoints,
+        disabled: duplicating,
+      },
+      {
+        label: `Delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}`,
+        icon: <DeleteIcon />,
+        variant: 'outlined' as const,
+        color: 'error' as const,
+        onClick: () => setDeleteDialogOpen(true),
+        disabled: deleting,
+      },
+    ];
+  }, [selectedRows.length, duplicating, deleting, handleDuplicateEndpoints]);
 
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <Button
-          component={shouldDisableButtons ? 'button' : Link}
-          href={
-            shouldDisableButtons
-              ? undefined
-              : projectId
-                ? `/projects/${projectId}/endpoints/new`
-                : '/endpoints/new'
-          }
-          variant="outlined"
-          startIcon={<AddIcon />}
-          data-tour="create-endpoint-button"
-          disabled={shouldDisableButtons}
-        >
-          New Endpoint
-        </Button>
-      </Box>
-    </Box>
+  const columns: GridColDef[] = useMemo(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Name',
+        flex: 1.2,
+      },
+      {
+        field: 'connection_type',
+        headerName: 'Connection Type',
+        flex: 0.7,
+        renderCell: params => <GridBadge label={params.value} />,
+      },
+      {
+        field: 'environment',
+        headerName: 'Environment',
+        flex: 0.8,
+        renderCell: params => <GridBadge label={params.value} />,
+      },
+      {
+        field: 'project',
+        headerName: 'Project',
+        flex: 1,
+        renderCell: params => {
+          const endpoint = params.row as Endpoint;
+          const project = endpoint.project_id
+            ? projects[endpoint.project_id]
+            : undefined;
+
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: 'primary.main',
+                  '& svg': {
+                    fontSize: theme.typography.h5.fontSize,
+                  },
+                }}
+              >
+                {getProjectIcon(project)}
+              </Box>
+              <Typography variant="body2">
+                {project ? project.name : 'No project'}
+              </Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'status',
+        headerName: 'Status',
+        flex: 0.7,
+        renderCell: params => {
+          const endpoint = params.row as Endpoint;
+          const status = endpoint.status;
+
+          return <GridBadge label={status?.name ?? 'Unknown'} />;
+        },
+      },
+    ],
+    [projects, theme.typography.h5.fontSize]
   );
 
-  const columns: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      flex: 1.2,
-    },
-    {
-      field: 'connection_type',
-      headerName: 'Connection Type',
-      flex: 0.7,
-      renderCell: params => (
-        <Chip label={params.value} size="small" variant="outlined" />
-      ),
-    },
-    {
-      field: 'environment',
-      headerName: 'Environment',
-      flex: 0.8,
-      renderCell: params => (
-        <Chip label={params.value} size="small" variant="outlined" />
-      ),
-    },
-    {
-      field: 'project',
-      headerName: 'Project',
-      flex: 1,
-      renderCell: params => {
-        const endpoint = params.row as Endpoint;
-        const project = endpoint.project_id
-          ? projects[endpoint.project_id]
-          : undefined;
+  const hasActiveDrawerFilters = hasActiveEndpointFilters(drawerFilters);
 
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                color: 'primary.main',
-                '& svg': {
-                  fontSize: theme.typography.h5.fontSize,
-                },
-              }}
-            >
-              {getProjectIcon(project)}
-            </Box>
-            <Typography variant="body2">
-              {project ? project.name : 'No project'}
-            </Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      flex: 0.7,
-      renderCell: params => {
-        const endpoint = params.row as Endpoint;
-        const status = endpoint.status;
+  const toolbarContextValue = useMemo(
+    () => ({
+      searchQuery,
+      setSearchQuery,
+      openFilterDrawer: () => setFilterDrawerOpen(true),
+      hasActiveDrawerFilters,
+    }),
+    [searchQuery, hasActiveDrawerFilters]
+  );
 
-        if (!status) {
-          return (
-            <Chip
-              label="Unknown"
-              size="small"
-              variant="outlined"
-              color="default"
-            />
-          );
-        }
-
-        return (
-          <Chip
-            label={status.name}
-            size="small"
-            variant="outlined"
-            color={getStatusColor(status.name)}
-          />
-        );
-      },
-    },
-  ];
+  if (error) {
+    return <Alert severity="error">{error}</Alert>;
+  }
 
   return (
-    <>
-      <Paper elevation={2} sx={{ p: 2 }}>
+    <EndpointsToolbarContext.Provider value={toolbarContextValue}>
+      <Box sx={{ position: 'relative' }}>
+        {selectedRows.length > 0 && (
+          <Box
+            sx={{
+              px: 2,
+              py: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              borderBottom: theme =>
+                `1px solid ${theme.palette.greyscale.border}`,
+            }}
+          >
+            <Typography variant="subtitle1" color="primary">
+              {selectedRows.length} selected
+            </Typography>
+          </Box>
+        )}
+
         <BaseDataGrid
           rows={endpoints}
           columns={columns}
           loading={loading || loadingProjects}
           density="comfortable"
-          customToolbarContent={customToolbar}
           linkPath={
             projectId ? `/projects/${projectId}/endpoints` : '/endpoints'
           }
@@ -432,27 +558,40 @@ export default function EndpointGrid({
           serverSidePagination={true}
           totalRows={totalCount}
           paginationModel={paginationModel}
-          onPaginationModelChange={onPaginationModelChange}
+          onPaginationModelChange={handlePaginationModelChange}
           pageSizeOptions={[10, 25, 50]}
           checkboxSelection
           disableRowSelectionOnClick
           rowSelectionModel={selectedRows}
           onRowSelectionModelChange={handleRowSelectionModelChange}
+          serverSideFiltering={true}
+          filterModel={filterModel}
+          onFilterModelChange={handleFilterModelChange}
+          toolbarSlot={EndpointsUnifiedToolbar}
+          actionButtons={getActionButtons()}
+          showToolbar={true}
           disablePaperWrapper={true}
           persistState
         />
-      </Paper>
 
-      {/* Delete confirmation dialog */}
-      <DeleteModal
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleDeleteEndpoints}
-        isLoading={deleting}
-        title={`Delete Endpoint${selectedRows.length > 1 ? 's' : ''}`}
-        message={`Are you sure you want to delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
-        itemType="endpoints"
+        <DeleteModal
+          open={deleteDialogOpen}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirm={handleDeleteEndpoints}
+          isLoading={deleting}
+          title={`Delete Endpoint${selectedRows.length > 1 ? 's' : ''}`}
+          message={`Are you sure you want to delete ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+          itemType="endpoints"
+        />
+      </Box>
+
+      <EndpointFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={setDrawerFilters}
+        hideProjectFilter={!!projectId}
       />
-    </>
+    </EndpointsToolbarContext.Provider>
   );
 }

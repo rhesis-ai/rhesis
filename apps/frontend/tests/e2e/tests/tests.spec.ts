@@ -44,7 +44,7 @@ test.describe('Tests @sanity', () => {
 
 test.describe('Tests navigation @sanity', () => {
   test('can navigate from dashboard to tests', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/architect');
     await page.waitForLoadState('networkidle');
 
     // Navigate via sidebar link

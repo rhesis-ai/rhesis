@@ -158,7 +158,7 @@ test('Dashboard — visual baseline @visual', async ({ page }) => {
   const mock = new MockApiHelper(page);
   await mock.mockList('/test_runs', testRunsFixture as any[]);
   await mock.mockList('/test_results', testResultsFixture as any[]);
-  await page.goto('/dashboard');
+  await page.goto('/insights');
   await page.waitForLoadState('networkidle');
 
   await expect(page).toHaveScreenshot('dashboard.png', {

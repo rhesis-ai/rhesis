@@ -15,6 +15,8 @@ export interface NavigationPageItem {
 export interface NavigationHeaderItem {
   kind: 'header';
   title: string;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
 }
 
 export interface NavigationDividerItem {

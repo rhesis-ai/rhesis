@@ -1,4 +1,5 @@
 import os
+import tempfile
 
 # =============================================================================
 # Environment Setup - MUST be done BEFORE any backend imports
@@ -11,9 +12,12 @@ import os
 DATABASE_PORT = 12001
 REDIS_PORT = 12002
 
-_TEST_DB_URL = (
-    f"postgresql://rhesis-user:your-secured-password@localhost:{DATABASE_PORT}/rhesis-test-db"
-)
+_TEST_DB_USER = "rhesis-user"
+_TEST_DB_PASS = "your-secured-password"  # trufflehog:ignore
+_TEST_DB_HOST = "localhost"
+_TEST_DB_PORT = str(DATABASE_PORT)
+_TEST_DB_NAME = "rhesis-test-db"
+_TEST_DB_DRIVER = "postgresql"
 
 _TEST_ENV_VARS = {
     "ENVIRONMENT": "test",
@@ -21,7 +25,13 @@ _TEST_ENV_VARS = {
     "RHESIS_CONNECTOR_DISABLED": "true",
     "RHESIS_PROJECT_ID": "12340000-0000-4000-8000-000000001234",
     "FRONTEND_URL": "http://localhost:3000",
-    "SQLALCHEMY_DATABASE_URL": _TEST_DB_URL,
+    "DB_DRIVER": _TEST_DB_DRIVER,
+    "DB_HOST": _TEST_DB_HOST,
+    "DB_PORT": _TEST_DB_PORT,
+    "DB_NAME": _TEST_DB_NAME,
+    "APP_DB_USER": _TEST_DB_USER,
+    "APP_DB_PASS": _TEST_DB_PASS,
+    "STORAGE_SERVICE_URI": f"file://{os.path.join(tempfile.gettempdir(), 'rhesis-test-storage')}",
     "BROKER_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
     "CELERY_RESULT_BACKEND": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1",
     "JWT_SECRET_KEY": "test-jwt-secret-key-for-backend-tests",
@@ -61,6 +71,20 @@ from tests.backend.routes.fixtures.entities import *  # noqa: E402, F403
 # load_dotenv(override=True) which overwrites our settings with .env values.
 _apply_test_env()
 
+
+@pytest.fixture(autouse=True)
+def isolate_storage_settings_cache():
+    """Ensure tests that patch storage env vars do not reuse cached settings."""
+    from importlib import import_module
+
+    get_storage_settings = import_module(
+        "rhesis.backend.app.config.settings"
+    ).get_storage_settings
+    get_storage_settings.cache_clear()
+    yield
+    get_storage_settings.cache_clear()
+
+
 # =============================================================================
 # Session-scoped database migrations
 # =============================================================================
@@ -83,7 +107,12 @@ def run_migrations_once():
     )
 
     env = os.environ.copy()
-    env["SQLALCHEMY_DATABASE_URL"] = _TEST_DB_URL
+    env["DB_DRIVER"] = _TEST_DB_DRIVER
+    env["DB_HOST"] = _TEST_DB_HOST
+    env["DB_PORT"] = _TEST_DB_PORT
+    env["DB_NAME"] = _TEST_DB_NAME
+    env["APP_DB_USER"] = _TEST_DB_USER
+    env["APP_DB_PASS"] = _TEST_DB_PASS
     env["DB_ENCRYPTION_KEY"] = _TEST_ENV_VARS["DB_ENCRYPTION_KEY"]
 
     result = subprocess.run(

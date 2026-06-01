@@ -40,18 +40,27 @@ import {
   GridToolbar,
   GridToolbarQuickFilter,
   useGridApiRef,
+  useGridApiContext,
+  useGridSelector,
+  gridPaginationModelSelector,
+  gridRowCountSelector,
   GridFilterModel,
   GridSortModel,
   GridInitialState,
   GridRowParams,
   GridCellParams,
+  GridColumnMenu,
+  type GridColumnMenuProps,
   type GridToolbarProps,
 } from '@mui/x-data-grid';
 import type { SxProps, Theme } from '@mui/material/styles';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { useGridStateStorage } from '@/hooks/useGridStateStorage';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 
 interface FilterOption {
   value: string;
@@ -155,8 +164,12 @@ interface BaseDataGridProps {
   pageSizeOptions?: number[];
   // Quick filter props
   enableQuickFilter?: boolean;
+  // Custom toolbar slot (overrides default CustomToolbarWithFilters when serverSideFiltering=true)
+  toolbarSlot?: React.ComponentType;
   // Styling props
   disablePaperWrapper?: boolean;
+  /** Hide column resize handles (enabled by default). */
+  disableColumnResize?: boolean;
   // Initial state props
   initialState?: GridInitialState;
   // State persistence props
@@ -165,37 +178,180 @@ interface BaseDataGridProps {
   hideFooter?: boolean;
 }
 
-// Create a styled version of DataGrid with bold headers
-const StyledDataGrid = styled(DataGrid)({
+// Create a styled version of DataGrid with Figma-aligned borders and headers
+const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
+  border: 'none',
+  // Column header: white bg, bold text, bottom divider matching Figma
   '& .MuiDataGrid-columnHeaders': {
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    backgroundColor: theme.palette.background.paper,
     fontWeight: 'bold',
   },
   '& .MuiDataGrid-columnHeaderTitle': {
-    fontWeight: 800,
+    fontWeight: 700,
   },
   '& .MuiDataGrid-columnHeader': {
     fontWeight: 'bold',
+  },
+  '& .MuiDataGrid-cell': {
+    display: 'flex',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderColor: theme.palette.greyscale.border,
   },
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
   },
   '& .MuiDataGrid-row:hover': {
     cursor: 'pointer',
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    backgroundColor:
+      theme.palette.mode === 'light' ? '#f7f8f9' : 'rgba(255,255,255,0.04)',
   },
-  '& .MuiDataGrid-cell': {
-    display: 'flex',
-    alignItems: 'center', // This ensures vertical centering of all cell content
-    overflow: 'hidden',
+  // Faint row separator above the footer
+  '& .MuiDataGrid-footerContainer': {
+    borderTop: `1px solid ${theme.palette.mode === 'light' ? '#cdd2da' : theme.palette.divider}`,
   },
-  border: 'none',
-});
+}));
 
 function QuickFilterToolbar() {
   return (
     <Box sx={{ p: 1, display: 'flex', justifyContent: 'flex-end' }}>
       <GridToolbarQuickFilter debounceMs={300} />
+    </Box>
+  );
+}
+
+// Column menu that only shows sort actions (no Filter, no Hide/Manage columns).
+function SortOnlyColumnMenu(props: GridColumnMenuProps) {
+  return (
+    <GridColumnMenu
+      {...props}
+      slots={{
+        columnMenuFilterItem: null,
+        columnMenuColumnsItem: null,
+      }}
+    />
+  );
+}
+
+// Context to pass pageSizeOptions into the DataGrid footer slot
+const PaginationSizeContext = React.createContext<number[]>([10, 25, 50]);
+
+function FigmaPaginationFooter() {
+  const theme = useTheme();
+  const textColor = theme.palette.greyscale.body;
+  const mutedBorderColor = theme.palette.greyscale.border;
+
+  const apiRef = useGridApiContext();
+  const paginationModel = useGridSelector(apiRef, gridPaginationModelSelector);
+  const rowCount = useGridSelector(apiRef, gridRowCountSelector);
+  const pageSizeOptions = React.useContext(PaginationSizeContext);
+
+  const { page, pageSize } = paginationModel;
+  const from = rowCount === 0 ? 0 : page * pageSize + 1;
+  const to = Math.min((page + 1) * pageSize, rowCount);
+  const isFirst = page === 0;
+  const isLast = rowCount === 0 || to >= rowCount;
+
+  const navBtnSx = (active: boolean): SxProps<Theme> => ({
+    border: '2px solid',
+    borderColor: active ? 'primary.main' : mutedBorderColor,
+    borderRadius: BORDER_RADIUS.sm,
+    p: '9px',
+    width: 38,
+    height: 38,
+    flexShrink: 0,
+    color: active ? 'primary.main' : mutedBorderColor,
+    '&.Mui-disabled': {
+      borderColor: mutedBorderColor,
+      color: mutedBorderColor,
+      opacity: 1,
+    },
+    '&:hover': {
+      bgcolor: active ? 'rgba(0, 128, 175, 0.06)' : 'transparent',
+    },
+    '& .MuiSvgIcon-root': { fontSize: 16 },
+  });
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        px: '30px',
+        py: '16px',
+      }}
+    >
+      {/* Rows per page */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+        <Typography
+          sx={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: textColor,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Rows per page:
+        </Typography>
+        <Select
+          value={pageSize}
+          onChange={e =>
+            apiRef.current.setPaginationModel({
+              page: 0,
+              pageSize: Number(e.target.value),
+            })
+          }
+          variant="standard"
+          disableUnderline
+          sx={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: textColor,
+            '& .MuiSelect-icon': { color: textColor },
+          }}
+        >
+          {pageSizeOptions.map(opt => (
+            <MenuItem key={opt} value={opt} sx={{ fontSize: 14 }}>
+              {opt}
+            </MenuItem>
+          ))}
+        </Select>
+      </Box>
+
+      {/* Prev / range / Next */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
+        <IconButton
+          onClick={() =>
+            apiRef.current.setPaginationModel({ page: page - 1, pageSize })
+          }
+          disabled={isFirst}
+          sx={navBtnSx(!isFirst)}
+        >
+          <ArrowBackIosNewIcon />
+        </IconButton>
+
+        <Typography
+          sx={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: textColor,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {from}–{to} of {rowCount}
+        </Typography>
+
+        <IconButton
+          onClick={() =>
+            apiRef.current.setPaginationModel({ page: page + 1, pageSize })
+          }
+          disabled={isLast}
+          sx={navBtnSx(!isLast)}
+        >
+          <ArrowForwardIosIcon />
+        </IconButton>
+      </Box>
     </Box>
   );
 }
@@ -240,7 +396,9 @@ export default function BaseDataGrid({
   onPaginationModelChange,
   pageSizeOptions = [10, 25, 50],
   enableQuickFilter = false,
+  toolbarSlot,
   disablePaperWrapper = false,
+  disableColumnResize = false,
   initialState,
   persistState = false,
   storageKey,
@@ -666,6 +824,31 @@ export default function BaseDataGrid({
     );
   }
 
+  // Consolidated slots — computed once, used in both DataGrid render paths
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const resolvedSlots: Record<string, React.ComponentType<any>> = {
+    columnMenu: SortOnlyColumnMenu,
+  };
+  if (!hideFooter) {
+    resolvedSlots.footer = FigmaPaginationFooter;
+  }
+  if (toolbarSlot) {
+    resolvedSlots.toolbar = toolbarSlot;
+  } else if (serverSideFiltering) {
+    resolvedSlots.toolbar = CustomToolbarWithFilters;
+  } else if (enableQuickFilter) {
+    resolvedSlots.toolbar = QuickFilterToolbar;
+  }
+
+  const dataGridSx: SxProps<Theme> = [
+    disableColumnResize && {
+      '& .MuiDataGrid-columnSeparator': {
+        display: 'none',
+      },
+    },
+    _sx,
+  ].filter(Boolean) as SxProps<Theme>;
+
   return (
     <>
       <Box
@@ -830,73 +1013,7 @@ export default function BaseDataGrid({
       </Box>
 
       {disablePaperWrapper ? (
-        <StyledDataGrid
-          apiRef={apiRef}
-          rows={serverSidePagination ? rows : filteredRows}
-          columns={columns}
-          getRowId={getRowId}
-          autoHeight
-          pagination
-          hideFooter={hideFooter}
-          paginationMode={serverSidePagination ? 'server' : 'client'}
-          rowCount={serverSidePagination ? totalRows : undefined}
-          paginationModel={paginationModel}
-          onPaginationModelChange={onPaginationModelChange}
-          pageSizeOptions={pageSizeOptions}
-          checkboxSelection={checkboxSelection}
-          disableVirtualization={false}
-          loading={loading}
-          onRowClick={
-            enableEditing
-              ? undefined
-              : linkPath || onRowClick
-                ? handleRowClickWithLink
-                : undefined
-          }
-          disableMultipleRowSelection={disableMultipleRowSelection}
-          {...(density && { density })}
-          {...(mergedInitialState && { initialState: mergedInitialState })}
-          {...(serverSideFiltering && {
-            filterMode: 'server',
-            filterModel,
-            onFilterModelChange,
-            slots: { toolbar: CustomToolbarWithFilters },
-          })}
-          {...(sortingMode === 'server' && {
-            sortingMode: 'server',
-            sortModel,
-            onSortModelChange,
-          })}
-          {...(enableQuickFilter &&
-            !serverSideFiltering && {
-              slots: { toolbar: QuickFilterToolbar },
-            })}
-          {...(enableEditing && {
-            editMode,
-            processRowUpdate,
-            onProcessRowUpdateError,
-            isCellEditable,
-          })}
-          {...(onRowSelectionModelChange && {
-            onRowSelectionModelChange,
-          })}
-          {...(rowSelectionModel !== undefined && {
-            rowSelectionModel,
-          })}
-          {...(isRowSelectable && { isRowSelectable })}
-          {...(disableRowSelectionOnClick && {
-            disableRowSelectionOnClick,
-          })}
-        />
-      ) : (
-        <Paper
-          elevation={1}
-          sx={{
-            width: '100%',
-            borderRadius: theme => theme.shape.borderRadius * 0.5,
-            overflow: 'hidden',
-          }}
-        >
+        <PaginationSizeContext.Provider value={pageSizeOptions}>
           <StyledDataGrid
             apiRef={apiRef}
             rows={serverSidePagination ? rows : filteredRows}
@@ -913,6 +1030,8 @@ export default function BaseDataGrid({
             checkboxSelection={checkboxSelection}
             disableVirtualization={false}
             loading={loading}
+            slots={resolvedSlots}
+            sx={dataGridSx}
             onRowClick={
               enableEditing
                 ? undefined
@@ -927,17 +1046,12 @@ export default function BaseDataGrid({
               filterMode: 'server',
               filterModel,
               onFilterModelChange,
-              slots: { toolbar: CustomToolbarWithFilters },
             })}
             {...(sortingMode === 'server' && {
               sortingMode: 'server',
               sortModel,
               onSortModelChange,
             })}
-            {...(enableQuickFilter &&
-              !serverSideFiltering && {
-                slots: { toolbar: QuickFilterToolbar },
-              })}
             {...(enableEditing && {
               editMode,
               processRowUpdate,
@@ -955,6 +1069,74 @@ export default function BaseDataGrid({
               disableRowSelectionOnClick,
             })}
           />
+        </PaginationSizeContext.Provider>
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            width: '100%',
+            borderRadius: BORDER_RADIUS.md,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+            boxShadow: ELEVATION.xs,
+            overflow: 'hidden',
+          }}
+        >
+          <PaginationSizeContext.Provider value={pageSizeOptions}>
+            <StyledDataGrid
+              apiRef={apiRef}
+              rows={serverSidePagination ? rows : filteredRows}
+              columns={columns}
+              getRowId={getRowId}
+              autoHeight
+              pagination
+              hideFooter={hideFooter}
+              paginationMode={serverSidePagination ? 'server' : 'client'}
+              rowCount={serverSidePagination ? totalRows : undefined}
+              paginationModel={paginationModel}
+              onPaginationModelChange={onPaginationModelChange}
+              pageSizeOptions={pageSizeOptions}
+              checkboxSelection={checkboxSelection}
+              disableVirtualization={false}
+              loading={loading}
+              slots={resolvedSlots}
+              sx={dataGridSx}
+              onRowClick={
+                enableEditing
+                  ? undefined
+                  : linkPath || onRowClick
+                    ? handleRowClickWithLink
+                    : undefined
+              }
+              disableMultipleRowSelection={disableMultipleRowSelection}
+              {...(density && { density })}
+              {...(mergedInitialState && { initialState: mergedInitialState })}
+              {...(serverSideFiltering && {
+                filterMode: 'server',
+                filterModel,
+                onFilterModelChange,
+              })}
+              {...(sortingMode === 'server' && {
+                sortingMode: 'server',
+                sortModel,
+                onSortModelChange,
+              })}
+              {...(enableEditing && {
+                editMode,
+                processRowUpdate,
+                onProcessRowUpdateError,
+                isCellEditable,
+              })}
+              {...(onRowSelectionModelChange && {
+                onRowSelectionModelChange,
+              })}
+              {...(rowSelectionModel !== undefined && {
+                rowSelectionModel,
+              })}
+              {...(disableRowSelectionOnClick && {
+                disableRowSelectionOnClick,
+              })}
+            />
+          </PaginationSizeContext.Provider>
         </Paper>
       )}
     </>

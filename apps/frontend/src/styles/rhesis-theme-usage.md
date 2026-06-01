@@ -1,5 +1,59 @@
 # Rhesis AI Theme Usage Guide
 
+## UI Revamp — New in Phase 1 (2026-05-19)
+
+### Greyscale Palette (Figma-aligned)
+
+All greyscale tokens live at `theme.palette.greyscale` and are correctly switched for light/dark.
+
+```tsx
+const theme = useTheme();
+
+theme.palette.greyscale.title; // #1a1c20 (headings)
+theme.palette.greyscale.body; // #2a2e36 (body copy, cell text)
+theme.palette.greyscale.subtitle; // #7f8a9b (category labels, subdued)
+theme.palette.greyscale.border; // #cdd2da (table dividers, input borders)
+theme.palette.greyscale.surface1; // #f7f8f9 (table header bg, hover rows)
+theme.palette.greyscale.surface2; // #eef0f3 (chip default bg, card bg)
+```
+
+### New Typography Variants (Figma scale)
+
+```tsx
+<Typography variant="bodyLReg">Body L Regular — 16px/24px/400</Typography>
+<Typography variant="bodyMReg">Body M Regular — 14px/22px/400</Typography>
+<Typography variant="bodyMBold">Body M Bold — 14px/22px/700</Typography>
+<Typography variant="bodySReg">Body S Regular — 12px/18px/400</Typography>
+<Typography variant="captionBold">Caption Bold — 12px/18px/600</Typography>
+```
+
+Updated `h4`: 28px / 33.6px / weight 700 (matches Figma H4/Bold).
+
+### Elevation Tokens
+
+```tsx
+import { ELEVATION } from '@/styles/theme';
+
+// Box shadow values for sx props
+ELEVATION.xs; // 0px 2px 4px rgba(84, 90, 101, 0.25)  ← default Paper elevation 1
+ELEVATION.s; // 0px 16px 32px -4px ...
+ELEVATION.m; // ...
+ELEVATION.l; // ...
+ELEVATION.xl; // ...
+
+// Also available on theme object:
+theme.elevation.xs; // same string value
+```
+
+### Pill Button Variant
+
+```tsx
+<Button variant="pill">Label</Button>
+// Fully rounded (borderRadius: 999), outlined style, activatable via className/aria
+```
+
+---
+
 ## Color Palette Usage
 
 ### Primary Colors

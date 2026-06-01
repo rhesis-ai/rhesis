@@ -87,6 +87,7 @@ def read_behaviors(
         sort_order=sort_order,
         filter=filter,
         nested_relationships={"metrics": ["metric_type", "backend_type"]},
+        selectin_chains=[["_tags_relationship", "tag"]],
         organization_id=organization_id,
         user_id=user_id,
     )
@@ -96,7 +97,7 @@ def read_behaviors(
     return results
 
 
-@router.get("/{behavior_id}")
+@router.get("/{behavior_id}", response_model=BehaviorWithMetricsSchema)
 def read_behavior(
     behavior_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

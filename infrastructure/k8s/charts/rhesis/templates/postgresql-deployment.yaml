@@ -53,12 +53,12 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: SQLALCHEMY_DB_NAME
+                  key: DB_NAME
             - name: POSTGRES_USER
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: SQLALCHEMY_DB_USER
+                  key: APP_DB_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

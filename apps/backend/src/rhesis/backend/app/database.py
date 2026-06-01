@@ -51,15 +51,14 @@ def _set_session_variables(
 
 
 def get_database_url() -> str:
-    """Get the configured database URL."""
-    settings = get_database_settings()
-    return settings.url
+    """Get the runtime (app user) database URL."""
+    return get_database_settings().app_url
 
 
-SQLALCHEMY_DATABASE_URL = get_database_url()
+DATABASE_URL = get_database_url()
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
+    DATABASE_URL,
     # More conservative pool settings
     pool_size=10,  # Adjust based on concurrent load
     max_overflow=20,  # Total max: 20 connections per instance

@@ -5,7 +5,6 @@ This provider handles authentication via GitHub's OAuth 2.0.
 """
 
 import logging
-import os
 from typing import Any, Optional
 
 from authlib.integrations.starlette_client import OAuth
@@ -13,6 +12,7 @@ from fastapi import HTTPException, Request, status
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
+from rhesis.backend.app.config.settings import get_auth_settings
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class GitHubProvider(AuthProvider):
 
         Both GH_CLIENT_ID and GH_CLIENT_SECRET must be set.
         """
-        return bool(os.getenv("GH_CLIENT_ID") and os.getenv("GH_CLIENT_SECRET"))
+        return get_auth_settings().github_enabled
 
     @property
     def is_oauth(self) -> bool:
@@ -77,11 +77,12 @@ class GitHubProvider(AuthProvider):
         Uses lazy initialization to avoid errors when credentials aren't set.
         """
         if self._oauth is None:
+            settings = get_auth_settings()
             self._oauth = OAuth()
             self._oauth.register(
                 name="github",
-                client_id=os.getenv("GH_CLIENT_ID"),
-                client_secret=os.getenv("GH_CLIENT_SECRET"),
+                client_id=settings.github_client_id,
+                client_secret=settings.github_client_secret,
                 access_token_url="https://github.com/login/oauth/access_token",
                 authorize_url="https://github.com/login/oauth/authorize",
                 api_base_url="https://api.github.com/",

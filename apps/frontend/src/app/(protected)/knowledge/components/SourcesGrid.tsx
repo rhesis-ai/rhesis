@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useContext,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
   GridRowParams,
@@ -8,21 +14,19 @@ import {
   GridPaginationModel,
   GridFilterModel,
   GridSortModel,
+  GridToolbarColumnsButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { Box, Typography, Chip } from '@mui/material';
+import GridToolbar from '@/components/common/GridToolbar';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import UploadIcon from '@mui/icons-material/Upload';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import UploadSourceDialog from './UploadSourceDialog';
-import MCPToolSelectorDialog from './MCPToolSelectorDialog';
-import MCPImportDialog from './MCPImportDialog';
-import { Tool } from '@/utils/api-client/interfaces/tool';
 import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import { ChatIcon } from '@/components/icons';
@@ -31,16 +35,61 @@ import {
   formatDate,
   getFileExtension,
 } from '@/constants/knowledge';
+import SourceFilterDrawer, {
+  type SourceFilters,
+  EMPTY_SOURCE_FILTERS,
+  hasActiveSourceFilters,
+} from './SourceFilterDrawer';
 
 interface SourcesGridProps {
   sessionToken: string;
+  refreshKey?: number;
   onRefresh?: () => void;
 }
 
-// Remove the local formatFileSize function since we're importing it
+interface SourcesToolbarState {
+  searchQuery: string;
+  setSearchQuery: (v: string) => void;
+  openFilterDrawer: () => void;
+  hasActiveDrawerFilters: boolean;
+}
+
+const SourcesToolbarContext = React.createContext<SourcesToolbarState>({
+  searchQuery: '',
+  setSearchQuery: () => {},
+  openFilterDrawer: () => {},
+  hasActiveDrawerFilters: false,
+});
+
+function SourcesUnifiedToolbar() {
+  const {
+    searchQuery,
+    setSearchQuery,
+    openFilterDrawer,
+    hasActiveDrawerFilters,
+  } = useContext(SourcesToolbarContext);
+
+  return (
+    <GridToolbar
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      searchPlaceholder="Search sources…"
+      onFilterClick={openFilterDrawer}
+      hasActiveFilters={hasActiveDrawerFilters}
+      rightContent={
+        <>
+          <GridToolbarColumnsButton />
+          <GridToolbarDensitySelector />
+          <GridToolbarExport />
+        </>
+      }
+    />
+  );
+}
 
 export default function SourcesGrid({
   sessionToken,
+  refreshKey,
   onRefresh,
 }: SourcesGridProps) {
   const router = useRouter();
@@ -64,10 +113,10 @@ export default function SourcesGrid({
   ]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [mcpToolSelectorOpen, setMcpToolSelectorOpen] = useState(false);
-  const [mcpImportDialogOpen, setMcpImportDialogOpen] = useState(false);
-  const [selectedMCPTool, setSelectedMCPTool] = useState<Tool | null>(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [drawerFilters, setDrawerFilters] =
+    useState<SourceFilters>(EMPTY_SOURCE_FILTERS);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Data fetching function
   const fetchSources = useCallback(async () => {
@@ -118,12 +167,61 @@ export default function SourcesGrid({
     fetchSources();
   }, [fetchSources]);
 
-  // Handle refresh - called by parent via onRefresh
   useEffect(() => {
-    if (onRefresh) {
+    if (refreshKey !== undefined && refreshKey > 0) {
       fetchSources();
     }
-  }, [onRefresh, fetchSources]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  useEffect(() => {
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => item.field !== 'quickFilter'
+      );
+      const items = searchQuery
+        ? [
+            ...otherItems,
+            { field: 'quickFilter', operator: 'contains', value: searchQuery },
+          ]
+        : otherItems;
+      return { ...prev, items };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const DRAWER_FIELDS = ['source_type.type_value', 'user.name', 'tags'];
+    setFilterModel(prev => {
+      const otherItems = prev.items.filter(
+        item => !DRAWER_FIELDS.includes(item.field ?? '')
+      );
+      const drawerItems: typeof prev.items = [];
+      if (drawerFilters.sourceType) {
+        drawerItems.push({
+          field: 'source_type.type_value',
+          operator: 'equals',
+          value: drawerFilters.sourceType,
+        });
+      }
+      if (drawerFilters.creator) {
+        drawerItems.push({
+          field: 'user.name',
+          operator: 'contains',
+          value: drawerFilters.creator,
+        });
+      }
+      if (drawerFilters.tag) {
+        drawerItems.push({
+          field: 'tags',
+          operator: 'contains',
+          value: drawerFilters.tag,
+        });
+      }
+      return { ...prev, items: [...otherItems, ...drawerItems] };
+    });
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, [drawerFilters]);
 
   // Handle pagination
   const handlePaginationModelChange = useCallback(
@@ -164,10 +262,9 @@ export default function SourcesGrid({
     [router]
   );
 
-  // Handle delete sources
-  const handleDeleteSources = () => {
+  const handleDeleteSources = useCallback(() => {
     setDeleteModalOpen(true);
-  };
+  }, []);
 
   const handleDeleteConfirm = async () => {
     if (selectedRows.length === 0) return;
@@ -192,9 +289,9 @@ export default function SourcesGrid({
         { severity: 'success', autoHideDuration: 4000 }
       );
 
-      // Clear selection and refresh data
       setSelectedRows([]);
       fetchSources();
+      onRefresh?.();
     } catch {
       notifications.show('Failed to delete sources', {
         severity: 'error',
@@ -210,50 +307,29 @@ export default function SourcesGrid({
     setDeleteModalOpen(false);
   };
 
-  // Get action buttons based on selection
   const getActionButtons = useCallback(() => {
-    const buttons: Array<{
-      label: string;
-      icon: React.ReactNode;
-      variant: 'text' | 'outlined' | 'contained';
-      onClick: () => void;
-      splitButton?: {
-        options: {
-          label: string;
-          onClick: () => void;
-          disabled?: boolean;
-        }[];
-      };
-    }> = [
-      {
-        label: 'Upload Source',
-        icon: <UploadIcon />,
-        variant: 'contained' as const,
-        onClick: () => {
-          setUploadDialogOpen(true);
-        },
-      },
-      {
-        label: 'Import from MCP',
-        icon: <CloudDownloadIcon />,
-        variant: 'outlined' as const,
-        onClick: () => {
-          setMcpToolSelectorOpen(true);
-        },
-      },
-    ];
+    if (selectedRows.length === 0) return [];
 
-    if (selectedRows.length > 0) {
-      buttons.push({
+    return [
+      {
         label: 'Delete Sources',
         icon: <DeleteIcon />,
         variant: 'outlined' as const,
+        color: 'error' as const,
         onClick: handleDeleteSources,
-      });
-    }
+      },
+    ];
+  }, [selectedRows.length, handleDeleteSources]);
 
-    return buttons;
-  }, [selectedRows.length]);
+  const toolbarContextValue = useMemo(
+    () => ({
+      searchQuery,
+      setSearchQuery,
+      openFilterDrawer: () => setFilterDrawerOpen(true),
+      hasActiveDrawerFilters: hasActiveSourceFilters(drawerFilters),
+    }),
+    [searchQuery, drawerFilters]
+  );
 
   // Column definitions
   const columns: GridColDef[] = React.useMemo(
@@ -508,7 +584,7 @@ export default function SourcesGrid({
   }
 
   return (
-    <>
+    <SourcesToolbarContext.Provider value={toolbarContextValue}>
       {selectedRows.length > 0 && (
         <Box className={styles.selectionInfo}>
           <Typography variant="subtitle1" className={styles.selectionText}>
@@ -522,7 +598,7 @@ export default function SourcesGrid({
         rows={sources}
         loading={loading}
         getRowId={row => row.id}
-        showToolbar={false}
+        showToolbar={true}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
         filterModel={filterModel}
@@ -541,6 +617,7 @@ export default function SourcesGrid({
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
         onRowClick={handleRowClick}
+        toolbarSlot={SourcesUnifiedToolbar}
         persistState
       />
 
@@ -554,45 +631,12 @@ export default function SourcesGrid({
         itemType="sources"
       />
 
-      <UploadSourceDialog
-        open={uploadDialogOpen}
-        onClose={() => setUploadDialogOpen(false)}
-        onSuccess={() => {
-          fetchSources();
-          setUploadDialogOpen(false);
-        }}
-        sessionToken={sessionToken}
+      <SourceFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        onApply={f => setDrawerFilters(f)}
       />
-
-      <MCPToolSelectorDialog
-        open={mcpToolSelectorOpen}
-        onClose={() => setMcpToolSelectorOpen(false)}
-        onSelectTool={tool => {
-          setSelectedMCPTool(tool);
-          setMcpToolSelectorOpen(false);
-          setMcpImportDialogOpen(true);
-        }}
-        sessionToken={sessionToken}
-      />
-
-      <MCPImportDialog
-        open={mcpImportDialogOpen}
-        onClose={() => {
-          setMcpImportDialogOpen(false);
-          setSelectedMCPTool(null);
-        }}
-        onBack={() => {
-          setMcpImportDialogOpen(false);
-          setMcpToolSelectorOpen(true);
-        }}
-        onSuccess={() => {
-          fetchSources();
-          setMcpImportDialogOpen(false);
-          setSelectedMCPTool(null);
-        }}
-        sessionToken={sessionToken}
-        tool={selectedMCPTool}
-      />
-    </>
+    </SourcesToolbarContext.Provider>
   );
 }

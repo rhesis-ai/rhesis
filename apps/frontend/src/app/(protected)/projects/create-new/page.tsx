@@ -28,7 +28,12 @@ export default async function CreateProjectPage() {
       const usersClient = apiFactory.getUsersClient();
       const userData = await usersClient.getUser(session.user.id);
       organizationId = userData.organization_id;
-    } catch (_error) {}
+    } catch (error) {
+      console.error(
+        'Failed to fetch organization ID for project creation:',
+        error
+      );
+    }
   }
 
   return (

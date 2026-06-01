@@ -65,7 +65,7 @@ def read_use_cases(
     )
 
 
-@router.get("/{use_case_id}")
+@router.get("/{use_case_id}", response_model=schemas.UseCase)
 def read_use_case(
     use_case_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

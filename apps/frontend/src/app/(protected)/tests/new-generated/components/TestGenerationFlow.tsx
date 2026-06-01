@@ -273,7 +273,7 @@ export default function TestGenerationFlow({
   const [mode, setMode] = useState<GenerationMode | null>(
     hasTemplate ? 'template' : 'ai'
   );
-  const [testType, _setTestType] = useState<TestType>(
+  const [testType, setTestType] = useState<TestType>(
     storedTestType || 'single_turn'
   );
 
@@ -308,6 +308,19 @@ export default function TestGenerationFlow({
   const [regeneratingSampleId, setRegeneratingSampleId] = useState<
     string | null
   >(null);
+
+  const handleTestTypeChange = useCallback((newType: TestType) => {
+    setTestType(newType);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('testType', newType);
+    }
+    // Reset flow so the user configures fresh for the new type
+    setCurrentScreen('input');
+    setConfigChips(createEmptyChips());
+    setTestSamples([]);
+    setChatMessages([]);
+    setDescription('');
+  }, []);
 
   const handlePipelineEvent = useCallback(
     (event: TestPipelineEvent) => {
@@ -1029,6 +1042,8 @@ export default function TestGenerationFlow({
       case 'input':
         return (
           <TestInputScreen
+            testType={testType}
+            onTestTypeChange={handleTestTypeChange}
             onContinue={handleContinueFromInput}
             initialDescription={description}
             selectedSourceIds={selectedSourceIds}

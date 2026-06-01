@@ -48,8 +48,11 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
     find_or_create_user_from_auth,
 )
-from rhesis.backend.app.config.settings import get_frontend_settings
-from rhesis.backend.app.constants import RHESIS_BASE_URL
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_frontend_settings,
+    get_rhesis_settings,
+)
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
@@ -183,27 +186,30 @@ class RefreshTokenRequest(BaseModel):
 _LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
+def _get_rhesis_base_url() -> str:
+    return get_rhesis_settings().base_url
+
+
 def is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
 
     Never uses any request-derived data. Uses three independent signals:
     1. Quick Start mode (QUICK_START=true + no GCP env vars)
     2. RHESIS_BASE_URL explicitly configured for localhost
-    3. ENVIRONMENT or BACKEND_ENV set to 'local'
+    3. BACKEND_ENV set to 'local'
     """
     # Signal 1: Quick Start mode (env-vars only, no request data)
     if is_quick_start_enabled():
         return True
 
     # Signal 2: RHESIS_BASE_URL points to a local address
-    parsed_host = urlparse(RHESIS_BASE_URL).hostname or ""
+    parsed_host = urlparse(_get_rhesis_base_url()).hostname or ""
     if parsed_host in _LOCAL_HOSTNAMES:
         return True
 
-    # Signal 3: Environment variables indicate local deployment
-    env = os.getenv("ENVIRONMENT", "").lower()
-    backend_env = os.getenv("BACKEND_ENV", "").lower()
-    if env == "local" or backend_env == "local":
+    # Signal 3: BACKEND_ENV explicitly set to local
+    settings = get_application_settings()
+    if settings.backend_env == "local":
         return True
 
     return False
@@ -231,7 +237,7 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
         base_url = f"http://{hostname}:{port}"
     else:
         # Production: always use configured base URL
-        base_url = RHESIS_BASE_URL.rstrip("/")
+        base_url = _get_rhesis_base_url().rstrip("/")
 
     callback_url = f"{base_url}/auth/callback"
 
@@ -435,7 +441,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
 
         # Capture values from pre-auth session before regeneration
         original_frontend = request.session.get("original_frontend")
-        return_to = request.session.get("return_to", "/dashboard")
+        return_to = request.session.get("return_to", "/architect")
 
         # Set up session and create tokens
         clear_user_logout(str(user.id))
@@ -1479,7 +1485,7 @@ async def demo_redirect(request: Request):
             request.session["original_frontend"] = origin
 
         callback_url = get_callback_url(request)
-        request.session["return_to"] = "/dashboard"
+        request.session["return_to"] = "/architect"
 
         if not os.getenv("AUTH0_DOMAIN"):
             raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")

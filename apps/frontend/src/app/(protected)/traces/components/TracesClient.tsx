@@ -1,18 +1,28 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Alert } from '@mui/material';
+import { Alert, Box, Typography } from '@mui/material';
 import TracesTable from './TracesTable';
-import TraceFilters from './TraceFilters';
 import TraceDrawer from './TraceDrawer';
-import { NoTracesFound } from './EmptyStates';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TraceSummary,
   TraceQueryParams,
 } from '@/utils/api-client/interfaces/telemetry';
 import { useNotifications } from '@/components/common/NotificationContext';
+import {
+  buildTraceQueryParams,
+  EMPTY_TRACE_DRAWER_FILTERS,
+  hasActiveTraceDrawerFilters,
+  type TraceDrawerFilters,
+} from './trace-filter-params';
+
+const TRACE_PAGE_SIZE_OPTIONS = [25, 50, 100];
+
+function normalizePageSize(size: number): number {
+  return TRACE_PAGE_SIZE_OPTIONS.includes(size) ? size : 50;
+}
 
 interface TracesClientProps {
   sessionToken: string;
@@ -21,6 +31,9 @@ interface TracesClientProps {
   currentUserPicture?: string;
   initialTraceId?: string | null;
   initialProjectId?: string | null;
+  refreshKey?: number;
+  onRefresh?: () => void;
+  onUnfilteredEmpty?: (empty: boolean) => void;
 }
 
 export default function TracesClient({
@@ -30,6 +43,9 @@ export default function TracesClient({
   currentUserPicture,
   initialTraceId = null,
   initialProjectId = null,
+  refreshKey: externalRefreshKey = 0,
+  onRefresh,
+  onUnfilteredEmpty,
 }: TracesClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,7 +55,6 @@ export default function TracesClient({
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Drawer state - initialize from props for deep-link support
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(
     initialTraceId
   );
@@ -50,17 +65,35 @@ export default function TracesClient({
     !!(initialTraceId && initialProjectId)
   );
 
-  // Filter state - default to last 24 hours
-  const [filters, setFilters] = useState<TraceQueryParams>({
-    limit: 50,
-    offset: 0,
-  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [drawerFilters, setDrawerFilters] = useState<TraceDrawerFilters>(
+    () => ({
+      ...EMPTY_TRACE_DRAWER_FILTERS,
+      ...(initialProjectId ? { projectId: initialProjectId } : {}),
+    })
+  );
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [limit, setLimit] = useState(50);
+  const [offset, setOffset] = useState(0);
 
-  // Refresh key for manual refresh (consistent with other components)
-  const [refreshKey, setRefreshKey] = useState(0);
+  const pageSize = normalizePageSize(limit);
 
-  // Fetch traces - using pattern from BehaviorsClient and MetricsClient
+  const queryParams: TraceQueryParams = useMemo(
+    () =>
+      buildTraceQueryParams(
+        drawerFilters,
+        searchQuery,
+        typeFilter,
+        pageSize,
+        offset
+      ),
+    [drawerFilters, searchQuery, typeFilter, pageSize, offset]
+  );
+
   useEffect(() => {
+    let cancelled = false;
+
     const fetchTraces = async () => {
       if (!sessionToken) return;
 
@@ -70,10 +103,13 @@ export default function TracesClient({
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
         const client = clientFactory.getTelemetryClient();
-        const response = await client.listTraces(filters);
+        const response = await client.listTraces(queryParams);
+        if (cancelled) return;
         setTraces(response.traces);
         setTotalCount(response.total);
+        setError(null);
       } catch (err: unknown) {
+        if (cancelled) return;
         const errorMsg =
           err instanceof Error ? err.message : 'Failed to fetch traces';
         setError(errorMsg);
@@ -81,12 +117,45 @@ export default function TracesClient({
         setTraces([]);
         setTotalCount(0);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchTraces();
-  }, [sessionToken, filters, refreshKey, notifications]);
+
+    return () => {
+      cancelled = true;
+    };
+    // notifications intentionally omitted — unstable reference can retrigger fetch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    sessionToken,
+    externalRefreshKey,
+    drawerFilters,
+    searchQuery,
+    typeFilter,
+    pageSize,
+    offset,
+  ]);
+
+  useEffect(() => {
+    const unfiltered =
+      typeFilter === 'all' &&
+      !searchQuery.trim() &&
+      !hasActiveTraceDrawerFilters(drawerFilters);
+    onUnfilteredEmpty?.(!loading && totalCount === 0 && unfiltered);
+  }, [
+    loading,
+    totalCount,
+    typeFilter,
+    searchQuery,
+    drawerFilters,
+    onUnfilteredEmpty,
+  ]);
+
+  useEffect(() => {
+    setOffset(0);
+  }, [searchQuery, typeFilter, drawerFilters]);
 
   const handleRowClick = (traceId: string, projectId: string) => {
     setSelectedTraceId(traceId);
@@ -104,23 +173,19 @@ export default function TracesClient({
   }, [initialTraceId, router, pathname]);
 
   const handlePageChange = (newPage: number) => {
-    setFilters(prev => ({
-      ...prev,
-      offset: newPage * (prev.limit || 50),
-    }));
+    setOffset(newPage * pageSize);
   };
 
   const handlePageSizeChange = (newSize: number) => {
-    setFilters(prev => ({
-      ...prev,
-      limit: newSize,
-      offset: 0,
-    }));
+    setLimit(normalizePageSize(newSize));
+    setOffset(0);
   };
 
   const handleRefresh = () => {
-    setRefreshKey(prev => prev + 1);
+    onRefresh?.();
   };
+
+  const showFilteredEmpty = !loading && traces.length === 0 && totalCount === 0;
 
   return (
     <>
@@ -130,26 +195,37 @@ export default function TracesClient({
         </Alert>
       )}
 
-      <TraceFilters
-        filters={filters}
-        onFiltersChange={setFilters}
-        onRefresh={handleRefresh}
+      <TracesTable
+        traces={traces}
+        loading={loading}
+        onRowClick={handleRowClick}
+        totalCount={totalCount}
+        page={Math.floor(offset / pageSize)}
+        pageSize={pageSize}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        drawerFilters={drawerFilters}
+        onApplyDrawerFilters={setDrawerFilters}
+        filterDrawerOpen={filterDrawerOpen}
+        onFilterDrawerOpen={() => setFilterDrawerOpen(true)}
+        onFilterDrawerClose={() => setFilterDrawerOpen(false)}
         sessionToken={sessionToken}
       />
 
-      {traces.length === 0 && !loading ? (
-        <NoTracesFound />
-      ) : (
-        <TracesTable
-          traces={traces}
-          loading={loading}
-          onRowClick={handleRowClick}
-          totalCount={totalCount}
-          page={Math.floor((filters.offset || 0) / (filters.limit || 50))}
-          pageSize={filters.limit || 50}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
-        />
+      {showFilteredEmpty && (
+        <Box sx={{ py: 6, textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom>
+            No traces found
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Try adjusting your filters or check back after running tests or
+            invoking endpoints.
+          </Typography>
+        </Box>
       )}
 
       <TraceDrawer

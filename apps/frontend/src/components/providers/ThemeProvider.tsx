@@ -6,7 +6,7 @@ import {
   createTheme,
 } from '@mui/material/styles';
 import { getDesignTokens } from '../../styles/theme';
-import _CssBaseline from '@mui/material/CssBaseline';
+import CssBaseline from '@mui/material/CssBaseline';
 
 // Create a context for theme mode
 export const ColorModeContext = React.createContext({
@@ -87,6 +87,7 @@ export default function ThemeContextProvider({
         theme={theme}
         disableTransitionOnChange={disableTransitionOnChange}
       >
+        <CssBaseline />
         <div
           style={{
             visibility: mounted ? 'visible' : 'hidden',

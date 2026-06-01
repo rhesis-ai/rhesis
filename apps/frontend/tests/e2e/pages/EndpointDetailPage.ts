@@ -31,22 +31,24 @@ export class EndpointDetailPage extends BasePage {
   }
 
   /**
-   * Assert the tabbed detail view renders.
-   * The endpoint detail always shows at least the Basic Information tab.
+   * Assert the tabbed detail view renders (Overview, Connection, Mappings, Test).
    */
   async expectTabsVisible() {
     await this.page.waitForLoadState('networkidle');
+    const overviewTab = this.page.getByRole('tab', { name: /overview/i });
+    const hasOverview = await overviewTab.isVisible().catch(() => false);
     const tabs = this.page.locator('[role="tab"]');
-    const mainContent = this.page.locator('main, [role="main"]').first();
     const hasTabs = (await tabs.count()) > 0;
-    const hasMain = await mainContent.isVisible().catch(() => false);
-    expect(hasTabs || hasMain).toBeTruthy();
+    expect(hasOverview || hasTabs).toBeTruthy();
   }
 
-  /** Assert the "Basic Information" tab content is visible. */
+  /** Assert overview tab content is visible. */
   async expectBasicInfoVisible() {
     await this.page.waitForLoadState('networkidle');
+    const identity = this.page.getByText(/identity/i).first();
     const mainContent = this.page.locator('main, [role="main"]').first();
-    await expect(mainContent).toBeVisible();
+    const hasIdentity = await identity.isVisible().catch(() => false);
+    const hasMain = await mainContent.isVisible().catch(() => false);
+    expect(hasIdentity || hasMain).toBeTruthy();
   }
 }

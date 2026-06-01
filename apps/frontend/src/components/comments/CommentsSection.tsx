@@ -6,14 +6,12 @@ import {
   Typography,
   TextField,
   CircularProgress,
-  Divider,
   IconButton,
   Tooltip,
 } from '@mui/material';
 import { SendIcon } from '@/components/icons';
 import { Comment, EntityType } from '@/types/comments';
 import { CommentItem } from './CommentItem';
-import { UserAvatar } from '@/components/common/UserAvatar';
 
 interface CommentsSectionProps {
   entityType: EntityType;
@@ -42,8 +40,8 @@ export function CommentsSection({
   onCreateTask,
   onCreateTaskFromEntity: _onCreateTaskFromEntity,
   currentUserId,
-  currentUserName,
-  currentUserPicture,
+  currentUserName: _currentUserName,
+  currentUserPicture: _currentUserPicture,
   isLoading = false,
 }: CommentsSectionProps) {
   const [highlightedCommentId, setHighlightedCommentId] = useState<
@@ -150,6 +148,14 @@ export function CommentsSection({
 
   return (
     <Box>
+      {/* Header */}
+      <Typography
+        variant="h6"
+        sx={{ fontWeight: 600, color: 'primary.main', mb: 2 }}
+      >
+        Comments ({comments.length})
+      </Typography>
+
       {/* Comments List */}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -175,77 +181,59 @@ export function CommentsSection({
         )
       )}
 
-      {/* Divider - Only show when there are comments */}
-      {comments.length > 0 && <Divider sx={{ my: 3 }} />}
-
       {/* Comment Form */}
       <Box component="form" onSubmit={handleSubmit}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-          {/* User Avatar */}
-          <UserAvatar
-            userName={currentUserName}
-            userPicture={currentUserPicture}
-            size={40}
+        <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
+          <TextField
+            value={newComment}
+            onChange={e => setNewComment(e.target.value)}
+            placeholder="Add comment"
+            multiline
+            rows={3}
+            fullWidth
+            variant="outlined"
+            size="small"
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
+            InputProps={{
+              endAdornment:
+                newComment.trim().length > 0 ? (
+                  <Tooltip title="Send comment">
+                    <IconButton
+                      type="submit"
+                      disabled={isSubmitting || !newComment.trim()}
+                      size="small"
+                      sx={{
+                        mr: 0.5,
+                        color: 'text.secondary',
+                        '&:hover': { color: 'primary.main' },
+                        '&:disabled': { color: 'action.disabled' },
+                      }}
+                    >
+                      {isSubmitting ? (
+                        <CircularProgress size={16} color="inherit" />
+                      ) : (
+                        <SendIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                ) : null,
+            }}
           />
 
-          {/* Comment Input */}
-          <Box sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
-            <TextField
-              value={newComment}
-              onChange={e => setNewComment(e.target.value)}
-              placeholder="Add comment ..."
-              multiline
-              rows={3}
-              fullWidth
-              variant="outlined"
-              size="small"
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit(e);
-                }
-              }}
-              InputProps={{
-                endAdornment:
-                  newComment.trim().length > 0 ? (
-                    <Tooltip title="Send comment">
-                      <IconButton
-                        type="submit"
-                        disabled={isSubmitting || !newComment.trim()}
-                        size="small"
-                        sx={{
-                          mr: 0.5,
-                          color: 'text.secondary',
-                          '&:hover': {
-                            color: 'primary.main',
-                          },
-                          '&:disabled': {
-                            color: 'action.disabled',
-                          },
-                        }}
-                      >
-                        {isSubmitting ? (
-                          <CircularProgress size={16} color="inherit" />
-                        ) : (
-                          <SendIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    </Tooltip>
-                  ) : null,
-              }}
-            />
-
-            {/* Error Message */}
-            {error && (
-              <Typography
-                variant="caption"
-                color="error"
-                sx={{ mt: 1, display: 'block' }}
-              >
-                {error}
-              </Typography>
-            )}
-          </Box>
+          {error && (
+            <Typography
+              variant="caption"
+              color="error"
+              sx={{ mt: 1, display: 'block' }}
+            >
+              {error}
+            </Typography>
+          )}
         </Box>
       </Box>
     </Box>

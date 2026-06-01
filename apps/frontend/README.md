@@ -2,6 +2,15 @@
 
 Next.js app for the Rhesis web UI (TypeScript, Material UI, NextAuth). Dependencies are listed in `package.json` and installed with **npm**. The production **Dockerfile** uses **Node 24**; use a compatible Node locally.
 
+## Design System (UI Revamp — 2026-05)
+
+The UI was migrated to a Figma-aligned design system in `feat/frontend-ui-revamp`. Key changes:
+
+- **Tokens** — `src/styles/theme.ts` now includes a `greyscale` palette ramp (`title`, `body`, `subtitle`, `border`, `surface1/2`), Figma typography variants (`bodyLReg`, `bodyMReg`, `bodyMBold`, `bodySReg`, `captionBold`), and full elevation scale (`ELEVATION.xs/s/m/l/xl`). See `src/styles/rhesis-theme-usage.md` for usage examples.
+- **Layout shell** — Toolpad `DashboardLayout` replaced by `AppShell` + `Sidebar` (CSS-grid, 240px collapsible sidebar, `NavigationItemsContext`). No more `@toolpad/core` dependency.
+- **Shared components** — `Fab`, `GridToolbar`, `PageLayout` are new. `BaseTable`, `BaseDataGrid`, `BaseDrawer`, `SearchPill`, `FilterButton`, `StatusChip` updated for Figma spec.
+- **Pages** — All 45 protected pages migrated from `PageContainer` to `PageLayout`. Typography tokens applied throughout.
+
 ## Setup
 
 From `apps/frontend`:

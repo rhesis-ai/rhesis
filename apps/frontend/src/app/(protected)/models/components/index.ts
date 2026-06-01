@@ -1,3 +1,3 @@
 export { ProviderSelectionDialog } from './ProviderSelectionDialog';
 export { ConnectionDialog } from './ConnectionDialog';
-export { ConnectedModelCard, AddModelCard } from './ModelCard';
+export { ConnectedModelCard } from './ModelCard';

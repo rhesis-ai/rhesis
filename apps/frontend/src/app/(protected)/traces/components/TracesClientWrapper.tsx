@@ -1,72 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Box, Typography, Alert, Paper } from '@mui/material';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { Alert, Box, Paper } from '@mui/material';
+import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import TimelineOutlinedIcon from '@mui/icons-material/TimelineOutlined';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import TracesClient from './TracesClient';
 
-/** Props for the EmptyStateMessage component */
-interface EmptyStateMessageProps {
-  title: string;
-  description: string;
-  icon?: React.ReactNode;
-}
-
-/**
- * Reusable empty state component with customizable title, description and icon
- */
-function EmptyStateMessage({
-  title,
-  description,
-  icon,
-}: EmptyStateMessageProps) {
-  return (
-    <Paper
-      elevation={2}
-      sx={{
-        width: '100%',
-        textAlign: 'center',
-        p: 8,
-        borderRadius: theme => theme.shape.borderRadius * 0.25,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 2,
-      }}
-    >
-      {icon || (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-          <TimelineIcon
-            sx={{
-              fontSize: 60,
-              color: 'primary.main',
-              opacity: 0.7,
-            }}
-          />
-        </Box>
-      )}
-
-      <Typography variant="h5" sx={{ color: 'text.primary', fontWeight: 500 }}>
-        {title}
-      </Typography>
-
-      <Typography
-        variant="body1"
-        sx={{
-          color: 'text.secondary',
-          maxWidth: 550,
-          mx: 'auto',
-        }}
-      >
-        {description}
-      </Typography>
-    </Paper>
-  );
-}
-
-/** Props for the TracesClientWrapper component */
 interface TracesClientWrapperProps {
   sessionToken: string;
   currentUserId?: string;
@@ -74,10 +19,6 @@ interface TracesClientWrapperProps {
   currentUserPicture?: string;
 }
 
-/**
- * Client component for the Traces page
- * Handles displaying traces and managing interactive features
- */
 export default function TracesClientWrapper({
   sessionToken,
   currentUserId = '',
@@ -85,36 +26,66 @@ export default function TracesClientWrapper({
   currentUserPicture,
 }: TracesClientWrapperProps) {
   const searchParams = useSearchParams();
-
   const initialTraceId = searchParams.get('open_trace');
   const initialProjectId = searchParams.get('project_id');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [showEmptyHint, setShowEmptyHint] = useState(false);
 
-  // Show error state if no session token
+  useDocumentTitle('Traces');
+
+  const handleRefresh = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
+
+  const handleUnfilteredEmpty = useCallback((empty: boolean) => {
+    setShowEmptyHint(empty);
+  }, []);
+
   if (!sessionToken) {
     return (
-      <PageContainer title="Traces" breadcrumbs={[]}>
+      <PageLayout
+        title="Traces"
+        description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and reviews."
+        breadcrumbs={[]}
+      >
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
-        <EmptyStateMessage
+        <EntityEmptyState
+          icon={TimelineOutlinedIcon}
           title="Authentication Required"
           description="Please log in to view and analyze OpenTelemetry traces."
         />
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Traces" breadcrumbs={[]}>
-      <Box sx={{ mb: 3 }}>
-        <Typography color="text.secondary">
-          View and analyze OpenTelemetry traces from test executions and
-          endpoint invocations.
-        </Typography>
-      </Box>
-      {/* Traces content */}
-      <Paper sx={{ width: '100%', mb: 2 }}>
-        <Box sx={{ p: 2 }}>
+    <PageLayout
+      title="Traces"
+      description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and reviews."
+      breadcrumbs={[]}
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<RefreshOutlinedIcon />}
+            tooltip="Refresh traces"
+            aria-label="Refresh traces"
+            onClick={handleRefresh}
+          />
+        </FabGroup>
+      }
+    >
+      <Box sx={{ mt: 2, mb: 2 }}>
+        <Paper
+          sx={{
+            width: '100%',
+            borderRadius: BORDER_RADIUS.md,
+            boxShadow: ELEVATION.xs,
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+            overflow: 'hidden',
+          }}
+        >
           <TracesClient
             sessionToken={sessionToken}
             currentUserId={currentUserId}
@@ -122,9 +93,21 @@ export default function TracesClientWrapper({
             currentUserPicture={currentUserPicture}
             initialTraceId={initialTraceId}
             initialProjectId={initialProjectId}
+            refreshKey={refreshKey}
+            onRefresh={handleRefresh}
+            onUnfilteredEmpty={handleUnfilteredEmpty}
           />
-        </Box>
-      </Paper>
-    </PageContainer>
+        </Paper>
+        {showEmptyHint && (
+          <Box sx={{ mt: 3 }}>
+            <EntityEmptyState
+              icon={TimelineOutlinedIcon}
+              title="No traces yet"
+              description="Traces appear after test runs or live endpoint invocations. Run a test set or call an instrumented endpoint to get started."
+            />
+          </Box>
+        )}
+      </Box>
+    </PageLayout>
   );
 }

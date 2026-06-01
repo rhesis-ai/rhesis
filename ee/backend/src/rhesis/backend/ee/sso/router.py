@@ -11,7 +11,6 @@ Contains:
 
 import hashlib
 import logging
-import os
 import secrets
 from base64 import urlsafe_b64encode
 from typing import List, Optional
@@ -26,7 +25,7 @@ from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
-from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.app.config.settings import get_frontend_settings, get_rhesis_settings
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
@@ -133,19 +132,19 @@ def _validate_return_to(return_to: Optional[str]) -> str:
     from urllib.parse import unquote
 
     if not return_to:
-        return "/dashboard"
+        return "/architect"
 
     # Decode percent-encoding before running blocklist checks to prevent
     # bypasses via %2f%2f, %6Aavascript:, etc.
     decoded = unquote(unquote(return_to))
 
     if not decoded.startswith("/"):
-        return "/dashboard"
+        return "/architect"
 
     blocked = ["//", "javascript:", "data:", "http:", "https:", "\\"]
     for pattern in blocked:
         if pattern in decoded.lower():
-            return "/dashboard"
+            return "/architect"
 
     return decoded
 
@@ -162,7 +161,7 @@ def _get_sso_callback_url(request: Request) -> str:
     """Build the SSO callback URL."""
     from rhesis.backend.app.routers.auth import is_running_locally
 
-    rhesis_base_url = os.getenv("RHESIS_BASE_URL", "")
+    rhesis_base_url = get_rhesis_settings().base_url
 
     if is_running_locally() and not rhesis_base_url:
         base_url = str(request.base_url).rstrip("/")
@@ -207,7 +206,7 @@ async def sso_callback(
 
     org_id = state_payload.get("org_id", "")
     state_nonce = state_payload.get("nonce", "")
-    state_return_to = state_payload.get("return_to", "/dashboard")
+    state_return_to = state_payload.get("return_to", "/architect")
 
     # Cross-check org_id from state against session (defense in depth)
     session_org_id = request.session.get("sso_org_id", "")

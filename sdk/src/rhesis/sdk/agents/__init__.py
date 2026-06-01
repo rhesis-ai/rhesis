@@ -22,7 +22,6 @@ from rhesis.sdk.agents.mcp import (
     MCPAgent,
     MCPClient,
     MCPClientFactory,
-    ObservableMCPAgent,
     ToolExecutor,
 )
 from rhesis.sdk.agents.schemas import (
@@ -34,6 +33,7 @@ from rhesis.sdk.agents.schemas import (
 )
 from rhesis.sdk.agents.targets import LocalEndpointTarget
 from rhesis.sdk.agents.tools import ExploreEndpointTool
+from rhesis.sdk.agents.tracing import TracingHandler
 
 
 def get_rhesis_tools(
@@ -74,9 +74,9 @@ __all__ = [
     "LocalEndpointTarget",
     # Events
     "AgentEventHandler",
+    "TracingHandler",
     # MCP agent
     "MCPAgent",
-    "ObservableMCPAgent",
     "MCPClient",
     "MCPClientFactory",
     "ToolExecutor",

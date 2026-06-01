@@ -1,11 +1,10 @@
-import os
-import sys
 from logging.config import fileConfig
 
 from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 
+from rhesis.backend.app.config.settings import get_database_settings
 from rhesis.backend.app.models import Base
 
 # Eagerly import EE-owned ORM models when the EE package is installed so
@@ -30,9 +29,6 @@ config = context.config
 # This line sets up loggers basically.
 
 fileConfig(config.config_file_name)
-
-# Add your project's path to the sys.path
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "app")))
 
 # Import your models here to ensure they are known to Alembic
 target_metadata = Base.metadata
@@ -64,7 +60,7 @@ def run_migrations_offline():
     script output.
 
     """
-    url = os.environ.get("SQLALCHEMY_DATABASE_URL", "")
+    url = get_database_settings().admin_url
 
     context.configure(
         url=url,
@@ -85,7 +81,7 @@ def run_migrations_online():
     and associate a connection with the context.
 
     """
-    url = os.environ["SQLALCHEMY_DATABASE_URL"]
+    url = get_database_settings().admin_url
 
     connectable = create_engine(url)
 

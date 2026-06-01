@@ -99,7 +99,7 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v7
         with:
-          context: ./apps/frontend
+          context: .
           file: ./apps/frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
           build-args: |

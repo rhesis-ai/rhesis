@@ -70,24 +70,15 @@ const nextConfig = {
     };
   })(),
 
-  // API rewrites for cross-container communication
-  async rewrites() {
-    // Use BACKEND_URL for server-side calls (container-to-container)
-    // Use NEXT_PUBLIC_API_BASE_URL for client-side calls (browser-to-host)
-    const backendUrl = process.env.BACKEND_URL || 'http://backend:8080';
-    return [
-      // Exclude NextAuth.js routes from being proxied (keep them local)
-      {
-        source: '/api/auth/:path*',
-        destination: '/api/auth/:path*',
-      },
-      // Proxy all other API calls to backend
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/:path*`,
-      },
-    ];
-  },
+  // API routing: all /api/* requests are handled by Route Handlers under
+  // src/app/api/ (see src/app/api/[...path]/route.ts for the catch-all
+  // proxy and src/utils/backend-proxy.ts for the shared logic). Route
+  // Handlers resolve BACKEND_URL at request time via getServerBackendUrl(),
+  // so one Docker image works across all environments without build args.
+  //
+  // DO NOT add rewrites() for /api/* paths — rewrite destinations are baked
+  // into .next/routes-manifest.json at build time and cannot be overridden
+  // by runtime environment variables.
 
   // Development-specific: configure on-demand entries to reduce caching
   ...(isDev && {

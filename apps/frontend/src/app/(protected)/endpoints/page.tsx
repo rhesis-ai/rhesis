@@ -1,91 +1,118 @@
 'use client';
 
 import * as React from 'react';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import { Box } from '@mui/material';
-import EndpointsGrid from './components/EndpointsGrid';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import AddIcon from '@mui/icons-material/Add';
 import { useSession } from 'next-auth/react';
-import { useState, useCallback } from 'react';
-import { GridPaginationModel } from '@mui/x-data-grid';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { useRouter } from 'next/navigation';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { ApiIcon } from '@/components/icons';
+import EndpointsGrid from './components/EndpointsGrid';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 export default function EndpointsPage() {
-  const { data: session } = useSession();
-  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: 10,
-  });
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [endpointCount, setEndpointCount] = React.useState<number | null>(null);
 
-  const fetchEndpoints = useCallback(async () => {
-    if (!session?.session_token) {
-      setError('No session token available');
-      return;
-    }
+  useDocumentTitle('Endpoints');
 
-    try {
-      setLoading(true);
-      const skip = paginationModel.page * paginationModel.pageSize;
-      const apiFactory = new ApiClientFactory(session.session_token);
-      const endpointsClient = apiFactory.getEndpointsClient();
-      const response = await endpointsClient.getEndpoints({
-        skip,
-        limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      });
-
-      setEndpoints(response.data);
-      setTotalCount(response.pagination.totalCount);
-      setError(null);
-    } catch (error) {
-      setError((error as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [session, paginationModel]);
-
-  const handleEndpointDeleted = useCallback(() => {
-    fetchEndpoints();
-  }, [fetchEndpoints]);
+  const sessionToken = session?.session_token ?? '';
 
   React.useEffect(() => {
-    fetchEndpoints();
-  }, [fetchEndpoints]);
+    const fetchCount = async () => {
+      if (!sessionToken) return;
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const endpointsClient = apiFactory.getEndpointsClient();
+        const response = await endpointsClient.getEndpoints({
+          skip: 0,
+          limit: 1,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        });
+        setEndpointCount(response.pagination?.totalCount ?? 0);
+      } catch {
+        setEndpointCount(0);
+      }
+    };
+    fetchCount();
+  }, [sessionToken, refreshKey]);
 
-  const handlePaginationModelChange = (newModel: GridPaginationModel) => {
-    setPaginationModel(newModel);
-  };
+  const handleRefresh = React.useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
-  if (error) {
+  if (status === 'loading') {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">Error loading endpoints: {error}</Typography>
-      </Box>
+      <PageLayout title="Endpoints" breadcrumbs={[]}>
+        <Box sx={{ p: 3 }}>
+          <Typography>Loading...</Typography>
+        </Box>
+      </PageLayout>
+    );
+  }
+
+  if (!sessionToken) {
+    return (
+      <PageLayout title="Endpoints" breadcrumbs={[]}>
+        <Box sx={{ p: 3 }}>
+          <Typography color="error">No session token available</Typography>
+        </Box>
+      </PageLayout>
     );
   }
 
   return (
-    <PageContainer title="Endpoints" breadcrumbs={[]}>
-      <Box sx={{ mb: 3 }}>
-        <Typography color="text.secondary">
-          Connect the Rhesis platform to your application under test via
-          endpoints to enable comprehensive testing and evaluation workflows.
-        </Typography>
+    <PageLayout
+      title="Endpoints"
+      description="Connect the Rhesis platform to your application under test via endpoints to enable comprehensive testing and evaluation workflows."
+      breadcrumbs={[]}
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="New Endpoint"
+            onClick={() => router.push('/endpoints/new')}
+            data-tour="create-endpoint-button"
+          />
+        </FabGroup>
+      }
+    >
+      <Box sx={{ mt: 2, mb: 2 }}>
+        {endpointCount === 0 ? (
+          <EntityEmptyState
+            icon={ApiIcon}
+            title="No endpoints yet"
+            description="Create your first endpoint to connect your application under test and start running tests and evaluations."
+            actionLabel="Create endpoint"
+            onAction={() => router.push('/endpoints/new')}
+          />
+        ) : (
+          <Paper
+            sx={{
+              width: '100%',
+              borderRadius: BORDER_RADIUS.md,
+              boxShadow: ELEVATION.xs,
+              border: theme => `1px solid ${theme.palette.greyscale.border}`,
+              overflow: 'hidden',
+            }}
+          >
+            <EndpointsGrid
+              sessionToken={sessionToken}
+              refreshKey={refreshKey}
+              onRefresh={handleRefresh}
+            />
+          </Paper>
+        )}
       </Box>
-      <EndpointsGrid
-        endpoints={endpoints}
-        loading={loading}
-        totalCount={totalCount}
-        paginationModel={paginationModel}
-        onPaginationModelChange={handlePaginationModelChange}
-        onEndpointDeleted={handleEndpointDeleted}
-      />
-    </PageContainer>
+    </PageLayout>
   );
 }

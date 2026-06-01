@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
  */
 
 const protectedRoutes = [
-  { path: '/dashboard', name: 'Dashboard' },
+  { path: '/insights', name: 'Insights' },
   { path: '/projects', name: 'Projects' },
   { path: '/knowledge', name: 'Knowledge' },
   { path: '/behaviors', name: 'Behaviors' },

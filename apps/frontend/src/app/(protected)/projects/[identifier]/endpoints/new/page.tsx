@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import EndpointForm from '@/app/(protected)/endpoints/components/EndpointForm';
-import { PageContainer } from '@toolpad/core';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { CircularProgress, Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -45,17 +45,14 @@ export default function NewEndpointPage() {
   }
 
   const breadcrumbs = [
-    { title: 'Projects', path: '/projects' },
-    {
-      title: projectName || 'Project',
-      path: `/projects/${params.identifier}`,
-    },
-    { title: 'Create New Endpoint' },
+    { label: 'Projects', href: '/projects' },
+    { label: projectName || 'Project', href: `/projects/${params.identifier}` },
+    { label: 'Create New Endpoint' },
   ];
 
   return (
-    <PageContainer title="Create New Endpoint" breadcrumbs={breadcrumbs}>
+    <PageLayout title="Create New Endpoint" breadcrumbs={breadcrumbs}>
       <EndpointForm />
-    </PageContainer>
+    </PageLayout>
   );
 }

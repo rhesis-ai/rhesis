@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { EntityType } from '@/types/tasks';
 import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
@@ -24,23 +24,31 @@ export function TasksWrapper({
   currentUserName,
   currentUserPicture: _currentUserPicture,
 }: TasksWrapperProps) {
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+
   const { createTask, deleteTask } = useTasks({
     entityType,
     entityId,
-    autoFetch: false, // TasksSection will handle fetching
+    autoFetch: false,
   });
 
   const handleCreateTask = useCallback(
     async (taskData: Record<string, unknown>) => {
       try {
+        setIsCreating(true);
         await createTask(taskData as unknown as TaskCreate);
-      } catch (_error) {}
+        setCreateDrawerOpen(false);
+      } catch {
+        // Errors surfaced by useTasks
+      } finally {
+        setIsCreating(false);
+      }
     },
     [createTask]
   );
 
   const handleEditTask = useCallback((taskId: string) => {
-    // Navigate to the task detail page
     window.open(`/tasks/${taskId}`, '_blank');
   }, []);
 
@@ -48,7 +56,9 @@ export function TasksWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
-      } catch (_error) {}
+      } catch {
+        // Errors surfaced by useTasks
+      }
     },
     [deleteTask]
   );
@@ -62,26 +72,22 @@ export function TasksWrapper({
         onCreateTask={handleCreateTask}
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
+        onOpenCreateDrawer={() => setCreateDrawerOpen(true)}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
       />
 
-      {/* Task Creation Modal */}
       <TaskCreationDrawer
-        open={false} // This will be controlled by the TasksSection component
+        open={createDrawerOpen}
         onClose={() => {
-          (window as Window & { pendingCommentId?: string }).pendingCommentId =
-            undefined;
+          if (!isCreating) setCreateDrawerOpen(false);
         }}
         onSubmit={handleCreateTask}
         entityType={entityType}
         entityId={entityId}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
-        isLoading={false}
-        commentId={
-          (window as Window & { pendingCommentId?: string }).pendingCommentId
-        }
+        isLoading={isCreating}
       />
     </>
   );

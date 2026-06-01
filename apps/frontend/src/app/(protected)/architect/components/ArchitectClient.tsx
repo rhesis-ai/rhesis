@@ -106,7 +106,14 @@ export default function ArchitectClient() {
   }, []);
 
   return (
-    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flex: 1,
+        minHeight: 0,
+        overflow: 'hidden',
+      }}
+    >
       <ArchitectSidebar
         sessions={sessions}
         activeSessionId={activeSessionId}

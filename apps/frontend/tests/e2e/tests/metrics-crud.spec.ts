@@ -26,7 +26,7 @@ test.describe('Metrics — CRUD @crud', () => {
 
     await metricsPage.expectLoaded();
 
-    // "New Metric" button lives in the SearchAndFilterBar
+    // "New Metric" FAB lives in PageLayout actions
     const newMetricBtn = page
       .getByRole('button', { name: /^new metric$/i })
       .first();

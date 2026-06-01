@@ -6,9 +6,7 @@ import { BasePage } from './BasePage';
  */
 export class TasksPage extends BasePage {
   readonly dataGrid = this.page.locator('[role="grid"]');
-  readonly createTaskButton = this.page
-    .getByRole('button', { name: /create task/i })
-    .first();
+  readonly newTaskFab = this.page.getByRole('button', { name: /new task/i });
 
   constructor(page: Page) {
     super(page);
@@ -23,9 +21,29 @@ export class TasksPage extends BasePage {
     await this.expectNoErrors();
   }
 
-  /** Navigate directly to the task creation page. */
+  /** Open the create-task drawer via FAB or empty-state action. */
+  async openCreateDrawer() {
+    const fab = this.newTaskFab.first();
+    const fabVisible = await fab
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
+    if (fabVisible) {
+      await fab.click();
+      return;
+    }
+    const emptyAction = this.page
+      .getByRole('button', { name: /create task/i })
+      .first();
+    await emptyAction.click();
+  }
+
+  /**
+   * Navigate via legacy /tasks/create URL (redirects to overview drawer).
+   */
   async gotoCreate() {
     await this.page.goto('/tasks/create');
+    await this.page.waitForURL(/\/tasks/, { timeout: 15_000 });
+    await this.page.waitForLoadState('networkidle');
   }
 
   /** Returns true when the data grid is visible. */
@@ -33,7 +51,7 @@ export class TasksPage extends BasePage {
     return this.dataGrid.isVisible().catch(() => false);
   }
 
-  /** Fill the Title field on the task creation form. */
+  /** Fill the Title field in the create drawer. */
   async fillTitle(title: string) {
     const titleInput = this.page
       .getByRole('textbox', { name: /title/i })
@@ -41,7 +59,7 @@ export class TasksPage extends BasePage {
     await titleInput.fill(title);
   }
 
-  /** Fill the Description field on the task creation form. */
+  /** Fill the Description field in the create drawer. */
   async fillDescription(description: string) {
     const descInput = this.page
       .getByRole('textbox', { name: /description/i })
@@ -52,11 +70,9 @@ export class TasksPage extends BasePage {
     if (visible) await descInput.fill(description);
   }
 
-  /** Submit the task creation form. */
+  /** Submit the create drawer form. */
   async submitCreate() {
-    const btn = this.page
-      .getByRole('button', { name: /save|create task/i })
-      .first();
+    const btn = this.page.getByRole('button', { name: /create task/i }).first();
     await btn.click();
   }
 

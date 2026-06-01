@@ -21,7 +21,8 @@ export interface OnboardingStep {
   description: string;
   optional?: boolean;
   targetPath: string;
-  tourId: string;
+  /** When omitted, the checklist navigates without starting a guided tour */
+  tourId?: string;
   requiresProjects?: boolean;
 }
 

@@ -1,6 +1,12 @@
 // Define onboarding path constant
 export const ONBOARDING_PATH = '/onboarding';
 
+/** Where users land after login, onboarding, and org setup */
+export const DEFAULT_AUTHENTICATED_PATH = '/architect';
+
+/** Merged analytics page (replaces /dashboard and /test-results) */
+export const INSIGHTS_PATH = '/insights';
+
 export const PUBLIC_PATHS = [
   '/', // Root path is public
   '/public',

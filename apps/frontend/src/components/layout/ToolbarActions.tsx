@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Box } from '@mui/material';
-import { Account } from '@toolpad/core/Account';
 import ThemeToggle from '../common/ThemeToggle';
 import AppVersion from '../common/AppVersion';
 import { shouldShowGitInfo } from '@/utils/git-utils';
@@ -17,17 +16,13 @@ export default function ToolbarActions() {
           variant="caption"
           sx={{
             fontSize: theme =>
-              `calc(${theme.typography.caption.fontSize || '0.75rem'} * 0.93)`, // ~0.7rem
+              `calc(${theme.typography.caption.fontSize || '0.75rem'} * 0.93)`,
             fontFamily: 'monospace',
-            color: theme =>
-              theme.palette.mode === 'dark'
-                ? theme.palette.text.primary
-                : theme.palette.primary.contrastText,
+            color: 'text.secondary',
           }}
         />
       )}
       <ThemeToggle />
-      <Account />
     </Box>
   );
 }

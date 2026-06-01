@@ -23,7 +23,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { ArrowOutwardIcon, EditIcon } from '@/components/icons';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskUpdate } from '@/types/tasks';
 import { getStatusesForTask, getPrioritiesForTask } from '@/utils/task-lookup';
@@ -186,13 +186,13 @@ export default function TaskDetailPage({ params }: PageProps) {
   // Show loading state while loading or if we haven't loaded yet
   if (isLoading || (!hasInitialLoad && taskId && session?.session_token)) {
     return (
-      <PageContainer
+      <PageLayout
         title={loadingTimeout ? 'Taking longer than expected...' : 'Loading...'}
         breadcrumbs={[
-          { title: 'Tasks', path: '/tasks' },
+          { label: 'Tasks', href: '/tasks' },
           {
-            title: loadingTimeout ? 'Slow Connection' : 'Loading...',
-            path: `/tasks/${taskId}`,
+            label: loadingTimeout ? 'Slow Connection' : 'Loading...',
+            href: `/tasks/${taskId}`,
           },
         ]}
       >
@@ -244,17 +244,17 @@ export default function TaskDetailPage({ params }: PageProps) {
             </Box>
           )}
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (error && !editedTask) {
     return (
-      <PageContainer
+      <PageLayout
         title="Error"
         breadcrumbs={[
-          { title: 'Tasks', path: '/tasks' },
-          { title: 'Error', path: `/tasks/${taskId}` },
+          { label: 'Tasks', href: '/tasks' },
+          { label: 'Error', href: `/tasks/${taskId}` },
         ]}
       >
         <Box sx={{ flexGrow: 1, pt: 3 }}>
@@ -321,17 +321,17 @@ export default function TaskDetailPage({ params }: PageProps) {
             </Button>
           </Box>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
   if (!editedTask) {
     return (
-      <PageContainer
+      <PageLayout
         title="Task Not Found"
         breadcrumbs={[
-          { title: 'Tasks', path: '/tasks' },
-          { title: 'Not Found', path: `/tasks/${taskId}` },
+          { label: 'Tasks', href: '/tasks' },
+          { label: 'Not Found', href: `/tasks/${taskId}` },
         ]}
       >
         <Box sx={{ flexGrow: 1, pt: 3 }}>
@@ -367,7 +367,7 @@ export default function TaskDetailPage({ params }: PageProps) {
             </Button>
           </Box>
         </Box>
-      </PageContainer>
+      </PageLayout>
     );
   }
 
@@ -485,10 +485,10 @@ export default function TaskDetailPage({ params }: PageProps) {
   };
 
   return (
-    <PageContainer
+    <PageLayout
       breadcrumbs={[
-        { title: 'Tasks', path: '/tasks' },
-        { title: editedTask?.title || task.title, path: `/tasks/${taskId}` },
+        { label: 'Tasks', href: '/tasks' },
+        { label: editedTask?.title || task.title, href: `/tasks/${taskId}` },
       ]}
     >
       {/* Title and Navigation Button in same row */}
@@ -546,7 +546,9 @@ export default function TaskDetailPage({ params }: PageProps) {
 
                   const finalUrl = `${baseUrl}${queryString}${commentHash}`;
                   router.push(finalUrl);
-                } catch (_error) {}
+                } catch (error) {
+                  console.error('Failed to navigate to linked entity:', error);
+                }
               }
             }}
             sx={{
@@ -1075,6 +1077,6 @@ export default function TaskDetailPage({ params }: PageProps) {
           </Grid>
         </Grid>
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 export const metadata: Metadata = {
   title: 'Generate Tests | Rhesis AI',
@@ -11,14 +11,14 @@ export default function GenerateTestsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <PageContainer
+    <PageLayout
       title="Generate Tests"
       breadcrumbs={[
-        { title: 'Tests', path: '/tests' },
-        { title: 'Generate Tests', path: '/tests/new-generated' },
+        { label: 'Tests', href: '/tests' },
+        { label: 'Generate Tests', href: '/tests/new-generated' },
       ]}
     >
       {children}
-    </PageContainer>
+    </PageLayout>
   );
 }

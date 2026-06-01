@@ -8,8 +8,8 @@ import {
   Button,
   Stack,
   CircularProgress,
-  // Divider // Keep or remove based on whether header/footer have borders
 } from '@mui/material';
+import { BACKDROP_COLORS, BORDER_RADIUS } from '@/styles/theme';
 
 export interface BaseDrawerProps {
   open: boolean;
@@ -23,6 +23,8 @@ export interface BaseDrawerProps {
   saveDisabled?: boolean;
   error?: string;
   saveButtonText?: string;
+  /** Optional data-tour attribute for onboarding (save button). */
+  saveDataTour?: string;
   closeButtonText?: string;
   width?: number | string;
   showHeader?: boolean;
@@ -65,8 +67,9 @@ export default function BaseDrawer({
   saveDisabled = false,
   error,
   saveButtonText = 'Save Changes',
+  saveDataTour,
   closeButtonText = 'Cancel',
-  width = 600,
+  width = 578,
   showHeader = true,
   anchor = 'right',
 }: BaseDrawerProps) {
@@ -76,80 +79,83 @@ export default function BaseDrawer({
       open={open}
       onClose={onClose}
       variant="temporary"
-      ModalProps={{
-        keepMounted: true, // Or false, depending on preference
-        slotProps: {
-          backdrop: {
-            sx: {
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            },
-          },
-        },
-      }}
-      slotProps={{
-        backdrop: {
-          sx: {
-            // Ensure backdrop is below drawer paper but above other content if necessary
-            zIndex: theme => theme.zIndex.drawer - 1,
-          },
-        },
-      }}
+      ModalProps={{ keepMounted: true }}
       PaperProps={{
         sx: {
           width: width,
-          zIndex: theme => theme.zIndex.drawer + 1, // Ensure Paper is above AppBar and its own backdrop
-          display: 'flex', // Added for flex structure if header/content/footer are direct children of Paper
+          display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between', // If header/content/footer structure is used
-        },
-      }}
-      sx={{
-        // Sx for the Drawer root
-        zIndex: theme => theme.zIndex.drawer + 1, // Match PaperProps or slightly higher for the root container
-        '& .MuiDrawer-paper': {
-          // Already present in your old BaseDrawer for boxSizing
+          p: '30px',
+          gap: '40px',
           boxSizing: 'border-box',
         },
       }}
+      sx={{
+        '& .MuiBackdrop-root': {
+          backgroundColor: BACKDROP_COLORS.create,
+        },
+      }}
     >
-      {/* Header - conditionally rendered */}
+      {/* Title row — no border, no close button */}
       {showHeader && (
-        <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ flexShrink: 0 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             {titleIcon}
-            <Typography variant="h6">{title}</Typography>
+            <Typography
+              sx={{
+                fontSize: 23,
+                fontWeight: 700,
+                lineHeight: '27.6px',
+                color: theme => theme.palette.greyscale.title,
+              }}
+            >
+              {title}
+            </Typography>
           </Stack>
         </Box>
       )}
 
-      {/* Content */}
+      {/* Form content — scrollable, 40px gap between child rows.
+          pt: '10px' gives room for MUI floating labels (which translate -9px up)
+          so they aren't clipped by the overflowY container. */}
       <Box
         sx={{
-          p: showHeader ? 3 : 0,
           flex: 1,
           overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '40px',
+          pt: '10px',
         }}
       >
         {children}
       </Box>
 
-      {/* Footer */}
-      <Box
-        sx={{
-          p: 3,
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-        }}
-      >
+      {/* Bottom toolbar — right-aligned Cancel + Save, no border */}
+      <Box sx={{ flexShrink: 0 }}>
         {error && (
-          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+          <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
             {error}
           </Typography>
         )}
-        <Stack direction="row" spacing={2} justifyContent="flex-end">
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           {closeButtonText && (
-            <Button onClick={onClose} disabled={loading}>
+            <Button
+              variant="outlined"
+              onClick={onClose}
+              disabled={loading}
+              sx={{
+                borderWidth: 2,
+                borderColor: 'primary.main',
+                color: 'primary.main',
+                fontWeight: 700,
+                fontSize: 14,
+                borderRadius: BORDER_RADIUS.sm,
+                px: '16px',
+                py: '8px',
+                '&:hover': { borderWidth: 2 },
+              }}
+            >
               {closeButtonText}
             </Button>
           )}
@@ -158,22 +164,28 @@ export default function BaseDrawer({
               variant="contained"
               onClick={onSave}
               disabled={loading || saveDisabled}
+              {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
               startIcon={
                 loading ? (
                   <CircularProgress size={16} color="inherit" />
                 ) : undefined
               }
               sx={{
+                borderRadius: BORDER_RADIUS.sm,
+                px: '16px',
+                py: '8px',
+                fontWeight: 700,
+                fontSize: 14,
                 '&.Mui-disabled': {
-                  bgcolor: 'action.disabledBackground',
-                  color: 'action.disabled',
+                  bgcolor: theme => theme.palette.greyscale.border,
+                  color: '#fff',
                 },
               }}
             >
               {loading ? 'Executing...' : saveButtonText}
             </Button>
           )}
-        </Stack>
+        </Box>
       </Box>
     </Drawer>
   );

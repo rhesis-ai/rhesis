@@ -53,9 +53,12 @@ class BaseEndpointInvoker(ABC):
     def _strip_meta_keys(self, rendered_body: Any) -> Any:
         """Remove reserved meta keys from a rendered request body.
 
-        Meta keys (e.g. ``system_prompt``) are configuration hints consumed
-        by Rhesis internally and must not be sent on the wire to the
-        external endpoint.
+        Meta keys (e.g. ``system_prompt``) are only stripped for stateless
+        endpoints (those using ``{{ messages }}`` in their request mapping).
+        For stateless endpoints the system_prompt is injected into the
+        ``messages`` array server-side, so sending it again as a top-level
+        field would be redundant.  For all other endpoints the key is left
+        in the wire body so the target can consume it directly.
 
         Args:
             rendered_body: The rendered request body (usually a dict).
@@ -63,10 +66,15 @@ class BaseEndpointInvoker(ABC):
         Returns:
             The same object with meta keys removed (mutates in place for dicts).
         """
-        if isinstance(rendered_body, dict):
+        if not isinstance(rendered_body, dict):
+            return rendered_body
+
+        endpoint = self.context.endpoint if self.context else None
+        if endpoint and ConversationTracker.detect_stateless_mode(endpoint):
             for key in self.RESERVED_META_KEYS:
                 if key in rendered_body:
                     rendered_body.pop(key)
+
         return rendered_body
 
     @abstractmethod

@@ -212,6 +212,47 @@ class ObserveDecorator:
 
         return llm_decorator
 
+    def agent(
+        self,
+        name: str,
+        **extra_attributes,
+    ) -> Callable:
+        """
+        Convenience decorator for agent operations.
+
+        Wraps the decorated function in an ``ai.agent.invoke`` span and
+        stamps the canonical attributes used by the langchain
+        integration (and by Rhesis' MCP/architect ``TracingHandler``)
+        so single-agent and multi-agent traces stay uniform regardless
+        of which integration produced them.
+
+        Automatically sets:
+
+        - span_name: ``ai.agent.invoke``
+        - ``ai.operation.type``: ``agent.invoke``
+        - ``ai.agent.name``: ``name``
+
+        Args:
+            name: Human-readable agent identifier
+                (e.g., ``"architect"``, ``"researcher"``).
+            **extra_attributes: Additional span attributes (e.g.,
+                ``ai.model.name``, custom domain-specific labels).
+
+        Example:
+            @observe.agent(name="researcher")
+            async def run(query: str) -> str:
+                ...
+        """
+        from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.telemetry.schemas import AIOperationType
+
+        attributes = {
+            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_AGENT_INVOKE,
+            AIAttributes.AGENT_NAME: name,
+            **extra_attributes,
+        }
+        return self(span_name=AIOperationType.AGENT_INVOKE, **attributes)
+
     def tool(
         self,
         name: str,

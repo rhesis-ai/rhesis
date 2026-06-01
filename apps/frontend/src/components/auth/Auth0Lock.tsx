@@ -69,7 +69,7 @@ export default function CustomAuthForm({
 
     // Get return_to from URL params or default to dashboard
     const searchParams = new URLSearchParams(window.location.search);
-    const returnTo = searchParams.get('return_to') || '/dashboard';
+    const returnTo = searchParams.get('return_to') || '/architect';
     loginUrl.searchParams.set('return_to', returnTo);
 
     // Redirect to backend login

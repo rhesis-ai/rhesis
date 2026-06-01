@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Typography, Button, Chip, Avatar } from '@mui/material';
 import { AddIcon } from '@/components/icons';
+import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
@@ -24,7 +25,8 @@ interface TasksSectionProps {
   onCreateTask: (taskData: Record<string, unknown>) => Promise<void>;
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
-  onNavigateToCreate?: () => void;
+  /** Opens the in-context task creation drawer */
+  onOpenCreateDrawer?: (commentId?: string) => void;
   currentUserId: string;
   currentUserName: string;
 }
@@ -36,7 +38,7 @@ export function TasksSection({
   onCreateTask: _onCreateTask,
   onEditTask: _onEditTask,
   onDeleteTask,
-  onNavigateToCreate,
+  onOpenCreateDrawer,
   currentUserId: _currentUserId,
   currentUserName: _currentUserName,
 }: TasksSectionProps) {
@@ -130,27 +132,23 @@ export function TasksSection({
     if (onDeleteTask) {
       try {
         await onDeleteTask(taskId);
-      } catch (_error) {}
+      } catch (error) {
+        console.error('Failed to delete task:', error);
+      }
     }
   };
 
   const handleRowClick = (params: GridRowParams) => {
     try {
       router.push(`/tasks/${params.id}`);
-    } catch (_error) {}
+    } catch (error) {
+      console.error('Failed to navigate to task:', error);
+    }
   };
 
   const handleCreateTask = () => {
-    // Use the provided navigation handler if available (includes additional metadata)
-    if (onNavigateToCreate) {
-      onNavigateToCreate();
-    } else {
-      // Fallback to direct navigation
-      const queryParams = new URLSearchParams({
-        entityType,
-        entityId,
-      });
-      router.push(`/tasks/create?${queryParams.toString()}`);
+    if (onOpenCreateDrawer) {
+      onOpenCreateDrawer();
     }
   };
 
@@ -160,6 +158,8 @@ export function TasksSection({
       field: 'title',
       headerName: 'Title',
       width: 200,
+      minWidth: 120,
+      resizable: true,
       renderCell: params => (
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {params.row.title}
@@ -170,6 +170,8 @@ export function TasksSection({
       field: 'description',
       headerName: 'Description',
       width: 250,
+      minWidth: 120,
+      resizable: true,
       renderCell: params => (
         <Typography
           variant="body2"
@@ -188,6 +190,8 @@ export function TasksSection({
       field: 'status',
       headerName: 'Status',
       width: 120,
+      minWidth: 90,
+      resizable: true,
       renderCell: params => {
         const getStatusColor = (status?: string) => {
           switch (status) {
@@ -224,6 +228,8 @@ export function TasksSection({
       field: 'assignee',
       headerName: 'Assignee',
       width: 150,
+      minWidth: 120,
+      resizable: true,
       renderCell: params => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Avatar
@@ -285,14 +291,39 @@ export function TasksSection({
             {error}
           </Typography>
         ) : !loading && tasks.length === 0 ? (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ textAlign: 'center', py: 3 }}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              py: 5,
+              gap: 2,
+              textAlign: 'center',
+            }}
           >
-            No tasks yet. Create the first task for this{' '}
-            {getEntityDisplayName(entityType).toLowerCase()}.
-          </Typography>
+            <RouteOutlinedIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, color: 'primary.main' }}
+            >
+              No task created yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Create a task to track follow-ups for this{' '}
+              {getEntityDisplayName(entityType).toLowerCase()}.
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleCreateTask}
+              sx={{
+                color: 'white',
+                '& .MuiButton-startIcon': { color: 'white' },
+              }}
+            >
+              Create task
+            </Button>
+          </Box>
         ) : (
           <BaseDataGrid
             rows={tasks}

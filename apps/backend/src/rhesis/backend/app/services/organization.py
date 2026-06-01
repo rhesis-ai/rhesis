@@ -8,6 +8,21 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.models.enums import ModelType
+from rhesis.backend.app.models.metric import behavior_metric_association
+from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
+from rhesis.backend.app.utils.crud_utils import (
+    create_default_rhesis_model,
+    get_or_create_behavior,
+    get_or_create_category,
+    get_or_create_entity,
+    get_or_create_status,
+    get_or_create_topic,
+    get_or_create_type_lookup,
+)
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
 def enroll_user_in_project(
@@ -31,20 +46,6 @@ def enroll_user_in_project(
             )
         )
         db.flush()
-from rhesis.backend.app.models.enums import ModelType
-from rhesis.backend.app.models.metric import behavior_metric_association
-from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
-from rhesis.backend.app.utils.crud_utils import (
-    create_default_rhesis_model,
-    get_or_create_behavior,
-    get_or_create_category,
-    get_or_create_entity,
-    get_or_create_status,
-    get_or_create_topic,
-    get_or_create_type_lookup,
-)
-from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
 def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[str, str]:
@@ -505,9 +506,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
 
             # Build endpoint data
             # Handle URL environment variable replacement
+            backend_env = get_application_settings().backend_env
             url = item["url"]
             if "${BACKEND_ENV}" in url:
-                backend_env = os.getenv("BACKEND_ENV", "development")
                 # Map environment to chatbot subdomain
                 env_mapping = {
                     "development": "dev",
@@ -527,7 +528,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             # Handle environment variable replacement in environment field
             environment = item.get("environment", "development")
             if "${BACKEND_ENV}" in environment:
-                environment = os.getenv("BACKEND_ENV", "development")
+                environment = backend_env
 
             endpoint_data = {
                 "name": item["name"],

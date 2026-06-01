@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import Box from '@mui/material/Box';
 import { useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
@@ -15,16 +14,7 @@ import type {
 import type { UUID } from 'crypto';
 import { TEST_TYPES } from '@/constants/test-types';
 
-import MetricsDirectoryTab from './MetricsDirectoryTab';
-
-interface FilterState {
-  search: string;
-  backend: string[];
-  type: string[];
-  scoreType: string[];
-  metricScope: string[];
-  behavior: string[];
-}
+import MetricsDirectoryTab, { type FilterState } from './MetricsDirectoryTab';
 
 const initialFilterState: FilterState = {
   search: '',
@@ -32,7 +22,7 @@ const initialFilterState: FilterState = {
   type: [],
   scoreType: [],
   metricScope: [],
-  behavior: [],
+  behavior: '',
 };
 
 interface FilterOptions {
@@ -69,11 +59,13 @@ interface BehaviorMetrics {
 interface MetricsClientProps {
   sessionToken: string;
   organizationId: UUID;
+  sessionStatus?: 'loading' | 'authenticated' | 'unauthenticated';
 }
 
 export default function MetricsClientComponent({
   sessionToken,
   organizationId,
+  sessionStatus,
 }: MetricsClientProps) {
   const searchParams = useSearchParams();
   const notifications = useNotifications();
@@ -109,7 +101,12 @@ export default function MetricsClientComponent({
   // Fetch behaviors, metrics, and filter options - using same pattern as test runs
   React.useEffect(() => {
     const fetchData = async () => {
-      if (!sessionToken) return;
+      if (!sessionToken) {
+        if (sessionStatus !== 'loading') {
+          setIsLoading(false);
+        }
+        return;
+      }
 
       // Check if this is a real session token change or just a session object recreation
       const isTokenChange = lastSessionTokenRef.current !== sessionToken;
@@ -234,7 +231,7 @@ export default function MetricsClientComponent({
     };
 
     fetchData();
-  }, [sessionToken, refreshKey, notifications]);
+  }, [sessionToken, refreshKey, notifications, sessionStatus]);
 
   // Refresh data function - trigger re-render by updating a key
   const handleRefresh = React.useCallback(() => {
@@ -243,29 +240,22 @@ export default function MetricsClientComponent({
 
   return (
     <ErrorBoundary>
-      <Box
-        sx={{
-          width: '100%',
-          minHeight: '100%',
-        }}
-      >
-        <MetricsDirectoryTab
-          sessionToken={sessionToken}
-          organizationId={organizationId}
-          behaviors={behaviors}
-          metrics={metrics}
-          filters={filters}
-          filterOptions={filterOptions}
-          isLoading={isLoading}
-          error={error}
-          onRefresh={handleRefresh}
-          setFilters={setFilters}
-          setMetrics={setMetrics}
-          setBehaviorMetrics={setBehaviorMetrics}
-          setBehaviorsWithMetrics={setBehaviorsWithMetrics}
-          assignMode={assignMode}
-        />
-      </Box>
+      <MetricsDirectoryTab
+        sessionToken={sessionToken}
+        organizationId={organizationId}
+        behaviors={behaviors}
+        metrics={metrics}
+        filters={filters}
+        filterOptions={filterOptions}
+        isLoading={isLoading}
+        error={error}
+        onRefresh={handleRefresh}
+        setFilters={setFilters}
+        setMetrics={setMetrics}
+        setBehaviorMetrics={setBehaviorMetrics}
+        setBehaviorsWithMetrics={setBehaviorsWithMetrics}
+        assignMode={assignMode}
+      />
     </ErrorBoundary>
   );
 }

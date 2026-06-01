@@ -30,6 +30,7 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic';
 import { useTheme } from '@mui/material/styles';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   AutoConfigureResult,
@@ -195,7 +196,7 @@ export default function EndpointForm() {
   const editorWrapperStyle = {
     border: 1,
     borderColor: 'divider',
-    borderRadius: theme.shape.borderRadius,
+    borderRadius: BORDER_RADIUS.sm,
     '&:hover': {
       borderColor: 'text.primary',
     },

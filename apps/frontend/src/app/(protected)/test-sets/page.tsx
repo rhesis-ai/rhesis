@@ -1,97 +1,192 @@
+'use client';
+
 import * as React from 'react';
-import { Metadata } from 'next';
-import Typography from '@mui/material/Typography';
+import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import AddIcon from '@mui/icons-material/Add';
+import FileUploadIcon from '@mui/icons-material/FileUploadOutlined';
+import SecurityIcon from '@mui/icons-material/SecurityOutlined';
+import { useSession } from 'next-auth/react';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { HorizontalSplitIcon } from '@/components/icons';
 import TestSetsGrid from './components/TestSetsGrid';
-import TestSetsCharts from './components/TestSetsCharts';
-import { auth } from '@/auth';
+import TestSetDrawer from './components/TestSetDrawer';
+import FileImportDialog from './components/FileImportDialog';
+import GarakImportDialog from './components/GarakImportDialog';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { useNotifications } from '@/components/common/NotificationContext';
 
-export const metadata: Metadata = {
-  title: 'Test Sets',
-};
+export default function TestSetsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const notifications = useNotifications();
 
-export default async function TestSetsPage() {
-  try {
-    const session = await auth();
+  const [refreshKey, setRefreshKey] = React.useState(0);
+  const [testSetCount, setTestSetCount] = React.useState<number | null>(null);
+  const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
+  const [fileImportDialogOpen, setFileImportDialogOpen] = React.useState(false);
+  const [garakImportDialogOpen, setGarakImportDialogOpen] =
+    React.useState(false);
 
-    if (!session?.session_token) {
-      throw new Error('No session token available');
-    }
+  useDocumentTitle('Test Sets');
 
-    const clientFactory = new ApiClientFactory(session.session_token);
-    const testSetsClient = clientFactory.getTestSetsClient();
+  const sessionToken = session?.session_token ?? '';
 
-    const response = await testSetsClient.getTestSets({
-      skip: 0,
-      limit: 25,
-      sort_by: 'created_at',
-      sort_order: 'desc',
-    });
+  React.useEffect(() => {
+    const fetchCount = async () => {
+      if (!sessionToken) return;
+      try {
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const testSetsClient = apiFactory.getTestSetsClient();
+        const response = await testSetsClient.getTestSets({
+          skip: 0,
+          limit: 1,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        });
+        setTestSetCount(response.pagination?.totalCount ?? 0);
+      } catch {
+        setTestSetCount(0);
+      }
+    };
+    fetchCount();
+  }, [sessionToken, refreshKey]);
 
-    // Now, for each test set with a status_id or test_set_type_id, fetch details
-    const testSetsWithDetails = await Promise.all(
-      response.data.map(async testSet => {
-        let updatedTestSet = { ...testSet };
+  const handleRefresh = React.useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []);
 
-        // Fetch status details if status_id exists
-        if (testSet.status_id) {
-          try {
-            const statusClient = clientFactory.getStatusClient();
-            const status = await statusClient.getStatus(
-              testSet.status_id as string
-            );
-            updatedTestSet = { ...updatedTestSet, status: status.name };
-          } catch (_error) {
-            // Keep original testSet if status fetch fails
-          }
-        }
+  const handleCreateSuccess = React.useCallback(() => {
+    setCreateDrawerOpen(false);
+    handleRefresh();
+  }, [handleRefresh]);
 
-        // Fetch test set type details if test_set_type_id exists
-        if (testSet.test_set_type_id) {
-          try {
-            const typeLookupClient = clientFactory.getTypeLookupClient();
-            const testSetType = await typeLookupClient.getTypeLookup(
-              testSet.test_set_type_id as string
-            );
-            updatedTestSet = { ...updatedTestSet, test_set_type: testSetType };
-          } catch (_error) {
-            // Keep original testSet if test set type fetch fails
-          }
-        }
+  const handleFileImportSuccess = React.useCallback(
+    (_testSetId: string) => {
+      handleRefresh();
+      notifications.show('Test set imported successfully from file', {
+        severity: 'success',
+      });
+    },
+    [handleRefresh, notifications]
+  );
 
-        return updatedTestSet;
-      })
-    );
+  const handleGarakImportSuccess = React.useCallback(
+    (testSetIds: string[]) => {
+      handleRefresh();
+      const count = testSetIds.length;
+      notifications.show(
+        `${count} Garak ${count === 1 ? 'probe' : 'probes'} imported successfully`,
+        { severity: 'success', autoHideDuration: 6000 }
+      );
+      if (testSetIds.length === 1) {
+        router.push(`/test-sets/${testSetIds[0]}`);
+      }
+    },
+    [handleRefresh, notifications, router]
+  );
 
+  if (status === 'loading') {
     return (
-      <PageContainer title="Test Sets" breadcrumbs={[]}>
-        {/* Charts Section - Client Component */}
-        <TestSetsCharts />
-
-        {/* Table Section */}
-        <Paper sx={{ width: '100%', mb: 2, mt: 2 }}>
-          <Box sx={{ p: 2 }}>
-            <TestSetsGrid
-              testSets={testSetsWithDetails}
-              loading={false}
-              sessionToken={session.session_token}
-              initialTotalCount={response.pagination.totalCount}
-            />
-          </Box>
-        </Paper>
-      </PageContainer>
-    );
-  } catch (error) {
-    const errorMessage = (error as Error).message;
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">
-          Error loading test sets: {errorMessage}
-        </Typography>
-      </Box>
+      <PageLayout title="Test Sets" breadcrumbs={[]}>
+        <Box sx={{ p: 3 }}>
+          <Typography>Loading...</Typography>
+        </Box>
+      </PageLayout>
     );
   }
+
+  if (!sessionToken) {
+    return (
+      <PageLayout title="Test Sets" breadcrumbs={[]}>
+        <Box sx={{ p: 3 }}>
+          <Typography color="error">No session token available</Typography>
+        </Box>
+      </PageLayout>
+    );
+  }
+
+  return (
+    <>
+      <PageLayout
+        title="Test Sets"
+        description="Curated collections of tests you can version, share, and execute against your AI endpoints."
+        breadcrumbs={[]}
+        actions={
+          <FabGroup>
+            <Fab
+              icon={<FileUploadIcon />}
+              tooltip="Import from File"
+              onClick={() => setFileImportDialogOpen(true)}
+            />
+            <Fab
+              icon={<SecurityIcon />}
+              tooltip="Import from Garak"
+              onClick={() => setGarakImportDialogOpen(true)}
+            />
+            <Fab
+              icon={<AddIcon />}
+              tooltip="New Test Set"
+              onClick={() => setCreateDrawerOpen(true)}
+            />
+          </FabGroup>
+        }
+      >
+        <Box sx={{ mt: 2, mb: 2 }}>
+          {testSetCount === 0 ? (
+            <EntityEmptyState
+              icon={HorizontalSplitIcon}
+              title="No test sets yet"
+              description="Group related tests into a test set to version, share, and run them together."
+              actionLabel="Create test set"
+              onAction={() => setCreateDrawerOpen(true)}
+            />
+          ) : (
+            <Paper
+              sx={{
+                width: '100%',
+                borderRadius: BORDER_RADIUS.md,
+                boxShadow: ELEVATION.xs,
+                border: theme => `1px solid ${theme.palette.greyscale.border}`,
+                overflow: 'hidden',
+              }}
+            >
+              <TestSetsGrid
+                sessionToken={sessionToken}
+                refreshKey={refreshKey}
+                onRefresh={handleRefresh}
+              />
+            </Paper>
+          )}
+        </Box>
+      </PageLayout>
+
+      <TestSetDrawer
+        open={createDrawerOpen}
+        onClose={() => setCreateDrawerOpen(false)}
+        sessionToken={sessionToken}
+        onSuccess={handleCreateSuccess}
+      />
+
+      <FileImportDialog
+        open={fileImportDialogOpen}
+        onClose={() => setFileImportDialogOpen(false)}
+        sessionToken={sessionToken}
+        onSuccess={handleFileImportSuccess}
+      />
+
+      <GarakImportDialog
+        open={garakImportDialogOpen}
+        onClose={() => setGarakImportDialogOpen(false)}
+        sessionToken={sessionToken}
+        onSuccess={handleGarakImportSuccess}
+      />
+    </>
+  );
 }

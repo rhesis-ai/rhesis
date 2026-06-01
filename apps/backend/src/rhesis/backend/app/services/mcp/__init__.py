@@ -1,8 +1,8 @@
 """MCP integration service package."""
 
-from rhesis.backend.app.services.mcp.agents import _get_agent_class
+from rhesis.backend.app.services.mcp.agents import get_agent_event_handlers
 from rhesis.backend.app.services.mcp.config import _get_mcp_client_from_params, _get_mcp_tool_config
-from rhesis.backend.app.services.mcp.endpoint_operations import extract_mcp, query_mcp, search_mcp
+from rhesis.backend.app.services.mcp.operations import extract_mcp, query_mcp, search_mcp
 from rhesis.backend.app.services.mcp.exceptions import handle_mcp_exception
 from rhesis.backend.app.services.mcp.templates import jinja_env
 from rhesis.backend.app.services.mcp.workflows import (
@@ -11,7 +11,7 @@ from rhesis.backend.app.services.mcp.workflows import (
 )
 
 __all__ = [
-    "_get_agent_class",
+    "get_agent_event_handlers",
     "_get_mcp_client_from_params",
     "_get_mcp_tool_config",
     "create_jira_ticket_from_task",

@@ -2,17 +2,17 @@
 
 import React from 'react';
 import EndpointForm from '../components/EndpointForm';
-import { PageContainer } from '@toolpad/core';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 export default function NewEndpointPage() {
   const breadcrumbs = [
-    { title: 'Endpoints', path: '/endpoints' },
-    { title: 'Create New Endpoint' },
+    { label: 'Endpoints', href: '/endpoints' },
+    { label: 'Create New Endpoint' },
   ];
 
   return (
-    <PageContainer title="Create New Endpoint" breadcrumbs={breadcrumbs}>
+    <PageLayout title="Create New Endpoint" breadcrumbs={breadcrumbs}>
       <EndpointForm />
-    </PageContainer>
+    </PageLayout>
   );
 }

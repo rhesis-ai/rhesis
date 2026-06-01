@@ -44,6 +44,8 @@ import os
 from enum import Enum
 from typing import Optional
 
+from rhesis.backend.app.config.settings import get_application_settings
+
 logger = logging.getLogger("rhesis.api_clients.audit")
 
 
@@ -77,14 +79,9 @@ def _is_dev_environment() -> bool:
     ``audit`` would transitively pull in ``httpx`` even in test setups
     that do not exercise SSO.
     """
-    env = os.getenv("ENVIRONMENT", "").lower()
-    backend_env = os.getenv("BACKEND_ENV", "").lower()
-    return env in ("local", "test", "dev", "development") or backend_env in (
-        "local",
-        "test",
-        "dev",
-        "development",
-    )
+    settings = get_application_settings()
+    dev_environments = ("local", "development", "staging")
+    return settings.backend_env in dev_environments
 
 
 def _get_audit_hash_key() -> Optional[bytes]:

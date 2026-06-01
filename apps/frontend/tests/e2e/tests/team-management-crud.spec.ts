@@ -17,9 +17,8 @@ test.describe('Team Management — invite form @interaction', () => {
     const teamPage = new OrgTeamPage(page);
     await teamPage.goto();
     await teamPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await teamPage.openInviteDrawer();
 
-    // Find the first email input in the invite form
     const emailInput = page.locator('input[type="email"]').first();
     const hasEmail = await emailInput
       .isVisible({ timeout: 10_000 })
@@ -55,7 +54,7 @@ test.describe('Team Management — invite form @interaction', () => {
     const teamPage = new OrgTeamPage(page);
     await teamPage.goto();
     await teamPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await teamPage.openInviteDrawer();
 
     const emailInput = page.locator('input[type="email"]').first();
     const hasEmail = await emailInput
@@ -99,7 +98,7 @@ test.describe('Team Management — invite form @interaction', () => {
     const teamPage = new OrgTeamPage(page);
     await teamPage.goto();
     await teamPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await teamPage.openInviteDrawer();
 
     const emailInput = page.locator('input[type="email"]').first();
     const hasEmail = await emailInput
@@ -142,7 +141,7 @@ test.describe('Team Management — invite form @interaction', () => {
     const teamPage = new OrgTeamPage(page);
     await teamPage.goto();
     await teamPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
+    await teamPage.openInviteDrawer();
 
     const emailInput = page.locator('input[type="email"]').first();
     const hasEmail = await emailInput

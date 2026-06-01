@@ -15,8 +15,8 @@ import jwt
 import pytest
 
 from rhesis.backend.app.auth.token_utils import (
-    ALGORITHM,
     create_service_delegation_token,
+    get_jwt_algorithm,
     get_secret_key,
 )
 from rhesis.backend.app.models.user import User
@@ -41,7 +41,7 @@ class TestDelegationTokens:
         assert len(token) > 0
 
         # Decode and verify payload
-        payload = jwt.decode(token, get_secret_key(), algorithms=[ALGORITHM])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
         assert payload["type"] == "service_delegation"
         assert payload["target_service"] == "polyphemus"
         assert payload["user"]["id"] == str(test_user.id)
@@ -51,7 +51,7 @@ class TestDelegationTokens:
     def test_token_expiration(self, test_user):
         """Test custom expiration time."""
         token = create_service_delegation_token(test_user, "polyphemus", expires_minutes=10)
-        payload = jwt.decode(token, get_secret_key(), algorithms=[ALGORITHM])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
 
         exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
         iat_time = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
@@ -63,7 +63,7 @@ class TestDelegationTokens:
     def test_token_default_expiration(self, test_user):
         """Test default expiration time (15 minutes) for test generation jobs."""
         token = create_service_delegation_token(test_user, "polyphemus")
-        payload = jwt.decode(token, get_secret_key(), algorithms=[ALGORITHM])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
 
         exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
         iat_time = datetime.fromtimestamp(payload["iat"], tz=timezone.utc)
@@ -75,7 +75,7 @@ class TestDelegationTokens:
     def test_token_includes_nbf(self, test_user):
         """Test token includes 'not before' claim."""
         token = create_service_delegation_token(test_user, "polyphemus")
-        payload = jwt.decode(token, get_secret_key(), algorithms=[ALGORITHM])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
 
         assert "nbf" in payload
         assert "iat" in payload
@@ -91,8 +91,16 @@ class TestDelegationTokens:
         polyphemus_token = create_service_delegation_token(test_user, "polyphemus")
         other_token = create_service_delegation_token(test_user, "other-service")
 
-        polyphemus_payload = jwt.decode(polyphemus_token, get_secret_key(), algorithms=[ALGORITHM])
-        other_payload = jwt.decode(other_token, get_secret_key(), algorithms=[ALGORITHM])
+        polyphemus_payload = jwt.decode(
+            polyphemus_token,
+            get_secret_key(),
+            algorithms=[get_jwt_algorithm()],
+        )
+        other_payload = jwt.decode(
+            other_token,
+            get_secret_key(),
+            algorithms=[get_jwt_algorithm()],
+        )
 
         assert polyphemus_payload["target_service"] == "polyphemus"
         assert other_payload["target_service"] == "other-service"
@@ -102,7 +110,7 @@ class TestDelegationTokens:
         test_user.organization_id = None
 
         token = create_service_delegation_token(test_user, "polyphemus")
-        payload = jwt.decode(token, get_secret_key(), algorithms=[ALGORITHM])
+        payload = jwt.decode(token, get_secret_key(), algorithms=[get_jwt_algorithm()])
 
         assert payload["user"]["organization_id"] is None
         assert payload["user"]["id"] == str(test_user.id)

@@ -1,16 +1,18 @@
 'use client';
 
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import EndpointDetail from '@/app/(protected)/endpoints/components/EndpointDetail';
 import { Box, Typography, CircularProgress } from '@mui/material';
-import { PageContainer } from '@toolpad/core';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useEffect, useState } from 'react';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useParams } from 'next/navigation';
+import { EndpointDetailProvider } from '@/app/(protected)/endpoints/[identifier]/components/EndpointDetailContext';
+import EndpointDetailView from '@/app/(protected)/endpoints/[identifier]/components/EndpointDetailView';
+import EndpointHeaderActions from '@/app/(protected)/endpoints/[identifier]/components/EndpointHeaderActions';
 
-export default function EndpointPage() {
+export default function ProjectEndpointPage() {
   const params = useParams<{ identifier: string; endpointId: string }>();
   const { data: session, status } = useSession();
   const [endpoint, setEndpoint] = useState<Endpoint | null>(null);
@@ -18,41 +20,37 @@ export default function EndpointPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Set document title dynamically
   useDocumentTitle(endpoint?.name || null);
 
   useEffect(() => {
     const fetchEndpoint = async () => {
       try {
-        if (status === 'loading') return; // Wait for session to load
-        if (!params?.endpointId) return; // Wait for endpointId to be available
+        if (status === 'loading') return;
+        if (!params?.endpointId) return;
 
         if (!session) {
           throw new Error('No session available');
         }
 
-        // Add UUID validation
         const uuidRegex =
           /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!uuidRegex.test(params.endpointId)) {
           throw new Error('Invalid endpoint identifier format');
         }
 
-        // Get session token from the correct property
         const sessionToken = session.session_token || '';
         const apiFactory = new ApiClientFactory(sessionToken);
         const endpointsClient = apiFactory.getEndpointsClient();
         const data = await endpointsClient.getEndpoint(params.endpointId);
         setEndpoint(data);
 
-        // Fetch project name using the identifier from URL
         if (params.identifier) {
           try {
             const projectsClient = apiFactory.getProjectsClient();
             const project = await projectsClient.getProject(params.identifier);
             setProjectName(project.name);
-          } catch (error) {
-            console.error('Error fetching project:', error);
+          } catch {
+            // ignore
           }
         }
       } catch (err) {
@@ -108,19 +106,55 @@ export default function EndpointPage() {
   }
 
   const breadcrumbs = [
-    { title: 'Projects', path: '/projects' },
+    { label: 'Projects', href: '/projects' },
     {
-      title: projectName || 'Project',
-      path: `/projects/${params.identifier}`,
+      label: projectName || 'Project',
+      href: `/projects/${params.identifier}`,
     },
-    { title: endpoint.name },
+    { label: endpoint.name },
   ];
 
-  return (
-    <PageContainer title={endpoint.name} breadcrumbs={breadcrumbs}>
-      <Box sx={{ flexGrow: 1, pt: 3 }}>
-        <EndpointDetail endpoint={endpoint} />
+  const metadataStrip = endpoint.endpoint_metadata?.created_at ? (
+    <Box sx={{ display: 'flex', gap: '30px' }}>
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: theme => theme.palette.greyscale.body,
+          }}
+        >
+          registered:
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            fontSize: 12,
+            lineHeight: '18px',
+            color: theme => theme.palette.greyscale.title,
+          }}
+        >
+          {new Date(endpoint.endpoint_metadata.created_at).toLocaleString()}
+        </Typography>
       </Box>
-    </PageContainer>
+    </Box>
+  ) : undefined;
+
+  return (
+    <EndpointDetailProvider endpoint={endpoint}>
+      <PageLayout
+        title={endpoint.name}
+        description={
+          endpoint.description ||
+          `${endpoint.connection_type} endpoint · ${endpoint.environment}`
+        }
+        breadcrumbs={breadcrumbs}
+        metadata={metadataStrip}
+        actions={<EndpointHeaderActions />}
+      >
+        <EndpointDetailView />
+      </PageLayout>
+    </EndpointDetailProvider>
   );
 }

@@ -409,7 +409,7 @@ apps/frontend/
     │   │   ├── BaseChartsGrid.tsx  # Chart grid
     │   │   ├── BaseLineChart.tsx, BasePieChart.tsx, BaseScatterChart.tsx
     │   │   ├── ActionBar.tsx       # Page action bar
-    │   │   ├── SearchAndFilterBar.tsx
+    │   │   ├── GridToolbar.tsx
     │   │   ├── StatusChip.tsx      # Status indicators
     │   │   ├── EntityCard.tsx      # Entity display card
     │   │   ├── DeleteModal.tsx     # Confirmation modal

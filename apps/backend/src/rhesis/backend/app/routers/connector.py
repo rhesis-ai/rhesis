@@ -10,7 +10,8 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
-from rhesis.backend.app.auth.user_utils import authenticate_websocket
+from rhesis.backend.app import crud
+from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.connector import (
@@ -79,6 +80,8 @@ async def websocket_endpoint(
                 "type": "connected",
                 "status": "success",
                 "connection_id": context.connection_id,
+                "organization_id": context.organization_id,
+                "user_id": context.user_id,
             }
         )
 
@@ -172,22 +175,51 @@ async def _message_loop(
 
 
 @router.post("/trigger", response_model=TriggerTestResponse)
-async def trigger_test(request: TriggerTestRequest):
+async def trigger_test(
+    request: TriggerTestRequest,
+    current_user: User = Depends(require_current_user_or_token),
+):
     """
     Trigger a test execution via WebSocket.
 
+    The caller must be authenticated and the project must belong to their
+    organization.  This prevents unauthenticated or cross-tenant triggering.
+
     Args:
         request: Test trigger request
+        current_user: Authenticated user (from Bearer token / API key)
 
     Returns:
         Test trigger response
 
     Raises:
-        HTTPException: If project not connected or error sending request
+        HTTPException: 400 if project_id is not a valid UUID
+        HTTPException: 404 if project is not accessible or not connected
+        HTTPException: 500 if sending the request to the SDK fails
     """
-    # Check if connected (checks local + Redis for multi-instance support)
-    is_connected = await connection_manager.is_connected(request.project_id, request.environment)
-    if not is_connected:
+    organization_id = str(current_user.organization_id)
+    user_id = str(current_user.id)
+
+    # Validate the project belongs to the authenticated org before touching
+    # the connection layer — prevents cross-tenant triggering.
+    try:
+        project_uuid = uuid.UUID(request.project_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid project_id: must be a UUID")
+
+    with get_db_with_tenant_variables(organization_id, user_id) as db:
+        project = crud.get_project(db, project_uuid, organization_id, user_id)
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Project {request.project_id} not found or not accessible",
+        )
+
+    # Check for a LOCAL connection only — send_test_request() cannot route to
+    # remote instances.  is_connected() is Redis-aware and would return True for
+    # a project connected to a different backend pod, leading to a misleading 500.
+    if not connection_manager.has_local_route(request.project_id, request.environment):
         raise HTTPException(
             status_code=404,
             detail=f"Project {request.project_id} ({request.environment}) not connected",

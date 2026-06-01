@@ -14,6 +14,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 
+from rhesis.backend.app.config.settings import get_telemetry_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -166,13 +168,13 @@ def initialize_telemetry():
 
     Telemetry Configuration:
     - Cloud deployments: Always enabled (user consent via Terms & Conditions)
-    - Self-hosted deployments: Opt-in via OTEL_RHESIS_TELEMETRY_ENABLED environment variable
+    - Self-hosted deployments: Opt-out via OTEL_RHESIS_TELEMETRY_ENABLED environment variable
 
     Environment Variables:
         OTEL_DEPLOYMENT_TYPE: "cloud" or "self-hosted"
-        OTEL_RHESIS_TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to false)
+        OTEL_RHESIS_TELEMETRY_ENABLED: "true" or "false" (self-hosted only, defaults to true)
         OTEL_EXPORTER_OTLP_ENDPOINT: Telemetry collector endpoint URL
-        OTEL_SERVICE_NAME: Service identifier (default: "rhesis-backend")
+        OTEL_SERVICE_NAME: Service identifier (default: "rhesis")
         OTEL_PROCESSOR_ENDPOINT: Telemetry processor endpoint (default: telemetry-processor:4317)
         OTEL_API_KEY: API key for telemetry authentication
 
@@ -181,17 +183,18 @@ def initialize_telemetry():
     """
     global _TELEMETRY_GLOBALLY_ENABLED
 
+    settings = get_telemetry_settings()
+
     # Check if telemetry is enabled based on deployment type
     _TELEMETRY_GLOBALLY_ENABLED = is_telemetry_enabled()
 
     if not _TELEMETRY_GLOBALLY_ENABLED:
-        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
-        logger.info(f"Telemetry disabled for deployment_type={deployment_type}")
+        logger.info(f"Telemetry disabled for deployment_type={settings.deployment_type}")
         # Don't set NoOpTracerProvider to avoid conflicts with other libraries (e.g., deepeval)
         # Just return early and let OpenTelemetry use its default behavior
         return
 
-    otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    otel_endpoint = settings.otlp_endpoint
 
     if not otel_endpoint:
         logger.info("Telemetry disabled: OTEL_EXPORTER_OTLP_ENDPOINT not set")
@@ -201,8 +204,8 @@ def initialize_telemetry():
         return
 
     # Determine deployment type
-    deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
-    service_name = os.getenv("OTEL_SERVICE_NAME", "rhesis-backend")
+    deployment_type = settings.deployment_type
+    service_name = settings.service_name
 
     # Create resource with service information
     resource = Resource.create(
@@ -315,7 +318,8 @@ def is_telemetry_enabled() -> bool:
         # Cloud: Always enabled
         OTEL_DEPLOYMENT_TYPE=cloud
     """
-    deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
+    settings = get_telemetry_settings()
+    deployment_type = settings.deployment_type
 
     # Cloud users: Always enabled (user consent collected via Terms & Conditions agreement)
     if deployment_type == "cloud":
@@ -324,7 +328,7 @@ def is_telemetry_enabled() -> bool:
     # Self-hosted users: Enabled by default (opt-out)
     # Users can disable by setting OTEL_RHESIS_TELEMETRY_ENABLED=false
     if deployment_type == "self-hosted":
-        return os.getenv("OTEL_RHESIS_TELEMETRY_ENABLED", "true").lower() in ("true", "1", "yes")
+        return settings.rhesis_telemetry_enabled
 
     # Unknown deployment type: Disable telemetry for safety
     return False
@@ -439,7 +443,7 @@ def track_user_activity(event_type: str, session_id: Optional[str] = None, **met
             span.set_attribute("session.id", session_id)
 
         # Set deployment type
-        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
+        deployment_type = get_telemetry_settings().deployment_type
         span.set_attribute("deployment.type", deployment_type)
 
         # Add custom metadata (sanitized to prevent sensitive data leakage)
@@ -501,7 +505,7 @@ def track_feature_usage(feature_name: str, action: str, **metadata):
             span.set_attribute("organization.id", org_id)
 
         # Set deployment type
-        deployment_type = os.getenv("OTEL_DEPLOYMENT_TYPE", "unknown")
+        deployment_type = get_telemetry_settings().deployment_type
         span.set_attribute("deployment.type", deployment_type)
 
         # Add custom metadata (sanitized to prevent sensitive data leakage)

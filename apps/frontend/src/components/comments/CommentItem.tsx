@@ -174,7 +174,7 @@ export function CommentItem({
         <UserAvatar
           userName={comment.user?.name}
           userPicture={comment.user?.picture}
-          size={40}
+          size={32}
         />
 
         {/* Comment Content */}
@@ -281,185 +281,190 @@ export function CommentItem({
             </Box>
           </Box>
 
-          {isEditing ? (
-            <Box sx={{ mt: 1 }}>
-              <TextField
-                value={editText}
-                onChange={e => setEditText(e.target.value)}
-                multiline
-                rows={3}
-                fullWidth
-                variant="outlined"
-                size="small"
-                sx={{ mb: 1 }}
-              />
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                <Button
+          {/* Gray card wrapping comment body, reactions, and associated tasks */}
+          <Box
+            sx={{
+              bgcolor: 'background.default',
+              borderRadius: 1,
+              p: 2,
+              mt: 1,
+            }}
+          >
+            {isEditing ? (
+              <Box>
+                <TextField
+                  value={editText}
+                  onChange={e => setEditText(e.target.value)}
+                  multiline
+                  rows={3}
+                  fullWidth
+                  variant="outlined"
                   size="small"
-                  onClick={handleCancelEdit}
-                  sx={{ textTransform: 'none', borderRadius: '16px' }}
+                  sx={{ mb: 1 }}
+                />
+                <Box
+                  sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}
                 >
-                  Cancel
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={handleSaveEdit}
-                  disabled={isSubmitting || !editText.trim()}
-                  sx={{ textTransform: 'none', borderRadius: '16px' }}
-                >
-                  {isSubmitting ? 'Saving...' : 'Save'}
-                </Button>
+                  <Button
+                    size="small"
+                    onClick={handleCancelEdit}
+                    sx={{ textTransform: 'none', borderRadius: '16px' }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={handleSaveEdit}
+                    disabled={isSubmitting || !editText.trim()}
+                    sx={{ textTransform: 'none', borderRadius: '16px' }}
+                  >
+                    {isSubmitting ? 'Saving...' : 'Save'}
+                  </Button>
+                </Box>
               </Box>
-            </Box>
-          ) : (
-            <Typography
-              variant="body2"
-              sx={{
-                mt: 1,
-                mb: 2,
-                lineHeight: 1.6,
-                whiteSpace: 'pre-wrap',
-                color: 'text.primary',
-              }}
-            >
-              {comment.content}
-            </Typography>
-          )}
-
-          {/* Emoji Picker Button and Reactions */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            {/* Emoji Reactions Display */}
-            {Object.keys(comment.emojis || {}).length > 0 && (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {Object.entries(comment.emojis).map(([emoji, reactions]) => {
-                  const hasReacted = reactions.some(
-                    reaction => reaction.user_id === currentUserId
-                  );
-                  const reactionCount = reactions.length;
-                  const tooltipText = createReactionTooltipText(
-                    reactions,
-                    emoji
-                  );
-
-                  return (
-                    <Tooltip
-                      key={emoji}
-                      title={tooltipText}
-                      arrow
-                      placement="top"
-                    >
-                      <Box
-                        onClick={() => onReact(comment.id, emoji)}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 0.5,
-                          bgcolor: 'background.default',
-                          color: 'text.primary',
-                          border: '1px solid',
-                          borderColor: hasReacted ? 'primary.main' : 'divider',
-                          borderRadius: theme => theme.shape.borderRadius * 4,
-                          px: 1.5,
-                          py: 0.75,
-                          cursor: 'pointer',
-                          '&:hover': {
-                            bgcolor: 'action.hover',
-                            color: 'text.primary',
-                            borderColor: hasReacted
-                              ? 'primary.main'
-                              : 'text.primary',
-                          },
-                        }}
-                      >
-                        <Typography variant="subtitle1">{emoji}</Typography>
-                        <Typography
-                          variant="body2"
-                          fontWeight={600}
-                          sx={{
-                            color: 'text.primary',
-                          }}
-                        >
-                          {reactionCount}
-                        </Typography>
-                      </Box>
-                    </Tooltip>
-                  );
-                })}
-              </Box>
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{
+                  lineHeight: 1.6,
+                  whiteSpace: 'pre-wrap',
+                  color: 'text.primary',
+                }}
+              >
+                {comment.content}
+              </Typography>
             )}
 
-            <IconButton
-              size="small"
-              onClick={openEmojiPicker}
-              sx={{
-                color: 'text.secondary',
-                '&:hover': { color: 'primary.main' },
-              }}
-            >
-              <EmojiIcon fontSize="small" />
-            </IconButton>
-          </Box>
-
-          {/* Associated Tasks */}
-          {associatedTasks.length > 0 && (
+            {/* Emoji Picker Button and Reactions */}
             <Box
-              sx={{
-                mt: 2,
-                pt: 2,
-                borderTop: '1px solid',
-                borderColor: 'divider',
-              }}
+              sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}
             >
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mb: 1, display: 'block' }}
+              {Object.keys(comment.emojis || {}).length > 0 && (
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {Object.entries(comment.emojis).map(([emoji, reactions]) => {
+                    const hasReacted = reactions.some(
+                      reaction => reaction.user_id === currentUserId
+                    );
+                    const reactionCount = reactions.length;
+                    const tooltipText = createReactionTooltipText(
+                      reactions,
+                      emoji
+                    );
+
+                    return (
+                      <Tooltip
+                        key={emoji}
+                        title={tooltipText}
+                        arrow
+                        placement="top"
+                      >
+                        <Box
+                          onClick={() => onReact(comment.id, emoji)}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            bgcolor: 'background.paper',
+                            color: 'text.primary',
+                            border: '1px solid',
+                            borderColor: hasReacted
+                              ? 'primary.main'
+                              : 'divider',
+                            borderRadius: theme => theme.shape.borderRadius * 4,
+                            px: 1.5,
+                            py: 0.75,
+                            cursor: 'pointer',
+                            '&:hover': {
+                              bgcolor: 'action.hover',
+                              borderColor: hasReacted
+                                ? 'primary.main'
+                                : 'text.primary',
+                            },
+                          }}
+                        >
+                          <Typography variant="subtitle1">{emoji}</Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            {reactionCount}
+                          </Typography>
+                        </Box>
+                      </Tooltip>
+                    );
+                  })}
+                </Box>
+              )}
+
+              <IconButton
+                size="small"
+                onClick={openEmojiPicker}
+                sx={{
+                  color: 'text.secondary',
+                  '&:hover': { color: 'primary.main' },
+                }}
               >
-                Associated Tasks:
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {associatedTasks.map(task => (
-                  <Box
-                    key={task.id}
-                    onClick={() => window.open(`/tasks/${task.id}`, '_blank')}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      bgcolor: 'background.default',
-                      color: 'text.primary',
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: theme.shape.borderRadius,
-                      px: 1.5,
-                      py: 0.75,
-                      cursor: 'pointer',
-                      '&:hover': {
-                        bgcolor: 'action.hover',
-                        color: 'text.primary',
-                        borderColor: 'text.primary',
-                      },
-                    }}
-                  >
-                    <AddTaskIcon
-                      sx={{ fontSize: '1rem', color: 'text.secondary' }}
-                    />
-                    <Typography
-                      variant="body2"
-                      fontWeight={600}
+                <EmojiIcon fontSize="small" />
+              </IconButton>
+            </Box>
+
+            {/* Associated Tasks */}
+            {associatedTasks.length > 0 && (
+              <Box
+                sx={{
+                  mt: 2,
+                  pt: 2,
+                  borderTop: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mb: 1, display: 'block' }}
+                >
+                  Associated Tasks:
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {associatedTasks.map(task => (
+                    <Box
+                      key={task.id}
+                      onClick={() => window.open(`/tasks/${task.id}`, '_blank')}
                       sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        bgcolor: 'background.paper',
                         color: 'text.primary',
-                        fontSize: theme.typography.caption.fontSize,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: theme.shape.borderRadius,
+                        px: 1.5,
+                        py: 0.75,
+                        cursor: 'pointer',
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                          borderColor: 'text.primary',
+                        },
                       }}
                     >
-                      {task.title}
-                    </Typography>
-                  </Box>
-                ))}
+                      <AddTaskIcon
+                        sx={{ fontSize: '1rem', color: 'text.secondary' }}
+                      />
+                      <Typography
+                        variant="body2"
+                        fontWeight={600}
+                        sx={{
+                          color: 'text.primary',
+                          fontSize: theme.typography.caption.fontSize,
+                        }}
+                      >
+                        {task.title}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
               </Box>
-            </Box>
-          )}
+            )}
+          </Box>
         </Box>
 
         {/* Emoji Picker Popover */}

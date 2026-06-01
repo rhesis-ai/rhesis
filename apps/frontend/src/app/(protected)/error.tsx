@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Paper, Typography, Button, Box, Alert } from '@mui/material';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import Link from 'next/link';
 import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -136,7 +136,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
     // Get entity name for the list page
     const entityName = formatEntityName(pathSegments[0]);
 
-    const crumbs = [{ title: entityName, path: `/${pathSegments[0]}` }];
+    const crumbs = [{ label: entityName, href: `/${pathSegments[0]}` }];
 
     // If we're on a detail page, add the current item
     if (pathSegments.length > 1) {
@@ -158,8 +158,8 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
       }
 
       crumbs.push({
-        title: itemTitle,
-        path: typeof window !== 'undefined' ? window.location.pathname : '',
+        label: itemTitle,
+        href: typeof window !== 'undefined' ? window.location.pathname : '',
       });
     }
 
@@ -174,7 +174,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
   };
 
   return (
-    <PageContainer title={pageTitle} breadcrumbs={breadcrumbs}>
+    <PageLayout title={pageTitle} breadcrumbs={breadcrumbs}>
       {notFoundEntityData ? (
         // Not found entity UI (404)
         <NotFoundAlert
@@ -245,6 +245,6 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
           </Box>
         </Paper>
       )}
-    </PageContainer>
+    </PageLayout>
   );
 }

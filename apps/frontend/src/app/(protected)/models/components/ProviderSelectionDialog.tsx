@@ -1,26 +1,15 @@
 import React from 'react';
-import {
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  List,
-  ListItemIcon,
-  ListItemText,
-  ListItemButton,
-  Typography,
-} from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import {
+  ProviderSelectionDialog as BaseProviderSelectionDialog,
+  type ProviderDialogItem,
+} from '@/components/common/ProviderSelectionDialog';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   SUPPORTED_PROVIDERS,
   LOCAL_PROVIDERS,
   EMBEDDING_PROVIDERS,
   PROVIDER_ICONS,
-  type ProviderInfo,
 } from '@/config/model-providers';
 
 interface ProviderSelectionDialogProps {
@@ -31,6 +20,63 @@ interface ProviderSelectionDialogProps {
   modelType?: 'language' | 'embedding';
 }
 
+function buildModelProviderItems(
+  providers: TypeLookup[],
+  modelType: 'language' | 'embedding'
+): ProviderDialogItem[] {
+  const fe = process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase();
+  const isLocalMode = fe === 'local';
+
+  const selectable = providers.filter(provider => {
+    if (
+      provider.type_value === 'rhesis' ||
+      provider.type_value === 'polyphemus'
+    ) {
+      return false;
+    }
+    if (modelType === 'embedding') {
+      return EMBEDDING_PROVIDERS.includes(provider.type_value);
+    }
+    return true;
+  });
+
+  const getTier = (isSupported: boolean, isLocal: boolean) => {
+    if (isSupported && !isLocal) return 1;
+    if (isLocal) return 2;
+    return 3;
+  };
+
+  const sorted = [...selectable].sort((a, b) => {
+    const aSupported = SUPPORTED_PROVIDERS.includes(a.type_value);
+    const bSupported = SUPPORTED_PROVIDERS.includes(b.type_value);
+    const aLocal = LOCAL_PROVIDERS.includes(a.type_value);
+    const bLocal = LOCAL_PROVIDERS.includes(b.type_value);
+    const aTier = getTier(aSupported, aLocal);
+    const bTier = getTier(bSupported, bLocal);
+    if (aTier !== bTier) return aTier - bTier;
+    return a.type_value.localeCompare(b.type_value);
+  });
+
+  return sorted.map(provider => {
+    const isSupported = SUPPORTED_PROVIDERS.includes(provider.type_value);
+    const isLocal = LOCAL_PROVIDERS.includes(provider.type_value);
+    const isEnabled = isSupported && (!isLocal || isLocalMode);
+    const chips: ProviderDialogItem['chips'] = [];
+    if (isLocal) chips.push({ label: 'Local deployment' });
+    if (!isSupported && !isLocal) chips.push({ label: 'Coming Soon' });
+
+    return {
+      provider,
+      name: provider.description || provider.type_value,
+      icon: PROVIDER_ICONS[provider.type_value] || (
+        <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
+      ),
+      enabled: isEnabled,
+      chips: chips.length > 0 ? chips : undefined,
+    };
+  });
+}
+
 export function ProviderSelectionDialog({
   open,
   onClose,
@@ -38,170 +84,20 @@ export function ProviderSelectionDialog({
   providers,
   modelType = 'language',
 }: ProviderSelectionDialogProps) {
-  // Filter out providers users cannot create from this UI.
-  // and filter by model type (embedding providers for embedding models)
-  const userSelectableProviders = providers.filter(provider => {
-    if (
-      provider.type_value === 'rhesis' ||
-      provider.type_value === 'polyphemus'
-    ) {
-      return false;
-    }
+  const title =
+    modelType === 'embedding'
+      ? 'Select Embedder Provider'
+      : 'Select Language Model Provider';
 
-    // For embedding models, only show providers that support embeddings
-    if (modelType === 'embedding') {
-      return EMBEDDING_PROVIDERS.includes(provider.type_value);
-    }
-
-    // For LLM models, show all supported providers
-    return true;
-  });
-
-  // Enable local-only providers for local/development FRONTEND_ENV builds (set at build in next.config)
-  const fe = process.env.NEXT_PUBLIC_FRONTEND_ENV?.toLowerCase();
-  const isLocalMode = fe === 'local';
-
-  if (!userSelectableProviders || userSelectableProviders.length === 0) {
-    return (
-      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {modelType === 'embedding'
-            ? 'Select Embedder Provider'
-            : 'Select Language Model Provider'}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ py: 2, textAlign: 'center' }}>
-            <Typography color="text.secondary">
-              No providers available. Please try again later.
-            </Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>Close</Button>
-        </DialogActions>
-      </Dialog>
-    );
-  }
-
-  // Sort providers: supported first, then local deployment, then unsupported (all alphabetically)
-  const sortedProviders = [...userSelectableProviders].sort((a, b) => {
-    const aSupported = SUPPORTED_PROVIDERS.includes(a.type_value);
-    const bSupported = SUPPORTED_PROVIDERS.includes(b.type_value);
-    const aLocal = LOCAL_PROVIDERS.includes(a.type_value);
-    const bLocal = LOCAL_PROVIDERS.includes(b.type_value);
-
-    // Determine tier for each provider
-    // Tier 1: Supported and not local (fully enabled)
-    // Tier 2: Local deployment (supported but local-only)
-    // Tier 3: Not supported (coming soon)
-    const getTier = (isSupported: boolean, isLocal: boolean) => {
-      if (isSupported && !isLocal) return 1;
-      if (isLocal) return 2;
-      return 3;
-    };
-
-    const aTier = getTier(aSupported, aLocal);
-    const bTier = getTier(bSupported, bLocal);
-
-    // If tiers differ, sort by tier
-    if (aTier !== bTier) {
-      return aTier - bTier;
-    }
-
-    // Within same tier, sort alphabetically
-    return a.type_value.localeCompare(b.type_value);
-  });
+  const items = buildModelProviderItems(providers, modelType);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {modelType === 'embedding'
-          ? 'Select Embedder Provider'
-          : 'Select Language Model Provider'}
-      </DialogTitle>
-      <DialogContent>
-        <List>
-          {sortedProviders.map(provider => {
-            const isSupported = SUPPORTED_PROVIDERS.includes(
-              provider.type_value
-            );
-            const isLocal = LOCAL_PROVIDERS.includes(provider.type_value);
-            // Enable local providers when FRONTEND_ENV is local or development
-            const isEnabled = isSupported && (!isLocal || isLocalMode);
-
-            const providerInfo: ProviderInfo = {
-              id: provider.type_value,
-              name: provider.description || provider.type_value,
-              description: provider.description || '',
-              icon: PROVIDER_ICONS[provider.type_value] || (
-                <SmartToyIcon
-                  sx={{ fontSize: theme => theme.iconSizes.large }}
-                />
-              ),
-            };
-
-            return (
-              <ListItemButton
-                key={provider.id}
-                onClick={() => isEnabled && onSelectProvider(provider)}
-                disabled={!isEnabled}
-                sx={{
-                  borderRadius: theme => theme.shape.borderRadius * 0.25,
-                  my: 0.5,
-                  opacity: isEnabled ? 1 : 0.5,
-                  cursor: isEnabled ? 'pointer' : 'not-allowed',
-                  '&:hover': {
-                    backgroundColor: isEnabled ? 'action.hover' : 'transparent',
-                  },
-                  '&.Mui-disabled': {
-                    opacity: 0.5,
-                  },
-                }}
-              >
-                <ListItemIcon sx={{ opacity: isEnabled ? 1 : 0.4 }}>
-                  {providerInfo.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography>{providerInfo.name}</Typography>
-                      {isLocal && (
-                        <Chip
-                          label="Local deployment"
-                          size="small"
-                          color="default"
-                          sx={{
-                            height: 20,
-                            fontSize: theme =>
-                              theme.typography.caption.fontSize,
-                            fontWeight: 500,
-                          }}
-                        />
-                      )}
-                      {!isSupported && !isLocal && (
-                        <Chip
-                          label="Coming Soon"
-                          size="small"
-                          color="default"
-                          sx={{
-                            height: 20,
-                            fontSize: theme =>
-                              theme.typography.caption.fontSize,
-                            fontWeight: 500,
-                          }}
-                        />
-                      )}
-                    </Box>
-                  }
-                />
-              </ListItemButton>
-            );
-          })}
-        </List>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-      </DialogActions>
-    </Dialog>
+    <BaseProviderSelectionDialog
+      open={open}
+      onClose={onClose}
+      onSelectProvider={onSelectProvider}
+      title={title}
+      items={items}
+    />
   );
 }

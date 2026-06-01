@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { Metadata } from 'next';
-import { PageContainer } from '@toolpad/core/PageContainer';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -171,13 +171,13 @@ export default async function TestRunPage({
   // Define title and breadcrumbs for PageContainer
   const title = testRun.name || `Test Run ${identifier}`;
   const breadcrumbs = [
-    { title: 'Test Runs', path: '/test-runs' },
-    { title, path: `/test-runs/${identifier}` },
+    { label: 'Test Runs', href: '/test-runs' },
+    { label: title, href: `/test-runs/${identifier}` },
   ];
 
   // All errors (404 not found, 410 deleted, etc.) are caught by the global error.tsx
   return (
-    <PageContainer title="" breadcrumbs={breadcrumbs}>
+    <PageLayout title="" breadcrumbs={breadcrumbs}>
       <Box sx={{ flexGrow: 1 }}>
         {/* Main Split View */}
         <TestRunMainView
@@ -207,6 +207,6 @@ export default async function TestRunPage({
           }
         />
       </Box>
-    </PageContainer>
+    </PageLayout>
   );
 }

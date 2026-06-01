@@ -37,8 +37,14 @@ spec:
                 name: {{ include "rhesis.fullname" . }}-config
             - secretRef:
                 name: {{ .Values.existingSecret }}
-          {{ with .Values.chatbot.env }}
           env:
+            - name: BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.existingSecret }}
+                  key: BROKER_URL
+                  optional: true
+          {{ with .Values.chatbot.env }}
 {{ toYaml . | nindent 12 }}
           {{ end }}
           resources:

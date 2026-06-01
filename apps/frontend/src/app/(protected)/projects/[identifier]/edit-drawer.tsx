@@ -181,7 +181,9 @@ export default function EditDrawer({
         if (isMounted) {
           setUsers(fetchedUsers.data);
         }
-      } catch (_error) {}
+      } catch (error) {
+        console.error('Failed to fetch users for project edit drawer:', error);
+      }
     };
 
     if (open) {

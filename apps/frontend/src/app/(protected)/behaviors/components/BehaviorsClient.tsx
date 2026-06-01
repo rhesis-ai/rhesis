@@ -1,39 +1,50 @@
 'use client';
 
 import * as React from 'react';
-import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
-import ListIcon from '@mui/icons-material/List';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import ClearIcon from '@mui/icons-material/Clear';
+import GridToolbar, {
+  ToolbarPillTabs,
+  directoryToolbarSx,
+} from '@/components/common/GridToolbar';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BehaviorClient } from '@/utils/api-client/behavior-client';
+import { TagsClient } from '@/utils/api-client/tags-client';
+import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
 import BehaviorCard from './BehaviorCard';
 import BehaviorDrawer from './BehaviorDrawer';
 import BehaviorMetricsViewer from './BehaviorMetricsViewer';
-import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
 import { generateCopyName } from '@/utils/entity-helpers';
+import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { PsychologyIcon } from '@/components/icons';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Fab, FabGroup } from '@/components/common/Fab';
+import BehaviorFilterDrawer, {
+  type BehaviorFilters,
+  type MetricFilter,
+  EMPTY_BEHAVIOR_FILTERS,
+  hasActiveBehaviorFilters,
+} from './BehaviorFilterDrawer';
 
 interface BehaviorsClientProps {
   sessionToken: string;
   organizationId: UUID;
+  userId?: UUID;
+  sessionStatus?: 'loading' | 'authenticated' | 'unauthenticated';
 }
 
 export default function BehaviorsClient({
   sessionToken,
   organizationId,
+  userId,
+  sessionStatus,
 }: BehaviorsClientProps) {
   const notifications = useNotifications();
-  const theme = useTheme();
 
   // Data state
   const [behaviors, setBehaviors] = React.useState<BehaviorWithMetrics[]>([]);
@@ -46,6 +57,7 @@ export default function BehaviorsClient({
     id: UUID | null;
     name: string;
     description: string;
+    tagNames: string[];
   } | null>(null);
   const [isNewBehavior, setIsNewBehavior] = React.useState(false);
   const [drawerLoading, setDrawerLoading] = React.useState(false);
@@ -56,31 +68,31 @@ export default function BehaviorsClient({
   const [viewingBehavior, setViewingBehavior] =
     React.useState<BehaviorWithMetrics | null>(null);
 
-  // Search state
+  // Search & filter state
   const [searchQuery, setSearchQuery] = React.useState('');
-
-  // Filter state
-  const [metricCountFilter, setMetricCountFilter] = React.useState<
-    'all' | 'has_metrics' | 'no_metrics'
-  >('all');
+  const [metricCountFilter, setMetricCountFilter] =
+    React.useState<MetricFilter>('all');
+  const [filterDrawerOpen, setFilterDrawerOpen] = React.useState(false);
+  const [drawerFilters, setDrawerFilters] = React.useState<BehaviorFilters>(
+    EMPTY_BEHAVIOR_FILTERS
+  );
 
   // Refresh key for manual refresh
   const [refreshKey, setRefreshKey] = React.useState(0);
 
-  // Use ref to track the actual session token value to prevent unnecessary re-fetches
   const lastSessionTokenRef = React.useRef<string | null>(null);
   const hasFetchedRef = React.useRef(false);
 
-  // Fetch behaviors
   React.useEffect(() => {
     const fetchBehaviors = async () => {
       if (!sessionToken) {
-        setIsLoading(false);
+        // Keep spinner while session is still loading; stop it on auth failure
+        if (sessionStatus !== 'loading') {
+          setIsLoading(false);
+        }
         return;
       }
 
-      // Only skip if this is the initial load and we've already fetched with this token
-      // Always refetch when refreshKey changes
       if (
         refreshKey === 0 &&
         lastSessionTokenRef.current !== null &&
@@ -113,68 +125,166 @@ export default function BehaviorsClient({
     };
 
     fetchBehaviors();
-  }, [sessionToken, refreshKey]);
+  }, [sessionToken, refreshKey, sessionStatus]);
 
   const handleAddNewBehavior = () => {
-    setEditingBehavior({ id: null, name: '', description: '' });
+    setEditingBehavior({ id: null, name: '', description: '', tagNames: [] });
     setIsNewBehavior(true);
     setDrawerOpen(true);
   };
 
-  const handleEditBehavior = (id: UUID, name: string, description: string) => {
-    setEditingBehavior({ id, name, description });
+  const handleEditBehavior = (
+    id: UUID,
+    name: string,
+    description: string,
+    tagNames: string[] = []
+  ) => {
+    setEditingBehavior({ id, name, description, tagNames });
     setIsNewBehavior(false);
     setDrawerOpen(true);
   };
 
-  const handleSaveBehavior = async (name: string, description: string) => {
+  const normalizeTagName = (name: string) => name.trim().toLowerCase();
+
+  /**
+   * Diff initial vs. new tag names and apply assign/remove against TagsClient.
+   * Compares on normalized names (trim + lowercase) while sending trimmed
+   * display values to the API.
+   */
+  const syncBehaviorTags = async (
+    behaviorId: UUID,
+    initialTags: Tag[],
+    nextTagNames: string[]
+  ): Promise<void> => {
+    const normalizedNext = new Set(
+      nextTagNames.map(normalizeTagName).filter(name => name.length > 0)
+    );
+    const normalizedInitial = new Map(
+      initialTags.map(tag => [normalizeTagName(tag.name), tag])
+    );
+
+    const toRemove = initialTags.filter(
+      tag => !normalizedNext.has(normalizeTagName(tag.name))
+    );
+
+    const seen = new Set<string>();
+    const toAdd = nextTagNames
+      .map(name => name.trim())
+      .filter(name => name.length > 0)
+      .filter(name => !normalizedInitial.has(normalizeTagName(name)))
+      .filter(name => {
+        const key = normalizeTagName(name);
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+
+    if (toRemove.length === 0 && toAdd.length === 0) {
+      return;
+    }
+
+    const tagsClient = new TagsClient(sessionToken);
+
+    await Promise.all(
+      toRemove.map(tag =>
+        tagsClient.removeTagFromEntity(EntityType.BEHAVIOR, behaviorId, tag.id)
+      )
+    );
+
+    await Promise.all(
+      toAdd.map(name =>
+        tagsClient.assignTagToEntity(EntityType.BEHAVIOR, behaviorId, {
+          name,
+          organization_id: organizationId,
+          ...(userId ? { user_id: userId } : {}),
+        })
+      )
+    );
+  };
+
+  const handleSaveBehavior = async (
+    name: string,
+    description: string,
+    tagNames: string[]
+  ) => {
     try {
       setDrawerLoading(true);
       setDrawerError(undefined);
 
       const behaviorClient = new BehaviorClient(sessionToken);
+      let tagSyncFailed = false;
 
       if (isNewBehavior) {
-        // Create new behavior
         const created = await behaviorClient.createBehavior({
           name: name.trim(),
           description: description?.trim() || null,
           organization_id: organizationId,
         });
 
-        // Fetch the created behavior with metrics
+        if (tagNames.length > 0) {
+          try {
+            await syncBehaviorTags(created.id, [], tagNames);
+          } catch {
+            tagSyncFailed = true;
+          }
+        }
+
         const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
           created.id
         );
 
         setBehaviors(prev => [...prev, createdWithMetrics]);
 
-        notifications.show('Behavior created successfully', {
-          severity: 'success',
-          autoHideDuration: 4000,
-        });
-      } else if (editingBehavior && editingBehavior.id) {
-        // Update existing behavior
-        const updated = await behaviorClient.updateBehavior(
-          editingBehavior.id,
+        notifications.show(
+          tagSyncFailed
+            ? 'Behavior created, but some tags failed to sync'
+            : 'Behavior created successfully',
           {
-            name: name.trim(),
-            description: description?.trim() || null,
+            severity: tagSyncFailed ? 'warning' : 'success',
+            autoHideDuration: 4000,
           }
         );
+      } else if (editingBehavior && editingBehavior.id) {
+        const editingId = editingBehavior.id;
+        const existing = behaviors.find(b => b.id === editingId);
+        const updated = await behaviorClient.updateBehavior(editingId, {
+          name: name.trim(),
+          description: description?.trim() || null,
+        });
+
+        try {
+          await syncBehaviorTags(editingId, existing?.tags ?? [], tagNames);
+        } catch {
+          tagSyncFailed = true;
+        }
+
+        const refreshed =
+          await behaviorClient.getBehaviorWithMetrics(editingId);
 
         setBehaviors(prev =>
           prev.map(b =>
-            b.id === editingBehavior.id
-              ? { ...b, name: updated.name, description: updated.description }
+            b.id === editingId
+              ? {
+                  ...b,
+                  name: updated.name,
+                  description: updated.description,
+                  tags: refreshed.tags ?? [],
+                }
               : b
           )
         );
 
-        notifications.show('Behavior updated successfully', {
-          severity: 'success',
-          autoHideDuration: 4000,
-        });
+        notifications.show(
+          tagSyncFailed
+            ? 'Behavior updated, but some tags failed to sync'
+            : 'Behavior updated successfully',
+          {
+            severity: tagSyncFailed ? 'warning' : 'success',
+            autoHideDuration: 4000,
+          }
+        );
       }
 
       setDrawerOpen(false);
@@ -234,7 +344,6 @@ export default function BehaviorsClient({
       try {
         const behaviorClient = new BehaviorClient(sessionToken);
 
-        // Check if behavior has metrics
         const behaviorToDelete = behaviors.find(
           b => b.id === editingBehavior.id
         );
@@ -282,7 +391,6 @@ export default function BehaviorsClient({
 
   const handleMetricsViewerRefresh = (removedMetricId?: string) => {
     if (removedMetricId && viewingBehavior) {
-      // Update the behaviors list dynamically by removing the metric
       setBehaviors(prev =>
         prev.map(behavior => {
           if (behavior.id === viewingBehavior.id) {
@@ -297,7 +405,6 @@ export default function BehaviorsClient({
         })
       );
 
-      // Update the viewing behavior as well
       setViewingBehavior(prev => {
         if (prev) {
           return {
@@ -310,29 +417,39 @@ export default function BehaviorsClient({
         return prev;
       });
     } else {
-      // Fallback to full refresh if no metric ID provided
       setRefreshKey(prev => prev + 1);
     }
   };
 
-  // Filter behaviors based on search and metric count
+  /** Unique tag names across all loaded behaviors. Reused for drawer
+   *  suggestions and filter chips so users group across behaviors. */
+  const availableTagNames = React.useMemo(
+    () =>
+      Array.from(
+        new Set(behaviors.flatMap(b => (b.tags ?? []).map(t => t.name)))
+      ).sort((a, b) => a.localeCompare(b)),
+    [behaviors]
+  );
+
   const filteredBehaviors = React.useMemo(() => {
     let filtered = behaviors;
 
-    // Apply metric count filter
     if (metricCountFilter !== 'all') {
       filtered = filtered.filter(behavior => {
         const hasMetrics = behavior.metrics && behavior.metrics.length > 0;
-        if (metricCountFilter === 'has_metrics') {
-          return hasMetrics;
-        } else if (metricCountFilter === 'no_metrics') {
-          return !hasMetrics;
-        }
+        if (metricCountFilter === 'has_metrics') return hasMetrics;
+        if (metricCountFilter === 'no_metrics') return !hasMetrics;
         return true;
       });
     }
 
-    // Apply search filter
+    if (drawerFilters.tagNames.length > 0) {
+      const selected = new Set(drawerFilters.tagNames);
+      filtered = filtered.filter(behavior =>
+        (behavior.tags ?? []).some(t => selected.has(t.name))
+      );
+    }
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(behavior => {
@@ -345,138 +462,138 @@ export default function BehaviorsClient({
             metric.name?.toLowerCase().includes(query) ||
             metric.description?.toLowerCase().includes(query)
         );
-
-        return nameMatch || descriptionMatch || metricMatch;
+        const tagMatch = (behavior.tags ?? []).some(t =>
+          t.name?.toLowerCase().includes(query)
+        );
+        return nameMatch || descriptionMatch || metricMatch || tagMatch;
       });
     }
 
     return filtered;
-  }, [behaviors, searchQuery, metricCountFilter]);
+  }, [behaviors, searchQuery, metricCountFilter, drawerFilters]);
+
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    metricCountFilter !== 'all' ||
+    hasActiveBehaviorFilters(drawerFilters);
+  const editingBehaviorId = !isNewBehavior ? editingBehavior?.id : null;
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setMetricCountFilter('all');
+    setDrawerFilters(EMPTY_BEHAVIOR_FILTERS);
   };
 
-  const hasActiveFilters =
-    searchQuery.trim() !== '' || metricCountFilter !== 'all';
-  const editingBehaviorId = !isNewBehavior ? editingBehavior?.id : null;
+  const metricOptions: { value: MetricFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'has_metrics', label: 'Has Metrics' },
+    { value: 'no_metrics', label: 'No Metrics' },
+  ];
 
+  // Loading state
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          p: 4,
-          minHeight: theme => theme.spacing(25),
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <PageLayout title="Behaviors" breadcrumbs={[]}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            py: 8,
+            gap: 2,
+          }}
+        >
           <CircularProgress size={24} />
           <Typography>Loading behaviors...</Typography>
         </Box>
-      </Box>
+      </PageLayout>
     );
   }
 
-  if (error) {
+  // Auth error state
+  if (!sessionToken) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
+      <PageLayout title="Behaviors" breadcrumbs={[]}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          Session expired. Please refresh the page or log in again.
+        </Alert>
+        <EntityEmptyState
+          icon={PsychologyIcon}
+          title="Authentication required"
+          description="Please log in to view and manage your behaviors."
+        />
+      </PageLayout>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Header with explanation */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body1" color="text.secondary">
-          Behaviors are atomic expectations for your application, measured
-          through one or more metrics to determine if requirements are met.
-        </Typography>
-      </Box>
-
-      {/* Search and Filter Bar */}
-      <SearchAndFilterBar
-        searchValue={searchQuery}
+    <PageLayout
+      title="Behaviors"
+      description="Behaviors are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
+      breadcrumbs={[]}
+      actions={
+        <FabGroup>
+          <Fab
+            icon={<AddIcon />}
+            tooltip="Create behavior"
+            aria-label="Create behavior"
+            onClick={handleAddNewBehavior}
+          />
+        </FabGroup>
+      }
+    >
+      <GridToolbar
+        searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        onAddNew={handleAddNewBehavior}
-        addNewLabel="New Behavior"
-        searchPlaceholder="Search behaviors..."
-      >
-        {/* Metric Count Filter */}
-        <ButtonGroup size="small" variant="outlined">
-          <Button
-            onClick={() => setMetricCountFilter('all')}
-            variant={metricCountFilter === 'all' ? 'contained' : 'outlined'}
-            startIcon={<ListIcon fontSize="small" />}
-          >
-            All
-          </Button>
-          <Button
-            onClick={() => setMetricCountFilter('has_metrics')}
-            variant={
-              metricCountFilter === 'has_metrics' ? 'contained' : 'outlined'
-            }
-            startIcon={<CheckCircleIcon fontSize="small" />}
-            sx={{
-              ...(metricCountFilter === 'has_metrics' && {
-                backgroundColor: theme.palette.success.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.success.dark,
-                },
-              }),
-            }}
-          >
-            Has Metrics
-          </Button>
-          <Button
-            onClick={() => setMetricCountFilter('no_metrics')}
-            variant={
-              metricCountFilter === 'no_metrics' ? 'contained' : 'outlined'
-            }
-            startIcon={<ErrorOutlineIcon fontSize="small" />}
-            sx={{
-              ...(metricCountFilter === 'no_metrics' && {
-                backgroundColor: theme.palette.warning.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.warning.dark,
-                },
-              }),
-            }}
-          >
-            No Metrics
-          </Button>
-        </ButtonGroup>
+        searchPlaceholder="Search behaviors…"
+        onFilterClick={() => setFilterDrawerOpen(true)}
+        hasActiveFilters={hasActiveBehaviorFilters(drawerFilters)}
+        sx={directoryToolbarSx}
+        middleContent={
+          <ToolbarPillTabs
+            tabs={metricOptions}
+            activeValue={metricCountFilter}
+            onChange={v => setMetricCountFilter(v as MetricFilter)}
+          />
+        }
+      />
 
-        {/* Reset Button - inline with filters */}
-        {hasActiveFilters && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<ClearIcon />}
-            onClick={handleResetFilters}
-            sx={{ whiteSpace: 'nowrap' }}
-          >
-            Reset
-          </Button>
-        )}
-      </SearchAndFilterBar>
+      {/* Error state */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
-      {/* Behaviors grid */}
-      {filteredBehaviors.length > 0 ? (
+      {/* Behaviors grid / empty states */}
+      {filteredBehaviors.length === 0 ? (
+        hasActiveFilters ? (
+          <EntityEmptyState
+            icon={PsychologyIcon}
+            title="No behaviors match your filters"
+            description="Try adjusting your search or filter to find the behaviors you're looking for."
+            actionLabel="Reset filters"
+            onAction={handleResetFilters}
+          />
+        ) : (
+          <EntityEmptyState
+            icon={PsychologyIcon}
+            title="No behavior yet"
+            description="Create your first behavior to define atomic expectations for your AI applications. Behaviors are measured through metrics to ensure your requirements are met."
+            actionLabel="Create behavior"
+            onAction={handleAddNewBehavior}
+          />
+        )
+      ) : (
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: {
               xs: '1fr',
-              md: 'repeat(2, 1fr)',
-              lg: 'repeat(3, 1fr)',
+              sm: '1fr 1fr',
+              md: 'repeat(3, 1fr)',
             },
-            gap: 3,
+            gap: '24px',
             mb: 4,
           }}
         >
@@ -490,7 +607,8 @@ export default function BehaviorsClient({
                   handleEditBehavior(
                     behavior.id,
                     behavior.name,
-                    behavior.description || ''
+                    behavior.description || '',
+                    (behavior.tags ?? []).map(t => t.name)
                   )
                 }
                 onDuplicate={() =>
@@ -506,40 +624,6 @@ export default function BehaviorsClient({
               />
             ))}
         </Box>
-      ) : behaviors.length > 0 ? (
-        <Box
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            border: theme => `2px dashed ${theme.palette.divider}`,
-            borderRadius: theme.shape.borderRadius / 2,
-          }}
-        >
-          <Typography variant="body1" color="text.secondary">
-            No behaviors match your search criteria.
-          </Typography>
-        </Box>
-      ) : (
-        <Box
-          sx={{
-            p: 4,
-            textAlign: 'center',
-            border: theme => `2px dashed ${theme.palette.divider}`,
-            borderRadius: theme.shape.borderRadius / 2,
-          }}
-        >
-          <Typography variant="body1" color="text.secondary" gutterBottom>
-            No behaviors found. Create your first behavior to get started.
-          </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<AddIcon />}
-            onClick={handleAddNewBehavior}
-            sx={{ mt: 2 }}
-          >
-            Add New Behavior
-          </Button>
-        </Box>
       )}
 
       {/* Behavior Edit Drawer */}
@@ -549,6 +633,8 @@ export default function BehaviorsClient({
           onClose={() => setDrawerOpen(false)}
           name={editingBehavior.name}
           description={editingBehavior.description}
+          initialTagNames={editingBehavior.tagNames}
+          tagSuggestions={availableTagNames}
           onSave={handleSaveBehavior}
           onDuplicate={
             editingBehaviorId
@@ -581,6 +667,17 @@ export default function BehaviorsClient({
         sessionToken={sessionToken}
         onRefresh={handleMetricsViewerRefresh}
       />
-    </Box>
+
+      <BehaviorFilterDrawer
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        filters={drawerFilters}
+        availableTagNames={availableTagNames}
+        onApply={f => {
+          setDrawerFilters(f);
+          setMetricCountFilter(f.metricCount);
+        }}
+      />
+    </PageLayout>
   );
 }

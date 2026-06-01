@@ -54,34 +54,10 @@ show_banner() {
 run_migrations() {
     log "${BLUE}🔄 Running database migrations...${NC}"
 
-    # Determine command prefix (uv run for local, direct for Docker)
-    local CMD_PREFIX=""
-    if use_uv_run; then
-        CMD_PREFIX="uv run "
-    fi
-
-    # Docker image layout: migrate.sh with DB wait + psql revision hints. Local dev:
-    # alembic directly (no pg_isready requirement).
-    if [ -d "/app/apps/backend/src/rhesis/backend" ]; then
-        log "${BLUE}📍 Running migrations via migrate.sh (Docker)${NC}"
-        if ./migrate.sh; then
-            log "${GREEN}✅ Database migrations completed successfully${NC}"
-        else
-            handle_error "Database migrations failed"
-        fi
+    if ./migrate.sh; then
+        log "${GREEN}✅ Database migrations completed successfully${NC}"
     else
-        # Local environment - run alembic directly
-        log "${BLUE}📍 Running migrations via alembic (local)${NC}"
-        cd src/rhesis/backend || handle_error "Could not navigate to backend directory"
-        
-        if ${CMD_PREFIX}alembic upgrade head; then
-            log "${GREEN}✅ Database migrations completed successfully${NC}"
-        else
-            handle_error "Database migrations failed"
-        fi
-        
-        # Return to original directory
-        cd - > /dev/null
+        handle_error "Database migrations failed"
     fi
 }
 
@@ -100,6 +76,19 @@ load_env_file() {
         set -a
         source .env
         set +a
+
+        # Backwards compatibility: map legacy SQLALCHEMY_DB_* names to the
+        # current DB_* / APP_DB_* names expected by DatabaseSettings.
+        # Users with .env files created before the settings refactor continue
+        # to work without having to manually update their local config.
+        export DB_HOST="${DB_HOST:-${SQLALCHEMY_DB_HOST:-}}"
+        export DB_NAME="${DB_NAME:-${SQLALCHEMY_DB_NAME:-}}"
+        export DB_PORT="${DB_PORT:-${SQLALCHEMY_DB_PORT:-}}"
+        export APP_DB_USER="${APP_DB_USER:-${SQLALCHEMY_DB_USER:-}}"
+        export APP_DB_PASS="${APP_DB_PASS:-${SQLALCHEMY_DB_PASS:-}}"
+        export ADMIN_DB_USER="${ADMIN_DB_USER:-${SQLALCHEMY_DB_ADMIN_USER:-}}"
+        export ADMIN_DB_PASS="${ADMIN_DB_PASS:-${SQLALCHEMY_DB_ADMIN_PASS:-}}"
+
         log "${GREEN}✅ Environment loaded${NC}"
     fi
 }
@@ -225,7 +214,7 @@ main() {
     # Run database migrations (only if database is configured and not skipped)
     if [ "${SKIP_MIGRATIONS:-false}" = "true" ]; then
         log "${YELLOW}⚠️  SKIP_MIGRATIONS is set, skipping migrations (handled by deployment pipeline)${NC}"
-    elif [ -n "${SQLALCHEMY_DB_HOST:-}" ]; then
+    elif [ -n "${DB_HOST:-}" ]; then
         run_migrations
     else
         log "${YELLOW}⚠️  No database configuration found, skipping migrations${NC}"

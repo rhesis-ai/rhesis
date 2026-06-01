@@ -3,13 +3,20 @@
 Pure unit tests that mock DB and encryption -- no network or Postgres needed.
 """
 
-import os
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from pydantic import SecretStr
+
+from rhesis.backend.app.config.settings import get_application_settings
+
+
+@pytest.fixture(autouse=True)
+def clear_application_settings_cache():
+    get_application_settings.cache_clear()
+    yield
+    get_application_settings.cache_clear()
 
 
 # ---------------------------------------------------------------------------
@@ -23,10 +30,10 @@ class TestValidateReturnTo:
         return _validate_return_to(val)
 
     def test_none_defaults_to_dashboard(self):
-        assert self._validate(None) == "/dashboard"
+        assert self._validate(None) == "/architect"
 
     def test_empty_defaults_to_dashboard(self):
-        assert self._validate("") == "/dashboard"
+        assert self._validate("") == "/architect"
 
     def test_valid_relative_path(self):
         assert self._validate("/settings") == "/settings"
@@ -35,28 +42,28 @@ class TestValidateReturnTo:
         assert self._validate("/org/settings/sso") == "/org/settings/sso"
 
     def test_absolute_http_blocked(self):
-        assert self._validate("http://evil.com") == "/dashboard"
+        assert self._validate("http://evil.com") == "/architect"
 
     def test_absolute_https_blocked(self):
-        assert self._validate("https://evil.com/foo") == "/dashboard"
+        assert self._validate("https://evil.com/foo") == "/architect"
 
     def test_protocol_relative_blocked(self):
-        assert self._validate("//evil.com") == "/dashboard"
+        assert self._validate("//evil.com") == "/architect"
 
     def test_javascript_scheme_blocked(self):
-        assert self._validate("javascript:alert(1)") == "/dashboard"
+        assert self._validate("javascript:alert(1)") == "/architect"
 
     def test_data_scheme_blocked(self):
-        assert self._validate("data:text/html,<h1>x</h1>") == "/dashboard"
+        assert self._validate("data:text/html,<h1>x</h1>") == "/architect"
 
     def test_backslash_blocked(self):
-        assert self._validate("\\\\evil.com") == "/dashboard"
+        assert self._validate("\\\\evil.com") == "/architect"
 
     def test_encoded_double_slash_blocked(self):
-        assert self._validate("/%2f/evil.com") == "/dashboard"
+        assert self._validate("/%2f/evil.com") == "/architect"
 
     def test_double_encoded_blocked(self):
-        assert self._validate("/%252f%252fevil.com") == "/dashboard"
+        assert self._validate("/%252f%252fevil.com") == "/architect"
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +177,11 @@ class TestGetSSOConfig:
         assert config.client_id == "my-client"
         assert config.get_secret_value() == "my-secret"
 
-    @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    def test_plaintext_secret_fallback_in_dev(self):
+    def test_plaintext_secret_fallback_in_dev(self, monkeypatch):
         from rhesis.backend.ee.sso.router import _get_sso_config
+
+        monkeypatch.setenv("BACKEND_ENV", "development")
+        get_application_settings.cache_clear()
 
         org = SimpleNamespace(
             id=uuid4(),
