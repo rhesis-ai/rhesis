@@ -24,6 +24,7 @@ from rhesis.backend.app.schemas.polyphemus import (
 )
 from rhesis.backend.app.schemas.user import UserSettings, UserSettingsUpdate
 from rhesis.backend.app.services import polyphemus as polyphemus_service
+from rhesis.backend.app.services.organization import enroll_user_in_project
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.rate_limit import INVITATION_RATE_LIMIT, user_limiter
@@ -107,6 +108,21 @@ async def create_user(
 
         # Create the user (crud function will automatically exclude send_invite)
         created_user = crud.create_user(db=db, user=user)
+
+    # Enrol the new/re-invited user in every project in the organization
+    if current_user.organization_id:
+        org_projects = (
+            db.query(models.Project)
+            .filter(models.Project.organization_id == current_user.organization_id)
+            .all()
+        )
+        for project in org_projects:
+            enroll_user_in_project(
+                db,
+                created_user.id,
+                project.id,
+                current_user.organization_id,
+            )
 
     # Send invitation email if requested
     if send_invite and email_service.is_configured:

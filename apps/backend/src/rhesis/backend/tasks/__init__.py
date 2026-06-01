@@ -122,6 +122,17 @@ def task_launcher(
         if hasattr(current_user, "organization_id") and current_user.organization_id is not None:
             headers["organization_id"] = str(current_user.organization_id)
 
+    # Forward project_id from the ambient RequestScope so the Celery worker can
+    # re-bind the same scope and stamp / filter by project correctly.
+    try:
+        from rhesis.backend.app.scope import current_scope
+
+        scope_project_id = current_scope().project_id
+        if scope_project_id:
+            headers["project_id"] = str(scope_project_id)
+    except Exception:
+        pass  # Scope not bound or not applicable — task runs without project context
+
     apply_kwargs: Dict[str, Any] = dict(args=args, kwargs=kwargs)
     if headers:
         apply_kwargs["headers"] = headers

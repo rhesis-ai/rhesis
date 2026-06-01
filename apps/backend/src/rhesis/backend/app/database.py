@@ -11,29 +11,38 @@ from rhesis.backend.app.config.settings import get_database_settings
 logger = logging.getLogger(__name__)
 
 
-def _set_session_variables(db: Session, organization_id: str = "", user_id: str = ""):
+def _set_session_variables(
+    db: Session, organization_id: str = "", user_id: str = "", project_id: str = ""
+):
     """
     Set PostgreSQL session variables using SQLAlchemy session.
 
     Always executes the SET call — the cost of a single ``set_config``
     round-trip is negligible compared to any query that follows.
 
+    Uses is_local=true (transaction-scoped) so variables are automatically
+    cleared when the transaction ends, preventing connection-pool leakage.
+
     Args:
         db: SQLAlchemy session
         organization_id: Organization ID (defaults to empty string)
         user_id: User ID (defaults to empty string)
+        project_id: Project ID (defaults to empty string)
     """
     try:
         db.execute(
             text("""
                 SELECT
-                    set_config('app.current_organization', :org_id, false),
-                    set_config('app.current_user', :user_id, false)
+                    set_config('app.current_organization', :org_id, true),
+                    set_config('app.current_user', :user_id, true),
+                    set_config('app.current_project', :project_id, true)
             """),
-            {"org_id": organization_id, "user_id": user_id},
+            {"org_id": organization_id, "user_id": user_id, "project_id": project_id},
         )
 
-        logger.debug(f"Session variables set: org={organization_id}, user={user_id}")
+        logger.debug(
+            f"Session variables set: org={organization_id}, user={user_id}, project={project_id}"
+        )
 
     except Exception as e:
         logger.debug(f"Session variables set with potential creation: {e}")
@@ -125,21 +134,29 @@ def reset_session_context(db: Session):
         logger.debug(f"Error resetting RLS session context: {e}")
 
 
-def set_session_variables(db: Session, organization_id: str, user_id: str):
+def set_session_variables(db: Session, organization_id: str, user_id: str, project_id: str = ""):
     """
     Explicitly set PostgreSQL session variables for RLS policies.
 
-    This is a utility function that can be used when you need to manually
-    set session variables outside of the dependency injection system.
+    Prefer get_db_with_tenant_variables() which also binds the RequestScope ContextVar
+    for automatic tenant filtering. Use this function only when you already have a
+    session and need to set RLS variables without creating a new one.
+
+    NOTE: This function sets RLS variables but does NOT bind RequestScope. If you need
+    the auto-filter/auto-stamp listeners to activate, call bind_scope() separately.
 
     Args:
         db: Database session
         organization_id: Organization UUID as string
         user_id: User UUID as string
+        project_id: Project UUID as string (optional)
     """
     try:
-        _set_session_variables(db, organization_id, user_id)
-        logger.debug(f"Manually set session variables: org={organization_id}, user={user_id}")
+        _set_session_variables(db, organization_id, user_id, project_id)
+        logger.debug(
+            f"Manually set session variables: org={organization_id}, user={user_id}, "
+            f"project={project_id}"
+        )
 
     except Exception as e:
         logger.warning(f"Failed to manually set session variables: {e}")
@@ -212,23 +229,53 @@ def get_db() -> Generator[Session, None, None]:
 
 @contextmanager
 def get_db_with_tenant_variables(
-    organization_id: str = "", user_id: str = ""
+    organization_id: str = "", user_id: str = "", project_id: str = ""
 ) -> Generator[Session, None, None]:
     """
     Get a database session with tenant context automatically set.
 
     This is the centralized function used by both FastAPI dependencies and task system.
+    It sets PostgreSQL RLS session variables AND binds the RequestScope ContextVar so
+    the auto-filter / auto-stamp listeners activate for the duration of the session.
 
     Args:
-        organization_id: Organization ID for session variables
-        user_id: User ID for session variables
+        organization_id: Organization ID for session variables and scope
+        user_id: User ID for session variables and scope
+        project_id: Project ID for session variables and scope (optional)
 
     Yields:
-        Session: Database session with tenant context set
+        Session: Database session with tenant context set and RequestScope bound
     """
+    from rhesis.backend.app.scope import RequestScope, bind_scope, reset_scope
+
     with get_db() as db:
-        _set_session_variables(db, organization_id, user_id)
-        yield db
+        _set_session_variables(db, organization_id, user_id, project_id)
+        token = bind_scope(
+            RequestScope(
+                organization_id=organization_id or None,
+                user_id=user_id or None,
+                project_id=project_id or None,
+            )
+        )
+        try:
+            yield db
+        finally:
+            # FastAPI runs sync generator dependencies in a threadpool worker thread
+            # via anyio. The cleanup callback runs in a *different* worker thread with
+            # a copied context, so token.reset() raises ValueError("created in a
+            # different Context"). We catch that and fall back to binding an empty
+            # scope, which is a no-op for the current (cleanup) thread anyway.
+            try:
+                reset_scope(token)
+            except ValueError:
+                bind_scope(RequestScope())
+            # Belt-and-suspenders: reset RLS vars before connection returns to pool.
+            # _set_session_variables uses is_local=true (transaction-scoped) so this
+            # is only needed when the connection is reused across transactions.
+            try:
+                reset_session_context(db)
+            except Exception:
+                pass  # best-effort; do not mask the original exception
 
 
 # For tenant-aware operations, use get_db_with_tenant_variables()

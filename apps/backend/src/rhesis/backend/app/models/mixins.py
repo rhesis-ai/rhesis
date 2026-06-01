@@ -227,6 +227,21 @@ class OrganizationAndUserMixin(OrganizationMixin, UserOwnedMixin):
     pass
 
 
+class ProjectMixin:
+    """Mixin for project-level multi-tenancy.
+
+    Adds a nullable project_id FK so entities can be scoped to a project.
+    NULL means the entity is org-wide and visible in every project's view
+    (the auto-filter listener applies ``project_id = :pid OR project_id IS NULL``).
+    """
+
+    project_id = Column(GUID(), ForeignKey("project.id"), nullable=True, index=True)
+
+    @declared_attr
+    def project(cls):
+        return relationship("Project", foreign_keys=[cls.project_id])
+
+
 class ReviewsMixin:
     """Mixin providing human-review properties over a JSONB reviews column.
 

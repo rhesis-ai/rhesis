@@ -51,5 +51,8 @@ class Project(Base, ActivityTrackableMixin, TagsMixin):
     owner = relationship("User", foreign_keys=[owner_id], back_populates="owned_projects")
     organization = relationship("Organization", back_populates="projects")
     endpoints = relationship("Endpoint", back_populates="project")
-    status = relationship("Status", back_populates="projects")
+    status = relationship("Status", foreign_keys=[status_id], back_populates="projects")
     traces = relationship("Trace", back_populates="project", cascade="all, delete-orphan")
+    memberships = relationship(
+        "ProjectMembership", back_populates="project", cascade="all, delete-orphan"
+    )

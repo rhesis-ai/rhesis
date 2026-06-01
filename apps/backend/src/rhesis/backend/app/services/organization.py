@@ -8,6 +8,29 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+
+
+def enroll_user_in_project(
+    db: Session,
+    user_id: uuid.UUID,
+    project_id: uuid.UUID,
+    organization_id: uuid.UUID,
+) -> None:
+    """Create a ProjectMembership for the user if one does not already exist."""
+    exists = (
+        db.query(models.ProjectMembership)
+        .filter_by(project_id=project_id, user_id=user_id)
+        .first()
+    )
+    if not exists:
+        db.add(
+            models.ProjectMembership(
+                project_id=project_id,
+                user_id=user_id,
+                organization_id=organization_id,
+            )
+        )
+        db.flush()
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
@@ -156,13 +179,19 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             if status:
                 project_data["status_id"] = status.id
 
-            get_or_create_entity(
+            created_project = get_or_create_entity(
                 db=db,
                 model=models.Project,
                 entity_data=project_data,
                 organization_id=organization_id,
                 user_id=user_id,
                 commit=False,
+            )
+            enroll_user_in_project(
+                db,
+                uuid.UUID(user_id),
+                created_project.id,
+                uuid.UUID(organization_id),
             )
 
         # Process categories
@@ -437,6 +466,12 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 organization_id=organization_id,
                 user_id=user_id,
                 commit=False,
+            )
+            enroll_user_in_project(
+                db,
+                uuid.UUID(user_id),
+                default_project.id,
+                uuid.UUID(organization_id),
             )
 
         for item in initial_data.get("endpoint", []):
@@ -881,6 +916,10 @@ def _get_model_dependencies(model: Type) -> List[Type]:
     """
     Get a list of models that this model depends on through its relationships.
 
+    Only non-nullable FK relationships are treated as hard dependencies.
+    Nullable FKs (e.g. project_id on most entities) are optional references
+    and do not impose a deletion ordering constraint.
+
     Args:
         model: The SQLAlchemy model class
 
@@ -898,7 +937,10 @@ def _get_model_dependencies(model: Type) -> List[Type]:
         ):
             # Skip self-referential relationships
             if rel.mapper.class_ != model:
-                dependencies.append(rel.mapper.class_)
+                # Skip nullable FK relationships — they are optional, not hard dependencies
+                all_non_nullable = all(not col.nullable for col in rel.local_columns)
+                if all_non_nullable:
+                    dependencies.append(rel.mapper.class_)
 
     return dependencies
 

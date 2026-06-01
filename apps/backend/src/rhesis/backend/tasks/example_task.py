@@ -47,7 +47,7 @@ def process_data(self, data: dict):
     when launched with task_launcher.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     self.log_with_context("info", "Processing data", data_keys=list(data.keys()) if data else [])
 
@@ -64,7 +64,7 @@ def echo(self, message: str):
     context information from the task request.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     self.log_with_context("info", "Echo task executed", message_length=len(message))
     return f"Message: {message}, Organization: {org_id}, User: {user_id}"
@@ -85,7 +85,7 @@ def get_test_set_count(self):
     Uses get_db_with_tenant_variables for explicit tenant context.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     # Use tenant-aware database session with explicit organization_id and user_id
     with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
@@ -113,7 +113,7 @@ def get_test_configuration(self, test_configuration_id: str):
     Uses get_db_with_tenant_variables for explicit tenant context.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     # Convert string ID to UUID
     config_id = UUID(test_configuration_id)
@@ -155,7 +155,7 @@ def manual_db_example(self):
     control over the session lifecycle.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     results = {}
 
@@ -254,7 +254,7 @@ def example_execution_mode_task(self, test_config_id: str) -> Dict[str, Any]:
     )
 
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     try:
         # Get test configuration

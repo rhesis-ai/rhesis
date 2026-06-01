@@ -147,6 +147,7 @@ class TestSetBulkCreate(BaseModel):
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = None
+    project_id: Optional[UUID4] = None
     tests: List[TestData]
     metadata: Optional[Dict[str, Any]] = None
 

@@ -147,6 +147,12 @@ def _prepare_item_data(
     # Convert Pydantic to dict
     data = _convert_pydantic_to_dict(item_data)
 
+    # Drop keys that have no corresponding ORM column on this model.
+    # This handles schema fields (e.g. project_id on Base) that are absent from
+    # models like Organization, User, and Project itself.
+    model_columns = set(inspect(model).columns.keys())
+    data = {k: v for k, v in data.items() if k in model_columns}
+
     # Clean string fields
     data = _clean_string_fields(model, data)
 
@@ -165,6 +171,10 @@ def _prepare_update_data(
     """Prepare item data for update operations."""
     # Convert Pydantic to dict (excluding unset fields for updates)
     data = _convert_pydantic_to_dict_exclude_unset(item_data)
+
+    # project_id is immutable — silently strip it from update payloads so callers
+    # cannot accidentally (or maliciously) change the project scope of a record.
+    data.pop("project_id", None)
 
     # Clean string fields
     data = _clean_string_fields(model, data)

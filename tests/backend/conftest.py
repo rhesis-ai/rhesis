@@ -208,6 +208,54 @@ def isolate_telemetry_context():
 
 
 @pytest.fixture(autouse=True)
+def isolate_request_scope():
+    """
+    Per-test isolation of the RequestScope and tenant-filter-bypass ContextVars.
+
+    Ensures no scope leaks between tests. Mirrors isolate_telemetry_context above.
+
+    IMPORTANT: This fixture resets scope to the *unbound* default (all None).
+    The auto-filter listener is a no-op when scope is unbound, so existing tests
+    that pass explicit organization_id parameters to CRUD functions are unaffected.
+    Do NOT bind scope from test_db; use the bound_scope helper fixture instead.
+    """
+    from rhesis.backend.app.scope import RequestScope, _scope, _tenant_filter_disabled
+
+    scope_token = _scope.set(RequestScope())  # all-None default
+    bypass_token = _tenant_filter_disabled.set(False)
+    try:
+        yield
+    finally:
+        _scope.reset(scope_token)
+        _tenant_filter_disabled.reset(bypass_token)
+
+
+@pytest.fixture
+def bound_scope():
+    """
+    Helper fixture for tests that want to exercise the auto-filter/auto-stamp listeners.
+
+    Usage:
+        def test_something(test_db, bound_scope):
+            with bound_scope(organization_id="...", user_id="..."):
+                results = test_db.query(SomeModel).all()  # scope-filtered
+    """
+    from contextlib import contextmanager
+
+    from rhesis.backend.app.scope import RequestScope, _scope
+
+    @contextmanager
+    def _bind(organization_id=None, user_id=None, project_id=None):
+        token = _scope.set(RequestScope(organization_id=organization_id, user_id=user_id, project_id=project_id))
+        try:
+            yield
+        finally:
+            _scope.reset(token)
+
+    return _bind
+
+
+@pytest.fixture(autouse=True)
 def disable_enrichment(request, monkeypatch):
     """
     Disable trace enrichment for all tests by default.

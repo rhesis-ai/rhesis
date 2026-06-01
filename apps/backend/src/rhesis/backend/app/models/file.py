@@ -2,10 +2,10 @@ from sqlalchemy import Column, Integer, String, Text
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class File(Base, OrganizationAndUserMixin):
+class File(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "file"
 
     # File metadata

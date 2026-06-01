@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from rhesis.backend.app.models.guid import GUID
 
 from .base import Base
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 risk_use_case_association = Table(
     "risk_use_case",
@@ -25,7 +25,7 @@ prompt_use_case_association = Table(
 )
 
 
-class UseCase(Base, OrganizationAndUserMixin):
+class UseCase(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "use_case"
     name = Column(String, nullable=False)
     description = Column(Text)

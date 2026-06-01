@@ -75,7 +75,7 @@ def run_exploration_task(
             marks the task ``FAILURE`` and ``get_job_status`` surfaces the
             error.
     """
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     task_id = self.request.id or ""
 

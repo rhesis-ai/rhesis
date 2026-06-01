@@ -2,9 +2,11 @@
 Dependency injection functions for FastAPI.
 """
 
+import uuid
 from functools import lru_cache
+from typing import Optional
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
@@ -49,6 +51,59 @@ def get_tenant_context(current_user: User = Depends(require_current_user_or_toke
     return organization_id, user_id
 
 
+def get_project_context(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+) -> Optional[str]:
+    """
+    FastAPI dependency that resolves the active project_id for the current request.
+
+    Resolution order:
+      1. ``X-Project-Id`` request header (explicit override)
+      2. ``token.project_id`` from the API token used for authentication
+         (stored on ``request.state.api_token_project_id`` by the auth layer)
+      3. ``None`` — request is not scoped to a specific project
+
+    When a project_id is resolved the dependency validates that the authenticated
+    user is a member of that project.  Non-members receive 403.
+
+    Returns:
+        The project UUID as a string, or None if no project scope was requested.
+    """
+    # 1. Prefer explicit header
+    project_id_str = request.headers.get("X-Project-Id")
+
+    # 2. Fall back to the project bound to the API token
+    if not project_id_str:
+        project_id_str = getattr(request.state, "api_token_project_id", None)
+
+    if not project_id_str:
+        return None
+
+    # Validate UUID format
+    try:
+        project_id = uuid.UUID(project_id_str)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="Invalid X-Project-Id format")
+
+    # Validate membership — use a bare session (no tenant scope bound yet)
+    from rhesis.backend.app.models.project_membership import ProjectMembership
+
+    with get_db() as db:
+        membership = (
+            db.query(ProjectMembership)
+            .filter_by(project_id=project_id, user_id=current_user.id)
+            .first()
+        )
+    if not membership:
+        raise HTTPException(
+            status_code=403,
+            detail=f"User is not a member of project {project_id}",
+        )
+
+    return str(project_id)
+
+
 def get_db_session():
     """
     FastAPI dependency that provides a database session directly.
@@ -63,23 +118,30 @@ def get_db_session():
         yield db
 
 
-def get_tenant_db_session(tenant_context: tuple = Depends(get_tenant_context)):
+def get_tenant_db_session(
+    tenant_context: tuple = Depends(get_tenant_context),
+    project_id: Optional[str] = Depends(get_project_context),
+):
     """
     FastAPI dependency that provides a database session with automatic session variables.
 
-    This is a drop-in replacement for get_db_session that automatically sets
-    PostgreSQL session variables for RLS policies.
+    Sets PostgreSQL RLS session variables AND binds the RequestScope ContextVar
+    (organization_id, user_id, project_id) so the auto-filter / auto-stamp
+    listeners are active for the lifetime of the request.
 
     Returns:
-        Session: The database session with session variables set
+        Session: The database session with full tenant context set
     """
     organization_id, user_id = tenant_context
 
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         yield db
 
 
-def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_context)):
+def get_db_with_tenant_context(
+    tenant_context: tuple = Depends(get_tenant_context),
+    project_id: Optional[str] = Depends(get_project_context),
+):
     """
     FastAPI dependency that provides both a database session and tenant context.
 
@@ -91,7 +153,7 @@ def get_db_with_tenant_context(tenant_context: tuple = Depends(get_tenant_contex
     """
     organization_id, user_id = tenant_context
 
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
         yield db, organization_id, user_id
 
 

@@ -55,7 +55,7 @@ def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
     self.log_with_context("debug", f"Processing {len(results) if results else 0} test results")
 
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     try:
         # Use tenant-aware database session with explicit organization_id and user_id

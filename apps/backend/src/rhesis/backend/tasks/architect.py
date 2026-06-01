@@ -152,7 +152,7 @@ def architect_chat_task(
     4. Persist response + updated state to DB
     5. Publish final ARCHITECT_RESPONSE event
     """
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
     channel = f"architect:{session_id}"
     target = ChannelTarget(channel=channel)
 

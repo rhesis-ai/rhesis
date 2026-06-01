@@ -3,10 +3,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import OrganizationAndUserMixin
+from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
-class Topic(Base, OrganizationAndUserMixin):
+class Topic(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "topic"
     name = Column(String)
     description = Column(Text)

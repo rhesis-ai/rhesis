@@ -10,6 +10,7 @@ from .mixins import (
     CommentsMixin,
     CountsMixin,
     OrganizationMixin,
+    ProjectMixin,
     TagsMixin,
     TasksMixin,
 )
@@ -18,6 +19,7 @@ from .mixins import (
 class TestRun(
     Base,
     ActivityTrackableMixin,
+    ProjectMixin,
     TagsMixin,
     OrganizationMixin,
     CommentsMixin,

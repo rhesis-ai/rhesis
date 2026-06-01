@@ -4,12 +4,13 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import EmbeddableMixin, OrganizationAndUserMixin
+from .mixins import EmbeddableMixin, OrganizationAndUserMixin, ProjectMixin
 
 
 class Chunk(
     Base,
     EmbeddableMixin,
+    ProjectMixin,
     OrganizationAndUserMixin,
 ):
     __tablename__ = "chunk"

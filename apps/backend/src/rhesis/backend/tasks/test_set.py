@@ -35,7 +35,7 @@ def count_test_sets(self):
     for explicit tenant context.
     """
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     self.log_with_context("info", "Starting count_test_sets task")
 
@@ -314,7 +314,7 @@ def generate_and_save_test_set(
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
     """
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
 
     # Parse config
     generation_config = GenerationConfig(**config)
