@@ -107,7 +107,24 @@ module "ingress_dev" {
   depends_on = [module.dev]
 }
 
-# GCS buckets: managed by terraform/infrastructure (root) with the same state as GKE — not duplicated here.
+# ── GCS: file storage (no CNPG backup bucket in dev — Bitnami PostgreSQL) ─
+# Previously delegated to the root main.tf, but the root uses a single provider/project
+# which conflicts with the multi-project layout. Managed here instead.
+
+module "gcs_dev" {
+  source = "../../modules/storage-buckets/gcp"
+
+  project_id  = var.project_id
+  environment = "dev"
+  location    = var.region
+
+  file_storage_bucket_name = var.file_storage_bucket_name
+  cnpg_backup_bucket_name  = null
+  force_destroy            = var.force_destroy
+  file_storage_iam_members = []
+  cnpg_backup_iam_members  = []
+}
+
 # ArgoCD bootstrap is done locally via VPN after GKE is up (requires private endpoint access).
 
 # ── Shared VPC: dev project is the host, rhesis-platform-admin is a service project ──────────
