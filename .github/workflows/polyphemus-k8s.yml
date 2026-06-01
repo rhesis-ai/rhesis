@@ -1,0 +1,113 @@
+name: "[Deploy] Polyphemus (K8s)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        default: ''
+        type: string
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: string
+      tag:
+        description: 'Image tag override (default: short git SHA)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ inputs.environment || github.event.inputs.environment }}
+
+  build:
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      IMAGE: rhesis-polyphemus
+      DOCKERFILE: apps/polyphemus/Dockerfile
+      DOCKER_CONTEXT: .
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve GCP credentials
+        run: |
+          if [ "$ENVIRONMENT" = "dev" ]; then
+            echo '${{ secrets.GCP_SA_KEY_DEV }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_DEV }}" >> $GITHUB_ENV
+          elif [ "$ENVIRONMENT" = "stg" ]; then
+            echo '${{ secrets.GCP_SA_KEY_STG }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_STG }}" >> $GITHUB_ENV
+          else
+            echo '${{ secrets.GCP_SA_KEY_PRD }}' > sa-key.json
+            echo "PROJECT_ID=${{ secrets.TF_PROJECT_ID_PRD }}" >> $GITHUB_ENV
+          fi
+
+      - name: Authenticate to Google Cloud
+        run: |
+          gcloud auth activate-service-account --key-file=sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/sa-key.json" >> $GITHUB_ENV
+
+      - name: Set registry and tag
+        run: |
+          REGISTRY="europe-west4-docker.pkg.dev/${{ env.PROJECT_ID }}/rhesis"
+          echo "REGISTRY=$REGISTRY" >> $GITHUB_ENV
+
+          TAG="${{ inputs.tag || github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(echo "${{ github.sha }}" | cut -c1-8)
+          fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+          echo "Registry: $REGISTRY"
+          echo "Tag:      $TAG"
+          echo "Image:    $IMAGE"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west4-docker.pkg.dev --quiet
+
+      - name: Build Container
+        run: |
+          docker build --platform linux/amd64 \
+            -t "$REGISTRY/$IMAGE:$TAG" \
+            -t "$REGISTRY/$IMAGE:latest" \
+            -f "$DOCKERFILE" "$DOCKER_CONTEXT"
+          echo "Built $REGISTRY/$IMAGE:$TAG"
+
+      - name: Push Container
+        run: |
+          docker push "$REGISTRY/$IMAGE:$TAG"
+          docker push "$REGISTRY/$IMAGE:latest"
+          echo "Pushed $REGISTRY/$IMAGE:$TAG and :latest"
+
+      - name: Cleanup SA key
+        if: always()
+        run: rm -f sa-key.json

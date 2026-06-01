@@ -19,70 +19,51 @@ on:
         type: string
 
 jobs:
-  backend-build:
-    uses: ./.github/workflows/k8s-build-push.yml
+  backend-deploy:
+    uses: ./.github/workflows/backend-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
-      image: rhesis-backend
-      dockerfile: apps/backend/Dockerfile
-      target: backend
     secrets: inherit
 
-  worker-build:
-    uses: ./.github/workflows/k8s-build-push.yml
+  worker-deploy:
+    uses: ./.github/workflows/worker-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
-      image: rhesis-worker
-      dockerfile: apps/backend/Dockerfile
-      target: worker
     secrets: inherit
 
-  frontend-build:
-    uses: ./.github/workflows/k8s-build-push.yml
+  frontend-deploy:
+    uses: ./.github/workflows/frontend-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
-      image: rhesis-frontend
-      dockerfile: apps/frontend/Dockerfile
-      frontend: true
     secrets: inherit
 
-  chatbot-build:
-    uses: ./.github/workflows/k8s-build-push.yml
+  chatbot-deploy:
+    uses: ./.github/workflows/chatbot-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
-      image: rhesis-chatbot
-      dockerfile: apps/chatbot/Dockerfile
     secrets: inherit
 
-  polyphemus-build:
-    uses: ./.github/workflows/k8s-build-push.yml
+  polyphemus-deploy:
+    uses: ./.github/workflows/polyphemus-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
-      image: rhesis-polyphemus
-      dockerfile: apps/polyphemus/Dockerfile
     secrets: inherit
 
-  otel-collector-build:
-    uses: ./.github/workflows/k8s-build-push.yml
+  otel-collector-deploy:
+    uses: ./.github/workflows/otel-collector-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
-      image: rhesis-otel-collector
-      dockerfile: apps/otel-collector/Dockerfile
-      context: apps/otel-collector
     secrets: inherit
 
-  telemetry-processor-build:
-    uses: ./.github/workflows/k8s-build-push.yml
+  telemetry-processor-deploy:
+    uses: ./.github/workflows/telemetry-processor-k8s.yml
     with:
       environment: ${{ github.event.inputs.environment }}
       tag: ${{ github.event.inputs.tag }}
-      image: rhesis-telemetry-processor
-      dockerfile: apps/telemetry-processor/Dockerfile
-      context: apps/telemetry-processor
     secrets: inherit
