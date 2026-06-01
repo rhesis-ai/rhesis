@@ -46,13 +46,11 @@ from rhesis.backend.app.services.generation import (
     generate_tests,
 )
 from rhesis.backend.app.services.github import read_repo_contents
-from rhesis.backend.app.services.mcp import (
+from rhesis.backend.app.services.tool.mcp import (
     create_jira_ticket_from_task,
-    extract_mcp,
     handle_mcp_exception,
     query_mcp,
     run_mcp_authentication_test,
-    search_mcp,
 )
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.app.services.test_generation_pipeline import (
@@ -561,105 +559,6 @@ async def generate_test_config(
             else "An unexpected error occurred during test configuration generation"
         )
         raise HTTPException(status_code=500, detail=error_detail)
-
-
-@router.post("/mcp/search", response_model=List[ItemResult])
-async def search_mcp_server(
-    request: SearchMCPRequest,
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_generation_model),
-):
-    """
-    Search MCP server for items matching a natural language query.
-
-    Uses an AI agent to intelligently search the connected MCP server and
-    return structured results. The agent automatically selects the appropriate
-    search tools and formats results consistently.
-
-    Args:
-        request: SearchMCPRequest with query and server_name
-
-    Returns:
-        List of items, each containing:
-        - id: Item identifier
-        - url: Direct link to view the item
-        - title: Human-readable item title
-
-    Raises:
-        HTTPException: 500 error if search fails
-
-    Example:
-        POST /mcp/search
-        {
-            "query": "Find pages about authentication",
-            "server_name": "notion"
-        }
-    """
-    try:
-        organization_id, user_id = tenant_context
-        ctx = EndpointContext(
-            organization_id=organization_id,
-            user_id=user_id,
-            _db_factory=get_db_with_tenant_variables,
-        )
-        result = await search_mcp(request.query, request.tool_id, ctx)
-        return json.loads(result["final_answer"])
-    except Exception as e:
-        raise handle_mcp_exception(e, "search")
-
-
-@router.post("/mcp/extract", response_model=ExtractMCPResponse)
-async def extract_mcp_item(
-    request: ExtractMCPRequest,
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_generation_model),
-):
-    """
-    Extract full content from an MCP item as markdown.
-
-    Uses an AI agent to retrieve and convert item content to markdown format.
-    The agent navigates the item structure and extracts all relevant content
-    including text, headings, lists, and nested blocks.
-
-    Args:
-        request: ExtractMCPRequest with either item id or url (or both) and tool_id
-
-    Returns:
-        ExtractMCPResponse containing markdown-formatted content
-
-    Raises:
-        HTTPException: 500 error if extraction fails or item not found
-
-    Example:
-        POST /mcp/extract
-        {
-            "url": "https://notion.so/page-id-from-search",
-            "tool_id": "tool-uuid-123"
-        }
-        OR
-        {
-            "id": "page-id-123",
-            "tool_id": "tool-uuid-123"
-        }
-    """
-    try:
-        organization_id, user_id = tenant_context
-        ctx = EndpointContext(
-            organization_id=organization_id,
-            user_id=user_id,
-            _db_factory=get_db_with_tenant_variables,
-        )
-        result = await extract_mcp(
-            ctx=ctx,
-            item_id=request.id,
-            item_url=request.url,
-            tool_id=request.tool_id,
-        )
-        return {"content": result["final_answer"]}
-    except Exception as e:
-        raise handle_mcp_exception(e, "extract")
 
 
 @router.post("/mcp/query", response_model=QueryMCPResponse)
