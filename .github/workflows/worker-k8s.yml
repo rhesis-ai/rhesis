@@ -52,7 +52,6 @@ jobs:
     env:
       ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       IMAGE: rhesis-worker
-      DOCKERFILE: apps/backend/Dockerfile
 
     steps:
       - uses: actions/checkout@v6
@@ -98,7 +97,7 @@ jobs:
           docker build --platform linux/amd64 --target worker \
             -t "$REGISTRY/$IMAGE:$TAG" \
             -t "$REGISTRY/$IMAGE:latest" \
-            -f "$DOCKERFILE" .
+            -f apps/backend/Dockerfile .
           echo "Built $REGISTRY/$IMAGE:$TAG"
 
       - name: Push Container

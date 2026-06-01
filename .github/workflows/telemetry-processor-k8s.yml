@@ -52,8 +52,6 @@ jobs:
     env:
       ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       IMAGE: rhesis-telemetry-processor
-      DOCKERFILE: apps/telemetry-processor/Dockerfile
-      DOCKER_CONTEXT: apps/telemetry-processor
 
     steps:
       - uses: actions/checkout@v6
@@ -99,7 +97,7 @@ jobs:
           docker build --platform linux/amd64 \
             -t "$REGISTRY/$IMAGE:$TAG" \
             -t "$REGISTRY/$IMAGE:latest" \
-            -f "$DOCKERFILE" "$DOCKER_CONTEXT"
+            -f apps/telemetry-processor/Dockerfile apps/telemetry-processor/
           echo "Built $REGISTRY/$IMAGE:$TAG"
 
       - name: Push Container

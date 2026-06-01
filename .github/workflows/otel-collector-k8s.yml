@@ -52,8 +52,6 @@ jobs:
     env:
       ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       IMAGE: rhesis-otel-collector
-      DOCKERFILE: apps/otel-collector/Dockerfile
-      DOCKER_CONTEXT: apps/otel-collector
 
     steps:
       - uses: actions/checkout@v6
@@ -99,7 +97,7 @@ jobs:
           docker build --platform linux/amd64 \
             -t "$REGISTRY/$IMAGE:$TAG" \
             -t "$REGISTRY/$IMAGE:latest" \
-            -f "$DOCKERFILE" "$DOCKER_CONTEXT"
+            -f apps/otel-collector/Dockerfile apps/otel-collector/
           echo "Built $REGISTRY/$IMAGE:$TAG"
 
       - name: Push Container

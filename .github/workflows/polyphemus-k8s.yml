@@ -52,7 +52,6 @@ jobs:
     env:
       ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
       IMAGE: rhesis-polyphemus
-      DOCKERFILE: apps/polyphemus/Dockerfile
 
     steps:
       - uses: actions/checkout@v6
@@ -98,7 +97,7 @@ jobs:
           docker build --platform linux/amd64 \
             -t "$REGISTRY/$IMAGE:$TAG" \
             -t "$REGISTRY/$IMAGE:latest" \
-            -f "$DOCKERFILE" .
+            -f apps/polyphemus/Dockerfile .
           echo "Built $REGISTRY/$IMAGE:$TAG"
 
       - name: Push Container
