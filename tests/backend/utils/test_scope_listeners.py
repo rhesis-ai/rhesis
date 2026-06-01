@@ -1,13 +1,17 @@
 """
 Tests for the ambient request scope listeners (scope_events.py).
 
+The shipped implementation uses two listeners:
+  auto_filter  - Query.before_compile  (covers db.query(...), not db.execute(select(...)))
+  auto_stamp   - Session.before_flush  (covers all ORM pending inserts, not bulk operations)
+
 Coverage:
 - Auto-filter no-ops when scope is unbound (isolate_request_scope fixture)
 - Auto-filter applies org_id predicate when scope is bound (before_compile)
 - Auto-filter is idempotent with explicit filter + bound scope
 - bypass_tenant_filter() suppresses auto-filter
 - query._bypass_scope = True suppresses auto-filter (per-query bypass)
-- Kill switch (RHESIS_DISABLE_SCOPE_LISTENER=1) checked at query time
+- Kill switch (RHESIS_DISABLE_SCOPE_LISTENER=1) checked at query time by both listeners
 - Auto-stamp fires when scope is bound and column is None
 - Auto-stamp does NOT overwrite explicit values
 - Auto-stamp ignores bypass_tenant_filter() (stamp fires anyway)
@@ -317,9 +321,10 @@ class TestKillSwitch:
         self, test_db: Session, test_org_id, test_org2_id, bound_scope
     ):
         """
-        The do_orm_execute listener checks RHESIS_DISABLE_SCOPE_LISTENER at call time.
-        The before_compile listener is registered once at startup and cannot be unregistered,
-        so we can only verify the env var is checked for the do_orm_execute path.
+        RHESIS_DISABLE_SCOPE_LISTENER=1 is re-checked at call time by both listeners:
+        auto_filter (before_compile) and auto_stamp (before_flush) both call
+        _kill_switch_active() on every invocation, so setting the env var at runtime
+        disables filtering for subsequent queries even in the same process.
         """
         b2 = crud_utils.create_item(
             test_db,
@@ -330,14 +335,12 @@ class TestKillSwitch:
 
         with patch.dict(os.environ, {"RHESIS_DISABLE_SCOPE_LISTENER": "1"}):
             with bound_scope(organization_id=test_org_id):
-                # The do_orm_execute listener checks kill switch at call time,
-                # so do_orm_execute-driven filtering is skipped.
-                # Note: before_compile listener was already registered at startup
-                # and does NOT re-check the kill switch at call time.
+                # Kill switch is active: auto_filter returns early so no scope
+                # predicate is appended, meaning rows from other orgs may appear.
+                # The key assertion is the query completes without error.
                 results = test_db.query(models.Behavior).all()
 
-        # b2 may or may not appear depending on which listener fires;
-        # the key assertion is this doesn't raise an error.
+        # b2 (from test_org2_id) may appear because the filter was suppressed.
         assert isinstance(results, list)
 
 
@@ -354,7 +357,7 @@ class TestBulkInsertGap:
     def test_bulk_insert_does_not_trigger_auto_stamp(
         self, test_db: Session, test_org_id, bound_scope
     ):
-        """Session.bulk_insert_mappings bypasses before_insert; auto-stamp does not fire."""
+        """Session.bulk_insert_mappings bypasses before_flush; auto-stamp does not fire."""
         data = BehaviorDataFactory.sample_data()
         data["id"] = uuid.uuid4()
         # Deliberately omit organization_id from the payload

@@ -343,11 +343,8 @@ from rhesis.backend.app.scope import bypass_tenant_filter
 with bypass_tenant_filter():
     all_rows = db.query(SomeModel).all()  # filter skipped; stamp still active
 
-# Per-query bypass (legacy Query API):
+# Per-query bypass (legacy Query API only):
 query._bypass_scope = True
-
-# Per-query bypass (modern select() API):
-db.execute(stmt, execution_options={"bypass_scope": True})
 
 # Background scripts / migrations (scope is unbound outside get_db_with_tenant_variables):
 from rhesis.backend.app.scope import RequestScope, bind_scope, reset_scope
@@ -360,6 +357,9 @@ finally:
 
 ### Limitations (Phase 0 — document, not fix)
 
+- `db.execute(select(...))` / `db.scalars(...)` (ORM 2.0 style) are **not** auto-filtered by the
+  `before_compile` listener. Use `db.query(...)` instead, or add explicit `organization_id` filters.
+  RLS (Phase 5) is the security backstop for those paths.
 - `Session.bulk_insert_mappings` / `bulk_save_objects` bypass `before_flush`; auto-stamp does **not**
   fire. Include `organization_id`/`user_id`/`project_id` in bulk payloads manually.
 - Raw SQL `INSERT`/`UPDATE`/`DELETE` bypasses both listeners. Auth uses some intentionally; tenant-
