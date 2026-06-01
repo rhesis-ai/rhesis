@@ -18,7 +18,7 @@ from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.schemas.websocket import EventType
 from rhesis.backend.app.services.architect.attachments import process_attachments
 from rhesis.backend.app.services.architect.event_handler import WebSocketEventHandler
-from rhesis.backend.app.services.mcp.agents import get_agent_event_handlers
+from rhesis.backend.app.services.tool.mcp.agents import get_agent_event_handlers
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
 from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.decorators import endpoint, observe

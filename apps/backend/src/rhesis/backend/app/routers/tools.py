@@ -6,13 +6,19 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.services import (
+    ExtractToolRequest,
+    ExtractToolResponse,
+)
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.sdk.context import EndpointContext
 
 # Create the detailed schema for Tool
 ToolDetailSchema = create_detailed_schema(schemas.Tool, models.Tool)
@@ -75,18 +81,7 @@ def create_tool(
     # Validate provider-specific requirements
     provider_type = crud.get_type_lookup(db, tool.tool_provider_type_id, organization_id, user_id)
     if provider_type:
-        if provider_type.type_value == "github":
-            if not tool.tool_metadata or "repository" not in tool.tool_metadata:
-                raise HTTPException(
-                    status_code=400, detail="GitHub integrations require repository metadata"
-                )
-            repo = tool.tool_metadata["repository"]
-            if not isinstance(repo, dict) or "owner" not in repo or "repo" not in repo:
-                raise HTTPException(
-                    status_code=400,
-                    detail="GitHub repository must include 'owner' and 'repo' fields",
-                )
-        elif provider_type.type_value == "jira":
+        if provider_type.type_value == "jira":
             if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
                 raise HTTPException(status_code=400, detail="Jira integrations require 'space_key'")
             if (
@@ -179,18 +174,7 @@ def update_tool(
             db, existing_tool.tool_provider_type_id, organization_id, user_id
         )
         if provider_type:
-            if provider_type.type_value == "github":
-                if "repository" not in tool.tool_metadata:
-                    raise HTTPException(
-                        status_code=400, detail="GitHub integrations require repository metadata"
-                    )
-                repo = tool.tool_metadata["repository"]
-                if not isinstance(repo, dict) or "owner" not in repo or "repo" not in repo:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="GitHub repository must include 'owner' and 'repo' fields",
-                    )
-            elif provider_type.type_value == "jira":
+            if provider_type.type_value == "jira":
                 if "space_key" not in tool.tool_metadata:
                     raise HTTPException(
                         status_code=400, detail="Jira integrations require 'space_key'"
@@ -209,6 +193,46 @@ def update_tool(
     if db_tool is None:
         raise HTTPException(status_code=404, detail="Tool not found")
     return db_tool
+
+
+@router.post("/{tool_id}/extract", response_model=ExtractToolResponse)
+async def extract_tool_item(
+    tool_id: uuid.UUID,
+    request: ExtractToolRequest,
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Extract content from a tool item as markdown.
+
+    For REST-based tools (Notion, GitHub) content is fetched directly via the
+    provider's API.  For MCP tools an AI agent is used to retrieve the content.
+
+    Set include_children=True to recursively retrieve child pages / subdirectory
+    files — each one is returned as a separate entry in ``documents``.
+
+    Either ``id`` or ``url`` (or both) must be provided in the request body.
+    """
+    from rhesis.backend.app.services.tool.mcp import extract_mcp, handle_mcp_exception
+
+    try:
+        organization_id, user_id = tenant_context
+        ctx = EndpointContext(
+            organization_id=organization_id,
+            user_id=user_id,
+            _db_factory=get_db_with_tenant_variables,
+        )
+        result = await extract_mcp(
+            ctx=ctx,
+            item_id=request.id,
+            item_url=request.url,
+            tool_id=str(tool_id),
+            include_children=request.include_children,
+        )
+        sources = result.get("documents") or [{"content": result["final_answer"]}]
+        return ExtractToolResponse(sources=sources)
+    except Exception as e:
+        raise handle_mcp_exception(e, "extract")
 
 
 @router.delete("/{tool_id}", status_code=204)

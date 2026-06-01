@@ -309,6 +309,42 @@ class ExtractMCPResponse(BaseModel):
     content: str
 
 
+class ExtractToolRequest(BaseModel):
+    """Request to extract content from a tool item.
+
+    Either 'id' or 'url' (or both) must be provided.
+    Set include_children=True to recursively extract child pages/files.
+    """
+
+    id: Optional[str] = None
+    url: Optional[str] = None
+    include_children: bool = False
+
+    @model_validator(mode="after")
+    def validate_id_or_url(self):
+        if not self.id and not self.url:
+            raise ValueError("Either 'id' or 'url' must be provided")
+        return self
+
+
+class ExtractedDocument(BaseModel):
+    """A single extracted document."""
+
+    id: Optional[str] = None
+    title: Optional[str] = None
+    content: str
+    url: Optional[str] = None
+
+
+class ExtractToolResponse(BaseModel):
+    """Response from tool extract endpoint.
+
+    documents contains all extracted pages — more than one when include_children=True.
+    """
+
+    documents: List[ExtractedDocument]
+
+
 class ToolCall(BaseModel):
     """Tool call in agent execution."""
 
