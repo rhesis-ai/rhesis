@@ -53,8 +53,9 @@ config:
 backend:
   resources:
     requests:
-      # p95 CPU=732m over 24h — previous 200m caused severe scheduler underestimation.
-      cpu: "750m"
+      # p95 CPU=732m but that includes test-generation peaks. Steady-state idle is
+      # ~50-150m. 300m gives scheduler a realistic baseline; burst is handled by limit.
+      cpu: "300m"
       # p95 mem=848Mi, max=891Mi — 900Mi gives 10% buffer above p95.
       memory: "900Mi"
     limits:
@@ -183,6 +184,23 @@ workers:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
+    # Dev: Celery worker loads heavy ML imports (LiteLLM, Garak) on startup.
+    # Mirrors the backend/polyphemus pattern — generous delays to avoid premature kills.
+    # Liveness worst-case ≈ 600 + 29×45 = 1905s (~32m) before restart.
+    livenessProbe:
+      httpGet:
+        path: /health/basic
+      initialDelaySeconds: 600
+      periodSeconds: 45
+      timeoutSeconds: 15
+      failureThreshold: 30
+    readinessProbe:
+      httpGet:
+        path: /health/basic
+      initialDelaySeconds: 300
+      periodSeconds: 20
+      timeoutSeconds: 15
+      failureThreshold: 90
     env:
       - name: CELERY_WORKER_CONCURRENCY
         value: "2"
