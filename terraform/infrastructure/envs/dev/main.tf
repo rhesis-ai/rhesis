@@ -53,9 +53,12 @@ module "gke_dev" {
   pod_cidr               = local.cidrs.dev.pods
   service_cidr           = local.cidrs.dev.services
   wireguard_cidr         = local.cidrs.wireguard.network
-  machine_type           = "e2-medium"
-  min_node_count         = 1
-  max_node_count         = 3
+  # e2-medium (~940m allocatable CPU/node) cannot fit the rhesis stack (~1400m requests)
+  # plus platform DaemonSets; causes OOM, probe timeouts, and failed scale-up.
+  # Match stg sizing; keep min 2 nodes so cluster-autoscaler does not pack everything on one VM.
+  machine_type           = "e2-standard-2"
+  min_node_count         = 2
+  max_node_count         = 6
   deletion_protection    = var.gke_deletion_protection
 
   # WireGuard server's Shared VPC NIC IP — MASQUERADE'd source for kubectl → GKE master traffic.

@@ -15,7 +15,8 @@ global:
 # ---------------------------------------------------------------------------
 config:
   environment: "development"
-  logLevel: "DEBUG"
+  # INFO reduces API log I/O under load; use DEBUG only when actively tracing.
+  logLevel: "INFO"
 
   # App DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL bootstrap database.
   dbName: &rhesis_db_name "rhesis-dev-db"
@@ -51,13 +52,19 @@ config:
 # Ingress — all exposed via internal ingress-nginx (accessible over VPN)
 # ---------------------------------------------------------------------------
 backend:
+  # Scale API pods during test runs (live usage ~750m CPU). Requires cluster headroom.
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 75
   resources:
     requests:
-      # p95 CPU=732m but that includes test-generation peaks. Steady-state idle is
-      # ~50-150m. 300m gives scheduler a realistic baseline; burst is handled by limit.
-      cpu: "300m"
-      # p95 mem=848Mi, max=891Mi — 900Mi gives 10% buffer above p95.
-      memory: "900Mi"
+      # Live: ~750m CPU under test runs; under-requesting causes noisy-neighbor scheduling.
+      cpu: "500m"
+      # p95 mem=848Mi, max=891Mi — 1Gi matches stg and stabilizes HPA/memory scheduling.
+      memory: "1Gi"
     limits:
       # 2 cores for Garak/LiteLLM burst during test generation.
       cpu: "2000m"
@@ -119,15 +126,15 @@ docs:
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 chatbot:
+  # 9GB image + gunicorn OOMs on e2-medium when co-located with frontend/polyphemus.
+  # Set enabled: false if you do not use chatbot in dev (frees ~1 CPU + ~1Gi per node).
   resources:
     requests:
-      # p95 CPU=10.6m (low — chatbot is memory-heavy, not CPU-heavy).
-      cpu: "100m"
-      # p95 mem=462Mi, max=1014Mi — 512Mi request stops scheduler under-placing this pod.
-      memory: "512Mi"
+      cpu: "250m"
+      memory: "768Mi"
     limits:
-      cpu: "500m"
-      memory: "1Gi"
+      cpu: "1000m"
+      memory: "1536Mi"
   ingress:
     enabled: true
     host: "dev-chatbot.rhesis.ai"
@@ -167,23 +174,22 @@ workers:
     image:
       repository: rhesis-worker
       tag: ""
-    replicas: 1
+    replicas: 2
     resources:
       requests:
-        # p95 CPU=1.4m — Celery workers are idle between tasks; burst handled by limit.
-        cpu: "200m"
-        # p95 mem=901Mi, max=951Mi — 960Mi request reflects actual steady-state usage.
-        memory: "960Mi"
+        # Live: ~900Mi+ per worker; 250m CPU request improves spread across nodes.
+        cpu: "250m"
+        memory: "1Gi"
       limits:
         # Same as backend: heavy ML imports (litellm, garak) OOMKill at 1Gi
         memory: "2Gi"
         cpu: "1000m"
     hpa:
-      enabled: false
-      minReplicas: 1
-      maxReplicas: 4
-      targetCPUUtilizationPercentage: 70
-      targetMemoryUtilizationPercentage: 80
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 60
+      targetMemoryUtilizationPercentage: 75
     # Dev: Celery worker loads heavy ML imports (LiteLLM, Garak) on startup.
     # Mirrors the backend/polyphemus pattern — generous delays to avoid premature kills.
     # Liveness worst-case ≈ 600 + 29×45 = 1905s (~32m) before restart.
