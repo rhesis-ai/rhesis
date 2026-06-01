@@ -262,6 +262,35 @@ class QueryBuilder:
                     )
         return self
 
+    def with_project_filter(self, project_id: Optional[str] = None) -> "QueryBuilder":
+        """
+        Filter query by project_id, allowing NULL rows to pass through.
+
+        When ``project_id`` is provided the filter applied is::
+
+            model.project_id = :pid OR model.project_id IS NULL
+
+        NULL rows represent org-wide entities created before project containers
+        were introduced.  They are intentionally visible inside every project's
+        view.  Pass ``project_id=None`` (or omit the argument) to skip the
+        filter entirely.
+
+        The ambient auto-filter listener in ``scope_events.py`` applies the
+        same predicate automatically for most request paths.  Use this method
+        only when you need an explicit, call-site-visible project filter —
+        e.g. in admin paths that operate outside the normal request scope.
+        """
+        if project_id and has_project_id(self.model):
+            from sqlalchemy import or_
+
+            self.query = self.query.filter(
+                or_(
+                    self.model.project_id == project_id,
+                    self.model.project_id.is_(None),
+                )
+            )
+        return self
+
     def with_visibility_filter(self) -> "QueryBuilder":
         """Apply visibility filter if the model supports it"""
         # Note: Visibility filtering is now handled through direct parameter passing
@@ -395,6 +424,11 @@ class QueryBuilder:
 def has_organization_id(model: Type[T]) -> bool:
     """Check if model has organization_id column"""
     return hasattr(model, "organization_id") or "organization_id" in inspect(model).columns.keys()
+
+
+def has_project_id(model: Type[T]) -> bool:
+    """Check if model has project_id column."""
+    return hasattr(model, "project_id") or "project_id" in inspect(model).columns.keys()
 
 
 def has_visibility(model: Type[T]) -> bool:

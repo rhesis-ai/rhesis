@@ -6,7 +6,7 @@ import uuid
 from functools import lru_cache
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
@@ -54,6 +54,20 @@ def get_tenant_context(current_user: User = Depends(require_current_user_or_toke
 def get_project_context(
     request: Request,
     current_user: User = Depends(require_current_user_or_token),
+    x_project_id: Optional[str] = Header(
+        default=None,
+        alias="X-Project-Id",
+        description=(
+            "Optional project scope for the request. When supplied, all reads are filtered "
+            "to the given project (plus org-wide rows with project_id = NULL) and all writes "
+            "are stamped with this project_id. "
+            "Value must be a valid UUID that matches an existing project the authenticated user "
+            "is a member of; non-members receive **403**. "
+            "If omitted, the project_id bound to the API token (if any) is used as a fallback. "
+            "If neither is present the request runs without a project scope and sees all "
+            "org-wide rows."
+        ),
+    ),
 ) -> Optional[str]:
     """
     FastAPI dependency that resolves the active project_id for the current request.
@@ -65,13 +79,13 @@ def get_project_context(
       3. ``None`` — request is not scoped to a specific project
 
     When a project_id is resolved the dependency validates that the authenticated
-    user is a member of that project.  Non-members receive 403.
+    user is a member of that project.  Non-members receive **403**.
 
     Returns:
         The project UUID as a string, or None if no project scope was requested.
     """
-    # 1. Prefer explicit header
-    project_id_str = request.headers.get("X-Project-Id")
+    # 1. Prefer explicit header (FastAPI already parsed it via the Header() annotation)
+    project_id_str = x_project_id or request.headers.get("X-Project-Id")
 
     # 2. Fall back to the project bound to the API token
     if not project_id_str:

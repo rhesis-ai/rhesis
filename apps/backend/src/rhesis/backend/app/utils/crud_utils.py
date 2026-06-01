@@ -1211,3 +1211,39 @@ def create_default_rhesis_model(
         user_id=user_id,
         commit=commit,
     )
+
+
+def validate_same_project(*entities: Any) -> None:
+    """
+    Validate that all supplied ORM instances belong to the same project scope.
+
+    Raises ``ValueError`` when two or more non-NULL ``project_id`` values differ,
+    which would create a cross-project association and break project isolation.
+
+    NULL ``project_id`` (org-wide entity) is compatible with every project — those
+    rows were created before project containers were introduced and remain visible
+    inside any project view.
+
+    Usage::
+
+        validate_same_project(test, test_set)
+        validate_same_project(*tags)
+
+    Args:
+        *entities: ORM model instances to check.  Instances without a
+            ``project_id`` attribute are silently skipped.
+
+    Raises:
+        ValueError: If two or more entities have conflicting non-NULL project_ids.
+    """
+    seen: set = set()
+    for entity in entities:
+        pid = getattr(entity, "project_id", None)
+        if pid is not None:
+            seen.add(str(pid))
+    if len(seen) > 1:
+        raise ValueError(
+            f"Cannot associate entities from different projects: {sorted(seen)}. "
+            "All associated entities must belong to the same project or be org-wide "
+            "(project_id = NULL)."
+        )

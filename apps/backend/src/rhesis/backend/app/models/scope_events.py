@@ -8,17 +8,18 @@ TWO LISTENERS
    Fires for ALL Query-based operations including lazy-loaded relationships loaded via
    the legacy Query API. Does NOT fire for db.execute(select(...)) / ORM 2.0 style.
 
-2. auto_stamp  (Base.before_insert)
-   On every ORM INSERT, fills organization_id / user_id / project_id from the ambient
-   RequestScope if the column is present and the value is None. Bypass does NOT affect
-   stamping.
+2. auto_stamp  (Session.before_flush)
+   Before every flush, fills organization_id / user_id / project_id from the ambient
+   RequestScope on pending ORM objects when the column is present and the value is None.
+   Bypass does NOT affect stamping.
 
 COVERAGE NOTES
 --------------
 This implementation uses Query.before_compile which covers the dominant db.query(...)
 pattern throughout this codebase. db.execute(select(...)) statements (ORM 2.0 style)
-are not filtered by this listener — explicit organization_id parameters must be used
-for those until a future phase introduces do_orm_execute coverage.
+are not filtered by this listener — use db.query(...) or add explicit organization_id
+filters. RLS (Phase 5) backstops all tenant tables regardless of the filtering path.
+If select()-style auto-filtering is ever needed, add a do_orm_execute listener here.
 
 EXEMPT MODELS
 -------------
@@ -29,9 +30,6 @@ PRODUCTION KNOBS
 ----------------
 RHESIS_DISABLE_SCOPE_LISTENER=1   Kill switch. Both filter and stamp are no-ops.
                                    For emergency rollback without redeploy.
-RHESIS_SCOPE_STRICT_MODE=1        Raise when a SELECT touches a tenant-scoped
-                                   table while scope is unbound. Recommended for
-                                   staging; optional in prod.
 
 PER-QUERY BYPASS
 ----------------
@@ -40,8 +38,8 @@ Legacy Query API:  query._bypass_scope = True
 KNOWN LIMITATIONS
 -----------------
 - db.execute(select(...)) / ORM 2.0 SELECT style is NOT filtered by this listener.
-  Use explicit organization_id filters or bind_scope() + a future do_orm_execute listener.
-- Session.bulk_insert_mappings / bulk_save_objects skip before_insert; auto-stamp
+  Use db.query(...) or explicit filters. RLS provides the security backstop.
+- Session.bulk_insert_mappings / bulk_save_objects skip before_flush; auto-stamp
   does NOT fire. Payloads must include organization_id / user_id / project_id.
 - Raw SQL INSERT/UPDATE/DELETE bypasses both listeners. Add explicit WHERE clauses
   or rely on RLS (Phase 5).
@@ -109,6 +107,11 @@ def setup_scope_listeners():
             return query
         if getattr(query, "_bypass_scope", False):
             return query
+        # Idempotency guard: before_compile can fire more than once for the same
+        # Query object (e.g. subquery compilation). Avoid appending duplicate
+        # predicates. Pattern mirrors _soft_delete_filter_applied in soft_delete_events.py.
+        if getattr(query, "_scope_filter_applied", False):
+            return query
 
         scope = current_scope()
         if scope.organization_id is None:
@@ -138,6 +141,7 @@ def setup_scope_listeners():
                     ),
                 )
 
+        query._scope_filter_applied = True
         logger.debug(
             "scope auto-filter: org=%s project=%s",
             scope.organization_id,
