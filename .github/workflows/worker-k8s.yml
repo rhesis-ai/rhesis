@@ -46,7 +46,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
 
     env:
