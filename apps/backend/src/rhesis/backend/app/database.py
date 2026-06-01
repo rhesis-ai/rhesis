@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 _TENANT_VARS_KEY = "_tenant_vars"
+_SCOPE_KEY = "_scope"  # RequestScope stored on Session.info for async-safe access
 
 _SET_CONFIG_SQL = text("""
     SELECT
@@ -275,18 +276,30 @@ def get_db_with_tenant_variables(
     """
     from rhesis.backend.app.scope import RequestScope, bind_scope, reset_scope
 
+    scope = RequestScope(
+        organization_id=organization_id or None,
+        user_id=user_id or None,
+        project_id=project_id or None,
+    )
+
     with get_db() as db:
         _set_session_variables(db, organization_id, user_id, project_id)
-        token = bind_scope(
-            RequestScope(
-                organization_id=organization_id or None,
-                user_id=user_id or None,
-                project_id=project_id or None,
-            )
-        )
+
+        # Primary: store scope on Session.info so SQLAlchemy event listeners
+        # (auto_filter, auto_stamp) can read it via query.session.info / session.info
+        # regardless of whether the caller is an async or sync route handler.
+        # This avoids ContextVar thread-boundary issues when FastAPI runs sync deps
+        # in a threadpool but the route itself runs in the async event loop.
+        db.info[_SCOPE_KEY] = scope
+
+        # Secondary: also bind ContextVar for Celery tasks, background scripts, and
+        # any code that calls current_scope() directly outside a DB listener.
+        token = bind_scope(scope)
         try:
             yield db
         finally:
+            # Remove scope from Session.info before the session is closed/returned.
+            db.info.pop(_SCOPE_KEY, None)
             # FastAPI runs sync generator dependencies in a threadpool worker thread
             # via anyio. The cleanup callback runs in a *different* worker thread with
             # a copied context, so token.reset() raises ValueError("created in a

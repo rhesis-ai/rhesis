@@ -61,6 +61,28 @@ EXEMPT_TABLES = frozenset({"user", "organization", "token"})
 # Guard against duplicate listener registration (e.g. test reloads, hot-reload)
 _listeners_registered: bool = False
 
+# Key under which RequestScope is stored in Session.info (mirrors _SCOPE_KEY in database.py)
+_SESSION_SCOPE_KEY = "_scope"
+
+
+def _scope_from_session(session):
+    """
+    Read the active RequestScope preferring Session.info over ContextVar.
+
+    Session.info is set by get_db_with_tenant_variables() and is visible to
+    SQLAlchemy event listeners regardless of whether the caller is a sync or
+    async route handler (no ContextVar thread-boundary issue).
+
+    Falls back to the ContextVar for Celery tasks, background scripts, and any
+    path that binds scope explicitly without going through a DB session.
+    """
+    from rhesis.backend.app.scope import current_scope
+
+    scope = session.info.get(_SESSION_SCOPE_KEY)
+    if scope is not None:
+        return scope
+    return current_scope()
+
 
 def _inject_filter(query: Query, condition) -> Query:
     """
@@ -104,7 +126,7 @@ def setup_scope_listeners():
     # ------------------------------------------------------------------
     @event.listens_for(Query, "before_compile", retval=True)
     def auto_filter(query):
-        from rhesis.backend.app.scope import current_scope, is_tenant_filter_disabled
+        from rhesis.backend.app.scope import is_tenant_filter_disabled
 
         if _kill_switch_active():
             return query
@@ -118,7 +140,15 @@ def setup_scope_listeners():
         if getattr(query, "_scope_filter_applied", False):
             return query
 
-        scope = current_scope()
+        # Prefer session.info so async route handlers (event-loop thread) see the
+        # same scope as the sync dep (threadpool thread) that created the session.
+        session = query.session
+        if session is not None:
+            scope = _scope_from_session(session)
+        else:
+            from rhesis.backend.app.scope import current_scope
+
+            scope = current_scope()
         if scope.organization_id is None:
             return query
 
@@ -176,9 +206,8 @@ def setup_scope_listeners():
         if _kill_switch_active():
             return
 
-        from rhesis.backend.app.scope import current_scope
-
-        scope = current_scope()
+        # Prefer session.info for async-safe scope access (no ContextVar boundary issues).
+        scope = _scope_from_session(session)
         if scope.organization_id is None and scope.user_id is None and scope.project_id is None:
             return  # Fast path: nothing to stamp
 
