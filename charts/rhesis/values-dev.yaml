@@ -309,8 +309,9 @@ postgresql:
           # Mirrors the stg/prd CNPG postInitSQL pattern.
           # Runs as superuser during first-time PVC init only.
           set -e
-          psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" <<-EOSQL
-            CREATE ROLE "rhesis-analytics-user" LOGIN PASSWORD '$ANALYTICS_DB_PASS';
+          psql -v ON_ERROR_STOP=1 -v analytics_pass="$ANALYTICS_DB_PASS" \
+            --username "$POSTGRES_USER" --dbname "postgres" <<'EOSQL'
+            CREATE ROLE "rhesis-analytics-user" LOGIN PASSWORD :'analytics_pass';
             CREATE DATABASE "rhesis-analytics-dev-db" OWNER "rhesis-analytics-user";
             GRANT CONNECT ON DATABASE "rhesis-analytics-dev-db" TO "rhesis-admin";
           EOSQL
@@ -319,11 +320,13 @@ postgresql:
           # Application runtime role (APP_DB_USER / APP_DB_PASS). Mirrors stg/prd CNPG grants.
           # Runs as rhesis-admin during first-time PVC init only.
           set -e
-          psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" <<-EOSQL
-            CREATE ROLE "rhesis-user" LOGIN PASSWORD '$APP_DB_PASS';
+          psql -v ON_ERROR_STOP=1 -v app_db_pass="$APP_DB_PASS" \
+            --username "$POSTGRES_USER" --dbname "postgres" <<'EOSQL'
+            CREATE ROLE "rhesis-user" LOGIN PASSWORD :'app_db_pass';
           EOSQL
-          psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-            GRANT CONNECT ON DATABASE "$POSTGRES_DB" TO "rhesis-user";
+          psql -v ON_ERROR_STOP=1 -v postgres_db="$POSTGRES_DB" \
+            --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'EOSQL'
+            GRANT CONNECT ON DATABASE :"postgres_db" TO "rhesis-user";
             GRANT USAGE ON SCHEMA public TO "rhesis-user";
             GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
             GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
