@@ -73,7 +73,7 @@ def read_statuses(
     )
 
 
-@router.get("/{status_id}")
+@router.get("/{status_id}", response_model=StatusDetailSchema)
 def read_status(
     status_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

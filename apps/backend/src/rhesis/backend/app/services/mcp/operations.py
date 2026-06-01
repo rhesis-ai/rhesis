@@ -1,16 +1,20 @@
-"""Decorated MCP search, extract, and query operations."""
+"""MCP search, extract, and query operations.
+
+Each function is decorated with ``@endpoint`` so the SDK connector
+can register it for remote invocation (Playground / test runs).
+The ``/mcp/*`` HTTP routes in ``app/routers/services.py`` call the
+functions directly, constructing an :class:`EndpointContext` from
+the DI-injected tenant info.
+"""
 
 import json
 import logging
 from typing import Any, Dict, Optional
 
 from rhesis.backend.app.config.settings import get_model_settings
-from rhesis.backend.app.services.local_function_registry import (
-    LocalInvocationContext,
-    register_local,
-)
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
 from rhesis.sdk.agents.mcp import MCPAgent
+from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.decorators import endpoint
 
 from .agents import get_agent_event_handlers
@@ -24,6 +28,7 @@ logger = logging.getLogger(__name__)
     name="search_mcp",
     request_mapping={
         "query": "{{ input }}",
+        "tool_id": "{{ tool_id }}",
     },
     response_mapping={
         "output": "$.final_answer",
@@ -38,43 +43,25 @@ logger = logging.getLogger(__name__)
 async def search_mcp(
     query: str,
     tool_id: str,
-    ctx: LocalInvocationContext,
+    ctx: EndpointContext,
 ) -> Dict[str, Any]:
-    """
-    Search MCP server for items matching query.
+    """Search MCP server for items matching ``query`` via an AI agent.
 
-    Uses an AI agent to intelligently search the MCP server and return
-    structured results. The agent automatically determines the best search
-    strategy based on the server's available tools.
-
-    Args:
-        query: Natural language search query (e.g., "Find pages about authentication")
-        tool_id: ID of the configured tool instance
-        ctx: Invocation context containing organization_id, user_id, and db session
-
-    Returns:
-        List of dicts, each containing:
-        - id: Item identifier
-        - url: Direct link to the item
-        - title: Human-readable title
+    Returns the agent result as a dict (``model_dump()`` of
+    :class:`rhesis.sdk.agents.schemas.AgentResult`).  Callers that need
+    the parsed item list (e.g. the ``/mcp/search`` HTTP route) should
+    ``json.loads(result["final_answer"])``.
 
     Raises:
-        ValueError: If search fails or returns invalid JSON
-
-    Example:
-        >>> results = await search_mcp(
-        ...     "pages created last week",
-        ...     "tool-uuid-123",
-        ...     ctx,
-        ... )
-        >>> print(results[0]["title"])
+        ValueError: If search fails or returns invalid JSON.
     """
     if not ctx.user_id:
         raise ValueError("user_id is required")
 
-    client, provider, repository_context = _get_mcp_tool_config(
-        ctx.db, tool_id, ctx.organization_id, ctx.user_id
-    )
+    with ctx.get_db() as db:
+        client, provider, repository_context = _get_mcp_tool_config(
+            db, tool_id, ctx.organization_id, ctx.user_id
+        )
 
     search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render(
         provider=provider, repository_context=repository_context
@@ -107,14 +94,12 @@ async def search_mcp(
     return result.model_dump()
 
 
-register_local(search_mcp)
-
-
 @endpoint(
     name="extract_mcp",
     request_mapping={
         "item_url": "{{ input }}",
         "item_id": "{{ item_id }}",
+        "tool_id": "{{ tool_id }}",
     },
     response_mapping={
         "output": "$.final_answer",
@@ -127,37 +112,19 @@ register_local(search_mcp)
     },
 )
 async def extract_mcp(
-    ctx: LocalInvocationContext,
+    ctx: EndpointContext,
     item_id: Optional[str] = None,
     item_url: Optional[str] = None,
-    tool_id: str = None,
+    tool_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """
-    Extract full content from an MCP item as markdown.
+    """Extract full content from an MCP item as markdown.
 
-    Uses an AI agent to retrieve and convert item content to markdown format.
-    The agent navigates the item structure and extracts all relevant content
-    including text, headings, lists, and nested blocks.
-
-    Args:
-        ctx: Invocation context containing organization_id, user_id, and db session
-        item_id: Item identifier (optional, use if URL is not available)
-        item_url: Item URL (optional, preferred if available)
-        tool_id: ID of the configured tool instance
-
-    Returns:
-        Full item content formatted as markdown string
+    Returns the agent result as a dict.  Callers that need only the
+    markdown body should read ``result["final_answer"]``.
 
     Raises:
-        ValueError: If extraction fails, item not found, or neither id nor url provided
-
-    Example:
-        >>> content = await extract_mcp(
-        ...     ctx,
-        ...     item_id="page-id-123",
-        ...     tool_id="tool-uuid-123",
-        ... )
-        >>> print(content[:100])
+        ValueError: If extraction fails, item not found, or neither id
+            nor url provided.
     """
     if not item_id and not item_url:
         raise ValueError("Either 'item_id' or 'item_url' must be provided")
@@ -165,7 +132,8 @@ async def extract_mcp(
     if not ctx.user_id:
         raise ValueError("user_id is required")
 
-    client, provider, _ = _get_mcp_tool_config(ctx.db, tool_id, ctx.organization_id, ctx.user_id)
+    with ctx.get_db() as db:
+        client, provider, _ = _get_mcp_tool_config(db, tool_id, ctx.organization_id, ctx.user_id)
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
         item_id=item_id,
@@ -192,13 +160,11 @@ async def extract_mcp(
     return result.model_dump()
 
 
-register_local(extract_mcp)
-
-
 @endpoint(
     name="query_mcp",
     request_mapping={
         "query": "{{ input }}",
+        "tool_id": "{{ tool_id }}",
     },
     response_mapping={
         "output": "{{ final_answer }}",
@@ -213,43 +179,26 @@ register_local(extract_mcp)
 async def query_mcp(
     query: str,
     tool_id: str,
-    ctx: LocalInvocationContext,
+    ctx: EndpointContext,
     system_prompt: Optional[str] = None,
     max_iterations: int = 10,
 ) -> Dict[str, Any]:
-    """
-    Execute arbitrary tasks on an MCP server using an AI agent.
+    """Execute arbitrary tasks on an MCP server with an AI agent.
 
-    Unlike search/extract endpoints, this provides full flexibility for any
-    MCP task with custom prompts and detailed execution traces. Use this for
-    complex operations like creating, updating, or analyzing content.
-
-    Args:
-        query: Natural language task description
-        tool_id: ID of the configured tool instance
-        ctx: Invocation context containing organization_id, user_id, and db session
-        system_prompt: Custom agent instructions (optional)
-        max_iterations: Maximum reasoning steps (default: 10)
-
-    Returns:
-        Dict with execution details and result
+    Full flexibility for any MCP task with custom prompts and detailed
+    execution traces.  Use for complex operations like creating,
+    updating, or analyzing content.
 
     Raises:
-        ValueError: If task execution fails
-
-    Example:
-        >>> result = await query_mcp(
-        ...     "Create a page titled 'Q1 Goals'",
-        ...     "tool-uuid-123",
-        ...     ctx,
-        ... )
+        ValueError: If task execution fails.
     """
     if not ctx.user_id:
         raise ValueError("user_id is required")
 
-    client, provider, repository_context = _get_mcp_tool_config(
-        ctx.db, tool_id, ctx.organization_id, ctx.user_id
-    )
+    with ctx.get_db() as db:
+        client, provider, repository_context = _get_mcp_tool_config(
+            db, tool_id, ctx.organization_id, ctx.user_id
+        )
 
     if not system_prompt:
         system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render(
@@ -272,6 +221,3 @@ async def query_mcp(
     result = await agent.run_async(query)
 
     return result.model_dump()
-
-
-register_local(query_mcp)

@@ -74,6 +74,8 @@ class ConnectorManager:
 
         self._connection: WebSocketConnection | None = None
         self._connection_id: str | None = None
+        self._organization_id: str | None = None
+        self._user_id: str | None = None
         self._initialized = False
 
     def initialize(self) -> None:
@@ -113,6 +115,21 @@ class ConnectorManager:
     def connection_id(self) -> str | None:
         """The server-assigned connection ID, available after connect."""
         return self._connection_id
+
+    def _build_endpoint_context(self):
+        """Build an ``EndpointContext`` from the connection's identity.
+
+        Returns ``None`` if the server has not yet sent identity fields
+        (e.g. connecting to an older backend).
+        """
+        if not self._organization_id or not self._user_id:
+            return None
+        from rhesis.sdk.context import EndpointContext
+
+        return EndpointContext(
+            organization_id=self._organization_id,
+            user_id=self._user_id,
+        )
 
     def _ensure_connection(self) -> None:
         """Ensure WebSocket connection is started (if not already)."""
@@ -221,7 +238,12 @@ class ConnectorManager:
             cid = message.get("connection_id")
             if cid:
                 self._connection_id = cid
-            logger.debug(f"Connected (connection_id={self._connection_id})")
+            self._organization_id = message.get("organization_id")
+            self._user_id = message.get("user_id")
+            logger.debug(
+                f"Connected (connection_id={self._connection_id}, "
+                f"org={self._organization_id}, user={self._user_id})"
+            )
         elif message_type == MessageType.REGISTERED.value:
             logger.debug(f"Received acknowledgment: {message_type}")
         else:
@@ -323,8 +345,13 @@ class ConnectorManager:
                             )
                         inputs[k] = v
 
+                endpoint_context = self._build_endpoint_context()
                 result = await self._executor.execute(
-                    func, function_name, inputs, serializers=serializers
+                    func,
+                    function_name,
+                    inputs,
+                    serializers=serializers,
+                    endpoint_context=endpoint_context,
                 )
             finally:
                 _parameters_context.reset(token)

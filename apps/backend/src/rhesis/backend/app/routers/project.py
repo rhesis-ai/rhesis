@@ -90,7 +90,7 @@ async def read_projects(
     return results
 
 
-@router.get("/{project_id}")
+@router.get("/{project_id}", response_model=ProjectDetailSchema)
 def read_project(
     project_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
