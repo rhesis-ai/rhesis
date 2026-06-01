@@ -6,7 +6,9 @@ from .guid import GUID
 from .mixins import CommentsMixin, CountsMixin, OrganizationAndUserMixin, ProjectMixin, TasksMixin
 
 
-class Category(Base, ProjectMixin, OrganizationAndUserMixin, CommentsMixin, TasksMixin, CountsMixin):
+class Category(
+    Base, ProjectMixin, OrganizationAndUserMixin, CommentsMixin, TasksMixin, CountsMixin
+):
     __tablename__ = "category"
     name = Column(String)
     description = Column(Text)

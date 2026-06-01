@@ -129,9 +129,7 @@ def setup_scope_listeners():
             # Use frozenset of names to avoid triggering SQLAlchemy column operators
             col_names = frozenset(col.name for col in table.columns)
             if "organization_id" in col_names:
-                query = _inject_filter(
-                    query, entity.organization_id == scope.organization_id
-                )
+                query = _inject_filter(query, entity.organization_id == scope.organization_id)
             if "project_id" in col_names and scope.project_id:
                 query = _inject_filter(
                     query,

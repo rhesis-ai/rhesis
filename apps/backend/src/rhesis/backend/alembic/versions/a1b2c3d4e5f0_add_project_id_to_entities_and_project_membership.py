@@ -115,9 +115,7 @@ def upgrade() -> None:
             sa.ForeignKey("organization.id", ondelete="CASCADE"),
             nullable=False,
         ),
-        sa.UniqueConstraint(
-            "project_id", "user_id", name="uq_project_membership_project_user"
-        ),
+        sa.UniqueConstraint("project_id", "user_id", name="uq_project_membership_project_user"),
     )
     op.create_index(
         "ix_project_membership_project_id",

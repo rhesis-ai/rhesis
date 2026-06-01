@@ -33,9 +33,7 @@ def enroll_user_in_project(
 ) -> None:
     """Create a ProjectMembership for the user if one does not already exist."""
     exists = (
-        db.query(models.ProjectMembership)
-        .filter_by(project_id=project_id, user_id=user_id)
-        .first()
+        db.query(models.ProjectMembership).filter_by(project_id=project_id, user_id=user_id).first()
     )
     if not exists:
         db.add(
