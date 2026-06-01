@@ -1,3 +1,8 @@
+output "project_id" {
+  description = "GCP project ID for this environment"
+  value       = var.project_id
+}
+
 output "vpc_id" {
   value = module.prd.vpc_id
 }
@@ -32,4 +37,19 @@ output "external_dns_secret_id" {
 
 output "internal_dns_tsig_key_secret_id" {
   value = module.internal_dns_prd.tsig_key_secret_id
+}
+
+output "nodes_subnet_self_link" {
+  value = module.prd.subnet_self_links["nodes"]
+}
+
+output "internal_dns_tsig_keyname" {
+  description = "TSIG key name consumed by envs/wireguard remote state"
+  value       = module.internal_dns_prd.tsig_keyname
+}
+
+output "internal_dns_tsig_secret" {
+  description = "TSIG key secret consumed by envs/wireguard remote state"
+  value       = module.internal_dns_prd.tsig_secret
+  sensitive   = true
 }

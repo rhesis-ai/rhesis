@@ -1,5 +1,5 @@
-$$ORIGIN rhesis.ai.
-$$TTL 300
+$ORIGIN rhesis.ai.
+$TTL 300
 @   IN  SOA ns.rhesis.ai. admin.rhesis.ai. (
             1       ; serial (BIND auto-increments on dynamic update)
             3600    ; refresh
