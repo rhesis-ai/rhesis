@@ -59,12 +59,10 @@ type RunKindFilter = 'all' | 'tests' | 'experiments';
 
 const STATUS_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Queued', value: 'Queued' },
   { label: 'In Progress', value: 'Progress' },
   { label: 'Completed', value: 'Completed' },
   { label: 'Partial', value: 'Partial' },
   { label: 'Failed', value: 'Failed' },
-  { label: 'Cancelled', value: 'Cancelled' },
 ];
 
 // ── Toolbar context ──────────────────────────────────────────────────────────
@@ -356,6 +354,46 @@ function TestRunsGrid({
         },
       },
       {
+        field: 'pass_rate',
+        headerName: 'Pass Rate',
+        width: 110,
+        minWidth: 90,
+        resizable: true,
+        align: 'right',
+        headerAlign: 'right',
+        sortable: false,
+        filterable: false,
+        valueGetter: (_, row) => {
+          const stats = row.stats;
+          if (!stats || !stats.total) return null;
+          return (stats.passed / stats.total) * 100;
+        },
+        renderCell: params => {
+          const value = params.value as number | null;
+          if (value === null || value === undefined) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                —
+              </Typography>
+            );
+          }
+          return <Typography variant="body2">{value.toFixed(1)}%</Typography>;
+        },
+      },
+      {
+        field: 'status',
+        headerName: 'Status',
+        width: 120,
+        minWidth: 90,
+        resizable: true,
+        renderCell: params => {
+          const status = params.row.status?.name;
+          if (!status) return null;
+
+          return <GridBadge label={status} />;
+        },
+      },
+      {
         field: 'test_set_type',
         headerName: 'Type',
         width: 120,
@@ -374,19 +412,6 @@ function TestRunsGrid({
           if (!testSetType) return null;
 
           return <GridBadge label={testSetType} />;
-        },
-      },
-      {
-        field: 'status',
-        headerName: 'Status',
-        width: 120,
-        minWidth: 90,
-        resizable: true,
-        renderCell: params => {
-          const status = params.row.status?.name;
-          if (!status) return null;
-
-          return <GridBadge label={status} />;
         },
       },
       {

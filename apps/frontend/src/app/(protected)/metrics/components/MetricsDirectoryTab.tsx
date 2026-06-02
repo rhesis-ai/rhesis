@@ -5,7 +5,6 @@ import { useTheme } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
-import AddIcon from '@mui/icons-material/Add';
 import TablePagination from '@mui/material/TablePagination';
 import GridToolbar, {
   PrimarySegmentedPills,
@@ -17,7 +16,7 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import SelectBehaviorsDialog from '@/components/common/SelectBehaviorsDialog';
 import MetricFilterDrawer from './MetricFilterDrawer';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabGroup } from '@/components/common/Fab';
+import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import MetricCard from './MetricCard';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -493,7 +492,7 @@ export default function MetricsDirectoryTab({
       actions={
         <FabGroup>
           <Fab
-            icon={<AddIcon />}
+            icon={<FabAddIcon />}
             tooltip="Create metric"
             aria-label="Create metric"
             onClick={e => setFabAnchorEl(e.currentTarget)}

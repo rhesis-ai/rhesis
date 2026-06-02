@@ -3,7 +3,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   Box,
-  Button,
   Typography,
   Paper,
   Chip,
@@ -12,15 +11,16 @@ import {
   Collapse,
   IconButton,
 } from '@mui/material';
-import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
+import ViewField from '@/components/common/ViewField';
 import FileAttachmentList from '@/components/common/FileAttachmentList';
 import { useFiles } from '@/hooks/useFiles';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;
@@ -58,9 +58,7 @@ const renderFormattedText = (text: string) => {
   lines.forEach((line, index) => {
     const trimmedLine = line.trim();
 
-    // Check if line starts with a dash (bullet point)
     if (trimmedLine.startsWith('- ')) {
-      // Flush current paragraph if exists
       if (currentParagraph.length > 0) {
         const paragraphKey = `p-${index}-${currentParagraph.join(' ').substring(0, 20)}`;
         elements.push(
@@ -71,7 +69,6 @@ const renderFormattedText = (text: string) => {
         currentParagraph = [];
       }
 
-      // Add bullet point with content-based key
       const bulletKey = `bullet-${index}-${trimmedLine.substring(0, 20)}`;
       elements.push(
         <Box key={bulletKey} sx={{ display: 'flex', gap: 1, mb: 0.5, pl: 2 }}>
@@ -82,10 +79,8 @@ const renderFormattedText = (text: string) => {
         </Box>
       );
     } else if (trimmedLine) {
-      // Non-empty line without dash
       currentParagraph.push(trimmedLine);
     } else if (currentParagraph.length > 0) {
-      // Empty line - flush paragraph
       const paragraphKey = `p-${index}-${currentParagraph.join(' ').substring(0, 20)}`;
       elements.push(
         <Typography key={paragraphKey} variant="body2" sx={{ mb: 1 }}>
@@ -96,7 +91,6 @@ const renderFormattedText = (text: string) => {
     }
   });
 
-  // Flush remaining paragraph
   if (currentParagraph.length > 0) {
     elements.push(
       <Typography key="p-final" variant="body2">
@@ -117,7 +111,6 @@ export default function TestDetailOverviewTab({
 }: TestDetailOverviewTabProps) {
   const theme = useTheme();
   const [evidenceExpanded, setEvidenceExpanded] = useState(false);
-  const [contextExpanded, setContextExpanded] = useState(false);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
   const [filesExpanded, setFilesExpanded] = useState(false);
   const [outputFilesExpanded, setOutputFilesExpanded] = useState(false);
@@ -163,17 +156,14 @@ export default function TestDetailOverviewTab({
     );
   };
 
-  // Determine if this is a multi-turn test
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
   const expectedResponse = test.prompt_id
     ? prompts[test.prompt_id]?.expected_response
     : undefined;
 
-  // Get test configuration from test_output (multi-turn data lives here)
   const testConfig = test.test_output?.test_configuration;
 
-  // Get content based on test type
   const promptContent = useMemo(() => {
     if (isMultiTurn) {
       return testConfig?.goal || 'No goal available';
@@ -207,194 +197,116 @@ export default function TestDetailOverviewTab({
     }
   }, [testStatus]);
 
-  // Render for Single-turn tests (original simple design)
+  // Shared status header used in both branches
+  const statusHeader = (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+      <Typography variant="body2" color="text.secondary">
+        Status
+      </Typography>
+      <StatusChip
+        status={testStatus}
+        label={testLabel}
+        size="small"
+        variant="outlined"
+      />
+      {test.last_review && (
+        <Chip
+          icon={<CheckIcon sx={{ fontSize: 16 }} />}
+          label="Confirmed"
+          size="small"
+          color="success"
+          variant="filled"
+          sx={{ fontWeight: 600 }}
+        />
+      )}
+    </Box>
+  );
+
+  // Shared card styling matching Figma "Data Output Textfield" card
+  const cardSx = {
+    p: '30px',
+    borderRadius: BORDER_RADIUS.md,
+    boxShadow: ELEVATION.xs,
+    mb: 3,
+  };
+
+  // Single-turn render
   if (!isMultiTurn) {
+    const contextItems =
+      test.test_output?.context?.filter(item => item.trim()) ?? [];
+
     return (
       <Box sx={{ p: 3 }}>
-        {/* Overall Status */}
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <Typography variant="h6" fontWeight={600}>
-              Test Result
-            </Typography>
-            <StatusChip
-              status={testStatus}
-              label={testLabel}
-              size="medium"
-              variant="filled"
-              sx={{ fontWeight: 600 }}
-            />
-            {/* Show Review Confirmed indicator if review exists */}
-            {test.last_review && (
-              <Chip
-                icon={<CheckIcon sx={{ fontSize: 16 }} />}
-                label="Confirmed"
-                size="medium"
-                color="success"
-                variant="filled"
-                sx={{
-                  fontWeight: 600,
-                }}
-              />
-            )}
-            <Box sx={{ flexGrow: 1 }} />
-            {test.test_id && (
-              <Button
-                size="small"
-                href={`/tests/${test.test_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{
-                  borderRadius: theme.shape.borderRadius,
-                  backgroundColor: 'background.paper',
-                  color: 'text.secondary',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  px: 2,
-                  py: 0.5,
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
-                    color: 'text.primary',
-                    borderColor: 'primary.main',
-                  },
-                }}
-                endIcon={
-                  <ArrowOutwardIcon sx={{ fontSize: theme.iconSizes.small }} />
-                }
-              >
-                Go to Test
-              </Button>
-            )}
-          </Box>
-        </Box>
+        {statusHeader}
 
-        {/* Prompt Section */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Prompt
-          </Typography>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              backgroundColor: theme.palette.background.default,
-              maxHeight: 200,
-              overflow: 'auto',
-            }}
-          >
-            {renderTextContent(promptContent)}
-          </Paper>
-        </Box>
-
-        {/* Response Section */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Response
-          </Typography>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              backgroundColor: theme.palette.background.default,
-              maxHeight: 200,
-              overflow: 'auto',
-            }}
-          >
-            {renderTextContent(responseContent)}
-          </Paper>
-        </Box>
-
-        {/* Expected Response Section */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Expected Response
-          </Typography>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              backgroundColor: theme.palette.background.default,
-              maxHeight: 200,
-              overflow: 'auto',
-            }}
-          >
-            {expectedResponse ? (
-              renderTextContent(expectedResponse)
-            ) : (
-              <Typography
-                variant="body2"
-                sx={{ color: 'text.secondary', fontStyle: 'italic' }}
-              >
-                No expected response provided
-              </Typography>
-            )}
-          </Paper>
-        </Box>
-
-        {/* Context Section (collapsible) */}
-        {test.test_output?.context &&
-          test.test_output.context.filter(item => item.trim()).length > 0 && (
-            <Box sx={{ mb: 3 }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  cursor: 'pointer',
-                  mb: 1,
-                  '&:hover': { opacity: 0.7 },
-                }}
-                onClick={() => setContextExpanded(!contextExpanded)}
-              >
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Context (
-                  {test.test_output.context.filter(item => item.trim()).length})
-                </Typography>
-                <IconButton
-                  size="small"
-                  sx={{
-                    padding: 0,
-                    transform: contextExpanded
-                      ? 'rotate(180deg)'
-                      : 'rotate(0deg)',
-                    transition: 'transform 0.2s',
-                  }}
-                >
-                  <ExpandMoreIcon sx={{ fontSize: 18 }} />
-                </IconButton>
+        <Paper variant="outlined" sx={cardSx}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {/* Prompt — full width */}
+            <ViewField label="Prompt" multiline>
+              <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                {renderTextContent(promptContent)}
               </Box>
-              <Collapse in={contextExpanded} timeout="auto" unmountOnExit>
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    p: 2,
-                    backgroundColor: theme.palette.background.default,
-                    maxHeight: 200,
-                    overflow: 'auto',
-                  }}
-                >
-                  {test.test_output.context
-                    .filter(item => item.trim())
-                    .map((item, index, filteredArray) => {
-                      const contextKey = `context-${item.slice(0, 30).replace(/\s+/g, '-')}`;
-                      return (
-                        <Box
-                          key={contextKey}
-                          sx={{
-                            display: 'flex',
-                            gap: 1,
-                            mb: index < filteredArray.length - 1 ? 0.5 : 0,
-                          }}
-                        >
-                          <Typography variant="body2">•</Typography>
-                          <Box sx={{ flex: 1 }}>{renderTextContent(item)}</Box>
-                        </Box>
-                      );
-                    })}
-                </Paper>
-              </Collapse>
+            </ViewField>
+
+            {/* Response + Expected Response — side by side */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ flex: 1 }}>
+                <ViewField label="Response" multiline>
+                  <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                    {renderTextContent(responseContent)}
+                  </Box>
+                </ViewField>
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <ViewField label="Expected Response" multiline>
+                  <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                    {expectedResponse ? (
+                      renderTextContent(expectedResponse)
+                    ) : (
+                      <Typography
+                        variant="body2"
+                        sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+                      >
+                        No expected response provided
+                      </Typography>
+                    )}
+                  </Box>
+                </ViewField>
+              </Box>
             </Box>
-          )}
+
+            {/* Context — always expanded when present */}
+            {contextItems.length > 0 && (
+              <ViewField label={`Context (${contextItems.length})`} multiline>
+                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                  {contextItems.map((item, index, arr) => {
+                    const contextKey = `context-${item.slice(0, 30).replace(/\s+/g, '-')}`;
+                    return (
+                      <Box
+                        key={contextKey}
+                        sx={{
+                          display: 'flex',
+                          gap: 1,
+                          mb: index < arr.length - 1 ? 0.5 : 0,
+                        }}
+                      >
+                        <Typography variant="body2">•</Typography>
+                        <Box sx={{ flex: 1 }}>{renderTextContent(item)}</Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </ViewField>
+            )}
+
+            {/* Tags */}
+            <TestResultTags
+              sessionToken={sessionToken}
+              testResult={test}
+              onUpdate={onTestResultUpdate}
+            />
+          </Box>
+        </Paper>
 
         {/* Metadata Section (collapsible) */}
         {test.test_output?.metadata &&
@@ -531,244 +443,156 @@ export default function TestDetailOverviewTab({
             </Collapse>
           </Box>
         )}
+      </Box>
+    );
+  }
 
-        {/* Tags Section */}
-        <Box sx={{ mb: 3 }}>
+  // Multi-turn render
+  return (
+    <Box sx={{ p: 3 }}>
+      {statusHeader}
+
+      <Paper variant="outlined" sx={cardSx}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {/* Goal */}
+          <ViewField label="Goal" multiline>
+            <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+              <Typography
+                variant="body2"
+                sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              >
+                {promptContent}
+              </Typography>
+            </Box>
+          </ViewField>
+
+          {/* Instructions */}
+          {testConfig?.instructions && (
+            <ViewField label="Instructions" multiline>
+              <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                {renderFormattedText(testConfig.instructions)}
+              </Box>
+            </ViewField>
+          )}
+
+          {/* Restrictions */}
+          {testConfig?.restrictions && (
+            <ViewField label="Restrictions" multiline>
+              <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                {renderFormattedText(testConfig.restrictions)}
+              </Box>
+            </ViewField>
+          )}
+
+          {/* Scenario */}
+          {testConfig?.scenario && (
+            <ViewField label="Scenario" multiline>
+              <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                {renderFormattedText(testConfig.scenario)}
+              </Box>
+            </ViewField>
+          )}
+
+          {/* Reasoning & Evidence */}
+          {test.test_output?.goal_evaluation?.reason && (
+            <Box>
+              <ViewField label="Reasoning" multiline>
+                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                  >
+                    {test.test_output.goal_evaluation.reason}
+                  </Typography>
+                </Box>
+              </ViewField>
+
+              {/* Evidence — collapsible */}
+              {test.test_output?.goal_evaluation?.evidence &&
+                test.test_output.goal_evaluation.evidence.length > 0 && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Divider sx={{ mb: 1.5 }} />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { opacity: 0.7 },
+                      }}
+                      onClick={() => setEvidenceExpanded(!evidenceExpanded)}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        {evidenceExpanded ? 'Hide' : 'Show'} Evidence (
+                        {test.test_output.goal_evaluation.evidence.length})
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        sx={{
+                          padding: 0,
+                          transform: evidenceExpanded
+                            ? 'rotate(180deg)'
+                            : 'rotate(0deg)',
+                          transition: 'transform 0.2s',
+                        }}
+                      >
+                        <ExpandMoreIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Box>
+
+                    <Collapse
+                      in={evidenceExpanded}
+                      timeout="auto"
+                      unmountOnExit
+                    >
+                      <Box sx={{ mt: 1, pl: 2 }}>
+                        {test.test_output.goal_evaluation.evidence.map(
+                          (item, index) => {
+                            const evidenceKey = `evidence-${index}-${item.substring(0, 30).replace(/\s+/g, '-')}`;
+                            return (
+                              <Box
+                                key={evidenceKey}
+                                sx={{ display: 'flex', gap: 1, mb: 0.5 }}
+                              >
+                                <Typography
+                                  variant="body2"
+                                  sx={{ color: 'text.secondary' }}
+                                >
+                                  •
+                                </Typography>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ color: 'text.secondary', flex: 1 }}
+                                >
+                                  {item}
+                                </Typography>
+                              </Box>
+                            );
+                          }
+                        )}
+                      </Box>
+                    </Collapse>
+                  </Box>
+                )}
+            </Box>
+          )}
+
+          {/* Tags */}
           <TestResultTags
             sessionToken={sessionToken}
             testResult={test}
             onUpdate={onTestResultUpdate}
           />
         </Box>
-      </Box>
-    );
-  }
-
-  // Render for Multi-turn tests (structured design)
-  return (
-    <Box sx={{ p: 3 }}>
-      {/* Test Result Section */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography variant="subtitle2" fontWeight={600}>
-            Test Result
-          </Typography>
-          <StatusChip
-            status={testStatus}
-            label={testLabel}
-            size="medium"
-            variant="filled"
-            sx={{ fontWeight: 600 }}
-          />
-          {/* Show Review Confirmed indicator if review exists */}
-          {test.last_review && (
-            <Chip
-              icon={<CheckIcon sx={{ fontSize: 16 }} />}
-              label="Confirmed"
-              size="medium"
-              color="success"
-              variant="filled"
-              sx={{
-                fontWeight: 600,
-              }}
-            />
-          )}
-        </Box>
-
-        {/* Reasoning and Evidence */}
-        {test.test_output?.goal_evaluation?.reason && (
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              backgroundColor: theme.palette.background.default,
-              mb: 2,
-            }}
-          >
-            <Typography
-              variant="body2"
-              sx={{
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                mb: test.test_output?.goal_evaluation?.evidence ? 1.5 : 0,
-              }}
-            >
-              {test.test_output.goal_evaluation.reason}
-            </Typography>
-
-            {/* Evidence - Collapsible */}
-            {test.test_output?.goal_evaluation?.evidence &&
-              test.test_output.goal_evaluation.evidence.length > 0 && (
-                <Box>
-                  <Divider sx={{ mb: 1.5 }} />
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      cursor: 'pointer',
-                      '&:hover': { opacity: 0.7 },
-                    }}
-                    onClick={() => setEvidenceExpanded(!evidenceExpanded)}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: 'text.secondary',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      {evidenceExpanded ? 'Hide' : 'Show'} Evidence (
-                      {test.test_output.goal_evaluation.evidence.length})
-                    </Typography>
-                    <IconButton
-                      size="small"
-                      sx={{
-                        padding: 0,
-                        transform: evidenceExpanded
-                          ? 'rotate(180deg)'
-                          : 'rotate(0deg)',
-                        transition: 'transform 0.2s',
-                      }}
-                    >
-                      <ExpandMoreIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Box>
-
-                  <Collapse in={evidenceExpanded} timeout="auto" unmountOnExit>
-                    <Box sx={{ mt: 1, pl: 2 }}>
-                      {test.test_output.goal_evaluation.evidence.map(
-                        (item, index) => {
-                          // Create stable key from evidence content
-                          const evidenceKey = `evidence-${index}-${item.substring(0, 30).replace(/\s+/g, '-')}`;
-                          return (
-                            <Box
-                              key={evidenceKey}
-                              sx={{
-                                display: 'flex',
-                                gap: 1,
-                                mb: 0.5,
-                              }}
-                            >
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: 'text.secondary',
-                                }}
-                              >
-                                •
-                              </Typography>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  color: 'text.secondary',
-                                  flex: 1,
-                                }}
-                              >
-                                {item}
-                              </Typography>
-                            </Box>
-                          );
-                        }
-                      )}
-                    </Box>
-                  </Collapse>
-                </Box>
-              )}
-          </Paper>
-        )}
-      </Box>
-
-      {/* Divider */}
-      <Divider sx={{ mb: 3 }} />
-
-      {/* Goal Section */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-          Goal
-        </Typography>
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2,
-            backgroundColor: theme.palette.background.default,
-            maxHeight: 200,
-            overflow: 'auto',
-          }}
-        >
-          <Typography
-            variant="body2"
-            sx={{
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            {promptContent}
-          </Typography>
-        </Paper>
-      </Box>
-
-      {/* Instructions */}
-      {testConfig?.instructions && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Instructions
-          </Typography>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              backgroundColor: theme.palette.background.default,
-              maxHeight: 200,
-              overflow: 'auto',
-            }}
-          >
-            {renderFormattedText(testConfig.instructions)}
-          </Paper>
-        </Box>
-      )}
-
-      {/* Restrictions */}
-      {testConfig?.restrictions && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Restrictions
-          </Typography>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              backgroundColor: theme.palette.background.default,
-              maxHeight: 200,
-              overflow: 'auto',
-            }}
-          >
-            {renderFormattedText(testConfig.restrictions)}
-          </Paper>
-        </Box>
-      )}
-
-      {/* Scenario */}
-      {testConfig?.scenario && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Scenario
-          </Typography>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              backgroundColor: theme.palette.background.default,
-              maxHeight: 200,
-              overflow: 'auto',
-            }}
-          >
-            {renderFormattedText(testConfig.scenario)}
-          </Paper>
-        </Box>
-      )}
+      </Paper>
 
       {/* Files Section (collapsible) */}
       {(testFilesLoading || testFiles.length > 0) && (
@@ -847,15 +671,6 @@ export default function TestDetailOverviewTab({
           </Collapse>
         </Box>
       )}
-
-      {/* Tags Section */}
-      <Box sx={{ mb: 3 }}>
-        <TestResultTags
-          sessionToken={sessionToken}
-          testResult={test}
-          onUpdate={onTestResultUpdate}
-        />
-      </Box>
     </Box>
   );
 }
