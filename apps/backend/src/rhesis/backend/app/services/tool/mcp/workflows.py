@@ -24,7 +24,6 @@ async def run_mcp_authentication_test(
     tool_id: Optional[str] = None,
     provider_type_id: Optional[uuid.UUID] = None,
     credentials: Optional[Dict[str, str]] = None,
-    tool_metadata: Optional[Dict[str, Any]] = None,
     user_id: str = None,
 ) -> Dict[str, Any]:
     """
@@ -40,7 +39,6 @@ async def run_mcp_authentication_test(
         tool_id: Optional ID of the configured tool instance (for existing tools)
         provider_type_id: Optional UUID of the provider type (for non-existent tools)
         credentials: Optional dictionary of credential key-value pairs (for non-existent tools)
-        tool_metadata: Optional tool metadata (for non-existent tools that use custom providers)
         user_id: User ID for authorization check
 
     Returns:
@@ -66,7 +64,6 @@ async def run_mcp_authentication_test(
         client = _get_mcp_client_from_params(
             provider_type_id=provider_type_id,
             credentials=credentials,
-            tool_metadata=tool_metadata,
             db=db,
             organization_id=organization_id,
             user_id=user_id,

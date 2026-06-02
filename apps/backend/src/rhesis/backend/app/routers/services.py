@@ -680,7 +680,6 @@ async def test_mcp_connection(
             tool_id=request.tool_id,
             provider_type_id=request.provider_type_id,
             credentials=request.credentials,
-            tool_metadata=request.tool_metadata,
             user_id=user_id,
         )
         return result

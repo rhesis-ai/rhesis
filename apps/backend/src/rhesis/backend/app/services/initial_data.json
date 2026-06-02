@@ -598,11 +598,6 @@
             "description": "Confluence integration"
         },
         {
-            "type_name": "ToolProviderType",
-            "type_value": "custom",
-            "description": "Custom provider with manual configuration"
-        },
-        {
             "type_name": "EmbeddingDimension",
             "type_value": "384",
             "description": "384-dimensional embeddings"

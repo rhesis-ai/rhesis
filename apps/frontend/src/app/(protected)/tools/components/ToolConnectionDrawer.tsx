@@ -5,10 +5,8 @@ import {
   Button,
   TextField,
   IconButton,
-  CircularProgress,
   Alert,
   Stack,
-  Collapse,
   FormControl,
   InputLabel,
   Select,
@@ -17,11 +15,9 @@ import {
 import BaseDrawer from '@/components/common/BaseDrawer';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
-import dynamic from 'next/dynamic';
 import { alpha, useTheme } from '@mui/material/styles';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -35,32 +31,7 @@ import { UUID } from 'crypto';
 import { TOOL_PROVIDER_ICONS } from '@/config/tool-providers';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getErrorMessage } from '@/utils/entity-error-handler';
-import { BORDER_RADIUS } from '@/styles/theme';
-// Lazy load Monaco Editor
-const Editor = dynamic(() => import('@monaco-editor/react'), {
-  ssr: false,
-  loading: () => (
-    <Box
-      sx={{
-        height: '300px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: 1,
-        borderColor: 'divider',
-        borderRadius: theme => theme.shape.borderRadius,
-        backgroundColor: 'background.default',
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <CircularProgress size={20} />
-        <Typography variant="body2" color="text.secondary">
-          Loading editor...
-        </Typography>
-      </Box>
-    </Box>
-  ),
-});
+import Link from '@mui/material/Link';
 
 /**
  * Get the credential key name for a given provider
@@ -75,8 +46,6 @@ function getCredentialKey(providerType: string | undefined): string {
       return 'JIRA_API_TOKEN';
     case 'confluence':
       return 'CONFLUENCE_API_TOKEN';
-    case 'custom':
-      return 'TOKEN';
     default:
       return 'TOKEN';
   }
@@ -119,18 +88,15 @@ export function ToolConnectionDrawer({
   onConnect,
   onUpdate,
 }: ToolConnectionDrawerProps) {
-  const theme = useTheme();
   const { data: session } = useSession();
   const _notifications = useNotifications();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [authToken, setAuthToken] = useState('');
-  const [toolMetadata, setToolMetadata] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAuthToken, setShowAuthToken] = useState(false);
-  const [showAdvancedConfig, setShowAdvancedConfig] = useState(false);
-  const [jsonError, setJsonError] = useState<string | null>(null);
+
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{
     is_authenticated: string;
@@ -176,27 +142,6 @@ export function ToolConnectionDrawer({
   const providerType =
     provider?.type_value || tool?.tool_provider_type?.type_value;
   const requiresToken = true; // All providers now require tokens
-  const isCustomProvider = providerType === 'custom';
-
-  // Determine editor theme based on MUI theme
-  const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
-
-  // Theme-aware editor wrapper style (function to be reactive to jsonError)
-  const getEditorWrapperStyle = () => ({
-    border: 1,
-    borderColor: jsonError ? 'error.main' : 'divider',
-    borderRadius: BORDER_RADIUS.md,
-    minHeight: 300,
-    overflow: 'hidden',
-    '&:hover': {
-      borderColor: jsonError ? 'error.main' : 'text.primary',
-    },
-    '&:focus-within': {
-      borderWidth: 2,
-      borderColor: jsonError ? 'error.main' : 'primary.main',
-      margin: '-1px',
-    },
-  });
 
   useEffect(() => {
     if (open && !isEditMode) {
@@ -221,9 +166,6 @@ export function ToolConnectionDrawer({
         setInitialName(tool.name || '');
         setInitialDescription(tool.description || '');
         setAuthToken('************');
-        setToolMetadata(
-          tool.tool_metadata ? JSON.stringify(tool.tool_metadata, null, 2) : ''
-        );
 
         // Extract repository URL from tool_metadata for GitHub
         if (
@@ -259,10 +201,8 @@ export function ToolConnectionDrawer({
         setShowSpaceSelector(false);
 
         setError(null);
-        setJsonError(null);
         setShowAuthToken(false);
         setLoading(false);
-        setShowAdvancedConfig(!!tool.tool_metadata);
         setTestResult(null);
         setConnectionTested(false);
         setCredentialsModified(false);
@@ -271,7 +211,6 @@ export function ToolConnectionDrawer({
         setName('');
         setDescription('');
         setAuthToken('');
-        setToolMetadata('');
         setRepositoryUrl('');
         setInstanceUrl('');
         // Pre-fill email with logged-in user's email for Jira/Confluence
@@ -285,23 +224,14 @@ export function ToolConnectionDrawer({
         setAvailableSpaces([]);
         setShowSpaceSelector(false);
         setError(null);
-        setJsonError(null);
         setShowAuthToken(false);
         setLoading(false);
-        setShowAdvancedConfig(isCustomProvider);
         setTestResult(null);
         setConnectionTested(false);
         setCredentialsModified(false);
       }
     }
-  }, [
-    open,
-    provider,
-    tool,
-    isEditMode,
-    isCustomProvider,
-    session?.user?.email,
-  ]);
+  }, [open, provider, tool, isEditMode, session?.user?.email]);
 
   // Reset connection test status when critical credential fields change
   // Note: name and description changes don't affect connection validity
@@ -324,48 +254,7 @@ export function ToolConnectionDrawer({
         setTestResult(null);
       }
     }
-  }, [
-    authToken,
-    toolMetadata,
-    provider,
-    isEditMode,
-    repositoryUrl,
-    instanceUrl,
-    username,
-  ]);
-
-  const validateToolMetadata = (
-    jsonString: string
-  ): Record<string, unknown> | null => {
-    if (!jsonString.trim()) {
-      return null; // Empty is valid (optional field)
-    }
-    try {
-      const parsed = JSON.parse(jsonString);
-      if (typeof parsed !== 'object' || Array.isArray(parsed)) {
-        setJsonError('Tool metadata must be a JSON object');
-        return null;
-      }
-      setJsonError(null);
-      return parsed;
-    } catch (err) {
-      setJsonError(
-        err instanceof Error
-          ? `Invalid JSON: ${err.message}`
-          : 'Invalid JSON format'
-      );
-      return null;
-    }
-  };
-
-  const handleToolMetadataChange = (value: string | undefined) => {
-    setToolMetadata(value || '');
-    if (value && value.trim()) {
-      validateToolMetadata(value);
-    } else {
-      setJsonError(null);
-    }
-  };
+  }, [authToken, provider, isEditMode, repositoryUrl, instanceUrl, username]);
 
   const parseRepositoryUrl = (
     url: string
@@ -408,10 +297,6 @@ export function ToolConnectionDrawer({
     if (!isEditMode) {
       if (!provider || (requiresToken && !authToken)) {
         setError('Please fill in all required fields before testing.');
-        return;
-      }
-      if (isCustomProvider && !toolMetadata.trim()) {
-        setError('Tool metadata is required for custom providers.');
         return;
       }
     }
@@ -489,18 +374,6 @@ export function ToolConnectionDrawer({
           parsedMetadata = { repository: repoData };
         }
 
-        if (isCustomProvider && toolMetadata.trim()) {
-          const validatedMetadata = validateToolMetadata(toolMetadata);
-          if (validatedMetadata === null) {
-            setError(
-              'Please fix the JSON configuration errors before testing.'
-            );
-            setTestingConnection(false);
-            return;
-          }
-          parsedMetadata = { ...(parsedMetadata || {}), ...validatedMetadata };
-        }
-
         testRequest = {
           provider_type_id: tool.tool_provider_type?.id,
           credentials,
@@ -542,18 +415,6 @@ export function ToolConnectionDrawer({
             [credentialKey]: authToken.trim(),
           };
         }
-        if (isCustomProvider && toolMetadata.trim()) {
-          const validatedMetadata = validateToolMetadata(toolMetadata);
-          if (validatedMetadata === null) {
-            setError(
-              'Please fix the JSON configuration errors before testing.'
-            );
-            setTestingConnection(false);
-            return;
-          }
-          parsedMetadata = validatedMetadata;
-        }
-
         // Add repository metadata for GitHub if provided
         if (provider.type_value === 'github' && repositoryUrl.trim()) {
           const repoData = parseRepositoryUrl(repositoryUrl);
@@ -577,11 +438,7 @@ export function ToolConnectionDrawer({
         };
       }
 
-      // Test the connection — use lightweight REST health check for known providers,
-      // fall back to MCP agent for custom providers
-      const result = isCustomProvider
-        ? await servicesClient.testMCPConnection(testRequest)
-        : await servicesClient.testToolConnection(testRequest);
+      const result = await servicesClient.testToolConnection(testRequest);
       setTestResult(result);
 
       // Mark as tested if successful
@@ -622,15 +479,6 @@ export function ToolConnectionDrawer({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-
-    // Validate tool_metadata for custom providers
-    if (isCustomProvider && toolMetadata.trim()) {
-      const validatedMetadata = validateToolMetadata(toolMetadata);
-      if (validatedMetadata === null && toolMetadata.trim()) {
-        setError('Please fix the JSON configuration errors before submitting.');
-        return;
-      }
-    }
 
     if (isEditMode && tool && onUpdate) {
       // Edit mode: update existing tool
@@ -703,21 +551,7 @@ export function ToolConnectionDrawer({
           };
         }
 
-        // Include tool_metadata if it was provided
         let metadataToUpdate: Record<string, unknown> | undefined = undefined;
-
-        // For non-Jira/Confluence providers, handle metadata
-        if (toolMetadata.trim()) {
-          const validatedMetadata = validateToolMetadata(toolMetadata);
-          if (validatedMetadata !== null) {
-            metadataToUpdate = validatedMetadata;
-          }
-        } else if (isCustomProvider) {
-          // For custom providers, tool_metadata is required
-          setError('Tool metadata is required for custom providers.');
-          setLoading(false);
-          return;
-        }
 
         // GitHub requires repository metadata
         if (providerType === 'github') {
@@ -797,12 +631,6 @@ export function ToolConnectionDrawer({
         return;
       }
 
-      // For custom providers, tool_metadata is required
-      if (isCustomProvider && !toolMetadata.trim()) {
-        setError('Tool metadata is required for custom providers.');
-        return;
-      }
-
       if (onConnect) {
         setLoading(true);
         setError(null);
@@ -840,19 +668,6 @@ export function ToolConnectionDrawer({
             credentials = {
               [getCredentialKey(provider.type_value)]: authToken.trim(),
             };
-          }
-
-          // Parse and validate tool_metadata for custom providers
-          if (isCustomProvider && toolMetadata.trim()) {
-            const validatedMetadata = validateToolMetadata(toolMetadata);
-            if (validatedMetadata === null) {
-              setError(
-                'Please fix the JSON configuration errors before submitting.'
-              );
-              setLoading(false);
-              return;
-            }
-            parsedMetadata = validatedMetadata;
           }
 
           // GitHub requires repository metadata
@@ -911,7 +726,7 @@ export function ToolConnectionDrawer({
   };
 
   // Determine icon and display name
-  const providerIconKey = provider?.type_value || 'custom';
+  const providerIconKey = provider?.type_value ?? '';
   const providerIcon = TOOL_PROVIDER_ICONS[providerIconKey] || (
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
   );
@@ -941,12 +756,10 @@ export function ToolConnectionDrawer({
         username ||
         (authToken && authToken !== '************')) &&
       (!instanceUrl || !username)) ||
-    (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
     (!isEditMode && !connectionTested) ||
     (isEditMode && credentialsModified && !connectionTested) ||
     (isEditMode && !credentialsModified && !basicFieldsChanged) ||
-    loading ||
-    !!jsonError;
+    loading;
 
   const sectionHeadingSx = {
     fontWeight: 700,
@@ -1159,8 +972,7 @@ export function ToolConnectionDrawer({
                     (instanceUrl ||
                       username ||
                       (authToken && authToken !== '************')) &&
-                    (!instanceUrl || !username)) ||
-                  (isCustomProvider && !toolMetadata.trim())
+                    (!instanceUrl || !username))
                 }
                 sx={{ minWidth: 150 }}
               >
@@ -1171,7 +983,7 @@ export function ToolConnectionDrawer({
                   sx={{
                     display: 'flex',
                     alignItems: 'flex-start',
-                    borderRadius: BORDER_RADIUS.xs,
+                    borderRadius: theme.shape.borderRadius,
                     px: '30px',
                     py: '12px',
                     mt: 2,
@@ -1272,122 +1084,7 @@ export function ToolConnectionDrawer({
               </FormControl>
             </Stack>
           )}
-
-          {isCustomProvider && (
-            <>
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  mt: 2,
-                  mb: 1,
-                  cursor: 'pointer',
-                }}
-                onClick={() => setShowAdvancedConfig(!showAdvancedConfig)}
-              >
-                <Typography
-                  variant="subtitle1"
-                  sx={{ fontWeight: 600, color: 'primary.main' }}
-                >
-                  Tool Server Configuration
-                </Typography>
-                <IconButton size="small">
-                  {showAdvancedConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </IconButton>
-              </Box>
-
-              <Collapse in={showAdvancedConfig}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Provide your API token above, then paste your tool server
-                    config below using <code>{'{{ TOKEN }}'}</code> as a
-                    placeholder wherever the token is required.
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Example:
-                  </Typography>
-                  <Box
-                    component="pre"
-                    sx={{
-                      p: 2,
-                      bgcolor: 'background.default',
-                      border: 1,
-                      borderColor: 'divider',
-                      borderRadius: theme => theme.shape.borderRadius,
-                      fontSize: theme => theme.typography.body2.fontSize,
-                      overflow: 'auto',
-                      mb: 2,
-                    }}
-                  >
-                    {`{
-  "command": "npx",
-  "args": ["@example/mcp-server"],
-  "env": {
-    "API_TOKEN": "{{ TOKEN }}"
-  }
-}`}
-                  </Box>
-                  {jsonError && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                      {jsonError}
-                    </Alert>
-                  )}
-                  <Box sx={getEditorWrapperStyle()}>
-                    <Editor
-                      key={`tool-metadata-${editorTheme}`}
-                      height="300px"
-                      defaultLanguage="json"
-                      theme={editorTheme}
-                      value={toolMetadata}
-                      onChange={handleToolMetadataChange}
-                      loading={
-                        <Box
-                          sx={{
-                            height: 300,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <CircularProgress size={24} />
-                        </Box>
-                      }
-                      options={{
-                        minimap: { enabled: false },
-                        lineNumbers: 'on',
-                        folding: true,
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                        formatOnPaste: true,
-                        formatOnType: true,
-                        padding: { top: 8, bottom: 8 },
-                        scrollbar: { vertical: 'visible', horizontal: 'visible' },
-                        fontSize: 14,
-                      }}
-                    />
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: 1, display: 'block' }}
-                  >
-                    Required for custom providers. Define the tool server
-                    command, arguments, and environment variables with credential
-                    placeholders.
-                  </Typography>
-                </Box>
-              </Collapse>
-            </>
-          )}
+        </Stack>
 
         {!isEditMode && !connectionTested && !testResult && (
           <Alert severity="info">
