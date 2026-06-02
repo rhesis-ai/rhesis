@@ -63,7 +63,7 @@ describe('ServicesClient', () => {
     fetchMock.mockResolvedValue(
       makeFetch([{ id: 'item-1', url: 'http://a.com', title: 'A' }])
     );
-    await client.searchMCP('query', 'tool-1');
+    await client.searchTool('query', 'tool-1');
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toContain('/services/mcp/search');
     expect(opts.method).toBe('POST');
