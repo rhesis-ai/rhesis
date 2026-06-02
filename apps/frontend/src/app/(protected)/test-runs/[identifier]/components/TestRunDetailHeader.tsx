@@ -19,6 +19,7 @@ interface TestRunDetailHeaderProps {
   onRerun: () => void;
   isDownloading?: boolean;
   canRerun?: boolean;
+  canCompare?: boolean;
 }
 
 export default function TestRunDetailHeader({
@@ -29,6 +30,7 @@ export default function TestRunDetailHeader({
   onRerun,
   isDownloading = false,
   canRerun = true,
+  canCompare = true,
 }: TestRunDetailHeaderProps) {
   const creatorName =
     testRun.user?.name || testRun.user?.email || 'Unknown user';
@@ -78,8 +80,13 @@ export default function TestRunDetailHeader({
       <FabGroup>
         <Fab
           icon={<CompareArrowsOutlinedIcon />}
-          tooltip="Compare runs"
+          tooltip={
+            canCompare
+              ? 'Compare runs'
+              : 'No other test runs on this test set to compare against'
+          }
           onClick={onCompare}
+          disabled={!canCompare}
           aria-label="Compare runs"
         />
         <Fab

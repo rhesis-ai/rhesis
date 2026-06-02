@@ -1,15 +1,54 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Box, CircularProgress, Grid, Paper, Typography } from '@mui/material';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { BasePieChart } from '@/components/common/BaseCharts';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Chip,
+  CircularProgress,
+  Grid,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TableSortLabel,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestRunStatsAll } from '@/utils/api-client/interfaces/test-run-stats';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  TestResultsStats,
+} from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { BehaviorWithMetrics } from '../hooks/useTestRunDetailData';
 import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
+import {
+  aggregateBehaviorStats,
+  aggregateMetricStats,
+  BehaviorStat,
+  getReviewBand,
+  MetricStat,
+} from './test-run-summary-utils';
 
 interface TestRunStatsTabProps {
   testRun: TestRunDetail;
@@ -18,9 +57,12 @@ interface TestRunStatsTabProps {
   sessionToken: string;
   loading?: boolean;
   onRefresh?: () => void;
+  behaviors?: BehaviorWithMetrics[];
+  onViewBehavior?: (behaviorId: string) => void;
+  onViewMetric?: (metricName: string) => void;
 }
 
-function ChartCard({
+function SectionCard({
   title,
   children,
 }: {
@@ -28,17 +70,7 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 2,
-        height: '100%',
-        minHeight: 280,
-        borderRadius: 2,
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
+    <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
       <Typography
         variant="subtitle1"
         fontWeight={600}
@@ -46,8 +78,630 @@ function ChartCard({
       >
         {title}
       </Typography>
-      <Box sx={{ flex: 1, minHeight: 200 }}>{children}</Box>
+      {children}
     </Paper>
+  );
+}
+
+function BandChip({ passRate }: { passRate: number }) {
+  const band = getReviewBand(passRate);
+  return (
+    <Chip
+      label={band.label}
+      size="small"
+      color={band.colorKey}
+      sx={{ fontWeight: 500 }}
+    />
+  );
+}
+
+type BehaviorSortField = 'name' | 'total' | 'passRate';
+
+function BehaviorTable({
+  stats,
+  behaviors,
+  onViewBehavior,
+}: {
+  stats: BehaviorStat[];
+  behaviors?: BehaviorWithMetrics[];
+  onViewBehavior?: (behaviorId: string) => void;
+}) {
+  const [sortField, setSortField] = useState<BehaviorSortField>('passRate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: BehaviorSortField) => {
+    if (field === sortField) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const sorted = useMemo(() => {
+    return [...stats].sort((a, b) => {
+      const mul = sortDir === 'asc' ? 1 : -1;
+      if (sortField === 'name') return mul * a.name.localeCompare(b.name);
+      if (sortField === 'total') return mul * (a.total - b.total);
+      return mul * (a.passRate - b.passRate);
+    });
+  }, [stats, sortField, sortDir]);
+
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+              <TableSortLabel
+                active={sortField === 'name'}
+                direction={sortField === 'name' ? sortDir : 'asc'}
+                onClick={() => handleSort('name')}
+              >
+                Behavior
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+              <TableSortLabel
+                active={sortField === 'total'}
+                direction={sortField === 'total' ? sortDir : 'asc'}
+                onClick={() => handleSort('total')}
+              >
+                Tests
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right">Passed</TableCell>
+            <TableCell align="right">Failed</TableCell>
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+              <TableSortLabel
+                active={sortField === 'passRate'}
+                direction={sortField === 'passRate' ? sortDir : 'asc'}
+                onClick={() => handleSort('passRate')}
+              >
+                Pass Rate
+              </TableSortLabel>
+            </TableCell>
+            <TableCell>Status</TableCell>
+            {onViewBehavior && <TableCell />}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {sorted.map(stat => {
+            const behavior = behaviors?.find(b => b.name === stat.name);
+            const canDrilldown =
+              stat.failed > 0 && !!onViewBehavior && !!behavior;
+            return (
+              <TableRow
+                key={stat.name}
+                hover={canDrilldown}
+                sx={{ cursor: canDrilldown ? 'pointer' : 'default' }}
+                onClick={
+                  canDrilldown ? () => onViewBehavior!(behavior!.id) : undefined
+                }
+              >
+                <TableCell sx={{ maxWidth: 300 }}>
+                  <Tooltip title={stat.name} placement="top" arrow>
+                    <Typography
+                      variant="body2"
+                      noWrap
+                      sx={{ maxWidth: 280, display: 'block' }}
+                    >
+                      {stat.name}
+                    </Typography>
+                  </Tooltip>
+                </TableCell>
+                <TableCell align="right">{stat.total}</TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ color: theme => theme.palette.success.main }}
+                >
+                  {stat.passed}
+                </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{
+                    color: theme =>
+                      stat.failed > 0
+                        ? theme.palette.error.main
+                        : 'text.secondary',
+                    fontWeight: stat.failed > 0 ? 600 : 400,
+                  }}
+                >
+                  {stat.failed}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>
+                  {stat.passRate.toFixed(1)}%
+                </TableCell>
+                <TableCell>
+                  <BandChip passRate={stat.passRate} />
+                </TableCell>
+                {onViewBehavior && (
+                  <TableCell sx={{ width: 32, p: 0.5 }}>
+                    {canDrilldown && (
+                      <Tooltip title="View failures in Test Cases">
+                        <OpenInNewIcon
+                          fontSize="small"
+                          sx={{
+                            color: 'text.secondary',
+                            verticalAlign: 'middle',
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </Box>
+  );
+}
+
+function BehaviorPerformanceSection({
+  stats,
+  behaviors,
+  onViewBehavior,
+}: {
+  stats: BehaviorStat[];
+  behaviors?: BehaviorWithMetrics[];
+  onViewBehavior?: (behaviorId: string) => void;
+}) {
+  const theme = useTheme();
+
+  const chartData = useMemo(
+    () => [...stats].sort((a, b) => a.passRate - b.passRate),
+    [stats]
+  );
+
+  const chartHeight = Math.max(200, chartData.length * 52 + 40);
+
+  const getBandColor = (passRate: number) =>
+    theme.palette[getReviewBand(passRate).colorKey].main;
+
+  return (
+    <SectionCard title="Behavior Performance">
+      <ResponsiveContainer width="100%" height={chartHeight}>
+        <BarChart
+          layout="vertical"
+          data={chartData}
+          margin={{ top: 4, right: 48, bottom: 8, left: 4 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            horizontal={false}
+            stroke={theme.palette.divider}
+          />
+          <XAxis
+            type="number"
+            domain={[0, 100]}
+            tickFormatter={(v: number) => `${v}%`}
+            tick={{
+              fontSize: 12,
+              fill: theme.palette.text.secondary as string,
+            }}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={160}
+            tick={{
+              fontSize: 12,
+              fill: theme.palette.text.secondary as string,
+            }}
+            tickFormatter={(name: string) =>
+              name.length > 22 ? `${name.slice(0, 19)}\u2026` : name
+            }
+          />
+          <RechartsTooltip
+            cursor={{ fill: theme.palette.action.hover }}
+            formatter={(value: number) => [`${value.toFixed(1)}%`, 'Pass Rate']}
+            labelStyle={{ fontWeight: 600 }}
+          />
+          <Bar dataKey="passRate" radius={[0, 4, 4, 0]} maxBarSize={30}>
+            {chartData.map(entry => (
+              <Cell key={entry.name} fill={getBandColor(entry.passRate)} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+
+      <Box sx={{ mt: 3 }}>
+        <BehaviorTable
+          stats={stats}
+          behaviors={behaviors}
+          onViewBehavior={onViewBehavior}
+        />
+      </Box>
+    </SectionCard>
+  );
+}
+
+type MetricSortField = 'name' | 'total' | 'failRate';
+
+function MetricTable({
+  stats,
+  onViewMetric,
+}: {
+  stats: MetricStat[];
+  onViewMetric?: (metricName: string) => void;
+}) {
+  const [sortField, setSortField] = useState<MetricSortField>('failRate');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: MetricSortField) => {
+    if (field === sortField) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir(field === 'failRate' ? 'desc' : 'asc');
+    }
+  };
+
+  const sorted = useMemo(() => {
+    return [...stats].sort((a, b) => {
+      const mul = sortDir === 'asc' ? 1 : -1;
+      if (sortField === 'name') return mul * a.name.localeCompare(b.name);
+      if (sortField === 'total') return mul * (a.total - b.total);
+      return mul * (a.failRate - b.failRate);
+    });
+  }, [stats, sortField, sortDir]);
+
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+              <TableSortLabel
+                active={sortField === 'name'}
+                direction={sortField === 'name' ? sortDir : 'asc'}
+                onClick={() => handleSort('name')}
+              >
+                Metric
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+              <TableSortLabel
+                active={sortField === 'total'}
+                direction={sortField === 'total' ? sortDir : 'asc'}
+                onClick={() => handleSort('total')}
+              >
+                Total
+              </TableSortLabel>
+            </TableCell>
+            <TableCell align="right">Passed</TableCell>
+            <TableCell align="right">Failed</TableCell>
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+              <TableSortLabel
+                active={sortField === 'failRate'}
+                direction={sortField === 'failRate' ? sortDir : 'desc'}
+                onClick={() => handleSort('failRate')}
+              >
+                Fail Rate
+              </TableSortLabel>
+            </TableCell>
+            <TableCell>Status</TableCell>
+            {onViewMetric && <TableCell />}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {sorted.map(stat => {
+            const passRate = 100 - stat.failRate;
+            const canDrilldown = stat.failed > 0 && !!onViewMetric;
+            return (
+              <TableRow
+                key={stat.name}
+                hover={canDrilldown}
+                sx={{ cursor: canDrilldown ? 'pointer' : 'default' }}
+                onClick={
+                  canDrilldown ? () => onViewMetric!(stat.name) : undefined
+                }
+              >
+                <TableCell sx={{ maxWidth: 300 }}>
+                  <Tooltip title={stat.name} placement="top" arrow>
+                    <Typography
+                      variant="body2"
+                      noWrap
+                      sx={{ maxWidth: 280, display: 'block' }}
+                    >
+                      {stat.name}
+                    </Typography>
+                  </Tooltip>
+                </TableCell>
+                <TableCell align="right">{stat.total}</TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ color: theme => theme.palette.success.main }}
+                >
+                  {stat.passed}
+                </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{
+                    color: theme =>
+                      stat.failed > 0
+                        ? theme.palette.error.main
+                        : 'text.secondary',
+                    fontWeight: stat.failed > 0 ? 600 : 400,
+                  }}
+                >
+                  {stat.failed}
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>
+                  {stat.failRate.toFixed(1)}%
+                </TableCell>
+                <TableCell>
+                  <BandChip passRate={passRate} />
+                </TableCell>
+                {onViewMetric && (
+                  <TableCell sx={{ width: 32, p: 0.5 }}>
+                    {canDrilldown && (
+                      <Tooltip title="View failures in Test Cases">
+                        <OpenInNewIcon
+                          fontSize="small"
+                          sx={{
+                            color: 'text.secondary',
+                            verticalAlign: 'middle',
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </Box>
+  );
+}
+
+function MetricPerformanceSection({
+  stats,
+  onViewMetric,
+}: {
+  stats: MetricStat[];
+  onViewMetric?: (metricName: string) => void;
+}) {
+  const theme = useTheme();
+
+  const chartData = useMemo(
+    () => [...stats].sort((a, b) => b.failRate - a.failRate),
+    [stats]
+  );
+
+  const chartHeight = Math.max(200, chartData.length * 52 + 40);
+
+  const getBandColor = (failRate: number) =>
+    theme.palette[getReviewBand(100 - failRate).colorKey].main;
+
+  return (
+    <SectionCard title="Metric Performance">
+      <ResponsiveContainer width="100%" height={chartHeight}>
+        <BarChart
+          layout="vertical"
+          data={chartData}
+          margin={{ top: 4, right: 48, bottom: 8, left: 4 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            horizontal={false}
+            stroke={theme.palette.divider}
+          />
+          <XAxis
+            type="number"
+            domain={[0, 100]}
+            tickFormatter={(v: number) => `${v}%`}
+            tick={{
+              fontSize: 12,
+              fill: theme.palette.text.secondary as string,
+            }}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={160}
+            tick={{
+              fontSize: 12,
+              fill: theme.palette.text.secondary as string,
+            }}
+            tickFormatter={(name: string) =>
+              name.length > 22 ? `${name.slice(0, 19)}\u2026` : name
+            }
+          />
+          <RechartsTooltip
+            cursor={{ fill: theme.palette.action.hover }}
+            formatter={(value: number) => [`${value.toFixed(1)}%`, 'Fail Rate']}
+            labelStyle={{ fontWeight: 600 }}
+          />
+          <Bar dataKey="failRate" radius={[0, 4, 4, 0]} maxBarSize={30}>
+            {chartData.map(entry => (
+              <Cell key={entry.name} fill={getBandColor(entry.failRate)} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+
+      <Box sx={{ mt: 3 }}>
+        <MetricTable stats={stats} onViewMetric={onViewMetric} />
+      </Box>
+    </SectionCard>
+  );
+}
+
+interface DimensionItem {
+  name: string;
+  total: number;
+  passed: number;
+  failed: number;
+  pass_rate: number;
+}
+
+function DimensionList({ items }: { items: DimensionItem[] }) {
+  return (
+    <Stack spacing={0.5}>
+      {items.map(item => (
+        <Box
+          key={item.name}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            py: 0.75,
+            borderBottom: 1,
+            borderColor: 'divider',
+            '&:last-child': { borderBottom: 0 },
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{
+              flex: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={item.name}
+          >
+            {item.name}
+          </Typography>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ whiteSpace: 'nowrap', minWidth: 48, textAlign: 'right' }}
+          >
+            {item.total} tests
+          </Typography>
+          <Typography
+            variant="body2"
+            fontWeight={600}
+            sx={{ whiteSpace: 'nowrap', minWidth: 52, textAlign: 'right' }}
+          >
+            {item.pass_rate.toFixed(1)}%
+          </Typography>
+          <Box sx={{ minWidth: 108 }}>
+            <BandChip passRate={item.pass_rate} />
+          </Box>
+        </Box>
+      ))}
+    </Stack>
+  );
+}
+
+function MoreBreakdownsSection({
+  testRunId,
+  sessionToken,
+}: {
+  testRunId: string;
+  sessionToken: string;
+}) {
+  const isMounted = useRef(false);
+  const [data, setData] = useState<TestResultsStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    isMounted.current = true;
+
+    const fetchData = async () => {
+      if (!sessionToken) return;
+      try {
+        setIsLoading(true);
+        const client = new ApiClientFactory(
+          sessionToken
+        ).getTestResultsClient();
+        const result = await client.getComprehensiveTestResultsStats({
+          test_run_ids: [testRunId],
+          mode: 'all',
+        });
+        if (isMounted.current) {
+          setData(result);
+          setIsLoading(false);
+        }
+      } catch {
+        if (isMounted.current) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void fetchData();
+    return () => {
+      isMounted.current = false;
+    };
+  }, [testRunId, sessionToken]);
+
+  const categoryStats = useMemo((): DimensionItem[] => {
+    if (!data?.category_pass_rates) return [];
+    return Object.entries(data.category_pass_rates)
+      .map(([name, s]) => ({ name, ...s }))
+      .sort((a, b) => a.pass_rate - b.pass_rate);
+  }, [data]);
+
+  const topicStats = useMemo((): DimensionItem[] => {
+    if (!data?.topic_pass_rates) return [];
+    return Object.entries(data.topic_pass_rates)
+      .map(([name, s]) => ({ name, ...s }))
+      .sort((a, b) => a.pass_rate - b.pass_rate);
+  }, [data]);
+
+  const hasData = categoryStats.length > 0 || topicStats.length > 0;
+
+  if (!isLoading && !hasData) return null;
+
+  return (
+    <Accordion
+      expanded={expanded}
+      onChange={(_, exp) => setExpanded(exp)}
+      variant="outlined"
+      sx={{
+        borderRadius: '8px !important',
+        '&:before': { display: 'none' },
+      }}
+    >
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Typography variant="subtitle1" fontWeight={600}>
+          More Breakdowns
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails sx={{ pt: 0 }}>
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : (
+          <Grid container spacing={4}>
+            {categoryStats.length > 0 && (
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={600}
+                  sx={{ mb: 1.5 }}
+                >
+                  Categories
+                </Typography>
+                <DimensionList items={categoryStats} />
+              </Grid>
+            )}
+            {topicStats.length > 0 && (
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={600}
+                  sx={{ mb: 1.5 }}
+                >
+                  Topics
+                </Typography>
+                <DimensionList items={topicStats} />
+              </Grid>
+            )}
+          </Grid>
+        )}
+      </AccordionDetails>
+    </Accordion>
   );
 }
 
@@ -58,105 +712,21 @@ export default function TestRunStatsTab({
   sessionToken,
   loading = false,
   onRefresh,
+  behaviors,
+  onViewBehavior,
+  onViewMetric,
 }: TestRunStatsTabProps) {
-  const isMounted = useRef(false);
-  const [stats, setStats] = useState<TestRunStatsAll | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+  const behaviorStats = useMemo(
+    () => aggregateBehaviorStats(testResults),
+    [testResults]
+  );
 
-  useEffect(() => {
-    isMounted.current = true;
+  const metricStats = useMemo(
+    () => aggregateMetricStats(testResults),
+    [testResults]
+  );
 
-    const fetchStats = async () => {
-      if (!sessionToken) return;
-      try {
-        setIsLoading(true);
-        setHasError(false);
-        const client = new ApiClientFactory(sessionToken).getTestRunsClient();
-        const data = (await client.getTestRunStats({
-          mode: 'all',
-          test_run_ids: [testRunId],
-          top: 10,
-          months: 6,
-        })) as TestRunStatsAll;
-        if (isMounted.current) {
-          setStats(data);
-          setIsLoading(false);
-        }
-      } catch {
-        if (isMounted.current) {
-          setHasError(true);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void fetchStats();
-    return () => {
-      isMounted.current = false;
-    };
-  }, [sessionToken, testRunId]);
-
-  const resultData = stats?.result_distribution
-    ? [
-        {
-          name: 'Passed',
-          value: stats.result_distribution.passed,
-          fullName: 'Passed',
-        },
-        {
-          name: 'Failed',
-          value: stats.result_distribution.failed,
-          fullName: 'Failed',
-        },
-        {
-          name: 'Pending',
-          value: stats.result_distribution.pending,
-          fullName: 'Pending',
-        },
-      ].filter(item => item.value > 0)
-    : [];
-
-  const statusData =
-    stats?.status_distribution?.map(item => ({
-      name: item.status,
-      value: item.count,
-      fullName: item.status,
-    })) ?? [];
-
-  const behaviorData = React.useMemo(() => {
-    const counts = new Map<string, number>();
-    testResults.forEach(result => {
-      const behaviorName =
-        result.test?.behavior?.name ||
-        (result.test as { behavior?: { name?: string } })?.behavior?.name;
-      if (!behaviorName) return;
-      counts.set(behaviorName, (counts.get(behaviorName) ?? 0) + 1);
-    });
-    return Array.from(counts.entries()).map(([name, value]) => ({
-      name,
-      value,
-      fullName: name,
-    }));
-  }, [testResults]);
-
-  const metricData = React.useMemo(() => {
-    const counts = new Map<string, { pass: number; fail: number }>();
-    testResults.forEach(result => {
-      const metrics = result.test_metrics?.metrics ?? {};
-      Object.entries(metrics).forEach(([name, m]) => {
-        const entry = counts.get(name) ?? { pass: 0, fail: 0 };
-        if (m.is_successful) entry.pass += 1;
-        else entry.fail += 1;
-        counts.set(name, entry);
-      });
-    });
-    return Array.from(counts.entries()).map(([name, { pass, fail }]) => ({
-      name,
-      value: pass + fail,
-      fullName: `${name} (${pass} pass / ${fail} fail)`,
-    }));
-  }, [testResults]);
+  const hasInsights = behaviorStats.length > 0 || metricStats.length > 0;
 
   return (
     <Box>
@@ -167,125 +737,39 @@ export default function TestRunStatsTab({
         onRefresh={onRefresh}
       />
 
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress />
-        </Box>
-      ) : hasError ? (
-        <Paper sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <InfoOutlinedIcon color="info" />
-          <Typography color="text.secondary">
-            Could not load run statistics. Summary cards above still reflect
-            current results.
-          </Typography>
-        </Paper>
-      ) : (
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <ChartCard title="Pass / Fail">
-              <BasePieChart
-                title=""
-                data={
-                  resultData.length > 0
-                    ? resultData
-                    : [{ name: 'No data', value: 1, fullName: 'No data' }]
-                }
-                useThemeColors
-                colorPalette="pie"
+      <Stack spacing={3} sx={{ mt: 3 }}>
+        {loading && testResults.length === 0 ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+            <CircularProgress />
+          </Box>
+        ) : !hasInsights ? (
+          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+            <Typography color="text.secondary">
+              No test result data available to summarize.
+            </Typography>
+          </Paper>
+        ) : (
+          <>
+            {behaviorStats.length > 0 && (
+              <BehaviorPerformanceSection
+                stats={behaviorStats}
+                behaviors={behaviors}
+                onViewBehavior={onViewBehavior}
               />
-            </ChartCard>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <ChartCard title="Status breakdown">
-              <BasePieChart
-                title=""
-                data={
-                  statusData.length > 0
-                    ? statusData
-                    : [{ name: 'No data', value: 1, fullName: 'No data' }]
-                }
-                useThemeColors
-                colorPalette="pie"
+            )}
+            {metricStats.length > 0 && (
+              <MetricPerformanceSection
+                stats={metricStats}
+                onViewMetric={onViewMetric}
               />
-            </ChartCard>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <ChartCard title="By behavior">
-              <BasePieChart
-                title=""
-                data={
-                  behaviorData.length > 0
-                    ? behaviorData
-                    : [{ name: 'No data', value: 1, fullName: 'No data' }]
-                }
-                useThemeColors
-                colorPalette="pie"
-              />
-            </ChartCard>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <ChartCard title="By metric">
-              <BasePieChart
-                title=""
-                data={
-                  metricData.length > 0
-                    ? metricData
-                    : [{ name: 'No data', value: 1, fullName: 'No data' }]
-                }
-                useThemeColors
-                colorPalette="pie"
-              />
-            </ChartCard>
-          </Grid>
-          {stats?.overall_summary && (
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <ChartCard title="Overall pass rate">
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    height: '100%',
-                    px: 2,
-                  }}
-                >
-                  <Typography variant="h3" fontWeight={700}>
-                    {stats.overall_summary.pass_rate.toFixed(1)}%
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {stats.overall_summary.total_runs} run(s) in scope
-                  </Typography>
-                </Box>
-              </ChartCard>
-            </Grid>
-          )}
-          {stats?.timeline && stats.timeline.length > 0 && (
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <ChartCard title="Timeline">
-                <Box sx={{ px: 1 }}>
-                  {stats.timeline.slice(0, 5).map(point => (
-                    <Box
-                      key={point.date}
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        py: 0.75,
-                        borderBottom: 1,
-                        borderColor: 'divider',
-                      }}
-                    >
-                      <Typography variant="body2">{point.date}</Typography>
-                      <Typography variant="body2" fontWeight={600}>
-                        {point.total_runs} runs
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </ChartCard>
-            </Grid>
-          )}
-        </Grid>
-      )}
+            )}
+            <MoreBreakdownsSection
+              testRunId={testRunId}
+              sessionToken={sessionToken}
+            />
+          </>
+        )}
+      </Stack>
 
       <TestRunTags sessionToken={sessionToken} testRun={testRun} />
     </Box>

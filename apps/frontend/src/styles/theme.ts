@@ -461,6 +461,16 @@ const getDesignTokens = (mode: PaletteMode) => {
           },
         },
       },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: {
+            fontFamily: '"Be Vietnam Pro", sans-serif',
+            fontSize: '0.75rem', // 12px
+            lineHeight: 1.4,
+            padding: '6px 10px',
+          },
+        },
+      },
       MuiCard: {
         styleOverrides: {
           root: {

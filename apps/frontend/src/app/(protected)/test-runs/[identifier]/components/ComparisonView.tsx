@@ -13,19 +13,13 @@ import {
   FormControl,
   InputLabel,
   Dialog,
-  DialogTitle,
   DialogContent,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
+  Collapse,
   LinearProgress,
   Chip,
   Grid,
   Paper,
   useTheme,
-  TextField,
-  InputAdornment,
-  ButtonGroup,
   alpha,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -33,16 +27,20 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import SearchIcon from '@mui/icons-material/Search';
-import RemoveIcon from '@mui/icons-material/Remove';
-import ListIcon from '@mui/icons-material/List';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import Link from 'next/link';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import Image from 'next/image';
+import {
+  TestResultDetail,
+  MetricResult,
+} from '@/utils/api-client/interfaces/test-results';
 import { experimentHref } from '@/utils/experiment-links';
 import { MetricStatusChip } from '@/components/common/StatusChip';
 import ConversationHistory from '@/components/common/ConversationHistory';
+import { SearchPill } from '@/components/common/SearchPill';
+import { PrimarySegmentedPills } from '@/components/common/GridToolbar';
 import { BiotechIcon } from '@/components/icons';
 import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 
@@ -76,7 +74,7 @@ interface ComparisonViewProps {
     description?: string;
     metrics: Array<{ name: string; description?: string }>;
   }>;
-  testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
   initialBaselineId?: string;
@@ -134,6 +132,198 @@ function ExperimentRunLink({
         <OpenInNewIcon fontSize="inherit" sx={{ color: 'text.disabled' }} />
       </Box>
     </Link>
+  );
+}
+
+// Individual metric result row matching Figma "Testrun Comparison" component
+function MetricRow({
+  metricName,
+  result,
+}: {
+  metricName: string;
+  result?: MetricResult;
+}) {
+  const isPassed = result?.is_successful ?? false;
+  return (
+    <Paper
+      variant="outlined"
+      sx={{ borderRadius: '4px', pt: '30px', pb: '20px', px: '30px' }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+        {isPassed ? (
+          <CheckCircleIcon
+            sx={{
+              color: 'success.main',
+              fontSize: 24,
+              flexShrink: 0,
+              mt: '2px',
+            }}
+          />
+        ) : (
+          <CancelIcon
+            sx={{ color: 'error.main', fontSize: 24, flexShrink: 0, mt: '2px' }}
+          />
+        )}
+        <Box sx={{ flex: 1 }}>
+          <Typography
+            sx={{ fontWeight: 700, fontSize: 16, lineHeight: '24px' }}
+          >
+            {metricName}
+          </Typography>
+          {result != null && result.score != null && (
+            <Box sx={{ mt: 1 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  mb: 0.5,
+                }}
+              >
+                <Typography sx={{ fontSize: 14, lineHeight: '22px' }}>
+                  Score: {Number(result.score).toFixed(2)}
+                </Typography>
+                {result.threshold != null && (
+                  <Typography
+                    sx={{
+                      fontSize: 14,
+                      lineHeight: '22px',
+                      color: 'text.secondary',
+                    }}
+                  >
+                    Threshold: ≥{Number(result.threshold).toFixed(2)}
+                  </Typography>
+                )}
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={Math.min(Number(result.score) * 100, 100)}
+                color={isPassed ? 'success' : 'error'}
+                sx={{
+                  height: 8,
+                  borderRadius: '999px',
+                  bgcolor: theme => theme.palette.background.light2,
+                }}
+              />
+              {result.reason && (
+                <Typography
+                  sx={{
+                    mt: 1,
+                    fontSize: 14,
+                    lineHeight: '22px',
+                    color: theme => theme.palette.greyscale.body,
+                  }}
+                >
+                  {result.reason}
+                </Typography>
+              )}
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
+
+// Collapsible behavior section card matching Figma "section 1" component
+function BehaviorSection({
+  behaviorName,
+  passedCount,
+  totalCount,
+  children,
+}: {
+  behaviorName: string;
+  passedCount: number;
+  totalCount: number;
+  children: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  return (
+    <Box
+      sx={{
+        border: theme => `1px solid ${theme.palette.greyscale.border}`,
+        borderRadius: '12px',
+        boxShadow: '0px 2px 2px rgba(84, 90, 101, 0.25)',
+        bgcolor: 'background.paper',
+        overflow: 'hidden',
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: '30px',
+          pt: '30px',
+          pb: '30px',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <Typography
+            sx={{
+              fontSize: 20,
+              fontWeight: 600,
+              lineHeight: '24px',
+              color: theme => theme.palette.greyscale.title,
+            }}
+          >
+            {behaviorName}
+          </Typography>
+          <Chip
+            label={`${passedCount}/${totalCount}`}
+            size="small"
+            color={passedCount === totalCount ? 'success' : 'error'}
+          />
+        </Box>
+        <IconButton
+          onClick={() => setExpanded(prev => !prev)}
+          size="small"
+          sx={{
+            transform: expanded ? 'rotate(0deg)' : 'rotate(180deg)',
+            transition: 'transform 0.2s',
+          }}
+        >
+          <KeyboardArrowUpIcon />
+        </IconButton>
+      </Box>
+      <Collapse in={expanded}>
+        <Box
+          sx={{
+            px: '30px',
+            pb: '30px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+          }}
+        >
+          {children}
+        </Box>
+      </Collapse>
+    </Box>
+  );
+}
+
+// Response text box for a single run
+function RunResponseBox({ response }: { response: string }) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        bgcolor: theme => theme.palette.background.light1,
+        borderRadius: '4px',
+        p: '30px',
+        borderColor: theme => theme.palette.greyscale.border,
+      }}
+    >
+      <Typography
+        sx={{
+          fontSize: 14,
+          lineHeight: '22px',
+          color: theme => theme.palette.greyscale.body,
+        }}
+      >
+        {response}
+      </Typography>
+    </Paper>
   );
 }
 
@@ -361,402 +551,344 @@ export default function ComparisonView({
   }
 
   return (
-    <Box sx={{ pb: 4 }}>
-      {/* Filter Bar with integrated Close Button */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+      {/* Header: Close Comparison (top-right) above logo + current run name */}
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            mb: '12px',
+          }}
+        >
+          <Button
+            onClick={onClose}
+            variant="contained"
+            startIcon={<CloseIcon />}
+            sx={{
+              borderRadius: '8px',
+              px: '16px',
+              py: '8px',
+              fontWeight: 700,
+              fontSize: 14,
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
+          >
+            {closeButtonLabel}
+          </Button>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              flexShrink: 0,
+              position: 'relative',
+            }}
+          >
+            <Image
+              src="/logos/rhesis-logo-favicon-transparent.svg"
+              alt="Rhesis"
+              fill
+              sizes="40px"
+              style={{ objectFit: 'contain' }}
+            />
+          </Box>
+          <Typography
+            sx={{
+              fontSize: 28,
+              fontWeight: 700,
+              lineHeight: '33.6px',
+              color: theme => theme.palette.greyscale.title,
+            }}
+          >
+            {currentTestRun.name || 'Test Run'}
+          </Typography>
+        </Box>
+      </Box>
+      {/* Comparison Headers */}
       {baselineTestResults && (
         <Box
           sx={{
             display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: 2,
-            mb: 3,
-            alignItems: { xs: 'stretch', sm: 'center' },
-            justifyContent: 'space-between',
+            flexDirection: { xs: 'column', md: 'row' },
+            gap: '20px',
+            alignItems: 'stretch',
           }}
         >
-          {/* Left side: Search and Filters */}
-          <Box
+          {/* Baseline Run */}
+          <Paper
+            variant="outlined"
             sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: 2,
-              alignItems: { xs: 'stretch', sm: 'center' },
               flex: 1,
+              minWidth: 0,
+              p: '30px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              borderRadius: '4px',
             }}
           >
-            {/* Search */}
-            <TextField
-              size="small"
-              placeholder="Search tests..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ minWidth: { xs: '100%', sm: 250 } }}
-            />
-
-            {/* Status Filter Buttons */}
-            <ButtonGroup size="small" variant="outlined">
-              <Button
-                onClick={() => setStatusFilter('all')}
-                variant={statusFilter === 'all' ? 'contained' : 'outlined'}
-                startIcon={<ListIcon fontSize="small" />}
-              >
-                All
-              </Button>
-              <Button
-                onClick={() => setStatusFilter('improved')}
-                variant={statusFilter === 'improved' ? 'contained' : 'outlined'}
-                startIcon={<TrendingUpIcon fontSize="small" />}
-                sx={{
-                  ...(statusFilter === 'improved' && {
-                    bgcolor: theme.palette.success.main,
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: theme.palette.success.dark,
-                    },
-                  }),
-                }}
-              >
-                Improved
-              </Button>
-              <Button
-                onClick={() => setStatusFilter('regressed')}
-                variant={
-                  statusFilter === 'regressed' ? 'contained' : 'outlined'
-                }
-                startIcon={<TrendingDownIcon fontSize="small" />}
-                sx={{
-                  ...(statusFilter === 'regressed' && {
-                    bgcolor: theme.palette.error.main,
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: theme.palette.error.dark,
-                    },
-                  }),
-                }}
-              >
-                Regressed
-              </Button>
-              <Button
-                onClick={() => setStatusFilter('unchanged')}
-                variant={
-                  statusFilter === 'unchanged' ? 'contained' : 'outlined'
-                }
-                startIcon={<RemoveIcon fontSize="small" />}
-              >
-                Unchanged
-              </Button>
-            </ButtonGroup>
-
-            {/* Results count */}
             <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ display: 'flex', alignItems: 'center' }}
+              sx={{
+                fontSize: 20,
+                fontWeight: 600,
+                lineHeight: '24px',
+                color: theme => theme.palette.greyscale.title,
+              }}
             >
-              {comparisonTests.length} test
-              {comparisonTests.length !== 1 ? 's' : ''}
+              Baseline Run
             </Typography>
-          </Box>
+            <FormControl fullWidth>
+              <InputLabel>Select baseline run</InputLabel>
+              <Select
+                value={selectedBaselineId}
+                onChange={e => setSelectedBaselineId(e.target.value)}
+                label="Select baseline run"
+                renderValue={value => {
+                  const run = availableTestRuns.find(r => r.id === value);
+                  const name = run?.name || `Run #${String(value).slice(0, 8)}`;
+                  return (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        gap: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <Box
+                        component="span"
+                        sx={{
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {name}
+                      </Box>
+                      {run?.created_at && (
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ flexShrink: 0 }}
+                        >
+                          {formatDate(run.created_at)}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                }}
+              >
+                {availableTestRuns.map(run => (
+                  <MenuItem key={run.id} value={run.id}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 2,
+                        width: '100%',
+                      }}
+                    >
+                      <span>{run.name || `Run #${run.id.slice(0, 8)}`}</span>
+                      <Typography variant="caption" color="text.secondary">
+                        {formatDate(run.created_at)}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {baselineRun && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {baselinePassRate !== undefined && (
+                  <Typography variant="body2" color="text.secondary">
+                    Pass rate:{' '}
+                    <Box
+                      component="span"
+                      sx={{ fontWeight: 700, color: 'text.primary' }}
+                    >
+                      {Math.round(baselinePassRate)}%
+                    </Box>
+                  </Typography>
+                )}
+                {baselineRun.experiment_id && baselineRun.parameter_version && (
+                  <ExperimentRunLink
+                    experimentId={baselineRun.experiment_id}
+                    parameterVersion={baselineRun.parameter_version}
+                    experimentName={baselineRun.experiment_name}
+                  />
+                )}
+              </Box>
+            )}
+          </Paper>
 
-          {/* Right side: Close Button */}
+          {/* Compare arrows */}
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+              justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
-            <Button
-              onClick={onClose}
-              variant="outlined"
-              size="small"
-              startIcon={<CloseIcon />}
-            >
-              {closeButtonLabel}
-            </Button>
-          </Box>
-        </Box>
-      )}
-      {/* Statistics */}
-      {baselineTestResults && (
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 2.5,
-            mb: 4,
-            display: 'flex',
-            gap: 4,
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            bgcolor: theme.palette.background.default,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <TrendingUpIcon
-              fontSize="small"
-              sx={{ color: theme.palette.success.main }}
-            />
-            <Box>
-              <Typography variant="h6" component="span" sx={{ mr: 0.5 }}>
-                {stats.improved}
-              </Typography>
-              <Typography
-                variant="body2"
-                component="span"
-                color="text.secondary"
-              >
-                improved
-              </Typography>
-            </Box>
-          </Box>
-
-          {stats.regressed > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <TrendingDownIcon
-                fontSize="small"
-                sx={{ color: theme.palette.error.main }}
-              />
-              <Box>
-                <Typography variant="h6" component="span" sx={{ mr: 0.5 }}>
-                  {stats.regressed}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  component="span"
-                  color="text.secondary"
-                >
-                  regressed
-                </Typography>
-              </Box>
-            </Box>
-          )}
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
+            <CompareArrowsIcon
               sx={{
-                width: 20,
-                height: 20,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                fontSize: 48,
+                color: theme => theme.palette.greyscale.body,
               }}
-            >
-              <Box
-                sx={{
-                  width: 16,
-                  height: 2,
-                  bgcolor: theme.palette.text.secondary,
-                  borderRadius: theme.shape.borderRadius / 4,
-                }}
-              />
-            </Box>
-            <Box>
-              <Typography variant="h6" component="span" sx={{ mr: 0.5 }}>
-                {stats.unchanged}
-              </Typography>
-              <Typography
-                variant="body2"
-                component="span"
-                color="text.secondary"
-              >
-                unchanged
-              </Typography>
-            </Box>
+            />
           </Box>
-        </Paper>
-      )}
-      {/* Comparison Headers - Moved Here */}
-      {baselineTestResults && (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          {/* Baseline Run */}
-          <Grid
-            size={{
-              xs: 12,
-              md: 6,
-            }}
-          >
-            <Card sx={{ height: '100%' }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography
-                  variant="overline"
-                  color="text.secondary"
-                  display="block"
-                  sx={{ mb: 1 }}
-                >
-                  Baseline Run
-                </Typography>
-                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                  <InputLabel>Select baseline run</InputLabel>
-                  <Select
-                    value={selectedBaselineId}
-                    onChange={e => setSelectedBaselineId(e.target.value)}
-                    label="Select baseline run"
-                  >
-                    {availableTestRuns.map(run => (
-                      <MenuItem key={run.id} value={run.id}>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            width: '100%',
-                          }}
-                        >
-                          <span>
-                            {run.name || `Run #${run.id.slice(0, 8)}`}
-                          </span>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatDate(run.created_at)}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                {baselineRun && (
-                  <>
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      display="block"
-                    >
-                      {formatDate(baselineRun.created_at)}
-                    </Typography>
-                    {baselinePassRate !== undefined && (
-                      <Box
-                        sx={{
-                          mt: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                        }}
-                      >
-                        <Typography variant="caption" color="text.secondary">
-                          Pass rate:
-                        </Typography>
-                        <Chip
-                          label={`${Math.round(baselinePassRate)}%`}
-                          size="small"
-                        />
-                      </Box>
-                    )}
-                    {baselineRun.experiment_id &&
-                      baselineRun.parameter_version && (
-                        <Box sx={{ mt: 1 }}>
-                          <ExperimentRunLink
-                            experimentId={baselineRun.experiment_id}
-                            parameterVersion={baselineRun.parameter_version}
-                            experimentName={baselineRun.experiment_name}
-                          />
-                        </Box>
-                      )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
 
           {/* Current Run */}
-          <Grid
-            size={{
-              xs: 12,
-              md: 6,
+          <Paper
+            variant="outlined"
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              p: '30px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '20px',
+              borderRadius: '4px',
+              bgcolor: theme => theme.palette.background.light2,
+              border: theme => `1px solid ${theme.palette.primary.main}`,
             }}
           >
-            <Card
+            <Typography
               sx={{
-                bgcolor: theme.palette.background.light2,
-                border: `2px solid ${theme.palette.primary.main}`,
-                height: '100%',
+                fontSize: 20,
+                fontWeight: 600,
+                lineHeight: '24px',
+                color: theme => theme.palette.greyscale.title,
               }}
             >
-              <CardContent sx={{ p: 3 }}>
-                <Typography
-                  variant="overline"
-                  color="text.secondary"
-                  display="block"
-                  sx={{ mb: 1 }}
+              Current Run
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                gap: 1,
+              }}
+            >
+              <Typography sx={{ fontWeight: 700, fontSize: 16 }}>
+                {currentTestRun.name || `Run #${currentTestRun.id.slice(0, 8)}`}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {formatDate(currentTestRun.created_at)}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Pass rate:{' '}
+                <Box
+                  component="span"
+                  sx={{ fontWeight: 700, color: 'text.primary' }}
                 >
-                  Current Run
-                </Typography>
-                <Typography variant="subtitle2" gutterBottom>
-                  {currentTestRun.name ||
-                    `Run #${currentTestRun.id.slice(0, 8)}`}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  display="block"
-                  sx={{ mb: 2 }}
-                >
-                  {formatDate(currentTestRun.created_at)}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Pass rate:
-                  </Typography>
-                  <Typography variant="body2" fontWeight={600}>
-                    {currentPassRate}%
-                  </Typography>
-                  {baselinePassRate !== undefined && (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color:
-                          currentPassRate > baselinePassRate
-                            ? theme.palette.success.main
-                            : currentPassRate < baselinePassRate
-                              ? theme.palette.error.main
-                              : theme.palette.text.secondary,
-                        fontWeight: 500,
-                      }}
-                    >
-                      ({currentPassRate > baselinePassRate ? '+' : ''}
-                      {(currentPassRate - baselinePassRate).toFixed(1)}%)
-                    </Typography>
-                  )}
+                  {currentPassRate}%
                 </Box>
-                {currentTestRun.experiment_id &&
-                  currentTestRun.parameter_version && (
-                    <Box sx={{ mt: 1 }}>
-                      <ExperimentRunLink
-                        experimentId={currentTestRun.experiment_id}
-                        parameterVersion={currentTestRun.parameter_version}
-                        experimentName={currentTestRun.experiment_name}
-                      />
-                    </Box>
-                  )}
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+                {baselinePassRate !== undefined && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 0.5,
+                      fontWeight: 700,
+                      color:
+                        currentPassRate > baselinePassRate
+                          ? theme.palette.success.main
+                          : currentPassRate < baselinePassRate
+                            ? theme.palette.error.main
+                            : theme.palette.text.secondary,
+                    }}
+                  >
+                    ({currentPassRate > baselinePassRate ? '+' : ''}
+                    {(currentPassRate - baselinePassRate).toFixed(1)}%)
+                  </Box>
+                )}
+              </Typography>
+              {currentTestRun.experiment_id &&
+                currentTestRun.parameter_version && (
+                  <ExperimentRunLink
+                    experimentId={currentTestRun.experiment_id}
+                    parameterVersion={currentTestRun.parameter_version}
+                    experimentName={currentTestRun.experiment_name}
+                  />
+                )}
+            </Box>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Toolbar: search + status filter pills */}
+      {baselineTestResults && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            gap: 2,
+            alignItems: { xs: 'stretch', md: 'center' },
+          }}
+        >
+          <SearchPill
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search tests..."
+            width={288}
+          />
+          <PrimarySegmentedPills
+            mode="single"
+            activeValue={statusFilter}
+            onSingleChange={value =>
+              setStatusFilter(
+                value as 'all' | 'improved' | 'regressed' | 'unchanged'
+              )
+            }
+            tabs={[
+              { value: 'all', label: 'All' },
+              { value: 'improved', label: `Improved (${stats.improved})` },
+              { value: 'regressed', label: `Regressed (${stats.regressed})` },
+              { value: 'unchanged', label: `Unchanged (${stats.unchanged})` },
+            ]}
+          />
+        </Box>
       )}
       {/* Test-by-Test Comparison */}
       {baselineTestResults && (
-        <Card>
-          <CardContent sx={{ p: 3 }}>
+        <Card
+          sx={{
+            borderRadius: '12px',
+            border: theme => `1px solid ${theme.palette.greyscale.border}`,
+          }}
+        >
+          <CardContent sx={{ p: '30px' }}>
             <Box
               sx={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                mb: 3,
+                mb: '20px',
               }}
             >
-              <Typography variant="h6">Test-by-Test Comparison</Typography>
+              <Typography
+                sx={{
+                  fontSize: 20,
+                  fontWeight: 600,
+                  lineHeight: '24px',
+                  color: 'primary.main',
+                }}
+              >
+                Test-by-Test Comparison
+              </Typography>
               <Typography variant="caption" color="text.secondary">
                 Click any test to view details
               </Typography>
             </Box>
             <Box
               sx={{
-                // Increase height by 50% if there are 5+ tests to display
                 maxHeight:
                   comparisonTests.length >= 5 ? 'calc(70vh * 1.5)' : '70vh',
                 overflow: 'auto',
@@ -813,13 +945,16 @@ export default function ComparisonView({
                     key={test.id}
                     variant="outlined"
                     sx={{
-                      mb: 2,
+                      mb: '20px',
+                      borderRadius: '4px',
+                      overflow: 'hidden',
                       cursor: 'pointer',
                       transition: 'all 0.2s ease-in-out',
+                      pt: '30px',
+                      pb: '20px',
                       '&:hover': {
-                        boxShadow: theme.shadows[2],
-                        borderColor: theme.palette.primary.main,
-                        bgcolor: theme.palette.background.light1,
+                        boxShadow: theme.shadows[6],
+                        borderColor: theme.palette.greyscale.subtitle,
                       },
                     }}
                     onClick={() => setSelectedTestId(test.id)}
@@ -828,41 +963,39 @@ export default function ComparisonView({
                       {/* Prompt/Goal Section - Full Width, Inline */}
                       <Box
                         sx={{
-                          p: 2,
-                          borderBottom: 1,
-                          borderColor: 'divider',
-                          bgcolor: theme.palette.background.default,
+                          px: '30px',
+                          pb: '20px',
                           display: 'flex',
                           alignItems: 'flex-start',
-                          gap: 1,
+                          gap: '10px',
                         }}
                       >
                         <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ fontWeight: 600, flexShrink: 0 }}
+                          variant="body2"
+                          sx={{ fontWeight: 700, color: '#000', flexShrink: 0 }}
                         >
                           {contentLabel}:
                         </Typography>
                         <Typography
                           variant="body2"
-                          sx={{
-                            flex: 1,
-                            fontWeight: 500,
-                          }}
+                          sx={{ flex: 1, color: theme.palette.greyscale.body }}
                         >
                           {promptContent}
                         </Typography>
                       </Box>
 
                       {/* Responses/Evaluations Side by Side */}
-                      <Grid container spacing={0}>
+                      <Grid container spacing={0} sx={{ px: '20px' }}>
                         {/* Baseline Response/Evaluation */}
                         <Grid
                           sx={{
-                            p: 2,
+                            px: '10px',
+                            py: '20px',
                             borderRight: { md: 1 },
                             borderColor: 'divider',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
                             bgcolor: isImproved
                               ? `${theme.palette.background.default}`
                               : isRegressed
@@ -879,17 +1012,15 @@ export default function ComparisonView({
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 1,
-                              mb: 1,
+                              gap: '10px',
                               flexWrap: 'wrap',
                             }}
                           >
                             <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ fontWeight: 600 }}
+                              variant="body2"
+                              sx={{ fontWeight: 700, color: '#000' }}
                             >
-                              Baseline:
+                              Baseline
                             </Typography>
                             {baselinePassed !== null && (
                               <MetricStatusChip
@@ -932,7 +1063,12 @@ export default function ComparisonView({
                         {/* Current Response/Evaluation */}
                         <Grid
                           sx={{
-                            p: 2,
+                            pl: '10px',
+                            pr: 0,
+                            py: '20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
                             bgcolor: isImproved
                               ? theme.palette.mode === 'light'
                                 ? alpha(theme.palette.success.main, 0.08)
@@ -953,17 +1089,15 @@ export default function ComparisonView({
                             sx={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: 1,
-                              mb: 1,
+                              gap: '10px',
                               flexWrap: 'wrap',
                             }}
                           >
                             <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ fontWeight: 600 }}
+                              variant="body2"
+                              sx={{ fontWeight: 700, color: '#000' }}
                             >
-                              Current:
+                              Current
                             </Typography>
                             <MetricStatusChip
                               passedCount={currentPassedCount}
@@ -1017,31 +1151,53 @@ export default function ComparisonView({
           </CardContent>
         </Card>
       )}
+
       {/* Detailed Comparison Dialog */}
-      {/* For multi-turn tests, show side-by-side conversations. For single-turn, show detailed metrics. */}
       <Dialog
         open={selectedTestId !== null}
         onClose={() => setSelectedTestId(null)}
-        maxWidth="lg"
+        maxWidth="xl"
         fullWidth
         PaperProps={{
           sx: {
-            height: '90vh',
+            borderRadius: '16px',
+            maxHeight: '90vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           },
         }}
       >
-        <DialogTitle>
-          <Box
+        {/* Custom header: close icon + test title */}
+        <Box
+          sx={{
+            position: 'relative',
+            px: '37px',
+            pt: '30px',
+            pb: 0,
+            flexShrink: 0,
+          }}
+        >
+          <IconButton
+            onClick={() => setSelectedTestId(null)}
+            size="small"
+            sx={{ position: 'absolute', top: 16, right: 16 }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <Typography
             sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              gap: 2,
+              fontSize: 20,
+              lineHeight: '24px',
+              pr: '48px',
+              color: theme.palette.greyscale.title,
             }}
           >
-            <Typography variant="h6" sx={{ flex: 1, pr: 2 }}>
+            <Box component="span" sx={{ fontWeight: 600 }}>
               Test #
-              {comparisonTests.findIndex(t => t.id === selectedTestId) + 1}:{' '}
+              {allComparisonTests.findIndex(t => t.id === selectedTestId) + 1}:
+            </Box>{' '}
+            <Box component="span" sx={{ fontWeight: 400 }}>
               {selectedTest
                 ? isMultiTurn
                   ? selectedTest.current.test_output?.test_configuration
@@ -1051,21 +1207,17 @@ export default function ComparisonView({
                     ? prompts[selectedTest.current.prompt_id].content
                     : 'No prompt available'
                 : ''}
-            </Typography>
-            <IconButton
-              onClick={() => setSelectedTestId(null)}
-              size="small"
-              sx={{ flexShrink: 0 }}
-            >
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers>
+            </Box>
+          </Typography>
+        </Box>
+
+        <DialogContent
+          sx={{ px: '37px', pt: '40px', pb: '30px', overflow: 'auto', flex: 1 }}
+        >
           {selectedTest && (
             <Box>
               {isMultiTurn ? (
-                /* Multi-turn: Show side-by-side conversations */
+                /* Multi-turn: side-by-side ConversationHistory */
                 <Grid
                   container
                   spacing={0}
@@ -1077,10 +1229,7 @@ export default function ComparisonView({
                       borderRight: { md: 1 },
                       borderColor: 'divider',
                     }}
-                    size={{
-                      xs: 12,
-                      md: 6,
-                    }}
+                    size={{ xs: 12, md: 6 }}
                   >
                     <Box
                       sx={{
@@ -1175,12 +1324,7 @@ export default function ComparisonView({
                     </Box>
                   </Grid>
                   {/* Current Conversation Column */}
-                  <Grid
-                    size={{
-                      xs: 12,
-                      md: 6,
-                    }}
-                  >
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Box
                       sx={{
                         height: '100%',
@@ -1287,731 +1431,237 @@ export default function ComparisonView({
                   </Grid>
                 </Grid>
               ) : (
-                /* Single-turn: Show detailed metrics comparison */
-                <Grid
-                  container
-                  spacing={0}
-                  sx={{ height: 'calc(90vh - 200px)' }}
+                /* Single-turn: Figma "Detail Test Compare Popup" layout */
+                <Box
+                  sx={{ display: 'flex', flexDirection: 'column', gap: '40px' }}
                 >
-                  {/* Baseline Column */}
-                  <Grid
-                    sx={{
-                      borderRight: { md: 1 },
-                      borderColor: 'divider',
-                    }}
-                    size={{
-                      xs: 12,
-                      md: 6,
-                    }}
-                  >
+                  {/* Row 1: Run headers with pass/fail badge */}
+                  <Box sx={{ display: 'flex', gap: '40px' }}>
                     <Box
                       sx={{
-                        p: 3,
-                        height: '100%',
-                        overflow: 'auto',
+                        flex: 1,
+                        display: 'flex',
+                        gap: '10px',
+                        alignItems: 'center',
                       }}
                     >
-                      <Box
+                      <Typography
                         sx={{
-                          mb: 3,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          flexWrap: 'wrap',
+                          fontSize: 23,
+                          fontWeight: 700,
+                          lineHeight: '27.6px',
+                          color: theme.palette.greyscale.title,
                         }}
                       >
-                        <Typography
-                          variant="overline"
-                          color="text.secondary"
-                          sx={{ fontWeight: 600 }}
-                        >
-                          Baseline Run
-                        </Typography>
-                        {selectedTest.baseline ? (
-                          <MetricStatusChip
-                            passedCount={
-                              Object.values(
-                                selectedTest.baseline.test_metrics?.metrics ||
-                                  {}
-                              ).filter(m => m.is_successful).length
-                            }
-                            totalCount={
-                              Object.values(
-                                selectedTest.baseline.test_metrics?.metrics ||
-                                  {}
-                              ).length
-                            }
-                            size="small"
-                            variant="filled"
-                          />
-                        ) : (
-                          <Chip label="No data" size="small" color="default" />
-                        )}
-                        <ExperimentRunLink
-                          experimentId={baselineRun?.experiment_id}
-                          parameterVersion={baselineRun?.parameter_version}
-                          experimentName={baselineRun?.experiment_name}
-                        />
-                      </Box>
-
-                      {selectedTest.baseline && (
-                        <>
-                          {/* Response */}
-                          <Box sx={{ mb: 3 }}>
-                            <Typography
-                              variant="overline"
-                              color="text.secondary"
-                              display="block"
-                              gutterBottom
-                            >
-                              Response
-                            </Typography>
-                            <Paper
-                              variant="outlined"
-                              sx={{
-                                p: 2.5,
-                                bgcolor: theme.palette.background.light1,
-                              }}
-                            >
-                              <Typography variant="body2">
-                                {selectedTest.baseline.test_output?.output ||
-                                  'No response available'}
-                              </Typography>
-                            </Paper>
-                          </Box>
-
-                          {/* Metrics */}
-                          {behaviors.map(behavior => {
-                            const behaviorMetrics = behavior.metrics
-                              .map(metric => ({
-                                ...metric,
-                                baselineResult:
-                                  selectedTest.baseline?.test_metrics
-                                    ?.metrics?.[metric.name],
-                                currentResult:
-                                  selectedTest.current?.test_metrics?.metrics?.[
-                                    metric.name
-                                  ],
-                              }))
-                              .filter(m => m.baselineResult || m.currentResult);
-
-                            if (behaviorMetrics.length === 0) return null;
-
-                            const baselinePassedCount = behaviorMetrics.filter(
-                              m => m.baselineResult?.is_successful
-                            ).length;
-                            const currentPassedCount = behaviorMetrics.filter(
-                              m => m.currentResult?.is_successful
-                            ).length;
-                            const hasChanges =
-                              baselinePassedCount !== currentPassedCount;
-
-                            return (
-                              <Accordion
-                                key={behavior.id}
-                                sx={{
-                                  mb: 2,
-                                  '&:before': { display: 'none' },
-                                  boxShadow: 'none',
-                                  border: 1,
-                                  borderColor: 'divider',
-                                }}
-                                defaultExpanded={hasChanges}
-                              >
-                                <AccordionSummary
-                                  expandIcon={<ExpandMoreIcon />}
-                                  sx={{ py: 2 }}
-                                >
-                                  <Box
-                                    sx={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      gap: 1,
-                                      width: '100%',
-                                    }}
-                                  >
-                                    <Typography
-                                      variant="body1"
-                                      sx={{ fontWeight: 600 }}
-                                    >
-                                      {behavior.name}
-                                    </Typography>
-                                    <Chip
-                                      label={`${baselinePassedCount}/${behaviorMetrics.length}`}
-                                      size="small"
-                                      color={
-                                        baselinePassedCount ===
-                                        behaviorMetrics.length
-                                          ? 'success'
-                                          : 'error'
-                                      }
-                                    />
-                                  </Box>
-                                </AccordionSummary>
-                                <AccordionDetails sx={{ p: 3 }}>
-                                  <Box
-                                    sx={{
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      gap: 3,
-                                    }}
-                                  >
-                                    {behaviorMetrics.map(metric => {
-                                      const scoreDiff =
-                                        metric.currentResult?.score != null &&
-                                        metric.baselineResult?.score != null
-                                          ? Number(metric.currentResult.score) -
-                                            Number(metric.baselineResult.score)
-                                          : null;
-                                      const hasScoreChange =
-                                        scoreDiff !== null &&
-                                        Math.abs(scoreDiff) > 0.01;
-
-                                      return (
-                                        <Paper
-                                          key={metric.name}
-                                          variant="outlined"
-                                          sx={{ p: 3 }}
-                                        >
-                                          <Box
-                                            sx={{
-                                              display: 'flex',
-                                              alignItems: 'flex-start',
-                                              gap: 1,
-                                            }}
-                                          >
-                                            {metric.baselineResult
-                                              ?.is_successful ? (
-                                              <CheckCircleIcon
-                                                fontSize="small"
-                                                sx={{
-                                                  color:
-                                                    theme.palette.success.main,
-                                                }}
-                                              />
-                                            ) : (
-                                              <CancelIcon
-                                                fontSize="small"
-                                                sx={{
-                                                  color:
-                                                    theme.palette.error.main,
-                                                }}
-                                              />
-                                            )}
-                                            <Box sx={{ flex: 1 }}>
-                                              <Typography
-                                                variant="subtitle2"
-                                                gutterBottom
-                                              >
-                                                {metric.name}
-                                              </Typography>
-                                              {metric.baselineResult?.score !=
-                                                null && (
-                                                <Box sx={{ mb: 1 }}>
-                                                  <Box
-                                                    sx={{
-                                                      display: 'flex',
-                                                      justifyContent:
-                                                        'space-between',
-                                                      mb: 0.5,
-                                                    }}
-                                                  >
-                                                    <Typography variant="caption">
-                                                      Score:{' '}
-                                                      {Number(
-                                                        metric.baselineResult
-                                                          .score
-                                                      ).toFixed(2)}
-                                                      {hasScoreChange &&
-                                                        scoreDiff !== null && (
-                                                          <Typography
-                                                            component="span"
-                                                            variant="caption"
-                                                            sx={{
-                                                              ml: 0.5,
-                                                              color:
-                                                                scoreDiff > 0
-                                                                  ? theme
-                                                                      .palette
-                                                                      .success
-                                                                      .main
-                                                                  : theme
-                                                                      .palette
-                                                                      .error
-                                                                      .main,
-                                                              fontWeight: 500,
-                                                            }}
-                                                          >
-                                                            (
-                                                            {scoreDiff > 0
-                                                              ? '+'
-                                                              : ''}
-                                                            {scoreDiff.toFixed(
-                                                              2
-                                                            )}
-                                                            )
-                                                          </Typography>
-                                                        )}
-                                                    </Typography>
-                                                    {metric.baselineResult
-                                                      .threshold != null && (
-                                                      <Typography
-                                                        variant="caption"
-                                                        color="text.secondary"
-                                                      >
-                                                        Threshold: ≥
-                                                        {Number(
-                                                          metric.baselineResult
-                                                            .threshold
-                                                        ).toFixed(2)}
-                                                      </Typography>
-                                                    )}
-                                                  </Box>
-                                                  <LinearProgress
-                                                    variant="determinate"
-                                                    value={
-                                                      Number(
-                                                        metric.baselineResult
-                                                          .score
-                                                      ) * 100
-                                                    }
-                                                    color={
-                                                      metric.baselineResult
-                                                        .is_successful
-                                                        ? 'success'
-                                                        : 'error'
-                                                    }
-                                                    sx={{
-                                                      height: 8,
-                                                      borderRadius:
-                                                        theme.shape
-                                                          .borderRadius / 4,
-                                                      bgcolor:
-                                                        theme.palette.background
-                                                          .light2,
-                                                    }}
-                                                  />
-                                                </Box>
-                                              )}
-                                              {metric.baselineResult
-                                                ?.reason && (
-                                                <Typography
-                                                  variant="caption"
-                                                  color="text.secondary"
-                                                >
-                                                  {metric.baselineResult.reason}
-                                                </Typography>
-                                              )}
-                                            </Box>
-                                          </Box>
-                                        </Paper>
-                                      );
-                                    })}
-                                  </Box>
-                                </AccordionDetails>
-                              </Accordion>
-                            );
-                          })}
-                        </>
-                      )}
-                    </Box>
-                  </Grid>
-                  {/* Current Column */}
-                  <Grid
-                    size={{
-                      xs: 12,
-                      md: 6,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        p: 3,
-                        height: '100%',
-                        overflow: 'auto',
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          mb: 3,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <Typography
-                          variant="overline"
-                          color="text.secondary"
-                          sx={{ fontWeight: 600 }}
-                        >
-                          Current Run
-                        </Typography>
+                        Baseline Run
+                      </Typography>
+                      {selectedTest.baseline ? (
                         <MetricStatusChip
                           passedCount={
                             Object.values(
-                              selectedTest.current.test_metrics?.metrics || {}
+                              selectedTest.baseline.test_metrics?.metrics || {}
                             ).filter(m => m.is_successful).length
                           }
                           totalCount={
                             Object.values(
-                              selectedTest.current.test_metrics?.metrics || {}
+                              selectedTest.baseline.test_metrics?.metrics || {}
                             ).length
                           }
                           size="small"
                           variant="filled"
                         />
-                        {selectedTest.baseline && (
-                          <>
-                            {isTestPassed(selectedTest.current) &&
-                              !isTestPassed(selectedTest.baseline) && (
-                                <TrendingUpIcon
-                                  fontSize="small"
-                                  sx={{ color: theme.palette.success.main }}
-                                />
-                              )}
-                            {!isTestPassed(selectedTest.current) &&
-                              isTestPassed(selectedTest.baseline) && (
-                                <TrendingDownIcon
-                                  fontSize="small"
-                                  sx={{ color: theme.palette.error.main }}
-                                />
-                              )}
-                          </>
-                        )}
-                        <ExperimentRunLink
-                          experimentId={currentTestRun.experiment_id}
-                          parameterVersion={currentTestRun.parameter_version}
-                          experimentName={currentTestRun.experiment_name}
-                        />
-                      </Box>
+                      ) : (
+                        <Chip label="No data" size="small" />
+                      )}
+                    </Box>
+                    <Box
+                      sx={{
+                        flex: 1,
+                        display: 'flex',
+                        gap: '10px',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontSize: 23,
+                          fontWeight: 700,
+                          lineHeight: '27.6px',
+                          color: theme.palette.greyscale.title,
+                        }}
+                      >
+                        Current Run
+                      </Typography>
+                      <MetricStatusChip
+                        passedCount={
+                          Object.values(
+                            selectedTest.current.test_metrics?.metrics || {}
+                          ).filter(m => m.is_successful).length
+                        }
+                        totalCount={
+                          Object.values(
+                            selectedTest.current.test_metrics?.metrics || {}
+                          ).length
+                        }
+                        size="small"
+                        variant="filled"
+                      />
+                    </Box>
+                  </Box>
 
-                      {/* Response */}
-                      <Box sx={{ mb: 3 }}>
-                        <Typography
-                          variant="overline"
-                          color="text.secondary"
-                          display="block"
-                          gutterBottom
-                        >
-                          Response
-                        </Typography>
-                        <Paper
-                          variant="outlined"
-                          sx={{
-                            p: 2.5,
-                            bgcolor: theme.palette.background.light1,
-                          }}
-                        >
-                          <Typography variant="body2">
-                            {selectedTest.current.test_output?.output ||
-                              'No response available'}
-                          </Typography>
-                        </Paper>
-                      </Box>
+                  {/* Row 2: Response boxes */}
+                  <Box sx={{ display: 'flex', gap: '40px' }}>
+                    <Box
+                      sx={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '20px',
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: 16,
+                          lineHeight: '24px',
+                          color: theme.palette.greyscale.title,
+                        }}
+                      >
+                        Response
+                      </Typography>
+                      <RunResponseBox
+                        response={
+                          selectedTest.baseline?.test_output?.output ||
+                          'No response available'
+                        }
+                      />
+                    </Box>
+                    <Box
+                      sx={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '20px',
+                      }}
+                    >
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: 16,
+                          lineHeight: '24px',
+                          color: theme.palette.greyscale.title,
+                        }}
+                      >
+                        Response
+                      </Typography>
+                      <RunResponseBox
+                        response={
+                          selectedTest.current.test_output?.output ||
+                          'No response available'
+                        }
+                      />
+                    </Box>
+                  </Box>
 
-                      {/* Metrics */}
+                  {/* Row 3: Behavior sections — baseline left, current right */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: '40px',
+                      alignItems: 'flex-start',
+                    }}
+                  >
+                    {/* Baseline column */}
+                    <Box
+                      sx={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '40px',
+                      }}
+                    >
                       {behaviors.map(behavior => {
-                        const behaviorMetrics = behavior.metrics
+                        const bMetrics = behavior.metrics
                           .map(metric => ({
-                            ...metric,
-                            currentResult:
-                              selectedTest.current?.test_metrics?.metrics?.[
-                                metric.name
-                              ],
-                            baselineResult:
+                            name: metric.name,
+                            result:
                               selectedTest.baseline?.test_metrics?.metrics?.[
                                 metric.name
                               ],
                           }))
-                          .filter(m => m.currentResult || m.baselineResult);
-
-                        if (behaviorMetrics.length === 0) return null;
-
-                        const currentPassedCount = behaviorMetrics.filter(
-                          m => m.currentResult?.is_successful
+                          .filter(
+                            (m): m is { name: string; result: MetricResult } =>
+                              m.result !== undefined
+                          );
+                        if (bMetrics.length === 0) return null;
+                        const passed = bMetrics.filter(
+                          m => m.result.is_successful
                         ).length;
-                        const baselinePassedCount = behaviorMetrics.filter(
-                          m => m.baselineResult?.is_successful
-                        ).length;
-                        const hasChanges =
-                          currentPassedCount !== baselinePassedCount;
-
                         return (
-                          <Accordion
+                          <BehaviorSection
                             key={behavior.id}
-                            sx={{
-                              mb: 2,
-                              '&:before': { display: 'none' },
-                              boxShadow: 'none',
-                              border: 1,
-                              borderColor: 'divider',
-                            }}
-                            defaultExpanded={hasChanges}
+                            behaviorName={behavior.name}
+                            passedCount={passed}
+                            totalCount={bMetrics.length}
                           >
-                            <AccordionSummary
-                              expandIcon={<ExpandMoreIcon />}
-                              sx={{ py: 2 }}
-                            >
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 1,
-                                  width: '100%',
-                                }}
-                              >
-                                <Typography
-                                  variant="body1"
-                                  sx={{ fontWeight: 600 }}
-                                >
-                                  {behavior.name}
-                                </Typography>
-                                <Box
-                                  sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 0.5,
-                                  }}
-                                >
-                                  <Chip
-                                    label={`${currentPassedCount}/${behaviorMetrics.length}`}
-                                    size="small"
-                                    color={
-                                      currentPassedCount ===
-                                      behaviorMetrics.length
-                                        ? 'success'
-                                        : 'error'
-                                    }
-                                  />
-                                  {hasChanges && (
-                                    <>
-                                      {currentPassedCount >
-                                      baselinePassedCount ? (
-                                        <TrendingUpIcon
-                                          fontSize="small"
-                                          sx={{
-                                            color: theme.palette.success.main,
-                                          }}
-                                        />
-                                      ) : (
-                                        <TrendingDownIcon
-                                          fontSize="small"
-                                          sx={{
-                                            color: theme.palette.error.main,
-                                          }}
-                                        />
-                                      )}
-                                    </>
-                                  )}
-                                </Box>
-                              </Box>
-                            </AccordionSummary>
-                            <AccordionDetails sx={{ p: 3 }}>
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: 3,
-                                }}
-                              >
-                                {behaviorMetrics.map(metric => {
-                                  const scoreDiff =
-                                    metric.currentResult?.score != null &&
-                                    metric.baselineResult?.score != null
-                                      ? Number(metric.currentResult.score) -
-                                        Number(metric.baselineResult.score)
-                                      : null;
-                                  const hasScoreChange =
-                                    scoreDiff !== null &&
-                                    Math.abs(scoreDiff) > 0.01;
-                                  const statusChanged =
-                                    metric.baselineResult &&
-                                    metric.currentResult &&
-                                    metric.baselineResult.is_successful !==
-                                      metric.currentResult.is_successful;
-
-                                  return (
-                                    <Paper
-                                      key={metric.name}
-                                      variant="outlined"
-                                      sx={{
-                                        p: 3,
-                                        bgcolor: statusChanged
-                                          ? metric.currentResult?.is_successful
-                                            ? theme.palette.mode === 'light'
-                                              ? alpha(
-                                                  theme.palette.success.main,
-                                                  0.08
-                                                )
-                                              : theme.palette.background.light3
-                                            : theme.palette.mode === 'light'
-                                              ? alpha(
-                                                  theme.palette.error.main,
-                                                  0.08
-                                                )
-                                              : theme.palette.background.light3
-                                          : 'transparent',
-                                      }}
-                                    >
-                                      <Box
-                                        sx={{
-                                          display: 'flex',
-                                          alignItems: 'flex-start',
-                                          gap: 1,
-                                        }}
-                                      >
-                                        {metric.currentResult?.is_successful ? (
-                                          <CheckCircleIcon
-                                            fontSize="small"
-                                            sx={{
-                                              color: theme.palette.success.main,
-                                            }}
-                                          />
-                                        ) : (
-                                          <CancelIcon
-                                            fontSize="small"
-                                            sx={{
-                                              color: theme.palette.error.main,
-                                            }}
-                                          />
-                                        )}
-                                        <Box sx={{ flex: 1 }}>
-                                          <Box
-                                            sx={{
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: 1,
-                                              mb: 1,
-                                            }}
-                                          >
-                                            <Typography variant="subtitle2">
-                                              {metric.name}
-                                            </Typography>
-                                            {statusChanged && (
-                                              <>
-                                                {metric.currentResult
-                                                  ?.is_successful ? (
-                                                  <TrendingUpIcon
-                                                    fontSize="small"
-                                                    sx={{
-                                                      color:
-                                                        theme.palette.success
-                                                          .main,
-                                                    }}
-                                                  />
-                                                ) : (
-                                                  <TrendingDownIcon
-                                                    fontSize="small"
-                                                    sx={{
-                                                      color:
-                                                        theme.palette.error
-                                                          .main,
-                                                    }}
-                                                  />
-                                                )}
-                                              </>
-                                            )}
-                                          </Box>
-                                          {metric.currentResult?.score !=
-                                            null && (
-                                            <Box sx={{ mb: 1 }}>
-                                              <Box
-                                                sx={{
-                                                  display: 'flex',
-                                                  justifyContent:
-                                                    'space-between',
-                                                  mb: 0.5,
-                                                }}
-                                              >
-                                                <Typography variant="caption">
-                                                  Score:{' '}
-                                                  {Number(
-                                                    metric.currentResult.score
-                                                  ).toFixed(2)}
-                                                  {hasScoreChange &&
-                                                    scoreDiff !== null && (
-                                                      <Typography
-                                                        component="span"
-                                                        variant="caption"
-                                                        sx={{
-                                                          ml: 0.5,
-                                                          color:
-                                                            scoreDiff > 0
-                                                              ? theme.palette
-                                                                  .success.main
-                                                              : theme.palette
-                                                                  .error.main,
-                                                          fontWeight: 500,
-                                                        }}
-                                                      >
-                                                        (
-                                                        {scoreDiff > 0
-                                                          ? '+'
-                                                          : ''}
-                                                        {scoreDiff.toFixed(2)})
-                                                      </Typography>
-                                                    )}
-                                                </Typography>
-                                                {metric.currentResult
-                                                  .threshold != null && (
-                                                  <Typography
-                                                    variant="caption"
-                                                    color="text.secondary"
-                                                  >
-                                                    Threshold: ≥
-                                                    {Number(
-                                                      metric.currentResult
-                                                        .threshold
-                                                    ).toFixed(2)}
-                                                  </Typography>
-                                                )}
-                                              </Box>
-                                              <LinearProgress
-                                                variant="determinate"
-                                                value={
-                                                  Number(
-                                                    metric.currentResult.score
-                                                  ) * 100
-                                                }
-                                                color={
-                                                  metric.currentResult
-                                                    .is_successful
-                                                    ? 'success'
-                                                    : 'error'
-                                                }
-                                                sx={{
-                                                  height: 8,
-                                                  borderRadius:
-                                                    theme.shape.borderRadius /
-                                                    4,
-                                                  bgcolor:
-                                                    theme.palette.background
-                                                      .light2,
-                                                }}
-                                              />
-                                            </Box>
-                                          )}
-                                          {metric.currentResult?.reason && (
-                                            <Typography
-                                              variant="caption"
-                                              color="text.secondary"
-                                            >
-                                              {metric.currentResult.reason}
-                                            </Typography>
-                                          )}
-                                        </Box>
-                                      </Box>
-                                    </Paper>
-                                  );
-                                })}
-                              </Box>
-                            </AccordionDetails>
-                          </Accordion>
+                            {bMetrics.map(m => (
+                              <MetricRow
+                                key={m.name}
+                                metricName={m.name}
+                                result={m.result}
+                              />
+                            ))}
+                          </BehaviorSection>
                         );
                       })}
                     </Box>
-                  </Grid>
-                </Grid>
+
+                    {/* Current column */}
+                    <Box
+                      sx={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '40px',
+                      }}
+                    >
+                      {behaviors.map(behavior => {
+                        const bMetrics = behavior.metrics
+                          .map(metric => ({
+                            name: metric.name,
+                            result:
+                              selectedTest.current.test_metrics?.metrics?.[
+                                metric.name
+                              ],
+                          }))
+                          .filter(
+                            (m): m is { name: string; result: MetricResult } =>
+                              m.result !== undefined
+                          );
+                        if (bMetrics.length === 0) return null;
+                        const passed = bMetrics.filter(
+                          m => m.result.is_successful
+                        ).length;
+                        return (
+                          <BehaviorSection
+                            key={behavior.id}
+                            behaviorName={behavior.name}
+                            passedCount={passed}
+                            totalCount={bMetrics.length}
+                          >
+                            {bMetrics.map(m => (
+                              <MetricRow
+                                key={m.name}
+                                metricName={m.name}
+                                result={m.result}
+                              />
+                            ))}
+                          </BehaviorSection>
+                        );
+                      })}
+                    </Box>
+                  </Box>
+                </Box>
               )}
             </Box>
           )}

@@ -183,39 +183,52 @@ export default async function TestRunComparePage({
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: 3 }}>
-      <ComparePageClient
-        currentTestRun={{
-          id: testRun.id,
-          name: testRun.name,
-          created_at:
-            (typeof testRun.attributes?.started_at === 'string'
-              ? testRun.attributes.started_at
-              : null) ||
-            testRun.created_at ||
-            '',
-          experiment_id: testRun.experiment_id ?? undefined,
-          parameter_version:
-            typeof testRun.attributes?.parameter_version === 'string'
-              ? (testRun.attributes.parameter_version as string)
-              : undefined,
-          experiment_name:
-            typeof testRun.attributes?.parameter_experiment_name === 'string'
-              ? (testRun.attributes.parameter_experiment_name as string)
-              : undefined,
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      {/* Spacing per Figma "Content" frame (node 1645:25346):
+          margins 120 (left/right) and 35 (bottom); padding 80 (top),
+          37 (left/right), 30 (bottom). */}
+      <Box
+        sx={{
+          mx: '120px',
+          mb: '35px',
+          pt: '80px',
+          px: '37px',
+          pb: '30px',
         }}
-        currentTestResults={testResults}
-        availableTestRuns={availableTestRuns}
-        prompts={promptsMap}
-        behaviors={behaviors}
-        sessionToken={session.session_token}
-        initialBaselineId={initialBaselineId}
-        testSetType={
-          testRun.test_configuration?.test_set?.test_set_type?.type_value
-        }
-        project={testRun.test_configuration?.endpoint?.project}
-        projectName={testRun.test_configuration?.endpoint?.project?.name}
-      />
+      >
+        <ComparePageClient
+          currentTestRun={{
+            id: testRun.id,
+            name: testRun.name,
+            created_at:
+              (typeof testRun.attributes?.started_at === 'string'
+                ? testRun.attributes.started_at
+                : null) ||
+              testRun.created_at ||
+              '',
+            experiment_id: testRun.experiment_id ?? undefined,
+            parameter_version:
+              typeof testRun.attributes?.parameter_version === 'string'
+                ? (testRun.attributes.parameter_version as string)
+                : undefined,
+            experiment_name:
+              typeof testRun.attributes?.parameter_experiment_name === 'string'
+                ? (testRun.attributes.parameter_experiment_name as string)
+                : undefined,
+          }}
+          currentTestResults={testResults}
+          availableTestRuns={availableTestRuns}
+          prompts={promptsMap}
+          behaviors={behaviors}
+          sessionToken={session.session_token}
+          initialBaselineId={initialBaselineId}
+          testSetType={
+            testRun.test_configuration?.test_set?.test_set_type?.type_value
+          }
+          project={testRun.test_configuration?.endpoint?.project}
+          projectName={testRun.test_configuration?.endpoint?.project?.name}
+        />
+      </Box>
     </Box>
   );
 }

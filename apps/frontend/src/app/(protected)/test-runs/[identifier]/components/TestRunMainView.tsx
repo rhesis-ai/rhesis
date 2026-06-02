@@ -1,16 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-} from '@mui/material';
+import { Box, Typography, TextField } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import TestRunDetailHeader from './TestRunDetailHeader';
@@ -19,6 +10,7 @@ import TestRunStatsTab from './TestRunStatsTab';
 import TestRunLinkedEntitiesTab from './TestRunLinkedEntitiesTab';
 import TestRunTracesTab from './TestRunTracesTab';
 import RerunTestRunDrawer from '@/components/common/RerunTestRunDrawer';
+import BaseDrawer from '@/components/common/BaseDrawer';
 import { FilterState } from './TestRunFilterBar';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
@@ -141,6 +133,8 @@ export default function TestRunMainView({
   const [isRerunDrawerOpen, setIsRerunDrawerOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  // Whether another test run exists on the same test set to compare against.
+  const [hasComparisonRuns, setHasComparisonRuns] = useState(false);
 
   const [testResultUpdates, setTestResultUpdates] = useState<
     Map<string, TestResultDetail>
@@ -268,6 +262,30 @@ export default function TestRunMainView({
     setFilter(newFilter);
   }, []);
 
+  const handleDrilldownToBehavior = useCallback(
+    (behaviorId: string) => {
+      setFilter(prev => ({
+        ...prev,
+        selectedBehaviors: [behaviorId],
+        statusFilter: 'failed',
+      }));
+      handleTabChange(TAB_KEYS.indexOf('linked_entities'));
+    },
+    [handleTabChange]
+  );
+
+  const handleDrilldownToMetric = useCallback(
+    (metricName: string) => {
+      setFilter(prev => ({
+        ...prev,
+        selectedMetrics: [metricName],
+        statusFilter: 'failed',
+      }));
+      handleTabChange(TAB_KEYS.indexOf('linked_entities'));
+    },
+    [handleTabChange]
+  );
+
   const handleTestResultUpdate = useCallback(
     (updatedTest: TestResultDetail) => {
       setTestResultUpdates(prev => {
@@ -323,6 +341,39 @@ export default function TestRunMainView({
     }
     setIsRerunDrawerOpen(true);
   }, [testRun, notifications]);
+
+  const testSetId = testRun.test_configuration?.test_set?.id;
+
+  useEffect(() => {
+    if (!testSetId) {
+      setHasComparisonRuns(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const testRunsClient = new ApiClientFactory(
+          sessionToken
+        ).getTestRunsClient();
+        const response = await testRunsClient.getTestRuns({
+          limit: 2,
+          skip: 0,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+          filter: `test_configuration/test_set/id eq '${testSetId}'`,
+        });
+        if (!cancelled) {
+          const others = response.data.filter(run => run.id !== testRunId);
+          setHasComparisonRuns(others.length > 0);
+        }
+      } catch {
+        if (!cancelled) setHasComparisonRuns(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [testSetId, testRunId, sessionToken]);
 
   const handleCompare = useCallback(() => {
     window.open(
@@ -409,44 +460,34 @@ export default function TestRunMainView({
         onRerun={handleRerun}
         isDownloading={isDownloading}
         canRerun={canRerun}
+        canCompare={hasComparisonRuns}
       />
 
-      <Dialog
+      <BaseDrawer
         open={renameDialogOpen}
         onClose={handleRenameClose}
-        maxWidth="sm"
-        fullWidth
+        title="Rename Test Run"
+        onSave={() => void handleRenameSubmit()}
+        saveDisabled={
+          !renameValue.trim() || renameValue.trim() === testRun.name
+        }
+        saveButtonText="Save"
       >
-        <DialogTitle>Rename Test Run</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="Name"
-            value={renameValue}
-            onChange={e => setRenameValue(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void handleRenameSubmit();
-              }
-            }}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleRenameClose}>Cancel</Button>
-          <Button
-            onClick={() => void handleRenameSubmit()}
-            variant="contained"
-            disabled={
-              !renameValue.trim() || renameValue.trim() === testRun.name
+        <TextField
+          autoFocus
+          fullWidth
+          label="Name"
+          value={renameValue}
+          onChange={e => setRenameValue(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void handleRenameSubmit();
             }
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+          }}
+          sx={{ flexShrink: 0 }}
+        />
+      </BaseDrawer>
 
       <DetailTabNav
         tabs={navTabs}
@@ -463,6 +504,9 @@ export default function TestRunMainView({
           sessionToken={sessionToken}
           loading={loading}
           onRefresh={() => router.refresh()}
+          behaviors={behaviors}
+          onViewBehavior={handleDrilldownToBehavior}
+          onViewMetric={handleDrilldownToMetric}
         />
       </TabPanel>
 
@@ -476,6 +520,7 @@ export default function TestRunMainView({
           isDownloading={isDownloading}
           onDownload={handleDownload}
           onCompare={handleCompare}
+          canCompare={hasComparisonRuns}
           onRerun={handleRerun}
           isRerunning={isRerunDrawerOpen}
           canRerun={canRerun}

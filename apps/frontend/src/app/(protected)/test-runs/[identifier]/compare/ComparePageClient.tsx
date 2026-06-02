@@ -1,20 +1,12 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardActionArea,
-  CardContent,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useRouter } from 'next/navigation';
 import ComparisonView from '../components/ComparisonView';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { formatDate } from '@/utils/date';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 interface ComparePageClientProps {
@@ -64,20 +56,25 @@ export default function ComparePageClient({
 }: ComparePageClientProps) {
   const router = useRouter();
   const notifications = useNotifications();
-  const [selectedBaselineId, setSelectedBaselineId] = useState<
-    string | undefined
-  >(
+  // Always default to a baseline run so the comparison view (with its own
+  // baseline selector) renders directly. There is no intermediate "select a
+  // baseline" screen — the design (Figma node 1645:25316) goes straight to the
+  // comparison layout.
+  const [selectedBaselineId] = useState<string | undefined>(
     initialBaselineId && availableTestRuns.some(r => r.id === initialBaselineId)
       ? initialBaselineId
-      : undefined
+      : availableTestRuns[0]?.id
   );
 
   const handleClose = useCallback(() => {
-    if (window.opener) {
-      window.close();
-    } else {
+    // The comparison view opens in its own tab, so closing it is the expected
+    // behaviour. window.close() works for script-opened tabs even when
+    // window.opener is null (the tab is opened with `noopener`). If the tab
+    // can't be closed programmatically, fall back to navigating back.
+    window.close();
+    setTimeout(() => {
       router.push(`/test-runs/${currentTestRun.id}`);
-    }
+    }, 100);
   }, [router, currentTestRun.id]);
 
   const handleLoadBaseline = useCallback(
@@ -116,13 +113,9 @@ export default function ComparePageClient({
     [sessionToken, notifications]
   );
 
-  const handleSelectBaseline = (runId: string) => {
-    setSelectedBaselineId(runId);
-    const url = new URL(window.location.href);
-    url.searchParams.set('baseline', runId);
-    window.history.replaceState({}, '', url.toString());
-  };
-
+  // No baseline available to compare against. This should not normally be
+  // reachable because the "Compare" action is disabled when no comparison run
+  // exists, but guard against direct navigation.
   if (!selectedBaselineId) {
     return (
       <Box sx={{ maxWidth: 720, mx: 'auto' }}>
@@ -145,52 +138,18 @@ export default function ComparePageClient({
             Close Comparison
           </Button>
         </Box>
-
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Select a baseline run
+        <Typography color="text.secondary">
+          No other test runs are available for comparison on this test set.
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Choose a previous test run on the same test set to compare against the
-          current run.
-        </Typography>
-
-        {availableTestRuns.length === 0 ? (
-          <Typography color="text.secondary">
-            No other test runs are available for comparison on this test set.
-          </Typography>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {availableTestRuns.map(run => (
-              <Card key={run.id} variant="outlined">
-                <CardActionArea onClick={() => handleSelectBaseline(run.id)}>
-                  <CardContent>
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      {run.name || `Run ${run.id.slice(0, 8)}`}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(run.created_at)}
-                    </Typography>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            ))}
-          </Box>
-        )}
       </Box>
     );
   }
-
-  const filteredRuns = availableTestRuns.filter(
-    r => r.id === selectedBaselineId
-  );
 
   return (
     <ComparisonView
       currentTestRun={currentTestRun}
       currentTestResults={currentTestResults}
-      availableTestRuns={
-        filteredRuns.length > 0 ? filteredRuns : availableTestRuns
-      }
+      availableTestRuns={availableTestRuns}
       initialBaselineId={selectedBaselineId}
       onClose={handleClose}
       onLoadBaseline={handleLoadBaseline}

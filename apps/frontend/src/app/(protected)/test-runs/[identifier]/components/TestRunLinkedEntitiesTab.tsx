@@ -22,6 +22,7 @@ interface TestRunLinkedEntitiesTabProps {
   isDownloading: boolean;
   onDownload: () => void;
   onCompare: () => void;
+  canCompare?: boolean;
   onRerun: () => void;
   isRerunning: boolean;
   canRerun: boolean;
@@ -56,6 +57,7 @@ export default function TestRunLinkedEntitiesTab({
   isDownloading,
   onDownload,
   onCompare,
+  canCompare = true,
   onRerun,
   isRerunning,
   canRerun,
@@ -101,6 +103,7 @@ export default function TestRunLinkedEntitiesTab({
         availableMetrics={availableMetrics.map(name => ({ name }))}
         onDownload={onDownload}
         onCompare={onCompare}
+        canCompare={canCompare}
         isDownloading={isDownloading}
         totalTests={totalTests}
         filteredTests={filteredTests.length}

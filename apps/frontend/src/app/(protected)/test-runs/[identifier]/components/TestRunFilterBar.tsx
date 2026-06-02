@@ -8,6 +8,7 @@ import {
   ButtonGroup,
   InputAdornment,
   Badge,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -48,6 +49,7 @@ interface TestRunFilterBarProps {
   availableMetrics: Array<{ name: string; description?: string }>;
   onDownload: () => void;
   onCompare: () => void;
+  canCompare?: boolean;
   isDownloading?: boolean;
   totalTests: number;
   filteredTests: number;
@@ -68,6 +70,7 @@ export default function TestRunFilterBar({
   availableMetrics,
   onDownload,
   onCompare,
+  canCompare = true,
   isDownloading = false,
   totalTests: _totalTests,
   filteredTests: _filteredTests,
@@ -305,14 +308,25 @@ export default function TestRunFilterBar({
         )}
 
         {showHeaderActions && (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<CompareArrowsIcon />}
-            onClick={onCompare}
+          <Tooltip
+            title={
+              canCompare
+                ? ''
+                : 'No other test runs on this test set to compare against'
+            }
           >
-            Compare
-          </Button>
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<CompareArrowsIcon />}
+                onClick={onCompare}
+                disabled={!canCompare}
+              >
+                Compare
+              </Button>
+            </span>
+          </Tooltip>
         )}
         {showHeaderActions && (
           <Button
