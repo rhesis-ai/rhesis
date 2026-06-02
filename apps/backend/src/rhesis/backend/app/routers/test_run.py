@@ -116,7 +116,25 @@ def read_test_runs(
     if select:
         serialized = jsonable_encoder(results)
         return JSONResponse(content=apply_select(serialized, select))
-    return results
+
+    # Attach accurate per-run pass/fail counts so list views (e.g. the test
+    # runs grid pass-rate column) don't rely on the stale
+    # ``attributes.completed_tests`` / ``failed_tests`` counters. Aggregated in
+    # a single query to avoid the N+1 cost of one stats query per run.
+    from rhesis.backend.tasks.execution.result_processor import get_test_statistics_for_runs
+
+    run_stats = get_test_statistics_for_runs(
+        db,
+        [run.id for run in results],
+        organization_id=str(current_user.organization_id),
+    )
+    serialized = jsonable_encoder(results)
+    for item in serialized:
+        item["stats"] = run_stats.get(
+            str(item.get("id")),
+            {"total": 0, "passed": 0, "failed": 0, "errors": 0},
+        )
+    return JSONResponse(content=serialized)
 
 
 @router.get("/stats", response_model=schemas.TestRunStatsResponse)

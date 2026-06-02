@@ -44,7 +44,9 @@ describe('useGridStateStorage', () => {
         columns: { columnVisibilityModel: { name: false } },
         sorting: { sortModel: [{ field: 'name', sort: 'asc' as const }] },
       };
-      getItemSpy.mockReturnValue(JSON.stringify(savedState));
+      getItemSpy.mockReturnValue(
+        JSON.stringify({ version: 2, state: savedState })
+      );
 
       const { result } = renderHook(() => useGridStateStorage());
 
@@ -53,6 +55,41 @@ describe('useGridStateStorage', () => {
       });
 
       expect(result.current.initialState).toEqual(savedState);
+    });
+
+    it('discards legacy (unversioned) persisted state', async () => {
+      const legacyState = {
+        columns: { orderedFields: ['name', 'status'] },
+      };
+      getItemSpy.mockReturnValue(JSON.stringify(legacyState));
+
+      const { result } = renderHook(() => useGridStateStorage());
+
+      await waitFor(() => {
+        expect(result.current.isLoaded).toBe(true);
+      });
+
+      expect(result.current.initialState).toBeUndefined();
+      expect(removeItemSpy).toHaveBeenCalledWith(
+        expect.stringContaining(STORAGE_KEY_PREFIX)
+      );
+    });
+
+    it('discards persisted state with an outdated version', async () => {
+      getItemSpy.mockReturnValue(
+        JSON.stringify({
+          version: 1,
+          state: { columns: { orderedFields: ['name'] } },
+        })
+      );
+
+      const { result } = renderHook(() => useGridStateStorage());
+
+      await waitFor(() => {
+        expect(result.current.isLoaded).toBe(true);
+      });
+
+      expect(result.current.initialState).toBeUndefined();
     });
 
     it('handles corrupted localStorage data gracefully', async () => {
@@ -135,10 +172,11 @@ describe('useGridStateStorage', () => {
         expect.stringContaining('"pageSize":25')
       );
 
-      // Pagination page should always be reset to 0
+      // Saved payload is versioned; pagination page should always reset to 0
       const savedArg = setItemSpy.mock.calls[0][1];
       const parsed = JSON.parse(savedArg);
-      expect(parsed.pagination.paginationModel.page).toBe(0);
+      expect(parsed.version).toBe(2);
+      expect(parsed.state.pagination.paginationModel.page).toBe(0);
 
       jest.useRealTimers();
     });

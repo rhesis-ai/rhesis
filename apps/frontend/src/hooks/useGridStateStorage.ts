@@ -5,6 +5,19 @@ import type { GridApi, GridInitialState } from '@mui/x-data-grid';
 const STORAGE_KEY_PREFIX = 'rhesis_grid_state_';
 
 /**
+ * Version of the persisted grid-state schema. Bump this whenever grid columns
+ * change in a way that a stale saved layout (column order / visibility) would
+ * mask — e.g. adding or removing a column. On load, any persisted state with a
+ * different version is discarded so the code-defined column layout wins.
+ */
+const GRID_STATE_VERSION = 2;
+
+interface VersionedGridState {
+  version: number;
+  state: GridInitialState;
+}
+
+/**
  * Sanitize pathname to create a valid localStorage key
  */
 function sanitizePathname(pathname: string): string {
@@ -23,7 +36,14 @@ function loadState(storageKey: string): GridInitialState | null {
   try {
     const stored = localStorage.getItem(storageKey);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored) as Partial<VersionedGridState>;
+      // Discard legacy (unversioned) or outdated state so that column schema
+      // changes (e.g. a newly added column) aren't masked by a stale layout.
+      if (parsed?.version !== GRID_STATE_VERSION || !parsed.state) {
+        localStorage.removeItem(storageKey);
+        return null;
+      }
+      return parsed.state;
     }
   } catch (error) {
     console.error('Failed to load grid state:', error);
@@ -39,7 +59,11 @@ function saveState(storageKey: string, state: GridInitialState): void {
   if (typeof window === 'undefined') return;
 
   try {
-    localStorage.setItem(storageKey, JSON.stringify(state));
+    const versioned: VersionedGridState = {
+      version: GRID_STATE_VERSION,
+      state,
+    };
+    localStorage.setItem(storageKey, JSON.stringify(versioned));
   } catch (error) {
     console.error('Failed to save grid state:', error);
   }

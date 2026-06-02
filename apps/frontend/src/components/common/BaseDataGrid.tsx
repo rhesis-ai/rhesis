@@ -183,6 +183,52 @@ interface BaseDataGridProps {
   hideRowsPerPageBelow?: number;
 }
 
+/**
+ * Reconcile a persisted column order with the current column definitions.
+ *
+ * Without this, a column added to `columns` after a user already has a
+ * persisted `orderedFields` is appended at the end by MUI (it isn't in the
+ * saved order). This keeps the user's relative ordering for known fields while
+ * slotting any brand-new field next to the neighbour it's defined after.
+ */
+function reconcileOrderedFields(
+  persistedOrder: string[],
+  columnFields: string[]
+): string[] {
+  const result = [...persistedOrder];
+  const present = new Set(persistedOrder);
+
+  columnFields.forEach((field, idx) => {
+    if (present.has(field)) return;
+
+    // Find the nearest preceding defined column that's already in the order.
+    let insertAfter: string | null = null;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (present.has(columnFields[i])) {
+        insertAfter = columnFields[i];
+        break;
+      }
+    }
+
+    let insertIndex: number;
+    if (insertAfter !== null) {
+      insertIndex = result.indexOf(insertAfter) + 1;
+    } else {
+      // No preceding defined column yet — insert before the first one present
+      // (keeps it after special leading fields like the selection checkbox).
+      const firstPresentColField = columnFields.find(f => present.has(f));
+      insertIndex = firstPresentColField
+        ? result.indexOf(firstPresentColField)
+        : result.length;
+    }
+
+    result.splice(insertIndex, 0, field);
+    present.add(field);
+  });
+
+  return result;
+}
+
 // Create a styled version of DataGrid with Figma-aligned borders and headers
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   border: 'none',
@@ -455,9 +501,14 @@ export default function BaseDataGrid({
           ...initialState.columns?.columnVisibilityModel,
           ...persistedState.columns?.columnVisibilityModel,
         },
-        // Deep merge orderedFields only if persisted (user reordered columns)
+        // Deep merge orderedFields only if persisted (user reordered columns).
+        // Reconcile against the current columns so a newly added column lands
+        // next to its defined neighbour instead of being appended at the end.
         ...(persistedState.columns?.orderedFields && {
-          orderedFields: persistedState.columns.orderedFields,
+          orderedFields: reconcileOrderedFields(
+            persistedState.columns.orderedFields,
+            columns.map(col => col.field)
+          ),
         }),
         // Deep merge dimensions only if persisted (user resized columns)
         ...(persistedState.columns?.dimensions && {
@@ -482,7 +533,7 @@ export default function BaseDataGrid({
       // Density: persisted overrides initial
       ...(persistedState.density && { density: persistedState.density }),
     };
-  }, [persistState, persistedState, initialState]);
+  }, [persistState, persistedState, initialState, columns]);
 
   // Save state callback - memoized to avoid unnecessary re-subscriptions
   const handleStateChange = useCallback(() => {
