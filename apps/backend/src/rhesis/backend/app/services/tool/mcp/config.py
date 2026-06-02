@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from typing import Any, Dict, Optional
+from typing import Dict
 
 from sqlalchemy.orm import Session
 
@@ -54,23 +54,10 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
 
     repository_context = None
 
-    # Check if tool uses custom provider (requires manual JSON config) or standard provider
-    if provider == "custom":
-        # Custom provider: requires tool_metadata with full JSON config
-        if not tool.tool_metadata:
-            raise MCPConfigurationError("Custom provider tools require tool_metadata configuration")
-
-        factory = MCPClientFactory.from_tool_config(
-            tool_config=tool.tool_metadata,
-            credentials=credentials_dict,
-        )
-    else:
-        # Standard provider: SDK constructs config from YAML templates
-        factory = MCPClientFactory.from_provider(
-            provider=provider,
-            credentials=credentials_dict,
-        )
-
+    factory = MCPClientFactory.from_provider(
+        provider=provider,
+        credentials=credentials_dict,
+    )
     client = factory.create_client(provider)
     return client, provider, repository_context
 
@@ -78,7 +65,6 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
 def _get_mcp_client_from_params(
     provider_type_id: uuid.UUID,
     credentials: Dict[str, str],
-    tool_metadata: Optional[Dict[str, Any]],
     db: Session,
     organization_id: str,
     user_id: str = None,
@@ -89,7 +75,6 @@ def _get_mcp_client_from_params(
     Args:
         provider_type_id: UUID of the provider type (TypeLookup)
         credentials: Dictionary of credential key-value pairs
-        tool_metadata: Optional tool metadata (required for custom providers)
         db: Database session
         organization_id: Organization ID (for authorization check)
         user_id: User ID (for authorization check)
@@ -111,22 +96,9 @@ def _get_mcp_client_from_params(
     # Get provider name for the client
     provider = provider_type.type_value
 
-    # Check if provider uses custom provider (requires manual JSON config) or standard provider
-    if provider == "custom":
-        # Custom provider: requires tool_metadata with full JSON config
-        if not tool_metadata:
-            raise ValueError("Custom provider requires tool_metadata configuration")
-
-        factory = MCPClientFactory.from_tool_config(
-            tool_config=tool_metadata,
-            credentials=credentials,
-        )
-    else:
-        # Standard provider: SDK constructs config from YAML templates
-        factory = MCPClientFactory.from_provider(
-            provider=provider,
-            credentials=credentials,
-        )
-
+    factory = MCPClientFactory.from_provider(
+        provider=provider,
+        credentials=credentials,
+    )
     client = factory.create_client(provider)
     return client

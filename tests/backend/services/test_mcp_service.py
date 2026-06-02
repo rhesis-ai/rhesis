@@ -217,38 +217,6 @@ class TestGetMCPClientByToolId:
         )
         mock_factory_instance.create_client.assert_called_once_with("notion")
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.MCPClientFactory")
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_create_client_custom_provider(self, mock_crud, mock_factory):
-        """Test successfully create client for custom provider"""
-        tool_id = str(uuid.uuid4())
-        org_id = str(uuid.uuid4())
-
-        mock_tool = Mock()
-        mock_tool.tool_type.type_value = "mcp"
-        mock_tool.tool_provider_type.type_value = "custom"
-        mock_tool.credentials = '{"TOKEN": "test_token"}'
-        mock_tool.tool_metadata = {"command": "npx", "args": ["@example/mcp-server"]}
-
-        mock_crud.get_tool.return_value = mock_tool
-
-        mock_factory_instance = Mock()
-        mock_client = Mock()
-        mock_factory_instance.create_client.return_value = mock_client
-        mock_factory.from_tool_config.return_value = mock_factory_instance
-
-        # Execute
-        result, provider_name, repository_context = _get_mcp_tool_config(Mock(), tool_id, org_id)
-
-        # Assert
-        assert result == mock_client
-        assert provider_name == "custom"
-        assert repository_context is None
-        mock_factory.from_tool_config.assert_called_once_with(
-            tool_config={"command": "npx", "args": ["@example/mcp-server"]},
-            credentials={"TOKEN": "test_token"},
-        )
-
     @patch("rhesis.backend.app.services.tool.mcp.config.crud")
     def test_raises_when_tool_not_found(self, mock_crud):
         """Test raises MCPConfigurationError when tool not found"""
@@ -297,25 +265,6 @@ class TestGetMCPClientByToolId:
 
         assert "Invalid credentials format" in str(exc_info.value)
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_raises_when_custom_provider_missing_metadata(self, mock_crud):
-        """Test raises MCPConfigurationError when custom provider missing tool_metadata"""
-        tool_id = str(uuid.uuid4())
-        org_id = str(uuid.uuid4())
-
-        mock_tool = Mock()
-        mock_tool.tool_type.type_value = "mcp"
-        mock_tool.tool_provider_type.type_value = "custom"
-        mock_tool.credentials = '{"TOKEN": "test"}'
-        mock_tool.tool_metadata = None
-
-        mock_crud.get_tool.return_value = mock_tool
-
-        with pytest.raises(MCPConfigurationError) as exc_info:
-            _get_mcp_tool_config(Mock(), tool_id, org_id)
-
-        assert "tool_metadata" in str(exc_info.value).lower()
-
 
 @pytest.mark.unit
 @pytest.mark.services
@@ -344,7 +293,6 @@ class TestGetMCPClientFromParams:
         result = _get_mcp_client_from_params(
             provider_type_id=provider_type_id,
             credentials=credentials,
-            tool_metadata=None,
             db=db,
             organization_id=org_id,
             user_id=None,
@@ -357,35 +305,6 @@ class TestGetMCPClientFromParams:
             provider="notion", credentials=credentials
         )
 
-    @patch("rhesis.backend.app.services.tool.mcp.config.MCPClientFactory")
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_create_client_custom_provider(self, mock_crud, mock_factory):
-        """Test successfully create client for custom provider with tool_metadata"""
-        provider_type_id = uuid.uuid4()
-        org_id = str(uuid.uuid4())
-        credentials = {"TOKEN": "test_token"}
-        tool_metadata = {"command": "npx", "args": ["@example/mcp-server"]}
-
-        mock_provider_type = Mock()
-        mock_provider_type.type_value = "custom"
-        mock_crud.get_type_lookup.return_value = mock_provider_type
-
-        mock_factory_instance = Mock()
-        mock_client = Mock()
-        mock_factory_instance.create_client.return_value = mock_client
-        mock_factory.from_tool_config.return_value = mock_factory_instance
-
-        # Execute
-        result = _get_mcp_client_from_params(
-            provider_type_id, credentials, tool_metadata, Mock(), org_id
-        )
-
-        # Assert
-        assert result == mock_client
-        mock_factory.from_tool_config.assert_called_once_with(
-            tool_config=tool_metadata, credentials=credentials
-        )
-
     @patch("rhesis.backend.app.services.tool.mcp.config.crud")
     def test_raises_when_provider_type_not_found(self, mock_crud):
         """Test raises ValueError when provider type not found"""
@@ -395,24 +314,9 @@ class TestGetMCPClientFromParams:
         mock_crud.get_type_lookup.return_value = None
 
         with pytest.raises(ValueError) as exc_info:
-            _get_mcp_client_from_params(provider_type_id, {}, None, Mock(), org_id)
+            _get_mcp_client_from_params(provider_type_id, {}, Mock(), org_id)
 
         assert "not found" in str(exc_info.value).lower()
-
-    @patch("rhesis.backend.app.services.tool.mcp.config.crud")
-    def test_raises_when_custom_provider_missing_metadata(self, mock_crud):
-        """Test raises ValueError when custom provider missing tool_metadata"""
-        provider_type_id = uuid.uuid4()
-        org_id = str(uuid.uuid4())
-
-        mock_provider_type = Mock()
-        mock_provider_type.type_value = "custom"
-        mock_crud.get_type_lookup.return_value = mock_provider_type
-
-        with pytest.raises(ValueError) as exc_info:
-            _get_mcp_client_from_params(provider_type_id, {}, None, Mock(), org_id)
-
-        assert "tool_metadata" in str(exc_info.value).lower()
 
 
 @pytest.mark.unit
@@ -928,7 +832,6 @@ class TestTestMCPAuthentication:
         mock_get_client_from_params.assert_called_once_with(
             provider_type_id=provider_type_id,
             credentials=credentials,
-            tool_metadata=None,
             db=db,
             organization_id=org_id,
             user_id=None,

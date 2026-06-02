@@ -5,7 +5,6 @@ import {
   SiJira,
   SiConfluence,
 } from '@icons-pack/react-simple-icons';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
 
 /**
  * Tool Provider Configuration
@@ -22,7 +21,6 @@ export const SUPPORTED_TOOL_PROVIDERS = [
   'github',
   'jira',
   'confluence',
-  'custom',
 ];
 
 // Provider icon mapping
@@ -31,7 +29,6 @@ export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   github: <SiGithub className="h-8 w-8" />,
   jira: <SiJira className="h-8 w-8" />,
   confluence: <SiConfluence className="h-8 w-8" />,
-  custom: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 
 // Provider information interface
