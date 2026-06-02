@@ -62,7 +62,7 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
     )
 
     # Access context using the new utility method
-    org_id, user_id = self.get_tenant_context()
+    org_id, user_id, _ = self.get_tenant_context()
     retries = getattr(self.request, "retries", 0)
 
     self.log_with_context("debug", "Task context retrieved", retries=retries)

@@ -307,6 +307,11 @@ async def get_authenticated_user_with_context(
                         # Access all attributes we need within transaction context
                         organization_id = user.organization_id
 
+                        # Store token's project_id on request state so
+                        # get_project_context can use it as a fallback
+                        if token.project_id is not None:
+                            request.state.api_token_project_id = str(token.project_id)
+
                         if without_context:
                             # without_context allows users without organization
                             request.state.user = user

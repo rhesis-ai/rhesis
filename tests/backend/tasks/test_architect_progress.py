@@ -241,7 +241,7 @@ class TestExplorationEmitsProgress:
             patch.object(
                 run_exploration_task,
                 "get_tenant_context",
-                return_value=("org-1", "user-1"),
+                return_value=("org-1", "user-1", None),
             ),
             patch.object(run_exploration_task, "update_state"),
             patch.object(
@@ -309,7 +309,7 @@ class TestExplorationEmitsProgress:
             patch.object(
                 run_exploration_task,
                 "get_tenant_context",
-                return_value=("org-1", "user-1"),
+                return_value=("org-1", "user-1", None),
             ),
             patch.object(run_exploration_task, "update_state"),
         ):
@@ -352,7 +352,7 @@ class TestExplorationEmitsProgress:
             patch.object(
                 run_exploration_task,
                 "get_tenant_context",
-                return_value=("org-1", "user-1"),
+                return_value=("org-1", "user-1", None),
             ),
             patch.object(run_exploration_task, "update_state"),
             patch.object(

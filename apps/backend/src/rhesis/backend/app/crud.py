@@ -1468,8 +1468,8 @@ def get_users(
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     """Create a new user without RLS checks, because we're creating a new user that has no
     organization_id"""
-    # Exclude send_invite field since it's not part of the User model
-    user_data = user.model_dump(exclude={"send_invite"})
+    # Exclude fields not present on the User model
+    user_data = user.model_dump(exclude={"send_invite", "project_id"})
     db_user = models.User(**user_data)
     db.add(db_user)
     # Flush to get ID and other generated values before refresh
@@ -1967,8 +1967,8 @@ def create_organization(
     # Make sure session is clean to avoid RLS issues
     db.expire_all()
 
-    # Convert Pydantic model to dict
-    org_data = organization.model_dump()
+    # Convert Pydantic model to dict; project_id is not a column on Organization
+    org_data = organization.model_dump(exclude={"project_id"})
     db_org = models.Organization(**org_data)
 
     # Add to session - transaction management is handled by context manager

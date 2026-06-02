@@ -227,6 +227,21 @@ class OrganizationAndUserMixin(OrganizationMixin, UserOwnedMixin):
     pass
 
 
+class ProjectMixin:
+    """Mixin for project-level multi-tenancy.
+
+    Adds a nullable project_id FK so entities can be scoped to a project.
+    NULL means the entity is org-wide and visible in every project's view
+    (the auto-filter listener applies ``project_id = :pid OR project_id IS NULL``).
+    """
+
+    project_id = Column(GUID(), ForeignKey("project.id"), nullable=True, index=True)
+
+    @declared_attr
+    def project(cls):
+        return relationship("Project", foreign_keys=[cls.project_id])
+
+
 class ReviewsMixin:
     """Mixin providing human-review properties over a JSONB reviews column.
 
@@ -439,6 +454,7 @@ def _queue_embedding_after_commit(target) -> None:
         "entity_id": str(target.id),
         "user_id": str(target.user_id),
         "organization_id": str(target.organization_id),
+        "project_id": str(target.project_id) if getattr(target, "project_id", None) else None,
         "searchable_text": searchable_text,
     }
 
@@ -449,12 +465,13 @@ def _queue_embedding_after_commit(target) -> None:
         session.in_nested_transaction() if hasattr(session, "in_nested_transaction") else False
     )
     logger.debug(
-        "Deferred embedding: queued after_commit job for %s id=%s org=%s user=%s "
+        "Deferred embedding: queued after_commit job for %s id=%s org=%s user=%s project=%s "
         "(session id=%s, pending_count=%s, in_transaction=%s, nested=%s)",
         job["entity_type"],
         job["entity_id"],
         job["organization_id"],
         job["user_id"],
+        job["project_id"],
         id(session),
         len(pending),
         session.in_transaction(),
@@ -482,6 +499,7 @@ def _process_pending_embedding_jobs(session: Session) -> None:
             with get_db_with_tenant_variables(
                 job["organization_id"],
                 job["user_id"],
+                job.get("project_id") or "",
             ) as db:
                 embedding_service = EmbeddingService(db)
                 embedding_service.enqueue_embedding(

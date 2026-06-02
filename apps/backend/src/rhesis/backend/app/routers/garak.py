@@ -395,6 +395,7 @@ async def generate_dynamic_probe(
     request: GarakGenerateRequest,
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),
+    db: Session = Depends(get_tenant_db_session),
 ):
     """
     Generate a test set from a **dynamic** Garak probe using the user's LLM.
@@ -443,6 +444,7 @@ async def generate_dynamic_probe(
         task_result = task_launcher(
             generate_and_save_test_set,
             current_user=current_user,
+            db=db,
             config=config.model_dump(),
             num_tests=num_tests,
             name=test_set_name,
