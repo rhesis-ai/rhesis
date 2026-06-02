@@ -13,7 +13,7 @@ export const drawerOutlinedFieldSx: SxProps<Theme> = {
   '& .MuiOutlinedInput-notchedOutline': {
     borderColor: theme => theme.palette.greyscale.border,
   },
-  '& .MuiInputLabel-root': {
+  '& .MuiInputLabel-root.MuiInputLabel-shrink': {
     fontSize: 12,
     lineHeight: '18px',
     color: theme => theme.palette.greyscale.subtitle,

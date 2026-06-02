@@ -298,31 +298,13 @@ export default function TestDetailHistoryTab({
                   <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
                     Status
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: '#2a2e36',
-                      borderLeft: '1px solid #cdd2da',
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
                     Test Run
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: '#2a2e36',
-                      borderLeft: '1px solid #cdd2da',
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
                     Metrics
                   </TableCell>
-                  <TableCell
-                    sx={{
-                      fontWeight: 700,
-                      color: '#2a2e36',
-                      borderLeft: '1px solid #cdd2da',
-                    }}
-                  >
+                  <TableCell sx={{ fontWeight: 700, color: '#2a2e36' }}>
                     Executed At
                   </TableCell>
                 </TableRow>

@@ -18,6 +18,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { Priority, Status } from '@/utils/api-client/interfaces/task';
 import { useSession } from 'next-auth/react';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 
 interface TaskCreationDrawerProps {
   open: boolean;
@@ -155,10 +156,11 @@ export function TaskCreationDrawer({
           fullWidth
           variant="outlined"
           disabled={isLoading}
+          sx={drawerOutlinedFieldSx}
         />
 
         {/* Status */}
-        <FormControl fullWidth>
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
           <InputLabel>Status</InputLabel>
           <Select
             value={statusId}
@@ -175,7 +177,7 @@ export function TaskCreationDrawer({
         </FormControl>
 
         {/* Priority */}
-        <FormControl fullWidth>
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
           <InputLabel>Priority</InputLabel>
           <Select
             value={priorityId}
@@ -195,7 +197,7 @@ export function TaskCreationDrawer({
         </FormControl>
 
         {/* Assignee */}
-        <FormControl fullWidth>
+        <FormControl fullWidth sx={drawerOutlinedFieldSx}>
           <InputLabel>Assignee</InputLabel>
           <Select
             value={assigneeId}
@@ -224,6 +226,7 @@ export function TaskCreationDrawer({
           rows={4}
           variant="outlined"
           disabled={isLoading}
+          sx={drawerOutlinedFieldSx}
         />
       </Box>
     </BaseDrawer>

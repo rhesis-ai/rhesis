@@ -12,6 +12,7 @@ import {
   Stack,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
   TestResultDetail,
   REVIEW_TARGET_TYPES,
@@ -66,9 +67,9 @@ function TabPanel({ children, value, index }: TabPanelProps) {
       hidden={value !== index}
       id={`test-detail-tabpanel-${index}`}
       aria-labelledby={`test-detail-tab-${index}`}
-      style={{ height: '100%' }}
+      style={{ height: '100%', display: value !== index ? 'none' : undefined }}
     >
-      {value === index && <Box sx={{ height: '100%' }}>{children}</Box>}
+      <Box sx={{ height: '100%' }}>{children}</Box>
     </div>
   );
 }
@@ -466,7 +467,21 @@ export default function TestResultDrawer({
           }}
         >
           <Stack direction="row" spacing={2} justifyContent="flex-end">
-            <Button variant="outlined" onClick={onClose}>
+            {(test?.test?.id ?? test?.test_id) && (
+              <Button
+                variant="outlined"
+                endIcon={
+                  <OpenInNewIcon sx={{ color: 'primary.main !important' }} />
+                }
+                component="a"
+                href={`/tests/${test.test?.id ?? test.test_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Go to Test
+              </Button>
+            )}
+            <Button variant="contained" onClick={onClose}>
               Close
             </Button>
           </Stack>
