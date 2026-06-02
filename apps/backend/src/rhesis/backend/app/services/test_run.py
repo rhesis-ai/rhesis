@@ -257,6 +257,7 @@ def rescore_test_run(
         execute_test_configuration,
         new_config_id,
         current_user=current_user,
+        db=db,
     )
 
     logger.info(f"Rescore submitted for reference run {reference_test_run_id}, task {result.id}")

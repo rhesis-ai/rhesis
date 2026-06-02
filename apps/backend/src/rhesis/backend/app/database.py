@@ -270,8 +270,12 @@ def get_db_with_tenant_variables(
     Get a database session with tenant context automatically set.
 
     This is the centralized function used by both FastAPI dependencies and task system.
-    It sets PostgreSQL RLS session variables AND binds the RequestScope ContextVar so
-    the auto-filter / auto-stamp listeners activate for the duration of the session.
+    It sets PostgreSQL RLS session variables AND stores a RequestScope on
+    ``session.info`` so the auto-filter / auto-stamp listeners activate for the
+    duration of the session.  The ContextVar is NOT bound here — Session.info is
+    the authoritative source for all DB-bound work (FastAPI requests and Celery
+    tasks).  Only explicit ``bind_scope()`` callers (scripts, tests) use the
+    ContextVar path.
 
     Args:
         organization_id: Organization ID for session variables and scope
@@ -279,7 +283,8 @@ def get_db_with_tenant_variables(
         project_id: Project ID for session variables and scope (optional)
 
     Yields:
-        Session: Database session with tenant context set and RequestScope bound
+        Session: Database session with tenant context set and RequestScope in
+        ``session.info``
     """
     from rhesis.backend.app.scope import RequestScope
 

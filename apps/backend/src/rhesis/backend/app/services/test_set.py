@@ -957,6 +957,7 @@ def _submit_test_configuration_for_execution(
             test_config_id,
             test_run_id=test_run_id,
             current_user=current_user,
+            db=db,
         )
     except Exception as exc:
         # Mark the queued test run as failed so it doesn't stay stuck
