@@ -35,7 +35,16 @@ export class TestRunDetailPage extends BasePage {
    * Assert the test results grid or an empty/error state is visible.
    * The test run detail always renders either a populated grid or a message.
    */
+  async goToLinkedEntitiesTab() {
+    const tab = this.page.getByRole('tab', { name: /linked entities/i });
+    if (await tab.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await tab.click();
+      await this.page.waitForLoadState('networkidle');
+    }
+  }
+
   async expectResultsAreaVisible() {
+    await this.goToLinkedEntitiesTab();
     await this.page.waitForLoadState('networkidle');
     const grid = this.page.locator('[role="grid"]');
     const mainContent = this.page.locator('main, [role="main"]').first();

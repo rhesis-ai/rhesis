@@ -79,6 +79,8 @@ interface ComparisonViewProps {
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
+  initialBaselineId?: string;
+  closeButtonLabel?: string;
 }
 
 interface ComparisonTest {
@@ -146,10 +148,12 @@ export default function ComparisonView({
   testSetType,
   project,
   projectName,
+  initialBaselineId,
+  closeButtonLabel = 'Close Comparison',
 }: ComparisonViewProps) {
   const theme = useTheme();
   const [selectedBaselineId, setSelectedBaselineId] = useState<string>(
-    availableTestRuns[0]?.id || ''
+    initialBaselineId || availableTestRuns[0]?.id || ''
   );
   const [baselineTestResults, setBaselineTestResults] = useState<
     TestResultDetail[] | null
@@ -475,7 +479,7 @@ export default function ComparisonView({
               size="small"
               startIcon={<CloseIcon />}
             >
-              Close Comparison
+              {closeButtonLabel}
             </Button>
           </Box>
         </Box>

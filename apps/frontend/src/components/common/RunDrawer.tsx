@@ -1258,6 +1258,16 @@ export default function RunDrawer(props: RunDrawerProps) {
 
     return (
       <Box>
+        {mode === 'rerunTestRun' && (
+          <Typography
+            variant="h6"
+            color="text.primary"
+            fontWeight={600}
+            sx={{ mb: 1 }}
+          >
+            Experiment
+          </Typography>
+        )}
         <Alert severity="info" sx={{ mb: 2 }}>
           Each selected experiment triggers its own test run with that
           experiment&apos;s parameters pinned. Leave empty to run without an
@@ -1461,7 +1471,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     return (
       <>
         <Divider />
-        <Typography variant="subtitle2" color="text.secondary">
+        <Typography
+          variant={mode === 'rerunTestRun' ? 'h6' : 'subtitle2'}
+          color={mode === 'rerunTestRun' ? 'text.primary' : 'text.secondary'}
+          fontWeight={mode === 'rerunTestRun' ? 600 : 400}
+        >
           Test Run Metrics
         </Typography>
 
@@ -1628,7 +1642,11 @@ export default function RunDrawer(props: RunDrawerProps) {
           )}
 
           {/* Execution Target */}
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography
+            variant={mode === 'rerunTestRun' ? 'h6' : 'subtitle2'}
+            color={mode === 'rerunTestRun' ? 'text.primary' : 'text.secondary'}
+            fontWeight={mode === 'rerunTestRun' ? 600 : 400}
+          >
             Execution Target
           </Typography>
 
@@ -1673,7 +1691,11 @@ export default function RunDrawer(props: RunDrawerProps) {
           <Divider />
 
           {/* Configuration Options */}
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography
+            variant={mode === 'rerunTestRun' ? 'h6' : 'subtitle2'}
+            color={mode === 'rerunTestRun' ? 'text.primary' : 'text.secondary'}
+            fontWeight={mode === 'rerunTestRun' ? 600 : 400}
+          >
             Configuration Options
           </Typography>
 
@@ -1684,7 +1706,11 @@ export default function RunDrawer(props: RunDrawerProps) {
           <Divider />
 
           {/* Model Settings */}
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography
+            variant={mode === 'rerunTestRun' ? 'h6' : 'subtitle2'}
+            color={mode === 'rerunTestRun' ? 'text.primary' : 'text.secondary'}
+            fontWeight={mode === 'rerunTestRun' ? 600 : 400}
+          >
             Model Settings
           </Typography>
 
@@ -1711,8 +1737,6 @@ export default function RunDrawer(props: RunDrawerProps) {
               }
             />
           )}
-
-          <Divider />
 
           <FormControlLabel
             control={
@@ -1743,7 +1767,11 @@ export default function RunDrawer(props: RunDrawerProps) {
           <Divider />
 
           {/* Tags */}
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography
+            variant={mode === 'rerunTestRun' ? 'h6' : 'subtitle2'}
+            color={mode === 'rerunTestRun' ? 'text.primary' : 'text.secondary'}
+            fontWeight={mode === 'rerunTestRun' ? 600 : 400}
+          >
             Test Run Tags
           </Typography>
           <BaseTag

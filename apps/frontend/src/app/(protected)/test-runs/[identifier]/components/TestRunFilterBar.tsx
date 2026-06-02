@@ -60,6 +60,9 @@ interface TestRunFilterBarProps {
   onRerun?: () => void;
   isRerunning?: boolean;
   canRerun?: boolean;
+  /** Linked entities tab: search + status pills + advanced filters only */
+  variant?: 'default' | 'linkedEntities';
+  hideViewModeToggle?: boolean;
 }
 
 export default function TestRunFilterBar({
@@ -77,7 +80,11 @@ export default function TestRunFilterBar({
   onRerun,
   isRerunning = false,
   canRerun = false,
+  variant = 'default',
+  hideViewModeToggle = false,
 }: TestRunFilterBarProps) {
+  const showHeaderActions = variant !== 'linkedEntities';
+  const showViewMode = !hideViewModeToggle && onViewModeChange;
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -302,7 +309,7 @@ export default function TestRunFilterBar({
         }}
       >
         {/* View Mode Toggle */}
-        {onViewModeChange && (
+        {showViewMode && (
           <Box
             sx={{
               display: 'flex',
@@ -332,24 +339,28 @@ export default function TestRunFilterBar({
           </Box>
         )}
 
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<CompareArrowsIcon />}
-          onClick={onCompare}
-        >
-          Compare
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<DownloadIcon />}
-          onClick={onDownload}
-          disabled={isDownloading}
-        >
-          {isDownloading ? 'Downloading...' : 'Download'}
-        </Button>
-        {onRerun && (
+        {showHeaderActions && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CompareArrowsIcon />}
+            onClick={onCompare}
+          >
+            Compare
+          </Button>
+        )}
+        {showHeaderActions && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={onDownload}
+            disabled={isDownloading}
+          >
+            {isDownloading ? 'Downloading...' : 'Download'}
+          </Button>
+        )}
+        {showHeaderActions && onRerun && (
           <Button
             size="small"
             variant="contained"

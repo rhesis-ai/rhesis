@@ -169,21 +169,37 @@ export default function TestDetailConversationTab({
   const hasConversation =
     isMultiTurn && conversationSummary && conversationSummary.length > 0;
 
-  // If not a multi-turn test, show message
+  // Single-turn: show one prompt / response pair
   if (!isMultiTurn) {
+    const promptText = test.test?.prompt?.content ?? '';
+    const outputText = test.test_output?.output ?? '';
+
     return (
-      <Box
-        sx={{
-          p: 3,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: 300,
-        }}
-      >
-        <Typography variant="body1" color="text.secondary">
-          Conversation history is only available for multi-turn tests.
-        </Typography>
+      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box>
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 1 }}
+          >
+            Prompt
+          </Typography>
+          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+            {promptText || '—'}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 1 }}
+          >
+            Response
+          </Typography>
+          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+            {outputText || '—'}
+          </Typography>
+        </Box>
       </Box>
     );
   }

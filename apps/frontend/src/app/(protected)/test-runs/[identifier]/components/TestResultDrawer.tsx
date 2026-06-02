@@ -1,7 +1,18 @@
 'use client';
 
 import React, { useState, useRef, useMemo } from 'react';
-import { Box, Tabs, Tab, Typography, Skeleton, useTheme } from '@mui/material';
+import {
+  Box,
+  Tabs,
+  Tab,
+  Typography,
+  Skeleton,
+  useTheme,
+  Button,
+  Stack,
+} from '@mui/material';
+import Link from 'next/link';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
@@ -140,9 +151,17 @@ export default function TestResultDrawer({
   const isConfirmingRef = useRef(false);
   const theme = useTheme();
 
-  // Determine if this is a multi-turn test
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
+
+  const TAB = {
+    overview: 0,
+    conversation: 1,
+    metrics: 2,
+    reviews: 3,
+    history: 4,
+    tasks: 5,
+  } as const;
 
   // Update active tab when initialTab changes (when drawer opens with specific tab)
   React.useEffect(() => {
@@ -158,7 +177,7 @@ export default function TestResultDrawer({
   const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
     setReviewInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
     setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-    setActiveTab(isMultiTurn ? 3 : 2);
+    setActiveTab(TAB.reviews);
   };
 
   const mentionableMetrics: MentionOption[] = useMemo(() => {
@@ -329,42 +348,40 @@ export default function TestResultDrawer({
               id="test-detail-tab-0"
               aria-controls="test-detail-tabpanel-0"
             />
-            {isMultiTurn && (
-              <Tab
-                icon={<ChatOutlinedIcon fontSize="small" />}
-                iconPosition="start"
-                label="Conversation"
-                id="test-detail-tab-1"
-                aria-controls="test-detail-tabpanel-1"
-              />
-            )}
+            <Tab
+              icon={<ChatOutlinedIcon fontSize="small" />}
+              iconPosition="start"
+              label="Conversation"
+              id="test-detail-tab-1"
+              aria-controls="test-detail-tabpanel-1"
+            />
             <Tab
               icon={<AssessmentOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Metrics"
-              id={`test-detail-tab-${isMultiTurn ? '2' : '1'}`}
-              aria-controls={`test-detail-tabpanel-${isMultiTurn ? '2' : '1'}`}
+              id="test-detail-tab-2"
+              aria-controls="test-detail-tabpanel-2"
             />
             <Tab
               icon={<RateReviewIcon fontSize="small" />}
               iconPosition="start"
               label="Reviews"
-              id={`test-detail-tab-${isMultiTurn ? '3' : '2'}`}
-              aria-controls={`test-detail-tabpanel-${isMultiTurn ? '3' : '2'}`}
+              id="test-detail-tab-3"
+              aria-controls="test-detail-tabpanel-3"
             />
             <Tab
               icon={<HistoryIcon fontSize="small" />}
               iconPosition="start"
               label="History"
-              id={`test-detail-tab-${isMultiTurn ? '4' : '3'}`}
-              aria-controls={`test-detail-tabpanel-${isMultiTurn ? '4' : '3'}`}
+              id="test-detail-tab-4"
+              aria-controls="test-detail-tabpanel-4"
             />
             <Tab
               icon={<CommentOutlinedIcon fontSize="small" />}
               iconPosition="start"
               label="Tasks & Comments"
-              id={`test-detail-tab-${isMultiTurn ? '5' : '4'}`}
-              aria-controls={`test-detail-tabpanel-${isMultiTurn ? '5' : '4'}`}
+              id="test-detail-tab-5"
+              aria-controls="test-detail-tabpanel-5"
             />
           </Tabs>
         </Box>
@@ -391,7 +408,7 @@ export default function TestResultDrawer({
             },
           }}
         >
-          <TabPanel value={activeTab} index={0}>
+          <TabPanel value={activeTab} index={TAB.overview}>
             <TestDetailOverviewTab
               test={test}
               prompts={prompts}
@@ -401,22 +418,20 @@ export default function TestResultDrawer({
             />
           </TabPanel>
 
-          {isMultiTurn && (
-            <TabPanel value={activeTab} index={1}>
-              <TestDetailConversationTab
-                test={test}
-                testSetType={testSetType}
-                sessionToken={sessionToken}
-                project={project}
-                projectName={projectName}
-                onReviewTurn={handleReviewTurn}
-                onConfirmAutomatedReview={handleConfirmAutomatedReview}
-                isConfirmingReview={isConfirmingReview}
-              />
-            </TabPanel>
-          )}
+          <TabPanel value={activeTab} index={TAB.conversation}>
+            <TestDetailConversationTab
+              test={test}
+              testSetType={testSetType}
+              sessionToken={sessionToken}
+              project={project}
+              projectName={projectName}
+              onReviewTurn={isMultiTurn ? handleReviewTurn : undefined}
+              onConfirmAutomatedReview={handleConfirmAutomatedReview}
+              isConfirmingReview={isConfirmingReview}
+            />
+          </TabPanel>
 
-          <TabPanel value={activeTab} index={isMultiTurn ? 2 : 1}>
+          <TabPanel value={activeTab} index={TAB.metrics}>
             <TestDetailMetricsTab
               test={test}
               behaviors={behaviors}
@@ -424,7 +439,7 @@ export default function TestResultDrawer({
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={isMultiTurn ? 3 : 2}>
+          <TabPanel value={activeTab} index={TAB.reviews}>
             <TestDetailReviewsTab
               test={test}
               sessionToken={sessionToken}
@@ -441,7 +456,7 @@ export default function TestResultDrawer({
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={isMultiTurn ? 4 : 3}>
+          <TabPanel value={activeTab} index={TAB.history}>
             <TestDetailHistoryTab
               test={test}
               testRunId={testRunId}
@@ -449,7 +464,7 @@ export default function TestResultDrawer({
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={isMultiTurn ? 5 : 4}>
+          <TabPanel value={activeTab} index={TAB.tasks}>
             <TasksAndCommentsWrapper
               entityType="TestResult"
               entityId={test.id}
@@ -463,18 +478,41 @@ export default function TestResultDrawer({
             />
           </TabPanel>
         </Box>
+
+        <Box
+          sx={{
+            flexShrink: 0,
+            borderTop: 1,
+            borderColor: 'divider',
+            px: 2,
+            py: 2,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <Stack direction="row" spacing={2} justifyContent="flex-end">
+            {test.test_id && (
+              <Button
+                component={Link}
+                href={`/tests/${test.test_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outlined"
+                endIcon={<OpenInNewIcon />}
+              >
+                Go to Test
+              </Button>
+            )}
+            <Button variant="contained" onClick={onClose}>
+              Close
+            </Button>
+          </Stack>
+        </Box>
       </Box>
     );
   };
 
   return (
-    <BaseDrawer
-      open={open}
-      onClose={onClose}
-      width="60%"
-      showHeader={false}
-      closeButtonText="Close"
-    >
+    <BaseDrawer open={open} onClose={onClose} width="60%" showHeader={false}>
       {drawerContent()}
     </BaseDrawer>
   );
