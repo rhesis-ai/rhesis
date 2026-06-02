@@ -1,18 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useMemo } from 'react';
-import {
-  Box,
-  Tabs,
-  Tab,
-  Typography,
-  Skeleton,
-  useTheme,
-  Button,
-  Stack,
-} from '@mui/material';
-import Link from 'next/link';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { Box, Tabs, Tab, Typography, Skeleton, useTheme } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
@@ -478,41 +467,12 @@ export default function TestResultDrawer({
             />
           </TabPanel>
         </Box>
-
-        <Box
-          sx={{
-            flexShrink: 0,
-            borderTop: 1,
-            borderColor: 'divider',
-            px: 2,
-            py: 2,
-            bgcolor: 'background.paper',
-          }}
-        >
-          <Stack direction="row" spacing={2} justifyContent="flex-end">
-            {test.test_id && (
-              <Button
-                component={Link}
-                href={`/tests/${test.test_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="outlined"
-                endIcon={<OpenInNewIcon />}
-              >
-                Go to Test
-              </Button>
-            )}
-            <Button variant="contained" onClick={onClose}>
-              Close
-            </Button>
-          </Stack>
-        </Box>
       </Box>
     );
   };
 
   return (
-    <BaseDrawer open={open} onClose={onClose} width="60%" showHeader={false}>
+    <BaseDrawer open={open} onClose={onClose} width="75%" showHeader={false}>
       {drawerContent()}
     </BaseDrawer>
   );

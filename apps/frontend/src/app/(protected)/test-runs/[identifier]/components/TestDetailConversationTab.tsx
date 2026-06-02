@@ -171,35 +171,34 @@ export default function TestDetailConversationTab({
   }, [test.test_reviews]);
 
   if (!isMultiTurn) {
-    const promptText = test.test?.prompt?.content ?? '';
-    const outputText = test.test_output?.output ?? '';
+    const singleTurnSummary = [
+      {
+        turn: 1,
+        timestamp: '',
+        session_id: '',
+        penelope_reasoning: '',
+        penelope_message: test.test?.prompt?.content ?? '',
+        target_response: test.test_output?.output ?? '',
+        success: test.test_output?.goal_evaluation?.all_criteria_met ?? false,
+      },
+    ];
 
     return (
-      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Box>
-          <Typography
-            variant="overline"
-            color="text.secondary"
-            sx={{ display: 'block', mb: 1 }}
-          >
-            Prompt
-          </Typography>
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-            {promptText || '—'}
-          </Typography>
-        </Box>
-        <Box>
-          <Typography
-            variant="overline"
-            color="text.secondary"
-            sx={{ display: 'block', mb: 1 }}
-          >
-            Response
-          </Typography>
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-            {outputText || '—'}
-          </Typography>
-        </Box>
+      <Box
+        sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
+      >
+        <ConversationHistory
+          conversationSummary={singleTurnSummary}
+          goalEvaluation={test.test_output?.goal_evaluation}
+          project={project}
+          projectName={projectName}
+          onConfirmAutomatedReview={onConfirmAutomatedReview}
+          hasExistingReview={!!test.last_review}
+          reviewMatchesAutomated={test.matches_review === true}
+          isConfirmingReview={isConfirmingReview}
+          maxHeight="100%"
+          sessionToken={sessionToken}
+        />
       </Box>
     );
   }
