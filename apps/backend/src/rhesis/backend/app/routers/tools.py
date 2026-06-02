@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -15,10 +14,11 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ExtractToolRequest,
     ExtractToolResponse,
+    TestMCPConnectionRequest,
+    TestMCPConnectionResponse,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.sdk.context import EndpointContext
 
 # Create the detailed schema for Tool
 ToolDetailSchema = create_detailed_schema(schemas.Tool, models.Tool)
@@ -199,40 +199,75 @@ def update_tool(
 async def extract_tool_item(
     tool_id: uuid.UUID,
     request: ExtractToolRequest,
+    db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Extract content from a tool item as markdown.
 
-    For REST-based tools (Notion, GitHub) content is fetched directly via the
-    provider's API.  For MCP tools an AI agent is used to retrieve the content.
-
-    Set include_children=True to recursively retrieve child pages / subdirectory
-    files — each one is returned as a separate entry in ``documents``.
-
+    Supports Notion and GitHub tools via direct REST API calls.
+    Set include_children=True to recursively fetch child pages / subdirectory files.
     Either ``id`` or ``url`` (or both) must be provided in the request body.
     """
-    from rhesis.backend.app.services.tool.mcp import extract_mcp, handle_mcp_exception
+    import logging
+
+    from rhesis.backend.app.services.tool.mcp import handle_mcp_exception
+    from rhesis.backend.app.services.tool.rest import get_rest_source
+
+    logger = logging.getLogger(__name__)
 
     try:
         organization_id, user_id = tenant_context
-        ctx = EndpointContext(
+        source = get_rest_source(
+            db=db,
+            tool_id=str(tool_id),
             organization_id=organization_id,
             user_id=user_id,
-            _db_factory=get_db_with_tenant_variables,
         )
-        result = await extract_mcp(
-            ctx=ctx,
-            item_id=request.id,
-            item_url=request.url,
-            tool_id=str(tool_id),
-            include_children=request.include_children,
+        identifier = request.url or request.id
+        docs = await source.fetch_all(identifier, include_children=request.include_children)
+        return ExtractToolResponse(
+            sources=[
+                {"id": d.id, "title": d.title, "content": d.content, "url": d.url} for d in docs
+            ]
         )
-        sources = result.get("documents") or [{"content": result["final_answer"]}]
-        return ExtractToolResponse(sources=sources)
     except Exception as e:
+        logger.error(f"Tool extract error: {e}", exc_info=True)
         raise handle_mcp_exception(e, "extract")
+
+
+@router.post("/test-connection", response_model=TestMCPConnectionResponse)
+async def test_tool_connection(
+    request: TestMCPConnectionRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Test a tool's credentials via a lightweight REST health check."""
+    import logging
+
+    from rhesis.backend.app.services.tool.rest import run_rest_health_check
+    from rhesis.sdk.agents.mcp.exceptions import MCPConfigurationError
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        organization_id, user_id = tenant_context
+        result = await run_rest_health_check(
+            db=db,
+            organization_id=organization_id,
+            tool_id=request.tool_id,
+            provider_type_id=request.provider_type_id,
+            credentials=request.credentials,
+            user_id=user_id,
+        )
+        return result
+    except MCPConfigurationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Tool health check error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/{tool_id}", status_code=204)
