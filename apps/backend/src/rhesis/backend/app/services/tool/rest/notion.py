@@ -187,8 +187,19 @@ class NotionSource:
         - Full Notion URL: https://www.notion.so/Page-Title-30515268a407818fa99bce93e0a7f172
         - Raw 32-char ID:  30515268a407818fa99bce93e0a7f172
         - UUID format:     30515268-a407-818f-a99b-ce93e0a7f172
+
+        Raises:
+            ValueError: If the input is a non-Notion URL or does not contain a valid page ID.
         """
         if input.startswith("http"):
+            from urllib.parse import urlparse
+
+            host = urlparse(input).hostname or ""
+            if not (host == "notion.so" or host.endswith(".notion.so")):
+                raise ValueError(
+                    f"Expected a Notion URL (notion.so) but got: {input!r}. "
+                    "Make sure you selected the correct tool for this URL."
+                )
             path = input.split("?")[0].rstrip("/")
             last_segment = path.split("/")[-1]
             raw = re.sub(r"[^a-f0-9]", "", last_segment.lower())[-32:]
@@ -198,7 +209,10 @@ class NotionSource:
         if len(raw) == 32:
             return f"{raw[:8]}-{raw[8:12]}-{raw[12:16]}-{raw[16:20]}-{raw[20:]}"
 
-        return input
+        raise ValueError(
+            f"Could not extract a Notion page ID from: {input!r}. "
+            "Please provide a valid Notion page URL or ID."
+        )
 
     def _rich_text_to_str(self, rich_text: List[Dict[str, Any]]) -> str:
         return "".join(part.get("plain_text", "") for part in rich_text)

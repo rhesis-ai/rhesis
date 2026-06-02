@@ -15,9 +15,7 @@ from .github import GitHubSource
 from .notion import NotionSource
 
 
-async def _jira_health_check(
-    jira_url: str, username: str, api_token: str
-) -> Dict[str, Any]:
+async def _jira_health_check(jira_url: str, username: str, api_token: str) -> Dict[str, Any]:
     url = jira_url.rstrip("/") + "/rest/api/3/myself"
     async with httpx.AsyncClient() as client:
         resp = await client.get(url, auth=(username, api_token))
@@ -72,9 +70,7 @@ async def run_rest_health_check(
         provider = provider_type.type_value
 
     if provider == "notion":
-        return await NotionSource(
-            token=credentials.get("NOTION_TOKEN", "")
-        ).health_check()
+        return await NotionSource(token=credentials.get("NOTION_TOKEN", "")).health_check()
 
     if provider == "github":
         return await GitHubSource(
