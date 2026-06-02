@@ -1167,6 +1167,11 @@ export default function ComparisonView({
             flexDirection: 'column',
           },
         }}
+        slotProps={{
+          backdrop: {
+            sx: { backgroundColor: 'rgba(0, 101, 140, 0.8)' },
+          },
+        }}
       >
         {/* Custom header: close icon + test title */}
         <Box
