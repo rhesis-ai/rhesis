@@ -100,11 +100,17 @@ def get_project_context(
     except (ValueError, AttributeError):
         raise HTTPException(status_code=400, detail="Invalid X-Project-Id format")
 
+    # Guard: org-less users cannot belong to any project; fail early so we never
+    # pass an empty string to get_db_with_tenant_variables (which would set
+    # app.current_organization='' and cause a uuid cast error in RLS policies).
+    if not current_user.organization_id:
+        raise HTTPException(status_code=403, detail="User must be associated with an organization")
+
     # Validate membership using a tenant-scoped session so RLS GUCs are set
     # before querying project_membership (which has tenant_isolation RLS).
     from rhesis.backend.app.models.project_membership import ProjectMembership
 
-    org_id = str(current_user.organization_id) if current_user.organization_id else ""
+    org_id = str(current_user.organization_id)
     user_id_str = str(current_user.id) if current_user.id else ""
 
     with get_db_with_tenant_variables(org_id, user_id_str, "") as db:
@@ -147,9 +153,10 @@ def get_tenant_db_session(
     """
     FastAPI dependency that provides a database session with automatic session variables.
 
-    Sets PostgreSQL RLS session variables AND binds the RequestScope ContextVar
-    (organization_id, user_id, project_id) so the auto-filter / auto-stamp
-    listeners are active for the lifetime of the request.
+    Sets PostgreSQL RLS session variables AND stores a RequestScope on
+    ``session.info['_scope']`` so the auto-filter / auto-stamp listeners are
+    active for the lifetime of the request.  The ContextVar is NOT bound here;
+    Session.info is the authoritative source for all DB-bound work.
 
     Returns:
         Session: The database session with full tenant context set

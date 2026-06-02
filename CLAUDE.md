@@ -314,16 +314,23 @@ Key patterns:
 
 ## Ambient Request Scope (Tenant Filtering & Stamping)
 
-All tenant context (`organization_id`, `user_id`, `project_id`) is bound **once per request** into
-a `ContextVar` and automatically applied by two SQLAlchemy event listeners — no explicit threading
-through router, service, or CRUD parameters is needed.
+All tenant context (`organization_id`, `user_id`, `project_id`) is stored **once per request** on
+`Session.info['_scope']` by `get_db_with_tenant_variables()` and automatically applied by two
+SQLAlchemy event listeners — no explicit threading through router, service, or CRUD parameters is
+needed.
+
+> **Note:** The `ContextVar` (`_scope`) is **not** used for normal FastAPI/Celery request paths.
+> It is only for scripts and tests that call `bind_scope()` explicitly. Do **not** call
+> `current_scope()` from inside a request handler and expect it to reflect the active project —
+> use `db.info.get('_scope')` instead.
 
 ### How it works
 
 `apps/backend/src/rhesis/backend/app/scope.py` defines:
 
 - `RequestScope` — frozen dataclass holding the identity triple
-- `_scope: ContextVar[RequestScope]` — bound by `get_db_with_tenant_variables()` in `database.py`
+- `_scope: ContextVar[RequestScope]` — for scripts/tests via `bind_scope()` only; **not** set on
+  the normal request path
 - `_tenant_filter_disabled: ContextVar[bool]` — separate bypass flag
 
 `apps/backend/src/rhesis/backend/app/models/scope_events.py` registers two listeners:
