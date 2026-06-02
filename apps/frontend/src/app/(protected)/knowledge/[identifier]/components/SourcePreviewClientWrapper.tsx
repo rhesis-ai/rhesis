@@ -140,12 +140,12 @@ export default function SourcePreviewClientWrapper({
 
   // Determine the type to display
   const getDisplayType = (): string | null => {
-    // First check source_metadata.source_type (for MCP imports like Notion)
+    // First check source_metadata.source_type (for tool imports like Notion)
     if (localSource.source_metadata?.source_type) {
       return localSource.source_metadata.source_type;
     }
 
-    // Check if this is a Tool source type (MCP/API imports)
+    // Check if this is a Tool source type (tool imports)
     if (
       localSource.source_type?.type_value === 'Tool' &&
       localSource.source_metadata?.provider
@@ -231,21 +231,21 @@ export default function SourcePreviewClientWrapper({
     setLocalSource(updatedSource);
   };
 
-  const handleUpdateFromMCP = async () => {
+  const handleUpdateFromTool = async () => {
     if (!sessionToken || isUpdating) return;
 
-    // Check if this is an MCP source
+    // Check if this is a tool source
     if (localSource.source_type?.type_value !== 'Tool') {
       return;
     }
 
     const metadata = localSource.source_metadata || {};
-    const mcpToolId = metadata.mcp_tool_id;
-    const mcpId = metadata.mcp_id;
-    const mcpUrl = metadata.url;
+    const toolId = metadata.mcp_tool_id;
+    const sourceId = metadata.mcp_id;
+    const sourceUrl = metadata.url;
 
-    if (!mcpToolId || (!mcpId && !mcpUrl)) {
-      notifications.show('Missing MCP source information', {
+    if (!toolId || (!sourceId && !sourceUrl)) {
+      notifications.show('Missing tool source information', {
         severity: 'error',
         autoHideDuration: 3000,
       });
@@ -258,17 +258,17 @@ export default function SourcePreviewClientWrapper({
       const servicesClient = clientFactory.getServicesClient();
       const sourcesClient = clientFactory.getSourcesClient();
 
-      // Extract content from MCP (will fail with 404 if tool is deleted)
+      // Extract content from tool (will fail with 404 if tool is deleted)
       const extractOptions: { url?: string; id?: string } = {};
-      if (mcpUrl) {
-        extractOptions.url = mcpUrl;
-      } else if (mcpId) {
-        extractOptions.id = mcpId;
+      if (sourceUrl) {
+        extractOptions.url = sourceUrl;
+      } else if (sourceId) {
+        extractOptions.id = sourceId;
       }
 
-      const extractResult = await servicesClient.extractMCP(
+      const extractResult = await servicesClient.extractTool(
         extractOptions,
-        mcpToolId
+        toolId
       );
 
       // Connection is valid, reset invalid state
@@ -309,9 +309,9 @@ export default function SourcePreviewClientWrapper({
         setIsConnectionInvalid(true);
         // Show user-friendly message for deleted tools, keeping backend message for debugging
         const userFriendlyMessage = isDeletedToolError
-          ? 'The MCP tool associated with this source is no longer available. Please re-import the source.'
+          ? 'The tool associated with this source is no longer available. Please re-import the source.'
           : backendMessage ||
-            'The MCP tool associated with this source is no longer available. Please re-import the source.';
+            'The tool associated with this source is no longer available. Please re-import the source.';
         notifications.show(userFriendlyMessage, {
           severity: 'error',
           autoHideDuration: 5000,
@@ -324,7 +324,7 @@ export default function SourcePreviewClientWrapper({
           errObj?.data?.detail ||
           (error instanceof Error
             ? error.message
-            : 'Failed to update source from MCP');
+            : 'Failed to update source from tool');
 
         notifications.show(errorMessage, {
           severity: 'error',
@@ -446,7 +446,7 @@ export default function SourcePreviewClientWrapper({
                             <RefreshIcon />
                           )
                         }
-                        onClick={handleUpdateFromMCP}
+                        onClick={handleUpdateFromTool}
                         variant="outlined"
                         size="small"
                         disabled={isUpdating || isConnectionInvalid}

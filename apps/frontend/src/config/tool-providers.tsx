@@ -8,16 +8,16 @@ import {
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 
 /**
- * MCP Provider Configuration
+ * Tool Provider Configuration
  *
- * This file contains all configuration related to MCP providers including:
+ * This file contains all configuration related to tool providers including:
  * - Supported providers
  * - Provider icons and branding
  */
 
-// MCP providers currently supported
+// Tool providers currently supported
 // These must match the ToolProviderType values defined in the backend
-export const SUPPORTED_MCP_PROVIDERS = [
+export const SUPPORTED_TOOL_PROVIDERS = [
   'notion',
   'github',
   'jira',
@@ -26,7 +26,7 @@ export const SUPPORTED_MCP_PROVIDERS = [
 ];
 
 // Provider icon mapping
-export const MCP_PROVIDER_ICONS: Record<string, React.ReactNode> = {
+export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   notion: <SiNotion className="h-8 w-8" />,
   github: <SiGithub className="h-8 w-8" />,
   jira: <SiJira className="h-8 w-8" />,
@@ -35,7 +35,7 @@ export const MCP_PROVIDER_ICONS: Record<string, React.ReactNode> = {
 };
 
 // Provider information interface
-export interface MCPProviderInfo {
+export interface ToolProviderInfo {
   id: string;
   name: string;
   description: string;

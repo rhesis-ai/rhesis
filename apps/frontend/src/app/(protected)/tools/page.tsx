@@ -6,7 +6,8 @@ import GridToolbar, {
   directoryToolbarProps,
 } from '@/components/common/GridToolbar';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
+import AddIcon from '@mui/icons-material/Add';
+import { Fab, FabGroup } from '@/components/common/Fab';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -19,22 +20,20 @@ import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
 import {
   ConnectedToolCard,
-  MCPConnectionDrawer,
-  MCPFilterDrawer,
-  MCPFilters,
+  ToolConnectionDrawer,
+  ToolFilterDrawer,
+  ToolFilters,
 } from './components';
 import {
-  EMPTY_MCP_FILTERS,
-  hasActiveMCPFilters,
-  countActiveMCPFilters,
-} from './components/MCPFilterDrawer';
+  EMPTY_TOOL_FILTERS,
+  hasActiveToolFilters,
+} from './components/ToolFilterDrawer';
 import { useNotifications } from '@/components/common/NotificationContext';
 
-export default function MCPSPage() {
+export default function ToolsPage() {
   const { data: session } = useSession();
   const notifications = useNotifications();
   const [tools, setTools] = useState<Tool[]>([]);
-  const [mcpToolType, setMcpToolType] = useState<TypeLookup | null>(null);
   const [providerTypes, setProviderTypes] = useState<TypeLookup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +44,7 @@ export default function MCPSPage() {
 
   // Toolbar state
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<MCPFilters>(EMPTY_MCP_FILTERS);
+  const [filters, setFilters] = useState<ToolFilters>(EMPTY_TOOL_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -61,14 +60,6 @@ export default function MCPSPage() {
         const toolsClient = apiFactory.getToolsClient();
         const typeLookupClient = apiFactory.getTypeLookupClient();
 
-        const toolTypesData = await typeLookupClient.getTypeLookups({
-          $filter: "type_name eq 'ToolType' and type_value eq 'mcp'",
-          limit: 1,
-        });
-        if (toolTypesData.length > 0) {
-          setMcpToolType(toolTypesData[0]);
-        }
-
         const providerTypesData = await typeLookupClient.getTypeLookups({
           $filter: "type_name eq 'ToolProviderType'",
           limit: 100,
@@ -77,21 +68,13 @@ export default function MCPSPage() {
 
         try {
           const toolsResponse = await toolsClient.getTools({ limit: 100 });
-          const allTools = toolsResponse.data || [];
-          if (toolTypesData.length > 0) {
-            const mcpToolTypeId = toolTypesData[0].id;
-            setTools(
-              allTools.filter(tool => tool.tool_type_id === mcpToolTypeId)
-            );
-          } else {
-            setTools([]);
-          }
+          setTools(toolsResponse.data || []);
         } catch {
           setTools([]);
         }
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Failed to load MCP connections'
+          err instanceof Error ? err.message : 'Failed to load tool connections'
         );
       } finally {
         setLoading(false);
@@ -110,7 +93,7 @@ export default function MCPSPage() {
     const toolsClient = apiFactory.getToolsClient();
     const tool = await toolsClient.createTool(toolData);
     setTools(prev => [...(prev || []), tool]);
-    notifications.show('MCP connection created successfully', {
+    notifications.show('Tool connection created successfully', {
       severity: 'success',
     });
     return tool;
@@ -124,7 +107,7 @@ export default function MCPSPage() {
     setTools(prev =>
       prev.map(tool => (tool.id === toolId ? updatedTool : tool))
     );
-    notifications.show('MCP connection updated successfully', {
+    notifications.show('Tool connection updated successfully', {
       severity: 'success',
     });
   };
@@ -148,14 +131,14 @@ export default function MCPSPage() {
       setTools(prev => prev.filter(tool => tool.id !== toolToDelete.id));
       setDeleteDialogOpen(false);
       setToolToDelete(null);
-      notifications.show('MCP connection deleted successfully', {
+      notifications.show('Tool connection deleted successfully', {
         severity: 'success',
       });
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to delete MCP connection'
+        err instanceof Error ? err.message : 'Failed to delete tool connection'
       );
-      notifications.show('Failed to delete MCP connection', {
+      notifications.show('Failed to delete tool connection', {
         severity: 'error',
       });
     }
@@ -194,15 +177,15 @@ export default function MCPSPage() {
 
   return (
     <PageLayout
-      title="MCP"
-      description="Connect to Model Context Protocol (MCP) providers to import knowledge sources and enhance your evaluation workflows."
+      title="Tools"
+      description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
       breadcrumbs={[]}
       actions={
         <FabGroup>
           <Fab
-            icon={<FabAddIcon />}
-            tooltip="Add MCP connection"
-            aria-label="Add MCP connection"
+            icon={<AddIcon />}
+            tooltip="Add tool connection"
+            aria-label="Add tool connection"
             onClick={() => {
               setToolToEdit(null);
               setConnectionDrawerOpen(true);
@@ -220,10 +203,9 @@ export default function MCPSPage() {
       <GridToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search MCP connections..."
+        searchPlaceholder="Search tool connections..."
         onFilterClick={() => setFilterDrawerOpen(true)}
-        hasActiveFilters={hasActiveMCPFilters(filters)}
-        activeFilterCount={countActiveMCPFilters(filters)}
+        hasActiveFilters={hasActiveToolFilters(filters)}
         {...directoryToolbarProps}
       />
 
@@ -235,7 +217,7 @@ export default function MCPSPage() {
         <Box sx={{ py: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
             {tools.length === 0
-              ? 'No MCP connections yet. Use the + button to add one.'
+              ? 'No tool connections yet. Use the + button to add one.'
               : 'No connections match your search or filters.'}
           </Typography>
         </Box>
@@ -263,7 +245,7 @@ export default function MCPSPage() {
       )}
 
       {/* Filter drawer */}
-      <MCPFilterDrawer
+      <ToolFilterDrawer
         open={filterDrawerOpen}
         onClose={() => setFilterDrawerOpen(false)}
         filters={filters}
@@ -273,10 +255,9 @@ export default function MCPSPage() {
         }}
       />
 
-      <MCPConnectionDrawer
+      <ToolConnectionDrawer
         open={connectionDrawerOpen}
         providers={providerTypes}
-        mcpToolType={mcpToolType}
         tool={toolToEdit}
         mode={toolToEdit ? 'edit' : 'create'}
         onClose={() => {
@@ -294,9 +275,9 @@ export default function MCPSPage() {
           setToolToDelete(null);
         }}
         onConfirm={handleDeleteConfirm}
-        itemType="MCP connection"
+        itemType="tool connection"
         itemName={toolToDelete?.name}
-        title="Delete MCP Connection"
+        title="Delete Tool Connection"
       />
     </PageLayout>
   );
